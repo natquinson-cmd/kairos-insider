@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kairos Insider — Voyez ce que les pros voient</title>
+  <meta name="description" content="La première plateforme francophone dédiée au Smart Money. Suivez les mouvements des insiders, hedge funds et grands investisseurs — en toute légalité." />
+  <meta name="theme-color" content="#0A0F1E" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Kairos Insider — Voyez ce que les pros voient" />
+  <meta property="og:description" content="Suivez le smart money. Devancez le marché. La 1ère plateforme francophone dédiée aux mouvements des insiders et hedge funds." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="fr_FR" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-primary: #0A0F1E;
+      --bg-secondary: #111827;
+      --bg-card: rgba(255, 255, 255, 0.02);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.16);
+      --text-primary: #F9FAFB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-blue: #3B82F6;
+      --accent-purple: #8B5CF6;
+      --accent-cyan: #06B6D4;
+      --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+      --gradient-hero: radial-gradient(ellipse at top, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom right, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom left, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Grid pattern background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== NAVIGATION ===== */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 20px 0;
+      z-index: 100;
+      transition: all 0.3s ease;
+      background: rgba(10, 15, 30, 0);
+      backdrop-filter: blur(0px);
+    }
+
+    nav.scrolled {
+      background: rgba(10, 15, 30, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 30%, rgba(59, 130, 246, 0.25) 0%, rgba(10, 15, 30, 0.9) 70%);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), inset 0 0 12px rgba(139, 92, 246, 0.15);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .logo-mark svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .logo-text {
+      background: linear-gradient(135deg, #F9FAFB 0%, #9CA3AF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      border: none;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--gradient-primary);
+      color: white;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(59, 130, 246, 0.5);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-hover);
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 140px 0 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--gradient-hero);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      text-align: center;
+      max-width: 900px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #93C5FD;
+      margin-bottom: 32px;
+      animation: fadeInUp 0.6s ease;
+    }
+
+    .hero-badge .pulse {
+      width: 8px;
+      height: 8px;
+      background: #3B82F6;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(40px, 7vw, 76px);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 28px;
+      animation: fadeInUp 0.8s ease 0.1s backwards;
+    }
+
+    h1 .gradient-text {
+      background: linear-gradient(135deg, #60A5FA 0%, #A78BFA 50%, #22D3EE 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: inline-block;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(17px, 2vw, 21px);
+      color: var(--text-secondary);
+      max-width: 700px;
+      margin: 0 auto 48px;
+      line-height: 1.6;
+      animation: fadeInUp 0.8s ease 0.2s backwards;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fadeInUp 0.8s ease 0.3s backwards;
+    }
+
+    .hero-cta .btn {
+      padding: 16px 32px;
+      font-size: 15px;
+    }
+
+    .hero-meta {
+      margin-top: 48px;
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+      color: var(--text-muted);
+      font-size: 13px;
+      animation: fadeInUp 0.8s ease 0.4s backwards;
+    }
+
+    .hero-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-meta .check {
+      color: #10B981;
+      font-weight: 700;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ===== SECTION TITLES ===== */
+    .section {
+      padding: 120px 0;
+      position: relative;
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 72px;
+    }
+
+    .section-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(139, 92, 246, 0.1);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #C4B5FD;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    .section-subtitle {
+      font-size: 18px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ===== FEATURES GRID ===== */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 32px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: var(--gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      font-size: 26px;
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.25);
+    }
+
+    .feature-card h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    /* ===== HOW IT WORKS ===== */
+    .how-it-works {
+      background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.03) 50%, transparent 100%);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      position: relative;
+    }
+
+    .step {
+      text-align: center;
+      padding: 24px;
+    }
+
+    .step-number {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 2px solid var(--accent-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin: 0 auto 24px;
+      position: relative;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+    }
+
+    .step h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .step p {
+      color: var(--text-secondary);
+      font-size: 15px;
+    }
+
+    /* ===== DATA SOURCES ===== */
+    .data-sources {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 48px;
+    }
+
+    .data-tag {
+      padding: 16px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      text-align: center;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.3s;
+    }
+
+    .data-tag:hover {
+      border-color: var(--accent-blue);
+      color: var(--text-primary);
+    }
+
+    .data-tag strong {
+      display: block;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    /* ===== CTA SECTION ===== */
+    .cta-section {
+      padding: 80px 0 120px;
+    }
+
+    .cta-box {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 72px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    .cta-box h2 {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .cta-box p {
+      position: relative;
+      color: var(--text-secondary);
+      font-size: 18px;
+      max-width: 540px;
+      margin: 0 auto 40px;
+    }
+
+    /* ===== EMAIL FORM ===== */
+    .email-form {
+      position: relative;
+      display: flex;
+      gap: 12px;
+      max-width: 500px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .email-form input {
+      flex: 1;
+      min-width: 260px;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      transition: all 0.3s;
+    }
+
+    .email-form input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .email-form input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .email-form button {
+      padding: 16px 28px;
+      white-space: nowrap;
+    }
+
+    .form-message {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #10B981;
+      opacity: 0;
+      transition: opacity 0.3s;
+      position: relative;
+    }
+
+    .form-message.visible {
+      opacity: 1;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0 32px;
+      position: relative;
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-brand .logo-mark {
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
+    }
+
+    .footer-brand-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .footer-text {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .features-grid,
+      .steps {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .section {
+        padding: 80px 0;
+      }
+
+      .cta-box {
+        padding: 48px 24px;
+      }
+
+      .hero {
+        padding: 120px 0 60px;
+      }
+
+      .hero-meta {
+        gap: 16px;
+      }
+
+      .footer-content {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVIGATION ===== -->
+  <nav id="nav">
+    <div class="container nav-container">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="silhouetteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#60A5FA" />
+                <stop offset="50%" stop-color="#8B5CF6" />
+                <stop offset="100%" stop-color="#22D3EE" />
+              </linearGradient>
+              <radialGradient id="silhouetteGlow" cx="50%" cy="30%" r="60%">
+                <stop offset="0%" stop-color="rgba(59,130,246,0.5)" />
+                <stop offset="100%" stop-color="rgba(10,15,30,0)" />
+              </radialGradient>
+            </defs>
+            <!-- Halo atmosphérique derrière -->
+            <circle cx="32" cy="22" r="20" fill="url(#silhouetteGlow)" />
+
+            <!-- Chapeau fedora : bord large + calotte bombée -->
+            <ellipse cx="32" cy="14" rx="19" ry="2.8" fill="url(#silhouetteGrad)" />
+            <path d="M 21 14 Q 21 3 32 3 Q 43 3 43 14 Z" fill="url(#silhouetteGrad)" />
+            <!-- Ruban du chapeau -->
+            <rect x="21" y="11" width="22" height="1.6" fill="rgba(10,15,30,0.55)" />
+
+            <!-- Visage en ombre sous le bord du chapeau -->
+            <path d="M 26 14 L 38 14 L 37 26 L 27 26 Z" fill="rgba(10,15,30,0.9)" />
+
+            <!-- Lunettes de soleil (bandeau clair) -->
+            <rect x="26" y="18" width="12" height="3.5" rx="1.3" fill="rgba(220,235,255,0.88)" />
+            <!-- Pont de lunettes -->
+            <rect x="31.2" y="18.5" width="1.6" height="2.5" fill="rgba(10,15,30,0.7)" />
+
+            <!-- Corps du manteau (silhouette pleine) -->
+            <path d="M 14 29
+                     Q 14 25 18 24
+                     L 46 24
+                     Q 50 25 50 29
+                     L 50 57
+                     Q 50 61 46 61
+                     L 18 61
+                     Q 14 61 14 57 Z"
+                  fill="url(#silhouetteGrad)" />
+
+            <!-- Revers gauche — grand triangle lumineux -->
+            <path d="M 15 26
+                     L 31 27
+                     L 32 50
+                     L 19 38 Z"
+                  fill="rgba(255,255,255,0.32)" />
+
+            <!-- Revers droit — grand triangle lumineux (miroir) -->
+            <path d="M 49 26
+                     L 33 27
+                     L 32 50
+                     L 45 38 Z"
+                  fill="rgba(255,255,255,0.32)" />
+
+            <!-- Encolure en V (entre les revers, en ombre profonde) -->
+            <path d="M 29 25 L 35 25 L 32 32 Z" fill="rgba(10,15,30,0.95)" />
+          </svg>
+        </div>
+        <span class="logo-text">Kairos Insider</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#features">Fonctionnalités</a></li>
+        <li><a href="#how">Comment ça marche</a></li>
+        <li><a href="#data">Nos données</a></li>
+        <li><a href="#waitlist" class="btn btn-primary">Accès prioritaire</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse"></span>
+          <span>Lancement imminent — Inscrivez-vous à l'accès prioritaire</span>
+        </div>
+
+        <h1>
+          Voyez ce que<br />
+          <span class="gradient-text">les pros voient.</span>
+        </h1>
+
+        <p class="hero-subtitle">
+          La première plateforme francophone dédiée au Smart Money. Suivez les mouvements
+          des insiders, hedge funds et grands investisseurs — en toute légalité.
+        </p>
+
+        <div class="hero-cta">
+          <a href="#waitlist" class="btn btn-primary">
+            Rejoindre l'accès prioritaire →
+          </a>
+          <a href="#how" class="btn btn-secondary">
+            Comment ça marche
+          </a>
+        </div>
+
+        <div class="hero-meta">
+          <span><span class="check">✓</span> 100% légal</span>
+          <span><span class="check">✓</span> Données officielles SEC & AMF</span>
+          <span><span class="check">✓</span> 100% en français</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Fonctionnalités</span>
+        <h2>L'avantage informationnel<br />des institutionnels.</h2>
+        <p class="section-subtitle">
+          Pendant que les autres regardent les graphiques, vous suivez l'argent intelligent.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Smart Money Dashboard</h3>
+          <p>
+            Suivez au quotidien les mouvements des insiders, hedge funds et grands
+            investisseurs — données officielles mises à jour chaque jour.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Alertes intelligentes</h3>
+          <p>
+            Recevez une notification instantanée dès qu'un insider ou un fonds majeur
+            bouge sur une action de votre watchlist.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🇫🇷</div>
+          <h3>100% en français</h3>
+          <p>
+            La seule plateforme qui traduit et explique en français les signaux smart money
+            du marché américain et européen.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="section how-it-works" id="how">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Comment ça marche</span>
+        <h2>Trois étapes. Un avantage.</h2>
+        <p class="section-subtitle">
+          Accédez en quelques clics aux informations que les institutionnels utilisent depuis toujours.
+        </p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Créez votre compte</h3>
+          <p>
+            Inscrivez-vous gratuitement en 30 secondes. Sans engagement, sans carte bancaire.
+          </p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Configurez votre watchlist</h3>
+          <p>
+            Sélectionnez les actions, secteurs et investisseurs que vous voulez suivre.
+          </p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Suivez le smart money</h3>
+          <p>
+            Recevez chaque jour les mouvements clés et les alertes sur vos signaux prioritaires.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DATA SOURCES ===== -->
+  <section class="section" id="data">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Sources de données</span>
+        <h2>Des données publiques.<br />Un traitement d'expert.</h2>
+        <p class="section-subtitle">
+          Kairos Insider agrège, traduit et analyse les déclarations officielles
+          des régulateurs financiers — 100% légal, 100% transparent.
+        </p>
+      </div>
+
+      <div class="data-sources">
+        <div class="data-tag">
+          <strong>SEC Form 4</strong>
+          Transactions d'insiders US
+        </div>
+        <div class="data-tag">
+          <strong>SEC Form 13F</strong>
+          Portefeuilles hedge funds
+        </div>
+        <div class="data-tag">
+          <strong>AMF France</strong>
+          Franchissements de seuils
+        </div>
+        <div class="data-tag">
+          <strong>COT Report</strong>
+          Positions institutionnelles
+        </div>
+        <div class="data-tag">
+          <strong>FINRA</strong>
+          Short interest & dark pools
+        </div>
+        <div class="data-tag">
+          <strong>BaFin & ESMA</strong>
+          Data européenne
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== WAITLIST CTA ===== -->
+  <section class="cta-section" id="waitlist">
+    <div class="container">
+      <div class="cta-box">
+        <h2>Accédez en avant-première.</h2>
+        <p>
+          Rejoignez les traders visionnaires qui suivront les mouvements des pros.
+          Les 500 premiers inscrits auront un tarif fondateur exclusif.
+        </p>
+
+        <form class="email-form" id="waitlistForm" onsubmit="return handleSubmit(event)">
+          <input
+            type="email"
+            placeholder="votre@email.fr"
+            required
+            id="emailInput"
+          />
+          <button type="submit" class="btn btn-primary">
+            Accéder en avant-première →
+          </button>
+        </form>
+
+        <p class="form-message" id="formMessage">
+          ✓ Parfait ! Vous recevrez un email dès l'ouverture des inscriptions.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <div class="logo-mark">
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <defs>
+                <linearGradient id="silhouetteGradFooter" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#60A5FA" />
+                  <stop offset="50%" stop-color="#8B5CF6" />
+                  <stop offset="100%" stop-color="#22D3EE" />
+                </linearGradient>
+                <radialGradient id="silhouetteGlowFooter" cx="50%" cy="30%" r="60%">
+                  <stop offset="0%" stop-color="rgba(59,130,246,0.5)" />
+                  <stop offset="100%" stop-color="rgba(10,15,30,0)" />
+                </radialGradient>
+              </defs>
+              <circle cx="32" cy="22" r="20" fill="url(#silhouetteGlowFooter)" />
+              <ellipse cx="32" cy="14" rx="19" ry="2.8" fill="url(#silhouetteGradFooter)" />
+              <path d="M 21 14 Q 21 3 32 3 Q 43 3 43 14 Z" fill="url(#silhouetteGradFooter)" />
+              <rect x="21" y="11" width="22" height="1.6" fill="rgba(10,15,30,0.55)" />
+              <path d="M 26 14 L 38 14 L 37 26 L 27 26 Z" fill="rgba(10,15,30,0.9)" />
+              <rect x="26" y="18" width="12" height="3.5" rx="1.3" fill="rgba(220,235,255,0.88)" />
+              <rect x="31.2" y="18.5" width="1.6" height="2.5" fill="rgba(10,15,30,0.7)" />
+              <path d="M 14 29 Q 14 25 18 24 L 46 24 Q 50 25 50 29 L 50 57 Q 50 61 46 61 L 18 61 Q 14 61 14 57 Z" fill="url(#silhouetteGradFooter)" />
+              <path d="M 15 26 L 31 27 L 32 50 L 19 38 Z" fill="rgba(255,255,255,0.32)" />
+              <path d="M 49 26 L 33 27 L 32 50 L 45 38 Z" fill="rgba(255,255,255,0.32)" />
+              <path d="M 29 25 L 35 25 L 32 32 Z" fill="rgba(10,15,30,0.95)" />
+            </svg>
+          </div>
+          <div>
+            <div class="footer-brand-text">Kairos Insider</div>
+            <div class="footer-text">© 2026 — Voyez ce que les pros voient.</div>
+          </div>
+        </div>
+        <ul class="footer-links">
+          <li><a href="#features">Fonctionnalités</a></li>
+          <li><a href="#how">Comment ça marche</a></li>
+          <li><a href="#data">Données</a></li>
+          <li><a href="mailto:contact@kairosinsider.fr">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Firebase SDK (modular, chargé depuis le CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw",
+      authDomain: "kairos-insider.firebaseapp.com",
+      databaseURL: "https://kairos-insider-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "kairos-insider",
+      storageBucket: "kairos-insider.firebasestorage.app",
+      messagingSenderId: "575191450508",
+      appId: "1:575191450508:web:30af39f579338ad07b0ca9",
+      measurementId: "G-7YPCWL035M"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Expose l'API nécessaire au handler global du formulaire
+    window.__kairos = { db, ref, push, serverTimestamp };
+  </script>
+
+  <script>
+    // Navigation scroll effect
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 20) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    });
+
+    // Waitlist form handler → Firebase Realtime Database
+    async function handleSubmit(event) {
+      event.preventDefault();
+      const input = document.getElementById('emailInput');
+      const button = event.target.querySelector('button[type="submit"]');
+      const message = document.getElementById('formMessage');
+      const email = input.value.trim().toLowerCase();
+
+      // Validation client basique
+      const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+      if (!emailRegex.test(email)) {
+        message.textContent = '⚠️ Adresse email invalide.';
+        message.style.color = '#F87171';
+        message.classList.add('visible');
+        return false;
+      }
+
+      // État "envoi en cours"
+      const originalBtnText = button.innerHTML;
+      button.innerHTML = 'Envoi en cours…';
+      button.disabled = true;
+
+      try {
+        // Attendre que Firebase soit prêt (import module asynchrone)
+        let tries = 0;
+        while (!window.__kairos && tries < 50) {
+          await new Promise(r => setTimeout(r, 100));
+          tries++;
+        }
+        if (!window.__kairos) throw new Error('Firebase non chargé');
+
+        const { db, ref, push, serverTimestamp } = window.__kairos;
+        await push(ref(db, 'waitlist'), {
+          email,
+          timestamp: serverTimestamp(),
+          source: 'landing-v1',
+          userAgent: navigator.userAgent.slice(0, 200)
+        });
+
+        // Succès
+        message.textContent = '✓ Parfait ! Vous recevrez un email dès l\'ouverture des inscriptions.';
+        message.style.color = '#10B981';
+        message.classList.add('visible');
+        input.value = '';
+      } catch (err) {
+        console.error('[Kairos Insider] Erreur waitlist :', err);
+        message.textContent = '⚠️ Une erreur est survenue. Merci de réessayer dans quelques instants.';
+        message.style.color = '#F87171';
+        message.classList.add('visible');
+      } finally {
+        button.innerHTML = originalBtnText;
+        button.disabled = false;
+      }
+
+      setTimeout(() => {
+        message.classList.remove('visible');
+      }, 8000);
+
+      return false;
+    }
+  </script>
+</body>
+</html>

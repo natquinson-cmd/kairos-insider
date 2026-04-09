@@ -1,0 +1,22 @@
+# Dépendances
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+
+# Config locale Claude (serveur de dev)
+.claude/
+
+# Secrets (au cas où)
+.env
+.env.local
