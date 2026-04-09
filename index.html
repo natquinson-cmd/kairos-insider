@@ -115,23 +115,63 @@
     }
 
     .logo-mark {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      flex-shrink: 0;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: radial-gradient(circle at 50% 30%, rgba(59, 130, 246, 0.25) 0%, rgba(10, 15, 30, 0.9) 70%);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), inset 0 0 12px rgba(139, 92, 246, 0.15);
+      background: radial-gradient(circle at 50% 30%, rgba(34, 211, 238, 0.18) 0%, rgba(5, 10, 25, 0.95) 70%);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      box-shadow: 0 0 20px rgba(14, 116, 144, 0.35), inset 0 0 12px rgba(30, 58, 138, 0.25);
       overflow: hidden;
       position: relative;
     }
 
-    .logo-mark svg {
+    .logo-mark img {
       width: 100%;
       height: 100%;
+      object-fit: cover;
       display: block;
+    }
+
+    .footer-brand .logo-mark {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+    }
+
+    /* ===== HERO LOGO (grande version centrée) ===== */
+    .hero-logo {
+      width: 160px;
+      height: 160px;
+      margin: 0 auto 32px;
+      border-radius: 24px;
+      overflow: hidden;
+      position: relative;
+      background: radial-gradient(circle at 50% 30%, rgba(34, 211, 238, 0.2) 0%, rgba(5, 10, 25, 0.95) 70%);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      box-shadow:
+        0 20px 60px rgba(14, 116, 144, 0.35),
+        0 0 40px rgba(34, 211, 238, 0.25),
+        inset 0 0 30px rgba(30, 58, 138, 0.3);
+      animation: fadeInUp 0.8s ease 0.05s backwards;
+    }
+
+    .hero-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    @media (max-width: 900px) {
+      .hero-logo {
+        width: 120px;
+        height: 120px;
+      }
     }
 
     .logo-text {
@@ -704,63 +744,7 @@
     <div class="container nav-container">
       <div class="logo">
         <div class="logo-mark">
-          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-              <linearGradient id="silhouetteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#60A5FA" />
-                <stop offset="50%" stop-color="#8B5CF6" />
-                <stop offset="100%" stop-color="#22D3EE" />
-              </linearGradient>
-              <radialGradient id="silhouetteGlow" cx="50%" cy="30%" r="60%">
-                <stop offset="0%" stop-color="rgba(59,130,246,0.5)" />
-                <stop offset="100%" stop-color="rgba(10,15,30,0)" />
-              </radialGradient>
-            </defs>
-            <!-- Halo atmosphérique derrière -->
-            <circle cx="32" cy="22" r="20" fill="url(#silhouetteGlow)" />
-
-            <!-- Chapeau fedora : bord large + calotte bombée -->
-            <ellipse cx="32" cy="14" rx="19" ry="2.8" fill="url(#silhouetteGrad)" />
-            <path d="M 21 14 Q 21 3 32 3 Q 43 3 43 14 Z" fill="url(#silhouetteGrad)" />
-            <!-- Ruban du chapeau -->
-            <rect x="21" y="11" width="22" height="1.6" fill="rgba(10,15,30,0.55)" />
-
-            <!-- Visage en ombre sous le bord du chapeau -->
-            <path d="M 26 14 L 38 14 L 37 26 L 27 26 Z" fill="rgba(10,15,30,0.9)" />
-
-            <!-- Lunettes de soleil (bandeau clair) -->
-            <rect x="26" y="18" width="12" height="3.5" rx="1.3" fill="rgba(220,235,255,0.88)" />
-            <!-- Pont de lunettes -->
-            <rect x="31.2" y="18.5" width="1.6" height="2.5" fill="rgba(10,15,30,0.7)" />
-
-            <!-- Corps du manteau (silhouette pleine) -->
-            <path d="M 14 29
-                     Q 14 25 18 24
-                     L 46 24
-                     Q 50 25 50 29
-                     L 50 57
-                     Q 50 61 46 61
-                     L 18 61
-                     Q 14 61 14 57 Z"
-                  fill="url(#silhouetteGrad)" />
-
-            <!-- Revers gauche — grand triangle lumineux -->
-            <path d="M 15 26
-                     L 31 27
-                     L 32 50
-                     L 19 38 Z"
-                  fill="rgba(255,255,255,0.32)" />
-
-            <!-- Revers droit — grand triangle lumineux (miroir) -->
-            <path d="M 49 26
-                     L 33 27
-                     L 32 50
-                     L 45 38 Z"
-                  fill="rgba(255,255,255,0.32)" />
-
-            <!-- Encolure en V (entre les revers, en ombre profonde) -->
-            <path d="M 29 25 L 35 25 L 32 32 Z" fill="rgba(10,15,30,0.95)" />
-          </svg>
+          <img src="assets/logo.png" alt="Kairos Insider" />
         </div>
         <span class="logo-text">Kairos Insider</span>
       </div>
@@ -777,6 +761,10 @@
   <section class="hero">
     <div class="container">
       <div class="hero-content">
+        <div class="hero-logo">
+          <img src="assets/logo.png" alt="Kairos Insider" />
+        </div>
+
         <div class="hero-badge">
           <span class="pulse"></span>
           <span>Lancement imminent — Inscrivez-vous à l'accès prioritaire</span>
@@ -967,30 +955,7 @@
       <div class="footer-content">
         <div class="footer-brand">
           <div class="logo-mark">
-            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <defs>
-                <linearGradient id="silhouetteGradFooter" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#60A5FA" />
-                  <stop offset="50%" stop-color="#8B5CF6" />
-                  <stop offset="100%" stop-color="#22D3EE" />
-                </linearGradient>
-                <radialGradient id="silhouetteGlowFooter" cx="50%" cy="30%" r="60%">
-                  <stop offset="0%" stop-color="rgba(59,130,246,0.5)" />
-                  <stop offset="100%" stop-color="rgba(10,15,30,0)" />
-                </radialGradient>
-              </defs>
-              <circle cx="32" cy="22" r="20" fill="url(#silhouetteGlowFooter)" />
-              <ellipse cx="32" cy="14" rx="19" ry="2.8" fill="url(#silhouetteGradFooter)" />
-              <path d="M 21 14 Q 21 3 32 3 Q 43 3 43 14 Z" fill="url(#silhouetteGradFooter)" />
-              <rect x="21" y="11" width="22" height="1.6" fill="rgba(10,15,30,0.55)" />
-              <path d="M 26 14 L 38 14 L 37 26 L 27 26 Z" fill="rgba(10,15,30,0.9)" />
-              <rect x="26" y="18" width="12" height="3.5" rx="1.3" fill="rgba(220,235,255,0.88)" />
-              <rect x="31.2" y="18.5" width="1.6" height="2.5" fill="rgba(10,15,30,0.7)" />
-              <path d="M 14 29 Q 14 25 18 24 L 46 24 Q 50 25 50 29 L 50 57 Q 50 61 46 61 L 18 61 Q 14 61 14 57 Z" fill="url(#silhouetteGradFooter)" />
-              <path d="M 15 26 L 31 27 L 32 50 L 19 38 Z" fill="rgba(255,255,255,0.32)" />
-              <path d="M 49 26 L 33 27 L 32 50 L 45 38 Z" fill="rgba(255,255,255,0.32)" />
-              <path d="M 29 25 L 35 25 L 32 32 Z" fill="rgba(10,15,30,0.95)" />
-            </svg>
+            <img src="assets/logo.png" alt="Kairos Insider" />
           </div>
           <div>
             <div class="footer-brand-text">Kairos Insider</div>
