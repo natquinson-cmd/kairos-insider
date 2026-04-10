@@ -196,77 +196,45 @@
     .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
     .pagination .page-info { font-size: 13px; color: var(--text-muted); }
 
-    /* ===== PERIOD SLIDER ===== */
-    .period-slider {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 20px 14px;
+    /* ===== PERIOD SELECTOR ===== */
+    .period-selector {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       margin-bottom: 24px;
     }
-    .period-slider label {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .period-label {
       font-size: 13px;
       color: var(--text-secondary);
       font-weight: 600;
-      margin-bottom: 10px;
+      white-space: nowrap;
     }
-    .period-slider label strong {
-      color: var(--accent-blue);
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .period-slider input[type=range] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 6px;
-      background: rgba(30, 42, 58, 0.8);
-      border-radius: 3px;
-      outline: none;
-      cursor: pointer;
-    }
-    .period-slider input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--bg-primary);
-      border: 3px solid var(--accent-blue);
-      cursor: grab;
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
-      transition: transform 0.12s, box-shadow 0.12s;
-    }
-    .period-slider input[type=range]::-webkit-slider-thumb:hover {
-      transform: scale(1.15);
-      box-shadow: 0 0 18px rgba(59, 130, 246, 0.55);
-    }
-    .period-slider input[type=range]::-moz-range-thumb {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--bg-primary);
-      border: 3px solid var(--accent-blue);
-      cursor: grab;
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
-    }
-    .period-ticks {
+    .period-buttons {
       display: flex;
-      justify-content: space-between;
-      margin-top: 6px;
-      font-size: 11px;
-      color: var(--text-muted);
+      gap: 0;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .period-btn {
+      padding: 8px 18px;
+      font-size: 13px;
       font-weight: 600;
-    }
-    .period-ticks span {
+      font-family: inherit;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
       cursor: pointer;
-      transition: color 0.2s;
+      transition: all 0.2s;
+      border-right: 1px solid var(--border);
     }
-    .period-ticks span:hover {
-      color: var(--text-primary);
+    .period-btn:last-child { border-right: none; }
+    .period-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+    .period-btn.active {
+      color: #FFFFFF;
+      background: var(--accent-blue);
+      box-shadow: 0 0 12px rgba(59,130,246,0.3);
     }
 
     /* ===== LOADING & EMPTY ===== */
@@ -357,14 +325,12 @@
           <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" style="display:none">Effacer</button>
         </div>
 
-        <div class="period-slider">
-          <label for="periodRange">Période : <strong id="periodLabel">30 jours</strong></label>
-          <input type="range" id="periodRange" min="7" max="90" value="30" step="1" oninput="updatePeriodLabel()" onchange="changePeriod()" />
-          <div class="period-ticks">
-            <span onclick="document.getElementById('periodRange').value=7;updatePeriodLabel();changePeriod()">7j</span>
-            <span onclick="document.getElementById('periodRange').value=30;updatePeriodLabel();changePeriod()">30j</span>
-            <span onclick="document.getElementById('periodRange').value=60;updatePeriodLabel();changePeriod()">60j</span>
-            <span onclick="document.getElementById('periodRange').value=90;updatePeriodLabel();changePeriod()">90j</span>
+        <div class="period-selector">
+          <span class="period-label">Période :</span>
+          <div class="period-buttons">
+            <button class="period-btn" data-days="7" onclick="selectPeriod(7)">7 jours</button>
+            <button class="period-btn active" data-days="30" onclick="selectPeriod(30)">1 mois</button>
+            <button class="period-btn" data-days="90" onclick="selectPeriod(90)">3 mois</button>
           </div>
         </div>
 
@@ -509,16 +475,14 @@
     let currentDays = 30; // Par défaut 30 jours
 
     // ============================================================
-    // PERIOD SLIDER
+    // PERIOD SELECTOR
     // ============================================================
-    function updatePeriodLabel() {
-      const val = document.getElementById('periodRange').value;
-      document.getElementById('periodLabel').textContent = val + ' jours';
-    }
-
-    function changePeriod() {
-      currentDays = parseInt(document.getElementById('periodRange').value);
+    function selectPeriod(days) {
+      currentDays = days;
       currentPage = 0;
+      document.querySelectorAll('.period-btn').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.days) === days)
+      );
       loadInsiderTrades(0);
     }
 
