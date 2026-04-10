@@ -111,7 +111,7 @@ async function handleInsiderTrades(url, env, origin) {
     const now = new Date();
     const endDate = now.toISOString().split('T')[0];
     const startDate = new Date(now - 7 * 86400000).toISOString().split('T')[0];
-    const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=%22&forms=4&dateRange=custom&startdt=${startDate}&enddt=${endDate}&from=${startIdx}&size=40`;
+    const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=%22&forms=4&dateRange=custom&startdt=${startDate}&enddt=${endDate}&from=${startIdx}&size=40&_sort=file_date&_order=desc`;
     const edgarResp = await fetch(edgarUrl, {
       headers: { 'User-Agent': SEC_USER_AGENT },
     });
@@ -130,11 +130,19 @@ async function handleInsiderTrades(url, env, origin) {
       filings.map(hit => parseForm4Filing(hit))
     );
 
+    // Tri par date décroissante (les plus récents d'abord)
+    const validTrades = trades.filter(t => t !== null);
+    validTrades.sort((a, b) => {
+      const dateA = a.fileDate || a.periodEnding || '';
+      const dateB = b.fileDate || b.periodEnding || '';
+      return dateB.localeCompare(dateA);
+    });
+
     const result = {
       total,
       page,
       pageSize: 10,
-      trades: trades.filter(t => t !== null),
+      trades: validTrades,
     };
 
     // Mettre en cache
