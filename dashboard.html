@@ -277,20 +277,6 @@
 
       <!-- ===== TAB: INSIDER TRADES ===== -->
       <div class="tab-content active" id="tab-insider">
-        <div class="stats">
-          <div class="stat-card">
-            <div class="stat-label">Total transactions (7j)</div>
-            <div class="stat-value" id="statTotal">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Achats (acquisitions)</div>
-            <div class="stat-value green" id="statBuys">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Ventes (cessions)</div>
-            <div class="stat-value red" id="statSells">—</div>
-          </div>
-        </div>
 
         <div class="search-bar">
           <input type="text" id="searchInsider" placeholder="Rechercher un ticker ou une entreprise (ex: AAPL, Tesla, NVDA)..." onkeydown="if(event.key==='Enter') searchInsider()" />
@@ -468,17 +454,6 @@
             (t.insiderName || '').toUpperCase().includes(insiderSearchQuery)
           );
         }
-
-        // Stats
-        let buys = 0, sells = 0;
-        const allTx = data.trades.flatMap(t => (t.transactions || []).map(tx => ({ ...tx, ...t })));
-        allTx.forEach(tx => {
-          if (tx.code === 'P' || tx.acquiredDisposed === 'A') buys++;
-          if (tx.code === 'S' || tx.acquiredDisposed === 'D') sells++;
-        });
-        document.getElementById('statTotal').textContent = fmtNum(totalTrades);
-        document.getElementById('statBuys').textContent = fmtNum(buys);
-        document.getElementById('statSells').textContent = fmtNum(sells);
 
         // Table
         if (data.trades.length === 0) {
