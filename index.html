@@ -1051,6 +1051,18 @@
           userAgent: navigator.userAgent.slice(0, 200)
         });
 
+        // Envoi email de bienvenue via Cloudflare Worker (clé API sécurisée côté serveur)
+        try {
+          await fetch('https://kairos-insider-api.natquinson.workers.dev/send-welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+        } catch (emailErr) {
+          // Si l'email échoue, l'inscription Firebase reste valide — pas bloquant
+          console.warn('[Kairos Insider] Email de bienvenue non envoyé :', emailErr);
+        }
+
         // Succès
         message.textContent = '✓ Parfait ! Vous recevrez un email dès l\'ouverture des inscriptions.';
         message.style.color = '#10B981';
