@@ -292,6 +292,12 @@
           </div>
         </div>
 
+        <div class="search-bar">
+          <input type="text" id="searchInsider" placeholder="Rechercher un ticker ou une entreprise (ex: AAPL, Tesla, NVDA)..." onkeydown="if(event.key==='Enter') searchInsider()" />
+          <button class="btn-search" onclick="searchInsider()">Rechercher</button>
+          <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" style="display:none">Effacer</button>
+        </div>
+
         <div id="insiderTableArea">
           <div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>
         </div>
@@ -454,6 +460,15 @@
         // Overlay auth success
         document.getElementById('authOverlay').classList.add('hidden');
 
+        // Filtrage par recherche (côté client)
+        if (insiderSearchQuery) {
+          data.trades = data.trades.filter(t =>
+            (t.ticker || '').toUpperCase().includes(insiderSearchQuery) ||
+            (t.companyName || '').toUpperCase().includes(insiderSearchQuery) ||
+            (t.insiderName || '').toUpperCase().includes(insiderSearchQuery)
+          );
+        }
+
         // Stats
         let buys = 0, sells = 0;
         const allTx = data.trades.flatMap(t => (t.transactions || []).map(tx => ({ ...tx, ...t })));
@@ -479,6 +494,7 @@
               rows += `<tr>
                 <td>${fmtDate(tx.date || trade.fileDate)}</td>
                 <td class="ticker">${trade.ticker || '—'}</td>
+                <td style="color:var(--text-primary)">${trade.companyName || '—'}</td>
                 <td>${trade.insiderName || '—'}</td>
                 <td>${translatePosition(trade.ownerTitle)}</td>
                 <td><span class="pill ${cls}">${label}</span></td>
@@ -491,6 +507,7 @@
             rows += `<tr>
               <td>${fmtDate(trade.fileDate)}</td>
               <td class="ticker">${trade.ticker || '—'}</td>
+              <td style="color:var(--text-primary)">${trade.companyName || '—'}</td>
               <td>${trade.insiderName || '—'}</td>
               <td>${translatePosition(trade.ownerTitle)}</td>
               <td><span class="pill other">Déclaration</span></td>
@@ -508,6 +525,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Ticker</th>
+                  <th>Entreprise</th>
                   <th>Déclarant</th>
                   <th>Poste</th>
                   <th>Type</th>
@@ -542,7 +560,28 @@
     }
 
     // ============================================================
-    // 13F
+    // INSIDER SEARCH
+    // ============================================================
+    let insiderSearchQuery = '';
+
+    function searchInsider() {
+      insiderSearchQuery = document.getElementById('searchInsider').value.trim().toUpperCase();
+      if (!insiderSearchQuery) return;
+      document.getElementById('clearInsiderBtn').style.display = 'inline-flex';
+      currentPage = 0;
+      loadInsiderTrades(0);
+    }
+
+    function clearInsiderSearch() {
+      insiderSearchQuery = '';
+      document.getElementById('searchInsider').value = '';
+      document.getElementById('clearInsiderBtn').style.display = 'none';
+      currentPage = 0;
+      loadInsiderTrades(0);
+    }
+
+    // ============================================================
+    // 13F — recherche par ticker via SEC EDGAR (Form 13F-HR)
     // ============================================================
     function quickSearch13F(symbol) {
       document.getElementById('search13f').value = symbol;
@@ -557,9 +596,9 @@
       area.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche des positions institutionnelles...</div>';
 
       try {
-        const data = await apiFetch('/api/13f-holders', { symbol });
+        const data = await apiFetch('/api/13f-search', { symbol });
 
-        if (!data || (Array.isArray(data) && data.length === 0)) {
+        if (!data || !data.filings || data.filings.length === 0) {
           area.innerHTML = `<div class="empty-state"><p>Aucune donnée 13F trouvée pour <strong>${symbol}</strong>. Essayez un autre ticker.</p>
             <div class="chip-list">
               <span class="chip" onclick="quickSearch13F('AAPL')">AAPL</span>
@@ -569,30 +608,26 @@
           return;
         }
 
-        const holders = Array.isArray(data) ? data : [];
         let rows = '';
-        for (const h of holders) {
-          const changeClass = (h.change || 0) >= 0 ? 'green' : 'red';
-          const changePrefix = (h.change || 0) >= 0 ? '+' : '';
+        for (const f of data.filings) {
           rows += `<tr>
-            <td style="font-weight:500">${h.holder || '—'}</td>
-            <td style="text-align:right">${fmtNum(h.shares)}</td>
-            <td style="text-align:right">${fmtCur(h.value)}</td>
-            <td>${fmtDate(h.dateReported)}</td>
-            <td style="text-align:right;color:var(--accent-${changeClass})">${changePrefix}${fmtNum(h.change)}</td>
+            <td style="font-weight:500">${f.filerName || '—'}</td>
+            <td>${fmtDate(f.fileDate)}</td>
+            <td>${fmtDate(f.periodEnding)}</td>
+            <td><a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${f.filerCik}&type=13F&dateb=&owner=include&count=10" target="_blank" rel="noopener" style="color:var(--accent-blue)">Voir sur SEC →</a></td>
           </tr>`;
         }
 
         area.innerHTML = `
+          <p style="color:var(--text-muted);margin-bottom:16px;font-size:13px">${data.total} dépôts 13F-HR trouvés mentionnant "${symbol}" (30 derniers jours)</p>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Fonds / Institution</th>
-                  <th style="text-align:right">Actions détenues</th>
-                  <th style="text-align:right">Valeur ($)</th>
                   <th>Date de dépôt</th>
-                  <th style="text-align:right">Variation</th>
+                  <th>Période couverte</th>
+                  <th>Détails</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>

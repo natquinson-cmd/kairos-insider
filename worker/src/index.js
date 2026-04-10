@@ -45,6 +45,9 @@ export default {
       if (path === '/api/insider-detail') {
         return handleInsiderDetail(url, env, origin);
       }
+      if (path === '/api/13f-search') {
+        return handle13FSearch(url, env, origin);
+      }
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN);
@@ -298,6 +301,62 @@ function parseForm4Xml(xml) {
     ownerTitle,
     transactions,
   };
+}
+
+// ============================================================
+// ROUTE: GET /api/13f-search — recherche de dépôts 13F-HR par ticker
+// Params: ?symbol=AAPL
+// ============================================================
+async function handle13FSearch(url, env, origin) {
+  const symbol = (url.searchParams.get('symbol') || '').toUpperCase();
+  if (!symbol) {
+    return jsonResponse({ error: 'Missing symbol param' }, 400, origin);
+  }
+
+  const cacheKey = `13f-search:${symbol}`;
+  const cached = await env.CACHE.get(cacheKey, 'json');
+  if (cached) return jsonResponse(cached, 200, origin);
+
+  try {
+    // Recherche des 13F-HR mentionnant ce ticker sur les 90 derniers jours
+    const now = new Date();
+    const endDate = now.toISOString().split('T')[0];
+    const startDate = new Date(now - 90 * 86400000).toISOString().split('T')[0];
+    const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent('"' + symbol + '"')}&forms=13F-HR&dateRange=custom&startdt=${startDate}&enddt=${endDate}&from=0&size=20`;
+
+    const edgarResp = await fetch(edgarUrl, {
+      headers: { 'User-Agent': SEC_USER_AGENT },
+    });
+
+    if (!edgarResp.ok) {
+      return jsonResponse({ error: 'SEC EDGAR error' }, 502, origin);
+    }
+
+    const edgarData = await edgarResp.json();
+    const hits = edgarData.hits?.hits || [];
+    const total = edgarData.hits?.total?.value || 0;
+
+    const filings = hits.map(hit => {
+      const src = hit._source;
+      const names = src.display_names || [];
+      const filerName = names[0] ? names[0].replace(/\s*\(CIK \d+\)/, '').trim() : 'Inconnu';
+      const filerCik = (src.ciks && src.ciks[0]) || '';
+      return {
+        filerName,
+        filerCik,
+        fileDate: src.file_date,
+        periodEnding: src.period_ending,
+      };
+    });
+
+    const result = { total, symbol, filings };
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 });
+
+    return jsonResponse(result, 200, origin);
+  } catch (err) {
+    console.error('handle13FSearch error:', err);
+    return jsonResponse({ error: 'Failed to search 13F filings' }, 500, origin);
+  }
 }
 
 // ============================================================
