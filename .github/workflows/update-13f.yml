@@ -1,0 +1,51 @@
+name: Update 13F Fund Data
+
+on:
+  schedule:
+    # Tous les lundis a 7h UTC (9h heure de Paris)
+    - cron: '0 7 * * 1'
+  # Permet aussi de lancer manuellement depuis GitHub
+  workflow_dispatch:
+
+jobs:
+  update-funds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch 13F data from SEC EDGAR
+        run: cd worker && python prefetch-13f.py
+        timeout-minutes: 10
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Upload to Cloudflare KV
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          wrangler kv key put \
+            --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 \
+            --remote \
+            "13f-all-funds" \
+            --path=funds_data.json
+
+      - name: Summary
+        run: |
+          cd worker
+          python -c "
+          import json
+          with open('funds_data.json') as f:
+              data = json.load(f)
+          print(f'Updated {len(data)} funds')
+          for i, fund in enumerate(data[:5]):
+              print(f'  {i+1}. {fund[\"label\"]:25s} \${fund[\"totalValue\"]:>15,.0f}  ({fund[\"holdingsCount\"]} positions)')
+          "
