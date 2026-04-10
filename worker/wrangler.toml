@@ -1,0 +1,13 @@
+name = "kairos-insider-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+BREVO_TEMPLATE_ID = "1"
+BREVO_SENDER_NAME = "Kairos Insider"
+BREVO_SENDER_EMAIL = "contact@kairosinsider.fr"
+ALLOWED_ORIGIN = "https://kairosinsider.fr"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "aca7ff9d2a244b06ae92d6a7129b4cc4"

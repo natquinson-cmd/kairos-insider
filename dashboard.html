@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Kairos Insider</title>
+  <meta name="description" content="Smart Money Dashboard — Suivez les transactions des insiders et les portefeuilles des hedge funds en temps réel." />
+  <meta name="theme-color" content="#0A0F1E" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-primary: #0A0F1E;
+      --bg-secondary: #111827;
+      --bg-card: rgba(255, 255, 255, 0.02);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.16);
+      --text-primary: #F9FAFB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-blue: #3B82F6;
+      --accent-purple: #8B5CF6;
+      --accent-cyan: #06B6D4;
+      --accent-green: #10B981;
+      --accent-red: #EF4444;
+      --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    /* ===== NAV ===== */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 16px 0; z-index: 100;
+      background: rgba(10,15,30,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-container { display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-mark {
+      width: 40px; height: 40px; min-width: 40px; flex-shrink: 0;
+      border-radius: 10px; overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, rgba(34,211,238,0.18) 0%, rgba(5,10,25,0.95) 70%);
+      border: 1px solid rgba(34,211,238,0.35);
+      box-shadow: 0 0 20px rgba(14,116,144,0.35);
+    }
+    .logo-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .logo-text { background: linear-gradient(135deg, #F9FAFB 0%, #9CA3AF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .nav-links { display: flex; gap: 24px; align-items: center; list-style: none; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
+
+    /* ===== AUTH OVERLAY ===== */
+    .auth-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(10,15,30,0.97);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px);
+    }
+    .auth-overlay.hidden { display: none; }
+    .auth-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 48px;
+      text-align: center;
+      max-width: 420px;
+      width: 90%;
+    }
+    .auth-card .logo-mark { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 16px; }
+    .auth-card h2 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; margin-bottom: 8px; }
+    .auth-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+    .auth-card input {
+      width: 100%; padding: 14px 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary); font-size: 15px; font-family: inherit;
+      margin-bottom: 16px;
+    }
+    .auth-card input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .auth-card .error { color: var(--accent-red); font-size: 13px; margin-bottom: 12px; display: none; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px;
+      cursor: pointer; transition: all 0.3s; text-decoration: none; border: none; font-family: inherit;
+    }
+    .btn-primary, a.btn-primary { background: var(--gradient-primary); color: #FFFFFF !important; box-shadow: 0 4px 20px rgba(59,130,246,0.3); width: 100%; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(59,130,246,0.5); }
+
+    /* ===== MAIN CONTENT ===== */
+    .main { padding: 90px 0 40px; min-height: 100vh; }
+
+    /* ===== TABS ===== */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+    .tab {
+      padding: 14px 24px; font-size: 14px; font-weight: 600;
+      color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent; transition: all 0.2s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: inherit;
+    }
+    .tab:hover { color: var(--text-secondary); }
+    .tab.active { color: var(--text-primary); border-bottom-color: var(--accent-blue); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ===== SEARCH ===== */
+    .search-bar {
+      display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .search-bar input {
+      flex: 1; min-width: 240px;
+      padding: 12px 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary); font-size: 14px; font-family: inherit;
+    }
+    .search-bar input:focus { outline: none; border-color: var(--accent-blue); }
+    .search-bar input::placeholder { color: var(--text-muted); }
+    .btn-search { padding: 12px 20px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; font-family: inherit; transition: all 0.2s; }
+    .btn-search:hover { border-color: var(--accent-blue); background: rgba(59,130,246,0.1); }
+
+    /* ===== STAT CARDS ===== */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px 24px;
+    }
+    .stat-card .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .stat-card .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; }
+    .stat-card .stat-value.green { color: var(--accent-green); }
+    .stat-card .stat-value.red { color: var(--accent-red); }
+
+    /* ===== TABLE ===== */
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      padding: 14px 16px; text-align: left; font-weight: 600; font-size: 12px;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    tbody td {
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      white-space: nowrap; color: var(--text-secondary);
+    }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    tbody tr:last-child td { border-bottom: none; }
+    .ticker { color: var(--accent-blue); font-weight: 700; font-family: 'Space Grotesk', monospace; }
+    .pill {
+      display: inline-block; padding: 3px 10px; border-radius: 100px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+    }
+    .pill.buy { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+    .pill.sell { background: rgba(239,68,68,0.15); color: var(--accent-red); }
+    .pill.other { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+
+    /* ===== PAGINATION ===== */
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; }
+    .pagination button {
+      padding: 8px 16px; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-secondary); cursor: pointer; font-family: inherit; font-size: 13px;
+      transition: all 0.2s;
+    }
+    .pagination button:hover:not(:disabled) { border-color: var(--accent-blue); color: var(--text-primary); }
+    .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .pagination .page-info { font-size: 13px; color: var(--text-muted); }
+
+    /* ===== LOADING & EMPTY ===== */
+    .loading { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent-blue);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state p { margin-bottom: 16px; }
+    .chip-list { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .chip {
+      padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 100px; font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .chip:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+
+    /* ===== FOOTER ===== */
+    footer {
+      border-top: 1px solid var(--border); padding: 32px 0; position: relative;
+    }
+    .footer-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .footer-text { color: var(--text-muted); font-size: 13px; }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .stats { grid-template-columns: 1fr; }
+      .nav-links { gap: 16px; }
+      .auth-card { padding: 32px 24px; }
+      .stat-card .stat-value { font-size: 22px; }
+      .tabs { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== AUTH OVERLAY ===== -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+      <div class="logo-mark">
+        <img src="assets/logo.png" alt="Kairos Insider" />
+      </div>
+      <h2>Accès Dashboard</h2>
+      <p>Entrez le mot de passe fourni pour accéder aux données Smart Money.</p>
+      <form onsubmit="return handleAuth(event)">
+        <input type="password" id="authPassword" placeholder="Mot de passe" autocomplete="off" />
+        <p class="error" id="authError">Mot de passe incorrect.</p>
+        <button type="submit" class="btn btn-primary">Accéder au dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== NAV ===== -->
+  <nav>
+    <div class="container nav-container">
+      <a href="index.html" class="logo">
+        <div class="logo-mark">
+          <img src="assets/logo.png" alt="Kairos Insider" />
+        </div>
+        <span class="logo-text">Kairos Insider</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="dashboard.html" class="active">Dashboard</a></li>
+        <li><a href="#" onclick="logout()" style="color:var(--accent-red)">Déconnexion</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+    <div class="container">
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="insider" onclick="switchTab('insider')">Transactions Insiders (Form 4)</button>
+        <button class="tab" data-tab="13f" onclick="switchTab('13f')">Portefeuilles 13F</button>
+      </div>
+
+      <!-- ===== TAB: INSIDER TRADES ===== -->
+      <div class="tab-content active" id="tab-insider">
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-label">Total transactions (7j)</div>
+            <div class="stat-value" id="statTotal">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Achats (acquisitions)</div>
+            <div class="stat-value green" id="statBuys">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Ventes (cessions)</div>
+            <div class="stat-value red" id="statSells">—</div>
+          </div>
+        </div>
+
+        <div id="insiderTableArea">
+          <div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>
+        </div>
+
+        <div class="pagination" id="insiderPagination" style="display:none;">
+          <button onclick="changePage(-1)" id="prevBtn">← Précédent</button>
+          <span class="page-info" id="pageInfo">Page 1</span>
+          <button onclick="changePage(1)" id="nextBtn">Suivant →</button>
+        </div>
+      </div>
+
+      <!-- ===== TAB: 13F ===== -->
+      <div class="tab-content" id="tab-13f">
+        <div class="search-bar">
+          <input type="text" id="search13f" placeholder="Rechercher un ticker (ex: AAPL, MSFT, NVDA)..." onkeydown="if(event.key==='Enter') search13F()" />
+          <button class="btn-search" onclick="search13F()">Rechercher</button>
+        </div>
+
+        <div id="thirteenFArea">
+          <div class="empty-state">
+            <p>Entrez un ticker pour voir les positions institutionnelles (hedge funds, fonds de pension, etc.)</p>
+            <div class="chip-list">
+              <span class="chip" onclick="quickSearch13F('AAPL')">AAPL</span>
+              <span class="chip" onclick="quickSearch13F('MSFT')">MSFT</span>
+              <span class="chip" onclick="quickSearch13F('NVDA')">NVDA</span>
+              <span class="chip" onclick="quickSearch13F('TSLA')">TSLA</span>
+              <span class="chip" onclick="quickSearch13F('AMZN')">AMZN</span>
+              <span class="chip" onclick="quickSearch13F('META')">META</span>
+              <span class="chip" onclick="quickSearch13F('GOOGL')">GOOGL</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <span class="footer-text">© 2026 Kairos Insider — Données SEC publiques, usage informatif uniquement.</span>
+        <span class="footer-text">Pas un conseil en investissement.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const API_BASE = 'https://kairos-insider-api.natquinson.workers.dev';
+
+    // Traductions
+    const TX_TYPES = {
+      'P': 'Achat', 'S': 'Vente', 'A': 'Attribution', 'D': 'Cession',
+      'G': 'Don', 'M': 'Exercice', 'F': 'Retenue fiscale', 'X': 'Exercice',
+      'C': 'Conversion', 'E': 'Expiration', 'H': 'Expiration anticipée',
+      'I': 'Acquisition discrétionnaire', 'W': 'Acquisition volontaire',
+    };
+
+    const AD_TYPES = { 'A': 'Achat', 'D': 'Vente' };
+
+    const POSITIONS = {
+      'CEO': 'PDG', 'CFO': 'DAF', 'COO': 'DG Adjoint', 'CTO': 'Dir. technique',
+      'Director': 'Administrateur', 'VP': 'VP', 'SVP': 'VP Senior',
+      'EVP': 'VP Exécutif', 'Officer': 'Dirigeant', 'General Counsel': 'Dir. juridique',
+      'Secretary': 'Secrétaire général', 'Controller': 'Contrôleur de gestion',
+      'President': 'Président', 'Treasurer': 'Trésorier',
+    };
+
+    // Formatters
+    const fmtNum = (n) => n != null ? new Intl.NumberFormat('fr-FR').format(n) : '—';
+    const fmtCur = (n) => n != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n) : '—';
+    const fmtDate = (s) => {
+      if (!s) return '—';
+      const d = new Date(s + 'T00:00:00');
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    function translatePosition(title) {
+      if (!title) return '—';
+      let t = title;
+      for (const [en, fr] of Object.entries(POSITIONS)) {
+        t = t.replace(new RegExp(en, 'gi'), fr);
+      }
+      return t.replace(/&amp;/g, '&');
+    }
+
+    function getTxLabel(code, ad) {
+      if (code === 'P' || ad === 'A') return { label: 'Achat', cls: 'buy' };
+      if (code === 'S' || ad === 'D') return { label: 'Vente', cls: 'sell' };
+      return { label: TX_TYPES[code] || code || '—', cls: 'other' };
+    }
+
+    // ============================================================
+    // AUTH
+    // ============================================================
+    function getKey() { return sessionStorage.getItem('kairos_dashboard_key') || ''; }
+
+    function handleAuth(e) {
+      e.preventDefault();
+      const pw = document.getElementById('authPassword').value;
+      sessionStorage.setItem('kairos_dashboard_key', pw);
+      document.getElementById('authError').style.display = 'none';
+      loadInsiderTrades(0);
+      return false;
+    }
+
+    function logout() {
+      sessionStorage.removeItem('kairos_dashboard_key');
+      document.getElementById('authOverlay').classList.remove('hidden');
+      document.getElementById('authPassword').value = '';
+    }
+
+    async function apiFetch(endpoint, params = {}) {
+      const url = new URL(API_BASE + endpoint);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+      const resp = await fetch(url.toString(), {
+        headers: { 'X-Dashboard-Key': getKey() },
+      });
+
+      if (resp.status === 401) {
+        document.getElementById('authOverlay').classList.remove('hidden');
+        document.getElementById('authError').style.display = 'block';
+        throw new Error('Unauthorized');
+      }
+
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+      return resp.json();
+    }
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let currentPage = 0;
+    let totalTrades = 0;
+
+    // ============================================================
+    // TABS
+    // ============================================================
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${tab}`));
+    }
+
+    // ============================================================
+    // INSIDER TRADES
+    // ============================================================
+    async function loadInsiderTrades(page) {
+      currentPage = page;
+      const area = document.getElementById('insiderTableArea');
+      area.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>';
+
+      try {
+        const data = await apiFetch('/api/insider-trades', { page });
+        totalTrades = data.total || 0;
+
+        // Overlay auth success
+        document.getElementById('authOverlay').classList.add('hidden');
+
+        // Stats
+        let buys = 0, sells = 0;
+        const allTx = data.trades.flatMap(t => (t.transactions || []).map(tx => ({ ...tx, ...t })));
+        allTx.forEach(tx => {
+          if (tx.code === 'P' || tx.acquiredDisposed === 'A') buys++;
+          if (tx.code === 'S' || tx.acquiredDisposed === 'D') sells++;
+        });
+        document.getElementById('statTotal').textContent = fmtNum(totalTrades);
+        document.getElementById('statBuys').textContent = fmtNum(buys);
+        document.getElementById('statSells').textContent = fmtNum(sells);
+
+        // Table
+        if (data.trades.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucune transaction trouvée pour cette période.</p></div>';
+          return;
+        }
+
+        let rows = '';
+        for (const trade of data.trades) {
+          if (trade.transactions && trade.transactions.length > 0) {
+            for (const tx of trade.transactions) {
+              const { label, cls } = getTxLabel(tx.code, tx.acquiredDisposed);
+              rows += `<tr>
+                <td>${fmtDate(tx.date || trade.fileDate)}</td>
+                <td class="ticker">${trade.ticker || '—'}</td>
+                <td>${trade.insiderName || '—'}</td>
+                <td>${translatePosition(trade.ownerTitle)}</td>
+                <td><span class="pill ${cls}">${label}</span></td>
+                <td style="text-align:right">${fmtNum(tx.shares)}</td>
+                <td style="text-align:right">${tx.price > 0 ? fmtCur(tx.price) : '—'}</td>
+                <td style="text-align:right;font-weight:600">${tx.value > 0 ? fmtCur(tx.value) : '—'}</td>
+              </tr>`;
+            }
+          } else {
+            rows += `<tr>
+              <td>${fmtDate(trade.fileDate)}</td>
+              <td class="ticker">${trade.ticker || '—'}</td>
+              <td>${trade.insiderName || '—'}</td>
+              <td>${translatePosition(trade.ownerTitle)}</td>
+              <td><span class="pill other">Déclaration</span></td>
+              <td style="text-align:right">—</td>
+              <td style="text-align:right">—</td>
+              <td style="text-align:right">—</td>
+            </tr>`;
+          }
+        }
+
+        area.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Ticker</th>
+                  <th>Déclarant</th>
+                  <th>Poste</th>
+                  <th>Type</th>
+                  <th style="text-align:right">Actions</th>
+                  <th style="text-align:right">Prix</th>
+                  <th style="text-align:right">Valeur totale</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+
+        // Pagination
+        const pag = document.getElementById('insiderPagination');
+        pag.style.display = 'flex';
+        document.getElementById('prevBtn').disabled = currentPage === 0;
+        document.getElementById('nextBtn').disabled = data.trades.length < 10;
+        document.getElementById('pageInfo').textContent = `Page ${currentPage + 1}`;
+
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = `<div class="empty-state"><p>Erreur lors du chargement des données. Réessayez dans quelques instants.</p></div>`;
+        }
+      }
+    }
+
+    function changePage(delta) {
+      const newPage = currentPage + delta;
+      if (newPage < 0) return;
+      loadInsiderTrades(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ============================================================
+    // 13F
+    // ============================================================
+    function quickSearch13F(symbol) {
+      document.getElementById('search13f').value = symbol;
+      search13F();
+    }
+
+    async function search13F() {
+      const symbol = document.getElementById('search13f').value.trim().toUpperCase();
+      if (!symbol) return;
+
+      const area = document.getElementById('thirteenFArea');
+      area.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche des positions institutionnelles...</div>';
+
+      try {
+        const data = await apiFetch('/api/13f-holders', { symbol });
+
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          area.innerHTML = `<div class="empty-state"><p>Aucune donnée 13F trouvée pour <strong>${symbol}</strong>. Essayez un autre ticker.</p>
+            <div class="chip-list">
+              <span class="chip" onclick="quickSearch13F('AAPL')">AAPL</span>
+              <span class="chip" onclick="quickSearch13F('MSFT')">MSFT</span>
+              <span class="chip" onclick="quickSearch13F('NVDA')">NVDA</span>
+            </div></div>`;
+          return;
+        }
+
+        const holders = Array.isArray(data) ? data : [];
+        let rows = '';
+        for (const h of holders) {
+          const changeClass = (h.change || 0) >= 0 ? 'green' : 'red';
+          const changePrefix = (h.change || 0) >= 0 ? '+' : '';
+          rows += `<tr>
+            <td style="font-weight:500">${h.holder || '—'}</td>
+            <td style="text-align:right">${fmtNum(h.shares)}</td>
+            <td style="text-align:right">${fmtCur(h.value)}</td>
+            <td>${fmtDate(h.dateReported)}</td>
+            <td style="text-align:right;color:var(--accent-${changeClass})">${changePrefix}${fmtNum(h.change)}</td>
+          </tr>`;
+        }
+
+        area.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fonds / Institution</th>
+                  <th style="text-align:right">Actions détenues</th>
+                  <th style="text-align:right">Valeur ($)</th>
+                  <th>Date de dépôt</th>
+                  <th style="text-align:right">Variation</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors de la recherche. Réessayez.</p></div>';
+        }
+      }
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    if (getKey()) {
+      document.getElementById('authOverlay').classList.add('hidden');
+      loadInsiderTrades(0);
+    }
+  </script>
+</body>
+</html>
