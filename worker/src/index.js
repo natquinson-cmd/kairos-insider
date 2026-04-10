@@ -101,7 +101,7 @@ async function handleInsiderTrades(url, env, origin) {
   const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30'), 1), 90);
   const startIdx = page * 40;
   const today = new Date().toISOString().split('T')[0];
-  const cacheKey = `insider-trades:${today}:d${days}:page:${page}`;
+  const cacheKey = `v3:insider-trades:${today}:d${days}:page:${page}`;
 
   // Vérifier le cache KV
   const cached = await env.CACHE.get(cacheKey, 'json');
@@ -112,32 +112,49 @@ async function handleInsiderTrades(url, env, origin) {
     const now = new Date();
     const endDate = now.toISOString().split('T')[0];
     const startDate = new Date(now - days * 86400000).toISOString().split('T')[0];
-    const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=%22&forms=4&dateRange=custom&startdt=${startDate}&enddt=${endDate}&from=${startIdx}&size=40&_sort=file_date&_order=desc`;
-    const edgarResp = await fetch(edgarUrl, {
-      headers: { 'User-Agent': SEC_USER_AGENT },
-    });
+    // Stratégie : chercher jour par jour en partant d'aujourd'hui
+    // pour garantir l'ordre chronologique décroissant
+    const skipCount = page * 10;
+    let allHits = [];
+    let total = 0;
+    let skipped = 0;
 
-    if (!edgarResp.ok) {
-      return jsonResponse({ error: 'SEC EDGAR error' }, 502, origin);
+    // Parcourir les jours du plus récent au plus ancien
+    for (let d = 0; d < days && allHits.length < 10; d++) {
+      const dayDate = new Date(now - d * 86400000).toISOString().split('T')[0];
+      const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${dayDate}&enddt=${dayDate}&from=0&size=100`;
+
+      const edgarResp = await fetch(edgarUrl, {
+        headers: { 'User-Agent': SEC_USER_AGENT },
+      });
+
+      if (!edgarResp.ok) continue;
+
+      const edgarData = await edgarResp.json();
+      const dayHits = edgarData.hits?.hits || [];
+      const dayTotal = edgarData.hits?.total?.value || 0;
+      total += dayTotal;
+
+      // Gérer la pagination : sauter les résultats des pages précédentes
+      for (const hit of dayHits) {
+        if (skipped < skipCount) {
+          skipped++;
+          continue;
+        }
+        allHits.push(hit);
+        if (allHits.length >= 10) break;
+      }
+
+      // Optimisation : si on a déjà assez de résultats, on arrête
+      if (allHits.length >= 10) break;
     }
 
-    const edgarData = await edgarResp.json();
-    const hits = edgarData.hits?.hits || [];
-    const total = edgarData.hits?.total?.value || 0;
-
-    // Pour chaque filing, récupérer le XML détaillé (en parallèle, max 10)
-    const filings = hits.slice(0, 10);
+    // Parser le XML de chaque filing (en parallèle)
     const trades = await Promise.all(
-      filings.map(hit => parseForm4Filing(hit))
+      allHits.map(hit => parseForm4Filing(hit))
     );
 
-    // Tri par date décroissante (les plus récents d'abord)
     const validTrades = trades.filter(t => t !== null);
-    validTrades.sort((a, b) => {
-      const dateA = a.fileDate || a.periodEnding || '';
-      const dateB = b.fileDate || b.periodEnding || '';
-      return dateB.localeCompare(dateA);
-    });
 
     const result = {
       total,
