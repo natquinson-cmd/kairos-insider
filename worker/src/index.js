@@ -48,6 +48,12 @@ export default {
       if (path === '/api/13f-search') {
         return handle13FSearch(url, env, origin);
       }
+      if (path === '/api/13f-fund') {
+        return handle13FFund(url, env, origin);
+      }
+      if (path === '/api/13f-funds') {
+        return handle13FFunds(env, origin);
+      }
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN);
@@ -382,6 +388,159 @@ async function handle13FSearch(url, env, origin) {
   } catch (err) {
     console.error('handle13FSearch error:', err);
     return jsonResponse({ error: 'Failed to search 13F filings' }, 500, origin);
+  }
+}
+
+// ============================================================
+// ROUTE: GET /api/13f-funds — liste pré-chargée de tous les fonds
+// ============================================================
+async function handle13FFunds(env, origin) {
+  const data = await env.CACHE.get('13f-all-funds', 'json');
+  if (!data) {
+    return jsonResponse({ error: 'Fund data not loaded yet' }, 503, origin);
+  }
+  return jsonResponse(data, 200, origin);
+}
+
+// ============================================================
+// ROUTE: GET /api/13f-fund — positions d'un fonds via son CIK
+// Params: ?cik=0001067983
+// ============================================================
+async function handle13FFund(url, env, origin) {
+  const cik = (url.searchParams.get('cik') || '').replace(/^0+/, '');
+  if (!cik) {
+    return jsonResponse({ error: 'Missing cik param' }, 400, origin);
+  }
+
+  const cikPadded = cik.padStart(10, '0');
+  const cacheKey = `v1:13f-fund:${cikPadded}`;
+  const cached = await env.CACHE.get(cacheKey, 'json');
+  if (cached) return jsonResponse(cached, 200, origin);
+
+  try {
+    // 1. Récupérer les submissions du fonds
+    const subResp = await fetch(`https://data.sec.gov/submissions/CIK${cikPadded}.json`, {
+      headers: { 'User-Agent': SEC_USER_AGENT },
+    });
+    if (!subResp.ok) return jsonResponse({ error: 'Fund not found' }, 404, origin);
+
+    const subData = await subResp.json();
+    const fundName = subData.name || 'Unknown';
+    const recent = subData.filings?.recent || {};
+    const forms = recent.form || [];
+
+    // 2. Trouver le dernier 13F-HR
+    let filingIdx = -1;
+    for (let i = 0; i < forms.length; i++) {
+      if (forms[i] === '13F-HR') { filingIdx = i; break; }
+    }
+
+    if (filingIdx === -1) {
+      return jsonResponse({ error: 'No 13F filing found', fundName }, 404, origin);
+    }
+
+    const accession = recent.accessionNumber[filingIdx];
+    const filingDate = recent.filingDate[filingIdx];
+    const reportDate = recent.reportDate[filingIdx];
+    const accessionClean = accession.replace(/-/g, '');
+
+    // 3. Lister les fichiers du filing pour trouver l'info table XML
+    const indexUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accessionClean}/`;
+    const indexResp = await fetch(indexUrl, {
+      headers: { 'User-Agent': SEC_USER_AGENT },
+    });
+
+    if (!indexResp.ok) {
+      return jsonResponse({ error: 'Filing index not accessible' }, 502, origin);
+    }
+
+    const indexHtml = await indexResp.text();
+    // Trouver tous les fichiers .xml sauf primary_doc.xml et xsl*
+    const xmlMatches = indexHtml.match(/href="([^"]*\.xml)"/gi) || [];
+    const xmlFiles = xmlMatches
+      .map(m => m.match(/href="([^"]*)"/i)?.[1])
+      .filter(f => f && !f.includes('primary_doc') && !f.includes('xsl'));
+
+    if (xmlFiles.length === 0) {
+      return jsonResponse({ error: 'Info table not found', fundName, filingDate, reportDate }, 404, origin);
+    }
+
+    // 4. Télécharger l'info table XML
+    const infoTableUrl = `${indexUrl}${xmlFiles[0]}`;
+    const xmlResp = await fetch(infoTableUrl, {
+      headers: { 'User-Agent': SEC_USER_AGENT },
+    });
+
+    if (!xmlResp.ok) {
+      return jsonResponse({ error: 'Info table not accessible' }, 502, origin);
+    }
+
+    const xmlText = await xmlResp.text();
+
+    // 5. Parser les positions
+    const holdings = [];
+    const entryRegex = /<infoTable>([\s\S]*?)<\/infoTable>/g;
+    let match;
+
+    while ((match = entryRegex.exec(xmlText)) !== null) {
+      const block = match[1];
+      const getTag = (tag) => {
+        const m = block.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+        return m ? m[1].trim() : '';
+      };
+
+      const name = getTag('nameOfIssuer');
+      const cusip = getTag('cusip');
+      const value = parseInt(getTag('value')) || 0; // en milliers de $
+      const shares = parseInt(getTag('sshPrnamt')) || 0;
+      const shareType = getTag('sshPrnamtType');
+      const putCall = getTag('putCall');
+
+      // Ignorer les entrées de type PUT/CALL ou non-SH
+      if (putCall || shareType !== 'SH') continue;
+
+      // Agréger si même CUSIP (certains fonds déclarent en plusieurs lignes)
+      const existing = holdings.find(h => h.cusip === cusip);
+      if (existing) {
+        existing.value += value;
+        existing.shares += shares;
+      } else {
+        holdings.push({ name, cusip, value, shares });
+      }
+    }
+
+    // 6. Trier par valeur décroissante
+    holdings.sort((a, b) => b.value - a.value);
+
+    // Valeur totale (en $, pas en milliers)
+    const totalValue = holdings.reduce((sum, h) => sum + h.value, 0) * 1000;
+
+    // Top 15 positions avec % du portefeuille
+    const topHoldings = holdings.slice(0, 15).map(h => ({
+      name: h.name,
+      cusip: h.cusip,
+      shares: h.shares,
+      value: h.value * 1000, // Convertir en $
+      pct: totalValue > 0 ? Math.round((h.value * 1000 / totalValue) * 1000) / 10 : 0,
+    }));
+
+    const result = {
+      fundName,
+      cik: cikPadded,
+      filingDate,
+      reportDate,
+      totalValue,
+      holdingsCount: holdings.length,
+      topHoldings,
+    };
+
+    // 7. Cache 7 jours (les 13F ne changent que trimestriellement)
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 604800 });
+
+    return jsonResponse(result, 200, origin);
+  } catch (err) {
+    console.error('handle13FFund error:', err);
+    return jsonResponse({ error: 'Failed to fetch fund data' }, 500, origin);
   }
 }
 

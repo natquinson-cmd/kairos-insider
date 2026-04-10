@@ -237,6 +237,51 @@
       box-shadow: 0 0 12px rgba(59,130,246,0.3);
     }
 
+    /* ===== FUND EXPANDABLE ROWS ===== */
+    .fund-row { cursor: pointer; transition: background 0.2s; }
+    .fund-row:hover { background: rgba(59,130,246,0.06) !important; }
+    .fund-row.expanded { background: rgba(59,130,246,0.04) !important; border-left: 3px solid var(--accent-blue); }
+    .fund-row td:first-child { font-weight: 700; color: var(--accent-blue); }
+    .fund-row .chevron { display: inline-block; transition: transform 0.3s; font-size: 12px; color: var(--text-muted); margin-left: 6px; }
+    .fund-row.expanded .chevron { transform: rotate(90deg); }
+    .fund-detail-row { display: none; }
+    .fund-detail-row.open { display: table-row; }
+    .fund-detail-cell {
+      padding: 0 !important;
+      background: rgba(10,15,30,0.5);
+    }
+    .fund-detail-inner {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease, padding 0.3s ease;
+      padding: 0 20px;
+    }
+    .fund-detail-row.open .fund-detail-inner {
+      max-height: 700px;
+      padding: 20px;
+    }
+    .fund-detail-inner .sub-header {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .fund-detail-inner table { font-size: 12px; margin-bottom: 0; }
+    .fund-detail-inner table th { font-size: 11px; padding: 8px 12px; }
+    .fund-detail-inner table td { padding: 6px 12px; font-size: 12px; }
+    .pct-bar {
+      display: inline-block;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--accent-blue);
+      min-width: 2px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .last-update { font-size: 11px; color: var(--text-muted); font-style: italic; }
+
     /* ===== LOADING & EMPTY ===== */
     .loading { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .spinner {
@@ -347,24 +392,11 @@
 
       <!-- ===== TAB: 13F ===== -->
       <div class="tab-content" id="tab-13f">
-        <div class="search-bar">
-          <input type="text" id="search13f" placeholder="Rechercher un ticker (ex: AAPL, MSFT, NVDA)..." onkeydown="if(event.key==='Enter') search13F()" />
-          <button class="btn-search" onclick="search13F()">Rechercher</button>
-        </div>
-
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
+          Classement des plus grands fonds d'investissement par taille de portefeuille (AUM). Cliquez sur une ligne pour voir les principales positions.
+        </p>
         <div id="thirteenFArea">
-          <div class="empty-state">
-            <p>Entrez un ticker pour voir les positions institutionnelles (hedge funds, fonds de pension, etc.)</p>
-            <div class="chip-list">
-              <span class="chip" onclick="quickSearch13F('AAPL')">AAPL</span>
-              <span class="chip" onclick="quickSearch13F('MSFT')">MSFT</span>
-              <span class="chip" onclick="quickSearch13F('NVDA')">NVDA</span>
-              <span class="chip" onclick="quickSearch13F('TSLA')">TSLA</span>
-              <span class="chip" onclick="quickSearch13F('AMZN')">AMZN</span>
-              <span class="chip" onclick="quickSearch13F('META')">META</span>
-              <span class="chip" onclick="quickSearch13F('GOOGL')">GOOGL</span>
-            </div>
-          </div>
+          <div class="loading"><div class="spinner"></div>Chargement des portefeuilles...</div>
         </div>
       </div>
 
@@ -489,9 +521,14 @@
     // ============================================================
     // TABS
     // ============================================================
+    let fundsLoaded = false;
     function switchTab(tab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${tab}`));
+      if (tab === '13f' && !fundsLoaded) {
+        fundsLoaded = true;
+        load13FFunds();
+      }
     }
 
     // ============================================================
@@ -598,6 +635,122 @@
     }
 
     // ============================================================
+    // 13F — FONDS CELEBRES AVEC LIGNES DEPLIABLES
+    // ============================================================
+    async function load13FFunds() {
+      const area = document.getElementById('thirteenFArea');
+      try {
+        const funds = await apiFetch('/api/13f-funds');
+        if (!funds || funds.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucune donnee de fonds disponible.</p></div>';
+          return;
+        }
+
+        let rows = '';
+        for (let i = 0; i < funds.length; i++) {
+          const f = funds[i];
+          const aum = f.totalValue > 0 ? fmtCurShort(f.totalValue) : 'N/A';
+          const holdings = f.holdingsCount || 0;
+
+          rows += `<tr class="fund-row" onclick="toggleFund(${i})">
+            <td>${i + 1}</td>
+            <td style="font-weight:600;color:var(--text-primary)">${f.label || f.fundName} <span class="chevron">&#9654;</span></td>
+            <td>${f.fundName || '—'}</td>
+            <td>${f.category || '—'}</td>
+            <td style="text-align:right;font-weight:600">${aum}</td>
+            <td style="text-align:right">${holdings > 0 ? fmtNum(holdings) : '—'}</td>
+            <td class="last-update">${fmtDate(f.filingDate)}</td>
+          </tr>`;
+
+          // Ligne dépliable avec les top holdings
+          let detailContent = '';
+          if (f.topHoldings && f.topHoldings.length > 0) {
+            let holdingRows = '';
+            for (const h of f.topHoldings) {
+              const barWidth = Math.min(Math.max(h.pct * 2, 2), 100);
+              holdingRows += `<tr>
+                <td style="color:var(--text-primary)">${h.name}</td>
+                <td style="text-align:right">${fmtNum(h.shares)}</td>
+                <td style="text-align:right">${fmtCurShort(h.value)}</td>
+                <td style="text-align:right"><span class="pct-bar" style="width:${barWidth}px"></span>${h.pct}%</td>
+              </tr>`;
+            }
+            detailContent = `
+              <div class="sub-header">
+                <span>Top ${f.topHoldings.length} positions</span>
+                <span class="last-update">Positions au ${fmtDate(f.reportDate)}</span>
+              </div>
+              <div class="table-wrap" style="border:none">
+                <table>
+                  <thead><tr>
+                    <th>Action</th>
+                    <th style="text-align:right">Nb d'actions</th>
+                    <th style="text-align:right">Valeur</th>
+                    <th style="text-align:right">% du portefeuille</th>
+                  </tr></thead>
+                  <tbody>${holdingRows}</tbody>
+                </table>
+              </div>`;
+          } else {
+            detailContent = '<p style="color:var(--text-muted);padding:8px 0;">Donnees de positions indisponibles pour ce fonds (format XML non standard).</p>';
+          }
+
+          rows += `<tr class="fund-detail-row" id="fund-detail-${i}">
+            <td colspan="7" class="fund-detail-cell">
+              <div class="fund-detail-inner">${detailContent}</div>
+            </td>
+          </tr>`;
+        }
+
+        area.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>#</th>
+                <th>Investisseur</th>
+                <th>Fonds</th>
+                <th>Categorie</th>
+                <th style="text-align:right">AUM estime</th>
+                <th style="text-align:right">Positions</th>
+                <th>Derniere MaJ</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
+        }
+      }
+    }
+
+    function toggleFund(idx) {
+      const detailRow = document.getElementById(`fund-detail-${idx}`);
+      const fundRow = detailRow.previousElementSibling;
+      const isOpen = detailRow.classList.contains('open');
+
+      // Fermer tous les autres
+      document.querySelectorAll('.fund-detail-row.open').forEach(r => {
+        r.classList.remove('open');
+        r.previousElementSibling.classList.remove('expanded');
+      });
+
+      if (!isOpen) {
+        detailRow.classList.add('open');
+        fundRow.classList.add('expanded');
+      }
+    }
+
+    // Format AUM en notation courte (ex: $274 Md)
+    function fmtCurShort(n) {
+      if (n >= 1e12) return `$${(n / 1e12).toFixed(1)} T`;
+      if (n >= 1e9) return `$${(n / 1e9).toFixed(1)} Md`;
+      if (n >= 1e6) return `$${(n / 1e6).toFixed(0)} M`;
+      if (n >= 1e3) return `$${(n / 1e3).toFixed(0)} k`;
+      return `$${n}`;
+    }
+
+    // ============================================================
     // INSIDER SEARCH
     // ============================================================
     let insiderSearchQuery = '';
@@ -618,65 +771,7 @@
       loadInsiderTrades(0);
     }
 
-    // ============================================================
-    // 13F — recherche par ticker via SEC EDGAR (Form 13F-HR)
-    // ============================================================
-    function quickSearch13F(symbol) {
-      document.getElementById('search13f').value = symbol;
-      search13F();
-    }
-
-    async function search13F() {
-      const symbol = document.getElementById('search13f').value.trim().toUpperCase();
-      if (!symbol) return;
-
-      const area = document.getElementById('thirteenFArea');
-      area.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche des positions institutionnelles...</div>';
-
-      try {
-        const data = await apiFetch('/api/13f-search', { symbol });
-
-        if (!data || !data.filings || data.filings.length === 0) {
-          area.innerHTML = `<div class="empty-state"><p>Aucune donnée 13F trouvée pour <strong>${symbol}</strong>. Essayez un autre ticker.</p>
-            <div class="chip-list">
-              <span class="chip" onclick="quickSearch13F('AAPL')">AAPL</span>
-              <span class="chip" onclick="quickSearch13F('MSFT')">MSFT</span>
-              <span class="chip" onclick="quickSearch13F('NVDA')">NVDA</span>
-            </div></div>`;
-          return;
-        }
-
-        let rows = '';
-        for (const f of data.filings) {
-          rows += `<tr>
-            <td style="font-weight:500">${f.filerName || '—'}</td>
-            <td>${fmtDate(f.fileDate)}</td>
-            <td>${fmtDate(f.periodEnding)}</td>
-            <td><a href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${f.filerCik}&type=13F&dateb=&owner=include&count=10" target="_blank" rel="noopener" style="color:var(--accent-blue)">Voir sur SEC →</a></td>
-          </tr>`;
-        }
-
-        area.innerHTML = `
-          <p style="color:var(--text-muted);margin-bottom:16px;font-size:13px">${data.total} dépôts 13F-HR trouvés mentionnant "${symbol}" (30 derniers jours)</p>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Fonds / Institution</th>
-                  <th>Date de dépôt</th>
-                  <th>Période couverte</th>
-                  <th>Détails</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>`;
-      } catch (err) {
-        if (err.message !== 'Unauthorized') {
-          area.innerHTML = '<div class="empty-state"><p>Erreur lors de la recherche. Réessayez.</p></div>';
-        }
-      }
-    }
+    // (ancien code 13F search supprimé — remplacé par load13FFunds)
 
     // ============================================================
     // INIT
