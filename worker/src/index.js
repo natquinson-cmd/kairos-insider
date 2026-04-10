@@ -98,19 +98,20 @@ async function handleSendWelcome(request, env, origin) {
 // ============================================================
 async function handleInsiderTrades(url, env, origin) {
   const page = parseInt(url.searchParams.get('page') || '0');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30'), 1), 90);
   const startIdx = page * 40;
   const today = new Date().toISOString().split('T')[0];
-  const cacheKey = `insider-trades:${today}:page:${page}`;
+  const cacheKey = `insider-trades:${today}:d${days}:page:${page}`;
 
   // Vérifier le cache KV
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached) return jsonResponse(cached, 200, origin);
 
   try {
-    // Recherche des Form 4 récents sur SEC EDGAR (7 derniers jours)
+    // Recherche des Form 4 récents sur SEC EDGAR
     const now = new Date();
     const endDate = now.toISOString().split('T')[0];
-    const startDate = new Date(now - 7 * 86400000).toISOString().split('T')[0];
+    const startDate = new Date(now - days * 86400000).toISOString().split('T')[0];
     const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=%22&forms=4&dateRange=custom&startdt=${startDate}&enddt=${endDate}&from=${startIdx}&size=40&_sort=file_date&_order=desc`;
     const edgarResp = await fetch(edgarUrl, {
       headers: { 'User-Agent': SEC_USER_AGENT },
