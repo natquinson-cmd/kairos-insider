@@ -1,13 +1,15 @@
 """
-Pré-charge les positions 13F des fonds célèbres.
-Résultat : un fichier funds_data.json à uploader dans Cloudflare KV.
+Pre-charge les positions 13F des fonds celebres.
+Compare le trimestre actuel vs le precedent pour calculer :
+  - Performance globale du portefeuille (variation AUM)
+  - Variation de chaque position (en % de shares)
+Resultat : un fichier funds_data.json a uploader dans Cloudflare KV.
 """
 import json, re, time, urllib.request
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 
 FUNDS = [
-    # CIK vérifié → Nom SEC réel
     ('0001067983', 'Berkshire Hathaway', 'Warren Buffett', 'Value investing'),
     ('0001649339', 'Scion Asset Management', 'Michael Burry', 'Contrarian'),
     ('0001336528', 'Pershing Square Capital', 'Bill Ackman', 'Activist'),
@@ -37,12 +39,11 @@ def fetch(url):
         return None
 
 def parse_holdings(xml):
+    """Parse les positions d'un fichier XML 13F (supporte les namespaces)."""
     holdings = []
-    # Support des namespaces: ns1:infoTable, n1:infoTable, ou infoTable sans prefixe
     for match in re.finditer(r'<(?:\w+:)?infoTable>(.*?)</(?:\w+:)?infoTable>', xml, re.DOTALL):
         block = match.group(1)
         def get(tag):
-            # Chercher avec ou sans namespace prefix
             m = re.search(rf'<(?:\w+:)?{tag}>([^<]*)</(?:\w+:)?{tag}>', block)
             return m.group(1).strip() if m else ''
 
@@ -66,12 +67,44 @@ def parse_holdings(xml):
     holdings.sort(key=lambda h: h['value'], reverse=True)
     return holdings
 
+def fetch_filing_holdings(cik, accession, cik_clean):
+    """Telecharge et parse les positions d'un filing 13F."""
+    acc_clean = accession.replace('-', '')
+    index_html = fetch(f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/')
+    if not index_html:
+        return None
+
+    xml_files = re.findall(r'href="([^"]*\.xml)"', index_html, re.IGNORECASE)
+    xml_files = [f for f in xml_files if 'primary_doc' not in f.lower() and 'xsl' not in f.lower()]
+
+    if not xml_files:
+        return None
+
+    xml_filename = xml_files[0].split('/')[-1]
+    xml_url = f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/{xml_filename}'
+    xml_data = fetch(xml_url)
+    if not xml_data:
+        return None
+
+    return parse_holdings(xml_data)
+
+def compute_total_value(holdings):
+    """Calcule la valeur totale en $ (gestion des unites variables)."""
+    raw_sum = sum(h['value'] for h in holdings)
+    return raw_sum if raw_sum > 1_000_000_000 else raw_sum * 1000
+
+def holding_value(h, raw_sum):
+    """Valeur d'une position en $ (ajuste selon le format du filer)."""
+    return h['value'] if raw_sum > 1_000_000_000 else h['value'] * 1000
+
+# ============================================================
+# MAIN
+# ============================================================
 all_funds = []
 
 for cik, name, label, category in FUNDS:
     print(f'\n=== {name} ({label}) ===')
 
-    # 1. Get submissions
     subs_json = fetch(f'https://data.sec.gov/submissions/CIK{cik}.json')
     if not subs_json:
         continue
@@ -81,67 +114,103 @@ for cik, name, label, category in FUNDS:
     recent = subs.get('filings', {}).get('recent', {})
     forms = recent.get('form', [])
 
-    # Find latest 13F-HR
-    idx = -1
+    # Trouver les 2 derniers 13F-HR (actuel + precedent)
+    filing_indices = []
     for i, f in enumerate(forms):
         if f == '13F-HR':
-            idx = i
-            break
+            filing_indices.append(i)
+            if len(filing_indices) == 2:
+                break
 
-    if idx == -1:
+    if not filing_indices:
         print('  No 13F-HR found, skipping.')
         continue
 
-    accession = recent['accessionNumber'][idx]
-    filing_date = recent['filingDate'][idx]
-    report_date = recent['reportDate'][idx]
-    acc_clean = accession.replace('-', '')
+    # === TRIMESTRE ACTUEL ===
+    idx_current = filing_indices[0]
+    accession_current = recent['accessionNumber'][idx_current]
+    filing_date = recent['filingDate'][idx_current]
+    report_date = recent['reportDate'][idx_current]
     cik_clean = cik.lstrip('0')
 
-    print(f'  Filing: {filing_date} | Report: {report_date}')
+    print(f'  Current: {filing_date} (report {report_date})')
     time.sleep(0.5)
 
-    # 2. Find info table XML
-    index_html = fetch(f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/')
-    if not index_html:
+    holdings_current = fetch_filing_holdings(cik, accession_current, cik_clean)
+    if not holdings_current:
+        print('  Failed to fetch current holdings.')
         continue
+    time.sleep(1)
 
-    # Extract XML filenames from href attributes
-    xml_files = re.findall(r'href="([^"]*\.xml)"', index_html, re.IGNORECASE)
-    xml_files = [f for f in xml_files if 'primary_doc' not in f.lower() and 'xsl' not in f.lower()]
+    # === TRIMESTRE PRECEDENT (si disponible) ===
+    holdings_prev = None
+    prev_report_date = None
+    prev_total_value = 0
 
-    if not xml_files:
-        print('  No info table XML found, skipping.')
-        continue
+    if len(filing_indices) >= 2:
+        idx_prev = filing_indices[1]
+        accession_prev = recent['accessionNumber'][idx_prev]
+        prev_report_date = recent['reportDate'][idx_prev]
+        print(f'  Previous: {recent["filingDate"][idx_prev]} (report {prev_report_date})')
+        time.sleep(0.5)
 
-    # Clean the filename (remove any leading path)
-    xml_filename = xml_files[0].split('/')[-1]
-    print(f'  Info table: {xml_filename}')
-    time.sleep(0.5)
+        holdings_prev = fetch_filing_holdings(cik, accession_prev, cik_clean)
+        if holdings_prev:
+            prev_total_value = compute_total_value(holdings_prev)
+        time.sleep(1)
 
-    # 3. Download and parse
-    xml_url = f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/{xml_filename}'
-    xml_data = fetch(xml_url)
-    if not xml_data:
-        continue
+    # === CALCULS ===
+    total_value = compute_total_value(holdings_current)
+    raw_sum = sum(h['value'] for h in holdings_current)
 
-    holdings = parse_holdings(xml_data)
-    # Les valeurs dans le XML 13F sont en milliers de $ selon la SEC
-    # Mais certains filers déclarent en dollars → on utilise la valeur brute × 1000
-    raw_sum = sum(h['value'] for h in holdings)
-    # Si le total > 1 trillion, c'est probablement déjà en dollars (pas en milliers)
-    total_value = raw_sum if raw_sum > 1_000_000_000 else raw_sum * 1000
+    # Performance globale (variation AUM entre les 2 trimestres)
+    performance = None
+    if prev_total_value > 0 and total_value > 0:
+        performance = round(((total_value - prev_total_value) / prev_total_value) * 1000) / 10
 
+    # Map des positions du trimestre precedent par CUSIP pour comparaison
+    prev_map = {}
+    if holdings_prev:
+        prev_raw_sum = sum(h['value'] for h in holdings_prev)
+        for h in holdings_prev:
+            prev_map[h['cusip']] = {
+                'shares': h['shares'],
+                'value': holding_value(h, prev_raw_sum),
+            }
+
+    # Top 15 positions avec variation
     top_holdings = []
-    for h in holdings[:15]:
-        h_val = h['value'] if raw_sum > 1_000_000_000 else h['value'] * 1000
+    for h in holdings_current[:15]:
+        h_val = holding_value(h, raw_sum)
         pct = round((h_val / total_value) * 1000) / 10 if total_value > 0 else 0
+
+        # Variation des actions vs trimestre precedent
+        shares_change = None
+        status = 'unchanged'  # new, increased, decreased, unchanged, exited
+        prev = prev_map.get(h['cusip'])
+        if prev:
+            prev_shares = prev['shares']
+            if prev_shares > 0:
+                shares_change = round(((h['shares'] - prev_shares) / prev_shares) * 1000) / 10
+                if shares_change > 1:
+                    status = 'increased'
+                elif shares_change < -1:
+                    status = 'decreased'
+                else:
+                    status = 'unchanged'
+            else:
+                status = 'new'
+        else:
+            status = 'new'
+
         top_holdings.append({
             'name': h['name'],
             'cusip': h['cusip'],
             'shares': h['shares'],
             'value': h_val,
             'pct': pct,
+            'sharesChange': shares_change,
+            'status': status,
         })
 
     fund_data = {
@@ -151,20 +220,22 @@ for cik, name, label, category in FUNDS:
         'category': category,
         'filingDate': filing_date,
         'reportDate': report_date,
+        'prevReportDate': prev_report_date,
         'totalValue': total_value,
-        'holdingsCount': len(holdings),
+        'prevTotalValue': prev_total_value,
+        'performance': performance,
+        'holdingsCount': len(holdings_current),
         'topHoldings': top_holdings,
     }
 
     all_funds.append(fund_data)
-    print(f'  OK AUM: ${total_value:,.0f} | {len(holdings)} positions | Top: {top_holdings[0]["name"] if top_holdings else "N/A"}')
+    perf_str = f'{performance:+.1f}%' if performance is not None else 'N/A'
+    print(f'  OK AUM: ${total_value:,.0f} | Perf: {perf_str} | {len(holdings_current)} pos | Top: {top_holdings[0]["name"] if top_holdings else "N/A"}')
 
     time.sleep(1)
 
-# Sort by AUM descending
 all_funds.sort(key=lambda f: f['totalValue'], reverse=True)
 
-# Save to file
 output_file = 'funds_data.json'
 with open(output_file, 'w') as f:
     json.dump(all_funds, f)
@@ -173,4 +244,5 @@ print(f'\n=== DONE ===')
 print(f'Saved {len(all_funds)} funds to {output_file}')
 print(f'Top 5 by AUM:')
 for i, fund in enumerate(all_funds[:5]):
-    print(f'  {i+1}. {fund["label"]:25s} ${fund["totalValue"]:>15,.0f}  ({fund["holdingsCount"]} positions)')
+    perf = f'{fund["performance"]:+.1f}%' if fund['performance'] is not None else 'N/A'
+    print(f'  {i+1}. {fund["label"]:25s} ${fund["totalValue"]:>15,.0f}  Perf: {perf}  ({fund["holdingsCount"]} pos)')
