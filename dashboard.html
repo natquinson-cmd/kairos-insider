@@ -657,6 +657,11 @@
             ? `<span style="color:var(--accent-${perf >= 0 ? 'green' : 'red'});font-weight:700">${perf >= 0 ? '+' : ''}${perf}%</span>`
             : '—';
 
+          const perfY = f.perfAnnual;
+          const perfYStr = perfY !== null && perfY !== undefined
+            ? `<span style="color:var(--accent-${perfY >= 0 ? 'green' : 'red'});font-weight:700">${perfY >= 0 ? '+' : ''}${perfY}%</span>`
+            : '—';
+
           rows += `<tr class="fund-row" onclick="toggleFund(${i})">
             <td>${i + 1}</td>
             <td style="font-weight:600;color:var(--text-primary)">${f.label || f.fundName} <span class="chevron">&#9654;</span></td>
@@ -664,6 +669,7 @@
             <td>${f.category || '—'}</td>
             <td style="text-align:right;font-weight:600">${aum}</td>
             <td style="text-align:right">${perfStr}</td>
+            <td style="text-align:right">${perfYStr}</td>
             <td style="text-align:right">${holdings > 0 ? fmtNum(holdings) : '—'}</td>
             <td class="last-update">${fmtDate(f.filingDate)}</td>
           </tr>`;
@@ -719,7 +725,7 @@
           }
 
           rows += `<tr class="fund-detail-row" id="fund-detail-${i}">
-            <td colspan="8" class="fund-detail-cell">
+            <td colspan="9" class="fund-detail-cell">
               <div class="fund-detail-inner">${detailContent}</div>
             </td>
           </tr>`;
@@ -735,6 +741,7 @@
                 <th>Categorie</th>
                 <th style="text-align:right">AUM estime</th>
                 <th style="text-align:right">Perf. trim.</th>
+                <th style="text-align:right">Perf. annuelle</th>
                 <th style="text-align:right">Positions</th>
                 <th>Derniere MaJ</th>
               </tr></thead>

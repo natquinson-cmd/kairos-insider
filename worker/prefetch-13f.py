@@ -114,12 +114,12 @@ for cik, name, label, category in FUNDS:
     recent = subs.get('filings', {}).get('recent', {})
     forms = recent.get('form', [])
 
-    # Trouver les 2 derniers 13F-HR (actuel + precedent)
+    # Trouver les 13F-HR : actuel + precedent + ~1 an (4-5 trimestres)
     filing_indices = []
     for i, f in enumerate(forms):
         if f == '13F-HR':
             filing_indices.append(i)
-            if len(filing_indices) == 2:
+            if len(filing_indices) >= 6:  # max 6 pour couvrir ~1.5 an
                 break
 
     if not filing_indices:
@@ -142,7 +142,7 @@ for cik, name, label, category in FUNDS:
         continue
     time.sleep(1)
 
-    # === TRIMESTRE PRECEDENT (si disponible) ===
+    # === TRIMESTRE PRECEDENT (Q-1) ===
     holdings_prev = None
     prev_report_date = None
     prev_total_value = 0
@@ -151,7 +151,7 @@ for cik, name, label, category in FUNDS:
         idx_prev = filing_indices[1]
         accession_prev = recent['accessionNumber'][idx_prev]
         prev_report_date = recent['reportDate'][idx_prev]
-        print(f'  Previous: {recent["filingDate"][idx_prev]} (report {prev_report_date})')
+        print(f'  Q-1: {recent["filingDate"][idx_prev]} (report {prev_report_date})')
         time.sleep(0.5)
 
         holdings_prev = fetch_filing_holdings(cik, accession_prev, cik_clean)
@@ -159,14 +159,48 @@ for cik, name, label, category in FUNDS:
             prev_total_value = compute_total_value(holdings_prev)
         time.sleep(1)
 
+    # === IL Y A 1 AN (Q-4 ou Q-5) ===
+    year_ago_total_value = 0
+    year_ago_report_date = None
+
+    if len(filing_indices) >= 4:
+        # Chercher le filing dont le report_date est ~1 an avant le report_date actuel
+        from datetime import datetime
+        try:
+            current_rd = datetime.strptime(report_date, '%Y-%m-%d')
+            best_idx = None
+            best_diff = 999
+            for fi in filing_indices[2:]:
+                rd = recent['reportDate'][fi]
+                rd_dt = datetime.strptime(rd, '%Y-%m-%d')
+                diff_days = abs((current_rd - rd_dt).days - 365)
+                if diff_days < best_diff:
+                    best_diff = diff_days
+                    best_idx = fi
+            if best_idx is not None and best_diff < 120:
+                year_ago_report_date = recent['reportDate'][best_idx]
+                print(f'  Y-1: {recent["filingDate"][best_idx]} (report {year_ago_report_date})')
+                time.sleep(0.5)
+                holdings_ya = fetch_filing_holdings(cik, recent['accessionNumber'][best_idx], cik_clean)
+                if holdings_ya:
+                    year_ago_total_value = compute_total_value(holdings_ya)
+                time.sleep(1)
+        except Exception as e:
+            print(f'  Year-ago lookup failed: {e}')
+
     # === CALCULS ===
     total_value = compute_total_value(holdings_current)
     raw_sum = sum(h['value'] for h in holdings_current)
 
-    # Performance globale (variation AUM entre les 2 trimestres)
+    # Performance trimestrielle (Q/Q)
     performance = None
     if prev_total_value > 0 and total_value > 0:
         performance = round(((total_value - prev_total_value) / prev_total_value) * 1000) / 10
+
+    # Performance annuelle (Y/Y)
+    perf_annual = None
+    if year_ago_total_value > 0 and total_value > 0:
+        perf_annual = round(((total_value - year_ago_total_value) / year_ago_total_value) * 1000) / 10
 
     # Map des positions du trimestre precedent par CUSIP pour comparaison
     prev_map = {}
@@ -221,15 +255,20 @@ for cik, name, label, category in FUNDS:
         'filingDate': filing_date,
         'reportDate': report_date,
         'prevReportDate': prev_report_date,
+        'yearAgoReportDate': year_ago_report_date,
         'totalValue': total_value,
         'prevTotalValue': prev_total_value,
+        'yearAgoTotalValue': year_ago_total_value,
         'performance': performance,
+        'perfAnnual': perf_annual,
         'holdingsCount': len(holdings_current),
         'topHoldings': top_holdings,
     }
 
     all_funds.append(fund_data)
     perf_str = f'{performance:+.1f}%' if performance is not None else 'N/A'
+    perf_y_str = f'{perf_annual:+.1f}%' if perf_annual is not None else 'N/A'
+    print(f'  Perf annuelle: {perf_y_str}')
     print(f'  OK AUM: ${total_value:,.0f} | Perf: {perf_str} | {len(holdings_current)} pos | Top: {top_holdings[0]["name"] if top_holdings else "N/A"}')
 
     time.sleep(1)
