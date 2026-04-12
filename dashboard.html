@@ -1336,8 +1336,8 @@
 
           // Ligne depliable : detail des insiders avec dates et valeurs
           const allDetails = c.insiderDetails || c.insiders?.map(n => ({ name: n, dates: [], value: 0 })) || [];
-          // Filtrer les insiders sans données utiles (pas de poste, pas d'actions, pas de valeur)
-          const details = allDetails.filter(d => d.title || (d.shares && d.shares > 0) || (d.value && d.value > 0) || d.txType);
+          // Filtrer : garder seulement les insiders avec au moins un poste OU des actions OU une valeur
+          const details = allDetails.filter(d => d.title || (d.shares && d.shares > 0) || (d.value && d.value > 0));
           let detailRows = '';
           for (const d of details) {
             const dates = (d.dates || []).map(dt => fmtDate(dt)).join(', ');
