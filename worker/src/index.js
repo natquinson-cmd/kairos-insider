@@ -51,6 +51,11 @@ export default {
       if (path === '/api/13f-fund') {
         return handle13FFund(url, env, origin);
       }
+      if (path === '/api/all-transactions') {
+        const data = await env.CACHE.get('insider-transactions', 'json');
+        if (!data) return jsonResponse({ error: 'Transactions not loaded' }, 503, origin);
+        return jsonResponse(data, 200, origin);
+      }
       if (path === '/api/clusters') {
         const data = await env.CACHE.get('insider-clusters', 'json');
         if (!data) return jsonResponse({ error: 'Clusters not loaded' }, 503, origin);

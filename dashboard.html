@@ -853,7 +853,7 @@
       document.querySelectorAll('.period-btn').forEach(b =>
         b.classList.toggle('active', parseInt(b.dataset.days) === days)
       );
-      loadInsiderTrades(0);
+      renderInsiderPage();
     }
 
     // ============================================================
@@ -882,106 +882,123 @@
     }
 
     // ============================================================
-    // INSIDER TRADES
+    // INSIDER TRADES — données pré-calculées depuis KV
     // ============================================================
-    async function loadInsiderTrades(page) {
-      currentPage = page;
+    let allInsiderTx = [];
+    const INSIDER_PAGE_SIZE = 25;
+
+    async function loadInsiderTrades() {
+      currentPage = 0;
       const area = document.getElementById('insiderTableArea');
-      area.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>';
+      area.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des transactions insiders...</div>';
 
       try {
-        const data = await apiFetch('/api/insider-trades', { page, days: currentDays });
-        totalTrades = data.total || 0;
+        const data = await apiFetch('/api/all-transactions');
 
         // Overlay auth success
         document.getElementById('authOverlay').classList.add('hidden');
 
-        // Filtrage par recherche (côté client)
-        if (insiderSearchQuery) {
-          data.trades = data.trades.filter(t =>
-            (t.ticker || '').toUpperCase().includes(insiderSearchQuery) ||
-            (t.companyName || '').toUpperCase().includes(insiderSearchQuery) ||
-            (t.insiderName || '').toUpperCase().includes(insiderSearchQuery)
-          );
-        }
-
-        // Table
-        if (data.trades.length === 0) {
-          area.innerHTML = '<div class="empty-state"><p>Aucune transaction trouvée pour cette période.</p></div>';
-          return;
-        }
-
-        let rows = '';
-        for (const trade of data.trades) {
-          if (trade.transactions && trade.transactions.length > 0) {
-            for (const tx of trade.transactions) {
-              const { label, cls } = getTxLabel(tx.code, tx.acquiredDisposed);
-              rows += `<tr>
-                <td>${fmtDate(tx.date || trade.fileDate)}</td>
-                <td class="ticker">${trade.ticker || '—'}</td>
-                <td style="color:var(--text-primary)">${trade.companyName || '—'}</td>
-                <td>${trade.insiderName || '—'}</td>
-                <td>${translatePosition(trade.ownerTitle)}</td>
-                <td><span class="pill ${cls}">${label}</span></td>
-                <td style="text-align:right">${fmtNum(tx.shares)}</td>
-                <td style="text-align:right">${tx.price > 0 ? fmtCur(tx.price) : '—'}</td>
-                <td style="text-align:right;font-weight:600">${tx.value > 0 ? fmtCur(tx.value) : '—'}</td>
-              </tr>`;
-            }
-          } else {
-            rows += `<tr>
-              <td>${fmtDate(trade.fileDate)}</td>
-              <td class="ticker">${trade.ticker || '—'}</td>
-              <td style="color:var(--text-primary)">${trade.companyName || '—'}</td>
-              <td>${trade.insiderName || '—'}</td>
-              <td>${translatePosition(trade.ownerTitle)}</td>
-              <td><span class="pill other">Déclaration</span></td>
-              <td style="text-align:right">—</td>
-              <td style="text-align:right">—</td>
-              <td style="text-align:right">—</td>
-            </tr>`;
-          }
-        }
-
-        area.innerHTML = `
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Ticker</th>
-                  <th>Entreprise</th>
-                  <th>Déclarant</th>
-                  <th>Poste</th>
-                  <th>Type</th>
-                  <th style="text-align:right">Actions</th>
-                  <th style="text-align:right">Prix</th>
-                  <th style="text-align:right">Valeur totale</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>`;
-
-        // Pagination
-        const pag = document.getElementById('insiderPagination');
-        pag.style.display = 'flex';
-        document.getElementById('prevBtn').disabled = currentPage === 0;
-        document.getElementById('nextBtn').disabled = data.trades.length < 10;
-        document.getElementById('pageInfo').textContent = `Page ${currentPage + 1}`;
-
+        allInsiderTx = data.transactions || [];
+        totalTrades = allInsiderTx.length;
+        renderInsiderPage();
       } catch (err) {
         if (err.message !== 'Unauthorized') {
-          area.innerHTML = `<div class="empty-state"><p>Erreur lors du chargement des données. Réessayez dans quelques instants.</p></div>`;
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
         }
       }
     }
 
+    function getFilteredInsiderTx() {
+      let txs = allInsiderTx;
+
+      // Filtre recherche
+      if (insiderSearchQuery) {
+        txs = txs.filter(t =>
+          (t.ticker || '').toUpperCase().includes(insiderSearchQuery) ||
+          (t.company || '').toUpperCase().includes(insiderSearchQuery) ||
+          (t.insider || '').toUpperCase().includes(insiderSearchQuery)
+        );
+      }
+
+      // Filtre période
+      if (currentDays < 30) {
+        const cutoff = new Date(Date.now() - currentDays * 86400000).toISOString().split('T')[0];
+        txs = txs.filter(t => (t.date || t.fileDate) >= cutoff);
+      }
+
+      return txs;
+    }
+
+    function renderInsiderPage() {
+      const area = document.getElementById('insiderTableArea');
+      const filtered = getFilteredInsiderTx();
+      const start = currentPage * INSIDER_PAGE_SIZE;
+      const pageTx = filtered.slice(start, start + INSIDER_PAGE_SIZE);
+      const totalPages = Math.ceil(filtered.length / INSIDER_PAGE_SIZE);
+
+      if (filtered.length === 0) {
+        area.innerHTML = '<div class="empty-state"><p>Aucune transaction trouvee pour ces criteres.</p></div>';
+        document.getElementById('insiderPagination').style.display = 'none';
+        return;
+      }
+
+      let rows = '';
+      for (const t of pageTx) {
+        const typeLabel = t.type === 'buy' ? '<span class="pill buy">ACHAT</span>'
+          : t.type === 'sell' ? '<span class="pill sell">VENTE</span>'
+          : '<span class="pill other">AUTRE</span>';
+
+        rows += `<tr>
+          <td>${fmtDate(t.date || t.fileDate)}</td>
+          <td class="ticker">${t.ticker || '—'}</td>
+          <td style="color:var(--text-primary)">${t.company || '—'}</td>
+          <td>${t.insider || '—'}</td>
+          <td>${translatePosition(t.title)}</td>
+          <td>${typeLabel}</td>
+          <td style="text-align:right">${fmtNum(t.shares)}</td>
+          <td style="text-align:right">${t.price > 0 ? fmtCur(t.price) : '—'}</td>
+          <td style="text-align:right;font-weight:600">${t.value > 0 ? fmtCurShort(t.value) : '—'}</td>
+        </tr>`;
+      }
+
+      area.innerHTML = `
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length} transactions trouvees</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Date</th>
+              <th>Ticker</th>
+              <th>Entreprise</th>
+              <th>Declarant</th>
+              <th>Poste</th>
+              <th>Type</th>
+              <th style="text-align:right">Actions</th>
+              <th style="text-align:right">Prix</th>
+              <th style="text-align:right">Valeur</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+
+      const pag = document.getElementById('insiderPagination');
+      if (totalPages > 1) {
+        pag.style.display = 'flex';
+        document.getElementById('prevBtn').disabled = currentPage === 0;
+        document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
+        document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} / ${totalPages}`;
+      } else {
+        pag.style.display = 'none';
+      }
+    }
+
     function changePage(delta) {
+      const filtered = getFilteredInsiderTx();
+      const totalPages = Math.ceil(filtered.length / INSIDER_PAGE_SIZE);
       const newPage = currentPage + delta;
-      if (newPage < 0) return;
-      loadInsiderTrades(newPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (newPage < 0 || newPage >= totalPages) return;
+      currentPage = newPage;
+      renderInsiderPage();
+      document.getElementById('insiderTableArea').scrollIntoView({ behavior: 'smooth' });
     }
 
     // ============================================================
@@ -1156,7 +1173,7 @@
       if (!insiderSearchQuery) return;
       document.getElementById('clearInsiderBtn').style.display = 'inline-flex';
       currentPage = 0;
-      loadInsiderTrades(0);
+      renderInsiderPage();
     }
 
     function clearInsiderSearch() {
@@ -1164,7 +1181,7 @@
       document.getElementById('searchInsider').value = '';
       document.getElementById('clearInsiderBtn').style.display = 'none';
       currentPage = 0;
-      loadInsiderTrades(0);
+      renderInsiderPage();
     }
 
     // ============================================================
