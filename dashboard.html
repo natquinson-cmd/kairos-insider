@@ -237,6 +237,26 @@
       box-shadow: 0 0 12px rgba(59,130,246,0.3);
     }
 
+    /* ===== ETF SUBTABS ===== */
+    .etf-subtabs {
+      display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .etf-subtab {
+      padding: 8px 14px; font-size: 12px; font-weight: 600; font-family: inherit;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .etf-subtab:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+    .etf-subtab.active { border-color: var(--accent-blue); color: var(--text-primary); background: rgba(59,130,246,0.08); }
+    .etf-badge {
+      font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .etf-badge.dem { background: rgba(59,130,246,0.2); color: #60A5FA; }
+    .etf-badge.rep { background: rgba(239,68,68,0.2); color: #F87171; }
+    .etf-badge.guru { background: rgba(139,92,246,0.2); color: #A78BFA; }
+    .etf-badge.ark { background: rgba(6,182,212,0.2); color: #22D3EE; }
+
     /* ===== FUND EXPANDABLE ROWS ===== */
     .fund-row { cursor: pointer; transition: background 0.2s; }
     .fund-row:hover { background: rgba(59,130,246,0.06) !important; }
@@ -359,6 +379,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="insider" onclick="switchTab('insider')">Transactions Insiders (Form 4)</button>
         <button class="tab" data-tab="13f" onclick="switchTab('13f')">Portefeuilles 13F</button>
+        <button class="tab" data-tab="etf" onclick="switchTab('etf')">ETF Live</button>
       </div>
 
       <!-- ===== TAB: INSIDER TRADES ===== -->
@@ -397,6 +418,34 @@
         </p>
         <div id="thirteenFArea">
           <div class="loading"><div class="spinner"></div>Chargement des portefeuilles...</div>
+        </div>
+      </div>
+
+      <!-- ===== TAB: ETF LIVE ===== -->
+      <div class="tab-content" id="tab-etf">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
+          Positions en temps reel des ETF qui repliquent les strategies des grands investisseurs et politiciens.
+        </p>
+
+        <!-- Sous-onglets ETF -->
+        <div class="etf-subtabs">
+          <button class="etf-subtab active" onclick="loadEtf('congress','NANC')">NANC <span class="etf-badge dem">Democrates</span></button>
+          <button class="etf-subtab" onclick="loadEtf('congress','GOP')">GOP <span class="etf-badge rep">Republicains</span></button>
+          <button class="etf-subtab" onclick="loadEtf('guru','GURU')">GURU <span class="etf-badge guru">Hedge Funds</span></button>
+          <button class="etf-subtab" onclick="loadEtf('ark','ARKK')">ARKK <span class="etf-badge ark">Innovation</span></button>
+          <button class="etf-subtab" onclick="loadEtf('ark','ARKW')">ARKW <span class="etf-badge ark">Internet</span></button>
+          <button class="etf-subtab" onclick="loadEtf('ark','ARKG')">ARKG <span class="etf-badge ark">Biotech</span></button>
+          <button class="etf-subtab" onclick="loadEtf('ark','ARKF')">ARKF <span class="etf-badge ark">Fintech</span></button>
+          <button class="etf-subtab" onclick="loadEtf('ark','ARKQ')">ARKQ <span class="etf-badge ark">Robotique</span></button>
+        </div>
+
+        <div id="etfInfoBar" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <span id="etfInfoLabel"></span>
+          <span id="etfInfoDate" class="last-update"></span>
+        </div>
+
+        <div id="etfTableArea">
+          <div class="empty-state"><p>Selectionnez un ETF ci-dessus pour voir ses positions en temps reel.</p></div>
         </div>
       </div>
 
@@ -802,7 +851,77 @@
       loadInsiderTrades(0);
     }
 
-    // (ancien code 13F search supprimé — remplacé par load13FFunds)
+    // ============================================================
+    // ETF LIVE
+    // ============================================================
+    let currentEtf = null;
+
+    async function loadEtf(type, symbol) {
+      // Activer le sous-onglet
+      document.querySelectorAll('.etf-subtab').forEach(b => b.classList.remove('active'));
+      event.target.closest('.etf-subtab').classList.add('active');
+      currentEtf = symbol;
+
+      const area = document.getElementById('etfTableArea');
+      area.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des positions...</div>';
+
+      try {
+        let data;
+        if (type === 'ark') {
+          data = await apiFetch('/api/etf-ark', { symbol });
+        } else if (type === 'congress') {
+          data = await apiFetch('/api/etf-congress', { symbol });
+        } else if (type === 'guru') {
+          data = await apiFetch('/api/etf-guru');
+        }
+
+        if (!data || !data.holdings || data.holdings.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucune donnee disponible pour cet ETF.</p></div>';
+          return;
+        }
+
+        // Info bar
+        const infoBar = document.getElementById('etfInfoBar');
+        infoBar.style.display = 'flex';
+        document.getElementById('etfInfoLabel').innerHTML =
+          `<strong>${data.symbol}</strong> — ${data.label || ''} · ${data.holdingsCount} positions · AUM: ${fmtCurShort(data.totalValue)}`;
+        document.getElementById('etfInfoDate').textContent = `Donnees au ${data.date || '—'}`;
+
+        // Tableau
+        let rows = '';
+        for (const h of data.holdings) {
+          rows += `<tr>
+            <td style="text-align:center;color:var(--text-muted)">${h.rank}</td>
+            <td class="ticker">${h.ticker || '—'}</td>
+            <td style="color:var(--text-primary)">${h.company || '—'}</td>
+            <td style="text-align:right">${fmtNum(h.shares)}</td>
+            <td style="text-align:right">${h.price ? fmtCur(h.price) : '—'}</td>
+            <td style="text-align:right;font-weight:600">${fmtCurShort(h.value)}</td>
+            <td style="text-align:right"><span class="pct-bar" style="width:${Math.min(Math.max(h.weight * 4, 2), 100)}px"></span>${h.weight}%</td>
+          </tr>`;
+        }
+
+        area.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th style="text-align:center">#</th>
+                <th>Ticker</th>
+                <th>Entreprise</th>
+                <th style="text-align:right">Actions</th>
+                <th style="text-align:right">Prix</th>
+                <th style="text-align:right">Valeur</th>
+                <th style="text-align:right">Poids</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
+        }
+      }
+    }
 
     // ============================================================
     // INIT

@@ -54,6 +54,15 @@ export default {
       if (path === '/api/13f-funds') {
         return handle13FFunds(env, origin);
       }
+      if (path === '/api/etf-ark') {
+        return handleEtfArk(url, env, origin);
+      }
+      if (path === '/api/etf-congress') {
+        return handleEtfCongress(url, env, origin);
+      }
+      if (path === '/api/etf-guru') {
+        return handleEtfGuru(env, origin);
+      }
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN);
@@ -542,6 +551,80 @@ async function handle13FFund(url, env, origin) {
     console.error('handle13FFund error:', err);
     return jsonResponse({ error: 'Failed to fetch fund data' }, 500, origin);
   }
+}
+
+// ============================================================
+// ROUTE: GET /api/etf-ark — positions quotidiennes ARK ETFs
+// Params: ?symbol=ARKK (ARKK, ARKW, ARKG, ARKF, ARKQ)
+// ============================================================
+async function handleEtfArk(url, env, origin) {
+  const symbol = (url.searchParams.get('symbol') || 'ARKK').toUpperCase();
+  const allowed = ['ARKK', 'ARKW', 'ARKG', 'ARKF', 'ARKQ'];
+  if (!allowed.includes(symbol)) {
+    return jsonResponse({ error: 'Invalid ARK symbol' }, 400, origin);
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const cacheKey = `v1:etf-ark:${symbol}:${today}`;
+  const cached = await env.CACHE.get(cacheKey, 'json');
+  if (cached) return jsonResponse(cached, 200, origin);
+
+  try {
+    const resp = await fetch(`https://arkfunds.io/api/v2/etf/holdings?symbol=${symbol}`);
+    if (!resp.ok) return jsonResponse({ error: 'ARK API error' }, 502, origin);
+
+    const data = await resp.json();
+    const holdings = (data.holdings || []).map(h => ({
+      ticker: h.ticker || '',
+      company: h.company || '',
+      shares: h.shares || 0,
+      value: h.market_value || 0,
+      price: h.share_price || 0,
+      weight: h.weight || 0,
+      rank: h.weight_rank || 0,
+    }));
+
+    const result = {
+      symbol,
+      date: data.date_from || today,
+      label: 'Cathie Wood',
+      category: 'Innovation',
+      holdingsCount: holdings.length,
+      totalValue: holdings.reduce((s, h) => s + h.value, 0),
+      holdings,
+    };
+
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 14400 });
+    return jsonResponse(result, 200, origin);
+  } catch (err) {
+    console.error('handleEtfArk error:', err);
+    return jsonResponse({ error: 'Failed to fetch ARK data' }, 500, origin);
+  }
+}
+
+// ============================================================
+// ROUTE: GET /api/etf-congress — positions NANC ou GOP
+// Params: ?symbol=NANC ou ?symbol=GOP
+// ============================================================
+async function handleEtfCongress(url, env, origin) {
+  const symbol = (url.searchParams.get('symbol') || 'NANC').toUpperCase();
+  if (symbol !== 'NANC' && symbol !== 'GOP') {
+    return jsonResponse({ error: 'Invalid symbol (NANC or GOP)' }, 400, origin);
+  }
+  // Données pré-chargées dans KV (mises à jour via GitHub Action)
+  const data = await env.CACHE.get(`etf-${symbol.toLowerCase()}`, 'json');
+  if (!data) return jsonResponse({ error: 'Congress ETF data not loaded' }, 503, origin);
+  return jsonResponse(data, 200, origin);
+}
+
+// ============================================================
+// ROUTE: GET /api/etf-guru — positions GURU ETF (top hedge fund picks)
+// ============================================================
+async function handleEtfGuru(env, origin) {
+  // Données pré-chargées dans KV (mises à jour via GitHub Action)
+  const data = await env.CACHE.get('etf-guru', 'json');
+  if (!data) return jsonResponse({ error: 'GURU ETF data not loaded' }, 503, origin);
+  return jsonResponse(data, 200, origin);
 }
 
 // ============================================================
