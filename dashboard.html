@@ -1300,64 +1300,78 @@
     }
 
     // ============================================================
-    // INSIDER CLUSTERING — Détection de clusters d'achats
+    // INSIDER CLUSTERING — Détection de clusters d'achats ET ventes
     // ============================================================
     async function loadClustering() {
       const area = document.getElementById('clusteringArea');
       try {
-        // Charger 90 jours de données pour analyser les clusters
-        const data = await apiFetch('/api/insider-trades', { page: 0, days: 90 });
-        const trades = data.trades || [];
+        // Charger plusieurs pages pour avoir plus de données (5 pages = ~50 filings)
+        area.innerHTML = '<div class="loading"><div class="spinner"></div>Analyse des clusters sur 90 jours (chargement de plusieurs pages)...</div>';
+        const allTrades = [];
+        for (let p = 0; p < 5; p++) {
+          try {
+            const data = await apiFetch('/api/insider-trades', { page: p, days: 90 });
+            if (data.trades) allTrades.push(...data.trades);
+          } catch(_) { break; }
+        }
 
-        // Regrouper par ticker : compter les insiders distincts qui ont acheté
-        const tickerMap = {};
-        for (const t of trades) {
+        // Regrouper par ticker et par type (achat vs vente)
+        const buyMap = {};
+        const sellMap = {};
+
+        for (const t of allTrades) {
           const ticker = t.ticker;
           if (!ticker) continue;
-          const hasBuy = (t.transactions || []).some(tx => tx.code === 'P' || tx.acquiredDisposed === 'A');
-          if (!hasBuy) continue;
 
-          if (!tickerMap[ticker]) {
-            tickerMap[ticker] = { ticker, company: t.companyName, insiders: new Set(), trades: [] };
+          for (const tx of (t.transactions || [])) {
+            const isBuy = tx.code === 'P' || tx.acquiredDisposed === 'A';
+            const isSell = tx.code === 'S' || tx.acquiredDisposed === 'D';
+            const map = isBuy ? buyMap : isSell ? sellMap : null;
+            if (!map) continue;
+
+            if (!map[ticker]) {
+              map[ticker] = { ticker, company: t.companyName, insiders: new Set(), totalValue: 0 };
+            }
+            map[ticker].insiders.add(t.insiderName);
+            map[ticker].totalValue += tx.value || 0;
           }
-          tickerMap[ticker].insiders.add(t.insiderName);
-          tickerMap[ticker].trades.push({
-            name: t.insiderName,
-            title: t.ownerTitle,
-            date: t.fileDate,
-            transactions: t.transactions.filter(tx => tx.code === 'P' || tx.acquiredDisposed === 'A'),
-          });
         }
 
         // Filtrer : au moins 2 insiders distincts
-        const clusters = Object.values(tickerMap)
+        const buyClusters = Object.values(buyMap)
           .filter(c => c.insiders.size >= 2)
           .sort((a, b) => b.insiders.size - a.insiders.size);
 
-        if (clusters.length === 0) {
-          area.innerHTML = '<div class="empty-state"><p>Aucun cluster detecte sur les 90 derniers jours. Les clusters apparaissent quand 2+ insiders achetent la meme action.</p></div>';
-          return;
-        }
+        const sellClusters = Object.values(sellMap)
+          .filter(c => c.insiders.size >= 2)
+          .sort((a, b) => b.insiders.size - a.insiders.size);
 
-        let rows = '';
-        for (const c of clusters) {
-          const totalValue = c.trades.reduce((s, t) => s + t.transactions.reduce((ss, tx) => ss + (tx.value || 0), 0), 0);
-          rows += `<tr>
-            <td class="ticker">${c.ticker}</td>
-            <td style="color:var(--text-primary)">${c.company}</td>
-            <td style="text-align:center">
-              <span style="background:${c.insiders.size >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)'};color:${c.insiders.size >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)'};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">
-                ${c.insiders.size}
-              </span>
-            </td>
-            <td>${[...c.insiders].slice(0, 3).join(', ')}${c.insiders.size > 3 ? '...' : ''}</td>
-            <td style="text-align:right;font-weight:600">${totalValue > 0 ? fmtCurShort(totalValue) : '—'}</td>
-            <td style="text-align:center"><span class="pill ${c.insiders.size >= 3 ? 'buy' : 'other'}">${c.insiders.size >= 3 ? 'FORT' : 'MODERE'}</span></td>
-          </tr>`;
-        }
+        function renderClusterTable(clusters, type) {
+          if (clusters.length === 0) return '<p style="color:var(--text-muted);padding:16px;font-size:13px">Aucun cluster detecte.</p>';
+          let rows = '';
+          for (const c of clusters.slice(0, 15)) {
+            const isBuy = type === 'buy';
+            const strength = c.insiders.size >= 3 ? 'FORT' : 'MODERE';
+            const strengthCls = c.insiders.size >= 3 ? (isBuy ? 'buy' : 'sell') : 'other';
+            const countBg = isBuy
+              ? (c.insiders.size >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)')
+              : (c.insiders.size >= 3 ? 'rgba(239,68,68,0.2)' : 'rgba(107,114,128,0.2)');
+            const countColor = isBuy
+              ? (c.insiders.size >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)')
+              : (c.insiders.size >= 3 ? 'var(--accent-red)' : 'var(--text-muted)');
 
-        area.innerHTML = `
-          <div class="table-wrap">
+            rows += `<tr>
+              <td class="ticker">${c.ticker}</td>
+              <td style="color:var(--text-primary)">${c.company}</td>
+              <td style="text-align:center">
+                <span style="background:${countBg};color:${countColor};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">${c.insiders.size}</span>
+              </td>
+              <td>${[...c.insiders].slice(0, 3).join(', ')}${c.insiders.size > 3 ? ', ...' : ''}</td>
+              <td style="text-align:right;font-weight:600">${c.totalValue > 0 ? fmtCurShort(c.totalValue) : '—'}</td>
+              <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
+            </tr>`;
+          }
+          return `<div class="table-wrap">
             <table>
               <thead><tr>
                 <th>Ticker</th>
@@ -1369,9 +1383,24 @@
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>
-          </div>
-          <p style="color:var(--text-muted);font-size:12px;margin-top:12px;font-style:italic">
-            Analyse sur 90 jours. Un cluster "FORT" = 3+ insiders achetant la meme action independamment.
+          </div>`;
+        }
+
+        area.innerHTML = `
+          <h3 style="color:var(--accent-green);font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+            <span>&#9650;</span> Clusters d'achats <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${buyClusters.length} detectes)</span>
+          </h3>
+          ${renderClusterTable(buyClusters, 'buy')}
+
+          <h3 style="color:var(--accent-red);font-size:16px;margin:32px 0 12px;display:flex;align-items:center;gap:8px">
+            <span>&#9660;</span> Clusters de ventes <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${sellClusters.length} detectes)</span>
+          </h3>
+          ${renderClusterTable(sellClusters, 'sell')}
+
+          <p style="color:var(--text-muted);font-size:12px;margin-top:20px;font-style:italic">
+            Analyse sur 90 jours (~${allTrades.length} filings).
+            Un cluster "FORT" = 3+ insiders agissant sur la meme action independamment.
+            Les ventes programmees (stock options, RSU) peuvent generer de faux signaux de vente.
           </p>`;
       } catch (err) {
         if (err.message !== 'Unauthorized') {
