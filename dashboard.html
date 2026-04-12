@@ -889,7 +889,21 @@
 
         // Tableau
         let rows = '';
+        const hasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
+
         for (const h of data.holdings) {
+          // Indicateur d'evolution
+          let changeHtml = '';
+          if (h.status === 'new') {
+            changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
+          } else if (h.sharesChange !== null && h.sharesChange !== undefined && Math.abs(h.sharesChange) > 0.5) {
+            const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
+            changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
+          } else if (hasChanges) {
+            changeHtml = '<span style="color:var(--text-muted)">—</span>';
+          }
+
           rows += `<tr>
             <td style="text-align:center;color:var(--text-muted)">${h.rank}</td>
             <td class="ticker">${h.ticker || '—'}</td>
@@ -898,8 +912,11 @@
             <td style="text-align:right">${h.price ? fmtCur(h.price) : '—'}</td>
             <td style="text-align:right;font-weight:600">${fmtCurShort(h.value)}</td>
             <td style="text-align:right"><span class="pct-bar" style="width:${Math.min(Math.max(h.weight * 4, 2), 100)}px"></span>${h.weight}%</td>
+            ${hasChanges ? `<td style="text-align:right">${changeHtml}</td>` : ''}
           </tr>`;
         }
+
+        const prevLabel = data.prevDate ? ` (vs ${data.prevDate})` : '';
 
         area.innerHTML = `
           <div class="table-wrap">
@@ -912,6 +929,7 @@
                 <th style="text-align:right">Prix</th>
                 <th style="text-align:right">Valeur</th>
                 <th style="text-align:right">Poids</th>
+                ${hasChanges ? `<th style="text-align:right">Variation${prevLabel}</th>` : ''}
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>

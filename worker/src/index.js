@@ -565,7 +565,7 @@ async function handleEtfArk(url, env, origin) {
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const cacheKey = `v1:etf-ark:${symbol}:${today}`;
+  const cacheKey = `v2:etf-ark:${symbol}:${today}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached) return jsonResponse(cached, 200, origin);
 
@@ -574,25 +574,69 @@ async function handleEtfArk(url, env, origin) {
     if (!resp.ok) return jsonResponse({ error: 'ARK API error' }, 502, origin);
 
     const data = await resp.json();
-    const holdings = (data.holdings || []).map(h => ({
-      ticker: h.ticker || '',
-      company: h.company || '',
-      shares: h.shares || 0,
-      value: h.market_value || 0,
-      price: h.share_price || 0,
-      weight: h.weight || 0,
-      rank: h.weight_rank || 0,
-    }));
+
+    // Charger les positions de la veille (snapshot precedent) pour comparaison
+    const prevKey = `ark-prev:${symbol}`;
+    const prevData = await env.CACHE.get(prevKey, 'json') || {};
+    const prevMap = {};
+    if (prevData.holdings) {
+      for (const h of prevData.holdings) {
+        prevMap[h.ticker] = { weight: h.weight, shares: h.shares };
+      }
+    }
+
+    const holdings = (data.holdings || []).map(h => {
+      const ticker = h.ticker || '';
+      const weight = h.weight || 0;
+      const shares = h.shares || 0;
+
+      // Calcul de l'evolution vs veille
+      let weightChange = null;
+      let sharesChange = null;
+      let status = 'unchanged';
+      const prev = prevMap[ticker];
+      if (prev) {
+        weightChange = Math.round((weight - prev.weight) * 100) / 100;
+        if (prev.shares > 0) {
+          sharesChange = Math.round(((shares - prev.shares) / prev.shares) * 1000) / 10;
+        }
+        if (sharesChange !== null && sharesChange > 0.5) status = 'increased';
+        else if (sharesChange !== null && sharesChange < -0.5) status = 'decreased';
+        else status = 'unchanged';
+      } else if (Object.keys(prevMap).length > 0) {
+        status = 'new';
+      }
+
+      return {
+        ticker,
+        company: h.company || '',
+        shares,
+        value: h.market_value || 0,
+        price: h.share_price || 0,
+        weight,
+        rank: h.weight_rank || 0,
+        weightChange,
+        sharesChange,
+        status,
+      };
+    });
 
     const result = {
       symbol,
       date: data.date_from || today,
+      prevDate: prevData.date || null,
       label: 'Cathie Wood',
       category: 'Innovation',
       holdingsCount: holdings.length,
       totalValue: holdings.reduce((s, h) => s + h.value, 0),
       holdings,
     };
+
+    // Sauvegarder les positions d'aujourd'hui comme "previous" pour demain
+    await env.CACHE.put(prevKey, JSON.stringify({
+      date: result.date,
+      holdings: holdings.map(h => ({ ticker: h.ticker, weight: h.weight, shares: h.shares })),
+    }), { expirationTtl: 172800 }); // 48h TTL
 
     await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 14400 });
     return jsonResponse(result, 200, origin);

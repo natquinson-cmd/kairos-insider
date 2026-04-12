@@ -1,14 +1,14 @@
-name: Update 13F Fund Data
+name: Update 13F + ETF Data
 
 on:
   schedule:
-    # Tous les lundis a 7h UTC (9h heure de Paris)
-    - cron: '0 7 * * 1'
-  # Permet aussi de lancer manuellement depuis GitHub
+    # 13F: tous les lundis a 7h UTC (trimestriel mais on check chaque semaine)
+    # ETF: tous les jours a 7h UTC (donnees quotidiennes)
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 jobs:
-  update-funds:
+  update-data:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -19,33 +19,66 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Fetch 13F data from SEC EDGAR
-        run: cd worker && python prefetch-13f.py
-        timeout-minutes: 10
-
       - name: Install Wrangler
         run: npm install -g wrangler
 
-      - name: Upload to Cloudflare KV
+      # ===== 13F (seulement le lundi) =====
+      - name: Fetch 13F data from SEC EDGAR
+        if: github.event.schedule != '0 7 * * *' || contains('Mon', 'Mon')
+        run: cd worker && python prefetch-13f.py
+        timeout-minutes: 10
+        continue-on-error: true
+
+      - name: Upload 13F to KV
+        if: hashFiles('worker/funds_data.json') != ''
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          wrangler kv key put \
-            --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 \
-            --remote \
-            "13f-all-funds" \
-            --path=funds_data.json
+          if [ -f funds_data.json ]; then
+            wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-all-funds" --path=funds_data.json
+            echo "13F data uploaded"
+          fi
+        continue-on-error: true
+
+      # ===== ETF (tous les jours) =====
+      - name: Fetch ETF data (NANC, GOP, GURU)
+        run: cd worker && python prefetch-etf.py
+        timeout-minutes: 5
+
+      - name: Upload ETF data to KV
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          for etf in nanc gop guru; do
+            if [ -f "etf_${etf}.json" ]; then
+              wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "etf-${etf}" --path="etf_${etf}.json"
+              echo "Uploaded etf-${etf}"
+            fi
+          done
 
       - name: Summary
         run: |
           cd worker
+          echo "=== 13F ==="
           python -c "
+          import json, os
+          if os.path.exists('funds_data.json'):
+              with open('funds_data.json') as f: data = json.load(f)
+              print(f'  {len(data)} funds updated')
+          else:
+              print('  Skipped (not Monday or failed)')
+          " 2>/dev/null || true
+          echo "=== ETF ==="
+          for etf in nanc gop guru; do
+            if [ -f "etf_${etf}.json" ]; then
+              python -c "
           import json
-          with open('funds_data.json') as f:
-              data = json.load(f)
-          print(f'Updated {len(data)} funds')
-          for i, fund in enumerate(data[:5]):
-              print(f'  {i+1}. {fund[\"label\"]:25s} \${fund[\"totalValue\"]:>15,.0f}  ({fund[\"holdingsCount\"]} positions)')
-          "
+          with open('etf_${etf}.json') as f: d = json.load(f)
+          print(f'  ${etf}: {d.get(\"holdingsCount\",0)} positions')
+          " 2>/dev/null || true
+            fi
+          done
