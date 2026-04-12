@@ -948,6 +948,7 @@
     let currentEtf = null;
     let etfAllHoldings = [];
     let etfHasChanges = false;
+    let etfPrevDate = null;
     let etfPage = 0;
     const ETF_PAGE_SIZE = 25;
 
@@ -988,6 +989,7 @@
         // Stocker toutes les positions pour la pagination
         etfAllHoldings = data.holdings;
         etfHasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
+        etfPrevDate = data.prevDate || null;
 
         // Graphiques
         destroyCharts();
@@ -1033,7 +1035,7 @@
           </tr>`;
         }
 
-        const prevLabel = data.prevDate ? ` (vs ${data.prevDate})` : '';
+        const prevLabel = etfPrevDate ? ` (vs ${etfPrevDate})` : '';
 
         area.innerHTML = `
           <div class="table-wrap">
