@@ -1054,7 +1054,6 @@
 
       // Pagination
       const pag = document.getElementById('etfPagination');
-      const totalPages = Math.ceil(etfAllHoldings.length / ETF_PAGE_SIZE);
       if (totalPages > 1) {
         pag.style.display = 'flex';
         document.getElementById('etfPrevBtn').disabled = etfPage === 0;
