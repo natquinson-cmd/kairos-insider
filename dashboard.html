@@ -1403,24 +1403,84 @@
 
         const color = score <= 25 ? 'var(--accent-red)' : score <= 45 ? '#F97316' : score <= 55 ? 'var(--text-secondary)' : score <= 75 ? '#84CC16' : 'var(--accent-green)';
 
+        const targetDash = score * 5.97;
+
         area.innerHTML = `
+          <style>
+            @keyframes gaugeGrow {
+              from { stroke-dasharray: 0 597; }
+              to { stroke-dasharray: ${targetDash} 597; }
+            }
+            @keyframes gaugeGlow {
+              0%, 100% { filter: drop-shadow(0 0 6px ${color}40); }
+              50% { filter: drop-shadow(0 0 18px ${color}90); }
+            }
+            @keyframes scoreCount {
+              from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); }
+              to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+            }
+            .fg-arc {
+              animation: gaugeGrow 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
+                         gaugeGlow 3s ease-in-out 1.8s infinite;
+            }
+            .fg-score {
+              animation: scoreCount 0.6s ease-out 1s forwards;
+              opacity: 0;
+            }
+          </style>
           <div style="text-align:center;padding:40px 20px;">
-            <div style="position:relative;width:220px;height:220px;margin:0 auto 24px;">
+            <div style="position:relative;width:250px;height:250px;margin:0 auto 24px;">
               <svg viewBox="0 0 220 220" style="transform:rotate(-90deg)">
+                <!-- Track -->
                 <circle cx="110" cy="110" r="95" stroke="rgba(255,255,255,0.05)" stroke-width="14" fill="none"/>
-                <circle cx="110" cy="110" r="95" stroke="${color}" stroke-width="14" fill="none"
-                  stroke-dasharray="${score * 5.97} 597" stroke-linecap="round"/>
+                <!-- Tick marks -->
+                ${[0,25,50,75,100].map(v => {
+                  const angle = (v / 100) * 360 - 90;
+                  const rad = angle * Math.PI / 180;
+                  const x1 = 110 + 82 * Math.cos(rad);
+                  const y1 = 110 + 82 * Math.sin(rad);
+                  const x2 = 110 + 88 * Math.cos(rad);
+                  const y2 = 110 + 88 * Math.sin(rad);
+                  return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>';
+                }).join('')}
+                <!-- Animated arc -->
+                <circle class="fg-arc" cx="110" cy="110" r="95" stroke="${color}" stroke-width="14" fill="none"
+                  stroke-dasharray="0 597" stroke-linecap="round"/>
               </svg>
-              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-                <div style="font-family:'Space Grotesk';font-size:56px;font-weight:800;color:${color}">${score}</div>
-                <div style="font-size:14px;color:var(--text-secondary);font-weight:600">${ratingFR}</div>
+              <div class="fg-score" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                <div id="fgCounter" style="font-family:'Space Grotesk';font-size:60px;font-weight:800;color:${color}">0</div>
+                <div style="font-size:15px;color:var(--text-secondary);font-weight:600;margin-top:-4px">${ratingFR}</div>
               </div>
+            </div>
+            <div style="display:flex;justify-content:center;gap:24px;margin-bottom:24px;">
+              <span style="font-size:11px;color:var(--accent-red);font-weight:600">0 — Peur extreme</span>
+              <span style="font-size:11px;color:#F97316;font-weight:600">25 — Peur</span>
+              <span style="font-size:11px;color:var(--text-muted);font-weight:600">50 — Neutre</span>
+              <span style="font-size:11px;color:#84CC16;font-weight:600">75 — Cupidite</span>
+              <span style="font-size:11px;color:var(--accent-green);font-weight:600">100 — Extreme</span>
             </div>
             <p style="color:var(--text-muted);font-size:13px;max-width:500px;margin:0 auto;">
               Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extreme) a 100 (cupidite extreme).
               Un score bas peut indiquer une opportunite d'achat, un score haut un exces d'optimisme.
             </p>
           </div>`;
+        // Compteur animé de 0 au score
+        const counter = document.getElementById('fgCounter');
+        if (counter) {
+          let current = 0;
+          const duration = 1800;
+          const start = performance.now();
+          function animate(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            current = Math.round(eased * score);
+            counter.textContent = current;
+            if (progress < 1) requestAnimationFrame(animate);
+          }
+          setTimeout(() => requestAnimationFrame(animate), 200);
+        }
+
       } catch (err) {
         // Fallback si l'API CNN ne fonctionne pas
         area.innerHTML = `
