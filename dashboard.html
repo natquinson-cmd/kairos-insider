@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
   <style>
     :root {
@@ -237,6 +238,73 @@
       box-shadow: 0 0 12px rgba(59,130,246,0.3);
     }
 
+    /* ===== CHARTS ===== */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      position: relative;
+    }
+    .chart-card h4 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .chart-card canvas {
+      max-height: 280px;
+    }
+    .chart-card.full-width {
+      grid-column: 1 / -1;
+    }
+    .treemap-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .treemap-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      border-radius: 4px;
+      padding: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      cursor: default;
+      transition: opacity 0.2s;
+      overflow: hidden;
+    }
+    .treemap-cell:hover {
+      opacity: 0.85;
+    }
+    .treemap-cell .tm-ticker {
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .treemap-cell .tm-pct {
+      font-size: 9px;
+      font-weight: 600;
+      opacity: 0.85;
+    }
+    @media (max-width: 768px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+
     /* ===== ETF SUBTABS ===== */
     .etf-subtabs {
       display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
@@ -443,6 +511,8 @@
           <span id="etfInfoLabel"></span>
           <span id="etfInfoDate" class="last-update"></span>
         </div>
+
+        <div id="etfCharts"></div>
 
         <div id="etfTableArea">
           <div class="empty-state"><p>Selectionnez un ETF ci-dessus pour voir ses positions en temps reel.</p></div>
@@ -759,6 +829,7 @@
 
             const prevLabel = f.prevReportDate ? ` vs ${fmtDate(f.prevReportDate)}` : '';
             detailContent = `
+              <div id="fund-charts-${i}"></div>
               <div class="sub-header">
                 <span>Top ${f.topHoldings.length} positions</span>
                 <span class="last-update">Positions au ${fmtDate(f.reportDate)}${prevLabel}</span>
@@ -810,6 +881,8 @@
       }
     }
 
+    let fundChartsLoaded = {};
+
     function toggleFund(idx) {
       const detailRow = document.getElementById(`fund-detail-${idx}`);
       const fundRow = detailRow.previousElementSibling;
@@ -820,10 +893,22 @@
         r.classList.remove('open');
         r.previousElementSibling.classList.remove('expanded');
       });
+      destroyCharts();
 
       if (!isOpen) {
         detailRow.classList.add('open');
         fundRow.classList.add('expanded');
+
+        // Charger les charts si pas encore fait
+        if (!fundChartsLoaded[idx]) {
+          fundChartsLoaded[idx] = true;
+          // Récupérer les données du fonds depuis la dernière réponse API
+          apiFetch('/api/13f-funds').then(funds => {
+            if (funds && funds[idx] && funds[idx].topHoldings) {
+              setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName), 200);
+            }
+          }).catch(() => {});
+        }
       }
     }
 
@@ -903,7 +988,11 @@
         // Stocker toutes les positions pour la pagination
         etfAllHoldings = data.holdings;
         etfHasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
+
+        // Graphiques
+        destroyCharts();
         renderEtfPage();
+        setTimeout(() => renderChartsForHoldings('etfCharts', data.holdings, data.symbol + ' — ' + (data.label || '')), 100);
       } catch (err) {
         if (err.message !== 'Unauthorized') {
           area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
@@ -983,6 +1072,148 @@
       etfPage = newPage;
       renderEtfPage();
       document.getElementById('etfTableArea').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ============================================================
+    // CHARTS — Pie, Bar, Treemap
+    // ============================================================
+    const CHART_COLORS = [
+      '#3B82F6','#8B5CF6','#06B6D4','#10B981','#F59E0B','#EF4444',
+      '#EC4899','#6366F1','#14B8A6','#F97316','#84CC16','#A855F7',
+      '#22D3EE','#FB923C','#4ADE80','#C084FC'
+    ];
+
+    let activeCharts = {};
+
+    function destroyCharts() {
+      Object.values(activeCharts).forEach(c => c.destroy());
+      activeCharts = {};
+    }
+
+    function renderChartsForHoldings(containerId, holdings, title) {
+      const container = document.getElementById(containerId);
+      if (!container || !holdings || holdings.length === 0) return;
+
+      const top = holdings.slice(0, 10);
+      const otherPct = holdings.slice(10).reduce((s, h) => s + (h.weight || h.pct || 0), 0);
+      const labels = top.map(h => h.ticker || h.name || '?');
+      const values = top.map(h => h.weight || h.pct || 0);
+      if (otherPct > 0) { labels.push('Autres'); values.push(Math.round(otherPct * 10) / 10); }
+
+      const colors = CHART_COLORS.slice(0, labels.length);
+
+      container.innerHTML = `
+        <div class="charts-row">
+          <div class="chart-card">
+            <h4>Repartition du portefeuille</h4>
+            <canvas id="${containerId}-pie"></canvas>
+          </div>
+          <div class="chart-card">
+            <h4>Top 10 positions par poids</h4>
+            <canvas id="${containerId}-bar"></canvas>
+          </div>
+          <div class="chart-card full-width">
+            <h4>Carte des positions — ${title || ''}</h4>
+            <div class="treemap-container" id="${containerId}-treemap"></div>
+          </div>
+        </div>
+      `;
+
+      // Pie Chart
+      const pieCtx = document.getElementById(`${containerId}-pie`);
+      if (pieCtx) {
+        activeCharts[`${containerId}-pie`] = new Chart(pieCtx, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '55%',
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { color: '#9CA3AF', font: { size: 11, family: 'Inter' }, padding: 8, boxWidth: 12 }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%`
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Bar Chart
+      const barCtx = document.getElementById(`${containerId}-bar`);
+      if (barCtx) {
+        activeCharts[`${containerId}-bar`] = new Chart(barCtx, {
+          type: 'bar',
+          data: {
+            labels: top.map(h => h.ticker || h.name || '?'),
+            datasets: [{
+              data: top.map(h => h.weight || h.pct || 0),
+              backgroundColor: colors.slice(0, top.length),
+              borderRadius: 4,
+              barPercentage: 0.7,
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.parsed.x}%`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { color: '#6B7280', font: { size: 11 }, callback: v => v + '%' }
+              },
+              y: {
+                grid: { display: false },
+                ticks: { color: '#9CA3AF', font: { size: 11, weight: 600, family: 'Space Grotesk' } }
+              }
+            }
+          }
+        });
+      }
+
+      // Treemap
+      const treemapDiv = document.getElementById(`${containerId}-treemap`);
+      if (treemapDiv) {
+        const totalW = holdings.reduce((s, h) => s + (h.weight || h.pct || 0), 0);
+        const containerWidth = treemapDiv.offsetWidth || 800;
+        const containerHeight = 280;
+        treemapDiv.style.height = containerHeight + 'px';
+
+        // Simple treemap: proportional width cells in rows
+        let html = '';
+        const maxItems = Math.min(holdings.length, 30);
+        for (let i = 0; i < maxItems; i++) {
+          const h = holdings[i];
+          const w = h.weight || h.pct || 0;
+          const pctOfTotal = totalW > 0 ? (w / totalW) : 0;
+          const area = pctOfTotal * containerWidth * containerHeight;
+          const cellW = Math.max(Math.sqrt(area * 1.5), 40);
+          const cellH = Math.max(area / cellW, 30);
+          const color = CHART_COLORS[i % CHART_COLORS.length];
+
+          const showLabel = cellW > 45 && cellH > 25;
+          html += `<div class="treemap-cell" style="width:${cellW}px;height:${cellH}px;background:${color}" title="${h.ticker || h.name}: ${w}%">
+            ${showLabel ? `<span class="tm-ticker">${h.ticker || ''}</span><span class="tm-pct">${w}%</span>` : ''}
+          </div>`;
+        }
+        treemapDiv.innerHTML = html;
+      }
     }
 
     // ============================================================
