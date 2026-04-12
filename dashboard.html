@@ -1340,9 +1340,18 @@
           for (const d of details) {
             const dates = (d.dates || []).map(dt => fmtDate(dt)).join(', ');
             const val = d.value && d.value > 0 ? fmtCurShort(d.value) : '—';
+            const sharesStr = d.shares && d.shares > 0 ? fmtNum(d.shares) : '—';
+            const title = d.title ? translatePosition(d.title) : '—';
+            const typeLabel = d.txType === 'buy' ? '<span class="pill buy" style="font-size:9px">ACHAT</span>'
+              : d.txType === 'sell' ? '<span class="pill sell" style="font-size:9px">VENTE</span>'
+              : d.txType === 'mixed' ? '<span class="pill other" style="font-size:9px">MIXTE</span>'
+              : '<span style="color:var(--text-muted);font-size:10px">attribution</span>';
             detailRows += `<tr>
               <td style="color:var(--text-primary);font-weight:500">${d.name}</td>
+              <td style="color:var(--text-secondary)">${title}</td>
               <td class="last-update">${dates || '—'}</td>
+              <td style="text-align:center">${typeLabel}</td>
+              <td style="text-align:right">${sharesStr}</td>
               <td style="text-align:right;font-weight:600">${val}</td>
             </tr>`;
           }
@@ -1358,8 +1367,11 @@
                   <table>
                     <thead><tr>
                       <th>Declarant</th>
+                      <th>Poste</th>
                       <th>Date(s)</th>
-                      <th style="text-align:right">Valeur estimee</th>
+                      <th style="text-align:center">Type</th>
+                      <th style="text-align:right">Actions</th>
+                      <th style="text-align:right">Valeur</th>
                     </tr></thead>
                     <tbody>${detailRows}</tbody>
                   </table>

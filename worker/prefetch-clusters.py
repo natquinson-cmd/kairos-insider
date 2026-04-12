@@ -148,10 +148,18 @@ print(f'Clusters (2+ insiders): {len(clusters)}')
 # ============================================================
 print('\nEnriching top clusters with ticker + transaction values...')
 
-def parse_form4_value(xml):
-    """Extrait la valeur totale des transactions d'un Form 4 XML."""
-    total = 0
-    txs = []
+def parse_form4_detail(xml):
+    """Extrait la valeur totale, le titre et le type de transaction d'un Form 4 XML."""
+    def get_simple(tag):
+        m = re.search(rf'<{tag}>([^<]*)</{tag}>', xml)
+        return m.group(1).strip() if m else ''
+
+    title = get_simple('officerTitle')
+
+    total_value = 0
+    total_shares = 0
+    has_buy = False
+    has_sell = False
     for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):
         block = match.group(1)
         def get_val(tag):
@@ -161,11 +169,21 @@ def parse_form4_value(xml):
         price = float(get_val('transactionPricePerShare') or 0)
         code = get_val('transactionCode')
         ad = get_val('transactionAcquiredDisposedCode')
+
+        # Ignorer les transactions a prix $0 (attributions, options, dons)
+        if price <= 0:
+            continue
+
         val = round(shares * price, 2)
-        total += val
-        if code or ad:
-            txs.append({'code': code, 'ad': ad, 'value': val, 'shares': shares})
-    return total, txs
+        total_value += val
+        total_shares += shares
+        if code == 'P' or ad == 'A':
+            has_buy = True
+        if code == 'S' or ad == 'D':
+            has_sell = True
+
+    tx_type = 'buy' if has_buy and not has_sell else 'sell' if has_sell and not has_buy else 'mixed' if has_buy and has_sell else 'other'
+    return total_value, total_shares, title, tx_type
 
 for cluster in clusters[:30]:
     # Get ticker via submissions API
@@ -183,10 +201,10 @@ for cluster in clusters[:30]:
         cluster['ticker'] = ''
     time.sleep(0.2)
 
-    # Parse XMLs pour recuperer les valeurs de transaction par insider
+    # Parse XMLs pour recuperer valeurs, titres et types par insider
     total_value = 0
-    insider_values = {}
-    filings = cluster.get('filings_meta', [])[:20]  # Max 20 XMLs par cluster
+    insider_info = {}  # name -> { value, title, txType }
+    filings = cluster.get('filings_meta', [])[:20]
 
     for fm in filings:
         adsh_clean = fm['adsh'].replace('-', '')
@@ -194,19 +212,28 @@ for cluster in clusters[:30]:
         xml = curl_fetch(xml_url)
         if not xml:
             continue
-        val, txs = parse_form4_value(xml)
+        val, shares, title, tx_type = parse_form4_detail(xml)
         total_value += val
         ins_name = fm['insider']
-        if ins_name not in insider_values:
-            insider_values[ins_name] = 0
-        insider_values[ins_name] += val
+        if ins_name not in insider_info:
+            insider_info[ins_name] = {'value': 0, 'shares': 0, 'title': '', 'txType': ''}
+        insider_info[ins_name]['value'] += val
+        insider_info[ins_name]['shares'] += shares
+        if title and not insider_info[ins_name]['title']:
+            insider_info[ins_name]['title'] = title
+        if tx_type != 'other':
+            insider_info[ins_name]['txType'] = tx_type
         time.sleep(0.15)
 
     cluster['totalValue'] = round(total_value, 2)
 
-    # Mettre a jour les insider_details avec les valeurs
+    # Mettre a jour les insider_details avec valeurs, titres et types
     for detail in cluster.get('insiderDetails', []):
-        detail['value'] = round(insider_values.get(detail['name'], 0), 2)
+        info = insider_info.get(detail['name'], {})
+        detail['value'] = round(info.get('value', 0), 2)
+        detail['shares'] = round(info.get('shares', 0))
+        detail['title'] = info.get('title', '')
+        detail['txType'] = info.get('txType', '')
 
     # Nettoyer les filings_meta (pas besoin dans le JSON final)
     if 'filings_meta' in cluster:
