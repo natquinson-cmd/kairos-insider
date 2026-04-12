@@ -1300,112 +1300,98 @@
     }
 
     // ============================================================
-    // INSIDER CLUSTERING — Détection de clusters d'achats ET ventes
+    // INSIDER CLUSTERING — Données pré-calculées depuis KV
     // ============================================================
     async function loadClustering() {
       const area = document.getElementById('clusteringArea');
       try {
-        // Charger plusieurs pages pour avoir plus de données (5 pages = ~50 filings)
-        area.innerHTML = '<div class="loading"><div class="spinner"></div>Analyse des clusters sur 90 jours (chargement de plusieurs pages)...</div>';
-        const allTrades = [];
-        for (let p = 0; p < 5; p++) {
-          try {
-            const data = await apiFetch('/api/insider-trades', { page: p, days: 90 });
-            if (data.trades) allTrades.push(...data.trades);
-          } catch(_) { break; }
+        const data = await apiFetch('/api/clusters');
+        const clusters = data.clusters || [];
+
+        if (clusters.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucun cluster detecte sur les 90 derniers jours.</p></div>';
+          return;
         }
 
-        // Regrouper par ticker et par type (achat vs vente)
-        const buyMap = {};
-        const sellMap = {};
+        let rows = '';
+        for (let i = 0; i < clusters.length; i++) {
+          const c = clusters[i];
+          const strength = c.insiderCount >= 5 ? 'TRES FORT' : c.insiderCount >= 3 ? 'FORT' : 'MODERE';
+          const strengthCls = c.insiderCount >= 5 ? 'buy' : c.insiderCount >= 3 ? 'buy' : 'other';
+          const countBg = c.insiderCount >= 5 ? 'rgba(16,185,129,0.3)' : c.insiderCount >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)';
+          const countColor = c.insiderCount >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)';
 
-        for (const t of allTrades) {
-          const ticker = t.ticker;
-          if (!ticker) continue;
+          rows += `<tr class="fund-row" onclick="toggleCluster(${i})" style="cursor:pointer">
+            <td class="ticker">${c.ticker || '—'}</td>
+            <td style="color:var(--text-primary)">${c.company} <span class="chevron">&#9654;</span></td>
+            <td style="text-align:center">
+              <span style="background:${countBg};color:${countColor};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">${c.insiderCount}</span>
+            </td>
+            <td>${c.totalFilings} declarations</td>
+            <td class="last-update">${fmtDate(c.firstDate)} — ${fmtDate(c.lastDate)}</td>
+            <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
+          </tr>`;
 
-          for (const tx of (t.transactions || [])) {
-            const isBuy = tx.code === 'P' || tx.acquiredDisposed === 'A';
-            const isSell = tx.code === 'S' || tx.acquiredDisposed === 'D';
-            const map = isBuy ? buyMap : isSell ? sellMap : null;
-            if (!map) continue;
+          // Ligne depliable : detail des insiders
+          const insidersList = (c.insiders || []).map(name =>
+            `<li style="padding:4px 0;color:var(--text-secondary);font-size:12px">${name}</li>`
+          ).join('');
 
-            if (!map[ticker]) {
-              map[ticker] = { ticker, company: t.companyName, insiders: new Set(), totalValue: 0 };
-            }
-            map[ticker].insiders.add(t.insiderName);
-            map[ticker].totalValue += tx.value || 0;
-          }
+          rows += `<tr class="fund-detail-row" id="cluster-detail-${i}">
+            <td colspan="6" class="fund-detail-cell">
+              <div class="fund-detail-inner">
+                <div class="sub-header">
+                  <span>${c.insiderCount} insiders ayant depose un Form 4 pour ${c.ticker || c.company}</span>
+                  <span class="last-update">Periode: ${fmtDate(c.firstDate)} au ${fmtDate(c.lastDate)}</span>
+                </div>
+                <ul style="list-style:none;padding:0;margin:0;columns:2;column-gap:24px">${insidersList}</ul>
+              </div>
+            </td>
+          </tr>`;
         }
 
-        // Filtrer : au moins 2 insiders distincts
-        const buyClusters = Object.values(buyMap)
-          .filter(c => c.insiders.size >= 2)
-          .sort((a, b) => b.insiders.size - a.insiders.size);
-
-        const sellClusters = Object.values(sellMap)
-          .filter(c => c.insiders.size >= 2)
-          .sort((a, b) => b.insiders.size - a.insiders.size);
-
-        function renderClusterTable(clusters, type) {
-          if (clusters.length === 0) return '<p style="color:var(--text-muted);padding:16px;font-size:13px">Aucun cluster detecte.</p>';
-          let rows = '';
-          for (const c of clusters.slice(0, 15)) {
-            const isBuy = type === 'buy';
-            const strength = c.insiders.size >= 3 ? 'FORT' : 'MODERE';
-            const strengthCls = c.insiders.size >= 3 ? (isBuy ? 'buy' : 'sell') : 'other';
-            const countBg = isBuy
-              ? (c.insiders.size >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)')
-              : (c.insiders.size >= 3 ? 'rgba(239,68,68,0.2)' : 'rgba(107,114,128,0.2)');
-            const countColor = isBuy
-              ? (c.insiders.size >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)')
-              : (c.insiders.size >= 3 ? 'var(--accent-red)' : 'var(--text-muted)');
-
-            rows += `<tr>
-              <td class="ticker">${c.ticker}</td>
-              <td style="color:var(--text-primary)">${c.company}</td>
-              <td style="text-align:center">
-                <span style="background:${countBg};color:${countColor};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">${c.insiders.size}</span>
-              </td>
-              <td>${[...c.insiders].slice(0, 3).join(', ')}${c.insiders.size > 3 ? ', ...' : ''}</td>
-              <td style="text-align:right;font-weight:600">${c.totalValue > 0 ? fmtCurShort(c.totalValue) : '—'}</td>
-              <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
-            </tr>`;
-          }
-          return `<div class="table-wrap">
+        area.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <span style="color:var(--text-muted);font-size:13px">${clusters.length} clusters detectes sur ${data.totalFilings?.toLocaleString('fr-FR') || '?'} declarations (90 jours)</span>
+            <span class="last-update">Mis a jour le ${data.date || '—'}</span>
+          </div>
+          <div class="table-wrap">
             <table>
               <thead><tr>
                 <th>Ticker</th>
                 <th>Entreprise</th>
-                <th style="text-align:center">Nb insiders</th>
-                <th>Declarants</th>
-                <th style="text-align:right">Valeur totale</th>
+                <th style="text-align:center">Insiders</th>
+                <th>Declarations</th>
+                <th>Periode</th>
                 <th style="text-align:center">Signal</th>
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>
-          </div>`;
-        }
-
-        area.innerHTML = `
-          <h3 style="color:var(--accent-green);font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-            <span>&#9650;</span> Clusters d'achats <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${buyClusters.length} detectes)</span>
-          </h3>
-          ${renderClusterTable(buyClusters, 'buy')}
-
-          <h3 style="color:var(--accent-red);font-size:16px;margin:32px 0 12px;display:flex;align-items:center;gap:8px">
-            <span>&#9660;</span> Clusters de ventes <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${sellClusters.length} detectes)</span>
-          </h3>
-          ${renderClusterTable(sellClusters, 'sell')}
-
-          <p style="color:var(--text-muted);font-size:12px;margin-top:20px;font-style:italic">
-            Analyse sur 90 jours (~${allTrades.length} filings).
-            Un cluster "FORT" = 3+ insiders agissant sur la meme action independamment.
-            Les ventes programmees (stock options, RSU) peuvent generer de faux signaux de vente.
+          </div>
+          <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
+            Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose un Form 4 (declaration de transaction) dans les 90 derniers jours.
+            Plus le nombre d'insiders est eleve, plus le signal est fort. Cliquez sur une ligne pour voir les noms des declarants.
           </p>`;
       } catch (err) {
         if (err.message !== 'Unauthorized') {
-          area.innerHTML = '<div class="empty-state"><p>Erreur lors de l\'analyse des clusters.</p></div>';
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement des clusters.</p></div>';
         }
+      }
+    }
+
+    function toggleCluster(idx) {
+      const detailRow = document.getElementById(`cluster-detail-${idx}`);
+      const mainRow = detailRow.previousElementSibling;
+      const isOpen = detailRow.classList.contains('open');
+
+      document.querySelectorAll('#clusteringArea .fund-detail-row.open').forEach(r => {
+        r.classList.remove('open');
+        r.previousElementSibling.classList.remove('expanded');
+      });
+
+      if (!isOpen) {
+        detailRow.classList.add('open');
+        mainRow.classList.add('expanded');
       }
     }
 
