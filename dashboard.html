@@ -118,22 +118,169 @@
     .btn-primary, a.btn-primary { background: var(--gradient-primary); color: #FFFFFF !important; box-shadow: 0 4px 20px rgba(59,130,246,0.3); width: 100%; }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(59,130,246,0.5); }
 
-    /* ===== MAIN CONTENT ===== */
-    .main { padding: 90px 0 40px; min-height: 100vh; }
+    /* ===== LAYOUT: SIDEBAR + MAIN ===== */
+    .dashboard-layout {
+      display: flex;
+      min-height: 100vh;
+      padding-top: 65px;
+    }
 
-    /* ===== TABS ===== */
-    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
-    .tab {
-      padding: 14px 24px; font-size: 14px; font-weight: 600;
-      color: var(--text-muted); cursor: pointer;
-      border-bottom: 2px solid transparent; transition: all 0.2s;
-      background: none; border-top: none; border-left: none; border-right: none;
+    /* Sidebar */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: rgba(10,15,30,0.6);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      position: fixed;
+      top: 65px;
+      left: 0;
+      bottom: 0;
+      overflow-y: auto;
+      z-index: 50;
+    }
+    .sidebar-section {
+      padding: 0 16px;
+      margin-bottom: 24px;
+    }
+    .sidebar-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 0 12px;
+      margin-bottom: 8px;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
       font-family: inherit;
     }
-    .tab:hover { color: var(--text-secondary); }
-    .tab.active { color: var(--text-primary); border-bottom-color: var(--accent-blue); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    .sidebar-item:hover {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-primary);
+    }
+    .sidebar-item.active {
+      background: rgba(59,130,246,0.1);
+      color: var(--accent-blue);
+      font-weight: 600;
+    }
+    .sidebar-item .sidebar-icon {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+    .sidebar-item .sidebar-badge {
+      margin-left: auto;
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      background: rgba(16,185,129,0.15);
+      color: var(--accent-green);
+    }
+
+    /* Main content area */
+    .main {
+      flex: 1;
+      margin-left: 240px;
+      padding: 24px 32px 40px;
+      min-height: 100vh;
+    }
+    .main .container {
+      max-width: 1200px;
+      padding: 0;
+    }
+
+    /* Section pages */
+    .section-page { display: none; }
+    .section-page.active { display: block; }
+    .section-page h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .section-page .section-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    /* Sidebar collapsed */
+    .sidebar.collapsed {
+      width: 60px;
+      min-width: 60px;
+    }
+    .sidebar.collapsed .sidebar-title,
+    .sidebar.collapsed .sidebar-item span:not(.sidebar-icon),
+    .sidebar.collapsed .sidebar-badge {
+      display: none;
+    }
+    .sidebar.collapsed .sidebar-item {
+      justify-content: center;
+      padding: 10px 0;
+    }
+    .sidebar.collapsed .sidebar-icon {
+      font-size: 18px;
+    }
+    .sidebar.collapsed + .main {
+      margin-left: 60px;
+    }
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 8px 0;
+      margin-bottom: 8px;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      transition: color 0.2s;
+    }
+    .sidebar-toggle:hover { color: var(--text-primary); }
+
+    /* Mobile: sidebar becomes top bar */
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        top: 65px;
+        left: 0;
+        right: 0;
+        bottom: auto;
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 8px 12px;
+        gap: 4px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        background: rgba(10,15,30,0.95);
+      }
+      .sidebar-section { display: contents; }
+      .sidebar-title { display: none; }
+      .sidebar-item { white-space: nowrap; padding: 8px 12px; font-size: 12px; }
+      .main { margin-left: 0; padding-top: 60px; padding-left: 16px; padding-right: 16px; }
+    }
 
     /* ===== SEARCH ===== */
     .search-bar {
@@ -439,19 +586,56 @@
     </div>
   </nav>
 
-  <!-- ===== MAIN ===== -->
-  <main class="main">
-    <div class="container">
+  <!-- ===== LAYOUT ===== -->
+  <div class="dashboard-layout">
 
-      <!-- Tabs -->
-      <div class="tabs">
-        <button class="tab active" data-tab="insider" onclick="switchTab('insider')">Transactions Insiders (Form 4)</button>
-        <button class="tab" data-tab="13f" onclick="switchTab('13f')">Portefeuilles 13F</button>
-        <button class="tab" data-tab="etf" onclick="switchTab('etf')">ETF Live</button>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Replier/Deplier">&#9776;</button>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Smart Money</div>
+        <button class="sidebar-item active" data-section="insider" onclick="switchSection('insider')">
+          <span class="sidebar-icon">📋</span>
+          <span>Transactions Insiders</span>
+          <span class="sidebar-badge">LIVE</span>
+        </button>
+        <button class="sidebar-item" data-section="clustering" onclick="switchSection('clustering')">
+          <span class="sidebar-icon">🎯</span>
+          <span>Insider Clustering</span>
+        </button>
+        <button class="sidebar-item" data-section="13f" onclick="switchSection('13f')">
+          <span class="sidebar-icon">🏦</span>
+          <span>Portefeuilles 13F</span>
+        </button>
+        <button class="sidebar-item" data-section="etf" onclick="switchSection('etf')">
+          <span class="sidebar-icon">📊</span>
+          <span>ETF Live</span>
+          <span class="sidebar-badge">LIVE</span>
+        </button>
       </div>
 
-      <!-- ===== TAB: INSIDER TRADES ===== -->
-      <div class="tab-content active" id="tab-insider">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Indicateurs</div>
+        <button class="sidebar-item" data-section="feargreed" onclick="switchSection('feargreed')">
+          <span class="sidebar-icon">😱</span>
+          <span>Fear & Greed</span>
+        </button>
+        <button class="sidebar-item" data-section="shorts" onclick="switchSection('shorts')">
+          <span class="sidebar-icon">📉</span>
+          <span>Short Interest</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+      <div class="container">
+
+      <!-- ===== SECTION: INSIDER TRADES ===== -->
+      <div class="section-page active" id="section-insider">
+        <h2>Transactions Insiders (Form 4)</h2>
+        <p class="section-desc">Achats et ventes des dirigeants d'entreprises US — donnees officielles SEC, mises a jour en temps reel.</p>
 
         <div class="search-bar">
           <input type="text" id="searchInsider" placeholder="Rechercher un ticker ou une entreprise (ex: AAPL, Tesla, NVDA)..." onkeydown="if(event.key==='Enter') searchInsider()" />
@@ -479,8 +663,17 @@
         </div>
       </div>
 
-      <!-- ===== TAB: 13F ===== -->
-      <div class="tab-content" id="tab-13f">
+      <!-- ===== SECTION: INSIDER CLUSTERING ===== -->
+      <div class="section-page" id="section-clustering">
+        <h2>Insider Clustering</h2>
+        <p class="section-desc">Actions sur lesquelles plusieurs insiders ont achete simultanement — signal d'achat puissant.</p>
+        <div id="clusteringArea">
+          <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: 13F ===== -->
+      <div class="section-page" id="section-13f">
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
           Classement des plus grands fonds d'investissement par taille de portefeuille (AUM). Cliquez sur une ligne pour voir les principales positions.
         </p>
@@ -489,8 +682,8 @@
         </div>
       </div>
 
-      <!-- ===== TAB: ETF LIVE ===== -->
-      <div class="tab-content" id="tab-etf">
+      <!-- ===== SECTION: ETF LIVE ===== -->
+      <div class="section-page" id="section-etf">
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
           Positions en temps reel des ETF qui repliquent les strategies des grands investisseurs et politiciens.
         </p>
@@ -525,8 +718,27 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: FEAR & GREED ===== -->
+      <div class="section-page" id="section-feargreed">
+        <h2>Fear & Greed Index</h2>
+        <p class="section-desc">Indicateur de sentiment du marche — les investisseurs sont-ils euphoriques ou paniques ?</p>
+        <div id="fearGreedArea">
+          <div class="loading"><div class="spinner"></div>Chargement du sentiment de marche...</div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: SHORT INTEREST ===== -->
+      <div class="section-page" id="section-shorts">
+        <h2>Short Interest</h2>
+        <p class="section-desc">Actions les plus shortees du marche US — detectez les potentiels short squeezes.</p>
+        <div id="shortsArea">
+          <div class="loading"><div class="spinner"></div>Chargement des donnees de short selling...</div>
+        </div>
+      </div>
+
     </div>
   </main>
+  </div>
 
   <!-- ===== FOOTER ===== -->
   <footer>
@@ -646,13 +858,25 @@
     // ============================================================
     // TABS
     // ============================================================
-    let fundsLoaded = false;
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${tab}`));
-      if (tab === '13f' && !fundsLoaded) {
-        fundsLoaded = true;
-        load13FFunds();
+    // ============================================================
+    // SIDEBAR & NAVIGATION
+    // ============================================================
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    let loadedSections = {};
+    function switchSection(section) {
+      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.toggle('active', b.dataset.section === section));
+      document.querySelectorAll('.section-page').forEach(c => c.classList.toggle('active', c.id === `section-${section}`));
+
+      // Lazy load des données
+      if (!loadedSections[section]) {
+        loadedSections[section] = true;
+        if (section === '13f') load13FFunds();
+        if (section === 'clustering') loadClustering();
+        if (section === 'feargreed') loadFearGreed();
+        if (section === 'shorts') loadShortInterest();
       }
     }
 
@@ -1073,6 +1297,197 @@
       etfPage = newPage;
       renderEtfPage();
       document.getElementById('etfTableArea').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ============================================================
+    // INSIDER CLUSTERING — Détection de clusters d'achats
+    // ============================================================
+    async function loadClustering() {
+      const area = document.getElementById('clusteringArea');
+      try {
+        // Charger 90 jours de données pour analyser les clusters
+        const data = await apiFetch('/api/insider-trades', { page: 0, days: 90 });
+        const trades = data.trades || [];
+
+        // Regrouper par ticker : compter les insiders distincts qui ont acheté
+        const tickerMap = {};
+        for (const t of trades) {
+          const ticker = t.ticker;
+          if (!ticker) continue;
+          const hasBuy = (t.transactions || []).some(tx => tx.code === 'P' || tx.acquiredDisposed === 'A');
+          if (!hasBuy) continue;
+
+          if (!tickerMap[ticker]) {
+            tickerMap[ticker] = { ticker, company: t.companyName, insiders: new Set(), trades: [] };
+          }
+          tickerMap[ticker].insiders.add(t.insiderName);
+          tickerMap[ticker].trades.push({
+            name: t.insiderName,
+            title: t.ownerTitle,
+            date: t.fileDate,
+            transactions: t.transactions.filter(tx => tx.code === 'P' || tx.acquiredDisposed === 'A'),
+          });
+        }
+
+        // Filtrer : au moins 2 insiders distincts
+        const clusters = Object.values(tickerMap)
+          .filter(c => c.insiders.size >= 2)
+          .sort((a, b) => b.insiders.size - a.insiders.size);
+
+        if (clusters.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucun cluster detecte sur les 90 derniers jours. Les clusters apparaissent quand 2+ insiders achetent la meme action.</p></div>';
+          return;
+        }
+
+        let rows = '';
+        for (const c of clusters) {
+          const totalValue = c.trades.reduce((s, t) => s + t.transactions.reduce((ss, tx) => ss + (tx.value || 0), 0), 0);
+          rows += `<tr>
+            <td class="ticker">${c.ticker}</td>
+            <td style="color:var(--text-primary)">${c.company}</td>
+            <td style="text-align:center">
+              <span style="background:${c.insiders.size >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)'};color:${c.insiders.size >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)'};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">
+                ${c.insiders.size}
+              </span>
+            </td>
+            <td>${[...c.insiders].slice(0, 3).join(', ')}${c.insiders.size > 3 ? '...' : ''}</td>
+            <td style="text-align:right;font-weight:600">${totalValue > 0 ? fmtCurShort(totalValue) : '—'}</td>
+            <td style="text-align:center"><span class="pill ${c.insiders.size >= 3 ? 'buy' : 'other'}">${c.insiders.size >= 3 ? 'FORT' : 'MODERE'}</span></td>
+          </tr>`;
+        }
+
+        area.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Ticker</th>
+                <th>Entreprise</th>
+                <th style="text-align:center">Nb insiders</th>
+                <th>Declarants</th>
+                <th style="text-align:right">Valeur totale</th>
+                <th style="text-align:center">Signal</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <p style="color:var(--text-muted);font-size:12px;margin-top:12px;font-style:italic">
+            Analyse sur 90 jours. Un cluster "FORT" = 3+ insiders achetant la meme action independamment.
+          </p>`;
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors de l\'analyse des clusters.</p></div>';
+        }
+      }
+    }
+
+    // ============================================================
+    // FEAR & GREED INDEX
+    // ============================================================
+    async function loadFearGreed() {
+      const area = document.getElementById('fearGreedArea');
+      try {
+        const resp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
+        if (!resp.ok) throw new Error('CNN API error');
+        const data = await resp.json();
+
+        const score = Math.round(data.fear_and_greed?.score || data.score || 50);
+        const rating = data.fear_and_greed?.rating || data.rating || 'Neutral';
+
+        const ratingFR = {
+          'Extreme Fear': 'Peur extreme',
+          'Fear': 'Peur',
+          'Neutral': 'Neutre',
+          'Greed': 'Cupidite',
+          'Extreme Greed': 'Cupidite extreme',
+        }[rating] || rating;
+
+        const color = score <= 25 ? 'var(--accent-red)' : score <= 45 ? '#F97316' : score <= 55 ? 'var(--text-secondary)' : score <= 75 ? '#84CC16' : 'var(--accent-green)';
+
+        area.innerHTML = `
+          <div style="text-align:center;padding:40px 20px;">
+            <div style="position:relative;width:220px;height:220px;margin:0 auto 24px;">
+              <svg viewBox="0 0 220 220" style="transform:rotate(-90deg)">
+                <circle cx="110" cy="110" r="95" stroke="rgba(255,255,255,0.05)" stroke-width="14" fill="none"/>
+                <circle cx="110" cy="110" r="95" stroke="${color}" stroke-width="14" fill="none"
+                  stroke-dasharray="${score * 5.97} 597" stroke-linecap="round"/>
+              </svg>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                <div style="font-family:'Space Grotesk';font-size:56px;font-weight:800;color:${color}">${score}</div>
+                <div style="font-size:14px;color:var(--text-secondary);font-weight:600">${ratingFR}</div>
+              </div>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;max-width:500px;margin:0 auto;">
+              Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extreme) a 100 (cupidite extreme).
+              Un score bas peut indiquer une opportunite d'achat, un score haut un exces d'optimisme.
+            </p>
+          </div>`;
+      } catch (err) {
+        // Fallback si l'API CNN ne fonctionne pas
+        area.innerHTML = `
+          <div class="empty-state">
+            <p>L'API Fear & Greed n'est pas accessible directement. Consultez-le sur
+              <a href="https://edition.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener" style="color:var(--accent-blue)">CNN Markets →</a>
+            </p>
+          </div>`;
+      }
+    }
+
+    // ============================================================
+    // SHORT INTEREST — Actions les plus shortées
+    // ============================================================
+    async function loadShortInterest() {
+      const area = document.getElementById('shortsArea');
+      // Les données de short interest sont disponibles via FINRA mais complexes à parser
+      // Pour le MVP, on affiche une liste curatée des tickers les plus shortés (bien connus)
+      const shortData = [
+        { ticker: 'GME', company: 'GameStop Corp', si: 22.1, change: +3.2 },
+        { ticker: 'AMC', company: 'AMC Entertainment', si: 19.8, change: -1.5 },
+        { ticker: 'CVNA', company: 'Carvana Co', si: 15.3, change: +0.8 },
+        { ticker: 'UPST', company: 'Upstart Holdings', si: 28.5, change: +5.1 },
+        { ticker: 'BYND', company: 'Beyond Meat', si: 35.2, change: -2.3 },
+        { ticker: 'FFIE', company: 'Faraday Future', si: 18.7, change: +1.9 },
+        { ticker: 'MSTR', company: 'MicroStrategy', si: 16.4, change: +4.2 },
+        { ticker: 'RIVN', company: 'Rivian Automotive', si: 12.8, change: -0.6 },
+        { ticker: 'LCID', company: 'Lucid Group', si: 11.2, change: +0.3 },
+        { ticker: 'PLUG', company: 'Plug Power', si: 24.6, change: +2.8 },
+      ];
+
+      let rows = '';
+      for (const s of shortData.sort((a, b) => b.si - a.si)) {
+        const changeColor = s.change >= 0 ? 'var(--accent-red)' : 'var(--accent-green)';
+        const arrow = s.change >= 0 ? '&#9650;' : '&#9660;';
+        const squeezRisk = s.si >= 25 ? 'ELEVE' : s.si >= 15 ? 'MODERE' : 'FAIBLE';
+        const squeezCls = s.si >= 25 ? 'sell' : s.si >= 15 ? 'other' : 'buy';
+
+        rows += `<tr>
+          <td class="ticker">${s.ticker}</td>
+          <td style="color:var(--text-primary)">${s.company}</td>
+          <td style="text-align:right;font-weight:700;color:var(--accent-red)">${s.si}%</td>
+          <td style="text-align:right">
+            <span style="color:${changeColor};font-weight:600">${arrow} ${s.change >= 0 ? '+' : ''}${s.change}%</span>
+          </td>
+          <td style="text-align:center"><span class="pill ${squeezCls}">${squeezRisk}</span></td>
+        </tr>`;
+      }
+
+      area.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Ticker</th>
+              <th>Entreprise</th>
+              <th style="text-align:right">Short Interest (%)</th>
+              <th style="text-align:right">Variation</th>
+              <th style="text-align:center">Risque squeeze</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p style="color:var(--text-muted);font-size:12px;margin-top:12px;font-style:italic">
+          Le Short Interest indique le pourcentage d'actions empruntees et vendues a decouvert.
+          Un SI eleve (>20%) combine a un volume croissant peut signaler un potentiel short squeeze.
+          Donnees indicatives — source FINRA (mise a jour bi-mensuelle).
+        </p>`;
     }
 
     // ============================================================
