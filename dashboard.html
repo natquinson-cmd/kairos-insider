@@ -602,7 +602,8 @@
         </button>
         <button class="sidebar-item" data-section="clustering" onclick="switchSection('clustering')">
           <span class="sidebar-icon">🎯</span>
-          <span>Insider Clustering</span>
+          <span>Signaux Insiders</span>
+          <span class="sidebar-badge">LIVE</span>
         </button>
         <button class="sidebar-item" data-section="13f" onclick="switchSection('13f')">
           <span class="sidebar-icon">🏦</span>
@@ -665,8 +666,8 @@
 
       <!-- ===== SECTION: INSIDER CLUSTERING ===== -->
       <div class="section-page" id="section-clustering">
-        <h2>Insider Clustering</h2>
-        <p class="section-desc">Actions sur lesquelles plusieurs insiders ont achete simultanement — signal d'achat puissant.</p>
+        <h2>Signaux Insiders</h2>
+        <p class="section-desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — un signal fort quand les insiders agissent ensemble.</p>
         <div id="clusteringArea">
           <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
         </div>
@@ -1306,7 +1307,7 @@
       const area = document.getElementById('clusteringArea');
       try {
         const data = await apiFetch('/api/clusters');
-        const clusters = data.clusters || [];
+        const clusters = (data.clusters || []).sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
 
         if (clusters.length === 0) {
           area.innerHTML = '<div class="empty-state"><p>Aucun cluster detecte sur les 90 derniers jours.</p></div>';
@@ -1328,23 +1329,41 @@
               <span style="background:${countBg};color:${countColor};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">${c.insiderCount}</span>
             </td>
             <td>${c.totalFilings} declarations</td>
+            <td style="text-align:right;font-weight:600">${c.totalValue && c.totalValue > 0 ? fmtCurShort(c.totalValue) : '—'}</td>
             <td class="last-update">${fmtDate(c.firstDate)} — ${fmtDate(c.lastDate)}</td>
             <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
           </tr>`;
 
-          // Ligne depliable : detail des insiders
-          const insidersList = (c.insiders || []).map(name =>
-            `<li style="padding:4px 0;color:var(--text-secondary);font-size:12px">${name}</li>`
-          ).join('');
+          // Ligne depliable : detail des insiders avec dates et valeurs
+          const details = c.insiderDetails || c.insiders?.map(n => ({ name: n, dates: [], value: 0 })) || [];
+          let detailRows = '';
+          for (const d of details) {
+            const dates = (d.dates || []).map(dt => fmtDate(dt)).join(', ');
+            const val = d.value && d.value > 0 ? fmtCurShort(d.value) : '—';
+            detailRows += `<tr>
+              <td style="color:var(--text-primary);font-weight:500">${d.name}</td>
+              <td class="last-update">${dates || '—'}</td>
+              <td style="text-align:right;font-weight:600">${val}</td>
+            </tr>`;
+          }
 
           rows += `<tr class="fund-detail-row" id="cluster-detail-${i}">
-            <td colspan="6" class="fund-detail-cell">
+            <td colspan="7" class="fund-detail-cell">
               <div class="fund-detail-inner">
                 <div class="sub-header">
-                  <span>${c.insiderCount} insiders ayant depose un Form 4 pour ${c.ticker || c.company}</span>
+                  <span>${c.insiderCount} dirigeants ayant depose un Form 4 pour ${c.ticker || c.company}</span>
                   <span class="last-update">Periode: ${fmtDate(c.firstDate)} au ${fmtDate(c.lastDate)}</span>
                 </div>
-                <ul style="list-style:none;padding:0;margin:0;columns:2;column-gap:24px">${insidersList}</ul>
+                <div class="table-wrap" style="border:none">
+                  <table>
+                    <thead><tr>
+                      <th>Declarant</th>
+                      <th>Date(s)</th>
+                      <th style="text-align:right">Valeur estimee</th>
+                    </tr></thead>
+                    <tbody>${detailRows}</tbody>
+                  </table>
+                </div>
               </div>
             </td>
           </tr>`;
@@ -1362,6 +1381,7 @@
                 <th>Entreprise</th>
                 <th style="text-align:center">Insiders</th>
                 <th>Declarations</th>
+                <th style="text-align:right">Valeur totale</th>
                 <th>Periode</th>
                 <th style="text-align:center">Signal</th>
               </tr></thead>

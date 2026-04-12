@@ -77,12 +77,25 @@ for week_start in range(0, 90, 7):
                     'company': company_name,
                     'cik': company_cik,
                     'insiders': {},
+                    'filings_meta': [],
                     'sics': src.get('sics', []),
                 }
 
             if insider_name not in company_map[company_cik]['insiders']:
                 company_map[company_cik]['insiders'][insider_name] = []
             company_map[company_cik]['insiders'][insider_name].append(file_date)
+
+            # Stocker l'info du filing pour parser le XML plus tard
+            file_id = hit.get('_id', '')
+            id_parts = file_id.split(':')
+            if len(id_parts) >= 2:
+                company_map[company_cik]['filings_meta'].append({
+                    'adsh': id_parts[0],
+                    'filename': id_parts[1],
+                    'insider': insider_name,
+                    'date': file_date,
+                    'cik_clean': company_cik.lstrip('0'),
+                })
 
         time.sleep(0.3)
 
@@ -101,42 +114,67 @@ for cik, data in company_map.items():
         continue
 
     all_dates = []
-    insider_list = []
+    insider_details = []
     for name, dates in data['insiders'].items():
         all_dates.extend(dates)
-        insider_list.append(name)
+        sorted_dates = sorted(dates)
+        insider_details.append({
+            'name': name,
+            'dates': sorted_dates,
+            'lastDate': sorted_dates[-1] if sorted_dates else '',
+        })
 
     all_dates.sort()
+    # Trier les insiders par date la plus recente
+    insider_details.sort(key=lambda x: x['lastDate'], reverse=True)
+
     clusters.append({
         'company': data['company'],
         'cik': cik,
         'insiderCount': n_insiders,
-        'insiders': insider_list[:6],
+        'insiderDetails': insider_details[:10],
+        'insiders': [d['name'] for d in insider_details[:6]],
         'firstDate': all_dates[0] if all_dates else '',
         'lastDate': all_dates[-1] if all_dates else '',
         'totalFilings': len(all_dates),
+        'filings_meta': data.get('filings_meta', []),
     })
 
 clusters.sort(key=lambda c: c['insiderCount'], reverse=True)
 print(f'Clusters (2+ insiders): {len(clusters)}')
 
 # ============================================================
-# ETAPE 3 : Enrichir les top clusters avec le ticker (via XML)
+# ETAPE 3 : Enrichir les top clusters (ticker + valeurs via XML)
 # ============================================================
-print('\nEnriching top clusters with ticker...')
+print('\nEnriching top clusters with ticker + transaction values...')
+
+def parse_form4_value(xml):
+    """Extrait la valeur totale des transactions d'un Form 4 XML."""
+    total = 0
+    txs = []
+    for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):
+        block = match.group(1)
+        def get_val(tag):
+            m = re.search(rf'<{tag}>\s*<value>([^<]*)</value>', block, re.DOTALL)
+            return m.group(1).strip() if m else ''
+        shares = float(get_val('transactionShares') or 0)
+        price = float(get_val('transactionPricePerShare') or 0)
+        code = get_val('transactionCode')
+        ad = get_val('transactionAcquiredDisposedCode')
+        val = round(shares * price, 2)
+        total += val
+        if code or ad:
+            txs.append({'code': code, 'ad': ad, 'value': val, 'shares': shares})
+    return total, txs
+
 for cluster in clusters[:30]:
-    cik_clean = cluster['cik'].lstrip('0')
-    # Fetch submissions to find a recent Form 4
+    # Get ticker via submissions API
     subs_raw = fetch(f'https://data.sec.gov/submissions/CIK{cluster["cik"]}.json')
     if subs_raw:
         try:
             subs = json.loads(subs_raw)
             tickers = subs.get('tickers', [])
-            if tickers:
-                cluster['ticker'] = tickers[0]
-            else:
-                cluster['ticker'] = ''
-            # Also get the real name
+            cluster['ticker'] = tickers[0] if tickers else ''
             if subs.get('name'):
                 cluster['company'] = subs['name']
         except:
@@ -144,8 +182,38 @@ for cluster in clusters[:30]:
     else:
         cluster['ticker'] = ''
     time.sleep(0.2)
+
+    # Parse XMLs pour recuperer les valeurs de transaction par insider
+    total_value = 0
+    insider_values = {}
+    filings = cluster.get('filings_meta', [])[:20]  # Max 20 XMLs par cluster
+
+    for fm in filings:
+        adsh_clean = fm['adsh'].replace('-', '')
+        xml_url = f'https://www.sec.gov/Archives/edgar/data/{fm["cik_clean"]}/{adsh_clean}/{fm["filename"]}'
+        xml = curl_fetch(xml_url)
+        if not xml:
+            continue
+        val, txs = parse_form4_value(xml)
+        total_value += val
+        ins_name = fm['insider']
+        if ins_name not in insider_values:
+            insider_values[ins_name] = 0
+        insider_values[ins_name] += val
+        time.sleep(0.15)
+
+    cluster['totalValue'] = round(total_value, 2)
+
+    # Mettre a jour les insider_details avec les valeurs
+    for detail in cluster.get('insiderDetails', []):
+        detail['value'] = round(insider_values.get(detail['name'], 0), 2)
+
+    # Nettoyer les filings_meta (pas besoin dans le JSON final)
+    if 'filings_meta' in cluster:
+        del cluster['filings_meta']
+
     if cluster['ticker']:
-        print(f'  {cluster["ticker"]:6s} | {cluster["company"]:35s} | {cluster["insiderCount"]} insiders | {cluster["totalFilings"]} filings')
+        print(f'  {cluster["ticker"]:6s} | {cluster["company"]:35s} | {cluster["insiderCount"]} ins | ${total_value:>12,.0f}')
 
 # ============================================================
 # ETAPE 4 : Separer achats et ventes (heuristique simple)
@@ -153,6 +221,11 @@ for cluster in clusters[:30]:
 # Sans parser tous les XMLs, on ne peut pas distinguer achats/ventes
 # On fournit tous les clusters comme "activite insider" et on note que
 # le type sera determine quand l'utilisateur clique pour voir le detail
+
+# Nettoyer les filings_meta des clusters non enrichis
+for c in clusters[30:]:
+    if 'filings_meta' in c:
+        del c['filings_meta']
 
 # Filtrer les clusters sans ticker
 enriched = [c for c in clusters if c.get('ticker')]
