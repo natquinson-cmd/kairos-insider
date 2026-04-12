@@ -1335,7 +1335,9 @@
           </tr>`;
 
           // Ligne depliable : detail des insiders avec dates et valeurs
-          const details = c.insiderDetails || c.insiders?.map(n => ({ name: n, dates: [], value: 0 })) || [];
+          const allDetails = c.insiderDetails || c.insiders?.map(n => ({ name: n, dates: [], value: 0 })) || [];
+          // Filtrer les insiders sans données utiles (pas de poste, pas d'actions, pas de valeur)
+          const details = allDetails.filter(d => d.title || (d.shares && d.shares > 0) || (d.value && d.value > 0) || d.txType);
           let detailRows = '';
           for (const d of details) {
             const dates = (d.dates || []).map(dt => fmtDate(dt)).join(', ');
@@ -1360,7 +1362,7 @@
             <td colspan="7" class="fund-detail-cell">
               <div class="fund-detail-inner">
                 <div class="sub-header">
-                  <span>${c.insiderCount} dirigeants ayant depose un Form 4 pour ${c.ticker || c.company}</span>
+                  <span>${details.length > 0 ? details.length : c.insiderCount} dirigeants avec transactions significatives pour ${c.ticker || c.company}</span>
                   <span class="last-update">Periode: ${fmtDate(c.firstDate)} au ${fmtDate(c.lastDate)}</span>
                 </div>
                 <div class="table-wrap" style="border:none">
