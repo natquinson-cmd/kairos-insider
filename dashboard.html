@@ -447,6 +447,12 @@
         <div id="etfTableArea">
           <div class="empty-state"><p>Selectionnez un ETF ci-dessus pour voir ses positions en temps reel.</p></div>
         </div>
+
+        <div class="pagination" id="etfPagination" style="display:none;">
+          <button onclick="changeEtfPage(-1)" id="etfPrevBtn">← Precedent</button>
+          <span class="page-info" id="etfPageInfo">Page 1</span>
+          <button onclick="changeEtfPage(1)" id="etfNextBtn">Suivant →</button>
+        </div>
       </div>
 
     </div>
@@ -855,8 +861,13 @@
     // ETF LIVE
     // ============================================================
     let currentEtf = null;
+    let etfAllHoldings = [];
+    let etfHasChanges = false;
+    let etfPage = 0;
+    const ETF_PAGE_SIZE = 25;
 
     async function loadEtf(type, symbol) {
+      etfPage = 0;
       // Activer le sous-onglet
       document.querySelectorAll('.etf-subtab').forEach(b => b.classList.remove('active'));
       event.target.closest('.etf-subtab').classList.add('active');
@@ -889,9 +900,26 @@
 
         // Tableau
         let rows = '';
-        const hasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
+        // Stocker toutes les positions pour la pagination
+        etfAllHoldings = data.holdings;
+        etfHasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
+        renderEtfPage();
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
+        }
+      }
+    }
 
-        for (const h of data.holdings) {
+    function renderEtfPage() {
+      const area = document.getElementById('etfTableArea');
+      const start = etfPage * ETF_PAGE_SIZE;
+      const pageHoldings = etfAllHoldings.slice(start, start + ETF_PAGE_SIZE);
+      const totalPages = Math.ceil(etfAllHoldings.length / ETF_PAGE_SIZE);
+      const hasChanges = etfHasChanges;
+
+      let rows = '';
+      for (const h of pageHoldings) {
           // Indicateur d'evolution
           let changeHtml = '';
           if (h.status === 'new') {
@@ -934,11 +962,27 @@
               <tbody>${rows}</tbody>
             </table>
           </div>`;
-      } catch (err) {
-        if (err.message !== 'Unauthorized') {
-          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
-        }
+
+      // Pagination
+      const pag = document.getElementById('etfPagination');
+      const totalPages = Math.ceil(etfAllHoldings.length / ETF_PAGE_SIZE);
+      if (totalPages > 1) {
+        pag.style.display = 'flex';
+        document.getElementById('etfPrevBtn').disabled = etfPage === 0;
+        document.getElementById('etfNextBtn').disabled = etfPage >= totalPages - 1;
+        document.getElementById('etfPageInfo').textContent = `Page ${etfPage + 1} / ${totalPages}`;
+      } else {
+        pag.style.display = 'none';
       }
+    }
+
+    function changeEtfPage(delta) {
+      const totalPages = Math.ceil(etfAllHoldings.length / ETF_PAGE_SIZE);
+      const newPage = etfPage + delta;
+      if (newPage < 0 || newPage >= totalPages) return;
+      etfPage = newPage;
+      renderEtfPage();
+      document.getElementById('etfTableArea').scrollIntoView({ behavior: 'smooth' });
     }
 
     // ============================================================

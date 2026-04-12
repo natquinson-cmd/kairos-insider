@@ -8,9 +8,9 @@ def curl_fetch(url):
     """Fetch via curl (contourne les blocages User-Agent)."""
     result = subprocess.run(
         ['curl', '-s', '-L', url],
-        capture_output=True, text=True, timeout=30
+        capture_output=True, timeout=30
     )
-    return result.stdout if result.returncode == 0 else None
+    return result.stdout.decode('utf-8', errors='replace') if result.returncode == 0 else None
 
 def parse_congress_csv(csv_text, symbol):
     """Parse le CSV NANC ou GOP."""
@@ -38,26 +38,27 @@ def parse_congress_csv(csv_text, symbol):
         'category': 'Politique US',
         'holdingsCount': len(holdings),
         'totalValue': sum(h['value'] for h in holdings),
-        'holdings': holdings[:50],
+        'holdings': holdings,
     }
 
 def parse_guru_csv(csv_text):
-    """Parse le CSV GURU (Global X)."""
+    """Parse le CSV GURU (Global X) avec gestion des guillemets/virgules."""
     lines = csv_text.strip().split('\n')
+    # Skip 2 header lines, parse from line 3 (column names) using csv reader
+    reader = csv.reader(io.StringIO('\n'.join(lines[2:])))
+    header = next(reader)  # % of Net Assets, Ticker, Name, SEDOL, Market Price ($), Shares Held, Market Value ($)
     holdings = []
-    for line in lines[3:]:  # Skip 2 header lines + column names
-        cols = line.split(',')
-        if len(cols) < 7: continue
-        weight = float(cols[0]) if cols[0] else 0
-        ticker = cols[1].replace('"', '').strip()
-        company = cols[2].replace('"', '').strip()
-        shares_str = cols[5].replace('"', '').replace(',', '').strip()
-        shares = int(float(shares_str)) if shares_str else 0
-        value_str = cols[6].replace('"', '').replace(',', '').strip()
-        value = float(value_str) if value_str else 0
+    for row in reader:
+        if len(row) < 7: continue
+        weight = float(row[0]) if row[0] else 0
+        ticker = row[1].strip()
+        company = row[2].strip()
+        price = float(row[4].replace(',', '')) if row[4] else 0
+        shares = int(float(row[5].replace(',', ''))) if row[5] else 0
+        value = float(row[6].replace(',', '')) if row[6] else 0
         if not ticker or ticker in ('CASH', 'OTHER'): continue
         holdings.append({'ticker': ticker, 'company': company, 'shares': shares,
-                         'value': value, 'weight': weight})
+                         'price': price, 'value': value, 'weight': weight})
     holdings.sort(key=lambda h: h['weight'], reverse=True)
     for i, h in enumerate(holdings): h['rank'] = i + 1
     from datetime import date
@@ -66,7 +67,7 @@ def parse_guru_csv(csv_text):
         'label': 'Top 60 Hedge Funds', 'category': 'Consensus hedge funds',
         'holdingsCount': len(holdings),
         'totalValue': sum(h['value'] for h in holdings),
-        'holdings': holdings[:50],
+        'holdings': holdings,
     }
 
 # ============================================================
