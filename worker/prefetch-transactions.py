@@ -53,6 +53,11 @@ def parse_form4(xml):
         if shares <= 0:
             continue
 
+        # Ignorer les dates dans le futur (erreurs de saisie)
+        today_str = now.strftime('%Y-%m-%d')
+        if date and date > today_str:
+            continue
+
         is_buy = code == 'P' or (ad == 'A' and price > 0)
         is_sell = code == 'S' or (ad == 'D' and price > 0)
 

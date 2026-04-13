@@ -898,7 +898,9 @@
         // Overlay auth success
         document.getElementById('authOverlay').classList.add('hidden');
 
-        allInsiderTx = data.transactions || [];
+        // Filtrer les dates futures (erreurs de saisie SEC)
+        const today = new Date().toISOString().split('T')[0];
+        allInsiderTx = (data.transactions || []).filter(t => (t.date || t.fileDate || '') <= today);
         totalTrades = allInsiderTx.length;
         renderInsiderPage();
       } catch (err) {
