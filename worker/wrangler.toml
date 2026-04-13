@@ -7,6 +7,8 @@ BREVO_TEMPLATE_ID = "1"
 BREVO_SENDER_NAME = "Kairos Insider"
 BREVO_SENDER_EMAIL = "contact@kairosinsider.fr"
 ALLOWED_ORIGIN = "https://kairosinsider.fr"
+FIREBASE_PROJECT_ID = "kairos-insider"
+STRIPE_PRICE_ID = "price_1TLlbEGk8vnTfS1xgFEvWhH1"
 
 [[kv_namespaces]]
 binding = "CACHE"

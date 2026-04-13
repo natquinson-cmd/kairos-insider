@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
 
   <style>
     :root {
@@ -191,6 +192,33 @@
       font-weight: 700;
       background: rgba(16,185,129,0.15);
       color: var(--accent-green);
+    }
+    .sidebar-item .premium-badge {
+      background: rgba(139,92,246,0.15);
+      color: var(--accent-purple);
+    }
+    .sidebar-item .premium-badge.unlocked {
+      background: rgba(16,185,129,0.15);
+      color: var(--accent-green);
+    }
+    .premium-locked {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .user-info {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .user-info .user-email {
+      color: var(--text-secondary);
+      font-weight: 500;
+      display: block;
+      margin-bottom: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* Main content area */
@@ -559,13 +587,55 @@
       <div class="logo-mark">
         <img src="assets/logo.png" alt="Kairos Insider" />
       </div>
-      <h2>Accès Dashboard</h2>
-      <p>Entrez le mot de passe fourni pour accéder aux données Smart Money.</p>
-      <form onsubmit="return handleAuth(event)">
-        <input type="password" id="authPassword" placeholder="Mot de passe" autocomplete="off" />
-        <p class="error" id="authError">Mot de passe incorrect.</p>
-        <button type="submit" class="btn btn-primary">Accéder au dashboard</button>
-      </form>
+
+      <!-- MODE CONNEXION -->
+      <div id="authLogin">
+        <h2>Connexion</h2>
+        <p>Connectez-vous pour accéder au Smart Money Dashboard.</p>
+        <form onsubmit="return handleLogin(event)">
+          <input type="email" id="loginEmail" placeholder="Adresse email" autocomplete="email" required />
+          <input type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password" required />
+          <p class="error" id="loginError"></p>
+          <button type="submit" class="btn btn-primary" id="loginBtn">Se connecter</button>
+        </form>
+        <p style="margin-top:16px;font-size:13px;color:var(--text-muted)">
+          Pas encore de compte ? <a href="#" onclick="showSignup()" style="color:var(--accent-blue)">Creer un compte</a>
+        </p>
+        <p style="margin-top:8px;font-size:12px"><a href="#" onclick="handleForgotPassword()" style="color:var(--text-muted)">Mot de passe oublie ?</a></p>
+      </div>
+
+      <!-- MODE INSCRIPTION -->
+      <div id="authSignup" style="display:none">
+        <h2>Creer un compte</h2>
+        <p>Inscrivez-vous gratuitement pour decouvrir le dashboard.</p>
+        <form onsubmit="return handleSignup(event)">
+          <input type="email" id="signupEmail" placeholder="Adresse email" autocomplete="email" required />
+          <input type="password" id="signupPassword" placeholder="Mot de passe (6 caracteres min)" autocomplete="new-password" required minlength="6" />
+          <p class="error" id="signupError"></p>
+          <button type="submit" class="btn btn-primary" id="signupBtn">Creer mon compte</button>
+        </form>
+        <p style="margin-top:16px;font-size:13px;color:var(--text-muted)">
+          Deja un compte ? <a href="#" onclick="showLogin()" style="color:var(--accent-blue)">Se connecter</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PAYWALL OVERLAY ===== -->
+  <div class="auth-overlay hidden" id="paywallOverlay">
+    <div class="auth-card" style="max-width:500px">
+      <div class="logo-mark">
+        <img src="assets/logo.png" alt="Kairos Insider" />
+      </div>
+      <h2 style="margin-bottom:16px">Passez a Kairos Insider Premium</h2>
+      <p style="margin-bottom:24px">Debloquez l'acces complet au Smart Money Dashboard : transactions insiders, signaux de clusters, portefeuilles 13F, ETF en temps reel.</p>
+      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:36px;font-weight:800;color:var(--accent-blue)">29&#8364;<span style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable a tout moment</div>
+      </div>
+      <button class="btn btn-primary" onclick="startCheckout()" id="checkoutBtn" style="width:100%;padding:16px">S'abonner maintenant</button>
+      <p style="margin-top:12px;font-size:12px;color:var(--text-muted)">Paiement securise par Stripe. Vous pouvez annuler a tout moment.</p>
+      <p style="margin-top:8px"><a href="#" onclick="document.getElementById('paywallOverlay').classList.add('hidden')" style="color:var(--text-muted);font-size:12px">Continuer avec le plan gratuit →</a></p>
     </div>
   </div>
 
@@ -595,24 +665,25 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title">Smart Money</div>
-        <button class="sidebar-item active" data-section="insider" onclick="switchSection('insider')">
+        <button class="sidebar-item active" data-section="insider" data-premium="true" onclick="switchSection('insider')">
           <span class="sidebar-icon">📋</span>
           <span>Transactions Insiders</span>
-          <span class="sidebar-badge">LIVE</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="clustering" onclick="switchSection('clustering')">
+        <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
           <span class="sidebar-icon">🎯</span>
           <span>Signaux Insiders</span>
-          <span class="sidebar-badge">LIVE</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="13f" onclick="switchSection('13f')">
+        <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')">
           <span class="sidebar-icon">🏦</span>
           <span>Portefeuilles 13F</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="etf" onclick="switchSection('etf')">
+        <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
           <span class="sidebar-icon">📊</span>
           <span>ETF Live</span>
-          <span class="sidebar-badge">LIVE</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
         </button>
       </div>
 
@@ -820,37 +891,193 @@
     }
 
     // ============================================================
-    // AUTH
+    // FIREBASE AUTH + STRIPE
     // ============================================================
-    function getKey() { return sessionStorage.getItem('kairos_dashboard_key') || ''; }
+    let firebaseAuth = null;
+    let currentUser = null;
+    let isPremium = false;
+    const STRIPE_PK = 'pk_test_51R1ZpdGk8vnTfS1xnlLvD3ASEgMbrWkaE5bA8f7LfkgfYPahA9V8wiili7x1QbSGOtxbqZSvGxcBRvLoUmUKR4Xw00hofVHW1A';
 
-    function handleAuth(e) {
+    // Initialisation Firebase Auth (module)
+    async function initAuth() {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+      const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+
+      const app = initializeApp({
+        apiKey: 'AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw',
+        authDomain: 'kairos-insider.firebaseapp.com',
+        projectId: 'kairos-insider',
+      });
+
+      firebaseAuth = getAuth(app);
+      window.__fbAuth = { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail };
+
+      onAuthStateChanged(firebaseAuth, async (user) => {
+        if (user) {
+          currentUser = user;
+          document.getElementById('authOverlay').classList.add('hidden');
+          await checkSubscription();
+          loadInsiderTrades();
+        } else {
+          currentUser = null;
+          isPremium = false;
+          document.getElementById('authOverlay').classList.remove('hidden');
+        }
+      });
+    }
+
+    initAuth();
+
+    // UI toggle login/signup
+    function showSignup() {
+      document.getElementById('authLogin').style.display = 'none';
+      document.getElementById('authSignup').style.display = 'block';
+    }
+    function showLogin() {
+      document.getElementById('authLogin').style.display = 'block';
+      document.getElementById('authSignup').style.display = 'none';
+    }
+
+    async function handleLogin(e) {
       e.preventDefault();
-      const pw = document.getElementById('authPassword').value;
-      sessionStorage.setItem('kairos_dashboard_key', pw);
-      document.getElementById('authError').style.display = 'none';
-      loadInsiderTrades(0);
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const errEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      errEl.style.display = 'none';
+      btn.textContent = 'Connexion...';
+      btn.disabled = true;
+      try {
+        await window.__fbAuth.signInWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (err) {
+        const messages = {
+          'auth/user-not-found': 'Aucun compte avec cet email.',
+          'auth/wrong-password': 'Mot de passe incorrect.',
+          'auth/invalid-email': 'Email invalide.',
+          'auth/too-many-requests': 'Trop de tentatives. Reessayez plus tard.',
+          'auth/invalid-credential': 'Email ou mot de passe incorrect.',
+        };
+        errEl.textContent = messages[err.code] || err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.textContent = 'Se connecter';
+        btn.disabled = false;
+      }
       return false;
     }
 
-    function logout() {
-      sessionStorage.removeItem('kairos_dashboard_key');
-      document.getElementById('authOverlay').classList.remove('hidden');
-      document.getElementById('authPassword').value = '';
+    async function handleSignup(e) {
+      e.preventDefault();
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+      const errEl = document.getElementById('signupError');
+      const btn = document.getElementById('signupBtn');
+      errEl.style.display = 'none';
+      btn.textContent = 'Creation...';
+      btn.disabled = true;
+      try {
+        await window.__fbAuth.createUserWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (err) {
+        const messages = {
+          'auth/email-already-in-use': 'Cet email est deja utilise.',
+          'auth/weak-password': 'Mot de passe trop faible (6 caracteres minimum).',
+          'auth/invalid-email': 'Email invalide.',
+        };
+        errEl.textContent = messages[err.code] || err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.textContent = 'Creer mon compte';
+        btn.disabled = false;
+      }
+      return false;
     }
 
-    async function apiFetch(endpoint, params = {}) {
-      const url = new URL(API_BASE + endpoint);
-      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    async function handleForgotPassword() {
+      const email = document.getElementById('loginEmail').value;
+      if (!email) { alert('Entrez votre email puis cliquez sur "Mot de passe oublie"'); return; }
+      try {
+        await window.__fbAuth.sendPasswordResetEmail(firebaseAuth, email);
+        alert('Email de reinitialisation envoye ! Verifiez votre boite.');
+      } catch (err) {
+        alert('Erreur : ' + err.message);
+      }
+    }
 
-      const resp = await fetch(url.toString(), {
-        headers: { 'X-Dashboard-Key': getKey() },
+    async function logout() {
+      await window.__fbAuth.signOut(firebaseAuth);
+    }
+
+    // Vérifier l'abonnement Stripe
+    async function checkSubscription() {
+      try {
+        const data = await apiFetch('/stripe/status');
+        isPremium = data.hasSubscription;
+        updatePremiumUI();
+      } catch (err) {
+        isPremium = false;
+        updatePremiumUI();
+      }
+    }
+
+    function updatePremiumUI() {
+      // Mettre à jour les badges sidebar
+      document.querySelectorAll('.premium-badge').forEach(badge => {
+        if (isPremium) {
+          badge.textContent = '✓';
+          badge.classList.add('unlocked');
+        } else {
+          badge.textContent = 'PRO';
+          badge.classList.remove('unlocked');
+        }
       });
+    }
+
+    // Stripe Checkout
+    async function startCheckout() {
+      const btn = document.getElementById('checkoutBtn');
+      btn.textContent = 'Redirection vers Stripe...';
+      btn.disabled = true;
+      try {
+        const data = await apiFetch('/stripe/create-checkout', {}, 'POST');
+        const stripe = Stripe(STRIPE_PK);
+        await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      } catch (err) {
+        alert('Erreur lors de la creation du paiement. Reessayez.');
+        btn.textContent = "S'abonner maintenant";
+        btn.disabled = false;
+      }
+    }
+
+    // API fetch avec Firebase ID token
+    async function apiFetch(endpoint, params = {}, method = 'GET') {
+      const url = new URL(API_BASE + endpoint);
+      if (method === 'GET') {
+        Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+      }
+
+      const idToken = currentUser ? await currentUser.getIdToken() : '';
+      const opts = {
+        method,
+        headers: { 'Authorization': `Bearer ${idToken}` },
+      };
+      if (method === 'POST') {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(params);
+      }
+
+      const resp = await fetch(url.toString(), opts);
 
       if (resp.status === 401) {
         document.getElementById('authOverlay').classList.remove('hidden');
-        document.getElementById('authError').style.display = 'block';
         throw new Error('Unauthorized');
+      }
+
+      if (resp.status === 403) {
+        const data = await resp.json();
+        if (data.code === 'PREMIUM_REQUIRED') {
+          document.getElementById('paywallOverlay').classList.remove('hidden');
+          throw new Error('Premium required');
+        }
       }
 
       if (!resp.ok) throw new Error(`API error: ${resp.status}`);
@@ -1824,11 +2051,14 @@
     }
 
     // ============================================================
-    // INIT
+    // INIT — Firebase Auth gère tout via onAuthStateChanged
     // ============================================================
-    if (getKey()) {
-      document.getElementById('authOverlay').classList.add('hidden');
-      loadInsiderTrades(0);
+    // Vérifier si retour de checkout Stripe
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('checkout') === 'success') {
+      // Attendre un peu puis refresh le statut
+      setTimeout(() => checkSubscription(), 2000);
+      window.history.replaceState({}, '', window.location.pathname);
     }
   </script>
 </body>

@@ -1,13 +1,20 @@
 /**
  * Kairos Insider — Cloudflare Worker
- * 1. Proxy sécurisé Brevo (envoi emails waitlist)
- * 2. Proxy SEC EDGAR (Form 4 insider trades) avec cache KV
- * 3. Auth par mot de passe pour les routes /api/*
+ * 1. Proxy Brevo (emails waitlist) — public
+ * 2. Auth Firebase (JWT verification) — comptes utilisateurs
+ * 3. Stripe (checkout, webhook, subscription status) — abonnements
+ * 4. Proxy SEC EDGAR + KV data — données dashboard
+ *
+ * Modèle freemium :
+ *   - Public : POST /send-welcome
+ *   - Gratuit (auth) : /api/feargreed, /api/shorts
+ *   - Premium (auth + abo) : /api/all-transactions, /api/clusters, /api/13f-*, /api/etf-*
  */
 
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
-const CACHE_TTL_INSIDER = 14400;  // 4 heures
-const CACHE_TTL_DETAIL  = 86400;  // 24 heures
+
+// Routes gratuites (auth requise mais pas d'abonnement)
+const FREE_ROUTES = ['/api/feargreed', '/api/shorts'];
 
 export default {
   async fetch(request, env) {
@@ -19,59 +26,69 @@ export default {
       return new Response(null, { headers: corsHeaders(origin || env.ALLOWED_ORIGIN) });
     }
 
-    // --- Vérification de l'origine ---
-    if (!isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) {
+    // --- Vérification de l'origine (sauf webhook Stripe) ---
+    const path = url.pathname;
+    if (path !== '/stripe/webhook' && !isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) {
       return jsonResponse({ error: 'Origin not allowed' }, 403, env.ALLOWED_ORIGIN);
     }
 
-    // --- Router ---
-    const path = url.pathname;
-
-    // Email waitlist (existant)
+    // ==========================================
+    // ROUTES PUBLIQUES (pas d'auth)
+    // ==========================================
     if (request.method === 'POST' && path === '/send-welcome') {
       return handleSendWelcome(request, env, origin);
     }
 
-    // API routes (protégées par mot de passe)
-    if (request.method === 'GET' && path.startsWith('/api/')) {
-      const key = request.headers.get('X-Dashboard-Key') || '';
-      if (key !== env.DASHBOARD_PASSWORD) {
-        return jsonResponse({ error: 'Unauthorized' }, 401, origin);
+    // Stripe webhook (pas d'auth Firebase, vérifié par signature Stripe)
+    if (request.method === 'POST' && path === '/stripe/webhook') {
+      return handleStripeWebhook(request, env);
+    }
+
+    // ==========================================
+    // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
+    // ==========================================
+    if (path.startsWith('/api/') || path.startsWith('/stripe/')) {
+      // Vérifier le token Firebase
+      const authHeader = request.headers.get('Authorization') || '';
+      const idToken = authHeader.replace('Bearer ', '');
+
+      if (!idToken) {
+        return jsonResponse({ error: 'No token provided' }, 401, origin);
       }
 
-      if (path === '/api/insider-trades') {
-        return handleInsiderTrades(url, env, origin);
+      const user = await verifyFirebaseToken(idToken, env);
+      if (!user) {
+        return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
       }
-      if (path === '/api/insider-detail') {
-        return handleInsiderDetail(url, env, origin);
+
+      // --- Routes Stripe (auth requise) ---
+      if (request.method === 'POST' && path === '/stripe/create-checkout') {
+        return handleCreateCheckout(request, env, user, origin);
       }
-      if (path === '/api/13f-search') {
-        return handle13FSearch(url, env, origin);
+      if (request.method === 'GET' && path === '/stripe/status') {
+        return handleSubscriptionStatus(env, user, origin);
       }
-      if (path === '/api/13f-fund') {
-        return handle13FFund(url, env, origin);
+      if (request.method === 'POST' && path === '/stripe/portal') {
+        return handleCustomerPortal(request, env, user, origin);
       }
-      if (path === '/api/all-transactions') {
-        const data = await env.CACHE.get('insider-transactions', 'json');
-        if (!data) return jsonResponse({ error: 'Transactions not loaded' }, 503, origin);
-        return jsonResponse(data, 200, origin);
-      }
-      if (path === '/api/clusters') {
-        const data = await env.CACHE.get('insider-clusters', 'json');
-        if (!data) return jsonResponse({ error: 'Clusters not loaded' }, 503, origin);
-        return jsonResponse(data, 200, origin);
-      }
-      if (path === '/api/13f-funds') {
-        return handle13FFunds(env, origin);
-      }
-      if (path === '/api/etf-ark') {
-        return handleEtfArk(url, env, origin);
-      }
-      if (path === '/api/etf-congress') {
-        return handleEtfCongress(url, env, origin);
-      }
-      if (path === '/api/etf-guru') {
-        return handleEtfGuru(env, origin);
+
+      // --- Routes API ---
+      if (request.method === 'GET' && path.startsWith('/api/')) {
+        // Routes gratuites (pas besoin d'abonnement)
+        const isFree = FREE_ROUTES.includes(path);
+
+        if (!isFree) {
+          // Vérifier l'abonnement premium
+          const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
+          const isActive = subData && subData.status === 'active';
+          const isPastDue = subData && subData.status === 'past_due';
+
+          if (!isActive && !isPastDue) {
+            return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
+          }
+        }
+
+        return handleApiRoute(path, url, env, origin);
       }
     }
 
@@ -80,7 +97,235 @@ export default {
 };
 
 // ============================================================
-// ROUTE: POST /send-welcome (existant — email Brevo)
+// AUTH : Vérification Firebase ID Token (via REST API)
+// ============================================================
+async function verifyFirebaseToken(idToken, env) {
+  try {
+    const resp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${env.FIREBASE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.users || data.users.length === 0) return null;
+
+    return {
+      uid: data.users[0].localId,
+      email: data.users[0].email,
+      emailVerified: data.users[0].emailVerified,
+    };
+  } catch (err) {
+    console.error('Firebase token verification error:', err);
+    return null;
+  }
+}
+
+// ============================================================
+// API ROUTER (données dashboard)
+// ============================================================
+async function handleApiRoute(path, url, env, origin) {
+  // KV-served routes
+  if (path === '/api/all-transactions') {
+    const data = await env.CACHE.get('insider-transactions', 'json');
+    if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    return jsonResponse(data, 200, origin);
+  }
+  if (path === '/api/clusters') {
+    const data = await env.CACHE.get('insider-clusters', 'json');
+    if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    return jsonResponse(data, 200, origin);
+  }
+  if (path === '/api/13f-funds') {
+    const data = await env.CACHE.get('13f-all-funds', 'json');
+    if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    return jsonResponse(data, 200, origin);
+  }
+  if (path === '/api/etf-ark') {
+    return handleEtfArk(url, env, origin);
+  }
+  if (path === '/api/etf-congress') {
+    return handleEtfCongress(url, env, origin);
+  }
+  if (path === '/api/etf-guru') {
+    const data = await env.CACHE.get('etf-guru', 'json');
+    if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    return jsonResponse(data, 200, origin);
+  }
+
+  // Free routes
+  if (path === '/api/feargreed' || path === '/api/shorts') {
+    // Ces données sont dans le frontend, pas besoin de backend
+    return jsonResponse({ ok: true }, 200, origin);
+  }
+
+  return jsonResponse({ error: 'Unknown API route' }, 404, origin);
+}
+
+// ============================================================
+// STRIPE : Création de Checkout Session
+// ============================================================
+async function handleCreateCheckout(request, env, user, origin) {
+  try {
+    const body = await request.json();
+
+    const params = new URLSearchParams({
+      'payment_method_types[]': 'card',
+      'mode': 'subscription',
+      'client_reference_id': user.uid,
+      'customer_email': user.email,
+      'line_items[0][price]': env.STRIPE_PRICE_ID,
+      'line_items[0][quantity]': '1',
+      'success_url': body.successUrl || `${env.ALLOWED_ORIGIN}/dashboard.html?checkout=success`,
+      'cancel_url': body.cancelUrl || `${env.ALLOWED_ORIGIN}/dashboard.html?checkout=cancelled`,
+      'subscription_data[metadata][firebase_uid]': user.uid,
+    });
+
+    const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+
+    const session = await resp.json();
+    if (!resp.ok) {
+      console.error('Stripe checkout error:', session);
+      return jsonResponse({ error: 'Checkout creation failed' }, 500, origin);
+    }
+
+    return jsonResponse({ sessionId: session.id }, 200, origin);
+  } catch (err) {
+    console.error('handleCreateCheckout error:', err);
+    return jsonResponse({ error: 'Internal error' }, 500, origin);
+  }
+}
+
+// ============================================================
+// STRIPE : Webhook (events de subscription)
+// ============================================================
+async function handleStripeWebhook(request, env) {
+  try {
+    const body = await request.text();
+    // Note: Pour le MVP on ne vérifie pas la signature du webhook
+    // En production, il faudrait vérifier avec STRIPE_WEBHOOK_SECRET
+    const event = JSON.parse(body);
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const uid = session.client_reference_id || session.subscription_data?.metadata?.firebase_uid;
+      if (uid && session.subscription) {
+        // Récupérer les détails de la subscription
+        const subResp = await fetch(`https://api.stripe.com/v1/subscriptions/${session.subscription}`, {
+          headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+        });
+        const sub = await subResp.json();
+
+        await env.CACHE.put(`sub:${uid}`, JSON.stringify({
+          status: sub.status,
+          subscriptionId: sub.id,
+          customerId: sub.customer,
+          currentPeriodEnd: sub.current_period_end,
+          priceId: env.STRIPE_PRICE_ID,
+        }));
+        console.log(`Subscription created for uid: ${uid}, status: ${sub.status}`);
+      }
+    }
+
+    if (event.type === 'customer.subscription.updated') {
+      const sub = event.data.object;
+      const uid = sub.metadata?.firebase_uid;
+      if (uid) {
+        await env.CACHE.put(`sub:${uid}`, JSON.stringify({
+          status: sub.status,
+          subscriptionId: sub.id,
+          customerId: sub.customer,
+          currentPeriodEnd: sub.current_period_end,
+          priceId: env.STRIPE_PRICE_ID,
+        }));
+        console.log(`Subscription updated for uid: ${uid}, status: ${sub.status}`);
+      }
+    }
+
+    if (event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      const uid = sub.metadata?.firebase_uid;
+      if (uid) {
+        await env.CACHE.put(`sub:${uid}`, JSON.stringify({
+          status: 'canceled',
+          subscriptionId: sub.id,
+          customerId: sub.customer,
+          currentPeriodEnd: sub.current_period_end,
+        }));
+        console.log(`Subscription canceled for uid: ${uid}`);
+      }
+    }
+
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+  } catch (err) {
+    console.error('Stripe webhook error:', err);
+    return new Response(JSON.stringify({ error: 'Webhook error' }), { status: 400 });
+  }
+}
+
+// ============================================================
+// STRIPE : Statut d'abonnement
+// ============================================================
+async function handleSubscriptionStatus(env, user, origin) {
+  const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
+
+  return jsonResponse({
+    uid: user.uid,
+    email: user.email,
+    hasSubscription: subData && (subData.status === 'active' || subData.status === 'past_due'),
+    subscriptionStatus: subData?.status || null,
+    currentPeriodEnd: subData?.currentPeriodEnd || null,
+  }, 200, origin);
+}
+
+// ============================================================
+// STRIPE : Portail client (gérer l'abonnement)
+// ============================================================
+async function handleCustomerPortal(request, env, user, origin) {
+  try {
+    const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
+    if (!subData?.customerId) {
+      return jsonResponse({ error: 'No subscription found' }, 404, origin);
+    }
+
+    const params = new URLSearchParams({
+      'customer': subData.customerId,
+      'return_url': `${env.ALLOWED_ORIGIN}/dashboard.html`,
+    });
+
+    const resp = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+
+    const session = await resp.json();
+    if (!resp.ok) {
+      return jsonResponse({ error: 'Portal creation failed' }, 500, origin);
+    }
+
+    return jsonResponse({ url: session.url }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: 'Internal error' }, 500, origin);
+  }
+}
+
+// ============================================================
+// BREVO : Email de bienvenue (route publique)
 // ============================================================
 async function handleSendWelcome(request, env, origin) {
   try {
@@ -105,7 +350,7 @@ async function handleSendWelcome(request, env, origin) {
     });
 
     if (!brevoResponse.ok) {
-      console.error('Brevo error:', brevoResponse.status, await brevoResponse.text());
+      console.error('Brevo error:', brevoResponse.status);
       return jsonResponse({ error: 'Email service error' }, 500, origin);
     }
 
@@ -118,454 +363,7 @@ async function handleSendWelcome(request, env, origin) {
 }
 
 // ============================================================
-// ROUTE: GET /api/insider-trades — liste des Form 4 récents
-// Params: ?page=0 (défaut 0)
-// ============================================================
-async function handleInsiderTrades(url, env, origin) {
-  const page = parseInt(url.searchParams.get('page') || '0');
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30'), 1), 90);
-  const startIdx = page * 40;
-  const today = new Date().toISOString().split('T')[0];
-  const cacheKey = `v3:insider-trades:${today}:d${days}:page:${page}`;
-
-  // Vérifier le cache KV
-  const cached = await env.CACHE.get(cacheKey, 'json');
-  if (cached) return jsonResponse(cached, 200, origin);
-
-  try {
-    // Recherche des Form 4 récents sur SEC EDGAR
-    const now = new Date();
-    const endDate = now.toISOString().split('T')[0];
-    const startDate = new Date(now - days * 86400000).toISOString().split('T')[0];
-    // Stratégie : chercher jour par jour en partant d'aujourd'hui
-    // pour garantir l'ordre chronologique décroissant
-    const skipCount = page * 10;
-    let allHits = [];
-    let total = 0;
-    let skipped = 0;
-
-    // Parcourir les jours du plus récent au plus ancien
-    for (let d = 0; d < days && allHits.length < 10; d++) {
-      const dayDate = new Date(now - d * 86400000).toISOString().split('T')[0];
-      const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt=${dayDate}&enddt=${dayDate}&from=0&size=100`;
-
-      const edgarResp = await fetch(edgarUrl, {
-        headers: { 'User-Agent': SEC_USER_AGENT },
-      });
-
-      if (!edgarResp.ok) continue;
-
-      const edgarData = await edgarResp.json();
-      const dayHits = edgarData.hits?.hits || [];
-      const dayTotal = edgarData.hits?.total?.value || 0;
-      total += dayTotal;
-
-      // Gérer la pagination : sauter les résultats des pages précédentes
-      for (const hit of dayHits) {
-        if (skipped < skipCount) {
-          skipped++;
-          continue;
-        }
-        allHits.push(hit);
-        if (allHits.length >= 10) break;
-      }
-
-      // Optimisation : si on a déjà assez de résultats, on arrête
-      if (allHits.length >= 10) break;
-    }
-
-    // Parser le XML de chaque filing (en parallèle)
-    const trades = await Promise.all(
-      allHits.map(hit => parseForm4Filing(hit))
-    );
-
-    const validTrades = trades.filter(t => t !== null);
-
-    const result = {
-      total,
-      page,
-      pageSize: 10,
-      trades: validTrades,
-    };
-
-    // Mettre en cache
-    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: CACHE_TTL_INSIDER });
-
-    return jsonResponse(result, 200, origin);
-  } catch (err) {
-    console.error('handleInsiderTrades error:', err);
-    return jsonResponse({ error: 'Failed to fetch insider trades' }, 500, origin);
-  }
-}
-
-// ============================================================
-// ROUTE: GET /api/insider-detail — détail XML d'un Form 4
-// Params: ?adsh=0001225208-26-004129&file=doc4.xml
-// ============================================================
-async function handleInsiderDetail(url, env, origin) {
-  const adsh = url.searchParams.get('adsh') || '';
-  const file = url.searchParams.get('file') || '';
-  if (!adsh || !file) {
-    return jsonResponse({ error: 'Missing adsh or file param' }, 400, origin);
-  }
-
-  const cacheKey = `insider-detail:${adsh}`;
-  const cached = await env.CACHE.get(cacheKey, 'json');
-  if (cached) return jsonResponse(cached, 200, origin);
-
-  try {
-    const cik = adsh.split('-')[0].replace(/^0+/, '');
-    const xmlUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adsh.replace(/-/g, '')}/${file}`;
-    const xmlResp = await fetch(xmlUrl, {
-      headers: { 'User-Agent': SEC_USER_AGENT },
-    });
-
-    if (!xmlResp.ok) {
-      return jsonResponse({ error: 'Filing not found' }, 404, origin);
-    }
-
-    const xmlText = await xmlResp.text();
-    const parsed = parseForm4Xml(xmlText);
-
-    await env.CACHE.put(cacheKey, JSON.stringify(parsed), { expirationTtl: CACHE_TTL_DETAIL });
-
-    return jsonResponse(parsed, 200, origin);
-  } catch (err) {
-    console.error('handleInsiderDetail error:', err);
-    return jsonResponse({ error: 'Failed to parse filing' }, 500, origin);
-  }
-}
-
-// ============================================================
-// PARSERS
-// ============================================================
-
-/**
- * Extraire les infos de base d'un hit EDGAR search
- */
-async function parseForm4Filing(hit) {
-  try {
-    const src = hit._source;
-    const id = hit._id; // "adsh:filename"
-    const [adsh, fileName] = id.split(':');
-    const names = src.display_names || [];
-
-    // Le premier CIK est l'insider, le second est la société
-    const insiderName = names[0] ? names[0].replace(/\s*\(CIK \d+\)/, '') : 'Inconnu';
-    const companyName = names[1] ? names[1].replace(/\s*\(CIK \d+\)/, '') : 'Inconnu';
-
-    // Tenter de récupérer le XML pour les détails de transaction
-    const cik = (src.ciks && src.ciks[1]) || '';
-    const adshClean = adsh.replace(/-/g, '');
-    const xmlUrl = `https://www.sec.gov/Archives/edgar/data/${cik.replace(/^0+/, '')}/${adshClean}/${fileName}`;
-
-    let transactions = [];
-    let ticker = '';
-    let ownerTitle = '';
-
-    try {
-      const xmlResp = await fetch(xmlUrl, {
-        headers: { 'User-Agent': SEC_USER_AGENT },
-      });
-      if (xmlResp.ok) {
-        const xmlText = await xmlResp.text();
-        const parsed = parseForm4Xml(xmlText);
-        transactions = parsed.transactions || [];
-        ticker = parsed.ticker || '';
-        ownerTitle = parsed.ownerTitle || '';
-      }
-    } catch (_) {
-      // Si le XML ne charge pas, on renvoie les infos de base
-    }
-
-    return {
-      adsh,
-      fileName,
-      fileDate: src.file_date,
-      periodEnding: src.period_ending,
-      insiderName: insiderName.trim(),
-      companyName: companyName.trim(),
-      ticker,
-      ownerTitle,
-      transactions,
-    };
-  } catch (err) {
-    console.error('parseForm4Filing error:', err);
-    return null;
-  }
-}
-
-/**
- * Parser le XML d'un Form 4 pour extraire les transactions
- */
-function parseForm4Xml(xml) {
-  const getText = (tag) => {
-    const match = xml.match(new RegExp(`<${tag}>\\s*<value>([^<]*)</value>`, 's'));
-    return match ? match[1].trim() : '';
-  };
-
-  const getSimple = (tag) => {
-    const match = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
-    return match ? match[1].trim() : '';
-  };
-
-  const ticker = getSimple('issuerTradingSymbol');
-  const companyName = getSimple('issuerName');
-  const ownerName = getSimple('rptOwnerName');
-  const ownerTitle = getSimple('officerTitle');
-
-  // Parser les transactions non-dérivées
-  const transactions = [];
-  const txRegex = /<nonDerivativeTransaction>([\s\S]*?)<\/nonDerivativeTransaction>/g;
-  let txMatch;
-
-  while ((txMatch = txRegex.exec(xml)) !== null) {
-    const block = txMatch[1];
-
-    const getVal = (tag) => {
-      const m = block.match(new RegExp(`<${tag}>\\s*<value>([^<]*)</value>`, 's'));
-      return m ? m[1].trim() : '';
-    };
-
-    const txDate = getVal('transactionDate');
-    const txCode = getVal('transactionCode');
-    const shares = parseFloat(getVal('transactionShares')) || 0;
-    const price = parseFloat(getVal('transactionPricePerShare')) || 0;
-    const acquiredDisposed = getVal('transactionAcquiredDisposedCode');
-    const sharesAfter = parseFloat(getVal('sharesOwnedFollowingTransaction')) || 0;
-
-    transactions.push({
-      date: txDate,
-      code: txCode,
-      shares,
-      price,
-      value: Math.round(shares * price * 100) / 100,
-      acquiredDisposed,
-      sharesAfter,
-    });
-  }
-
-  return {
-    ticker,
-    companyName,
-    ownerName,
-    ownerTitle,
-    transactions,
-  };
-}
-
-// ============================================================
-// ROUTE: GET /api/13f-search — recherche de dépôts 13F-HR par ticker
-// Params: ?symbol=AAPL
-// ============================================================
-async function handle13FSearch(url, env, origin) {
-  const symbol = (url.searchParams.get('symbol') || '').toUpperCase();
-  if (!symbol) {
-    return jsonResponse({ error: 'Missing symbol param' }, 400, origin);
-  }
-
-  const cacheKey = `13f-search:${symbol}`;
-  const cached = await env.CACHE.get(cacheKey, 'json');
-  if (cached) return jsonResponse(cached, 200, origin);
-
-  try {
-    // Recherche des 13F-HR mentionnant ce ticker sur les 90 derniers jours
-    const now = new Date();
-    const endDate = now.toISOString().split('T')[0];
-    const startDate = new Date(now - 90 * 86400000).toISOString().split('T')[0];
-    const edgarUrl = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent('"' + symbol + '"')}&forms=13F-HR&dateRange=custom&startdt=${startDate}&enddt=${endDate}&from=0&size=20`;
-
-    const edgarResp = await fetch(edgarUrl, {
-      headers: { 'User-Agent': SEC_USER_AGENT },
-    });
-
-    if (!edgarResp.ok) {
-      return jsonResponse({ error: 'SEC EDGAR error' }, 502, origin);
-    }
-
-    const edgarData = await edgarResp.json();
-    const hits = edgarData.hits?.hits || [];
-    const total = edgarData.hits?.total?.value || 0;
-
-    const filings = hits.map(hit => {
-      const src = hit._source;
-      const names = src.display_names || [];
-      const filerName = names[0] ? names[0].replace(/\s*\(CIK \d+\)/, '').trim() : 'Inconnu';
-      const filerCik = (src.ciks && src.ciks[0]) || '';
-      return {
-        filerName,
-        filerCik,
-        fileDate: src.file_date,
-        periodEnding: src.period_ending,
-      };
-    });
-
-    const result = { total, symbol, filings };
-    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 });
-
-    return jsonResponse(result, 200, origin);
-  } catch (err) {
-    console.error('handle13FSearch error:', err);
-    return jsonResponse({ error: 'Failed to search 13F filings' }, 500, origin);
-  }
-}
-
-// ============================================================
-// ROUTE: GET /api/13f-funds — liste pré-chargée de tous les fonds
-// ============================================================
-async function handle13FFunds(env, origin) {
-  const data = await env.CACHE.get('13f-all-funds', 'json');
-  if (!data) {
-    return jsonResponse({ error: 'Fund data not loaded yet' }, 503, origin);
-  }
-  return jsonResponse(data, 200, origin);
-}
-
-// ============================================================
-// ROUTE: GET /api/13f-fund — positions d'un fonds via son CIK
-// Params: ?cik=0001067983
-// ============================================================
-async function handle13FFund(url, env, origin) {
-  const cik = (url.searchParams.get('cik') || '').replace(/^0+/, '');
-  if (!cik) {
-    return jsonResponse({ error: 'Missing cik param' }, 400, origin);
-  }
-
-  const cikPadded = cik.padStart(10, '0');
-  const cacheKey = `v1:13f-fund:${cikPadded}`;
-  const cached = await env.CACHE.get(cacheKey, 'json');
-  if (cached) return jsonResponse(cached, 200, origin);
-
-  try {
-    // 1. Récupérer les submissions du fonds
-    const subResp = await fetch(`https://data.sec.gov/submissions/CIK${cikPadded}.json`, {
-      headers: { 'User-Agent': SEC_USER_AGENT },
-    });
-    if (!subResp.ok) return jsonResponse({ error: 'Fund not found' }, 404, origin);
-
-    const subData = await subResp.json();
-    const fundName = subData.name || 'Unknown';
-    const recent = subData.filings?.recent || {};
-    const forms = recent.form || [];
-
-    // 2. Trouver le dernier 13F-HR
-    let filingIdx = -1;
-    for (let i = 0; i < forms.length; i++) {
-      if (forms[i] === '13F-HR') { filingIdx = i; break; }
-    }
-
-    if (filingIdx === -1) {
-      return jsonResponse({ error: 'No 13F filing found', fundName }, 404, origin);
-    }
-
-    const accession = recent.accessionNumber[filingIdx];
-    const filingDate = recent.filingDate[filingIdx];
-    const reportDate = recent.reportDate[filingIdx];
-    const accessionClean = accession.replace(/-/g, '');
-
-    // 3. Lister les fichiers du filing pour trouver l'info table XML
-    const indexUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accessionClean}/`;
-    const indexResp = await fetch(indexUrl, {
-      headers: { 'User-Agent': SEC_USER_AGENT },
-    });
-
-    if (!indexResp.ok) {
-      return jsonResponse({ error: 'Filing index not accessible' }, 502, origin);
-    }
-
-    const indexHtml = await indexResp.text();
-    // Trouver tous les fichiers .xml sauf primary_doc.xml et xsl*
-    const xmlMatches = indexHtml.match(/href="([^"]*\.xml)"/gi) || [];
-    const xmlFiles = xmlMatches
-      .map(m => m.match(/href="([^"]*)"/i)?.[1])
-      .filter(f => f && !f.includes('primary_doc') && !f.includes('xsl'));
-
-    if (xmlFiles.length === 0) {
-      return jsonResponse({ error: 'Info table not found', fundName, filingDate, reportDate }, 404, origin);
-    }
-
-    // 4. Télécharger l'info table XML
-    const infoTableUrl = `${indexUrl}${xmlFiles[0]}`;
-    const xmlResp = await fetch(infoTableUrl, {
-      headers: { 'User-Agent': SEC_USER_AGENT },
-    });
-
-    if (!xmlResp.ok) {
-      return jsonResponse({ error: 'Info table not accessible' }, 502, origin);
-    }
-
-    const xmlText = await xmlResp.text();
-
-    // 5. Parser les positions
-    const holdings = [];
-    const entryRegex = /<infoTable>([\s\S]*?)<\/infoTable>/g;
-    let match;
-
-    while ((match = entryRegex.exec(xmlText)) !== null) {
-      const block = match[1];
-      const getTag = (tag) => {
-        const m = block.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
-        return m ? m[1].trim() : '';
-      };
-
-      const name = getTag('nameOfIssuer');
-      const cusip = getTag('cusip');
-      const value = parseInt(getTag('value')) || 0; // en milliers de $
-      const shares = parseInt(getTag('sshPrnamt')) || 0;
-      const shareType = getTag('sshPrnamtType');
-      const putCall = getTag('putCall');
-
-      // Ignorer les entrées de type PUT/CALL ou non-SH
-      if (putCall || shareType !== 'SH') continue;
-
-      // Agréger si même CUSIP (certains fonds déclarent en plusieurs lignes)
-      const existing = holdings.find(h => h.cusip === cusip);
-      if (existing) {
-        existing.value += value;
-        existing.shares += shares;
-      } else {
-        holdings.push({ name, cusip, value, shares });
-      }
-    }
-
-    // 6. Trier par valeur décroissante
-    holdings.sort((a, b) => b.value - a.value);
-
-    // Valeur totale (en $, pas en milliers)
-    const totalValue = holdings.reduce((sum, h) => sum + h.value, 0) * 1000;
-
-    // Top 15 positions avec % du portefeuille
-    const topHoldings = holdings.slice(0, 15).map(h => ({
-      name: h.name,
-      cusip: h.cusip,
-      shares: h.shares,
-      value: h.value * 1000, // Convertir en $
-      pct: totalValue > 0 ? Math.round((h.value * 1000 / totalValue) * 1000) / 10 : 0,
-    }));
-
-    const result = {
-      fundName,
-      cik: cikPadded,
-      filingDate,
-      reportDate,
-      totalValue,
-      holdingsCount: holdings.length,
-      topHoldings,
-    };
-
-    // 7. Cache 7 jours (les 13F ne changent que trimestriellement)
-    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 604800 });
-
-    return jsonResponse(result, 200, origin);
-  } catch (err) {
-    console.error('handle13FFund error:', err);
-    return jsonResponse({ error: 'Failed to fetch fund data' }, 500, origin);
-  }
-}
-
-// ============================================================
-// ROUTE: GET /api/etf-ark — positions quotidiennes ARK ETFs
-// Params: ?symbol=ARKK (ARKK, ARKW, ARKG, ARKF, ARKQ)
+// ETF : ARK API proxy
 // ============================================================
 async function handleEtfArk(url, env, origin) {
   const symbol = (url.searchParams.get('symbol') || 'ARKK').toUpperCase();
@@ -584,70 +382,32 @@ async function handleEtfArk(url, env, origin) {
     if (!resp.ok) return jsonResponse({ error: 'ARK API error' }, 502, origin);
 
     const data = await resp.json();
-
-    // Charger les positions de la veille (snapshot precedent) pour comparaison
     const prevKey = `ark-prev:${symbol}`;
     const prevData = await env.CACHE.get(prevKey, 'json') || {};
     const prevMap = {};
     if (prevData.holdings) {
-      for (const h of prevData.holdings) {
-        prevMap[h.ticker] = { weight: h.weight, shares: h.shares };
-      }
+      for (const h of prevData.holdings) prevMap[h.ticker] = { weight: h.weight, shares: h.shares };
     }
 
     const holdings = (data.holdings || []).map(h => {
       const ticker = h.ticker || '';
       const weight = h.weight || 0;
       const shares = h.shares || 0;
-
-      // Calcul de l'evolution vs veille
-      let weightChange = null;
-      let sharesChange = null;
-      let status = 'unchanged';
+      let sharesChange = null, status = 'unchanged';
       const prev = prevMap[ticker];
       if (prev) {
-        weightChange = Math.round((weight - prev.weight) * 100) / 100;
-        if (prev.shares > 0) {
-          sharesChange = Math.round(((shares - prev.shares) / prev.shares) * 1000) / 10;
-        }
+        if (prev.shares > 0) sharesChange = Math.round(((shares - prev.shares) / prev.shares) * 1000) / 10;
         if (sharesChange !== null && sharesChange > 0.5) status = 'increased';
         else if (sharesChange !== null && sharesChange < -0.5) status = 'decreased';
-        else status = 'unchanged';
       } else if (Object.keys(prevMap).length > 0) {
         status = 'new';
       }
-
-      return {
-        ticker,
-        company: h.company || '',
-        shares,
-        value: h.market_value || 0,
-        price: h.share_price || 0,
-        weight,
-        rank: h.weight_rank || 0,
-        weightChange,
-        sharesChange,
-        status,
-      };
+      return { ticker, company: h.company || '', shares, value: h.market_value || 0, price: h.share_price || 0, weight, rank: h.weight_rank || 0, sharesChange, status };
     });
 
-    const result = {
-      symbol,
-      date: data.date_from || today,
-      prevDate: prevData.date || null,
-      label: 'Cathie Wood',
-      category: 'Innovation',
-      holdingsCount: holdings.length,
-      totalValue: holdings.reduce((s, h) => s + h.value, 0),
-      holdings,
-    };
+    const result = { symbol, date: data.date_from || today, prevDate: prevData.date || null, label: 'Cathie Wood', category: 'Innovation', holdingsCount: holdings.length, totalValue: holdings.reduce((s, h) => s + h.value, 0), holdings };
 
-    // Sauvegarder les positions d'aujourd'hui comme "previous" pour demain
-    await env.CACHE.put(prevKey, JSON.stringify({
-      date: result.date,
-      holdings: holdings.map(h => ({ ticker: h.ticker, weight: h.weight, shares: h.shares })),
-    }), { expirationTtl: 172800 }); // 48h TTL
-
+    await env.CACHE.put(prevKey, JSON.stringify({ date: result.date, holdings: holdings.map(h => ({ ticker: h.ticker, weight: h.weight, shares: h.shares })) }), { expirationTtl: 172800 });
     await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 14400 });
     return jsonResponse(result, 200, origin);
   } catch (err) {
@@ -657,40 +417,28 @@ async function handleEtfArk(url, env, origin) {
 }
 
 // ============================================================
-// ROUTE: GET /api/etf-congress — positions NANC ou GOP
-// Params: ?symbol=NANC ou ?symbol=GOP
+// ETF : Congress (NANC/GOP) proxy
 // ============================================================
 async function handleEtfCongress(url, env, origin) {
   const symbol = (url.searchParams.get('symbol') || 'NANC').toUpperCase();
   if (symbol !== 'NANC' && symbol !== 'GOP') {
-    return jsonResponse({ error: 'Invalid symbol (NANC or GOP)' }, 400, origin);
+    return jsonResponse({ error: 'Invalid symbol' }, 400, origin);
   }
-  // Données pré-chargées dans KV (mises à jour via GitHub Action)
+  // Serve from KV (pre-fetched by GitHub Action)
   const data = await env.CACHE.get(`etf-${symbol.toLowerCase()}`, 'json');
-  if (!data) return jsonResponse({ error: 'Congress ETF data not loaded' }, 503, origin);
-  return jsonResponse(data, 200, origin);
-}
-
-// ============================================================
-// ROUTE: GET /api/etf-guru — positions GURU ETF (top hedge fund picks)
-// ============================================================
-async function handleEtfGuru(env, origin) {
-  // Données pré-chargées dans KV (mises à jour via GitHub Action)
-  const data = await env.CACHE.get('etf-guru', 'json');
-  if (!data) return jsonResponse({ error: 'GURU ETF data not loaded' }, 503, origin);
+  if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
   return jsonResponse(data, 200, origin);
 }
 
 // ============================================================
 // HELPERS
 // ============================================================
-
 function isAllowedOrigin(origin, allowed) {
   return (
     origin === allowed ||
     origin === 'http://localhost:8093' ||
     origin === 'http://127.0.0.1:8093' ||
-    !origin // Allow no-origin (curl, server-side)
+    !origin
   );
 }
 
@@ -698,7 +446,7 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-Key',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -706,9 +454,6 @@ function corsHeaders(origin) {
 function jsonResponse(data, status, origin) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders(origin),
-    },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
   });
 }
