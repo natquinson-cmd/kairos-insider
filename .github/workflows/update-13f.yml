@@ -42,7 +42,7 @@ jobs:
           fi
         continue-on-error: true
 
-      # ===== TRANSACTIONS (tous les jours, cumulatif) =====
+      # ===== TRANSACTIONS + CLUSTERS (unifie, tous les jours) =====
       - name: Download existing transactions from KV
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -50,15 +50,15 @@ jobs:
         run: |
           cd worker
           wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-transactions" > transactions_data.json 2>/dev/null || echo '{}' > transactions_data.json
-          echo "Existing data downloaded ($(wc -c < transactions_data.json) bytes)"
+          echo "Existing data: $(wc -c < transactions_data.json) bytes"
         continue-on-error: true
 
-      - name: Fetch Insider Transactions (30 days, cumulative)
-        run: cd worker && python prefetch-transactions.py
-        timeout-minutes: 20
+      - name: Unified fetch (Transactions + Clusters from same source)
+        run: cd worker && python prefetch-all.py
+        timeout-minutes: 30
         continue-on-error: true
 
-      - name: Upload Transactions to KV
+      - name: Upload Transactions + Clusters to KV
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -68,21 +68,6 @@ jobs:
             wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-transactions" --path=transactions_data.json
             echo "Transactions uploaded"
           fi
-        continue-on-error: true
-
-      # ===== CLUSTERS (tous les jours) =====
-      - name: Compute Insider Clusters
-        run: cd worker && python prefetch-clusters.py
-        timeout-minutes: 15
-        continue-on-error: true
-
-      - name: Upload Clusters to KV
-        if: hashFiles('worker/clusters_data.json') != ''
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          cd worker
           if [ -f clusters_data.json ]; then
             wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-clusters" --path=clusters_data.json
             echo "Clusters uploaded"
