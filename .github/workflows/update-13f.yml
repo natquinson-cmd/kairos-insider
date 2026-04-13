@@ -42,10 +42,20 @@ jobs:
           fi
         continue-on-error: true
 
-      # ===== TRANSACTIONS (tous les jours) =====
-      - name: Fetch Insider Transactions (7 days)
+      # ===== TRANSACTIONS (tous les jours, cumulatif) =====
+      - name: Download existing transactions from KV
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-transactions" > transactions_data.json 2>/dev/null || echo '{}' > transactions_data.json
+          echo "Existing data downloaded ($(wc -c < transactions_data.json) bytes)"
+        continue-on-error: true
+
+      - name: Fetch Insider Transactions (30 days, cumulative)
         run: cd worker && python prefetch-transactions.py
-        timeout-minutes: 15
+        timeout-minutes: 20
         continue-on-error: true
 
       - name: Upload Transactions to KV

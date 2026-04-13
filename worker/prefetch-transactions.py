@@ -81,12 +81,24 @@ def parse_form4(xml):
 print('=== Insider Transactions Pre-Fetch (30 days) ===')
 now = datetime.now()
 
+# Charger l'historique existant (si disponible) pour cumul
+existing_transactions = []
+existing_dates = set()
+try:
+    with open('transactions_data.json', 'r') as f:
+        existing = json.load(f)
+        existing_transactions = existing.get('transactions', [])
+        existing_dates = set(t.get('fileDate', '') for t in existing_transactions)
+        print(f'Historique existant: {len(existing_transactions)} transactions')
+except:
+    print('Pas d\'historique existant, premiere execution')
+
 all_transactions = []
 total_hits = 0
 total_parsed = 0
 
 # Parcourir les 30 derniers jours, jour par jour pour un tri chronologique
-for day_offset in range(0, 7):
+for day_offset in range(0, 30):
     day_date = (now - timedelta(days=day_offset)).strftime('%Y-%m-%d')
 
     # Chercher les Form 4 de ce jour (max 200)
@@ -159,12 +171,30 @@ for day_offset in range(0, 7):
     if day_offset % 5 == 0:
         print(f'  Day {day_date}: {total_hits} hits total, {total_parsed} parsed, {len(all_transactions)} transactions')
 
+# Fusionner avec l'historique existant (cumulatif)
+# On ajoute les anciennes transactions qui ne sont PAS dans les dates qu'on vient de re-fetcher
+fetched_dates = set()
+for day_offset in range(0, 30):
+    fetched_dates.add((now - timedelta(days=day_offset)).strftime('%Y-%m-%d'))
+
+# Garder les anciennes transactions dont la date n'a PAS ete re-fetchee
+# (pour eviter les doublons)
+kept_old = [t for t in existing_transactions if t.get('fileDate', '') not in fetched_dates]
+print(f'Anciennes transactions conservees (hors dates re-fetchees): {len(kept_old)}')
+
+# Combiner
+all_transactions = all_transactions + kept_old
+
 # Trier par date decroissante
 all_transactions.sort(key=lambda t: t['date'], reverse=True)
 
+# Limiter a 90 jours max pour ne pas grossir indefiniment
+cutoff_date = (now - timedelta(days=90)).strftime('%Y-%m-%d')
+all_transactions = [t for t in all_transactions if (t.get('date') or t.get('fileDate', '')) >= cutoff_date]
+
 result = {
     'date': now.strftime('%Y-%m-%d'),
-    'periodDays': 7,
+    'periodDays': 30,
     'totalFilings': total_hits,
     'totalParsed': total_parsed,
     'totalTransactions': len(all_transactions),
