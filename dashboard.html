@@ -644,12 +644,22 @@
           <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" style="display:none">Effacer</button>
         </div>
 
-        <div class="period-selector">
-          <span class="period-label">Période :</span>
-          <div class="period-buttons">
-            <button class="period-btn" data-days="7" onclick="selectPeriod(7)">7 jours</button>
-            <button class="period-btn active" data-days="30" onclick="selectPeriod(30)">30 jours</button>
-            <button class="period-btn" data-days="90" onclick="selectPeriod(90)">Tout</button>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">
+          <div class="period-selector" style="margin-bottom:0">
+            <span class="period-label">Periode :</span>
+            <div class="period-buttons">
+              <button class="period-btn" data-days="7" onclick="selectPeriod(7)">7 jours</button>
+              <button class="period-btn active" data-days="30" onclick="selectPeriod(30)">30 jours</button>
+              <button class="period-btn" data-days="90" onclick="selectPeriod(90)">Tout</button>
+            </div>
+          </div>
+          <div class="period-selector" style="margin-bottom:0">
+            <span class="period-label">Type :</span>
+            <div class="period-buttons">
+              <button class="period-btn active" data-type="all" onclick="selectType('all')">Tous</button>
+              <button class="period-btn" data-type="buy" onclick="selectType('buy')" style="color:var(--accent-green)">Achats</button>
+              <button class="period-btn" data-type="sell" onclick="selectType('sell')" style="color:var(--accent-red)">Ventes</button>
+            </div>
           </div>
         </div>
 
@@ -668,6 +678,16 @@
       <div class="section-page" id="section-clustering">
         <h2>Signaux Insiders</h2>
         <p class="section-desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — un signal fort quand les insiders agissent ensemble.</p>
+
+        <div class="period-selector" style="margin-bottom:24px">
+          <span class="period-label">Type :</span>
+          <div class="period-buttons">
+            <button class="period-btn active" data-cltype="all" onclick="selectClusterType('all')">Tous</button>
+            <button class="period-btn" data-cltype="buy" onclick="selectClusterType('buy')" style="color:var(--accent-green)">Achats</button>
+            <button class="period-btn" data-cltype="sell" onclick="selectClusterType('sell')" style="color:var(--accent-red)">Ventes</button>
+          </div>
+        </div>
+
         <div id="clusteringArea">
           <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
         </div>
@@ -842,7 +862,8 @@
     // ============================================================
     let currentPage = 0;
     let totalTrades = 0;
-    let currentDays = 30; // Par défaut 30 jours
+    let currentDays = 30;
+    let currentType = 'all'; // 'all', 'buy', 'sell'
 
     // ============================================================
     // PERIOD SELECTOR
@@ -850,8 +871,17 @@
     function selectPeriod(days) {
       currentDays = days;
       currentPage = 0;
-      document.querySelectorAll('.period-btn').forEach(b =>
+      document.querySelectorAll('[data-days]').forEach(b =>
         b.classList.toggle('active', parseInt(b.dataset.days) === days)
+      );
+      renderInsiderPage();
+    }
+
+    function selectType(type) {
+      currentType = type;
+      currentPage = 0;
+      document.querySelectorAll('[data-type]').forEach(b =>
+        b.classList.toggle('active', b.dataset.type === type)
       );
       renderInsiderPage();
     }
@@ -923,9 +953,14 @@
       }
 
       // Filtre période
-      if (currentDays < 30) {
+      if (currentDays < 90) {
         const cutoff = new Date(Date.now() - currentDays * 86400000).toISOString().split('T')[0];
         txs = txs.filter(t => (t.date || t.fileDate) >= cutoff);
+      }
+
+      // Filtre type (achat/vente)
+      if (currentType !== 'all') {
+        txs = txs.filter(t => t.type === currentType);
       }
 
       return txs;
@@ -1322,11 +1357,44 @@
     // ============================================================
     // INSIDER CLUSTERING — Données pré-calculées depuis KV
     // ============================================================
+    let allClusters = [];
+    let clusterData = null;
+    let clusterTypeFilter = 'all';
+
+    function selectClusterType(type) {
+      clusterTypeFilter = type;
+      document.querySelectorAll('[data-cltype]').forEach(b =>
+        b.classList.toggle('active', b.dataset.cltype === type)
+      );
+      renderClusters();
+    }
+
     async function loadClustering() {
       const area = document.getElementById('clusteringArea');
       try {
-        const data = await apiFetch('/api/clusters');
-        const clusters = (data.clusters || []).sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
+        clusterData = await apiFetch('/api/clusters');
+        allClusters = (clusterData.clusters || []).sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
+        renderClusters();
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement des clusters.</p></div>';
+        }
+      }
+    }
+
+    function renderClusters() {
+      const area = document.getElementById('clusteringArea');
+      const data = clusterData;
+
+      // Filtrer par type : regarder le txType dominant des insiders
+      let clusters = allClusters;
+      if (clusterTypeFilter !== 'all') {
+        clusters = clusters.filter(c => {
+          const details = c.insiderDetails || [];
+          const matchCount = details.filter(d => d.txType === clusterTypeFilter).length;
+          return matchCount > 0;
+        });
+      }
 
         if (clusters.length === 0) {
           area.innerHTML = '<div class="empty-state"><p>Aucun cluster detecte sur les 90 derniers jours.</p></div>';
@@ -1425,11 +1493,6 @@
             Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose un Form 4 (declaration de transaction) dans les 90 derniers jours.
             Plus le nombre d'insiders est eleve, plus le signal est fort. Cliquez sur une ligne pour voir les noms des declarants.
           </p>`;
-      } catch (err) {
-        if (err.message !== 'Unauthorized') {
-          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement des clusters.</p></div>';
-        }
-      }
     }
 
     function toggleCluster(idx) {
