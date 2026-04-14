@@ -521,6 +521,39 @@
     .etf-badge.guru { background: rgba(139,92,246,0.2); color: #A78BFA; }
     .etf-badge.ark { background: rgba(6,182,212,0.2); color: #22D3EE; }
 
+    /* ===== PORTFOLIO CALENDARS ===== */
+    .cal-nav { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+    .cal-nav button {
+      width:36px; height:36px; border-radius:10px; border:1px solid var(--border);
+      background:var(--bg-card); color:var(--text-secondary); cursor:pointer; font-size:14px;
+      transition:all 0.2s; display:flex; align-items:center; justify-content:center;
+    }
+    .cal-nav button:hover { background:rgba(255,255,255,0.06); }
+    .cal-nav .cal-title { font-size:15px; font-weight:700; min-width:180px; text-align:center; }
+    .p-day-grid { display:grid; grid-template-columns:repeat(5,1fr) auto; gap:4px; }
+    .p-day-header { text-align:center; font-size:11px; font-weight:700; color:var(--text-muted); padding:8px 0; text-transform:uppercase; }
+    .p-day-cell {
+      border-radius:10px; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:8px 4px; min-height:64px;
+      transition:transform 0.15s; cursor:pointer;
+    }
+    .p-day-cell:hover { transform:scale(1.05); }
+    .p-day-cell .day-num { font-size:11px; color:var(--text-muted); margin-bottom:2px; }
+    .p-day-cell .day-pnl { font-size:13px; font-weight:700; }
+    .p-day-cell .day-trades { font-size:10px; color:var(--text-muted); margin-top:1px; }
+    .p-day-cell.win .day-pnl { color:var(--accent-green); text-shadow:0 0 8px rgba(16,185,129,0.3); }
+    .p-day-cell.loss .day-pnl { color:var(--accent-red); text-shadow:0 0 8px rgba(239,68,68,0.3); }
+    .p-day-cell.win .day-num, .p-day-cell.loss .day-num { color:var(--text-primary); }
+    .p-day-cell.empty { background:transparent; min-height:64px; }
+    .p-day-cell.no-trade { background:rgba(30,42,58,0.08); }
+    .p-day-cell.today { border:2px solid var(--accent-blue); }
+    .p-day-cell.week-total { min-width:58px; border:1px solid var(--border); }
+    .p-day-cell.week-total .day-pnl { font-size:13px; font-weight:700; }
+    .p-cal-stats { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--text-secondary); }
+    .p-cal-stats .stat-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; }
+    .p-cal-stats .stat-dot.green { background:var(--accent-green); }
+    .p-cal-stats .stat-dot.red { background:var(--accent-red); }
+
     /* ===== FUND EXPANDABLE ROWS ===== */
     .fund-row { cursor: pointer; transition: background 0.2s; }
     .fund-row:hover { background: rgba(59,130,246,0.06) !important; }
@@ -1018,6 +1051,35 @@
               <canvas id="chartAssetPie" height="200"></canvas>
             </div>
           </div>
+
+          <!-- CALENDRIER JOURNALIER (identique au Trading Dashboard) -->
+          <div class="stat-card" style="padding:20px;margin-bottom:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <div class="stat-label">Calendrier journalier</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer">
+                <input type="checkbox" id="pDayPctToggle" onchange="buildPortfolioDailyCal()" style="cursor:pointer"> Afficher en %
+              </label>
+            </div>
+            <div class="cal-nav">
+              <button onclick="pCalPrev()">&#9664;</button>
+              <span class="cal-title" id="pCalTitle"></span>
+              <button onclick="pCalNext()">&#9654;</button>
+            </div>
+            <div class="p-day-grid" id="pDayGrid"></div>
+            <div class="p-cal-stats" id="pDayStats"></div>
+          </div>
+
+          <!-- HEATMAP MENSUELLE (identique au Trading Dashboard) -->
+          <div class="stat-card" style="padding:20px;margin-bottom:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="stat-label">Performance mensuelle</div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer">
+                <input type="checkbox" id="pMonthPctToggle" onchange="renderMonthlyHeatmap()" style="cursor:pointer"> Afficher en %
+              </label>
+            </div>
+            <div id="monthlyHeatmap" style="overflow-x:auto"></div>
+          </div>
+
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div class="stat-label" style="margin-bottom:12px">P&L par jour</div>
             <canvas id="chartDailyPnl" height="150"></canvas>
@@ -1032,12 +1094,6 @@
               <div class="stat-label" style="margin-bottom:12px">Gains moyens</div>
               <canvas id="chartAvgGains" height="180"></canvas>
             </div>
-          </div>
-
-          <!-- Heatmap mensuelle -->
-          <div class="stat-card" style="padding:20px;margin-bottom:24px">
-            <div class="stat-label" style="margin-bottom:12px">Performance mensuelle</div>
-            <div id="monthlyHeatmap" style="overflow-x:auto"></div>
           </div>
 
           <!-- Tableau des trades -->
@@ -2314,9 +2370,24 @@
           status.textContent = 'Aucun trade detecte. Verifiez le format du fichier.';
           return;
         }
-        portfolioTrades = trades;
+        // Detection de doublons
+        const existingKeys = new Set(portfolioTrades.map(t => t.ref || `${t.date}|${t.symbol}|${t.pnl}`));
+        const newTrades = trades.filter(t => {
+          const key = t.ref || `${t.date}|${t.symbol}|${t.pnl}`;
+          return !existingKeys.has(key);
+        });
+        const dupes = trades.length - newTrades.length;
+
+        if (newTrades.length === 0 && dupes > 0) {
+          status.style.color = 'var(--accent-red)';
+          status.textContent = `${dupes} doublons detectes — aucun nouveau trade importe.`;
+          return;
+        }
+
+        portfolioTrades = [...portfolioTrades, ...newTrades].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        const dupeMsg = dupes > 0 ? ` (${dupes} doublons ignores)` : '';
         status.style.color = 'var(--accent-green)';
-        status.textContent = `${trades.length} trades importes (${trades[0]._platform || 'auto'})`;
+        status.textContent = `${newTrades.length} nouveaux trades importes (${trades[0]._platform || 'auto'})${dupeMsg} — Total: ${portfolioTrades.length}`;
 
         renderPortfolio();
         savePortfolioToFirebase();
@@ -2650,7 +2721,16 @@
       // Charts
       renderPortfolioCharts();
 
-      // Monthly heatmap
+      // Calendriers (identiques au Trading Dashboard)
+      // Positionner sur le mois du dernier trade
+      if (trades.length > 0) {
+        const lastDate = trades[trades.length - 1].date;
+        if (lastDate) {
+          pCalYear = parseInt(lastDate.substring(0, 4));
+          pCalMonth = parseInt(lastDate.substring(5, 7)) - 1;
+        }
+      }
+      buildPortfolioDailyCal();
       renderMonthlyHeatmap();
 
       // Trade table
@@ -2727,9 +2807,117 @@
       });
     }
 
-    // Monthly heatmap
+    // ============================================================
+    // CALENDRIER JOURNALIER (reproduit du Trading Dashboard)
+    // ============================================================
+    let pCalYear = new Date().getFullYear();
+    let pCalMonth = new Date().getMonth();
+    const monthNamesFull = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+
+    function pCalPrev() { pCalMonth--; if(pCalMonth<0){pCalMonth=11;pCalYear--;} buildPortfolioDailyCal(); }
+    function pCalNext() { pCalMonth++; if(pCalMonth>11){pCalMonth=0;pCalYear++;} buildPortfolioDailyCal(); }
+
+    function buildPortfolioDailyCal() {
+      const trades = portfolioTrades;
+      // Aggregate by day
+      const dayData = {};
+      trades.forEach(t => {
+        const d = t.date;
+        if (!d) return;
+        if (!dayData[d]) dayData[d] = { pnl: 0, trades: 0 };
+        dayData[d].pnl += t.pnl;
+        dayData[d].trades++;
+      });
+
+      const showPct = document.getElementById('pDayPctToggle')?.checked;
+      const titleEl = document.getElementById('pCalTitle');
+      if (titleEl) titleEl.textContent = monthNamesFull[pCalMonth] + ' ' + pCalYear;
+
+      const firstDay = new Date(pCalYear, pCalMonth, 1);
+      const daysInMonth = new Date(pCalYear, pCalMonth + 1, 0).getDate();
+      const firstWeekday = firstDay.getDay();
+      let offset = (firstWeekday >= 1 && firstWeekday <= 5) ? firstWeekday - 1 : 0;
+
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Max abs pnl for intensity
+      const prefix = `${pCalYear}-${String(pCalMonth+1).padStart(2,'0')}`;
+      const monthPnls = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).map(([,v]) => Math.abs(v.pnl));
+      const maxAbsPnl = monthPnls.length > 0 ? Math.max(...monthPnls) : 1;
+
+      // Estimate capital (sum of all trades before this month)
+      const startCap = trades.filter(t => t.date < prefix).reduce((s, t) => s + t.pnl, 0) || 10000;
+      let runningCap = Math.abs(startCap) || 10000;
+
+      let html = '';
+      ['Lun','Mar','Mer','Jeu','Ven','S'].forEach(d => { html += `<div class="p-day-header">${d}</div>`; });
+      for (let i = 0; i < offset; i++) html += '<div class="p-day-cell empty"></div>';
+
+      let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
+      let weekTotal = 0, weekCol = offset;
+
+      function emitWeekTotal() {
+        while (weekCol < 5) { html += '<div class="p-day-cell empty"></div>'; weekCol++; }
+        const sign = weekTotal >= 0 ? '+' : '';
+        const disp = showPct ? `${sign}${(runningCap>0?(weekTotal/runningCap*100):0).toFixed(1)}%` : `${sign}${weekTotal.toFixed(0)}`;
+        const wtInt = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
+        const wtBg = weekTotal >= 0 ? `rgba(16,185,129,${(0.12+wtInt*0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12+wtInt*0.55).toFixed(2)})`;
+        const wtColor = weekTotal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        html += `<div class="p-day-cell week-total" style="background:${wtBg}"><span class="day-pnl" style="color:${wtColor}">${disp}</span></div>`;
+        weekTotal = 0; weekCol = 0;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(pCalYear, pCalMonth, d);
+        const dow = dateObj.getDay();
+        if (dow === 0 || dow === 6) continue;
+
+        const dateStr = `${pCalYear}-${String(pCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const data = dayData[dateStr];
+        const isToday = dateStr === todayStr;
+
+        if (data) {
+          totalTradeDays++; if (data.pnl >= 0) totalWinDays++; else totalLossDays++;
+          const cls = data.pnl >= 0 ? 'win' : 'loss';
+          const sign = data.pnl >= 0 ? '+' : '';
+          const displayVal = showPct ? `${sign}${(runningCap>0?(data.pnl/runningCap*100):0).toFixed(2)}%` : `${sign}${data.pnl.toFixed(0)}`;
+          runningCap += data.pnl;
+          weekTotal += data.pnl;
+          const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl)/maxAbsPnl)*0.37 : 0.12;
+          const bgColor = data.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
+          html += `<div class="p-day-cell ${cls} ${isToday?'today':''}" style="background:${bgColor}">
+            <span class="day-num">${d}</span><span class="day-pnl">${displayVal}</span><span class="day-trades">${data.trades} trade${data.trades>1?'s':''}</span>
+          </div>`;
+        } else {
+          html += `<div class="p-day-cell no-trade ${isToday?'today':''}"><span class="day-num">${d}</span></div>`;
+        }
+        weekCol++;
+        if (dow === 5) emitWeekTotal();
+      }
+      if (weekCol > 0 && weekCol <= 5) emitWeekTotal();
+
+      const gridEl = document.getElementById('pDayGrid');
+      if (gridEl) gridEl.innerHTML = html;
+
+      const winPct = totalTradeDays > 0 ? (totalWinDays/totalTradeDays*100).toFixed(0) : '0';
+      const lossPct = totalTradeDays > 0 ? (totalLossDays/totalTradeDays*100).toFixed(0) : '0';
+      const monthTotal = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).reduce((a,[,v]) => a+v.pnl, 0);
+      const monthDisp = showPct ? `${monthTotal>=0?'+':''}${(Math.abs(startCap)>0?(monthTotal/Math.abs(startCap)*100):0).toFixed(2)}%` : `${monthTotal>=0?'+':''}${monthTotal.toFixed(0)}`;
+      const statsEl = document.getElementById('pDayStats');
+      if (statsEl) statsEl.innerHTML = `
+        <div><span class="stat-dot green"></span>${totalWinDays} jours gagnants (${winPct}%)</div>
+        <div><span class="stat-dot red"></span>${totalLossDays} jours perdants (${lossPct}%)</div>
+        <div><strong>P&L du mois :</strong>&nbsp;<span style="color:${monthTotal>=0?'var(--accent-green)':'var(--accent-red)'};font-weight:700">${monthDisp}</span></div>
+      `;
+    }
+
+    // ============================================================
+    // HEATMAP MENSUELLE (reproduit du Trading Dashboard)
+    // ============================================================
     function renderMonthlyHeatmap() {
       const trades = portfolioTrades;
+      const showPct = document.getElementById('pMonthPctToggle')?.checked;
       const monthData = {};
       trades.forEach(t => {
         const ym = (t.date || '').substring(0, 7);
@@ -2747,9 +2935,20 @@
       const moisFr = ['Janv.', 'Fev.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Aout', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
       const maxAbs = Math.max(...Object.values(monthData).map(d => Math.abs(d.pnl)), 1);
 
-      let html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:6px;color:var(--text-muted)">Annee</th>';
-      moisFr.forEach(m => { html += `<th style="padding:6px;color:var(--text-muted);text-align:center">${m}</th>`; });
-      html += '<th style="padding:6px;color:var(--text-muted);text-align:center;font-weight:700">Total</th></tr></thead><tbody>';
+      // Estimer le capital par mois (cumulatif)
+      function capAtMonth(y, m) {
+        let cap = 0;
+        for (const t of trades) {
+          if (t.date && t.date < `${y}-${String(m+1).padStart(2,'0')}`) cap += t.pnl;
+        }
+        return Math.abs(cap) || 10000;
+      }
+
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:6px;color:var(--text-muted)"></th>';
+      moisFr.forEach(m => { html += `<th style="padding:6px;color:var(--text-muted);text-align:center;font-size:11px">${m}</th>`; });
+      html += '<th style="padding:6px;color:var(--text-muted);text-align:center;font-weight:700;font-size:11px">Total</th></tr></thead><tbody>';
+
+      let totalWinMonths = 0, totalLossMonths = 0;
 
       for (const year of years) {
         html += `<tr><td style="padding:6px;font-weight:700;color:var(--text-secondary)">${year}</td>`;
@@ -2759,20 +2958,32 @@
           const d = monthData[ym];
           if (d) {
             yearTotal += d.pnl;
-            const intensity = 0.12 + (Math.abs(d.pnl) / maxAbs) * 0.55;
-            const bg = d.pnl >= 0 ? `rgba(16,185,129,${intensity})` : `rgba(239,68,68,${intensity})`;
-            html += `<td style="padding:6px;text-align:center;background:${bg};border-radius:4px;font-weight:600;color:var(--text-primary)" title="${d.trades} trades, ${d.wins} wins">${d.pnl >= 0 ? '+' : ''}${Math.round(d.pnl)}</td>`;
+            if (d.pnl >= 0) totalWinMonths++; else totalLossMonths++;
+            const cap = capAtMonth(parseInt(year), m);
+            const pct = cap > 0 ? (d.pnl / cap * 100) : 0;
+            const intensityRef = showPct ? Math.abs(pct) / 8 : Math.abs(d.pnl) / 500;
+            const intensity = 0.12 + Math.min(intensityRef, 1) * 0.55;
+            const bg = d.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
+            const disp = showPct ? `${d.pnl>=0?'+':''}${pct.toFixed(1)}%` : `${d.pnl>=0?'+':''}${Math.round(d.pnl)}`;
+            html += `<td style="padding:5px 3px;text-align:center;background:${bg};border-radius:4px;font-weight:600;color:var(--text-primary);font-size:11px" title="${d.trades} trades, ${d.wins} wins">${disp}</td>`;
           } else {
-            html += '<td style="padding:6px;text-align:center;color:var(--text-muted)">—</td>';
+            html += '<td style="padding:5px;text-align:center;color:var(--text-muted);font-size:11px">—</td>';
           }
         }
-        const yInt = 0.12 + (Math.abs(yearTotal) / maxAbs) * 0.55;
-        const yBg = yearTotal >= 0 ? `rgba(16,185,129,${Math.min(yInt, 0.67)})` : `rgba(239,68,68,${Math.min(yInt, 0.67)})`;
-        html += `<td style="padding:6px;text-align:center;background:${yBg};border-radius:4px;font-weight:800;color:var(--text-primary)">${yearTotal >= 0 ? '+' : ''}${Math.round(yearTotal)}</td>`;
+        const yInt = 0.12 + Math.min(Math.abs(yearTotal) / maxAbs, 1) * 0.55;
+        const yBg = yearTotal >= 0 ? `rgba(16,185,129,${Math.min(yInt, 0.67).toFixed(2)})` : `rgba(239,68,68,${Math.min(yInt, 0.67).toFixed(2)})`;
+        const yDisp = showPct ? '' : `${yearTotal>=0?'+':''}${Math.round(yearTotal)}`;
+        html += `<td style="padding:5px 3px;text-align:center;background:${yBg};border-radius:4px;font-weight:800;color:var(--text-primary);font-size:11px">${yearTotal>=0?'+':''}${Math.round(yearTotal)}</td>`;
         html += '</tr>';
       }
-
       html += '</tbody></table>';
+
+      const totalMonths = totalWinMonths + totalLossMonths;
+      html += `<div class="p-cal-stats" style="margin-top:12px">
+        <div><span class="stat-dot green"></span>${totalWinMonths} mois gagnants (${totalMonths>0?(totalWinMonths/totalMonths*100).toFixed(0):0}%)</div>
+        <div><span class="stat-dot red"></span>${totalLossMonths} mois perdants (${totalMonths>0?(totalLossMonths/totalMonths*100).toFixed(0):0}%)</div>
+      </div>`;
+
       document.getElementById('monthlyHeatmap').innerHTML = html;
     }
 
