@@ -1598,6 +1598,14 @@
 
     let loadedSections = {};
     function switchSection(section) {
+      // Gate premium : bloque l'acces aux onglets PRO si pas d'abonnement actif
+      const btn = document.querySelector(`[data-section="${section}"]`);
+      const isPremiumSection = btn?.dataset.premium === 'true';
+      if (isPremiumSection && !isPremium) {
+        document.getElementById('paywallOverlay').classList.remove('hidden');
+        return;
+      }
+
       document.querySelectorAll('.sidebar-item').forEach(b => b.classList.toggle('active', b.dataset.section === section));
       document.querySelectorAll('.section-page').forEach(c => c.classList.toggle('active', c.id === `section-${section}`));
 
@@ -2556,6 +2564,11 @@
 
     async function handleCsvFile(file) {
       if (!file) return;
+      // Defense en profondeur : bloque l'import si pas d'abonnement actif
+      if (!isPremium) {
+        document.getElementById('paywallOverlay').classList.remove('hidden');
+        return;
+      }
       const status = document.getElementById('csvStatus');
       status.style.display = 'block';
       status.style.color = 'var(--text-secondary)';
