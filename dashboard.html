@@ -935,7 +935,7 @@
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px">
             <div class="stat-card">
               <div class="stat-label">Meilleur trade</div>
               <div class="stat-value green" id="kpiBestTrade" style="font-size:18px">—</div>
@@ -954,6 +954,59 @@
             </div>
           </div>
 
+          <!-- KPIs avancés -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px">
+            <div class="stat-card">
+              <div class="stat-label">Risk/Reward</div>
+              <div class="stat-value" id="kpiRR" style="font-size:18px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Esperance par trade</div>
+              <div class="stat-value" id="kpiExpectancy" style="font-size:18px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Recovery Factor</div>
+              <div class="stat-value" id="kpiRecovery" style="font-size:18px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Moy. trades/jour</div>
+              <div class="stat-value" id="kpiTradesPerDay" style="font-size:18px">—</div>
+            </div>
+          </div>
+
+          <!-- Long vs Short -->
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:16px">
+            <div class="stat-card" style="border-left:3px solid var(--accent-green)">
+              <div class="stat-label">Long (Achat)</div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <div class="stat-value green" id="kpiLongPnl" style="font-size:18px">—</div>
+                <span id="kpiLongDetail" style="font-size:12px;color:var(--text-muted)"></span>
+              </div>
+            </div>
+            <div class="stat-card" style="border-left:3px solid var(--accent-red)">
+              <div class="stat-label">Short (Vente)</div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <div class="stat-value red" id="kpiShortPnl" style="font-size:18px">—</div>
+                <span id="kpiShortDetail" style="font-size:12px;color:var(--text-muted)"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Jours gagnants/perdants -->
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px">
+            <div class="stat-card">
+              <div class="stat-label">Jours de trading</div>
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span class="stat-value" id="kpiTradingDays" style="font-size:18px">—</span>
+                <span id="kpiDaysDetail" style="font-size:12px;color:var(--text-muted)"></span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Duree moyenne</div>
+              <div class="stat-value" id="kpiAvgDuration" style="font-size:18px">—</div>
+            </div>
+          </div>
+
           <!-- Charts -->
           <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px">
             <div class="stat-card" style="padding:20px">
@@ -968,6 +1021,23 @@
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div class="stat-label" style="margin-bottom:12px">P&L par jour</div>
             <canvas id="chartDailyPnl" height="150"></canvas>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+            <div class="stat-card" style="padding:20px">
+              <div class="stat-label" style="margin-bottom:12px">Drawdown (%)</div>
+              <canvas id="chartDrawdown" height="180"></canvas>
+            </div>
+            <div class="stat-card" style="padding:20px">
+              <div class="stat-label" style="margin-bottom:12px">Gains moyens</div>
+              <canvas id="chartAvgGains" height="180"></canvas>
+            </div>
+          </div>
+
+          <!-- Heatmap mensuelle -->
+          <div class="stat-card" style="padding:20px;margin-bottom:24px">
+            <div class="stat-label" style="margin-bottom:12px">Performance mensuelle</div>
+            <div id="monthlyHeatmap" style="overflow-x:auto"></div>
           </div>
 
           <!-- Tableau des trades -->
@@ -2516,8 +2586,72 @@
       document.getElementById('kpiWinStreak').textContent = maxWS;
       document.getElementById('kpiLoseStreak').textContent = maxLS;
 
+      // Risk/Reward
+      const rr = avgLoss > 0 ? (avgWin / avgLoss) : avgWin > 0 ? 999 : 0;
+      document.getElementById('kpiRR').textContent = rr > 100 ? '∞' : rr.toFixed(2);
+
+      // Espérance par trade
+      const wr = wins.length / Math.max(trades.length, 1);
+      const lr = losses.length / Math.max(trades.length, 1);
+      const expectancy = (wr * avgWin) - (lr * avgLoss);
+      const expEl = document.getElementById('kpiExpectancy');
+      expEl.textContent = (expectancy >= 0 ? '+' : '') + fmtCurShort(expectancy);
+      expEl.className = 'stat-value ' + (expectancy >= 0 ? 'green' : 'red');
+
+      // Recovery Factor
+      const rf = maxDD > 0 ? Math.abs(totalPnl / maxDD) : totalPnl > 0 ? 999 : 0;
+      document.getElementById('kpiRecovery').textContent = rf > 100 ? '∞' : rf.toFixed(2);
+
+      // Trades par jour
+      const tradingDays = new Set(trades.map(t => t.date)).size;
+      const tpd = tradingDays > 0 ? (trades.length / tradingDays) : 0;
+      document.getElementById('kpiTradesPerDay').textContent = tpd.toFixed(1);
+
+      // Long vs Short
+      const longs = trades.filter(t => t.type === 'buy');
+      const shorts = trades.filter(t => t.type === 'sell');
+      const longPnl = longs.reduce((s, t) => s + t.pnl, 0);
+      const shortPnl = shorts.reduce((s, t) => s + t.pnl, 0);
+      const longWins = longs.filter(t => t.pnl > 0).length;
+      const shortWins = shorts.filter(t => t.pnl > 0).length;
+      const longWR = longs.length > 0 ? (longWins / longs.length * 100).toFixed(0) : 0;
+      const shortWR = shorts.length > 0 ? (shortWins / shorts.length * 100).toFixed(0) : 0;
+
+      const longEl = document.getElementById('kpiLongPnl');
+      longEl.textContent = (longPnl >= 0 ? '+' : '') + fmtCurShort(longPnl);
+      longEl.className = 'stat-value ' + (longPnl >= 0 ? 'green' : 'red');
+      document.getElementById('kpiLongDetail').textContent = `${longs.length} trades | WR ${longWR}%`;
+
+      const shortEl = document.getElementById('kpiShortPnl');
+      shortEl.textContent = (shortPnl >= 0 ? '+' : '') + fmtCurShort(shortPnl);
+      shortEl.className = 'stat-value ' + (shortPnl >= 0 ? 'green' : 'red');
+      document.getElementById('kpiShortDetail').textContent = `${shorts.length} trades | WR ${shortWR}%`;
+
+      // Jours gagnants/perdants
+      const dayPnl = {};
+      trades.forEach(t => { dayPnl[t.date] = (dayPnl[t.date] || 0) + t.pnl; });
+      const winDays = Object.values(dayPnl).filter(v => v > 0).length;
+      const lossDays = Object.values(dayPnl).filter(v => v <= 0).length;
+      document.getElementById('kpiTradingDays').textContent = tradingDays;
+      document.getElementById('kpiDaysDetail').textContent = `${winDays} gagnants (${tradingDays > 0 ? (winDays/tradingDays*100).toFixed(0) : 0}%) | ${lossDays} perdants`;
+
+      // Durée moyenne
+      const durations = trades.filter(t => t.openDate && t.date && t.openDate !== t.date).map(t => {
+        const ms = new Date(t.date) - new Date(t.openDate);
+        return ms / (1000 * 60);
+      }).filter(d => d > 0 && d < 525600);
+      if (durations.length > 0) {
+        const avgMin = durations.reduce((s,d) => s+d, 0) / durations.length;
+        document.getElementById('kpiAvgDuration').textContent = avgMin < 60 ? `${avgMin.toFixed(0)} min` : avgMin < 1440 ? `${(avgMin/60).toFixed(1)}h` : `${(avgMin/1440).toFixed(1)} jours`;
+      } else {
+        document.getElementById('kpiAvgDuration').textContent = '—';
+      }
+
       // Charts
       renderPortfolioCharts();
+
+      // Monthly heatmap
+      renderMonthlyHeatmap();
 
       // Trade table
       renderPortfolioTable();
@@ -2559,6 +2693,87 @@
         data: { labels: days.map(d => d[0]), datasets: [{ data: days.map(d => Math.round(d[1])), backgroundColor: days.map(d => d[1] >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)') }] },
         options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6B7280', font: { size: 9 }, maxTicksLimit: 15 }, grid: { display: false } }, y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
       });
+
+      // Drawdown chart
+      let eqPeak = 0, eqCum = 0;
+      const ddData = [];
+      for (const [date, pnl] of days) {
+        eqCum += pnl;
+        if (eqCum > eqPeak) eqPeak = eqCum;
+        const dd = eqPeak > 0 ? ((eqCum - eqPeak) / eqPeak * 100) : 0;
+        ddData.push({ x: date, y: Math.round(dd * 100) / 100 });
+      }
+      portfolioCharts.drawdown = new Chart(document.getElementById('chartDrawdown'), {
+        type: 'line',
+        data: { datasets: [{ data: ddData, borderColor: '#a78bfa', borderWidth: 2, pointRadius: 0, fill: { target: 'origin', above: 'rgba(167,139,250,0.08)' } }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { type: 'category', ticks: { color: '#6B7280', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { max: 0, ticks: { color: '#6B7280', font: { size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+      });
+
+      // Gains moyens (bar chart: max gain, avg win, avg loss, max loss)
+      const wins = trades.filter(t => t.pnl > 0);
+      const losses = trades.filter(t => t.pnl < 0);
+      const maxGain = wins.length > 0 ? Math.max(...wins.map(t => t.pnl)) : 0;
+      const avgWinV = wins.length > 0 ? wins.reduce((s,t) => s+t.pnl, 0)/wins.length : 0;
+      const avgLossV = losses.length > 0 ? losses.reduce((s,t) => s+t.pnl, 0)/losses.length : 0;
+      const maxLoss = losses.length > 0 ? Math.min(...losses.map(t => t.pnl)) : 0;
+      portfolioCharts.avgGains = new Chart(document.getElementById('chartAvgGains'), {
+        type: 'bar',
+        data: {
+          labels: ['Gain max', 'Gain moy.', 'Perte moy.', 'Perte max'],
+          datasets: [{ data: [Math.round(maxGain), Math.round(avgWinV), Math.round(avgLossV), Math.round(maxLoss)],
+            backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(16,185,129,0.5)', 'rgba(239,68,68,0.5)', 'rgba(239,68,68,0.85)'] }]
+        },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#9CA3AF', font: { size: 11 } }, grid: { display: false } } } }
+      });
+    }
+
+    // Monthly heatmap
+    function renderMonthlyHeatmap() {
+      const trades = portfolioTrades;
+      const monthData = {};
+      trades.forEach(t => {
+        const ym = (t.date || '').substring(0, 7);
+        if (!ym) return;
+        if (!monthData[ym]) monthData[ym] = { pnl: 0, trades: 0, wins: 0 };
+        monthData[ym].pnl += t.pnl;
+        monthData[ym].trades++;
+        if (t.pnl > 0) monthData[ym].wins++;
+      });
+
+      const months = Object.keys(monthData).sort();
+      if (months.length === 0) return;
+
+      const years = [...new Set(months.map(m => m.substring(0, 4)))].sort().reverse();
+      const moisFr = ['Janv.', 'Fev.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Aout', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+      const maxAbs = Math.max(...Object.values(monthData).map(d => Math.abs(d.pnl)), 1);
+
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:6px;color:var(--text-muted)">Annee</th>';
+      moisFr.forEach(m => { html += `<th style="padding:6px;color:var(--text-muted);text-align:center">${m}</th>`; });
+      html += '<th style="padding:6px;color:var(--text-muted);text-align:center;font-weight:700">Total</th></tr></thead><tbody>';
+
+      for (const year of years) {
+        html += `<tr><td style="padding:6px;font-weight:700;color:var(--text-secondary)">${year}</td>`;
+        let yearTotal = 0;
+        for (let m = 0; m < 12; m++) {
+          const ym = `${year}-${String(m + 1).padStart(2, '0')}`;
+          const d = monthData[ym];
+          if (d) {
+            yearTotal += d.pnl;
+            const intensity = 0.12 + (Math.abs(d.pnl) / maxAbs) * 0.55;
+            const bg = d.pnl >= 0 ? `rgba(16,185,129,${intensity})` : `rgba(239,68,68,${intensity})`;
+            html += `<td style="padding:6px;text-align:center;background:${bg};border-radius:4px;font-weight:600;color:var(--text-primary)" title="${d.trades} trades, ${d.wins} wins">${d.pnl >= 0 ? '+' : ''}${Math.round(d.pnl)}</td>`;
+          } else {
+            html += '<td style="padding:6px;text-align:center;color:var(--text-muted)">—</td>';
+          }
+        }
+        const yInt = 0.12 + (Math.abs(yearTotal) / maxAbs) * 0.55;
+        const yBg = yearTotal >= 0 ? `rgba(16,185,129,${Math.min(yInt, 0.67)})` : `rgba(239,68,68,${Math.min(yInt, 0.67)})`;
+        html += `<td style="padding:6px;text-align:center;background:${yBg};border-radius:4px;font-weight:800;color:var(--text-primary)">${yearTotal >= 0 ? '+' : ''}${Math.round(yearTotal)}</td>`;
+        html += '</tr>';
+      }
+
+      html += '</tbody></table>';
+      document.getElementById('monthlyHeatmap').innerHTML = html;
     }
 
     function renderPortfolioTable() {
