@@ -521,6 +521,126 @@
     .etf-badge.guru { background: rgba(139,92,246,0.2); color: #A78BFA; }
     .etf-badge.ark { background: rgba(6,182,212,0.2); color: #22D3EE; }
 
+    /* ===== iOS-style Toggle (repris Trading Dashboard) ===== */
+    .toggle-wrap {
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      user-select: none;
+    }
+    .toggle-wrap:hover { color: var(--text-primary); }
+    .toggle-wrap input { display: none; }
+    .toggle-track {
+      position: relative; width: 44px; height: 24px;
+      background: rgba(30,42,58,0.9); border-radius: 12px;
+      transition: background 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .toggle-track::after {
+      content: ''; position: absolute;
+      top: 2px; left: 2px; width: 20px; height: 20px;
+      background: #ffffff; border-radius: 50%;
+      transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .toggle-wrap input:checked + .toggle-track {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      border-color: transparent;
+    }
+    .toggle-wrap input:checked + .toggle-track::after {
+      transform: translateX(20px);
+    }
+    .toggle-val {
+      font-size: 11px; font-weight: 700; color: var(--accent-blue);
+      min-width: 16px; text-align: center;
+    }
+
+    /* ===== HERO KPI (reprise Trading Dashboard) ===== */
+    .hero-kpi {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+      margin-bottom: 20px;
+    }
+    .hero-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px 24px;
+      position: relative; overflow: hidden;
+    }
+    .hero-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at top right, rgba(59,130,246,0.08), transparent 60%);
+      pointer-events: none;
+    }
+    .hero-card .hero-label {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    }
+    .hero-card .hero-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 32px; font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .hero-card .hero-sub {
+      font-size: 12px; color: var(--text-muted);
+      display: flex; justify-content: space-between; gap: 8px;
+    }
+    .hero-card .hero-badge {
+      display: inline-block; padding: 2px 8px;
+      font-size: 11px; font-weight: 700; border-radius: 100px;
+      margin-left: 6px;
+    }
+    .hero-card.pnl .hero-value { color: var(--accent-green); }
+    .hero-card.pnl.negative .hero-value { color: var(--accent-red); }
+    .hero-card .bar-split {
+      display: flex; height: 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.05); overflow: hidden;
+      margin-top: 10px;
+    }
+    .hero-card .bar-split .bar-win { background: var(--accent-green); }
+    .hero-card .bar-split .bar-loss { background: var(--accent-red); }
+    .hero-card .donut-wrap {
+      display: flex; align-items: center; gap: 20px;
+    }
+    .hero-card .donut-info { flex: 1; }
+
+    /* ===== Section "Analyse Avancée" ===== */
+    .advanced-toggle {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: 13px; font-weight: 700; color: var(--text-secondary);
+      padding: 12px 16px; margin: 24px 0 16px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; transition: all 0.2s;
+    }
+    .advanced-toggle:hover { color: var(--text-primary); border-color: var(--accent-blue); }
+    .advanced-toggle .chev {
+      transition: transform 0.3s;
+    }
+    .advanced-toggle.open .chev { transform: rotate(90deg); }
+    .advanced-content {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.4s ease;
+    }
+    .advanced-content.open { max-height: 800px; }
+
+    /* ===== Period Selector (Jour/Semaine/Mois/Annee) ===== */
+    .chart-period-btns {
+      display: inline-flex; gap: 0;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .chart-period-btns button {
+      padding: 6px 14px; background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer; font-size: 12px;
+      font-weight: 600; font-family: inherit;
+      border-right: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .chart-period-btns button:last-child { border-right: none; }
+    .chart-period-btns button:hover { color: var(--text-primary); }
+    .chart-period-btns button.active {
+      background: var(--accent-blue); color: #fff;
+    }
+
     /* ===== PORTFOLIO CALENDARS ===== */
     .cal-nav { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
     .cal-nav button {
@@ -938,105 +1058,147 @@
 
         <!-- KPIs -->
         <div id="portfolioKpis" style="display:none">
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
-            <div class="stat-card">
-              <div class="stat-label">P&L Total</div>
-              <div class="stat-value" id="kpiPnl">—</div>
+
+          <!-- HERO KPI : 3 grandes cartes -->
+          <div class="hero-kpi">
+            <!-- CARTE 1 : Performance globale -->
+            <div class="hero-card">
+              <div class="hero-label">💰 Performance globale</div>
+              <div class="hero-value" id="kpiPnl">—</div>
+              <div class="hero-sub">
+                <span id="kpiPerfPct">—</span>
+                <span id="kpiTradeTotal"></span>
+              </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Win Rate</div>
-              <div class="stat-value" id="kpiWinRate">—</div>
+
+            <!-- CARTE 2 : Gain Total avec barre split -->
+            <div class="hero-card pnl" id="kpiGainCard">
+              <div class="hero-label">📈 Gain Total</div>
+              <div class="hero-value" id="kpiGainTotal">—</div>
+              <div class="hero-sub">
+                <span id="kpiGainPct" style="color:var(--accent-green)">—</span>
+                <span id="kpiLossPct" style="color:var(--accent-red)">—</span>
+              </div>
+              <div class="bar-split">
+                <div class="bar-win" id="barWin" style="width:50%"></div>
+                <div class="bar-loss" id="barLoss" style="width:50%"></div>
+              </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Profit Factor</div>
-              <div class="stat-value" id="kpiProfitFactor">—</div>
+
+            <!-- CARTE 3 : Trades Gagnants avec donut -->
+            <div class="hero-card">
+              <div class="hero-label">🎯 Trades Gagnants</div>
+              <div class="donut-wrap">
+                <svg width="72" height="72" viewBox="0 0 72 72">
+                  <circle cx="36" cy="36" r="30" stroke="rgba(255,255,255,0.08)" stroke-width="8" fill="none"/>
+                  <circle id="donutWR" cx="36" cy="36" r="30" stroke="var(--accent-green)" stroke-width="8" fill="none"
+                          stroke-dasharray="0 188.5" stroke-linecap="round" transform="rotate(-90 36 36)"
+                          style="transition:stroke-dasharray 0.8s ease"/>
+                  <text id="donutText" x="36" y="41" text-anchor="middle" fill="var(--text-primary)"
+                        font-family="Space Grotesk" font-size="16" font-weight="800">0%</text>
+                </svg>
+                <div class="donut-info">
+                  <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-green);font-weight:700" id="kpiWinsN">0</span> gagnants</div>
+                  <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-red);font-weight:700" id="kpiLossN">0</span> perdants</div>
+                  <div style="font-size:11px;color:var(--text-muted)"><span id="kpiTradesN">0</span> trades total</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+          <!-- KPI GRID : 5 colonnes -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px">
+            <div class="stat-card">
+              <div class="stat-label">Profit Factor</div>
+              <div class="stat-value" id="kpiProfitFactor" style="font-size:24px">—</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Gains / Pertes totales</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Risk/Reward</div>
+              <div class="stat-value" id="kpiRR" style="font-size:24px">—</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Gain moy. / Perte moy.</div>
+            </div>
             <div class="stat-card">
               <div class="stat-label">Gain moyen</div>
               <div class="stat-value green" id="kpiAvgWin" style="font-size:20px">—</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">max <span id="kpiMaxWin">—</span></div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Perte moyenne</div>
               <div class="stat-value red" id="kpiAvgLoss" style="font-size:20px">—</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">max <span id="kpiMaxLoss">—</span></div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Max Drawdown</div>
+              <div class="stat-label">Drawdown Max</div>
               <div class="stat-value red" id="kpiDrawdown" style="font-size:20px">—</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="kpiDDPct">—</div>
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px">
-            <div class="stat-card">
-              <div class="stat-label">Meilleur trade</div>
-              <div class="stat-value green" id="kpiBestTrade" style="font-size:18px">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Pire trade</div>
-              <div class="stat-value red" id="kpiWorstTrade" style="font-size:18px">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Serie gagnante max</div>
-              <div class="stat-value" id="kpiWinStreak" style="font-size:18px">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Serie perdante max</div>
-              <div class="stat-value" id="kpiLoseStreak" style="font-size:18px">—</div>
-            </div>
+          <!-- ANALYSE AVANCÉE (expandable) -->
+          <div class="advanced-toggle" onclick="this.classList.toggle('open');document.getElementById('advancedSection').classList.toggle('open')">
+            <span class="chev">&#9654;</span>
+            <span>📊 Analyse Avancée</span>
           </div>
-
-          <!-- KPIs avancés -->
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px">
-            <div class="stat-card">
-              <div class="stat-label">Risk/Reward</div>
-              <div class="stat-value" id="kpiRR" style="font-size:18px">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Esperance par trade</div>
-              <div class="stat-value" id="kpiExpectancy" style="font-size:18px">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Recovery Factor</div>
-              <div class="stat-value" id="kpiRecovery" style="font-size:18px">—</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Moy. trades/jour</div>
-              <div class="stat-value" id="kpiTradesPerDay" style="font-size:18px">—</div>
-            </div>
-          </div>
-
-          <!-- Long vs Short -->
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:16px">
-            <div class="stat-card" style="border-left:3px solid var(--accent-green)">
-              <div class="stat-label">Long (Achat)</div>
-              <div style="display:flex;justify-content:space-between;align-items:baseline">
-                <div class="stat-value green" id="kpiLongPnl" style="font-size:18px">—</div>
-                <span id="kpiLongDetail" style="font-size:12px;color:var(--text-muted)"></span>
+          <div class="advanced-content" id="advancedSection">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">
+              <div class="stat-card">
+                <div class="stat-label">Esperance / trade</div>
+                <div class="stat-value" id="kpiExpectancy" style="font-size:20px">—</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">(WR × Gain) - (LR × Perte)</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Recovery Factor</div>
+                <div class="stat-value" id="kpiRecovery" style="font-size:20px">—</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">P&L / Drawdown</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Serie gagnante</div>
+                <div class="stat-value green" id="kpiWinStreak" style="font-size:20px">—</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Max historique</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Serie perdante</div>
+                <div class="stat-value red" id="kpiLoseStreak" style="font-size:20px">—</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Max historique</div>
               </div>
             </div>
-            <div class="stat-card" style="border-left:3px solid var(--accent-red)">
-              <div class="stat-label">Short (Vente)</div>
-              <div style="display:flex;justify-content:space-between;align-items:baseline">
-                <div class="stat-value red" id="kpiShortPnl" style="font-size:18px">—</div>
-                <span id="kpiShortDetail" style="font-size:12px;color:var(--text-muted)"></span>
-              </div>
-            </div>
-          </div>
 
-          <!-- Jours gagnants/perdants -->
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px">
-            <div class="stat-card">
-              <div class="stat-label">Jours de trading</div>
-              <div style="display:flex;align-items:baseline;gap:8px">
-                <span class="stat-value" id="kpiTradingDays" style="font-size:18px">—</span>
-                <span id="kpiDaysDetail" style="font-size:12px;color:var(--text-muted)"></span>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:14px">
+              <div class="stat-card" style="border-left:3px solid var(--accent-green)">
+                <div class="stat-label">Long (Achat)</div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline">
+                  <div class="stat-value green" id="kpiLongPnl" style="font-size:20px">—</div>
+                  <span id="kpiLongDetail" style="font-size:12px;color:var(--text-muted)"></span>
+                </div>
+              </div>
+              <div class="stat-card" style="border-left:3px solid var(--accent-red)">
+                <div class="stat-label">Short (Vente)</div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline">
+                  <div class="stat-value red" id="kpiShortPnl" style="font-size:20px">—</div>
+                  <span id="kpiShortDetail" style="font-size:12px;color:var(--text-muted)"></span>
+                </div>
               </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Duree moyenne</div>
-              <div class="stat-value" id="kpiAvgDuration" style="font-size:18px">—</div>
+
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">
+              <div class="stat-card">
+                <div class="stat-label">Meilleur trade</div>
+                <div class="stat-value green" id="kpiBestTrade" style="font-size:18px">—</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Pire trade</div>
+                <div class="stat-value red" id="kpiWorstTrade" style="font-size:18px">—</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Duree moyenne</div>
+                <div class="stat-value" id="kpiAvgDuration" style="font-size:18px">—</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Trades/jour</div>
+                <div class="stat-value" id="kpiTradesPerDay" style="font-size:18px">—</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px"><span id="kpiTradingDays">0</span> jours trades</div>
+              </div>
             </div>
           </div>
 
@@ -1055,9 +1217,12 @@
           <!-- CALENDRIER JOURNALIER (identique au Trading Dashboard) -->
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <div class="stat-label">Calendrier journalier</div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer">
-                <input type="checkbox" id="pDayPctToggle" onchange="buildPortfolioDailyCal()" style="cursor:pointer"> Afficher en %
+              <div class="stat-label">📅 Calendrier journalier</div>
+              <label class="toggle-wrap">
+                <span class="toggle-val">€</span>
+                <input type="checkbox" id="pDayPctToggle" onchange="buildPortfolioDailyCal()">
+                <span class="toggle-track"></span>
+                <span class="toggle-val">%</span>
               </label>
             </div>
             <div class="cal-nav">
@@ -1072,16 +1237,27 @@
           <!-- HEATMAP MENSUELLE (identique au Trading Dashboard) -->
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <div class="stat-label">Performance mensuelle</div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer">
-                <input type="checkbox" id="pMonthPctToggle" onchange="renderMonthlyHeatmap()" style="cursor:pointer"> Afficher en %
+              <div class="stat-label">📊 Performance mensuelle</div>
+              <label class="toggle-wrap">
+                <span class="toggle-val">€</span>
+                <input type="checkbox" id="pMonthPctToggle" onchange="renderMonthlyHeatmap()">
+                <span class="toggle-track"></span>
+                <span class="toggle-val">%</span>
               </label>
             </div>
             <div id="monthlyHeatmap" style="overflow-x:auto"></div>
           </div>
 
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
-            <div class="stat-label" style="margin-bottom:12px">P&L par jour</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+              <div class="stat-label">📊 P&L par periode</div>
+              <div class="chart-period-btns">
+                <button data-pnlperiod="day" class="active" onclick="setPnlPeriod('day')">Jour</button>
+                <button data-pnlperiod="week" onclick="setPnlPeriod('week')">Semaine</button>
+                <button data-pnlperiod="month" onclick="setPnlPeriod('month')">Mois</button>
+                <button data-pnlperiod="year" onclick="setPnlPeriod('year')">Annee</button>
+              </div>
+            </div>
             <canvas id="chartDailyPnl" height="150"></canvas>
           </div>
 
@@ -2641,18 +2817,53 @@
         maxLS = Math.max(maxLS, loseStreak);
       }
 
-      // Update KPI cards
+      // HERO CARD 1 : Performance globale
       const pnlEl = document.getElementById('kpiPnl');
-      pnlEl.textContent = fmtCurShort(totalPnl);
-      pnlEl.className = 'stat-value ' + (totalPnl >= 0 ? 'green' : 'red');
+      pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtCurShort(totalPnl);
+      pnlEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      const perfPctEl = document.getElementById('kpiPerfPct');
+      // Estimation : performance en % sur un capital théorique (max drawdown × 4 comme proxy)
+      const estCapital = Math.max(maxDD * 4, 1000);
+      const perfPct = (totalPnl / estCapital * 100);
+      perfPctEl.textContent = (perfPct >= 0 ? '+' : '') + perfPct.toFixed(1) + '%';
+      perfPctEl.style.color = perfPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      document.getElementById('kpiTradeTotal').textContent = `${trades.length} trades`;
 
-      document.getElementById('kpiWinRate').textContent = `${winRate.toFixed(1)}%`;
-      document.getElementById('kpiWinRate').title = `${wins.length}W / ${losses.length}L`;
+      // HERO CARD 2 : Gain Total + barre split
+      const gainEl = document.getElementById('kpiGainTotal');
+      gainEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtCurShort(totalPnl);
+      gainEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      const gainSum = grossWin;
+      const lossSum = grossLoss;
+      const totalAbs = gainSum + lossSum;
+      const gainPctBar = totalAbs > 0 ? (gainSum / totalAbs * 100) : 50;
+      const lossPctBar = totalAbs > 0 ? (lossSum / totalAbs * 100) : 50;
+      document.getElementById('kpiGainPct').textContent = '+' + fmtCurShort(gainSum);
+      document.getElementById('kpiLossPct').textContent = '-' + fmtCurShort(lossSum);
+      document.getElementById('barWin').style.width = gainPctBar + '%';
+      document.getElementById('barLoss').style.width = lossPctBar + '%';
+
+      // HERO CARD 3 : Donut WR
+      const donut = document.getElementById('donutWR');
+      const circumference = 2 * Math.PI * 30;
+      const dashOffset = circumference * (winRate / 100);
+      donut.setAttribute('stroke-dasharray', `${dashOffset} ${circumference}`);
+      donut.setAttribute('stroke', winRate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)');
+      document.getElementById('donutText').textContent = winRate.toFixed(1) + '%';
+      document.getElementById('donutText').setAttribute('fill', winRate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)');
+      document.getElementById('kpiWinsN').textContent = wins.length;
+      document.getElementById('kpiLossN').textContent = losses.length;
+      document.getElementById('kpiTradesN').textContent = trades.length;
+
+      // KPI GRID
       document.getElementById('kpiProfitFactor').textContent = profitFactor > 100 ? '∞' : profitFactor.toFixed(2);
-      document.getElementById('kpiAvgWin').textContent = fmtCurShort(avgWin);
+      document.getElementById('kpiAvgWin').textContent = '+' + fmtCurShort(avgWin);
       document.getElementById('kpiAvgLoss').textContent = '-' + fmtCurShort(avgLoss);
       document.getElementById('kpiDrawdown').textContent = '-' + fmtCurShort(maxDD);
-      document.getElementById('kpiBestTrade').textContent = wins.length > 0 ? fmtCurShort(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiDDPct').textContent = '-' + (estCapital > 0 ? (maxDD / estCapital * 100).toFixed(2) : '0') + '% du capital';
+      document.getElementById('kpiMaxWin').textContent = wins.length > 0 ? '+' + fmtCurShort(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiMaxLoss').textContent = losses.length > 0 ? '-' + fmtCurShort(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
+      document.getElementById('kpiBestTrade').textContent = wins.length > 0 ? '+' + fmtCurShort(Math.max(...wins.map(t => t.pnl))) : '—';
       document.getElementById('kpiWorstTrade').textContent = losses.length > 0 ? '-' + fmtCurShort(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
       document.getElementById('kpiWinStreak').textContent = maxWS;
       document.getElementById('kpiLoseStreak').textContent = maxLS;
@@ -2764,15 +2975,8 @@
         options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 11 }, boxWidth: 12 } } } }
       });
 
-      // P&L par jour (bar)
-      const dayMap = {};
-      trades.forEach(t => { dayMap[t.date] = (dayMap[t.date] || 0) + t.pnl; });
-      const days = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
-      portfolioCharts.daily = new Chart(document.getElementById('chartDailyPnl'), {
-        type: 'bar',
-        data: { labels: days.map(d => d[0]), datasets: [{ data: days.map(d => Math.round(d[1])), backgroundColor: days.map(d => d[1] >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)') }] },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6B7280', font: { size: 9 }, maxTicksLimit: 15 }, grid: { display: false } }, y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
-      });
+      // P&L par période (bar) — avec sélecteur Jour/Semaine/Mois/Année
+      renderPnlPeriodChart();
 
       // Drawdown chart
       let eqPeak = 0, eqCum = 0;
@@ -2804,6 +3008,81 @@
             backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(16,185,129,0.5)', 'rgba(239,68,68,0.5)', 'rgba(239,68,68,0.85)'] }]
         },
         options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#9CA3AF', font: { size: 11 } }, grid: { display: false } } } }
+      });
+    }
+
+    // ============================================================
+    // P&L PAR PERIODE (Jour / Semaine / Mois / Annee)
+    // ============================================================
+    let pnlPeriod = 'day';
+
+    function setPnlPeriod(p) {
+      pnlPeriod = p;
+      document.querySelectorAll('[data-pnlperiod]').forEach(b =>
+        b.classList.toggle('active', b.dataset.pnlperiod === p)
+      );
+      renderPnlPeriodChart();
+    }
+
+    function getWeekKey(dateStr) {
+      const d = new Date(dateStr);
+      const year = d.getFullYear();
+      // ISO week calculation
+      const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = tmp.getUTCDay() || 7;
+      tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+      const weekNum = Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
+      return `${tmp.getUTCFullYear()}-S${String(weekNum).padStart(2, '0')}`;
+    }
+
+    function renderPnlPeriodChart() {
+      if (portfolioCharts.daily) { portfolioCharts.daily.destroy(); delete portfolioCharts.daily; }
+      const canvas = document.getElementById('chartDailyPnl');
+      if (!canvas) return;
+
+      const trades = portfolioTrades;
+      const periodMap = {};
+
+      trades.forEach(t => {
+        if (!t.date) return;
+        let key;
+        if (pnlPeriod === 'day') key = t.date;
+        else if (pnlPeriod === 'week') key = getWeekKey(t.date);
+        else if (pnlPeriod === 'month') key = t.date.substring(0, 7);
+        else if (pnlPeriod === 'year') key = t.date.substring(0, 4);
+        periodMap[key] = (periodMap[key] || 0) + t.pnl;
+      });
+
+      const sorted = Object.entries(periodMap).sort((a, b) => a[0].localeCompare(b[0]));
+      const maxTicks = pnlPeriod === 'day' ? 15 : pnlPeriod === 'week' ? 20 : pnlPeriod === 'month' ? 20 : 10;
+
+      portfolioCharts.daily = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: sorted.map(d => d[0]),
+          datasets: [{
+            data: sorted.map(d => Math.round(d[1])),
+            backgroundColor: sorted.map(d => d[1] >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)'),
+            borderColor: sorted.map(d => d[1] >= 0 ? 'rgba(16,185,129,1)' : 'rgba(239,68,68,1)'),
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `P&L: ${ctx.raw >= 0 ? '+' : ''}${ctx.raw.toLocaleString('fr-FR')} €`,
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#6B7280', font: { size: 10 }, maxTicksLimit: maxTicks }, grid: { display: false } },
+            y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          }
+        }
       });
     }
 
