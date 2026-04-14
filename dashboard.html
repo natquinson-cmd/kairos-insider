@@ -1363,6 +1363,8 @@
         apiKey: 'AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw',
         authDomain: 'kairos-insider.firebaseapp.com',
         projectId: 'kairos-insider',
+        // REQUIS pour Realtime Database (sauvegarde du portefeuille)
+        databaseURL: 'https://kairos-insider-default-rtdb.firebaseio.com',
       });
 
       firebaseAuth = getAuth(app);
@@ -1607,6 +1609,15 @@
         if (section === 'feargreed') loadFearGreed();
         if (section === 'shorts') loadShortInterest();
         if (section === 'portfolio') loadPortfolioFromFirebase();
+      }
+
+      // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
+      // (Chart.js echoue silencieusement si le canvas a 0px au moment de l'init)
+      // setTimeout plutot que rAF car rAF ne se declenche pas si la tab n'est pas focus
+      if (section === 'portfolio' && typeof portfolioTrades !== 'undefined' && portfolioTrades.length > 0) {
+        setTimeout(() => {
+          try { renderPortfolioCharts(); buildPortfolioDailyCal(); renderMonthlyHeatmap(); } catch (e) { console.error('[portfolio] render error:', e); }
+        }, 50);
       }
     }
 
@@ -2940,8 +2951,9 @@
         document.getElementById('kpiAvgDuration').textContent = '—';
       }
 
-      // Charts
-      renderPortfolioCharts();
+      // Charts — laisser le layout se stabiliser (passage display:none→block) avant mesure canvas
+      // setTimeout plutot que rAF car rAF ne se declenche pas si la tab n'est pas focus
+      setTimeout(() => { try { renderPortfolioCharts(); } catch(e) { console.error('[portfolio] chart error:', e); } }, 50);
 
       // Calendriers (identiques au Trading Dashboard)
       // Positionner sur le mois du dernier trade
@@ -3337,7 +3349,16 @@
     // FIREBASE PERSISTENCE (trades par utilisateur)
     // ============================================================
     async function savePortfolioToFirebase() {
-      if (!currentUser || portfolioTrades.length === 0) return;
+      const status = document.getElementById('csvStatus');
+      if (!currentUser) {
+        if (status) {
+          status.style.display = 'block';
+          status.style.color = 'var(--accent-red)';
+          status.textContent = 'Non connecte : vos donnees ne sont pas sauvegardees. Connectez-vous pour les retrouver sur n\'importe quel appareil.';
+        }
+        return;
+      }
+      if (portfolioTrades.length === 0) return;
       try {
         const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
         const db = getDatabase();
@@ -3347,8 +3368,20 @@
           lastImport: new Date().toISOString(),
           platform: portfolioTrades[0]?._platform || 'unknown',
         });
+        if (status) {
+          // Preserver le message d'import si deja affiche, juste ajouter un badge "sauvegarde"
+          const current = status.textContent;
+          status.style.display = 'block';
+          status.style.color = 'var(--accent-green)';
+          status.textContent = current + ' ✓ sauvegarde';
+        }
       } catch (err) {
         console.error('Erreur sauvegarde Firebase:', err);
+        if (status) {
+          status.style.display = 'block';
+          status.style.color = 'var(--accent-red)';
+          status.textContent = 'Erreur de sauvegarde : ' + err.message;
+        }
       }
     }
 
