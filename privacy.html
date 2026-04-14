@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Politique de confidentialité — Kairos Insider</title>
+  <meta name="description" content="Politique de confidentialité et traitement des données personnelles sur kairosinsider.fr." />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-primary: #0A0F1E;
+      --bg-card: rgba(255, 255, 255, 0.02);
+      --border: rgba(255, 255, 255, 0.08);
+      --text-primary: #F9FAFB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-blue: #3B82F6;
+      --accent-purple: #8B5CF6;
+      --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary); color: var(--text-primary);
+      line-height: 1.7; -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none; z-index: 0;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,15,30,0.85);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-container {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; max-width: 1200px; margin: 0 auto;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+    .logo-mark { width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; background: var(--gradient-primary); }
+    .logo-mark img { width: 24px; height: 24px; }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; }
+    .nav-links { list-style: none; display: flex; gap: 28px; align-items: center; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
+
+    main { padding: 64px 0 96px; position: relative; z-index: 1; }
+
+    .page-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 48px; font-weight: 700;
+      margin-bottom: 12px; letter-spacing: -0.02em; line-height: 1.1;
+    }
+    .page-subtitle { color: var(--text-secondary); font-size: 16px; margin-bottom: 48px; }
+
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px; font-weight: 600;
+      margin: 36px 0 14px; color: var(--text-primary);
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 17px; font-weight: 600;
+      margin: 20px 0 6px; color: var(--text-primary);
+    }
+    p, li { color: var(--text-secondary); font-size: 15px; margin-bottom: 10px; }
+    ul { padding-left: 24px; margin-bottom: 14px; }
+    a { color: var(--accent-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { color: var(--text-primary); font-weight: 600; }
+
+    .data-table {
+      width: 100%; border-collapse: collapse; margin: 16px 0;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    }
+    .data-table th, .data-table td {
+      padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .data-table th {
+      background: rgba(59,130,246,0.05);
+      color: var(--text-primary); font-weight: 600;
+    }
+    .data-table td { color: var(--text-secondary); }
+    .data-table tr:last-child td { border-bottom: none; }
+
+    .callout {
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.25);
+      border-radius: 12px; padding: 16px 20px; margin: 16px 0;
+    }
+    .callout p { color: var(--text-primary); margin: 0; }
+
+    footer {
+      margin-top: 80px; padding: 40px 0; border-top: 1px solid var(--border);
+      position: relative; z-index: 1;
+    }
+    .footer-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 24px; }
+    .footer-text { color: var(--text-muted); font-size: 13px; }
+    .footer-links { list-style: none; display: flex; gap: 24px; flex-wrap: wrap; }
+    .footer-links a { color: var(--text-muted); font-size: 13px; text-decoration: none; }
+    .footer-links a:hover { color: var(--text-primary); }
+
+    @media (max-width: 640px) {
+      .page-title { font-size: 36px; }
+      .nav-links { display: none; }
+      .footer-content { flex-direction: column; align-items: flex-start; }
+      .data-table { font-size: 12px; }
+      .data-table th, .data-table td { padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-container">
+      <a href="index.html" class="logo">
+        <div class="logo-mark"><img src="assets/logo.png" alt="Kairos Insider" /></div>
+        <span class="logo-text">Kairos Insider</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="legal.html">Mentions légales</a></li>
+        <li><a href="cgv.html">CGV</a></li>
+        <li><a href="privacy.html" class="active">Confidentialité</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <h1 class="page-title">Politique de confidentialité</h1>
+      <p class="page-subtitle">En vigueur depuis le 14 avril 2026 — Conforme au RGPD</p>
+
+      <p>
+        Kairos Insider attache une importance particulière à la protection de vos données personnelles. Cette
+        politique détaille les informations que nous collectons, pourquoi nous les collectons, comment nous les
+        utilisons, et les droits dont vous disposez, conformément au <strong>Règlement Général sur la Protection
+        des Données (RGPD)</strong> et à la loi Informatique et Libertés modifiée.
+      </p>
+
+      <h2>1. Responsable du traitement</h2>
+      <p>
+        Le responsable du traitement de vos données personnelles est :
+      </p>
+      <div class="callout">
+        <p>
+          <strong>Nathanaël Quinson</strong> — Entreprise Individuelle (micro-entrepreneur)<br />
+          SIRET : 938 381 928 00010<br />
+          Adresse : [ADRESSE À COMPLÉTER]<br />
+          Email : <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a>
+        </p>
+      </div>
+
+      <h2>2. Données collectées</h2>
+      <p>Nous collectons uniquement les données nécessaires au fonctionnement du Service :</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Catégorie</th>
+            <th>Données</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Compte utilisateur</strong></td>
+            <td>Email, mot de passe chiffré, nom (si Google Sign-In)</td>
+            <td>Fournies par vous à l'inscription</td>
+          </tr>
+          <tr>
+            <td><strong>Abonnement</strong></td>
+            <td>ID client Stripe, statut d'abonnement, historique de paiement</td>
+            <td>Stripe (les données bancaires ne transitent pas par nos serveurs)</td>
+          </tr>
+          <tr>
+            <td><strong>Portefeuille</strong></td>
+            <td>Trades importés depuis CSV (date, symbole, P&amp;L, quantité)</td>
+            <td>Importées volontairement par vous</td>
+          </tr>
+          <tr>
+            <td><strong>Waitlist</strong></td>
+            <td>Email, horodatage d'inscription</td>
+            <td>Formulaire d'inscription à la liste d'attente</td>
+          </tr>
+          <tr>
+            <td><strong>Techniques</strong></td>
+            <td>Adresse IP (anonymisée), user-agent, logs serveur</td>
+            <td>Automatique (fonctionnement technique du Service)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3. Finalités et bases légales du traitement</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Finalité</th>
+            <th>Base légale (RGPD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Création et gestion de votre compte</td>
+            <td>Exécution du contrat (art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Fourniture du service d'abonnement</td>
+            <td>Exécution du contrat (art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Traitement des paiements et facturation</td>
+            <td>Exécution du contrat + obligation légale (art. 6.1.b et c)</td>
+          </tr>
+          <tr>
+            <td>Sécurité du site et prévention des fraudes</td>
+            <td>Intérêt légitime (art. 6.1.f)</td>
+          </tr>
+          <tr>
+            <td>Inscription à la liste d'attente</td>
+            <td>Consentement (art. 6.1.a)</td>
+          </tr>
+          <tr>
+            <td>Envoi d'emails de service (confirmations, notifications)</td>
+            <td>Exécution du contrat (art. 6.1.b)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>4. Sous-traitants et destinataires</h2>
+      <p>
+        Vos données peuvent être transmises à des sous-traitants soigneusement sélectionnés, agissant sur
+        instruction et pour le compte de Kairos Insider :
+      </p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Prestataire</th>
+            <th>Finalité</th>
+            <th>Localisation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Google (Firebase)</td>
+            <td>Authentification, base de données, stockage des trades</td>
+            <td>europe-west1 (Belgique, UE)</td>
+          </tr>
+          <tr>
+            <td>Stripe</td>
+            <td>Traitement des paiements, gestion des abonnements</td>
+            <td>Irlande, UE (+ transferts USA sous clauses contractuelles types)</td>
+          </tr>
+          <tr>
+            <td>Cloudflare</td>
+            <td>Hébergement de l'API, CDN, protection DDoS</td>
+            <td>Global (edge), siège USA (clauses contractuelles types)</td>
+          </tr>
+          <tr>
+            <td>GitHub Pages</td>
+            <td>Hébergement des pages web statiques</td>
+            <td>USA (clauses contractuelles types)</td>
+          </tr>
+          <tr>
+            <td>Brevo (ex-Sendinblue)</td>
+            <td>Envoi d'emails transactionnels</td>
+            <td>France, UE</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>5. Transferts hors Union européenne</h2>
+      <p>
+        Certains prestataires (Cloudflare, GitHub, parties de Stripe) peuvent traiter des données depuis les
+        États-Unis. Ces transferts sont encadrés par :
+      </p>
+      <ul>
+        <li>Les <strong>Clauses Contractuelles Types</strong> de la Commission européenne</li>
+        <li>L'adhésion de ces prestataires au <strong>EU-US Data Privacy Framework</strong> (le cas échéant)</li>
+        <li>Des garanties techniques de chiffrement en transit et au repos</li>
+      </ul>
+
+      <h2>6. Durée de conservation</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Donnée</th>
+            <th>Durée</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Compte utilisateur actif</td>
+            <td>Jusqu'à suppression du compte par l'utilisateur</td>
+          </tr>
+          <tr>
+            <td>Compte inactif (aucune connexion)</td>
+            <td>3 ans puis suppression automatique après préavis</td>
+          </tr>
+          <tr>
+            <td>Trades importés</td>
+            <td>Jusqu'à suppression via le bouton « Supprimer mes données » ou résiliation</td>
+          </tr>
+          <tr>
+            <td>Données de facturation</td>
+            <td>10 ans (obligation comptable légale)</td>
+          </tr>
+          <tr>
+            <td>Logs techniques</td>
+            <td>6 mois maximum</td>
+          </tr>
+          <tr>
+            <td>Email waitlist</td>
+            <td>Jusqu'à désinscription ou 3 ans sans interaction</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>7. Vos droits</h2>
+      <p>Conformément au RGPD, vous disposez des droits suivants sur vos données :</p>
+      <ul>
+        <li><strong>Droit d'accès</strong> : obtenir une copie des données que nous détenons sur vous</li>
+        <li><strong>Droit de rectification</strong> : corriger des données inexactes</li>
+        <li><strong>Droit à l'effacement</strong> (« droit à l'oubli ») : supprimer votre compte et vos données</li>
+        <li><strong>Droit à la limitation du traitement</strong> : geler temporairement le traitement</li>
+        <li><strong>Droit à la portabilité</strong> : récupérer vos données dans un format structuré (JSON)</li>
+        <li><strong>Droit d'opposition</strong> : vous opposer au traitement pour motif légitime</li>
+        <li><strong>Droit de retirer votre consentement</strong> à tout moment, sans effet rétroactif</li>
+        <li><strong>Droit de définir des directives post-mortem</strong> concernant vos données</li>
+      </ul>
+
+      <p>
+        <strong>Pour exercer ces droits :</strong> envoyez un email à
+        <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a> avec la mention « RGPD » en objet.
+        Nous vous répondrons sous un délai maximal de <strong>30 jours</strong>.
+      </p>
+
+      <div class="callout">
+        <p>
+          <strong>Action immédiate :</strong> vous pouvez supprimer vos trades à tout moment depuis l'onglet
+          « Mon Portefeuille » → bouton « Supprimer mes données ». La suppression est définitive et irréversible.
+        </p>
+      </div>
+
+      <h2>8. Sécurité des données</h2>
+      <p>
+        Nous mettons en œuvre des mesures techniques et organisationnelles pour protéger vos données :
+      </p>
+      <ul>
+        <li>Chiffrement HTTPS/TLS de bout en bout</li>
+        <li>Authentification sécurisée via Firebase Auth (tokens JWT)</li>
+        <li>Stockage chiffré au repos sur Firebase (AES-256)</li>
+        <li>Isolation des données par utilisateur (règles RTDB : chaque utilisateur ne peut lire que ses propres trades)</li>
+        <li>Aucune donnée bancaire stockée sur nos serveurs (PCI-DSS délégué à Stripe)</li>
+        <li>Mises à jour de sécurité régulières</li>
+      </ul>
+
+      <h2>9. Cookies et traceurs</h2>
+      <p>
+        Le site <strong>kairosinsider.fr</strong> utilise uniquement les cookies strictement nécessaires à son
+        fonctionnement, qui ne requièrent pas votre consentement préalable :
+      </p>
+      <ul>
+        <li><strong>Cookies de session</strong> : maintien de votre connexion (Firebase Auth)</li>
+        <li><strong>Cookies de préférences</strong> : mémorisation du dernier onglet ouvert</li>
+      </ul>
+      <p>
+        Nous <strong>n'utilisons pas de cookies publicitaires ni de traceurs analytiques tiers</strong> (pas de
+        Google Analytics, pas de Facebook Pixel, pas de régie publicitaire).
+      </p>
+
+      <h2>10. Droit de réclamation auprès de la CNIL</h2>
+      <p>
+        Si vous estimez que le traitement de vos données personnelles n'est pas conforme à la réglementation,
+        vous avez le droit d'introduire une réclamation auprès de la <strong>Commission Nationale de
+        l'Informatique et des Libertés (CNIL)</strong> :
+      </p>
+      <div class="callout">
+        <p>
+          <strong>CNIL</strong><br />
+          3 Place de Fontenoy — TSA 80715 — 75334 Paris Cedex 07<br />
+          Téléphone : 01 53 73 22 22<br />
+          Site : <a href="https://www.cnil.fr" target="_blank" rel="noopener">www.cnil.fr</a>
+        </p>
+      </div>
+
+      <h2>11. Modifications de la politique</h2>
+      <p>
+        Cette politique peut être mise à jour pour refléter des évolutions techniques, légales ou
+        organisationnelles. En cas de modification substantielle, nous vous en informerons par email au moins
+        <strong>15 jours avant</strong> l'entrée en vigueur des changements.
+      </p>
+
+      <h2>12. Contact</h2>
+      <p>
+        Pour toute question concernant cette politique ou le traitement de vos données :
+      </p>
+      <p>
+        Email : <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a><br />
+        Objet recommandé : « RGPD » ou « Données personnelles »
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-text">© 2026 Kairos Insider — Voyez ce que les pros voient.</div>
+        <ul class="footer-links">
+          <li><a href="legal.html">Mentions légales</a></li>
+          <li><a href="cgv.html">CGV</a></li>
+          <li><a href="privacy.html">Confidentialité</a></li>
+          <li><a href="mailto:contact@kairosinsider.fr">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

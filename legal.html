@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mentions légales — Kairos Insider</title>
+  <meta name="description" content="Mentions légales du site kairosinsider.fr" />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-primary: #0A0F1E;
+      --bg-secondary: #111827;
+      --bg-card: rgba(255, 255, 255, 0.02);
+      --border: rgba(255, 255, 255, 0.08);
+      --text-primary: #F9FAFB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-blue: #3B82F6;
+      --accent-purple: #8B5CF6;
+      --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none; z-index: 0;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,15,30,0.85);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-container {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; max-width: 1200px; margin: 0 auto;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+    .logo-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--gradient-primary);
+    }
+    .logo-mark img { width: 24px; height: 24px; }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; }
+    .nav-links { list-style: none; display: flex; gap: 28px; align-items: center; }
+    .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
+
+    main { padding: 64px 0 96px; position: relative; z-index: 1; }
+
+    .page-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 48px; font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+    .page-subtitle { color: var(--text-secondary); font-size: 16px; margin-bottom: 48px; }
+
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 24px; font-weight: 600;
+      margin: 40px 0 16px; color: var(--text-primary);
+      padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px; font-weight: 600; margin: 24px 0 8px; color: var(--text-primary);
+    }
+    p, li { color: var(--text-secondary); font-size: 15px; margin-bottom: 12px; }
+    ul, ol { padding-left: 24px; margin-bottom: 16px; }
+    a { color: var(--accent-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { color: var(--text-primary); font-weight: 600; }
+
+    .legal-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px; margin: 16px 0;
+    }
+    .legal-card p { margin: 6px 0; }
+
+    footer {
+      margin-top: 80px;
+      padding: 40px 0; border-top: 1px solid var(--border);
+      position: relative; z-index: 1;
+    }
+    .footer-content {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 24px;
+    }
+    .footer-text { color: var(--text-muted); font-size: 13px; }
+    .footer-links { list-style: none; display: flex; gap: 24px; flex-wrap: wrap; }
+    .footer-links a { color: var(--text-muted); font-size: 13px; text-decoration: none; }
+    .footer-links a:hover { color: var(--text-primary); }
+
+    @media (max-width: 640px) {
+      .page-title { font-size: 36px; }
+      .nav-links { display: none; }
+      .footer-content { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-container">
+      <a href="index.html" class="logo">
+        <div class="logo-mark"><img src="assets/logo.png" alt="Kairos Insider" /></div>
+        <span class="logo-text">Kairos Insider</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="legal.html" class="active">Mentions légales</a></li>
+        <li><a href="cgv.html">CGV</a></li>
+        <li><a href="privacy.html">Confidentialité</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <h1 class="page-title">Mentions légales</h1>
+      <p class="page-subtitle">Dernière mise à jour : 14 avril 2026</p>
+
+      <h2>1. Éditeur du site</h2>
+      <div class="legal-card">
+        <p><strong>Nom commercial :</strong> Kairos Insider</p>
+        <p><strong>Forme juridique :</strong> Entreprise Individuelle (régime du micro-entrepreneur / auto-entrepreneur)</p>
+        <p><strong>Responsable de la publication :</strong> Nathanaël Quinson</p>
+        <p><strong>Adresse du siège social :</strong> [ADRESSE À COMPLÉTER]</p>
+        <p><strong>SIRET :</strong> 938 381 928 00010</p>
+        <p><strong>Code APE :</strong> [À COMPLÉTER — ex. 6312Z Portails Internet]</p>
+        <p><strong>Email :</strong> <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a></p>
+        <p><strong>Téléphone :</strong> [À COMPLÉTER]</p>
+        <p><strong>TVA intracommunautaire :</strong> TVA non applicable, article 293 B du Code général des impôts (franchise en base)</p>
+      </div>
+
+      <h2>2. Hébergement</h2>
+
+      <h3>Site web (pages statiques)</h3>
+      <div class="legal-card">
+        <p><strong>Hébergeur :</strong> GitHub, Inc.</p>
+        <p><strong>Adresse :</strong> 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis</p>
+        <p><strong>Site :</strong> <a href="https://github.com" target="_blank" rel="noopener">github.com</a></p>
+      </div>
+
+      <h3>API et traitement serveur</h3>
+      <div class="legal-card">
+        <p><strong>Hébergeur :</strong> Cloudflare, Inc. (Cloudflare Workers)</p>
+        <p><strong>Adresse :</strong> 101 Townsend Street, San Francisco, CA 94107, États-Unis</p>
+        <p><strong>Site :</strong> <a href="https://cloudflare.com" target="_blank" rel="noopener">cloudflare.com</a></p>
+      </div>
+
+      <h3>Base de données et authentification</h3>
+      <div class="legal-card">
+        <p><strong>Fournisseur :</strong> Google Ireland Limited (Firebase)</p>
+        <p><strong>Adresse :</strong> Gordon House, Barrow Street, Dublin 4, Irlande</p>
+        <p><strong>Région de stockage :</strong> europe-west1 (Belgique, Union européenne)</p>
+      </div>
+
+      <h2>3. Propriété intellectuelle</h2>
+      <p>
+        L'ensemble du contenu du site <strong>kairosinsider.fr</strong> (textes, graphismes, logos, icônes, images, code source,
+        design, agencement, charte graphique) est la propriété exclusive de Kairos Insider, sauf mention contraire,
+        et est protégé par le droit français et international de la propriété intellectuelle.
+      </p>
+      <p>
+        Toute reproduction, représentation, modification, publication, adaptation ou exploitation de tout ou partie
+        des éléments du site, par quelque procédé que ce soit, sans l'autorisation écrite préalable de l'éditeur,
+        est strictement interdite et constitue un délit de contrefaçon sanctionné par les articles L.335-2 et
+        suivants du Code de la propriété intellectuelle.
+      </p>
+
+      <h3>Données financières et sources</h3>
+      <p>
+        Les données affichées sur Kairos Insider (transactions insiders, positions 13F, composition d'ETF, etc.)
+        proviennent de sources publiques officielles :
+      </p>
+      <ul>
+        <li><strong>SEC EDGAR</strong> (Securities and Exchange Commission — États-Unis) : formulaires 4 et 13F-HR</li>
+        <li><strong>CNN Business</strong> : Fear & Greed Index</li>
+        <li><strong>FINRA</strong> : données de short interest</li>
+        <li>Fournisseurs d'ETF (House, Subversive, Global X) : compositions de portefeuilles publiées</li>
+      </ul>
+      <p>
+        Kairos Insider ne produit ni ne modifie ces données. La plateforme agrège, structure et présente des
+        informations déjà rendues publiques par leurs émetteurs respectifs, conformément à la réglementation en vigueur.
+      </p>
+
+      <h2>4. Avertissement — Information non-conseil</h2>
+      <p>
+        Kairos Insider est un <strong>outil d'information et d'analyse financière</strong>. Les informations
+        présentées ne constituent en aucun cas :
+      </p>
+      <ul>
+        <li>Un conseil en investissement au sens de l'article L.321-1 du Code monétaire et financier</li>
+        <li>Une recommandation personnalisée d'achat ou de vente d'instruments financiers</li>
+        <li>Une garantie de performance ou de résultats</li>
+      </ul>
+      <p>
+        <strong>Les investissements en bourse comportent des risques de perte en capital.</strong> Les
+        performances passées ne préjugent pas des performances futures. Chaque utilisateur reste seul
+        responsable de ses décisions d'investissement et est invité à consulter un conseiller en
+        investissement financier (CIF) agréé avant toute opération.
+      </p>
+
+      <h2>5. Liens hypertextes</h2>
+      <p>
+        Le site peut contenir des liens vers des sites tiers (SEC, Stripe, fournisseurs de données). Kairos
+        Insider n'exerce aucun contrôle sur ces sites et décline toute responsabilité quant à leur contenu,
+        leur politique de confidentialité ou leur disponibilité.
+      </p>
+
+      <h2>6. Loi applicable et juridiction</h2>
+      <p>
+        Les présentes mentions légales sont régies par le <strong>droit français</strong>. En cas de litige
+        et à défaut de résolution amiable, les tribunaux français seront seuls compétents.
+      </p>
+
+      <h2>7. Contact</h2>
+      <p>
+        Pour toute question relative à ces mentions légales, vous pouvez nous contacter à
+        <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a>.
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-text">© 2026 Kairos Insider — Voyez ce que les pros voient.</div>
+        <ul class="footer-links">
+          <li><a href="legal.html">Mentions légales</a></li>
+          <li><a href="cgv.html">CGV</a></li>
+          <li><a href="privacy.html">Confidentialité</a></li>
+          <li><a href="mailto:contact@kairosinsider.fr">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
