@@ -733,6 +733,15 @@
       </div>
 
       <div class="sidebar-section">
+        <div class="sidebar-title">Mon Trading</div>
+        <button class="sidebar-item" data-section="portfolio" data-premium="true" onclick="switchSection('portfolio')">
+          <span class="sidebar-icon">💼</span>
+          <span>Mon Portefeuille</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
         <div class="sidebar-title">Indicateurs</div>
         <button class="sidebar-item" data-section="feargreed" onclick="switchSection('feargreed')">
           <span class="sidebar-icon">😱</span>
@@ -870,6 +879,106 @@
         <p class="section-desc">Actions les plus shortees du marche US — detectez les potentiels short squeezes.</p>
         <div id="shortsArea">
           <div class="loading"><div class="spinner"></div>Chargement des donnees de short selling...</div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: MON PORTEFEUILLE ===== -->
+      <div class="section-page" id="section-portfolio">
+        <h2>Mon Portefeuille</h2>
+        <p class="section-desc">Importez vos trades depuis votre plateforme de trading pour suivre votre performance.</p>
+
+        <!-- Zone d'upload CSV -->
+        <div id="portfolioUpload" style="margin-bottom:32px">
+          <div id="csvDropZone" style="border:2px dashed var(--border);border-radius:16px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.3s;background:var(--bg-card)"
+               ondragover="event.preventDefault();this.style.borderColor='var(--accent-blue)';this.style.background='rgba(59,130,246,0.05)'"
+               ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--bg-card)'"
+               ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='var(--bg-card)';handleCsvDrop(event)"
+               onclick="document.getElementById('csvFileInput').click()">
+            <div style="font-size:40px;margin-bottom:12px">📂</div>
+            <p style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:8px">Glissez votre fichier CSV ici</p>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">ou cliquez pour parcourir</p>
+            <p style="font-size:11px;color:var(--text-muted)">Formats supportes : IG Markets, Trade Republic, Degiro, eToro, Interactive Brokers, Boursorama, Revolut, XTB et plus</p>
+          </div>
+          <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvFile(this.files[0])" />
+          <p id="csvStatus" style="margin-top:12px;font-size:13px;color:var(--text-muted);display:none"></p>
+        </div>
+
+        <!-- KPIs -->
+        <div id="portfolioKpis" style="display:none">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+            <div class="stat-card">
+              <div class="stat-label">P&L Total</div>
+              <div class="stat-value" id="kpiPnl">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Win Rate</div>
+              <div class="stat-value" id="kpiWinRate">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Profit Factor</div>
+              <div class="stat-value" id="kpiProfitFactor">—</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+            <div class="stat-card">
+              <div class="stat-label">Gain moyen</div>
+              <div class="stat-value green" id="kpiAvgWin" style="font-size:20px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Perte moyenne</div>
+              <div class="stat-value red" id="kpiAvgLoss" style="font-size:20px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Max Drawdown</div>
+              <div class="stat-value red" id="kpiDrawdown" style="font-size:20px">—</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px">
+            <div class="stat-card">
+              <div class="stat-label">Meilleur trade</div>
+              <div class="stat-value green" id="kpiBestTrade" style="font-size:18px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Pire trade</div>
+              <div class="stat-value red" id="kpiWorstTrade" style="font-size:18px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Serie gagnante max</div>
+              <div class="stat-value" id="kpiWinStreak" style="font-size:18px">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Serie perdante max</div>
+              <div class="stat-value" id="kpiLoseStreak" style="font-size:18px">—</div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px">
+            <div class="stat-card" style="padding:20px">
+              <div class="stat-label" style="margin-bottom:12px">P&L Cumule</div>
+              <canvas id="chartPnlCumul" height="200"></canvas>
+            </div>
+            <div class="stat-card" style="padding:20px">
+              <div class="stat-label" style="margin-bottom:12px">Repartition par actif</div>
+              <canvas id="chartAssetPie" height="200"></canvas>
+            </div>
+          </div>
+          <div class="stat-card" style="padding:20px;margin-bottom:24px">
+            <div class="stat-label" style="margin-bottom:12px">P&L par jour</div>
+            <canvas id="chartDailyPnl" height="150"></canvas>
+          </div>
+
+          <!-- Tableau des trades -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="font-family:'Space Grotesk';font-size:16px">Historique des trades</h3>
+            <div style="display:flex;gap:8px">
+              <span id="portfolioTradeCount" style="font-size:12px;color:var(--text-muted)"></span>
+              <button class="btn-search" onclick="clearPortfolio()" style="font-size:11px;padding:6px 12px;color:var(--accent-red)">Supprimer mes donnees</button>
+            </div>
+          </div>
+          <div id="portfolioTableArea"></div>
         </div>
       </div>
 
@@ -1195,6 +1304,7 @@
         if (section === 'clustering') loadClustering();
         if (section === 'feargreed') loadFearGreed();
         if (section === 'shorts') loadShortInterest();
+        if (section === 'portfolio') loadPortfolioFromFirebase();
       }
     }
 
@@ -2108,6 +2218,424 @@
         }
         treemapDiv.innerHTML = html;
       }
+    }
+
+    // ============================================================
+    // MON PORTEFEUILLE — Import CSV + KPIs + Charts + Firebase
+    // ============================================================
+    let portfolioTrades = [];
+    let portfolioCharts = {};
+
+    // CSV Drop/File handlers
+    function handleCsvDrop(e) { const f = e.dataTransfer.files[0]; if (f) handleCsvFile(f); }
+
+    async function handleCsvFile(file) {
+      if (!file) return;
+      const status = document.getElementById('csvStatus');
+      status.style.display = 'block';
+      status.style.color = 'var(--text-secondary)';
+      status.textContent = 'Analyse du fichier...';
+
+      const text = await file.text();
+      try {
+        const trades = parseCsvAuto(text);
+        if (trades.length === 0) {
+          status.style.color = 'var(--accent-red)';
+          status.textContent = 'Aucun trade detecte. Verifiez le format du fichier.';
+          return;
+        }
+        portfolioTrades = trades;
+        status.style.color = 'var(--accent-green)';
+        status.textContent = `${trades.length} trades importes (${trades[0]._platform || 'auto'})`;
+
+        renderPortfolio();
+        savePortfolioToFirebase();
+      } catch (err) {
+        status.style.color = 'var(--accent-red)';
+        status.textContent = 'Erreur: ' + err.message;
+      }
+    }
+
+    // ============================================================
+    // CSV PARSER — Detection automatique multi-plateforme
+    // ============================================================
+    function parseCsvAuto(text) {
+      // Detecter le separateur
+      const firstLine = text.split('\n')[0];
+      const sep = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) throw new Error('Fichier trop court');
+
+      const headers = parseCsvLine(lines[0], sep).map(h => h.toLowerCase().trim().replace(/["\ufeff]/g, ''));
+
+      // Detecter la plateforme par les colonnes
+      const platform = detectPlatform(headers);
+      const trades = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCsvLine(lines[i], sep);
+        if (cols.length < 3) continue;
+
+        const trade = platform.parser(headers, cols);
+        if (trade && trade.pnl !== null && trade.pnl !== undefined && !isNaN(trade.pnl)) {
+          trade._platform = platform.name;
+          trade.ref = trade.ref || `${trade.date}-${trade.symbol}-${i}`;
+          trades.push(trade);
+        }
+      }
+
+      trades.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      return trades;
+    }
+
+    function parseCsvLine(line, sep) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') { inQuotes = !inQuotes; continue; }
+        if (ch === sep && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+        current += ch;
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    function detectPlatform(headers) {
+      const h = headers.join('|');
+      if (h.includes('dateutc') && h.includes('pl amount')) return { name: 'IG Markets', parser: parseIG };
+      if (h.includes('isin') && h.includes('produit')) return { name: 'Degiro', parser: parseDegiro };
+      if (h.includes('position id') && h.includes('amount')) return { name: 'eToro', parser: parseEtoro };
+      if (h.includes('tradeid') || (h.includes('symbol') && h.includes('proceeds'))) return { name: 'Interactive Brokers', parser: parseIBKR };
+      if (h.includes('ticker') && h.includes('quantity') && h.includes('price')) return { name: 'Revolut', parser: parseRevolut };
+      if (h.includes('open time') && h.includes('profit')) return { name: 'XTB', parser: parseXTB };
+      if (h.includes('isin') && h.includes('type') && h.includes('name')) return { name: 'Trade Republic', parser: parseTR };
+      if (h.includes('libelle') || h.includes('libellé')) return { name: 'Boursorama', parser: parseBourso };
+      return { name: 'Generique', parser: parseGeneric };
+    }
+
+    function col(headers, cols, ...names) {
+      for (const n of names) {
+        const idx = headers.indexOf(n.toLowerCase());
+        if (idx >= 0 && idx < cols.length) return cols[idx].replace(/"/g, '').trim();
+      }
+      return '';
+    }
+
+    function toNum(s) { return parseFloat((s || '0').replace(/,/g, '.').replace(/[^\d.\-]/g, '')) || 0; }
+    function toDate(s) { if (!s) return ''; const d = new Date(s); return isNaN(d) ? s.substring(0, 10) : d.toISOString().split('T')[0]; }
+
+    // IG Markets
+    function parseIG(h, c) {
+      const txType = col(h, c, 'transaction type');
+      if (txType && txType !== 'ORDRE') return null;
+      return {
+        date: toDate(col(h, c, 'dateutc')),
+        openDate: toDate(col(h, c, 'opendateutc')),
+        symbol: col(h, c, 'marketname'),
+        pnl: toNum(col(h, c, 'pl amount')),
+        size: toNum(col(h, c, 'size')),
+        openPrice: toNum(col(h, c, 'open level')),
+        closePrice: toNum(col(h, c, 'close level')),
+        ref: col(h, c, 'reference'),
+        type: toNum(col(h, c, 'size')) >= 0 ? 'buy' : 'sell',
+        fees: 0,
+      };
+    }
+
+    // Trade Republic
+    function parseTR(h, c) {
+      const type = col(h, c, 'type').toLowerCase();
+      if (!['buy', 'sell', 'achat', 'vente'].some(t => type.includes(t))) return null;
+      return {
+        date: toDate(col(h, c, 'date', 'timestamp')),
+        symbol: col(h, c, 'name', 'instrument'),
+        pnl: toNum(col(h, c, 'amount', 'total')),
+        size: toNum(col(h, c, 'shares', 'quantity')),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price', 'share price')),
+        ref: col(h, c, 'id', 'note'),
+        type: type.includes('sell') || type.includes('vente') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'fee', 'fees', 'commission')),
+      };
+    }
+
+    // Degiro
+    function parseDegiro(h, c) {
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'produit', 'product'),
+        pnl: toNum(col(h, c, 'montant', 'amount', 'total')),
+        size: toNum(col(h, c, 'quantite', 'quantity', 'nombre')),
+        openPrice: 0, closePrice: toNum(col(h, c, 'cours', 'price')),
+        ref: col(h, c, 'id', 'reference', 'order id'),
+        type: toNum(col(h, c, 'quantite', 'quantity')) >= 0 ? 'buy' : 'sell',
+        fees: toNum(col(h, c, 'frais', 'commission', 'fees')),
+      };
+    }
+
+    // eToro
+    function parseEtoro(h, c) {
+      return {
+        date: toDate(col(h, c, 'close date', 'date')),
+        openDate: toDate(col(h, c, 'open date')),
+        symbol: col(h, c, 'action', 'instrument', 'asset'),
+        pnl: toNum(col(h, c, 'profit', 'p/l', 'amount')),
+        size: toNum(col(h, c, 'units', 'amount')),
+        openPrice: toNum(col(h, c, 'open rate')),
+        closePrice: toNum(col(h, c, 'close rate')),
+        ref: col(h, c, 'position id'),
+        type: col(h, c, 'type', 'action').toLowerCase().includes('sell') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'spread', 'fees')),
+      };
+    }
+
+    // Interactive Brokers
+    function parseIBKR(h, c) {
+      return {
+        date: toDate(col(h, c, 'tradedate', 'date/time', 'date')),
+        symbol: col(h, c, 'symbol', 'description'),
+        pnl: toNum(col(h, c, 'realized p/l', 'proceeds', 'mtm p/l')),
+        size: Math.abs(toNum(col(h, c, 'quantity'))),
+        openPrice: toNum(col(h, c, 'cost basis', 'basis')),
+        closePrice: toNum(col(h, c, 't. price', 'price')),
+        ref: col(h, c, 'tradeid', 'order id', 'execid'),
+        type: toNum(col(h, c, 'quantity')) >= 0 ? 'buy' : 'sell',
+        fees: Math.abs(toNum(col(h, c, 'comm/fee', 'commission', 'ibcommission'))),
+      };
+    }
+
+    // Revolut
+    function parseRevolut(h, c) {
+      return {
+        date: toDate(col(h, c, 'date', 'trade date')),
+        symbol: col(h, c, 'ticker', 'symbol'),
+        pnl: toNum(col(h, c, 'total amount', 'amount', 'value')),
+        size: toNum(col(h, c, 'quantity', 'no. of shares')),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price', 'price per share')),
+        ref: '', type: col(h, c, 'type', 'side').toLowerCase().includes('sell') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'fees', 'commission')),
+      };
+    }
+
+    // XTB
+    function parseXTB(h, c) {
+      return {
+        date: toDate(col(h, c, 'close time', 'open time')),
+        openDate: toDate(col(h, c, 'open time')),
+        symbol: col(h, c, 'symbol'),
+        pnl: toNum(col(h, c, 'profit', 'net profit')),
+        size: toNum(col(h, c, 'volume', 'lots')),
+        openPrice: toNum(col(h, c, 'open price')),
+        closePrice: toNum(col(h, c, 'close price')),
+        ref: col(h, c, 'order', 'position'),
+        type: col(h, c, 'type', 'side').toLowerCase().includes('sell') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'commission', 'swap')),
+      };
+    }
+
+    // Boursorama
+    function parseBourso(h, c) {
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'libelle', 'libellé', 'valeur'),
+        pnl: toNum(col(h, c, 'montant', 'amount')),
+        size: 0, openPrice: 0, closePrice: 0,
+        ref: '', type: toNum(col(h, c, 'montant', 'amount')) >= 0 ? 'buy' : 'sell',
+        fees: toNum(col(h, c, 'frais', 'courtage')),
+      };
+    }
+
+    // Generique (fallback)
+    function parseGeneric(h, c) {
+      // Essayer de deviner les colonnes P&L, date, symbol
+      const dateIdx = h.findIndex(x => x.includes('date'));
+      const pnlIdx = h.findIndex(x => ['pnl', 'p&l', 'profit', 'gain', 'amount', 'montant', 'result'].some(k => x.includes(k)));
+      const symIdx = h.findIndex(x => ['symbol', 'ticker', 'instrument', 'name', 'asset', 'market', 'produit', 'valeur'].some(k => x.includes(k)));
+
+      if (pnlIdx < 0) return null;
+      return {
+        date: dateIdx >= 0 ? toDate(c[dateIdx]) : '',
+        symbol: symIdx >= 0 ? c[symIdx] : 'Inconnu',
+        pnl: toNum(c[pnlIdx]),
+        size: 0, openPrice: 0, closePrice: 0,
+        ref: '', type: toNum(c[pnlIdx]) >= 0 ? 'buy' : 'sell', fees: 0,
+      };
+    }
+
+    // ============================================================
+    // KPIs + RENDERING
+    // ============================================================
+    function renderPortfolio() {
+      if (portfolioTrades.length === 0) return;
+      document.getElementById('portfolioKpis').style.display = 'block';
+      document.getElementById('portfolioTradeCount').textContent = `${portfolioTrades.length} trades`;
+
+      const trades = portfolioTrades;
+      const wins = trades.filter(t => t.pnl > 0);
+      const losses = trades.filter(t => t.pnl < 0);
+      const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+      const grossWin = wins.reduce((s, t) => s + t.pnl, 0);
+      const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+      const winRate = trades.length > 0 ? (wins.length / trades.length * 100) : 0;
+      const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 999 : 0;
+      const avgWin = wins.length > 0 ? grossWin / wins.length : 0;
+      const avgLoss = losses.length > 0 ? grossLoss / losses.length : 0;
+
+      // Drawdown
+      let peak = 0, maxDD = 0, cum = 0;
+      for (const t of trades) {
+        cum += t.pnl;
+        if (cum > peak) peak = cum;
+        const dd = peak - cum;
+        if (dd > maxDD) maxDD = dd;
+      }
+
+      // Streaks
+      let winStreak = 0, loseStreak = 0, maxWS = 0, maxLS = 0;
+      for (const t of trades) {
+        if (t.pnl > 0) { winStreak++; loseStreak = 0; }
+        else { loseStreak++; winStreak = 0; }
+        maxWS = Math.max(maxWS, winStreak);
+        maxLS = Math.max(maxLS, loseStreak);
+      }
+
+      // Update KPI cards
+      const pnlEl = document.getElementById('kpiPnl');
+      pnlEl.textContent = fmtCurShort(totalPnl);
+      pnlEl.className = 'stat-value ' + (totalPnl >= 0 ? 'green' : 'red');
+
+      document.getElementById('kpiWinRate').textContent = `${winRate.toFixed(1)}%`;
+      document.getElementById('kpiWinRate').title = `${wins.length}W / ${losses.length}L`;
+      document.getElementById('kpiProfitFactor').textContent = profitFactor > 100 ? '∞' : profitFactor.toFixed(2);
+      document.getElementById('kpiAvgWin').textContent = fmtCurShort(avgWin);
+      document.getElementById('kpiAvgLoss').textContent = '-' + fmtCurShort(avgLoss);
+      document.getElementById('kpiDrawdown').textContent = '-' + fmtCurShort(maxDD);
+      document.getElementById('kpiBestTrade').textContent = wins.length > 0 ? fmtCurShort(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiWorstTrade').textContent = losses.length > 0 ? '-' + fmtCurShort(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
+      document.getElementById('kpiWinStreak').textContent = maxWS;
+      document.getElementById('kpiLoseStreak').textContent = maxLS;
+
+      // Charts
+      renderPortfolioCharts();
+
+      // Trade table
+      renderPortfolioTable();
+    }
+
+    function renderPortfolioCharts() {
+      // Destroy existing charts
+      Object.values(portfolioCharts).forEach(c => c.destroy());
+      portfolioCharts = {};
+
+      const trades = portfolioTrades;
+
+      // P&L Cumule (line)
+      let cum = 0;
+      const cumData = trades.map(t => { cum += t.pnl; return { x: t.date, y: Math.round(cum) }; });
+      portfolioCharts.cumul = new Chart(document.getElementById('chartPnlCumul'), {
+        type: 'line',
+        data: { datasets: [{ data: cumData, borderColor: cum >= 0 ? '#10B981' : '#EF4444', borderWidth: 2, pointRadius: 0, fill: { target: 'origin', above: 'rgba(16,185,129,0.1)', below: 'rgba(239,68,68,0.1)' } }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { type: 'category', ticks: { color: '#6B7280', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+      });
+
+      // Repartition par actif (pie)
+      const assetMap = {};
+      trades.forEach(t => { const s = t.symbol || 'Autre'; assetMap[s] = (assetMap[s] || 0) + Math.abs(t.pnl); });
+      const sortedAssets = Object.entries(assetMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const pieColors = ['#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6B7280'];
+      portfolioCharts.pie = new Chart(document.getElementById('chartAssetPie'), {
+        type: 'doughnut',
+        data: { labels: sortedAssets.map(a => a[0]), datasets: [{ data: sortedAssets.map(a => Math.round(a[1])), backgroundColor: pieColors.slice(0, sortedAssets.length), borderWidth: 0 }] },
+        options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 11 }, boxWidth: 12 } } } }
+      });
+
+      // P&L par jour (bar)
+      const dayMap = {};
+      trades.forEach(t => { dayMap[t.date] = (dayMap[t.date] || 0) + t.pnl; });
+      const days = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
+      portfolioCharts.daily = new Chart(document.getElementById('chartDailyPnl'), {
+        type: 'bar',
+        data: { labels: days.map(d => d[0]), datasets: [{ data: days.map(d => Math.round(d[1])), backgroundColor: days.map(d => d[1] >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)') }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6B7280', font: { size: 9 }, maxTicksLimit: 15 }, grid: { display: false } }, y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+      });
+    }
+
+    function renderPortfolioTable() {
+      const area = document.getElementById('portfolioTableArea');
+      const recent = portfolioTrades.slice(-50).reverse();
+      let rows = '';
+      for (const t of recent) {
+        const cls = t.pnl >= 0 ? 'buy' : 'sell';
+        rows += `<tr>
+          <td>${fmtDate(t.date)}</td>
+          <td class="ticker">${t.symbol || '—'}</td>
+          <td>${t.type === 'sell' ? '<span class="pill sell">VENTE</span>' : '<span class="pill buy">ACHAT</span>'}</td>
+          <td style="text-align:right">${t.size ? fmtNum(t.size) : '—'}</td>
+          <td style="text-align:right;font-weight:600;color:var(--accent-${cls})">${t.pnl >= 0 ? '+' : ''}${fmtCurShort(t.pnl)}</td>
+        </tr>`;
+      }
+      area.innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Actif</th><th>Type</th><th style="text-align:right">Taille</th><th style="text-align:right">P&L</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+    }
+
+    // ============================================================
+    // FIREBASE PERSISTENCE (trades par utilisateur)
+    // ============================================================
+    async function savePortfolioToFirebase() {
+      if (!currentUser || portfolioTrades.length === 0) return;
+      try {
+        const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        await set(ref(db, `users/${currentUser.uid}/trades`), portfolioTrades);
+        await set(ref(db, `users/${currentUser.uid}/meta`), {
+          totalTrades: portfolioTrades.length,
+          lastImport: new Date().toISOString(),
+          platform: portfolioTrades[0]?._platform || 'unknown',
+        });
+      } catch (err) {
+        console.error('Erreur sauvegarde Firebase:', err);
+      }
+    }
+
+    async function loadPortfolioFromFirebase() {
+      if (!currentUser) return;
+      try {
+        const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        const snap = await get(ref(db, `users/${currentUser.uid}/trades`));
+        if (snap.exists()) {
+          portfolioTrades = snap.val();
+          if (Array.isArray(portfolioTrades) && portfolioTrades.length > 0) {
+            renderPortfolio();
+            const status = document.getElementById('csvStatus');
+            status.style.display = 'block';
+            status.style.color = 'var(--accent-blue)';
+            status.textContent = `${portfolioTrades.length} trades charges depuis votre compte`;
+          }
+        }
+      } catch (err) {
+        console.error('Erreur chargement Firebase:', err);
+      }
+    }
+
+    async function clearPortfolio() {
+      if (!confirm('Supprimer toutes vos donnees de trading ? Cette action est irreversible.')) return;
+      portfolioTrades = [];
+      if (currentUser) {
+        try {
+          const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+          const db = getDatabase();
+          await remove(ref(db, `users/${currentUser.uid}/trades`));
+          await remove(ref(db, `users/${currentUser.uid}/meta`));
+        } catch (err) { console.error(err); }
+      }
+      document.getElementById('portfolioKpis').style.display = 'none';
+      document.getElementById('csvStatus').style.display = 'none';
+      Object.values(portfolioCharts).forEach(c => c.destroy());
+      portfolioCharts = {};
     }
 
     // ============================================================
