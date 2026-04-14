@@ -2528,6 +2528,18 @@
     let portfolioTrades = [];
     let portfolioCharts = {};
 
+    // Formatter portefeuille : 2 decimales max, €, separateur milliers
+    function fmtEur(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      const v = Number(n);
+      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
+    }
+    // Pour les labels courts (barres, tooltips)
+    function fmtEurShort(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' €';
+    }
+
     // CSV Drop/File handlers
     function handleCsvDrop(e) { const f = e.dataTransfer.files[0]; if (f) handleCsvFile(f); }
 
@@ -2819,27 +2831,26 @@
 
       // HERO CARD 1 : Performance globale
       const pnlEl = document.getElementById('kpiPnl');
-      pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtCurShort(totalPnl);
+      pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtEur(totalPnl);
       pnlEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
       const perfPctEl = document.getElementById('kpiPerfPct');
-      // Estimation : performance en % sur un capital théorique (max drawdown × 4 comme proxy)
       const estCapital = Math.max(maxDD * 4, 1000);
       const perfPct = (totalPnl / estCapital * 100);
-      perfPctEl.textContent = (perfPct >= 0 ? '+' : '') + perfPct.toFixed(1) + '%';
+      perfPctEl.textContent = (perfPct >= 0 ? '+' : '') + perfPct.toFixed(2) + '%';
       perfPctEl.style.color = perfPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
       document.getElementById('kpiTradeTotal').textContent = `${trades.length} trades`;
 
       // HERO CARD 2 : Gain Total + barre split
       const gainEl = document.getElementById('kpiGainTotal');
-      gainEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtCurShort(totalPnl);
+      gainEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtEur(totalPnl);
       gainEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
       const gainSum = grossWin;
       const lossSum = grossLoss;
       const totalAbs = gainSum + lossSum;
       const gainPctBar = totalAbs > 0 ? (gainSum / totalAbs * 100) : 50;
       const lossPctBar = totalAbs > 0 ? (lossSum / totalAbs * 100) : 50;
-      document.getElementById('kpiGainPct').textContent = '+' + fmtCurShort(gainSum);
-      document.getElementById('kpiLossPct').textContent = '-' + fmtCurShort(lossSum);
+      document.getElementById('kpiGainPct').textContent = '+' + fmtEur(gainSum);
+      document.getElementById('kpiLossPct').textContent = '-' + fmtEur(lossSum);
       document.getElementById('barWin').style.width = gainPctBar + '%';
       document.getElementById('barLoss').style.width = lossPctBar + '%';
 
@@ -2849,7 +2860,7 @@
       const dashOffset = circumference * (winRate / 100);
       donut.setAttribute('stroke-dasharray', `${dashOffset} ${circumference}`);
       donut.setAttribute('stroke', winRate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)');
-      document.getElementById('donutText').textContent = winRate.toFixed(1) + '%';
+      document.getElementById('donutText').textContent = winRate.toFixed(2) + '%';
       document.getElementById('donutText').setAttribute('fill', winRate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)');
       document.getElementById('kpiWinsN').textContent = wins.length;
       document.getElementById('kpiLossN').textContent = losses.length;
@@ -2857,14 +2868,14 @@
 
       // KPI GRID
       document.getElementById('kpiProfitFactor').textContent = profitFactor > 100 ? '∞' : profitFactor.toFixed(2);
-      document.getElementById('kpiAvgWin').textContent = '+' + fmtCurShort(avgWin);
-      document.getElementById('kpiAvgLoss').textContent = '-' + fmtCurShort(avgLoss);
-      document.getElementById('kpiDrawdown').textContent = '-' + fmtCurShort(maxDD);
-      document.getElementById('kpiDDPct').textContent = '-' + (estCapital > 0 ? (maxDD / estCapital * 100).toFixed(2) : '0') + '% du capital';
-      document.getElementById('kpiMaxWin').textContent = wins.length > 0 ? '+' + fmtCurShort(Math.max(...wins.map(t => t.pnl))) : '—';
-      document.getElementById('kpiMaxLoss').textContent = losses.length > 0 ? '-' + fmtCurShort(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
-      document.getElementById('kpiBestTrade').textContent = wins.length > 0 ? '+' + fmtCurShort(Math.max(...wins.map(t => t.pnl))) : '—';
-      document.getElementById('kpiWorstTrade').textContent = losses.length > 0 ? '-' + fmtCurShort(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
+      document.getElementById('kpiAvgWin').textContent = '+' + fmtEur(avgWin);
+      document.getElementById('kpiAvgLoss').textContent = '-' + fmtEur(avgLoss);
+      document.getElementById('kpiDrawdown').textContent = '-' + fmtEur(maxDD);
+      document.getElementById('kpiDDPct').textContent = '-' + (estCapital > 0 ? (maxDD / estCapital * 100).toFixed(2) : '0.00') + '% du capital';
+      document.getElementById('kpiMaxWin').textContent = wins.length > 0 ? '+' + fmtEur(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiMaxLoss').textContent = losses.length > 0 ? '-' + fmtEur(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
+      document.getElementById('kpiBestTrade').textContent = wins.length > 0 ? '+' + fmtEur(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiWorstTrade').textContent = losses.length > 0 ? '-' + fmtEur(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
       document.getElementById('kpiWinStreak').textContent = maxWS;
       document.getElementById('kpiLoseStreak').textContent = maxLS;
 
@@ -2877,7 +2888,7 @@
       const lr = losses.length / Math.max(trades.length, 1);
       const expectancy = (wr * avgWin) - (lr * avgLoss);
       const expEl = document.getElementById('kpiExpectancy');
-      expEl.textContent = (expectancy >= 0 ? '+' : '') + fmtCurShort(expectancy);
+      expEl.textContent = (expectancy >= 0 ? '+' : '') + fmtEur(expectancy);
       expEl.className = 'stat-value ' + (expectancy >= 0 ? 'green' : 'red');
 
       // Recovery Factor
@@ -2900,12 +2911,12 @@
       const shortWR = shorts.length > 0 ? (shortWins / shorts.length * 100).toFixed(0) : 0;
 
       const longEl = document.getElementById('kpiLongPnl');
-      longEl.textContent = (longPnl >= 0 ? '+' : '') + fmtCurShort(longPnl);
+      longEl.textContent = (longPnl >= 0 ? '+' : '') + fmtEur(longPnl);
       longEl.className = 'stat-value ' + (longPnl >= 0 ? 'green' : 'red');
       document.getElementById('kpiLongDetail').textContent = `${longs.length} trades | WR ${longWR}%`;
 
       const shortEl = document.getElementById('kpiShortPnl');
-      shortEl.textContent = (shortPnl >= 0 ? '+' : '') + fmtCurShort(shortPnl);
+      shortEl.textContent = (shortPnl >= 0 ? '+' : '') + fmtEur(shortPnl);
       shortEl.className = 'stat-value ' + (shortPnl >= 0 ? 'green' : 'red');
       document.getElementById('kpiShortDetail').textContent = `${shorts.length} trades | WR ${shortWR}%`;
 
@@ -2954,14 +2965,30 @@
       portfolioCharts = {};
 
       const trades = portfolioTrades;
+      if (!trades || trades.length === 0) return;
 
-      // P&L Cumule (line)
+      // Agréger par jour (trié) — utilisé pour cumul et drawdown
+      const dayMap = new Map();
+      for (const t of trades) {
+        if (!t.date) continue;
+        dayMap.set(t.date, (dayMap.get(t.date) || 0) + t.pnl);
+      }
+      const days = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+      // P&L Cumule (line) — par jour (pas par trade) pour une courbe plus propre
       let cum = 0;
-      const cumData = trades.map(t => { cum += t.pnl; return { x: t.date, y: Math.round(cum) }; });
+      const cumData = days.map(([date, pnl]) => { cum += pnl; return { x: date, y: Math.round(cum * 100) / 100 }; });
       portfolioCharts.cumul = new Chart(document.getElementById('chartPnlCumul'), {
         type: 'line',
         data: { datasets: [{ data: cumData, borderColor: cum >= 0 ? '#10B981' : '#EF4444', borderWidth: 2, pointRadius: 0, fill: { target: 'origin', above: 'rgba(16,185,129,0.1)', below: 'rgba(239,68,68,0.1)' } }] },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { type: 'category', ticks: { color: '#6B7280', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `Cumulé: ${ctx.raw.y >= 0 ? '+' : ''}${fmtEur(ctx.raw.y)}` } }
+          },
+          scales: { x: { type: 'category', ticks: { color: '#6B7280', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { ticks: { color: '#6B7280', font: { size: 10 }, callback: v => fmtEur(v) }, grid: { color: 'rgba(255,255,255,0.05)' } } }
+        }
       });
 
       // Repartition par actif (pie)
@@ -2971,8 +2998,14 @@
       const pieColors = ['#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6B7280'];
       portfolioCharts.pie = new Chart(document.getElementById('chartAssetPie'), {
         type: 'doughnut',
-        data: { labels: sortedAssets.map(a => a[0]), datasets: [{ data: sortedAssets.map(a => Math.round(a[1])), backgroundColor: pieColors.slice(0, sortedAssets.length), borderWidth: 0 }] },
-        options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 11 }, boxWidth: 12 } } } }
+        data: { labels: sortedAssets.map(a => a[0]), datasets: [{ data: sortedAssets.map(a => Math.round(a[1] * 100) / 100), backgroundColor: pieColors.slice(0, sortedAssets.length), borderWidth: 0 }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'right', labels: { color: '#9CA3AF', font: { size: 11 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtEur(ctx.raw)}` } }
+          }
+        }
       });
 
       // P&L par période (bar) — avec sélecteur Jour/Semaine/Mois/Année
@@ -2990,7 +3023,14 @@
       portfolioCharts.drawdown = new Chart(document.getElementById('chartDrawdown'), {
         type: 'line',
         data: { datasets: [{ data: ddData, borderColor: '#a78bfa', borderWidth: 2, pointRadius: 0, fill: { target: 'origin', above: 'rgba(167,139,250,0.08)' } }] },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { type: 'category', ticks: { color: '#6B7280', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { max: 0, ticks: { color: '#6B7280', font: { size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `Drawdown: ${ctx.raw.y.toFixed(2)}%` } }
+          },
+          scales: { x: { type: 'category', ticks: { color: '#6B7280', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.03)' } }, y: { max: 0, ticks: { color: '#6B7280', font: { size: 10 }, callback: v => v.toFixed(2) + '%' }, grid: { color: 'rgba(255,255,255,0.05)' } } }
+        }
       });
 
       // Gains moyens (bar chart: max gain, avg win, avg loss, max loss)
@@ -3004,10 +3044,18 @@
         type: 'bar',
         data: {
           labels: ['Gain max', 'Gain moy.', 'Perte moy.', 'Perte max'],
-          datasets: [{ data: [Math.round(maxGain), Math.round(avgWinV), Math.round(avgLossV), Math.round(maxLoss)],
+          datasets: [{ data: [Math.round(maxGain * 100) / 100, Math.round(avgWinV * 100) / 100, Math.round(avgLossV * 100) / 100, Math.round(maxLoss * 100) / 100],
             backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(16,185,129,0.5)', 'rgba(239,68,68,0.5)', 'rgba(239,68,68,0.85)'] }]
         },
-        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#9CA3AF', font: { size: 11 } }, grid: { display: false } } } }
+        options: {
+          responsive: true,
+          indexAxis: 'y',
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.raw >= 0 ? '+' : ''}${fmtEur(ctx.raw)}` } }
+          },
+          scales: { x: { ticks: { color: '#6B7280', font: { size: 10 }, callback: v => fmtEur(v) }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#9CA3AF', font: { size: 11 } }, grid: { display: false } } }
+        }
       });
     }
 
@@ -3062,7 +3110,7 @@
         data: {
           labels: sorted.map(d => d[0]),
           datasets: [{
-            data: sorted.map(d => Math.round(d[1])),
+            data: sorted.map(d => Math.round(d[1] * 100) / 100),
             backgroundColor: sorted.map(d => d[1] >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)'),
             borderColor: sorted.map(d => d[1] >= 0 ? 'rgba(16,185,129,1)' : 'rgba(239,68,68,1)'),
             borderWidth: 1,
@@ -3074,13 +3122,13 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: (ctx) => `P&L: ${ctx.raw >= 0 ? '+' : ''}${ctx.raw.toLocaleString('fr-FR')} €`,
+                label: (ctx) => `P&L: ${ctx.raw >= 0 ? '+' : ''}${fmtEur(ctx.raw)}`,
               }
             }
           },
           scales: {
             x: { ticks: { color: '#6B7280', font: { size: 10 }, maxTicksLimit: maxTicks }, grid: { display: false } },
-            y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+            y: { ticks: { color: '#6B7280', font: { size: 10 }, callback: v => fmtEur(v) }, grid: { color: 'rgba(255,255,255,0.05)' } }
           }
         }
       });
@@ -3139,7 +3187,7 @@
       function emitWeekTotal() {
         while (weekCol < 5) { html += '<div class="p-day-cell empty"></div>'; weekCol++; }
         const sign = weekTotal >= 0 ? '+' : '';
-        const disp = showPct ? `${sign}${(runningCap>0?(weekTotal/runningCap*100):0).toFixed(1)}%` : `${sign}${weekTotal.toFixed(0)}`;
+        const disp = showPct ? `${sign}${(runningCap>0?(weekTotal/runningCap*100):0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(2)}`;
         const wtInt = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
         const wtBg = weekTotal >= 0 ? `rgba(16,185,129,${(0.12+wtInt*0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12+wtInt*0.55).toFixed(2)})`;
         const wtColor = weekTotal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
@@ -3160,7 +3208,7 @@
           totalTradeDays++; if (data.pnl >= 0) totalWinDays++; else totalLossDays++;
           const cls = data.pnl >= 0 ? 'win' : 'loss';
           const sign = data.pnl >= 0 ? '+' : '';
-          const displayVal = showPct ? `${sign}${(runningCap>0?(data.pnl/runningCap*100):0).toFixed(2)}%` : `${sign}${data.pnl.toFixed(0)}`;
+          const displayVal = showPct ? `${sign}${(runningCap>0?(data.pnl/runningCap*100):0).toFixed(2)}%` : `${sign}${data.pnl.toFixed(2)}`;
           runningCap += data.pnl;
           weekTotal += data.pnl;
           const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl)/maxAbsPnl)*0.37 : 0.12;
@@ -3182,7 +3230,7 @@
       const winPct = totalTradeDays > 0 ? (totalWinDays/totalTradeDays*100).toFixed(0) : '0';
       const lossPct = totalTradeDays > 0 ? (totalLossDays/totalTradeDays*100).toFixed(0) : '0';
       const monthTotal = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).reduce((a,[,v]) => a+v.pnl, 0);
-      const monthDisp = showPct ? `${monthTotal>=0?'+':''}${(Math.abs(startCap)>0?(monthTotal/Math.abs(startCap)*100):0).toFixed(2)}%` : `${monthTotal>=0?'+':''}${monthTotal.toFixed(0)}`;
+      const monthDisp = showPct ? `${monthTotal>=0?'+':''}${(Math.abs(startCap)>0?(monthTotal/Math.abs(startCap)*100):0).toFixed(2)}%` : `${monthTotal>=0?'+':''}${monthTotal.toFixed(2)}`;
       const statsEl = document.getElementById('pDayStats');
       if (statsEl) statsEl.innerHTML = `
         <div><span class="stat-dot green"></span>${totalWinDays} jours gagnants (${winPct}%)</div>
@@ -3243,7 +3291,7 @@
             const intensityRef = showPct ? Math.abs(pct) / 8 : Math.abs(d.pnl) / 500;
             const intensity = 0.12 + Math.min(intensityRef, 1) * 0.55;
             const bg = d.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
-            const disp = showPct ? `${d.pnl>=0?'+':''}${pct.toFixed(1)}%` : `${d.pnl>=0?'+':''}${Math.round(d.pnl)}`;
+            const disp = showPct ? `${d.pnl>=0?'+':''}${pct.toFixed(2)}%` : `${d.pnl>=0?'+':''}${d.pnl.toFixed(2)}`;
             html += `<td style="padding:5px 3px;text-align:center;background:${bg};border-radius:4px;font-weight:600;color:var(--text-primary);font-size:11px" title="${d.trades} trades, ${d.wins} wins">${disp}</td>`;
           } else {
             html += '<td style="padding:5px;text-align:center;color:var(--text-muted);font-size:11px">—</td>';
@@ -3251,8 +3299,7 @@
         }
         const yInt = 0.12 + Math.min(Math.abs(yearTotal) / maxAbs, 1) * 0.55;
         const yBg = yearTotal >= 0 ? `rgba(16,185,129,${Math.min(yInt, 0.67).toFixed(2)})` : `rgba(239,68,68,${Math.min(yInt, 0.67).toFixed(2)})`;
-        const yDisp = showPct ? '' : `${yearTotal>=0?'+':''}${Math.round(yearTotal)}`;
-        html += `<td style="padding:5px 3px;text-align:center;background:${yBg};border-radius:4px;font-weight:800;color:var(--text-primary);font-size:11px">${yearTotal>=0?'+':''}${Math.round(yearTotal)}</td>`;
+        html += `<td style="padding:5px 3px;text-align:center;background:${yBg};border-radius:4px;font-weight:800;color:var(--text-primary);font-size:11px">${yearTotal>=0?'+':''}${yearTotal.toFixed(2)}</td>`;
         html += '</tr>';
       }
       html += '</tbody></table>';
@@ -3277,7 +3324,7 @@
           <td class="ticker">${t.symbol || '—'}</td>
           <td>${t.type === 'sell' ? '<span class="pill sell">VENTE</span>' : '<span class="pill buy">ACHAT</span>'}</td>
           <td style="text-align:right">${t.size ? fmtNum(t.size) : '—'}</td>
-          <td style="text-align:right;font-weight:600;color:var(--accent-${cls})">${t.pnl >= 0 ? '+' : ''}${fmtCurShort(t.pnl)}</td>
+          <td style="text-align:right;font-weight:600;color:var(--accent-${cls})">${t.pnl >= 0 ? '+' : ''}${fmtEur(t.pnl)}</td>
         </tr>`;
       }
       area.innerHTML = `<div class="table-wrap"><table>
