@@ -2936,8 +2936,10 @@
       trades.forEach(t => { dayPnl[t.date] = (dayPnl[t.date] || 0) + t.pnl; });
       const winDays = Object.values(dayPnl).filter(v => v > 0).length;
       const lossDays = Object.values(dayPnl).filter(v => v <= 0).length;
-      document.getElementById('kpiTradingDays').textContent = tradingDays;
-      document.getElementById('kpiDaysDetail').textContent = `${winDays} gagnants (${tradingDays > 0 ? (winDays/tradingDays*100).toFixed(0) : 0}%) | ${lossDays} perdants`;
+      const tdEl = document.getElementById('kpiTradingDays');
+      if (tdEl) tdEl.textContent = tradingDays;
+      const ddEl = document.getElementById('kpiDaysDetail');
+      if (ddEl) ddEl.textContent = `${winDays} gagnants (${tradingDays > 0 ? (winDays/tradingDays*100).toFixed(0) : 0}%) | ${lossDays} perdants`;
 
       // Durée moyenne
       const durations = trades.filter(t => t.openDate && t.date && t.openDate !== t.date).map(t => {
