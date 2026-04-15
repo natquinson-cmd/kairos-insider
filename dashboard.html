@@ -2337,7 +2337,11 @@
           const countBg = c.insiderCount >= 5 ? 'rgba(16,185,129,0.3)' : c.insiderCount >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)';
           const countColor = c.insiderCount >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)';
 
+          // Les clusters actuels sont tous bases sur SEC (US). Quand on ajoutera des clusters
+          // Europe via BaFin, c.market/c.region pilotera le drapeau.
+          const clusterMarket = c.market || 'US';
           rows += `<tr class="fund-row" onclick="toggleCluster(${i})" style="cursor:pointer">
+            <td style="white-space:nowrap;text-align:center" title="${clusterMarket}">${fmtMarket(clusterMarket)}</td>
             <td class="ticker">${c.ticker || '—'}</td>
             <td style="color:var(--text-primary)">${c.company} <span class="chevron">&#9654;</span></td>
             <td style="text-align:center">
@@ -2374,7 +2378,7 @@
           }
 
           rows += `<tr class="fund-detail-row" id="cluster-detail-${i}">
-            <td colspan="7" class="fund-detail-cell">
+            <td colspan="8" class="fund-detail-cell">
               <div class="fund-detail-inner">
                 <div class="sub-header">
                   <span>${details.length > 0 ? details.length : c.insiderCount} dirigeants avec transactions significatives pour ${c.ticker || c.company}</span>
@@ -2406,6 +2410,7 @@
           <div class="table-wrap">
             <table>
               <thead><tr>
+                <th>Marche</th>
                 <th>Ticker</th>
                 <th>Entreprise</th>
                 <th style="text-align:center">Insiders</th>
