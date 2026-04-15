@@ -305,6 +305,20 @@
       margin-bottom: 24px;
     }
 
+    /* Accueil — hover sur les cartes fonctionnalités */
+    .home-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(116,185,255,0.25) !important;
+      background: rgba(116,185,255,0.04) !important;
+      box-shadow: 0 6px 24px rgba(116,185,255,0.08);
+    }
+    .home-stat {
+      transition: border-color 0.2s;
+    }
+    .home-stat:hover {
+      border-color: rgba(116,185,255,0.2) !important;
+    }
+
     /* Sidebar collapsed */
     .sidebar.collapsed {
       width: 60px;
@@ -916,6 +930,14 @@
       <button class="sidebar-toggle" onclick="toggleSidebar()" title="Replier/Deplier">&#9776;</button>
 
       <div class="sidebar-section">
+        <div class="sidebar-title">Tableau de bord</div>
+        <button class="sidebar-item active" data-section="home" onclick="switchSection('home')">
+          <span class="sidebar-icon">🏠</span>
+          <span>Accueil</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
         <div class="sidebar-title">Analyse</div>
         <button class="sidebar-item" data-section="stockAnalysis" data-premium="true" onclick="switchSection('stockAnalysis')">
           <span class="sidebar-icon">🔎</span>
@@ -926,7 +948,7 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title">Smart Money</div>
-        <button class="sidebar-item active" data-section="insider" data-premium="true" onclick="switchSection('insider')">
+        <button class="sidebar-item" data-section="insider" data-premium="true" onclick="switchSection('insider')">
           <span class="sidebar-icon">📋</span>
           <span>Transactions Insiders</span>
           <span class="sidebar-badge premium-badge">PRO</span>
@@ -974,6 +996,149 @@
     <main class="main">
       <div class="container">
 
+      <!-- ===== SECTION: ACCUEIL ===== -->
+      <div class="section-page active" id="section-home">
+        <!-- HERO D'ACCUEIL -->
+        <div style="padding:32px 28px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(162,155,254,0.05));border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:28px">
+          <h1 style="margin:0 0 6px;font-size:28px;font-weight:700">
+            Bonjour <span id="homeUserName" style="color:#74b9ff">—</span> 👋
+          </h1>
+          <p style="margin:0;font-size:15px;opacity:0.75;max-width:720px">
+            Bienvenue sur <strong>Kairos Insider</strong>, votre cockpit Smart Money.
+            Suivez en temps réel ce que font les <strong>initiés</strong>, les <strong>hedge funds</strong>
+            et les <strong>politiciens</strong> — les investisseurs qui ont une longueur d'avance sur le marché.
+          </p>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+            <button onclick="switchSection('stockAnalysis')" style="padding:10px 18px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;cursor:pointer">🔎 Analyser une action</button>
+            <button onclick="switchSection('clustering')" style="padding:10px 18px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#fff;font-size:14px;cursor:pointer">🎯 Voir les signaux chauds</button>
+          </div>
+        </div>
+
+        <!-- STATS DU JOUR -->
+        <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px">Activité récente</h3>
+        <div id="homeStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:32px">
+          <div class="home-stat" style="padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+            <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Transactions (90j)</div>
+            <div style="font-size:22px;font-weight:700" id="homeStatInsider">…</div>
+            <div style="font-size:11px;opacity:0.55;margin-top:2px" id="homeStatInsiderDetail">Initiés SEC + AMF + BaFin</div>
+          </div>
+          <div class="home-stat" style="padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+            <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Clusters détectés</div>
+            <div style="font-size:22px;font-weight:700;color:#2ecc71" id="homeStatClusters">…</div>
+            <div style="font-size:11px;opacity:0.55;margin-top:2px">Signaux insiders coordonnés</div>
+          </div>
+          <div class="home-stat" style="padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+            <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Hedge funds suivis</div>
+            <div style="font-size:22px;font-weight:700;color:#74b9ff" id="homeStatFunds">…</div>
+            <div style="font-size:11px;opacity:0.55;margin-top:2px">Portefeuilles 13F agrégés</div>
+          </div>
+          <div class="home-stat" style="padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+            <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Dernière mise à jour</div>
+            <div style="font-size:22px;font-weight:700" id="homeStatUpdate">…</div>
+            <div style="font-size:11px;opacity:0.55;margin-top:2px">Données rafraîchies quotidiennement</div>
+          </div>
+        </div>
+
+        <!-- CARTES FONCTIONNALITES -->
+        <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px">Explorez les fonctionnalités</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px">
+
+          <div onclick="switchSection('stockAnalysis')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🔎</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Analyse action</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Deep-dive complet sur n'importe quel ticker : <strong>Kairos Score</strong> composite de 0 à 100, initiés, hedge funds, fondamentaux, santé financière, peers, earnings.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Rechercher une action →</div>
+          </div>
+
+          <div onclick="switchSection('insider')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🕴️</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Transactions Insiders</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Tous les achats et ventes des dirigeants — déclarations officielles <strong>SEC</strong> (US), <strong>AMF</strong> (France), <strong>BaFin</strong> (Allemagne), mises à jour quotidiennement.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Parcourir les transactions →</div>
+          </div>
+
+          <div onclick="switchSection('clustering')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(46,204,113,0.2);border:1px solid rgba(46,204,113,0.35);border-radius:4px;font-size:10px;color:#2ecc71;font-weight:600;letter-spacing:0.5px">SIGNAL FORT</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🎯</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Signaux Insiders (Clusters)</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Quand <strong>3+ dirigeants</strong> achètent sur la même entreprise dans un court laps de temps. Historiquement le signal le plus fiable — les insiders savent quelque chose.</p>
+            <div style="margin-top:12px;font-size:12px;color:#2ecc71">Voir les clusters actifs →</div>
+          </div>
+
+          <div onclick="switchSection('13f')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🏦</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Portefeuilles 13F</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Les positions des plus grands hedge funds : <strong>Berkshire</strong> (Buffett), <strong>Pershing Square</strong> (Ackman), <strong>Tiger Global</strong>, <strong>Bridgewater</strong> et 100+ autres.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Explorer les fonds →</div>
+          </div>
+
+          <div onclick="switchSection('etf')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🏛️</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">ETF Politiciens & Gourous</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5"><strong>NANC</strong> (démocrates US), <strong>GOP</strong> (républicains US), <strong>GURU</strong> (top hedge funds) — des ETF qui répliquent les portefeuilles de ceux qui savent.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Voir les holdings →</div>
+          </div>
+
+          <div onclick="switchSection('portfolio')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">💼</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Mon Portefeuille</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Importez vos trades depuis <strong>n'importe quelle plateforme</strong> (IG, Trade Republic, Degiro, eToro…) via CSV. Suivez votre performance avec des KPIs pros.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Importer mes trades →</div>
+          </div>
+
+          <div onclick="switchSection('feargreed')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="font-size:32px;margin-bottom:10px">😱</div>
+            <h4 style="margin:0 0 6px;font-size:16px">Fear &amp; Greed</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">L'indice de sentiment du marché de <strong>CNN</strong> — mesurez si le marché est dans la panique ou l'euphorie. Warren Buffett : « soyez avide quand les autres ont peur ».</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Voir l'indice →</div>
+          </div>
+
+          <div onclick="switchSection('shorts')" class="home-card" style="padding:22px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;transition:all 0.2s">
+            <div style="font-size:32px;margin-bottom:10px">📉</div>
+            <h4 style="margin:0 0 6px;font-size:16px">Short Interest</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Les actions les plus <strong>shortées</strong> du marché — potentiels short squeezes, signaux baissiers des pros… ou pièges à éviter.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Voir le classement →</div>
+          </div>
+        </div>
+
+        <!-- GUIDE RAPIDE -->
+        <div style="padding:24px 28px;background:rgba(116,185,255,0.05);border:1px solid rgba(116,185,255,0.15);border-radius:12px">
+          <h3 style="margin:0 0 14px;font-size:16px">💡 Comment lire un signal smart money ?</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-size:13px;line-height:1.6">
+            <div>
+              <strong style="color:#74b9ff">1. Cherchez les clusters</strong><br>
+              <span style="opacity:0.75">Quand plusieurs dirigeants achètent en même temps, c'est rarement du hasard. Historiquement, les clusters battent le marché de 6-10% / an.</span>
+            </div>
+            <div>
+              <strong style="color:#74b9ff">2. Suivez l'argent smart</strong><br>
+              <span style="opacity:0.75">Si Buffett, Ackman et un sénateur américain achètent la même valeur, ce n'est plus une coïncidence — c'est un signal.</span>
+            </div>
+            <div>
+              <strong style="color:#74b9ff">3. Kairos Score ≥ 75</strong><br>
+              <span style="opacity:0.75">Notre score composite agrège 8 dimensions (initiés, 13F, ETF, momentum, valo, consensus, santé, earnings). Au-delà de 75, c'est un ACHAT FORT.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ===== SECTION: ANALYSE ACTION (ticker deep-dive) ===== -->
       <div class="section-page" id="section-stockAnalysis">
         <h2>Analyse action</h2>
@@ -995,7 +1160,7 @@
       </div>
 
       <!-- ===== SECTION: INSIDER TRADES ===== -->
-      <div class="section-page active" id="section-insider">
+      <div class="section-page" id="section-insider">
         <h2>Transactions Insiders</h2>
         <p class="section-desc">Achats et ventes des dirigeants — donnees officielles SEC (US, Form 4), AMF (France) et BaFin (Europe, MAR art. 19), mises a jour quotidiennement.</p>
 
@@ -1548,7 +1713,13 @@
           currentUser = user;
           document.getElementById('authOverlay').classList.add('hidden');
           await checkSubscription();
-          loadInsiderTrades();
+          // Accueil : affichage immédiat (nom + stats)
+          loadHome();
+          loadedSections['home'] = true;
+          // Pré-chargement insiders en arrière-plan SEULEMENT pour les premium
+          if (isPremium) {
+            setTimeout(() => { loadInsiderTrades(); loadedSections['insider'] = true; }, 400);
+          }
         } else {
           currentUser = null;
           isPremium = false;
@@ -1840,12 +2011,14 @@
       // Lazy load des données
       if (!loadedSections[section]) {
         loadedSections[section] = true;
+        if (section === 'home') loadHome();
         if (section === '13f') load13FFunds();
         if (section === 'clustering') loadClustering();
         if (section === 'feargreed') loadFearGreed();
         if (section === 'shorts') loadShortInterest();
         if (section === 'portfolio') loadPortfolioFromFirebase();
         if (section === 'stockAnalysis') initStockAnalysis();
+        if (section === 'insider') loadInsiderTrades();
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -1856,6 +2029,85 @@
           try { renderPortfolioCharts(); buildPortfolioDailyCal(); renderMonthlyHeatmap(); } catch (e) { console.error('[portfolio] render error:', e); }
         }, 50);
       }
+    }
+
+    // ============================================================
+    // ACCUEIL — nom utilisateur + stats rapides
+    // ============================================================
+    function setHomeUserName() {
+      const el = document.getElementById('homeUserName');
+      if (!el || !currentUser) return;
+      let name = currentUser.displayName;
+      if (!name && currentUser.email) {
+        // Capitalise la partie avant @ si pas de displayName
+        const local = currentUser.email.split('@')[0];
+        name = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      el.textContent = name || 'trader';
+    }
+
+    function fmtNum(n) {
+      if (n == null || isNaN(n)) return '—';
+      if (n >= 1000) return Math.round(n / 100) / 10 + 'k';
+      return String(Math.round(n));
+    }
+
+    // Fetch silencieux : ne déclenche pas l'overlay paywall sur 403 (utilisé pour les stats d'accueil)
+    async function silentFetch(endpoint) {
+      if (!currentUser) return null;
+      try {
+        const idToken = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + endpoint, { headers: { 'Authorization': `Bearer ${idToken}` } });
+        if (!resp.ok) return null;
+        return await resp.json();
+      } catch (e) { return null; }
+    }
+
+    async function loadHome() {
+      setHomeUserName();
+
+      // Date du jour formatée (FR)
+      const upd = document.getElementById('homeStatUpdate');
+      if (upd) {
+        const now = new Date();
+        const months = ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+        upd.textContent = now.getDate() + ' ' + months[now.getMonth()];
+      }
+
+      const setText = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+
+      // Utilisateur non-premium : affiche des placeholders engageants au lieu de fetcher
+      if (!isPremium) {
+        setText('homeStatInsider', '5k+');
+        setText('homeStatClusters', '50+');
+        setText('homeStatFunds', '100+');
+        return;
+      }
+
+      // Fetch stats en parallèle (silencieux — évite le paywall pop si erreur)
+      silentFetch('/api/all-transactions').then(d => {
+        if (!d) { setText('homeStatInsider', '—'); return; }
+        const txs = d.transactions || [];
+        const today = new Date().toISOString().split('T')[0];
+        const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+        const recent = txs.filter(t => {
+          const dt = t.date || t.fileDate || '';
+          return dt <= today && dt >= cutoff;
+        });
+        setText('homeStatInsider', fmtNum(recent.length));
+      });
+
+      silentFetch('/api/clusters').then(d => {
+        if (!d) { setText('homeStatClusters', '—'); return; }
+        const clusters = d.clusters || [];
+        setText('homeStatClusters', fmtNum(clusters.length));
+      });
+
+      silentFetch('/api/13f-funds').then(d => {
+        if (!d) { setText('homeStatFunds', '—'); return; }
+        const funds = Array.isArray(d) ? d : (d && d.funds) || [];
+        setText('homeStatFunds', fmtNum(funds.length));
+      });
     }
 
     // ============================================================
