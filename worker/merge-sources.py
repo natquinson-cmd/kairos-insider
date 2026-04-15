@@ -45,8 +45,16 @@ def tag_sec_rows(txs):
 def main():
     # --- Load SEC (primary) ---
     sec = load_json('transactions_data.json', {'transactions': []})
-    sec_txs = sec.get('transactions', [])
-    print(f'Loaded SEC: {len(sec_txs)} transactions')
+    sec_txs_raw = sec.get('transactions', [])
+    # IMPORTANT : transactions_data.json peut contenir d'anciennes lignes BaFin (heritees du KV
+    # lors du download initial). On les exclut pour eviter les doublons lors du merge avec le
+    # nouveau fetch BaFin ci-dessous.
+    sec_txs = [t for t in sec_txs_raw if t.get('source', 'sec') != 'bafin']
+    dropped = len(sec_txs_raw) - len(sec_txs)
+    if dropped:
+        print(f'Loaded SEC: {len(sec_txs_raw)} total, {dropped} anciennes lignes BaFin exclues -> {len(sec_txs)} SEC')
+    else:
+        print(f'Loaded SEC: {len(sec_txs)} transactions')
 
     tagged = tag_sec_rows(sec_txs)
     if tagged:

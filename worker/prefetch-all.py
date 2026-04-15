@@ -101,10 +101,12 @@ try:
 except:
     print('Pas d\'historique existant')
 
-# Determiner jusqu'a quand l'historique est deja a jour
-# On refetche les N derniers jours + 1 jour de recouvrement pour rattraper les filings
-# publies apres le dernier run (et pour gerer les weekends/jours feries).
-existing_file_dates = sorted({t.get('fileDate', '') for t in existing_tx if t.get('fileDate')}, reverse=True)
+# Determiner jusqu'a quand l'historique est deja a jour.
+# IMPORTANT : on regarde uniquement les lignes SEC (source != 'bafin' et market in US/absent).
+# Sinon, si l'historique contient des lignes BaFin plus recentes que SEC (courant), l'incremental
+# verrait max(fileDate) = BaFin et sauterait les nouveaux filings SEC.
+sec_rows = [t for t in existing_tx if t.get('source', 'sec') != 'bafin' and t.get('region', 'US') == 'US']
+existing_file_dates = sorted({t.get('fileDate', '') for t in sec_rows if t.get('fileDate')}, reverse=True)
 latest_existing = existing_file_dates[0] if existing_file_dates else ''
 
 if FORCE_FULL:
