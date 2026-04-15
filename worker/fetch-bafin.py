@@ -191,6 +191,13 @@ for letter in letters:
         if not file_date:
             continue
 
+        # Le champ 'market' utilise le prefixe ISIN (DE, GB, NL, AT, LU, CH, IT, ...) — pas toujours DE
+        # meme si BaFin publie la notification (entreprises etrangeres cotees en Allemagne).
+        # 'region' groupe US / Europe / ... pour le filtre UI.
+        market_code = isin[:2].upper()  # DE, GB, NL, AT, LU, CH, ...
+        # Devise : l'emetteur est la meilleure heuristique. Pour UK (GB), GBP ; sinon EUR (majoritaire en DE, NL, AT, LU, CH)
+        # NB : le CSV BaFin exprime TOUJOURS les montants en EUR (converti a la source) donc on garde EUR.
+        currency = 'EUR'
         all_transactions.append({
             'fileDate': file_date,
             'date': tx_date or file_date,
@@ -205,8 +212,10 @@ for letter in letters:
             'price': round(price, 2),
             'value': round(value, 2),
             'sharesAfter': 0,
-            'market': 'DE',
-            'currency': 'EUR',
+            'market': market_code,
+            'region': 'Europe',
+            'currency': currency,
+            'source': 'bafin',
             'venue': ((r.get(col_venue) or '').strip()) if col_venue else '',
         })
         kept_here += 1

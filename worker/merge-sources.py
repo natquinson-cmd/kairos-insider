@@ -27,14 +27,18 @@ def load_json(path, default):
 
 
 def tag_sec_rows(txs):
-    """Ensure each SEC-origin transaction has market/currency. Idempotent."""
+    """Ensure each SEC-origin transaction has market/region/currency/source. Idempotent."""
     tagged = 0
     for t in txs:
         if not t.get('market'):
             t['market'] = 'US'
             tagged += 1
+        if not t.get('region'):
+            t['region'] = 'US'
         if not t.get('currency'):
             t['currency'] = 'USD'
+        if not t.get('source'):
+            t['source'] = 'sec'
     return tagged
 
 
@@ -58,13 +62,20 @@ def main():
     # Sort by fileDate desc (most recent first), tiebreak by date
     combined.sort(key=lambda t: (t.get('fileDate', ''), t.get('date', '')), reverse=True)
 
-    # --- Stats by market ---
+    # --- Stats by region / market ---
+    by_region = {}
     by_market = {}
     for t in combined:
+        r = t.get('region', '??')
         m = t.get('market', '??')
+        by_region[r] = by_region.get(r, 0) + 1
         by_market[m] = by_market.get(m, 0) + 1
     print(f'\nMerged total: {len(combined)} transactions')
-    for m, n in sorted(by_market.items(), key=lambda x: -x[1]):
+    print('By region:')
+    for r, n in sorted(by_region.items(), key=lambda x: -x[1]):
+        print(f'  {r}: {n}')
+    print('By market (top 10):')
+    for m, n in sorted(by_market.items(), key=lambda x: -x[1])[:10]:
         print(f'  {m}: {n}')
 
     # --- Write out ---

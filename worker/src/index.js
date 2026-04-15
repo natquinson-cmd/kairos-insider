@@ -364,7 +364,7 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
 <h1>Bienvenue dans Kairos Insider Premium 🎉</h1>
 <p>Votre abonnement est actif. Vous avez maintenant acces a l'ensemble du Smart Money Dashboard :</p>
 <div class="features"><ul>
-  <li>✓ Transactions d'inities en quasi-temps reel (SEC Form 4)</li>
+  <li>✓ Transactions d'inities US (SEC Form 4) &amp; Europe (BaFin MAR art.19) en quasi-temps reel</li>
   <li>✓ Signaux de clusters d'insiders sur 90 jours</li>
   <li>✓ Portefeuilles 13F des plus grands hedge funds</li>
   <li>✓ Suivi des ETF Smart Money (NANC, GOP, GURU)</li>
