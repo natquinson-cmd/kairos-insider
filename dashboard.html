@@ -1827,7 +1827,7 @@
 
         rows += `<tr>
           <td>${fmtDate(t.date || t.fileDate)}</td>
-          <td style="white-space:nowrap" title="${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag} <span style="color:var(--text-muted);font-size:11px">${market}</span></td>
+          <td style="white-space:nowrap;text-align:center;font-size:18px" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
           <td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>
           <td style="color:var(--text-primary)">${t.company || '—'}</td>
           <td>${t.insider || '—'}</td>
