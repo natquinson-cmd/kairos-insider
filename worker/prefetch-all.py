@@ -81,12 +81,11 @@ def parse_form4(xml, now_str):
 
 # ============================================================
 # ETAPE 1 : Collecter TOUTES les metadonnees + parser les XMLs
+# INCREMENTAL : ne refetche que les jours non couverts par l'historique existant
 # ============================================================
 now = datetime.now()
 now_str = now.strftime('%Y-%m-%d')
-DAYS = 90  # Couvrir 90 jours pour les clusters
-
-print(f'=== Unified Pre-Fetch ({DAYS} days) ===')
+DAYS = 90  # Fenetre max a conserver (pour les clusters)
 
 # Charger historique existant
 existing_tx = []
@@ -98,6 +97,26 @@ try:
 except:
     print('Pas d\'historique existant')
 
+# Determiner jusqu'a quand l'historique est deja a jour
+# On refetche les N derniers jours + 1 jour de recouvrement pour rattraper les filings
+# publies apres le dernier run (et pour gerer les weekends/jours feries).
+existing_file_dates = sorted({t.get('fileDate', '') for t in existing_tx if t.get('fileDate')}, reverse=True)
+latest_existing = existing_file_dates[0] if existing_file_dates else ''
+
+if latest_existing:
+    # Refetch depuis 2 jours avant le latest existing (overlap pour les late-filings)
+    from_date = datetime.strptime(latest_existing, '%Y-%m-%d') - timedelta(days=2)
+    fetch_days = (now - from_date).days + 1
+    fetch_days = max(fetch_days, 3)   # minimum 3 jours
+    fetch_days = min(fetch_days, DAYS)  # maximum DAYS (90)
+    print(f'Fetch incremental: {fetch_days} jours (depuis {from_date.strftime("%Y-%m-%d")})')
+else:
+    # Pas d'historique, fetch complet 90 jours
+    fetch_days = DAYS
+    print(f'Fetch complet: {fetch_days} jours')
+
+print(f'=== Unified Pre-Fetch ({fetch_days} days) ===')
+
 all_transactions = []
 # Pour les clusters : tracker par company
 company_insiders = {}  # company_cik -> { company, ticker, insiders: { name: { dates, title, value, shares, txType } } }
@@ -105,18 +124,22 @@ company_insiders = {}  # company_cik -> { company, ticker, insiders: { name: { d
 total_hits = 0
 total_parsed = 0
 
-for day_offset in range(0, DAYS):
+for day_offset in range(0, fetch_days):
     day_date = (now - timedelta(days=day_offset)).strftime('%Y-%m-%d')
 
-    for page_from in [0, 100]:
+    # Pagination complete: on continue tant qu'il y a des resultats (max 10 pages = 1000 filings/jour)
+    # Les jours tres charges peuvent avoir 400-800 filings, il faut tout recuperer
+    page_from = 0
+    MAX_PAGES = 10
+    for page_idx in range(MAX_PAGES):
         url = f'https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt={day_date}&enddt={day_date}&from={page_from}&size=100'
         raw = fetch(url)
         if not raw:
-            continue
+            break
         try:
             data = json.loads(raw)
         except:
-            continue
+            break
 
         hits = data.get('hits', {}).get('hits', [])
         if not hits:
@@ -159,11 +182,12 @@ for day_offset in range(0, DAYS):
                 parsed_txs = parsed['transactions']
                 total_parsed += 1
 
-                # Ajouter les transactions individuelles
+                # Ajouter les transactions individuelles (avec CIK pour reconstruire les clusters)
                 for tx in parsed_txs:
                     all_transactions.append({
                         'fileDate': file_date,
                         'date': tx['date'] or file_date,
+                        'cik': company_cik,
                         'ticker': parsed_ticker,
                         'company': parsed['company'] or company_name_meta,
                         'insider': parsed['owner'] or insider_name,
@@ -208,28 +232,34 @@ for day_offset in range(0, DAYS):
 
             time.sleep(0.12)
 
+        # Page suivante : on s'arrete si on a recu moins de 100 (derniere page)
+        if len(hits) < 100:
+            break
+        page_from += 100
         time.sleep(0.3)
 
-    if day_offset % 10 == 0:
+    if day_offset % 5 == 0:
         print(f'  Day {day_date}: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} tx')
 
 print(f'\nTotal: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} transactions')
 
 # ============================================================
 # ETAPE 2 : Fusionner avec l'historique existant (cumulatif)
+# On enleve les doublons sur les jours refetches, on garde le reste de l'historique
 # ============================================================
 fetched_dates = set()
-for d in range(0, DAYS):
+for d in range(0, fetch_days):
     fetched_dates.add((now - timedelta(days=d)).strftime('%Y-%m-%d'))
 
+# On garde les anciennes tx uniquement pour les dates NON refetchees
 kept_old = [t for t in existing_tx if t.get('fileDate', '') not in fetched_dates]
 print(f'Anciennes transactions conservees: {len(kept_old)}')
 
 all_transactions = all_transactions + kept_old
 all_transactions.sort(key=lambda t: t.get('date', ''), reverse=True)
 
-# Limiter a 90 jours max
-cutoff = (now - timedelta(days=90)).strftime('%Y-%m-%d')
+# Limiter a 90 jours max (fenetre glissante)
+cutoff = (now - timedelta(days=DAYS)).strftime('%Y-%m-%d')
 all_transactions = [t for t in all_transactions if (t.get('date') or t.get('fileDate', '')) >= cutoff]
 
 # ============================================================
@@ -253,9 +283,47 @@ print(f'Transactions saved: {len(all_transactions)} (achats: {buys}, ventes: {se
 
 # ============================================================
 # ETAPE 4 : Construire les clusters (signaux insiders)
-# Filtrage : seuls les insiders avec des transactions significatives comptent
+# Rebuild company_insiders depuis all_transactions (90j complets) pour que
+# les clusters couvrent toute la fenetre, pas seulement la fenetre de fetch
 # ============================================================
-print('\n=== Building Clusters ===')
+print('\n=== Building Clusters (from full 90d history) ===')
+
+company_insiders_full = {}
+for tx in all_transactions:
+    cik_key = tx.get('cik', '')
+    if not cik_key:
+        # Fallback : utiliser le ticker comme cle si cik absent (historique sans cik)
+        cik_key = 'TICKER_' + (tx.get('ticker', '') or 'UNKNOWN').upper()
+    if cik_key not in company_insiders_full:
+        company_insiders_full[cik_key] = {
+            'company': tx.get('company', ''),
+            'cik': tx.get('cik', ''),
+            'ticker': tx.get('ticker', ''),
+            'insiders': {},
+        }
+    ci = company_insiders_full[cik_key]
+    if tx.get('ticker') and not ci['ticker']:
+        ci['ticker'] = tx.get('ticker', '')
+    ins_name = tx.get('insider', '')
+    if not ins_name:
+        continue
+    if ins_name not in ci['insiders']:
+        ci['insiders'][ins_name] = {
+            'dates': [], 'title': '', 'value': 0.0, 'shares': 0, 'txType': '', 'hasPricedTx': False
+        }
+    info = ci['insiders'][ins_name]
+    info['dates'].append(tx.get('fileDate', ''))
+    if tx.get('title') and not info['title']:
+        info['title'] = tx.get('title', '')
+    if (tx.get('price') or 0) > 0:
+        info['value'] += tx.get('value', 0) or 0
+        info['shares'] += tx.get('shares', 0) or 0
+        info['hasPricedTx'] = True
+        if tx.get('type') in ('buy', 'sell'):
+            info['txType'] = tx.get('type', '')
+
+company_insiders = company_insiders_full
+print(f'Companies tracked: {len(company_insiders)}')
 
 clusters = []
 for cik, data in company_insiders.items():

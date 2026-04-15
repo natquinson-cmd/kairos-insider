@@ -55,8 +55,7 @@ jobs:
 
       - name: Unified fetch (Transactions + Clusters from same source)
         run: cd worker && python prefetch-all.py
-        timeout-minutes: 30
-        continue-on-error: true
+        timeout-minutes: 20
 
       - name: Upload Transactions + Clusters to KV
         env:
