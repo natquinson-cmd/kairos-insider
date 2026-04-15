@@ -563,6 +563,78 @@
       margin-bottom: 4px;
     }
 
+    /* ===== ACTIONS POPULAIRES (SEO - maillage interne) ===== */
+    .popular-stocks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 48px;
+    }
+
+    .stock-link {
+      display: flex;
+      flex-direction: column;
+      padding: 18px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: all 0.25s ease;
+    }
+
+    .stock-link:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      background: rgba(59, 130, 246, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .stock-link-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    .stock-ticker {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .stock-score {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 100px;
+      background: rgba(16, 185, 129, 0.12);
+      color: #34D399;
+    }
+
+    .stock-score.neutral { background: rgba(156, 163, 175, 0.12); color: #D1D5DB; }
+    .stock-score.low { background: rgba(239, 68, 68, 0.12); color: #F87171; }
+
+    .stock-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .popular-cta {
+      text-align: center;
+      margin-top: 32px;
+    }
+
+    .popular-cta a {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .popular-cta a:hover { text-decoration: underline; }
+
     /* ===== CTA SECTION ===== */
     .cta-section {
       padding: 80px 0 120px;
@@ -932,6 +1004,75 @@
           <strong>AMF & BaFin</strong>
           Data européenne (FR + DE)
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ACTIONS POPULAIRES (maillage interne SEO) ===== -->
+  <section class="section" id="popular" style="padding-top:40px">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Analyses populaires</span>
+        <h2>Les actions les plus suivies<br />sur Kairos Insider</h2>
+        <p class="section-subtitle">
+          Consulte l'analyse smart money de n'importe quelle action : Kairos Score composite,
+          transactions d'initiés, positions des hedge funds, fondamentaux et momentum.
+        </p>
+      </div>
+
+      <div class="popular-stocks">
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/AAPL" class="stock-link" title="Analyse Apple (AAPL)">
+          <div class="stock-link-top"><span class="stock-ticker">AAPL</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Apple Inc. — Technology</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/NVDA" class="stock-link" title="Analyse NVIDIA (NVDA)">
+          <div class="stock-link-top"><span class="stock-ticker">NVDA</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">NVIDIA Corp. — Semiconductors</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/MSFT" class="stock-link" title="Analyse Microsoft (MSFT)">
+          <div class="stock-link-top"><span class="stock-ticker">MSFT</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Microsoft Corp. — Software</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/GOOGL" class="stock-link" title="Analyse Alphabet (GOOGL)">
+          <div class="stock-link-top"><span class="stock-ticker">GOOGL</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Alphabet Inc. — Communication</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/AMZN" class="stock-link" title="Analyse Amazon (AMZN)">
+          <div class="stock-link-top"><span class="stock-ticker">AMZN</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Amazon.com Inc. — E-commerce</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/TSLA" class="stock-link" title="Analyse Tesla (TSLA)">
+          <div class="stock-link-top"><span class="stock-ticker">TSLA</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Tesla Inc. — Automotive</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/META" class="stock-link" title="Analyse Meta (META)">
+          <div class="stock-link-top"><span class="stock-ticker">META</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Meta Platforms — Social</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/ASML" class="stock-link" title="Analyse ASML">
+          <div class="stock-link-top"><span class="stock-ticker">ASML</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">ASML Holding — Semiconductors</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/MC.PA" class="stock-link" title="Analyse LVMH (MC.PA)">
+          <div class="stock-link-top"><span class="stock-ticker">MC.PA</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">LVMH — Luxe (France)</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/AIR.PA" class="stock-link" title="Analyse Airbus (AIR.PA)">
+          <div class="stock-link-top"><span class="stock-ticker">AIR.PA</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Airbus SE — Aerospace (FR)</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/SAP" class="stock-link" title="Analyse SAP">
+          <div class="stock-link-top"><span class="stock-ticker">SAP</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">SAP SE — Software (DE)</span>
+        </a>
+        <a href="https://kairos-insider-api.natquinson.workers.dev/a/NESN.SW" class="stock-link" title="Analyse Nestlé (NESN.SW)">
+          <div class="stock-link-top"><span class="stock-ticker">NESN.SW</span><span class="stock-score">Score live</span></div>
+          <span class="stock-name">Nestlé SA — Consommation (CH)</span>
+        </a>
+      </div>
+
+      <div class="popular-cta">
+        <a href="dashboard.html">Rechercher une autre action dans le dashboard →</a>
       </div>
     </div>
   </section>
