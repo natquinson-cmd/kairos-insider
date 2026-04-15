@@ -976,8 +976,8 @@
             <span class="period-label">Marché :</span>
             <div class="period-buttons">
               <button class="period-btn active" data-region="all" onclick="selectRegion('all')">Tous</button>
-              <button class="period-btn" data-region="US" onclick="selectRegion('US')">🇺🇸 US</button>
-              <button class="period-btn" data-region="Europe" onclick="selectRegion('Europe')">🇪🇺 Europe</button>
+              <button class="period-btn" data-region="US" onclick="selectRegion('US')"><img src="https://flagcdn.com/w20/us.png" width="20" height="15" alt="US" style="vertical-align:middle;border-radius:2px;margin-right:6px"> US</button>
+              <button class="period-btn" data-region="Europe" onclick="selectRegion('Europe')"><img src="https://flagcdn.com/w20/eu.png" width="20" height="15" alt="Europe" style="vertical-align:middle;border-radius:2px;margin-right:6px"> Europe</button>
             </div>
           </div>
         </div>
@@ -1428,15 +1428,16 @@
     // Formatters
     const fmtNum = (n) => n != null ? new Intl.NumberFormat('fr-FR').format(n) : '—';
     const fmtCur = (n, currency = 'USD') => n != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n) : '—';
-    // Badge drapeau marché : code pays ISIN (2 lettres) -> emoji drapeau
-    const MARKET_FLAGS = {
-      US: '🇺🇸', DE: '🇩🇪', FR: '🇫🇷', GB: '🇬🇧', UK: '🇬🇧',
-      NL: '🇳🇱', CH: '🇨🇭', AT: '🇦🇹', LU: '🇱🇺', IT: '🇮🇹',
-      ES: '🇪🇸', BE: '🇧🇪', SE: '🇸🇪', DK: '🇩🇰', FI: '🇫🇮',
-      IE: '🇮🇪', PT: '🇵🇹', PL: '🇵🇱', NO: '🇳🇴', BG: '🇧🇬',
-      CN: '🇨🇳', JP: '🇯🇵', HK: '🇭🇰',
-    };
-    const fmtMarket = (market) => MARKET_FLAGS[market] || '🌐';
+    // Badge drapeau marche : images SVG via flagcdn.com (fonctionne sur Windows, contrairement
+    // aux emoji drapeaux qui ne sont pas rendus par Segoe UI Emoji).
+    // Mapping de quelques codes non-ISO vers le code flagcdn correspondant.
+    const FLAG_ALIASES = { UK: 'gb' };
+    function fmtMarket(market) {
+      if (!market) return '<span title="Marche inconnu" style="opacity:.5">🌐</span>';
+      const code = (FLAG_ALIASES[market] || market).toLowerCase();
+      // w20 = 20px de large, 2x DPI pour ecrans haute densite
+      return `<img src="https://flagcdn.com/w20/${code}.png" srcset="https://flagcdn.com/w40/${code}.png 2x" width="20" height="15" alt="${market}" title="${market}" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.1)" onerror="this.style.display='none';this.insertAdjacentText('afterend','${market}')">`;
+    }
     const fmtDate = (s) => {
       if (!s) return '—';
       const d = new Date(s + 'T00:00:00');
@@ -1907,7 +1908,7 @@
 
         rows += `<tr>
           <td style="white-space:nowrap">${dateCell}</td>
-          <td style="white-space:nowrap;text-align:center;font-size:18px" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
+          <td style="white-space:nowrap;text-align:center" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
           <td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>
           <td style="color:var(--text-primary)">${t.company || '—'}</td>
           <td>${t.insider || '—'}</td>
