@@ -34,6 +34,27 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
 
+    /* Scrollbar fine et discrete sur les listes internes */
+    .scroll-y {
+      overflow-y: auto;
+      scrollbar-width: thin;                           /* Firefox */
+      scrollbar-color: rgba(255,255,255,0.12) transparent; /* Firefox */
+    }
+    .scroll-y::-webkit-scrollbar { width: 6px; }
+    .scroll-y::-webkit-scrollbar-track { background: transparent; }
+    .scroll-y::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+    }
+    .scroll-y::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+    /* Version "invisible jusqu'au hover" pour les cartes compactes */
+    .scroll-y-hover::-webkit-scrollbar { width: 6px; }
+    .scroll-y-hover::-webkit-scrollbar-track { background: transparent; }
+    .scroll-y-hover::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.2s; }
+    .scroll-y-hover:hover::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+    .scroll-y-hover { overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
+    .scroll-y-hover:hover { scrollbar-color: rgba(255,255,255,0.12) transparent; }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--bg-primary);
@@ -2052,6 +2073,101 @@
       });
     }
 
+    let _stockLoaderInterval = null;
+
+    function renderStockLoader(body, ticker) {
+      const steps = [
+        { icon: '🔍', label: "Recherche des transactions d'initiés (SEC + AMF + BaFin)" },
+        { icon: '💰', label: "Interrogation des portefeuilles 13F des hedge funds" },
+        { icon: '🏛️', label: "Vérification dans les ETF politiciens & gurus" },
+        { icon: '📈', label: "Récupération du cours et de l'historique 1 an" },
+        { icon: '📊', label: "Chargement des fondamentaux (P/E, ROE, marge…)" },
+        { icon: '🎯', label: "Aggregation du consensus analystes" },
+        { icon: '📰', label: "Recherche des news récentes" },
+        { icon: '🧮', label: "Calcul du Kairos Score composite" },
+      ];
+
+      body.innerHTML = `
+        <div style="max-width:560px;margin:40px auto 0;padding:40px 32px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px">
+          <div style="text-align:center;margin-bottom:28px">
+            <div class="ki-spinner" style="display:inline-block;width:56px;height:56px;border:3px solid rgba(116,185,255,0.15);border-top-color:#74b9ff;border-radius:50%;animation:kiSpin 0.9s linear infinite"></div>
+            <h3 style="margin:18px 0 4px;font-size:20px;font-weight:600">Analyse de <span style="color:#74b9ff">${ticker}</span></h3>
+            <div style="font-size:13px;opacity:0.6">Nous croisons les données de plusieurs sources, ça peut prendre jusqu'à 10 secondes…</div>
+          </div>
+
+          <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:22px">
+            <div id="kiLoaderBar" style="height:100%;width:0;background:linear-gradient(90deg,#74b9ff,#a29bfe);border-radius:2px;transition:width 0.6s ease"></div>
+          </div>
+
+          <div id="kiLoaderSteps" style="display:flex;flex-direction:column;gap:10px">
+            ${steps.map((s, i) => `
+              <div class="ki-step" data-idx="${i}" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.015);font-size:13px;opacity:0.35;transition:all 0.4s">
+                <span class="ki-step-icon" style="font-size:16px;width:20px;display:inline-block;text-align:center">${s.icon}</span>
+                <span class="ki-step-label" style="flex:1">${s.label}</span>
+                <span class="ki-step-status" style="font-size:12px;color:#2ecc71;opacity:0;transition:opacity 0.4s">✓</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <style>
+          @keyframes kiSpin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+          @keyframes kiPulse { 0%, 100% { background: rgba(116,185,255,0.08) } 50% { background: rgba(116,185,255,0.18) } }
+          .ki-step.active { opacity: 1 !important; background: rgba(116,185,255,0.08) !important; animation: kiPulse 1.1s ease-in-out infinite }
+          .ki-step.done { opacity: 0.7 !important; background: transparent !important; animation: none }
+          .ki-step.done .ki-step-status { opacity: 1 !important }
+          .ki-step.done .ki-step-label { text-decoration: line-through; text-decoration-color: rgba(46,204,113,0.4) }
+        </style>
+      `;
+
+      // Lancer la progression animee (par paliers)
+      let currentStep = 0;
+      const bar = document.getElementById('kiLoaderBar');
+      const total = steps.length;
+
+      function nextStep() {
+        const stepsEls = document.querySelectorAll('#kiLoaderSteps .ki-step');
+        if (currentStep > 0 && stepsEls[currentStep - 1]) {
+          stepsEls[currentStep - 1].classList.remove('active');
+          stepsEls[currentStep - 1].classList.add('done');
+        }
+        if (currentStep < total && stepsEls[currentStep]) {
+          stepsEls[currentStep].classList.add('active');
+        }
+        if (bar) {
+          // On avance jusqu'a 90% max pendant la progression (les 10% restants a la reception)
+          const pct = Math.min(90, ((currentStep + 1) / total) * 90);
+          bar.style.width = pct + '%';
+        }
+        currentStep++;
+      }
+
+      nextStep();
+      // Delais progressifs (plus rapide au debut, plus lent vers la fin)
+      const delays = [700, 900, 1100, 1300, 1500, 1800, 2100, 2500];
+      clearStockLoader();
+      let tick = 0;
+      _stockLoaderInterval = setInterval(() => {
+        if (currentStep >= total) return;
+        nextStep();
+        tick++;
+      }, 1200);
+    }
+
+    function clearStockLoader() {
+      if (_stockLoaderInterval) { clearInterval(_stockLoaderInterval); _stockLoaderInterval = null; }
+    }
+
+    function finishStockLoader() {
+      const bar = document.getElementById('kiLoaderBar');
+      if (bar) bar.style.width = '100%';
+      document.querySelectorAll('#kiLoaderSteps .ki-step').forEach(el => {
+        el.classList.remove('active');
+        el.classList.add('done');
+      });
+      clearStockLoader();
+    }
+
     async function loadStockAnalysis(ticker) {
       ticker = ticker.toUpperCase().trim();
       const body = document.getElementById('stockAnalysisBody');
@@ -2060,12 +2176,18 @@
       if (input) input.value = ticker;
       if (suggest) suggest.style.display = 'none';
 
-      body.innerHTML = `<div style="text-align:center;padding:60px 20px;opacity:0.7"><div style="font-size:32px;margin-bottom:12px">⏳</div><p>Analyse en cours pour <strong>${ticker}</strong>...</p></div>`;
+      renderStockLoader(body, ticker);
+      const startedAt = Date.now();
 
       try {
         const data = await apiFetch(`/api/stock/${encodeURIComponent(ticker)}`);
+        finishStockLoader();
+        // Petit delai pour laisser la barre se remplir joliment si c'etait ultra rapide (cache)
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 400) await new Promise(r => setTimeout(r, 400 - elapsed));
         renderStockAnalysis(data);
       } catch (e) {
+        clearStockLoader();
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
       }
     }
@@ -2174,7 +2296,7 @@
               Flux net : <strong style="color:${(insiders.netValueUsd||0)+(insiders.netValueEur||0) >= 0 ? '#2ecc71' : '#ff7675'}">${fmtCurr((insiders.netValueUsd||0)+(insiders.netValueEur||0), cur)}</strong><br>
               ${insiders.uniqueInsiders || 0} insiders distincts
             </div>
-            <div style="max-height:240px;overflow-y:auto;font-size:12px">
+            <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px">
               ${(insiders.transactions || []).slice(0, 15).map(t => `
                 <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                   <div style="display:flex;justify-content:space-between">
@@ -2208,7 +2330,7 @@
             <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
               Valeur totale : <strong>$${fmtBig(sm.totalValue)}</strong>
             </div>
-            <div style="max-height:240px;overflow-y:auto;font-size:12px">
+            <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px">
               ${(sm.topFunds || []).map(f => `
                 <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                   <div style="display:flex;justify-content:space-between">
@@ -2256,17 +2378,17 @@
           <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
             <h3 style="margin:0 0 12px;font-size:16px">📊 Fondamentaux</h3>
             <table style="width:100%;font-size:13px">
-              <tr><td style="padding:6px 0;opacity:0.7">Market Cap</td><td style="text-align:right"><strong>${fmtCurr(fund.marketCap, cur)}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Market Cap</td><td style="text-align:right"><strong>${fund.marketCap ? fmtCurr(fund.marketCap, cur) : '—'}</strong></td></tr>
               <tr><td style="padding:6px 0;opacity:0.7">P/E (TTM)</td><td style="text-align:right"><strong>${fund.peRatio ? fund.peRatio.toFixed(1) : '—'}</strong></td></tr>
               <tr><td style="padding:6px 0;opacity:0.7">P/E Forward</td><td style="text-align:right"><strong>${fund.forwardPE ? fund.forwardPE.toFixed(1) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">P/B</td><td style="text-align:right"><strong>${fund.pbRatio ? fund.pbRatio.toFixed(2) : '—'}</strong></td></tr>
               <tr><td style="padding:6px 0;opacity:0.7">EPS</td><td style="text-align:right"><strong>${fund.eps != null ? fund.eps.toFixed(2) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Dividend Yield</td><td style="text-align:right"><strong>${fund.dividendYield ? (fund.dividendYield*(fund.dividendYield < 1 ? 100 : 1)).toFixed(2)+'%' : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Dividend Yield</td><td style="text-align:right"><strong>${fund.dividendYield ? (fund.dividendYield*100).toFixed(2)+'%' : '—'}</strong></td></tr>
               <tr><td style="padding:6px 0;opacity:0.7">Beta</td><td style="text-align:right"><strong>${fund.beta != null ? fund.beta.toFixed(2) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Revenue</td><td style="text-align:right"><strong>${fund.revenue ? '$' + fmtBig(fund.revenue) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Revenue Growth</td><td style="text-align:right"><strong>${fund.revenueGrowth != null ? (fund.revenueGrowth > 0 ? '+' : '') + (fund.revenueGrowth*100).toFixed(1)+'%' : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Profit Margin</td><td style="text-align:right"><strong>${fund.profitMargin != null ? (fund.profitMargin*100).toFixed(1)+'%' : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">ROE</td><td style="text-align:right"><strong>${fund.roe != null ? (fund.roe*100).toFixed(1)+'%' : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Revenue</td><td style="text-align:right"><strong>${fund.revenue ? fmtCurr(fund.revenue, cur) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Net Income</td><td style="text-align:right"><strong>${fund.netIncome ? fmtCurr(fund.netIncome, cur) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Profit Margin</td><td style="text-align:right"><strong>${fund.netIncome && fund.revenue ? ((fund.netIncome/fund.revenue)*100).toFixed(1)+'%' : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Shares Outstanding</td><td style="text-align:right"><strong>${fund.sharesOut ? fmtBig(fund.sharesOut) : '—'}</strong></td></tr>
+              ${fund.earningsDate ? `<tr><td style="padding:6px 0;opacity:0.7">Prochain earnings</td><td style="text-align:right"><strong style="color:#74b9ff">${fund.earningsDate}</strong></td></tr>` : ''}
             </table>
           </div>
 

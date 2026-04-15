@@ -49,14 +49,16 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
   const companyNameFromInsiders = (insiders.transactions[0] && insiders.transactions[0].company) || null;
 
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
-  const [quote, fundamentals, news, consensus, smartMoney, govEtf] = await Promise.all([
+  // NB: stockanalysis.com renvoie fondamentaux + consensus analystes + description en un seul appel
+  const [quote, overview, news, smartMoney, govEtf] = await Promise.all([
     fetchYahooQuote(ticker),
-    fetchYahooFundamentals(ticker),
+    fetchStockAnalysisOverview(ticker),
     fetchYahooNews(ticker),
-    fetchFinnhubConsensus(ticker, env.FINNHUB_KEY),
     aggregate13F(ticker, env, companyNameFromInsiders),
     aggregateGovEtf(ticker, env),
   ]);
+  const fundamentals = overview.fundamentals;
+  const consensus = overview.consensus;
 
   const score = computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus });
 
@@ -65,16 +67,18 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
     updatedAt: new Date().toISOString(),
     _cachedAt: Date.now(),
     company: {
-      name: (fundamentals.profile && fundamentals.profile.longName) || (quote && quote.company && quote.company.name) || ticker,
-      sector: (fundamentals.profile && fundamentals.profile.sector) || null,
-      industry: (fundamentals.profile && fundamentals.profile.industry) || null,
-      country: (fundamentals.profile && fundamentals.profile.country) || null,
-      website: (fundamentals.profile && fundamentals.profile.website) || null,
-      description: (fundamentals.profile && fundamentals.profile.longBusinessSummary) || null,
+      name: (overview.profile && overview.profile.name) || (quote && quote.company && quote.company.name) || ticker,
+      sector: (overview.profile && overview.profile.sector) || null,
+      industry: (overview.profile && overview.profile.industry) || null,
+      country: (overview.profile && overview.profile.country) || null,
+      website: (overview.profile && overview.profile.website) || null,
+      description: (overview.profile && overview.profile.description) || null,
+      employees: (overview.profile && overview.profile.employees) || null,
+      exchange: (overview.profile && overview.profile.exchange) || null,
     },
     price: quote.price,
     chart: quote.chart,
-    fundamentals: fundamentals.stats,
+    fundamentals,
     score,
     insiders,
     smartMoney,
@@ -168,14 +172,197 @@ async function fetchYahooQuote(ticker) {
 }
 
 // ============================================================
-// YAHOO FINANCE : fondamentaux (quoteSummary)
+// STOCKANALYSIS.COM : fondamentaux + consensus + profil entreprise
+// API publique gratuite, pas de cle requise, renvoie tout en un appel.
 // ============================================================
-async function fetchYahooFundamentals(ticker) {
-  const empty = { profile: {}, stats: {} };
+function parseNumericValue(s) {
+  if (s == null) return null;
+  if (typeof s === 'number') return s;
+  s = String(s).trim();
+  if (!s || s === '-' || s === 'n/a' || s === 'N/A') return null;
+  // Enleve le signe $, les espaces, les virgules (separateurs de milliers)
+  let clean = s.replace(/[$\s,]/g, '');
+  // Detecte un suffixe multiplicateur (K/M/B/T)
+  let mult = 1;
+  const last = clean.slice(-1).toUpperCase();
+  if (last === 'T') { mult = 1e12; clean = clean.slice(0, -1); }
+  else if (last === 'B') { mult = 1e9; clean = clean.slice(0, -1); }
+  else if (last === 'M') { mult = 1e6; clean = clean.slice(0, -1); }
+  else if (last === 'K') { mult = 1e3; clean = clean.slice(0, -1); }
+  // Enleve le signe % si present (reste le numero brut)
+  clean = clean.replace(/%$/, '');
+  const n = parseFloat(clean);
+  if (isNaN(n)) return null;
+  return n * mult;
+}
+
+async function fetchStockAnalysisOverview(ticker) {
+  const empty = {
+    fundamentals: {},
+    consensus: null,
+    profile: {},
+  };
+  // stockanalysis.com distingue les "stocks" (s) des "etf" (e) dans l'URL.
+  // On essaie stocks en premier, ETF en fallback.
+  const paths = [`s/${ticker.toLowerCase()}`, `e/${ticker.toLowerCase()}`];
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+  ]);
+
+  for (const path of paths) {
+    try {
+      const url = `https://api.stockanalysis.com/api/symbol/${path}/overview`;
+      const resp = await withTimeout(fetch(url, {
+        headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
+      }), 7000);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      if (!json || !json.data) continue;
+      const d = json.data;
+
+      // Extraction des infos du "infoTable" (array de { t, v, u? })
+      const info = {};
+      (d.infoTable || []).forEach(it => { if (it && it.t) info[it.t] = it.v; });
+
+      // Dividend yield : "1.04 (0.40%)" → on extrait le pourcentage
+      let dividendYield = null;
+      if (d.dividend) {
+        const m = String(d.dividend).match(/\(([-\d.]+)%\)/);
+        if (m) dividendYield = parseFloat(m[1]) / 100;
+      }
+
+      // Target price : "299.14 (+15.42%)" → on extrait la valeur
+      let targetPrice = null;
+      if (d.target) {
+        const m = String(d.target).match(/([\d.]+)/);
+        if (m) targetPrice = parseFloat(m[1]);
+      }
+
+      // Consensus analystes (structure : { strongBuy, buy, hold, sell, strongSell })
+      let consensus = null;
+      if (d.analystChart && typeof d.analystChart === 'object') {
+        const ac = d.analystChart;
+        const sb = Number(ac.strongBuy) || 0;
+        const b  = Number(ac.buy) || 0;
+        const h  = Number(ac.hold) || 0;
+        const s  = Number(ac.sell) || 0;
+        const ss = Number(ac.strongSell) || 0;
+        const total = sb + b + h + s + ss;
+        if (total > 0) {
+          consensus = {
+            strongBuy: sb, buy: b, hold: h, sell: s, strongSell: ss,
+            total,
+            bullishPct: ((sb + b) / total) * 100,
+          };
+        }
+      }
+
+      const fundamentals = {
+        marketCap: parseNumericValue(d.marketCap),
+        revenue: parseNumericValue(d.revenue),
+        netIncome: parseNumericValue(d.netIncome),
+        sharesOut: parseNumericValue(d.sharesOut),
+        eps: parseNumericValue(d.eps),
+        peRatio: parseNumericValue(d.peRatio),
+        forwardPE: parseNumericValue(d.forwardPE),
+        dividendYield,
+        beta: parseNumericValue(d.beta),
+        targetMeanPrice: targetPrice,
+        recommendationKey: d.analysts ? String(d.analysts).toLowerCase() : null,
+        earningsDate: d.earningsDate || null,
+        exDividendDate: d.exDividendDate || null,
+      };
+
+      return {
+        fundamentals,
+        consensus,
+        profile: {
+          name: info['Name'] || info['Company'] || d.companyName || null,
+          sector: info['Sector'] || null,
+          industry: info['Industry'] || null,
+          country: info['Country'] || null,
+          website: info['Website'] || null,
+          exchange: info['Stock Exchange'] || null,
+          employees: parseNumericValue(info['Employees']),
+          description: d.description || null,
+        },
+      };
+    } catch (e) {
+      console.error('stockanalysis overview error:', ticker, path, e.message || e);
+    }
+  }
+  return empty;
+}
+
+// ============================================================
+// YAHOO FINANCE : crumb + cookie (pour quoteSummary) [DEPRECATED mais conserve en fallback]
+// Depuis 2024, Yahoo exige un "crumb" CSRF + cookie de session.
+// On le met en cache KV 6h pour eviter un roundtrip a chaque requete.
+// ============================================================
+async function getYahooSession(env, forceRefresh = false) {
+  const KEY = 'yahoo-session-v1';
+  if (!forceRefresh) {
+    const cached = await env.CACHE.get(KEY, 'json');
+    if (cached && cached.cookie && cached.crumb && (Date.now() - cached.at) < 6 * 3600 * 1000) {
+      return cached;
+    }
+  }
+  // Timeout helper pour eviter de faire trainer la requete si Yahoo est lent
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+  ]);
   try {
+    // Etape 1 : poser un cookie A3 via fc.yahoo.com (endpoint technique)
+    const cookieResp = await withTimeout(fetch('https://fc.yahoo.com/', {
+      headers: { 'User-Agent': YAHOO_UA },
+      redirect: 'manual',
+    }), 4000);
+    const setCookie = cookieResp.headers.get('set-cookie') || '';
+    const cookie = setCookie.split(',').map(c => c.split(';')[0].trim()).filter(c => c.includes('=')).join('; ');
+    if (!cookie) return { cookie: '', crumb: '' };
+
+    // Etape 2 : obtenir le crumb
+    const crumbResp = await withTimeout(fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+      headers: { 'User-Agent': YAHOO_UA, 'Cookie': cookie, 'Accept': 'text/plain' },
+    }), 4000);
+    if (!crumbResp.ok) return { cookie, crumb: '' };
+    const crumb = (await crumbResp.text()).trim();
+    const session = { cookie, crumb, at: Date.now() };
+    try {
+      await env.CACHE.put(KEY, JSON.stringify(session), { expirationTtl: 6 * 3600 });
+    } catch {}
+    return session;
+  } catch (e) {
+    console.error('Yahoo session error:', e.message || e);
+    return { cookie: '', crumb: '' };
+  }
+}
+
+// ============================================================
+// YAHOO FINANCE : fondamentaux (quoteSummary avec crumb)
+// ============================================================
+async function fetchYahooFundamentals(ticker, env) {
+  const empty = { profile: {}, stats: {} };
+
+  async function doFetch(session) {
     const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,price';
-    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=${modules}`;
-    const resp = await fetch(url, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=${modules}&crumb=${encodeURIComponent(session.crumb || '')}`;
+    const headers = { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' };
+    if (session.cookie) headers['Cookie'] = session.cookie;
+    return fetch(url, { headers });
+  }
+
+  try {
+    let session = await getYahooSession(env);
+    let resp = await doFetch(session);
+
+    // Si 401 Invalid Crumb, on refresh et on reessaie une fois
+    if (resp.status === 401 || resp.status === 403) {
+      session = await getYahooSession(env, true);
+      resp = await doFetch(session);
+    }
     if (!resp.ok) return empty;
     const json = await resp.json();
     const r = json.quoteSummary && json.quoteSummary.result && json.quoteSummary.result[0];
@@ -529,17 +716,16 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
 
   // --- VALUATION (0-10) ---
   let valScore = 5;
-  const stats = (fundamentals && fundamentals.stats) || {};
+  const stats = fundamentals || {};
   if (stats.peRatio && stats.peRatio > 0) {
     if (stats.peRatio < 15) valScore += 3;
     else if (stats.peRatio < 25) valScore += 1;
     else if (stats.peRatio > 40) valScore -= 2;
   }
-  if (stats.pbRatio && stats.pbRatio < 2) valScore += 2;
-  else if (stats.pbRatio && stats.pbRatio > 5) valScore -= 1;
+  if (stats.forwardPE && stats.peRatio && stats.forwardPE < stats.peRatio) valScore += 1;
   breakdown.valuation.score = Math.max(0, Math.min(10, Math.round(valScore)));
   breakdown.valuation.detail = stats.peRatio
-    ? `P/E ${stats.peRatio.toFixed(1)}${stats.pbRatio ? `, P/B ${stats.pbRatio.toFixed(1)}` : ''}`
+    ? `P/E ${stats.peRatio.toFixed(1)}${stats.forwardPE ? `, Fwd ${stats.forwardPE.toFixed(1)}` : ''}`
     : 'P/E indisponible';
 
   // --- ANALYST CONSENSUS (0-10) ---
@@ -547,8 +733,8 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   if (consensus && consensus.total > 0) {
     const bullish = consensus.bullishPct || 0;
     anaScore = Math.round(bullish / 10); // 0..10
-  } else if (stats.numberOfAnalystOpinions && stats.targetMeanPrice && price && price.current) {
-    // Fallback : Yahoo target vs prix
+  } else if (stats.targetMeanPrice && price && price.current) {
+    // Fallback : target stockanalysis vs prix
     const upside = ((stats.targetMeanPrice - price.current) / price.current) * 100;
     if (upside > 20) anaScore = 9;
     else if (upside > 10) anaScore = 7;
