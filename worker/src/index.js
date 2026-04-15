@@ -278,14 +278,17 @@ async function handleSitemap(env) {
     // Limite raisonnable pour Googlebot
     tickers = tickers.slice(0, 1000);
 
-    // URL de base du Worker (sitemap same-origin - Sitemaps.org spec)
-    const WORKER = 'https://kairos-insider-api.natquinson.workers.dev';
+    // URL de base branded (worker monte sur kairosinsider.fr via routes)
+    const SITE = 'https://kairosinsider.fr';
 
     const urls = [];
+    // Pages principales (home + liste tickers visible dans action.html)
+    urls.push(`<url><loc>${SITE}/</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>`);
+
     // Une URL SSR par ticker (pre-rendu par le Worker = indexable sans JS)
     for (const t of tickers) {
       const tk = encodeURIComponent(t.ticker);
-      urls.push(`<url><loc>${WORKER}/a/${tk}</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
+      urls.push(`<url><loc>${SITE}/a/${tk}</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
@@ -383,8 +386,8 @@ async function handleActionSSR(rawTicker, env) {
   const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). ${totalInsiderTx} transactions insiders, ${totalFunds} hedge funds 13F. Cours : ${fmtCurrSsr(price, currency)}.`;
   // URL du dashboard (pour les CTA "Voir l'analyse complete")
   const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
-  // Canonical = self (SSR) car c'est cette URL qu'on veut voir indexee
-  const canonical = `https://kairos-insider-api.natquinson.workers.dev/a/${encodeURIComponent(ticker)}`;
+  // Canonical = URL brande (Worker route sur kairosinsider.fr/a/*)
+  const canonical = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
 
   // Schema.org JSON-LD
   const schema = {

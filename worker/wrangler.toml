@@ -2,6 +2,24 @@ name = "kairos-insider-api"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# Routes Workers attachees a kairosinsider.fr (domaine dans le meme compte Cloudflare)
+# - /a/*        : pages SSR publiques pour bots SEO + sociaux
+# - /sitemap.xml : sitemap dynamique (overrides le statique de GitHub Pages)
+# - /robots.txt  : robots.txt dynamique (overrides le statique de GitHub Pages)
+# Tout le reste (index.html, action.html, dashboard.html, CSS, assets) continue
+# d'etre servi par GitHub Pages via le proxy Cloudflare.
+[[routes]]
+pattern = "kairosinsider.fr/a/*"
+zone_name = "kairosinsider.fr"
+
+[[routes]]
+pattern = "kairosinsider.fr/sitemap.xml"
+zone_name = "kairosinsider.fr"
+
+[[routes]]
+pattern = "kairosinsider.fr/robots.txt"
+zone_name = "kairosinsider.fr"
+
 [vars]
 BREVO_TEMPLATE_ID = "1"
 BREVO_SENDER_NAME = "Kairos Insider"
