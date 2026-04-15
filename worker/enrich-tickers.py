@@ -1,5 +1,6 @@
 """
-Enrichit transactions_bafin.json en resolvant l'ISIN vers le ticker via OpenFIGI.
+Enrichit transactions_bafin.json ET transactions_amf.json en resolvant l'ISIN vers
+le ticker via OpenFIGI.
 
 OpenFIGI API (gratuit, sans cle):
 - POST https://api.openfigi.com/v3/mapping
@@ -10,7 +11,7 @@ Cache persistant dans `isin_ticker_cache.json` pour eviter de re-requeter les me
 aux prochains runs quotidiens.
 
 Priorite de selection quand OpenFIGI renvoie plusieurs tickers pour un ISIN:
-  1. Match sur marche principal (XETR pour DE, LSE pour GB, ...)
+  1. Match sur marche principal (XETR pour DE, LSE pour GB, EPA/XPAR pour FR, ...)
   2. Premier match avec un ticker non-vide
 """
 import json
@@ -122,19 +123,38 @@ def query_openfigi(batch):
     return out
 
 
-def main():
-    # Charge les transactions BaFin
-    if not os.path.exists('transactions_bafin.json'):
-        print('ERROR: transactions_bafin.json introuvable')
-        return
-    with open('transactions_bafin.json', 'r', encoding='utf-8') as f:
+def enrich_file(path, label):
+    """Charge un fichier JSON (BaFin ou AMF), retourne (data, txs) ou (None, None)."""
+    if not os.path.exists(path):
+        print(f'  {path} introuvable, skip ({label})')
+        return None, None
+    with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     txs = data.get('transactions', [])
-    print(f'Transactions BaFin chargees: {len(txs)}')
+    print(f'Transactions {label} chargees: {len(txs)}')
+    return data, txs
 
-    # Collecte les ISIN uniques non-vides
-    all_isins = sorted({t.get('isin', '') for t in txs if t.get('isin')})
-    print(f'ISIN uniques: {len(all_isins)}')
+
+def main():
+    # Charge toutes les sources a enrichir (BaFin + AMF)
+    sources = []
+    for path, label in [('transactions_bafin.json', 'BaFin'), ('transactions_amf.json', 'AMF')]:
+        data, txs = enrich_file(path, label)
+        if data is not None:
+            sources.append((path, label, data, txs))
+
+    if not sources:
+        print('ERROR: aucune source a enrichir')
+        return
+
+    # Collecte les ISIN uniques non-vides sur toutes les sources
+    all_isins = sorted({
+        t.get('isin', '')
+        for _, _, _, txs in sources
+        for t in txs
+        if t.get('isin')
+    })
+    print(f'ISIN uniques (toutes sources) : {len(all_isins)}')
 
     # Cache
     cache = load_cache()
@@ -159,27 +179,25 @@ def main():
         if idx + BATCH_SIZE < len(to_resolve):
             time.sleep(RATE_LIMIT_SLEEP)
 
-    # Enrichit les transactions
-    enriched = 0
-    for t in txs:
-        isin = t.get('isin', '')
-        if not isin:
-            continue
-        ticker = cache.get(isin)
-        if ticker and not t.get('ticker'):
-            t['ticker'] = ticker
-            enriched += 1
+    # Enrichit les transactions de chaque source et reecrit les fichiers
+    for path, label, data, txs in sources:
+        enriched = 0
+        for t in txs:
+            isin = t.get('isin', '')
+            if not isin:
+                continue
+            ticker = cache.get(isin)
+            if ticker and not t.get('ticker'):
+                t['ticker'] = ticker
+                enriched += 1
 
-    print(f'\nTickers enrichis: {enriched} / {len(txs)}')
+        with_ticker = sum(1 for t in txs if t.get('ticker'))
+        pct = (100 * with_ticker // len(txs)) if txs else 0
+        print(f'\n[{label}] Tickers enrichis : {enriched} / {len(txs)} (total avec ticker : {with_ticker}/{len(txs)} = {pct}%)')
 
-    # Stats par marche (apres enrichissement)
-    with_ticker = sum(1 for t in txs if t.get('ticker'))
-    print(f'Total avec ticker: {with_ticker}/{len(txs)} ({100*with_ticker//len(txs)}%)')
-
-    # Ecrit le fichier enrichi
-    with open('transactions_bafin.json', 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    print(f'Ecrit: transactions_bafin.json ({os.path.getsize("transactions_bafin.json"):,} bytes)')
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f'[{label}] Ecrit : {path} ({os.path.getsize(path):,} bytes)')
 
 
 if __name__ == '__main__':

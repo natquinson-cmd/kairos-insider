@@ -62,18 +62,23 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
 
+      - name: Fetch AMF Declarations dirigeants (FR + Euronext)
+        run: cd worker && python fetch-amf.py
+        timeout-minutes: 10
+        continue-on-error: true
+
       - name: Restore ISIN->ticker cache
         uses: actions/cache@v4
         with:
           path: worker/isin_ticker_cache.json
           key: isin-ticker-cache-v1
 
-      - name: Enrich BaFin transactions with tickers (OpenFIGI)
+      - name: Enrich BaFin + AMF transactions with tickers (OpenFIGI)
         run: cd worker && python enrich-tickers.py
         timeout-minutes: 10
         continue-on-error: true
 
-      - name: Merge sources (SEC + BaFin) into unified transactions_data.json
+      - name: Merge sources (SEC + BaFin + AMF) into unified transactions_data.json
         run: cd worker && python merge-sources.py
         timeout-minutes: 2
 
