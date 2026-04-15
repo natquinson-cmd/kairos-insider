@@ -2046,7 +2046,7 @@
       el.textContent = name || 'trader';
     }
 
-    function fmtNum(n) {
+    function fmtHomeStat(n) {
       if (n == null || isNaN(n)) return '—';
       if (n >= 1000) return Math.round(n / 100) / 10 + 'k';
       return String(Math.round(n));
@@ -2094,19 +2094,19 @@
           const dt = t.date || t.fileDate || '';
           return dt <= today && dt >= cutoff;
         });
-        setText('homeStatInsider', fmtNum(recent.length));
+        setText('homeStatInsider', fmtHomeStat(recent.length));
       });
 
       silentFetch('/api/clusters').then(d => {
         if (!d) { setText('homeStatClusters', '—'); return; }
         const clusters = d.clusters || [];
-        setText('homeStatClusters', fmtNum(clusters.length));
+        setText('homeStatClusters', fmtHomeStat(clusters.length));
       });
 
       silentFetch('/api/13f-funds').then(d => {
         if (!d) { setText('homeStatFunds', '—'); return; }
         const funds = Array.isArray(d) ? d : (d && d.funds) || [];
-        setText('homeStatFunds', fmtNum(funds.length));
+        setText('homeStatFunds', fmtHomeStat(funds.length));
       });
     }
 
