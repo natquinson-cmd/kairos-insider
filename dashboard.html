@@ -1355,12 +1355,74 @@
 
     const AD_TYPES = { 'A': 'Achat', 'D': 'Vente' };
 
+    // Map EN + DE → FR. Les patterns longs sont appliques en premier (tri par longueur decroissante)
+    // pour eviter que "CEO" ne pollue "Chief Executive Officer", etc.
     const POSITIONS = {
-      'CEO': 'PDG', 'CFO': 'DAF', 'COO': 'DG Adjoint', 'CTO': 'Dir. technique',
-      'Director': 'Administrateur', 'VP': 'VP', 'SVP': 'VP Senior',
-      'EVP': 'VP Exécutif', 'Officer': 'Dirigeant', 'General Counsel': 'Dir. juridique',
-      'Secretary': 'Secrétaire général', 'Controller': 'Contrôleur de gestion',
-      'President': 'Président', 'Treasurer': 'Trésorier',
+      // --- Allemand (BaFin / MAR art. 19) ---
+      'Vorsitzender des Aufsichtsrats': 'Président du conseil de surveillance',
+      'Aufsichtsratsvorsitzender': 'Président du conseil de surveillance',
+      'Vorsitzender des Vorstands': 'Président du directoire',
+      'Vorstandsvorsitzender': 'Président du directoire',
+      'Sonstige Führungsperson': 'Autre dirigeant',
+      'Stellvertretender Vorsitzender': 'Vice-président',
+      'Vorstandsmitglied': 'Membre du directoire',
+      'Geschäftsführer': 'Gérant',
+      'Aufsichtsrat': 'Conseil de surveillance',
+      'Vorstand': 'Membre du directoire',
+      'in enger Beziehung': 'Personne liée',
+
+      // --- Anglais — formes longues ---
+      'Chief Executive Officer': 'Dir. général',
+      'Chief Financial Officer': 'DAF',
+      'Chief Operating Officer': 'DG Adjoint',
+      'Chief Technology Officer': 'Dir. technique',
+      'Chief Accounting Officer': 'Dir. comptable',
+      'Chief Legal Officer': 'Dir. juridique',
+      'Chief Medical Officer': 'Dir. médical',
+      'Chief Strategy Officer': 'Dir. stratégie',
+      'Chief People Officer': 'DRH',
+      'Chief Human Resources Officer': 'DRH',
+      'Chief Commercial Officer': 'Dir. commercial',
+      'Chief Development Officer': 'Dir. développement',
+      'Chief Marketing Officer': 'Dir. marketing',
+      'Chief Risk Officer': 'Dir. des risques',
+      'Chief Compliance Officer': 'Dir. conformité',
+      'Chief Information Officer': 'DSI',
+      'Chief Security Officer': 'Dir. sécurité',
+      'Chief Revenue Officer': 'Dir. revenus',
+      'Chief Product Officer': 'Dir. produit',
+      'Chief Investment Officer': 'Dir. investissements',
+      'Chief Scientific Officer': 'Dir. scientifique',
+      'Executive Vice President': 'VP Exécutif',
+      'Senior Vice President': 'VP Senior',
+      'Vice President': 'VP',
+      'General Counsel': 'Dir. juridique',
+      'Executive Chairman': 'Président exécutif',
+      'Co-Portfolio Manager': 'Co-gestionnaire',
+      'Portfolio Manager': 'Gestionnaire de portefeuille',
+      'Managing Director': 'Directeur général',
+      'See Remarks': 'Voir remarques',
+
+      // --- Anglais — mots seuls & acronymes ---
+      'Chairperson': 'Président',
+      'Chairman': 'Président',
+      'President': 'Président',
+      'Director': 'Administrateur',
+      'Treasurer': 'Trésorier',
+      'Secretary': 'Secrétaire',
+      'Controller': 'Contrôleur',
+      'Officer': 'Dirigeant',
+      'CEO': 'PDG',
+      'CFO': 'DAF',
+      'COO': 'DG Adjoint',
+      'CTO': 'DT',
+      'CIO': 'DSI',
+      'CMO': 'DM',
+      'EVP': 'VP Exécutif',
+      'SVP': 'VP Senior',
+      'VP': 'VP',
+      'and': 'et',
+      '&': 'et',
     };
 
     // Formatters
@@ -1381,13 +1443,23 @@
       return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
+    // Pre-compile une fois : tri par longueur decroissante + escape regex + \b word boundaries
+    const POSITIONS_SORTED = Object.entries(POSITIONS)
+      .sort((a, b) => b[0].length - a[0].length)
+      .map(([en, fr]) => {
+        const escaped = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // \b marche sur ASCII ; les patterns avec accents (Führungsperson) gardent \b aux extremites ASCII
+        const rx = new RegExp('(^|[^\\p{L}])(' + escaped + ')(?=[^\\p{L}]|$)', 'giu');
+        return { rx, fr };
+      });
+
     function translatePosition(title) {
       if (!title) return '—';
-      let t = title;
-      for (const [en, fr] of Object.entries(POSITIONS)) {
-        t = t.replace(new RegExp(en, 'gi'), fr);
+      let t = title.replace(/&amp;/g, '&');
+      for (const { rx, fr } of POSITIONS_SORTED) {
+        t = t.replace(rx, (m, p1) => p1 + fr);
       }
-      return t.replace(/&amp;/g, '&');
+      return t;
     }
 
     function getTxLabel(code, ad) {
@@ -1825,8 +1897,16 @@
         }
         if (!tickerDisplay) tickerDisplay = '—';
 
+        // Date : la fileDate (declaration officielle) pilote le tri ; on l'affiche en principal,
+        // la date de transaction en sous-ligne si elle differe.
+        const primaryDate = t.fileDate || t.date;
+        const showTxDate = t.date && t.date !== t.fileDate;
+        const dateCell = showTxDate
+          ? `<div>${fmtDate(primaryDate)}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px" title="Date de la transaction">tx : ${fmtDate(t.date)}</div>`
+          : fmtDate(primaryDate);
+
         rows += `<tr>
-          <td>${fmtDate(t.date || t.fileDate)}</td>
+          <td style="white-space:nowrap">${dateCell}</td>
           <td style="white-space:nowrap;text-align:center;font-size:18px" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
           <td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>
           <td style="color:var(--text-primary)">${t.company || '—'}</td>
