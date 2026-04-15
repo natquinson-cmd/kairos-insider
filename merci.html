@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Merci ! Bienvenue dans Kairos Insider Premium</title>
+  <meta name="description" content="Votre abonnement Kairos Insider Premium est actif." />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-primary: #0A0F1E;
+      --bg-card: rgba(255, 255, 255, 0.02);
+      --border: rgba(255, 255, 255, 0.08);
+      --text-primary: #F9FAFB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --accent-blue: #3B82F6;
+      --accent-purple: #8B5CF6;
+      --accent-green: #10B981;
+      --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image:
+        radial-gradient(ellipse at top, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at bottom, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: cover, cover, 60px 60px, 60px 60px;
+      pointer-events: none; z-index: 0;
+    }
+
+    main {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 48px 24px;
+      position: relative; z-index: 1;
+    }
+
+    .thanks-card {
+      max-width: 560px; width: 100%;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      text-align: center;
+    }
+
+    .check-circle {
+      width: 88px; height: 88px;
+      margin: 0 auto 24px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,0.3) 0%, rgba(16,185,129,0.08) 70%);
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid var(--accent-green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .check-circle svg { width: 44px; height: 44px; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+      50% { box-shadow: 0 0 0 20px rgba(16,185,129,0); }
+    }
+
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 36px; font-weight: 700;
+      margin-bottom: 12px; letter-spacing: -0.02em;
+    }
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 16px; margin-bottom: 32px;
+    }
+
+    .features {
+      background: rgba(59,130,246,0.05);
+      border: 1px solid rgba(59,130,246,0.15);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: left;
+      margin-bottom: 32px;
+    }
+    .features-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--accent-blue);
+      margin-bottom: 12px;
+    }
+    .feature-item {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      padding: 6px 0;
+    }
+    .feature-item .check {
+      color: var(--accent-green); font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      padding: 16px 32px;
+      background: var(--gradient-primary);
+      color: #fff;
+      border: none; border-radius: 12px;
+      font-weight: 600; font-size: 15px; font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s;
+      box-shadow: 0 4px 24px rgba(59, 130, 246, 0.3);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
+    }
+
+    .email-info {
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .email-info strong { color: var(--text-secondary); }
+
+    footer {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      position: relative; z-index: 1;
+    }
+    footer a { color: var(--text-muted); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: var(--text-primary); }
+
+    @media (max-width: 560px) {
+      .thanks-card { padding: 32px 24px; }
+      h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <main>
+    <div class="thanks-card">
+      <div class="check-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+
+      <h1>Merci pour votre abonnement !</h1>
+      <p class="subtitle">
+        Votre abonnement <strong style="color:var(--text-primary)">Kairos Insider Premium</strong> est actif.
+        Vous avez maintenant accès à l'ensemble des données Smart Money.
+      </p>
+
+      <div class="features">
+        <div class="features-title">Ce que vous débloquez</div>
+        <div class="feature-item"><span class="check">✓</span> Transactions d'initiés en quasi-temps réel</div>
+        <div class="feature-item"><span class="check">✓</span> Signaux de clusters d'insiders sur 90 jours</div>
+        <div class="feature-item"><span class="check">✓</span> Portefeuilles 13F des hedge funds</div>
+        <div class="feature-item"><span class="check">✓</span> Suivi des ETF Smart Money (NANC, GOP, GURU)</div>
+        <div class="feature-item"><span class="check">✓</span> Import multi-plateforme de votre portefeuille</div>
+      </div>
+
+      <a href="dashboard.html" class="btn">
+        Accéder au Dashboard
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+
+      <p class="email-info">
+        📧 Un email de confirmation a été envoyé à votre adresse.<br>
+        Vous pouvez gérer votre abonnement à tout moment depuis votre espace personnel.
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2026 Kairos Insider —
+      <a href="legal.html">Mentions légales</a>·
+      <a href="cgv.html">CGV</a>·
+      <a href="privacy.html">Confidentialité</a>·
+      <a href="mailto:contact@kairosinsider.fr">Contact</a>
+    </p>
+  </footer>
+
+  <script>
+    // Confetti leger au chargement
+    (function(){
+      const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899'];
+      for (let i = 0; i < 40; i++) {
+        const c = document.createElement('div');
+        c.style.cssText = `position:fixed;top:-10px;left:${Math.random()*100}%;width:8px;height:8px;background:${colors[i%colors.length]};border-radius:50%;pointer-events:none;z-index:1000;animation:fall ${2+Math.random()*2}s linear ${Math.random()*0.5}s forwards;`;
+        document.body.appendChild(c);
+      }
+      const style = document.createElement('style');
+      style.textContent = '@keyframes fall { 0%{transform:translateY(0) rotate(0)} 100%{transform:translateY(100vh) rotate(720deg); opacity:0} }';
+      document.head.appendChild(style);
+      setTimeout(() => document.querySelectorAll('[style*="animation:fall"]').forEach(e => e.remove()), 5000);
+    })();
+  </script>
+
+</body>
+</html>

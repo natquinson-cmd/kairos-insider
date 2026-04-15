@@ -180,7 +180,7 @@ async function handleCreateCheckout(request, env, user, origin) {
       'customer_email': user.email,
       'line_items[0][price]': env.STRIPE_PRICE_ID,
       'line_items[0][quantity]': '1',
-      'success_url': body.successUrl || `${env.ALLOWED_ORIGIN}/dashboard.html?checkout=success`,
+      'success_url': body.successUrl || `${env.ALLOWED_ORIGIN}/merci.html?session_id={CHECKOUT_SESSION_ID}`,
       'cancel_url': body.cancelUrl || `${env.ALLOWED_ORIGIN}/dashboard.html?checkout=cancelled`,
       'subscription_data[metadata][firebase_uid]': user.uid,
     });
@@ -235,6 +235,14 @@ async function handleStripeWebhook(request, env) {
           priceId: env.STRIPE_PRICE_ID,
         }));
         console.log(`Subscription created for uid: ${uid}, status: ${sub.status}`);
+
+        // Email de bienvenue Premium via Brevo (one-shot, best-effort)
+        const recipientEmail = session.customer_details?.email || session.customer_email;
+        if (recipientEmail) {
+          sendPremiumWelcomeEmail(recipientEmail, env).catch(e =>
+            console.error('Welcome email failed:', e)
+          );
+        }
       }
     }
 
@@ -327,6 +335,68 @@ async function handleCustomerPortal(request, env, user, origin) {
 // ============================================================
 // BREVO : Email de bienvenue (route publique)
 // ============================================================
+// ============================================================
+// BREVO : Email de bienvenue Premium (apres checkout Stripe)
+// Envoye en inline HTML pour ne pas dependre d'un template Brevo
+// ============================================================
+async function sendPremiumWelcomeEmail(email, env) {
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background:#0A0F1E; margin:0; padding:0; color:#F9FAFB; }
+.wrap { max-width:580px; margin:0 auto; padding:32px 20px; }
+.card { background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:40px 32px; }
+.logo { font-family:'Space Grotesk', Arial, sans-serif; font-size:22px; font-weight:700; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); -webkit-background-clip:text; color:transparent; margin-bottom:24px; }
+h1 { font-size:28px; margin:0 0 16px; color:#F9FAFB; line-height:1.2; font-weight:700; }
+p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
+.btn { display:inline-block; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); color:#fff !important; padding:14px 28px; border-radius:10px; text-decoration:none; font-weight:600; font-size:15px; margin:16px 0; }
+.features { background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:12px; padding:20px; margin:24px 0; }
+.features li { margin:8px 0; color:#9CA3AF; font-size:14px; }
+.footer { text-align:center; color:#6B7280; font-size:12px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05); }
+.footer a { color:#6B7280; text-decoration:none; margin:0 8px; }
+</style></head>
+<body><div class="wrap"><div class="card">
+<div class="logo">Kairos Insider</div>
+<h1>Bienvenue dans Kairos Insider Premium 🎉</h1>
+<p>Votre abonnement est actif. Vous avez maintenant acces a l'ensemble du Smart Money Dashboard :</p>
+<div class="features"><ul>
+  <li>✓ Transactions d'inities en quasi-temps reel (SEC Form 4)</li>
+  <li>✓ Signaux de clusters d'insiders sur 90 jours</li>
+  <li>✓ Portefeuilles 13F des plus grands hedge funds</li>
+  <li>✓ Suivi des ETF Smart Money (NANC, GOP, GURU)</li>
+  <li>✓ Import multi-plateforme de votre portefeuille personnel</li>
+</ul></div>
+<p style="text-align:center"><a href="https://kairosinsider.fr/dashboard.html" class="btn">Acceder au Dashboard →</a></p>
+<p>Votre facture est disponible dans votre portail Stripe, et vous pouvez annuler votre abonnement a tout moment. Une question ? Repondez simplement a cet email.</p>
+<p>Bonnes analyses,<br/><strong style="color:#F9FAFB">L'equipe Kairos Insider</strong></p>
+<div class="footer">
+  <p style="margin:0">Kairos Insider — Voyez ce que les pros voient.</p>
+  <p style="margin:8px 0 0"><a href="https://kairosinsider.fr/cgv.html">CGV</a>·<a href="https://kairosinsider.fr/privacy.html">Confidentialite</a>·<a href="https://kairosinsider.fr/legal.html">Mentions legales</a></p>
+</div>
+</div></div></body></html>`;
+
+  const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+      to: [{ email }],
+      subject: 'Bienvenue dans Kairos Insider Premium 🎉',
+      htmlContent: html,
+      replyTo: { email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr', name: 'Kairos Insider' },
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Brevo ${resp.status}: ${errText}`);
+  }
+  console.log(`Welcome email sent to ${email}`);
+}
+
 async function handleSendWelcome(request, env, origin) {
   try {
     const body = await request.json();
