@@ -57,6 +57,15 @@ jobs:
         run: cd worker && python prefetch-all.py
         timeout-minutes: 20
 
+      - name: Fetch BaFin Directors' Dealings (DE)
+        run: cd worker && python fetch-bafin.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Merge sources (SEC + BaFin) into unified transactions_data.json
+        run: cd worker && python merge-sources.py
+        timeout-minutes: 2
+
       - name: Upload Transactions + Clusters to KV
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

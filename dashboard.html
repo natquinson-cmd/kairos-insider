@@ -946,11 +946,11 @@
 
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page active" id="section-insider">
-        <h2>Transactions Insiders (Form 4)</h2>
-        <p class="section-desc">Achats et ventes des dirigeants d'entreprises US — donnees officielles SEC, mises a jour en temps reel.</p>
+        <h2>Transactions Insiders</h2>
+        <p class="section-desc">Achats et ventes des dirigeants — donnees officielles SEC (US, Form 4) et BaFin (Allemagne, MAR art. 19), mises a jour quotidiennement.</p>
 
         <div class="search-bar">
-          <input type="text" id="searchInsider" placeholder="Rechercher un ticker ou une entreprise (ex: AAPL, Tesla, NVDA)..." onkeydown="if(event.key==='Enter') searchInsider()" />
+          <input type="text" id="searchInsider" placeholder="Rechercher ticker, ISIN ou entreprise (ex: AAPL, Siemens, DE0007100000)..." onkeydown="if(event.key==='Enter') searchInsider()" />
           <button class="btn-search" onclick="searchInsider()">Rechercher</button>
           <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" style="display:none">Effacer</button>
         </div>
@@ -970,6 +970,14 @@
               <button class="period-btn active" data-type="all" onclick="selectType('all')">Tous</button>
               <button class="period-btn" data-type="buy" onclick="selectType('buy')" style="color:var(--accent-green)">Achats</button>
               <button class="period-btn" data-type="sell" onclick="selectType('sell')" style="color:var(--accent-red)">Ventes</button>
+            </div>
+          </div>
+          <div class="period-selector" style="margin-bottom:0">
+            <span class="period-label">Marché :</span>
+            <div class="period-buttons">
+              <button class="period-btn active" data-market="all" onclick="selectMarket('all')">Tous</button>
+              <button class="period-btn" data-market="US" onclick="selectMarket('US')">🇺🇸 US</button>
+              <button class="period-btn" data-market="DE" onclick="selectMarket('DE')">🇩🇪 DE</button>
             </div>
           </div>
         </div>
@@ -1357,7 +1365,10 @@
 
     // Formatters
     const fmtNum = (n) => n != null ? new Intl.NumberFormat('fr-FR').format(n) : '—';
-    const fmtCur = (n) => n != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n) : '—';
+    const fmtCur = (n, currency = 'USD') => n != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n) : '—';
+    // Badge drapeau marché (US/DE + extensibilité future)
+    const MARKET_FLAGS = { US: '🇺🇸', DE: '🇩🇪', FR: '🇫🇷', UK: '🇬🇧' };
+    const fmtMarket = (market) => MARKET_FLAGS[market] || MARKET_FLAGS.US;
     const fmtDate = (s) => {
       if (!s) return '—';
       const d = new Date(s + 'T00:00:00');
@@ -1642,6 +1653,7 @@
     let totalTrades = 0;
     let currentDays = 30;
     let currentType = 'all'; // 'all', 'buy', 'sell'
+    let currentMarket = 'all'; // 'all', 'US', 'DE'
 
     // ============================================================
     // PERIOD SELECTOR
@@ -1660,6 +1672,15 @@
       currentPage = 0;
       document.querySelectorAll('[data-type]').forEach(b =>
         b.classList.toggle('active', b.dataset.type === type)
+      );
+      renderInsiderPage();
+    }
+
+    function selectMarket(market) {
+      currentMarket = market;
+      currentPage = 0;
+      document.querySelectorAll('[data-market]').forEach(b =>
+        b.classList.toggle('active', b.dataset.market === market)
       );
       renderInsiderPage();
     }
@@ -1739,10 +1760,11 @@
     function getFilteredInsiderTx() {
       let txs = allInsiderTx;
 
-      // Filtre recherche
+      // Filtre recherche (ticker, ISIN, company, insider)
       if (insiderSearchQuery) {
         txs = txs.filter(t =>
           (t.ticker || '').toUpperCase().includes(insiderSearchQuery) ||
+          (t.isin || '').toUpperCase().includes(insiderSearchQuery) ||
           (t.company || '').toUpperCase().includes(insiderSearchQuery) ||
           (t.insider || '').toUpperCase().includes(insiderSearchQuery)
         );
@@ -1757,6 +1779,11 @@
       // Filtre type (achat/vente)
       if (currentType !== 'all') {
         txs = txs.filter(t => t.type === currentType);
+      }
+
+      // Filtre marche (US / DE / ...). Les anciennes tx sans 'market' sont considerees US.
+      if (currentMarket !== 'all') {
+        txs = txs.filter(t => (t.market || 'US') === currentMarket);
       }
 
       return txs;
@@ -1781,16 +1808,27 @@
           : t.type === 'sell' ? '<span class="pill sell">VENTE</span>'
           : '<span class="pill other">AUTRE</span>';
 
+        // Marché / devise (défaut US/USD pour les anciennes transactions SEC non taguées)
+        const market = t.market || 'US';
+        const currency = t.currency || 'USD';
+        const flag = fmtMarket(market);
+        // Pour DE, le ticker est souvent vide : on affiche l'ISIN court à la place (ex: DE000A1RFMZ1 -> DE..FMZ1)
+        let tickerDisplay = t.ticker || '';
+        if (!tickerDisplay && t.isin) {
+          tickerDisplay = t.isin.length > 8 ? `${t.isin.slice(0, 2)}..${t.isin.slice(-4)}` : t.isin;
+        }
+        if (!tickerDisplay) tickerDisplay = '—';
+
         rows += `<tr>
           <td>${fmtDate(t.date || t.fileDate)}</td>
-          <td class="ticker">${t.ticker || '—'}</td>
+          <td class="ticker" title="${market}${t.isin ? ' · ' + t.isin : ''}">${flag} ${tickerDisplay}</td>
           <td style="color:var(--text-primary)">${t.company || '—'}</td>
           <td>${t.insider || '—'}</td>
           <td>${translatePosition(t.title)}</td>
           <td>${typeLabel}</td>
           <td style="text-align:right">${fmtNum(t.shares)}</td>
-          <td style="text-align:right">${t.price > 0 ? fmtCur(t.price) : '—'}</td>
-          <td style="text-align:right;font-weight:600">${t.value > 0 ? fmtCurShort(t.value) : '—'}</td>
+          <td style="text-align:right">${t.price > 0 ? fmtCur(t.price, currency) : '—'}</td>
+          <td style="text-align:right;font-weight:600">${t.value > 0 ? fmtCurShort(t.value, currency) : '—'}</td>
         </tr>`;
       }
 
@@ -1987,13 +2025,18 @@
       }
     }
 
-    // Format AUM en notation courte (ex: $274 Md)
-    function fmtCurShort(n) {
-      if (n >= 1e12) return `$${(n / 1e12).toFixed(1)} T`;
-      if (n >= 1e9) return `$${(n / 1e9).toFixed(1)} Md`;
-      if (n >= 1e6) return `$${(n / 1e6).toFixed(0)} M`;
-      if (n >= 1e3) return `$${(n / 1e3).toFixed(0)} k`;
-      return `$${n}`;
+    // Format notation courte (ex: $274 Md ou 274 Md €). Symbole par devise.
+    function fmtCurShort(n, currency = 'USD') {
+      const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+      // USD : prefixe $, EUR : suffixe €
+      const place = currency === 'USD' ? 'prefix' : 'suffix';
+      let val;
+      if (n >= 1e12) val = `${(n / 1e12).toFixed(1)} T`;
+      else if (n >= 1e9) val = `${(n / 1e9).toFixed(1)} Md`;
+      else if (n >= 1e6) val = `${(n / 1e6).toFixed(0)} M`;
+      else if (n >= 1e3) val = `${(n / 1e3).toFixed(0)} k`;
+      else val = `${n}`;
+      return place === 'prefix' ? `${sym}${val}` : `${val} ${sym}`;
     }
 
     // ============================================================

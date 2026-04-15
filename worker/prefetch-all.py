@@ -5,10 +5,14 @@ Produit 2 fichiers :
   - clusters_data.json : clusters d'insiders (pour l'onglet Signaux)
 Les 2 onglets utilisent exactement les memes filings.
 """
-import json, re, time, urllib.request, subprocess
+import json, re, time, urllib.request, subprocess, sys, os
 from datetime import datetime, timedelta
 
 UA = 'KairosInsider contact@kairosinsider.fr'
+
+# --force (CLI flag) ou FORCE_FULL=1 (env var) : ignore l'historique et refetch les 90 jours complets.
+# Utile apres un fix du pipeline (ex: pagination bumpee) pour backfiller d'anciens jours tronques.
+FORCE_FULL = '--force' in sys.argv or os.environ.get('FORCE_FULL') == '1'
 
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent': UA})
@@ -103,7 +107,13 @@ except:
 existing_file_dates = sorted({t.get('fileDate', '') for t in existing_tx if t.get('fileDate')}, reverse=True)
 latest_existing = existing_file_dates[0] if existing_file_dates else ''
 
-if latest_existing:
+if FORCE_FULL:
+    # Backfill force : on refetch les 90 jours, et on IGNORE l'historique existant
+    # (les transactions seront reconstruites from scratch, sans doublons)
+    fetch_days = DAYS
+    existing_tx = []  # force la reconstruction complete
+    print(f'Fetch FORCE FULL: {fetch_days} jours (historique ignore)')
+elif latest_existing:
     # Refetch depuis 2 jours avant le latest existing (overlap pour les late-filings)
     from_date = datetime.strptime(latest_existing, '%Y-%m-%d') - timedelta(days=2)
     fetch_days = (now - from_date).days + 1

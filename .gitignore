@@ -20,3 +20,21 @@ Thumbs.db
 # Secrets (au cas où)
 .env
 .env.local
+API Brevo.txt
+brevo-template.json
+*.secret
+
+# Wrangler local state
+worker/.wrangler/
+
+# Données générées (régénérées par les scripts/workflows)
+worker/transactions_data.json
+worker/transactions_bafin.json
+worker/clusters_data.json
+worker/funds_data.json
+worker/etf_*.json
+worker/etf_*.csv
+
+# Backups locaux
+*.bak
+
