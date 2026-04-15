@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard.html
+Disallow: /merci.html
+
+# Sitemap dynamique genere par le Cloudflare Worker.
+# Liste tous les tickers couverts avec leur URL publique /action.html?ticker=X
+Sitemap: https://kairos-insider-api.natquinson.workers.dev/sitemap.xml
+
+# Bots IA : autorises pour l'indexation semantique
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /

@@ -2621,6 +2621,32 @@
       }
     }
 
+    // Copie l'URL publique de partage (action.html?ticker=X) dans le presse-papier.
+    // Accessible aux bots Google = trafic organique. Utilisateur peut partager sur reseaux sociaux.
+    async function shareStockAnalysis(ticker) {
+      if (!ticker) return;
+      const url = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
+      const label = document.getElementById(`shareBtnLabel-${ticker}`);
+      const reset = (txt) => { if (label) setTimeout(() => { label.textContent = txt; }, 2000); };
+      try {
+        // Web Share API (mobile) si dispo
+        if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+          await navigator.share({
+            title: `Analyse ${ticker} — Kairos Insider`,
+            text: `Kairos Score et analyse smart money de ${ticker}`,
+            url,
+          });
+          return;
+        }
+        await navigator.clipboard.writeText(url);
+        if (label) { label.textContent = '✓ Lien copié !'; reset('Partager'); }
+      } catch (e) {
+        // Fallback : prompt classique
+        window.prompt('Copie ce lien pour partager l\'analyse :', url);
+        if (label) { label.textContent = 'Partager'; }
+      }
+    }
+
     function renderStockAnalysis(d) {
       const body = document.getElementById('stockAnalysisBody');
       const price = d.price || {};
@@ -2672,6 +2698,12 @@
               <h1 style="margin:0;font-size:32px">${d.ticker}</h1>
               ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
               ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
+              <button onclick="shareStockAnalysis('${d.ticker}')" title="Copier le lien public de partage"
+                      style="margin-left:auto;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
+                      onmouseover="this.style.borderColor='var(--accent-blue)';this.style.background='rgba(59,130,246,0.08)'"
+                      onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-2)'">
+                <span>🔗</span><span id="shareBtnLabel-${d.ticker}">Partager</span>
+              </button>
             </div>
             <div style="font-size:18px;opacity:0.9;margin-bottom:4px">${company.name || ''}</div>
             <div style="font-size:13px;opacity:0.6;margin-bottom:14px">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>

@@ -59,6 +59,16 @@ export default {
       return handlePublicTickersList(env, origin);
     }
 
+    // Sitemap XML dynamique (SEO - Googlebot)
+    if (request.method === 'GET' && path === '/sitemap.xml') {
+      return handleSitemap(env);
+    }
+
+    // robots.txt (SEO)
+    if (request.method === 'GET' && path === '/robots.txt') {
+      return handleRobotsTxt(env);
+    }
+
     // ==========================================
     // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
     // ==========================================
@@ -228,6 +238,90 @@ async function handlePublicTickersList(env, origin) {
   } catch (e) {
     return jsonResponse({ error: 'Failed to build tickers list', detail: String(e && e.message || e) }, 500, origin);
   }
+}
+
+// ============================================================
+// SITEMAP XML dynamique (SEO - listes les analyses publiques)
+// ============================================================
+async function handleSitemap(env) {
+  try {
+    const SITE = 'https://kairosinsider.fr';
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Recupere la liste des tickers depuis le cache KV
+    let tickers = [];
+    try {
+      const cached = await env.CACHE.get('public-tickers-list', 'json');
+      if (cached && Array.isArray(cached.tickers)) {
+        tickers = cached.tickers;
+      } else {
+        // Reconstruit a la volee si le cache est vide
+        const tx = await env.CACHE.get('insider-transactions', 'json');
+        const set = new Map();
+        if (tx && Array.isArray(tx.transactions)) {
+          for (const t of tx.transactions) {
+            const tk = (t.ticker || '').trim().toUpperCase();
+            if (!tk || !/^[A-Z0-9.\-]{1,6}$/.test(tk)) continue;
+            if (!set.has(tk)) set.set(tk, { ticker: tk });
+          }
+        }
+        tickers = Array.from(set.values());
+      }
+    } catch (_) { tickers = []; }
+
+    // Limite raisonnable pour Googlebot
+    tickers = tickers.slice(0, 1000);
+
+    const urls = [];
+    // Pages statiques principales
+    urls.push(`<url><loc>${SITE}/</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>`);
+    urls.push(`<url><loc>${SITE}/dashboard.html</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.9</priority></url>`);
+
+    // Une URL par ticker (analyse publique SEO)
+    for (const t of tickers) {
+      const tk = encodeURIComponent(t.ticker);
+      urls.push(`<url><loc>${SITE}/action.html?ticker=${tk}</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+
+    return new Response(xml, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (e) {
+    return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`, {
+      status: 200,
+      headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+    });
+  }
+}
+
+// ============================================================
+// ROBOTS.TXT (SEO)
+// ============================================================
+async function handleRobotsTxt(env) {
+  const body = [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /api/',
+    'Disallow: /stripe/',
+    '',
+    'Sitemap: https://kairos-insider-api.natquinson.workers.dev/sitemap.xml',
+    '',
+  ].join('\n');
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 // ============================================================
