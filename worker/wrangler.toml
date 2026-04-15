@@ -2,6 +2,10 @@ name = "kairos-insider-api"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# Garde l'URL *.workers.dev active en parallele des routes brandees
+# (le dashboard appelle kairos-insider-api.natquinson.workers.dev pour les /api/*)
+workers_dev = true
+
 # Routes Workers attachees a kairosinsider.fr (domaine dans le meme compte Cloudflare)
 # - /a/*        : pages SSR publiques pour bots SEO + sociaux
 # - /sitemap.xml : sitemap dynamique (overrides le statique de GitHub Pages)
