@@ -2063,7 +2063,7 @@
       body.innerHTML = `<div style="text-align:center;padding:60px 20px;opacity:0.7"><div style="font-size:32px;margin-bottom:12px">⏳</div><p>Analyse en cours pour <strong>${ticker}</strong>...</p></div>`;
 
       try {
-        const data = await fetchAuth(`${API_BASE}/api/stock/${encodeURIComponent(ticker)}`);
+        const data = await apiFetch(`/api/stock/${encodeURIComponent(ticker)}`);
         renderStockAnalysis(data);
       } catch (e) {
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
