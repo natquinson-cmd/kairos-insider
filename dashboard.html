@@ -895,6 +895,15 @@
       <button class="sidebar-toggle" onclick="toggleSidebar()" title="Replier/Deplier">&#9776;</button>
 
       <div class="sidebar-section">
+        <div class="sidebar-title">Analyse</div>
+        <button class="sidebar-item" data-section="stockAnalysis" data-premium="true" onclick="switchSection('stockAnalysis')">
+          <span class="sidebar-icon">🔎</span>
+          <span>Analyse action</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section">
         <div class="sidebar-title">Smart Money</div>
         <button class="sidebar-item active" data-section="insider" data-premium="true" onclick="switchSection('insider')">
           <span class="sidebar-icon">📋</span>
@@ -943,6 +952,26 @@
     <!-- MAIN CONTENT -->
     <main class="main">
       <div class="container">
+
+      <!-- ===== SECTION: ANALYSE ACTION (ticker deep-dive) ===== -->
+      <div class="section-page" id="section-stockAnalysis">
+        <h2>Analyse action</h2>
+        <p class="section-desc">Cherche un ticker et obtiens une analyse complete : insiders, hedge funds (13F), ETF politiciens/gurus, prix, fondamentaux, news — le tout synthetise en un <strong>Kairos Score</strong> de 0 a 100.</p>
+
+        <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;">
+          <input id="stockSearchInput" type="text" placeholder="Ticker (ex. AAPL, MSFT, ASML, MC.PA)..." autocomplete="off"
+                 style="width:100%;padding:14px 18px;font-size:16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;outline:none;">
+          <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1a1d2e;border:1px solid rgba(255,255,255,0.15);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100"></div>
+        </div>
+
+        <div id="stockAnalysisBody">
+          <div style="text-align:center;padding:60px 20px;opacity:0.6">
+            <div style="font-size:48px;margin-bottom:12px">🔎</div>
+            <p>Recherche un ticker pour afficher l'analyse complete</p>
+            <p style="font-size:13px;margin-top:8px;opacity:0.7">Essaye : <a href="#" onclick="loadStockAnalysis('AAPL');return false" style="color:#74b9ff">AAPL</a> · <a href="#" onclick="loadStockAnalysis('MSFT');return false" style="color:#74b9ff">MSFT</a> · <a href="#" onclick="loadStockAnalysis('NVDA');return false" style="color:#74b9ff">NVDA</a> · <a href="#" onclick="loadStockAnalysis('MC.PA');return false" style="color:#74b9ff">MC.PA</a></p>
+          </div>
+        </div>
+      </div>
 
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page active" id="section-insider">
@@ -1795,6 +1824,7 @@
         if (section === 'feargreed') loadFearGreed();
         if (section === 'shorts') loadShortInterest();
         if (section === 'portfolio') loadPortfolioFromFirebase();
+        if (section === 'stockAnalysis') initStockAnalysis();
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -1959,6 +1989,370 @@
       currentPage = newPage;
       renderInsiderPage();
       document.getElementById('insiderTableArea').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ============================================================
+    // ANALYSE ACTION — Ticker deep-dive (Kairos Score + insiders + 13F + ETF + prix + news)
+    // ============================================================
+    let stockTickerList = null; // { ticker, name, region, market }[]
+    let stockChart = null;
+
+    async function initStockAnalysis() {
+      // Fetch la liste des tickers suivis pour l'autocomplete (public, pas d'auth)
+      try {
+        const resp = await fetch(`${API_BASE}/public/tickers`);
+        const data = await resp.json();
+        stockTickerList = data.tickers || [];
+      } catch (e) {
+        stockTickerList = [];
+      }
+      // Wire input autocomplete
+      const input = document.getElementById('stockSearchInput');
+      const suggest = document.getElementById('stockSearchSuggest');
+      if (!input) return;
+
+      let selectedIdx = -1;
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toUpperCase();
+        selectedIdx = -1;
+        if (q.length < 1) { suggest.style.display = 'none'; return; }
+        const matches = stockTickerList
+          .filter(t => t.ticker.startsWith(q) || (t.name && t.name.toUpperCase().includes(q)))
+          .slice(0, 10);
+        if (matches.length === 0) { suggest.style.display = 'none'; return; }
+        suggest.innerHTML = matches.map((t, i) => `
+          <div class="stock-suggest-item" data-idx="${i}" data-ticker="${t.ticker}" onclick="loadStockAnalysis('${t.ticker}')" style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05)">
+            <div>
+              <strong style="color:#74b9ff">${t.ticker}</strong>
+              <span style="opacity:0.7;font-size:13px;margin-left:10px">${(t.name||'').slice(0,50)}</span>
+            </div>
+            <div style="font-size:12px;opacity:0.5">${t.market || t.region}</div>
+          </div>
+        `).join('');
+        suggest.style.display = 'block';
+      });
+
+      input.addEventListener('keydown', (e) => {
+        const items = suggest.querySelectorAll('.stock-suggest-item');
+        if (e.key === 'ArrowDown') { e.preventDefault(); selectedIdx = Math.min(items.length - 1, selectedIdx + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIdx = Math.max(-1, selectedIdx - 1); }
+        else if (e.key === 'Enter') {
+          e.preventDefault();
+          const ticker = (selectedIdx >= 0 && items[selectedIdx]) ? items[selectedIdx].dataset.ticker : input.value.trim().toUpperCase();
+          if (ticker) loadStockAnalysis(ticker);
+          return;
+        } else if (e.key === 'Escape') { suggest.style.display = 'none'; return; }
+        items.forEach((it, i) => it.style.background = i === selectedIdx ? 'rgba(116,185,255,0.15)' : 'transparent');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#stockSearchInput') && !e.target.closest('#stockSearchSuggest')) {
+          suggest.style.display = 'none';
+        }
+      });
+    }
+
+    async function loadStockAnalysis(ticker) {
+      ticker = ticker.toUpperCase().trim();
+      const body = document.getElementById('stockAnalysisBody');
+      const input = document.getElementById('stockSearchInput');
+      const suggest = document.getElementById('stockSearchSuggest');
+      if (input) input.value = ticker;
+      if (suggest) suggest.style.display = 'none';
+
+      body.innerHTML = `<div style="text-align:center;padding:60px 20px;opacity:0.7"><div style="font-size:32px;margin-bottom:12px">⏳</div><p>Analyse en cours pour <strong>${ticker}</strong>...</p></div>`;
+
+      try {
+        const data = await fetchAuth(`${API_BASE}/api/stock/${encodeURIComponent(ticker)}`);
+        renderStockAnalysis(data);
+      } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+      }
+    }
+
+    function renderStockAnalysis(d) {
+      const body = document.getElementById('stockAnalysisBody');
+      const price = d.price || {};
+      const fund = d.fundamentals || {};
+      const score = d.score || {};
+      const insiders = d.insiders || {};
+      const sm = d.smartMoney || {};
+      const gov = d.govEtf || {};
+      const news = d.news || [];
+      const company = d.company || {};
+      const consensus = d.consensus;
+
+      const changePct = price.changePct;
+      const changeColor = changePct > 0 ? '#2ecc71' : changePct < 0 ? '#ff7675' : '#999';
+      const changeSign = changePct > 0 ? '+' : '';
+      const cur = price.currency || 'USD';
+      const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat('fr-FR', { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
+      const fmtBig = (n) => { if (n==null) return '—'; if (n>=1e12) return (n/1e12).toFixed(1)+'T'; if (n>=1e9) return (n/1e9).toFixed(1)+'B'; if (n>=1e6) return (n/1e6).toFixed(1)+'M'; return n.toLocaleString('fr-FR'); };
+      const pct = (n) => n != null ? (n > 0 ? '+' : '') + (n * (Math.abs(n) < 1 ? 100 : 1)).toFixed(1) + '%' : '—';
+
+      // Couleur du score
+      const sc = score.total || 0;
+      const scoreColor = sc >= 75 ? '#2ecc71' : sc >= 60 ? '#52b788' : sc >= 40 ? '#f39c12' : sc >= 25 ? '#e67e22' : '#e74c3c';
+
+      body.innerHTML = `
+        <!-- HERO -->
+        <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:24px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid rgba(255,255,255,0.08);border-radius:14px;margin-bottom:24px">
+          <div style="flex:1;min-width:280px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <h1 style="margin:0;font-size:32px">${d.ticker}</h1>
+              ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:rgba(255,255,255,0.08);border-radius:4px;opacity:0.7">${price.exchange}</span>` : ''}
+            </div>
+            <div style="font-size:18px;opacity:0.9;margin-bottom:4px">${company.name || ''}</div>
+            <div style="font-size:13px;opacity:0.6">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>
+          </div>
+          <div style="text-align:right;min-width:200px">
+            <div style="font-size:36px;font-weight:600">${fmtCurr(price.current)}</div>
+            <div style="color:${changeColor};font-size:16px;margin-top:4px">
+              ${changePct != null ? `${changeSign}${changePct.toFixed(2)}%` : '—'}
+              ${price.change != null ? ` <span style="opacity:0.7;font-size:13px">(${changeSign}${fmtCurr(price.change)})</span>` : ''}
+            </div>
+            <div style="font-size:12px;opacity:0.5;margin-top:8px">
+              52W : ${fmtCurr(price.low52w)} - ${fmtCurr(price.high52w)}
+            </div>
+          </div>
+        </div>
+
+        <!-- KAIROS SCORE -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:24px;margin-bottom:24px">
+          <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:center">
+            <div style="flex:0 0 200px;text-align:center">
+              <div style="font-size:14px;opacity:0.6;margin-bottom:8px">KAIROS SCORE</div>
+              <div style="font-size:72px;font-weight:700;color:${scoreColor};line-height:1">${sc}</div>
+              <div style="font-size:12px;opacity:0.5;margin-top:-4px">/100</div>
+              <div style="margin-top:12px;display:inline-block;padding:6px 16px;background:${scoreColor};color:white;border-radius:20px;font-weight:600;font-size:13px;letter-spacing:0.5px">${score.signal || 'N/A'}</div>
+            </div>
+            <div style="flex:1;min-width:320px">
+              ${score.breakdown ? Object.entries(score.breakdown).map(([k, b]) => {
+                const pctScore = b.max > 0 ? (b.score / b.max) * 100 : 0;
+                return `
+                  <div style="margin-bottom:10px">
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+                      <span style="opacity:0.9">${b.label}</span>
+                      <span><strong>${b.score}</strong><span style="opacity:0.5">/${b.max}</span></span>
+                    </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">
+                      <div style="height:100%;background:${scoreColor};width:${pctScore}%;transition:width 0.5s"></div>
+                    </div>
+                    <div style="font-size:11px;opacity:0.55;margin-top:3px">${b.detail}</div>
+                  </div>
+                `;
+              }).join('') : '<p style="opacity:0.6">Detail indisponible</p>'}
+            </div>
+          </div>
+        </div>
+
+        <!-- CHART prix 1 an -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;margin-bottom:24px">
+          <h3 style="margin:0 0 12px;font-size:16px;opacity:0.9">Cours sur 1 an</h3>
+          <div style="height:220px;position:relative"><canvas id="stockPriceChart"></canvas></div>
+        </div>
+
+        <!-- 3 COLONNES : Insiders / Smart Money / Politiciens -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
+          <!-- INSIDERS -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">🕴️ Insiders ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
+            <div style="display:flex;gap:12px;margin-bottom:12px">
+              <div style="flex:1;padding:10px;background:rgba(46,204,113,0.08);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#2ecc71">${insiders.buyCount || 0}</div>
+                <div style="font-size:11px;opacity:0.7">achats</div>
+              </div>
+              <div style="flex:1;padding:10px;background:rgba(255,118,117,0.08);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#ff7675">${insiders.sellCount || 0}</div>
+                <div style="font-size:11px;opacity:0.7">ventes</div>
+              </div>
+            </div>
+            <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
+              Flux net : <strong style="color:${(insiders.netValueUsd||0)+(insiders.netValueEur||0) >= 0 ? '#2ecc71' : '#ff7675'}">${fmtCurr((insiders.netValueUsd||0)+(insiders.netValueEur||0), cur)}</strong><br>
+              ${insiders.uniqueInsiders || 0} insiders distincts
+            </div>
+            <div style="max-height:240px;overflow-y:auto;font-size:12px">
+              ${(insiders.transactions || []).slice(0, 15).map(t => `
+                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <div style="display:flex;justify-content:space-between">
+                    <div>
+                      <strong>${(t.insider||'').slice(0,25)}</strong>
+                      <span style="font-size:11px;opacity:0.5;margin-left:6px">${t.title || ''}</span>
+                    </div>
+                    <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#aaa'};font-weight:600;font-size:11px">${(t.type||'').toUpperCase()}</span>
+                  </div>
+                  <div style="font-size:11px;opacity:0.6;margin-top:2px">
+                    ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
+                  </div>
+                </div>
+              `).join('') || '<div style="opacity:0.5;padding:12px 0">Aucune transaction recente</div>'}
+            </div>
+          </div>
+
+          <!-- SMART MONEY -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">💰 Smart Money (13F)</h3>
+            <div style="display:flex;gap:12px;margin-bottom:12px">
+              <div style="flex:1;padding:10px;background:rgba(116,185,255,0.08);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#74b9ff">${sm.fundCount || 0}</div>
+                <div style="font-size:11px;opacity:0.7">fonds</div>
+              </div>
+              <div style="flex:1;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:${sm.avgDeltaPct>0?'#2ecc71':sm.avgDeltaPct<0?'#ff7675':'#fff'}">${sm.avgDeltaPct > 0 ? '+' : ''}${(sm.avgDeltaPct||0).toFixed(1)}%</div>
+                <div style="font-size:11px;opacity:0.7">Δ positions</div>
+              </div>
+            </div>
+            <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
+              Valeur totale : <strong>$${fmtBig(sm.totalValue)}</strong>
+            </div>
+            <div style="max-height:240px;overflow-y:auto;font-size:12px">
+              ${(sm.topFunds || []).map(f => `
+                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <div style="display:flex;justify-content:space-between">
+                    <div>
+                      <strong>${f.label || f.fundName || 'Unknown'}</strong>
+                      <div style="font-size:11px;opacity:0.55">${f.category || ''} · ${f.reportDate || ''}</div>
+                    </div>
+                    <span style="color:${f.deltaPct>0?'#2ecc71':f.deltaPct<0?'#ff7675':'#aaa'};font-size:11px">${f.status || (f.deltaPct>0?'+'+f.deltaPct.toFixed(0)+'%':f.deltaPct.toFixed(0)+'%')}</span>
+                  </div>
+                  <div style="font-size:11px;opacity:0.7;margin-top:2px">
+                    $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
+                  </div>
+                </div>
+              `).join('') || '<div style="opacity:0.5;padding:12px 0">Aucun fonds ne detient ce titre en top 15</div>'}
+            </div>
+          </div>
+
+          <!-- POLITICIENS / GURUS -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">🏛️ Politiciens &amp; Gurus</h3>
+            ${gov.inEtfs && gov.inEtfs.length > 0 ? `
+              <div style="font-size:13px;opacity:0.8;margin-bottom:12px">
+                Present dans <strong>${gov.inEtfs.length}</strong> ETF suivis<br>
+                Poids cumule : <strong>${(gov.totalPct||0).toFixed(2)}%</strong>
+              </div>
+              ${gov.inEtfs.map(e => `
+                <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                      <strong style="font-size:14px">${e.etf}</strong>
+                      <span style="font-size:11px;opacity:0.6;margin-left:6px">${e.fullName}</span>
+                    </div>
+                    <strong style="color:#74b9ff">${e.weight.toFixed(2)}%</strong>
+                  </div>
+                  ${e.shares ? `<div style="font-size:11px;opacity:0.55;margin-top:3px">${e.shares.toLocaleString('fr-FR')} titres</div>` : ''}
+                </div>
+              `).join('')}
+            ` : '<div style="opacity:0.5;padding:12px 0;font-size:13px">Absent des ETF suivis (NANC, GOP, GURU)</div>'}
+          </div>
+        </div>
+
+        <!-- 2 COLONNES : Fondamentaux / Consensus -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
+          <!-- FONDAMENTAUX -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">📊 Fondamentaux</h3>
+            <table style="width:100%;font-size:13px">
+              <tr><td style="padding:6px 0;opacity:0.7">Market Cap</td><td style="text-align:right"><strong>${fmtCurr(fund.marketCap, cur)}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">P/E (TTM)</td><td style="text-align:right"><strong>${fund.peRatio ? fund.peRatio.toFixed(1) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">P/E Forward</td><td style="text-align:right"><strong>${fund.forwardPE ? fund.forwardPE.toFixed(1) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">P/B</td><td style="text-align:right"><strong>${fund.pbRatio ? fund.pbRatio.toFixed(2) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">EPS</td><td style="text-align:right"><strong>${fund.eps != null ? fund.eps.toFixed(2) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Dividend Yield</td><td style="text-align:right"><strong>${fund.dividendYield ? (fund.dividendYield*(fund.dividendYield < 1 ? 100 : 1)).toFixed(2)+'%' : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Beta</td><td style="text-align:right"><strong>${fund.beta != null ? fund.beta.toFixed(2) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Revenue</td><td style="text-align:right"><strong>${fund.revenue ? '$' + fmtBig(fund.revenue) : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Revenue Growth</td><td style="text-align:right"><strong>${fund.revenueGrowth != null ? (fund.revenueGrowth > 0 ? '+' : '') + (fund.revenueGrowth*100).toFixed(1)+'%' : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">Profit Margin</td><td style="text-align:right"><strong>${fund.profitMargin != null ? (fund.profitMargin*100).toFixed(1)+'%' : '—'}</strong></td></tr>
+              <tr><td style="padding:6px 0;opacity:0.7">ROE</td><td style="text-align:right"><strong>${fund.roe != null ? (fund.roe*100).toFixed(1)+'%' : '—'}</strong></td></tr>
+            </table>
+          </div>
+
+          <!-- CONSENSUS ANALYSTES -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">🎯 Consensus analystes</h3>
+            ${consensus ? `
+              <div style="display:flex;gap:8px;margin-bottom:16px">
+                <div style="flex:1;text-align:center;padding:8px;background:rgba(46,204,113,0.15);border-radius:6px"><div style="font-size:16px;font-weight:600;color:#2ecc71">${consensus.strongBuy}</div><div style="font-size:10px;opacity:0.7">Strong Buy</div></div>
+                <div style="flex:1;text-align:center;padding:8px;background:rgba(46,204,113,0.08);border-radius:6px"><div style="font-size:16px;font-weight:600;color:#52b788">${consensus.buy}</div><div style="font-size:10px;opacity:0.7">Buy</div></div>
+                <div style="flex:1;text-align:center;padding:8px;background:rgba(255,255,255,0.04);border-radius:6px"><div style="font-size:16px;font-weight:600;color:#aaa">${consensus.hold}</div><div style="font-size:10px;opacity:0.7">Hold</div></div>
+                <div style="flex:1;text-align:center;padding:8px;background:rgba(255,118,117,0.08);border-radius:6px"><div style="font-size:16px;font-weight:600;color:#e67e22">${consensus.sell}</div><div style="font-size:10px;opacity:0.7">Sell</div></div>
+                <div style="flex:1;text-align:center;padding:8px;background:rgba(255,118,117,0.15);border-radius:6px"><div style="font-size:16px;font-weight:600;color:#e74c3c">${consensus.strongSell}</div><div style="font-size:10px;opacity:0.7">Strong Sell</div></div>
+              </div>
+              <div style="font-size:13px;opacity:0.8">
+                <strong style="color:#2ecc71">${consensus.bullishPct.toFixed(0)}%</strong> haussiers sur ${consensus.total} analystes
+              </div>
+            ` : `
+              <div style="opacity:0.5;padding:12px 0;font-size:13px">
+                ${fund.targetMeanPrice && price.current ? `
+                  Target prix : <strong style="color:#fff">${fmtCurr(fund.targetMeanPrice, cur)}</strong><br>
+                  Upside : <strong style="color:${fund.targetMeanPrice > price.current ? '#2ecc71' : '#ff7675'}">${((fund.targetMeanPrice - price.current) / price.current * 100).toFixed(1)}%</strong><br>
+                  <span style="font-size:11px">${fund.numberOfAnalystOpinions || '?'} analystes (Yahoo)</span>
+                ` : 'Consensus indisponible <span style="font-size:11px">(active la cle Finnhub pour plus de detail)</span>'}
+              </div>
+            `}
+            ${fund.recommendationKey ? `<div style="margin-top:12px;padding:8px;background:rgba(116,185,255,0.08);border-radius:6px;font-size:12px">Recommandation Yahoo : <strong style="text-transform:uppercase">${fund.recommendationKey}</strong></div>` : ''}
+          </div>
+        </div>
+
+        <!-- NEWS -->
+        ${news.length > 0 ? `
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px">
+            <h3 style="margin:0 0 12px;font-size:16px">📰 News recentes</h3>
+            <div style="display:grid;gap:8px">
+              ${news.slice(0, 10).map(n => `
+                <a href="${n.link}" target="_blank" rel="noopener" style="display:block;padding:10px;background:rgba(255,255,255,0.02);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                  <div style="font-size:13px;color:#74b9ff;margin-bottom:3px">${n.title}</div>
+                  <div style="font-size:11px;opacity:0.55">${n.source || ''} · ${n.pubDate ? new Date(n.pubDate).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : ''}</div>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- DESCRIPTION ENTREPRISE -->
+        ${company.description ? `
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:24px">
+            <h3 style="margin:0 0 12px;font-size:16px">🏢 A propos</h3>
+            <p style="font-size:13px;line-height:1.7;opacity:0.85;margin:0">${company.description}</p>
+            ${company.website ? `<div style="margin-top:12px"><a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff;font-size:13px">${company.website}</a></div>` : ''}
+          </div>
+        ` : ''}
+      `;
+
+      // Render chart prix
+      if (d.chart && d.chart.points && d.chart.points.length > 0) {
+        const ctx = document.getElementById('stockPriceChart')?.getContext('2d');
+        if (ctx) {
+          if (stockChart) stockChart.destroy();
+          const labels = d.chart.points.map(p => p.date);
+          const values = d.chart.points.map(p => p.close);
+          stockChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                label: d.ticker,
+                data: values,
+                borderColor: '#74b9ff',
+                backgroundColor: 'rgba(116,185,255,0.08)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.1,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+              scales: {
+                x: { ticks: { color: 'rgba(255,255,255,0.5)', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                y: { ticks: { color: 'rgba(255,255,255,0.5)' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+              },
+            },
+          });
+        }
+      }
     }
 
     // ============================================================

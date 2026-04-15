@@ -11,6 +11,8 @@
  *   - Premium (auth + abo) : /api/all-transactions, /api/clusters, /api/13f-*, /api/etf-*
  */
 
+import { handleStockAnalysis } from './stock-api.js';
+
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 
 // Routes gratuites (auth requise mais pas d'abonnement)
@@ -42,6 +44,19 @@ export default {
     // Stripe webhook (pas d'auth Firebase, vérifié par signature Stripe)
     if (request.method === 'POST' && path === '/stripe/webhook') {
       return handleStripeWebhook(request, env);
+    }
+
+    // Analyse action — version publique SEO (donnees tronquees)
+    // Format : GET /public/stock/:ticker
+    if (request.method === 'GET' && path.startsWith('/public/stock/')) {
+      const ticker = decodeURIComponent(path.slice('/public/stock/'.length));
+      const data = await handleStockAnalysis(ticker, env, { publicView: true });
+      return jsonResponse(data, data.error ? 400 : 200, origin);
+    }
+
+    // Liste des tickers suivis (pour l'autocomplete de la barre de recherche)
+    if (request.method === 'GET' && path === '/public/tickers') {
+      return handlePublicTickersList(env, origin);
     }
 
     // ==========================================
@@ -157,6 +172,14 @@ async function handleApiRoute(path, url, env, origin) {
     return jsonResponse(data, 200, origin);
   }
 
+  // Analyse action — premium (donnees completes)
+  // Format : GET /api/stock/:ticker
+  if (path.startsWith('/api/stock/')) {
+    const ticker = decodeURIComponent(path.slice('/api/stock/'.length));
+    const data = await handleStockAnalysis(ticker, env, { publicView: false });
+    return jsonResponse(data, data.error ? 400 : 200, origin);
+  }
+
   // Free routes
   if (path === '/api/feargreed' || path === '/api/shorts') {
     // Ces données sont dans le frontend, pas besoin de backend
@@ -164,6 +187,47 @@ async function handleApiRoute(path, url, env, origin) {
   }
 
   return jsonResponse({ error: 'Unknown API route' }, 404, origin);
+}
+
+// ============================================================
+// LISTE DES TICKERS SUIVIS (pour autocomplete, public)
+// ============================================================
+async function handlePublicTickersList(env, origin) {
+  try {
+    // Cache dedie 1h
+    const cached = await env.CACHE.get('public-tickers-list', 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 3600 * 1000) {
+      return jsonResponse(cached, 200, origin);
+    }
+
+    const tx = await env.CACHE.get('insider-transactions', 'json');
+    const set = new Map(); // ticker -> { name, region, market }
+    if (tx && Array.isArray(tx.transactions)) {
+      for (const t of tx.transactions) {
+        const ticker = (t.ticker || '').trim().toUpperCase();
+        // Filtre : garder que les tickers bien formes (A-Z, 0-9, ., -, 1-6 chars)
+        if (!ticker || !/^[A-Z0-9.\-]{1,6}$/.test(ticker)) continue;
+        if (!set.has(ticker)) {
+          set.set(ticker, {
+            ticker,
+            name: t.company || '',
+            region: t.region || 'US',
+            market: t.market || 'US',
+          });
+        }
+      }
+    }
+    const tickers = Array.from(set.values()).sort((a, b) => a.ticker.localeCompare(b.ticker));
+    const payload = {
+      _cachedAt: Date.now(),
+      count: tickers.length,
+      tickers,
+    };
+    await env.CACHE.put('public-tickers-list', JSON.stringify(payload), { expirationTtl: 3600 });
+    return jsonResponse(payload, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to build tickers list', detail: String(e && e.message || e) }, 500, origin);
+  }
 }
 
 // ============================================================

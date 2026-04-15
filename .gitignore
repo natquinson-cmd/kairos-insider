@@ -30,10 +30,18 @@ worker/.wrangler/
 # Données générées (régénérées par les scripts/workflows)
 worker/transactions_data.json
 worker/transactions_bafin.json
+worker/transactions_amf.json
 worker/clusters_data.json
 worker/funds_data.json
 worker/etf_*.json
 worker/etf_*.csv
+
+# Python cache
+worker/__pycache__/
+
+# Fichiers de debug locaux
+worker/abcbourse_page*.html
+worker/response.json
 
 # Backups locaux
 *.bak
