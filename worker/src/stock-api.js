@@ -49,18 +49,28 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
   const companyNameFromInsiders = (insiders.transactions[0] && insiders.transactions[0].company) || null;
 
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
-  // NB: stockanalysis.com renvoie fondamentaux + consensus analystes + description en un seul appel
-  const [quote, overview, news, smartMoney, govEtf] = await Promise.all([
+  // Sources stockanalysis.com en parallele : overview + statistics + earnings + employees (peers)
+  const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf] = await Promise.all([
     fetchYahooQuote(ticker),
     fetchStockAnalysisOverview(ticker),
+    fetchStockAnalysisStatistics(ticker),
+    fetchStockAnalysisEarnings(ticker),
+    fetchStockAnalysisEmployees(ticker),
     fetchYahooNews(ticker),
     aggregate13F(ticker, env, companyNameFromInsiders),
     aggregateGovEtf(ticker, env),
   ]);
-  const fundamentals = overview.fundamentals;
+  // Fusion : overview + statistics pour les fondamentaux (statistics = plus complet)
+  const fundamentals = {
+    ...overview.fundamentals,
+    ...statistics.fundamentals,  // override avec statistics si dispo
+  };
   const consensus = overview.consensus;
 
-  const score = computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus });
+  const score = computeKairosScore({
+    insiders, smartMoney, govEtf, quote, fundamentals, consensus,
+    health: statistics.health, earnings: earningsData,
+  });
 
   const result = {
     ticker,
@@ -73,12 +83,22 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
       country: (overview.profile && overview.profile.country) || null,
       website: (overview.profile && overview.profile.website) || null,
       description: (overview.profile && overview.profile.description) || null,
-      employees: (overview.profile && overview.profile.employees) || null,
+      employees: (employeesData.stats && employeesData.stats.current) || (overview.profile && overview.profile.employees) || null,
+      employeesGrowth: (employeesData.stats && employeesData.stats.growth) || null,
       exchange: (overview.profile && overview.profile.exchange) || null,
     },
     price: quote.price,
     chart: quote.chart,
     fundamentals,
+    extendedRatios: statistics.extendedRatios,   // P/S, PEG, EV/EBITDA, etc.
+    margins: statistics.margins,                 // Gross, Operating, Profit, FCF
+    returns: statistics.returns,                 // ROE, ROA, ROIC, ROCE
+    financialPosition: statistics.financialPosition,  // Current, Quick, D/E, D/EBITDA
+    health: statistics.health,                   // Altman Z + Piotroski F
+    shortInterest: statistics.shortInterest,     // Short %, days to cover
+    fairValue: statistics.fairValue,             // Lynch, Graham
+    earnings: earningsData,                      // history + next
+    peers: employeesData.peers || [],            // concurrents sectoriels
     score,
     insiders,
     smartMoney,
@@ -290,6 +310,271 @@ async function fetchStockAnalysisOverview(ticker) {
       };
     } catch (e) {
       console.error('stockanalysis overview error:', ticker, path, e.message || e);
+    }
+  }
+  return empty;
+}
+
+// ============================================================
+// STOCKANALYSIS.COM : /statistics (scores sante, margins, returns, short interest, ratios etendus)
+// ============================================================
+// Helper : transforme [{ id, title, value, hover }, ...] en { id: { display, numeric, title } }
+function sectionToMap(section) {
+  const out = {};
+  if (!section || !Array.isArray(section.data)) return out;
+  section.data.forEach(item => {
+    if (!item || !item.id) return;
+    const display = item.value != null ? String(item.value) : null;
+    const rawForNumeric = item.hover != null ? String(item.hover) : display;
+    out[item.id] = {
+      display,
+      numeric: parseNumericValue(rawForNumeric),
+      title: item.title || item.id,
+    };
+  });
+  return out;
+}
+
+async function fetchStockAnalysisStatistics(ticker) {
+  const empty = {
+    fundamentals: {},
+    extendedRatios: {},
+    margins: {},
+    returns: {},
+    financialPosition: {},
+    health: {},
+    shortInterest: {},
+    fairValue: {},
+  };
+  const paths = [`s/${ticker.toLowerCase()}`, `e/${ticker.toLowerCase()}`];
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+  for (const path of paths) {
+    try {
+      const url = `https://api.stockanalysis.com/api/symbol/${path}/statistics`;
+      const resp = await withTimeout(fetch(url, {
+        headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
+      }), 7000);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      const d = json && json.data;
+      if (!d) continue;
+
+      const valuation = sectionToMap(d.valuation);
+      const ratios = sectionToMap(d.ratios);
+      const evRatios = sectionToMap(d.evRatios);
+      const margins = sectionToMap(d.margins);
+      const finEff = sectionToMap(d.financialEfficiency);
+      const finPos = sectionToMap(d.financialPosition);
+      const scores = sectionToMap(d.scores);
+      const shortS = sectionToMap(d.shortSelling);
+      const stockP = sectionToMap(d.stockPrice);
+      const dividends = sectionToMap(d.dividends);
+      const shares = sectionToMap(d.shares);
+      const analystF = sectionToMap(d.analystForecasts);
+      const fairV = sectionToMap(d.fairValue);
+      const income = sectionToMap(d.incomeStatement);
+
+      const num = (m, k) => (m[k] && m[k].numeric != null) ? m[k].numeric : null;
+      const disp = (m, k) => (m[k] ? m[k].display : null);
+
+      return {
+        fundamentals: {
+          // Metriques de base (override overview si dispo)
+          marketCap: num(valuation, 'marketcap'),
+          enterpriseValue: num(valuation, 'enterpriseValue'),
+          peRatio: num(ratios, 'pe'),
+          forwardPE: num(ratios, 'peForward'),
+          psRatio: num(ratios, 'ps'),
+          pbRatio: num(ratios, 'pb'),
+          pegRatio: num(ratios, 'peg'),
+          pfcfRatio: num(ratios, 'pfcf'),
+          eps: num(income, 'eps'),
+          revenue: num(income, 'revenue'),
+          netIncome: num(income, 'netIncome'),
+          sharesOut: num(shares, 'sharesOut'),
+          sharesFloat: num(shares, 'sharesFloat'),
+          insiderOwnership: num(shares, 'insiderOwn'),
+          institutionalOwnership: num(shares, 'institutionalOwn'),
+          beta: num(stockP, 'beta'),
+          dividendYield: num(dividends, 'dividendYield') != null ? num(dividends, 'dividendYield') / 100 : null,
+          dividendPerShare: num(dividends, 'dps'),
+          dividendGrowth: num(dividends, 'dividendGrowth'),
+          payoutRatio: num(dividends, 'payoutRatio'),
+          targetMeanPrice: num(analystF, 'priceTarget'),
+          targetUpsidePct: num(analystF, 'priceTargetChange'),
+          analystCount: num(analystF, 'analystCount'),
+          recommendationKey: disp(analystF, 'analystRatings') ? String(disp(analystF, 'analystRatings')).toLowerCase() : null,
+          price52wChangePct: num(stockP, 'ch1y'),
+          sma50: num(stockP, 'sma50'),
+          sma200: num(stockP, 'sma200'),
+        },
+        extendedRatios: {
+          ps: disp(ratios, 'ps'),
+          psForward: disp(ratios, 'psForward'),
+          pb: disp(ratios, 'pb'),
+          pfcf: disp(ratios, 'pfcf'),
+          peg: disp(ratios, 'peg'),
+          evEarnings: disp(evRatios, 'evEarnings'),
+          evSales: disp(evRatios, 'evSales'),
+          evEbitda: disp(evRatios, 'evEbitda'),
+          evFcf: disp(evRatios, 'evFcf'),
+        },
+        margins: {
+          gross: { display: disp(margins, 'grossMargin'), numeric: num(margins, 'grossMargin') },
+          operating: { display: disp(margins, 'operatingMargin'), numeric: num(margins, 'operatingMargin') },
+          pretax: { display: disp(margins, 'pretaxMargin'), numeric: num(margins, 'pretaxMargin') },
+          profit: { display: disp(margins, 'profitMargin'), numeric: num(margins, 'profitMargin') },
+          fcf: { display: disp(margins, 'fcfMargin'), numeric: num(margins, 'fcfMargin') },
+          ebitda: { display: disp(margins, 'ebitdaMargin'), numeric: num(margins, 'ebitdaMargin') },
+        },
+        returns: {
+          roe: { display: disp(finEff, 'roe'), numeric: num(finEff, 'roe') },
+          roa: { display: disp(finEff, 'roa'), numeric: num(finEff, 'roa') },
+          roic: { display: disp(finEff, 'roic'), numeric: num(finEff, 'roic') },
+          roce: { display: disp(finEff, 'roce'), numeric: num(finEff, 'roce') },
+        },
+        financialPosition: {
+          currentRatio: { display: disp(finPos, 'currentRatio'), numeric: num(finPos, 'currentRatio') },
+          quickRatio: { display: disp(finPos, 'quickRatio'), numeric: num(finPos, 'quickRatio') },
+          debtEquity: { display: disp(finPos, 'debtEquity'), numeric: num(finPos, 'debtEquity') },
+          debtEbitda: { display: disp(finPos, 'debtEbitda'), numeric: num(finPos, 'debtEbitda') },
+          interestCoverage: { display: disp(finPos, 'interestCoverage'), numeric: num(finPos, 'interestCoverage') },
+        },
+        health: {
+          altmanZ: num(scores, 'zScore'),
+          piotroskiF: num(scores, 'fScore'),
+          // Interpretation Altman : >2.99 safe, 1.81-2.99 grey, <1.81 distress
+          altmanZone: (() => {
+            const z = num(scores, 'zScore');
+            if (z == null) return null;
+            if (z > 2.99) return 'safe';
+            if (z > 1.81) return 'grey';
+            return 'distress';
+          })(),
+          piotroskiZone: (() => {
+            const f = num(scores, 'fScore');
+            if (f == null) return null;
+            if (f >= 7) return 'strong';
+            if (f >= 4) return 'mid';
+            return 'weak';
+          })(),
+        },
+        shortInterest: {
+          shortInterest: { display: disp(shortS, 'shortInterest'), numeric: num(shortS, 'shortInterest') },
+          shortPriorMonth: { display: disp(shortS, 'shortPriorMonth'), numeric: num(shortS, 'shortPriorMonth') },
+          shortPctShares: { display: disp(shortS, 'shortShares'), numeric: num(shortS, 'shortShares') },
+          shortPctFloat: { display: disp(shortS, 'shortFloat'), numeric: num(shortS, 'shortFloat') },
+          daysToCover: { display: disp(shortS, 'daysToCover'), numeric: num(shortS, 'daysToCover') },
+        },
+        fairValue: {
+          lynch: { display: disp(fairV, 'lynchFairValue'), numeric: num(fairV, 'lynchFairValue') },
+          lynchUpside: { display: disp(fairV, 'lynchUpside'), numeric: num(fairV, 'lynchUpside') },
+          graham: { display: disp(fairV, 'grahamNumber'), numeric: num(fairV, 'grahamNumber') },
+          grahamUpside: { display: disp(fairV, 'grahamUpside'), numeric: num(fairV, 'grahamUpside') },
+        },
+      };
+    } catch (e) {
+      console.error('stockanalysis statistics error:', ticker, path, e.message || e);
+    }
+  }
+  return empty;
+}
+
+// ============================================================
+// STOCKANALYSIS.COM : /earnings (historique surprises + prochaine)
+// ============================================================
+async function fetchStockAnalysisEarnings(ticker) {
+  const empty = { history: [], next: null };
+  const paths = [`s/${ticker.toLowerCase()}`, `e/${ticker.toLowerCase()}`];
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+  for (const path of paths) {
+    try {
+      const url = `https://api.stockanalysis.com/api/symbol/${path}/earnings`;
+      const resp = await withTimeout(fetch(url, {
+        headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
+      }), 7000);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      const arr = json && json.data;
+      if (!Array.isArray(arr)) continue;
+
+      // Trier par date croissante
+      const sorted = [...arr].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      // 4 derniers passes (eps_actual non null)
+      const past = sorted.filter(x => x.eps_actual != null && x.eps_surprise_percent != null);
+      const history = past.slice(-6).reverse().map(x => ({
+        date: x.date,
+        year: x.year,
+        period: x.period,
+        epsEst: x.eps_est,
+        epsActual: x.eps_actual,
+        epsSurprisePct: x.eps_surprise_percent,
+        revenueEst: x.revenue_est,
+        revenueActual: x.revenue_actual,
+        revenueSurprisePct: x.revenue_surprise_percent,
+        // beat = surprise > 0
+        beat: (x.eps_surprise_percent || 0) > 0,
+      }));
+
+      // Prochain (eps_actual null, date future la plus proche)
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const upcoming = sorted.filter(x => x.eps_actual == null && x.date >= todayISO);
+      const next = upcoming.length > 0 ? {
+        date: upcoming[0].date,
+        time: upcoming[0].time,
+        year: upcoming[0].year,
+        period: upcoming[0].period,
+        epsEst: upcoming[0].eps_est,
+        revenueEst: upcoming[0].revenue_est,
+        confirmed: upcoming[0].confirmed,
+      } : null;
+
+      return { history, next };
+    } catch (e) {
+      console.error('stockanalysis earnings error:', ticker, path, e.message || e);
+    }
+  }
+  return empty;
+}
+
+// ============================================================
+// STOCKANALYSIS.COM : /employees (peers sectoriels + evolution des effectifs)
+// ============================================================
+async function fetchStockAnalysisEmployees(ticker) {
+  const empty = { stats: {}, peers: [] };
+  const paths = [`s/${ticker.toLowerCase()}`, `e/${ticker.toLowerCase()}`];
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+  for (const path of paths) {
+    try {
+      const url = `https://api.stockanalysis.com/api/symbol/${path}/employees`;
+      const resp = await withTimeout(fetch(url, {
+        headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
+      }), 7000);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      const d = json && json.data;
+      if (!d) continue;
+
+      return {
+        stats: {
+          current: d.stats ? d.stats.current : null,
+          change: d.stats ? d.stats.change : null,
+          growth: d.stats ? d.stats.growth : null,
+          revenuePerEmployee: d.stats ? d.stats.revenue_per_employee : null,
+          profitPerEmployee: d.stats ? d.stats.profit_per_employee : null,
+        },
+        peers: Array.isArray(d.peers) ? d.peers.slice(0, 8).map(p => ({
+          ticker: p.s,
+          name: p.n,
+          employees: p.employees,
+        })) : [],
+      };
+    } catch (e) {
+      console.error('stockanalysis employees error:', ticker, path, e.message || e);
     }
   }
   return empty;
@@ -648,47 +933,48 @@ async function aggregateGovEtf(ticker, env) {
 }
 
 // ============================================================
-// KAIROS SCORE : composite 0-100 avec 6 sous-scores
+// KAIROS SCORE : composite 0-100 avec 7 sous-scores
 // ============================================================
-function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus }) {
+function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings }) {
   const breakdown = {
-    insider: { score: 0, max: 25, label: 'Signal Insider', detail: '' },
-    smartMoney: { score: 0, max: 25, label: 'Smart Money 13F', detail: '' },
-    govGuru: { score: 0, max: 15, label: 'Politiciens & Gurus', detail: '' },
+    insider: { score: 0, max: 20, label: 'Signal Insider', detail: '' },
+    smartMoney: { score: 0, max: 20, label: 'Smart Money 13F', detail: '' },
+    govGuru: { score: 0, max: 10, label: 'Politiciens & Gurus', detail: '' },
     momentum: { score: 0, max: 15, label: 'Momentum', detail: '' },
     valuation: { score: 0, max: 10, label: 'Valorisation', detail: '' },
-    analyst: { score: 0, max: 10, label: 'Analyst Consensus', detail: '' },
+    analyst: { score: 0, max: 10, label: 'Consensus analystes', detail: '' },
+    health: { score: 0, max: 10, label: 'Santé financière', detail: '' },
+    earnings: { score: 0, max: 5, label: 'Earnings momentum', detail: '' },
   };
 
-  // --- INSIDER (0-25) ---
-  // Base : net value signed + cluster bonus + unique insiders
+  // --- INSIDER (0-20) ---
   const totalNet = (insiders.netValueUsd || 0) + (insiders.netValueEur || 0);
   const buyVsSell = insiders.buyCount - insiders.sellCount;
-  let insiderScore = 12; // neutre
-  if (totalNet > 0) insiderScore += Math.min(8, Math.log10(Math.abs(totalNet) + 1) * 2);
-  else if (totalNet < 0) insiderScore -= Math.min(8, Math.log10(Math.abs(totalNet) + 1) * 2);
-  if (buyVsSell > 0) insiderScore += Math.min(3, buyVsSell * 0.5);
-  else if (buyVsSell < 0) insiderScore -= Math.min(3, Math.abs(buyVsSell) * 0.5);
-  if (insiders.clusterSignal) insiderScore += 4;
-  if (insiders.uniqueInsiders >= 5) insiderScore += 2;
-  breakdown.insider.score = Math.max(0, Math.min(25, Math.round(insiderScore)));
+  let insiderScore = 10; // neutre
+  if (totalNet > 0) insiderScore += Math.min(6, Math.log10(Math.abs(totalNet) + 1) * 1.5);
+  else if (totalNet < 0) insiderScore -= Math.min(6, Math.log10(Math.abs(totalNet) + 1) * 1.5);
+  if (buyVsSell > 0) insiderScore += Math.min(2, buyVsSell * 0.4);
+  else if (buyVsSell < 0) insiderScore -= Math.min(2, Math.abs(buyVsSell) * 0.4);
+  if (insiders.clusterSignal) insiderScore += 3;
+  if (insiders.uniqueInsiders >= 5) insiderScore += 1;
+  breakdown.insider.score = Math.max(0, Math.min(20, Math.round(insiderScore)));
   breakdown.insider.detail = `${insiders.buyCount} achats / ${insiders.sellCount} ventes, ${insiders.uniqueInsiders} insiders uniques${insiders.clusterSignal ? ', CLUSTER DETECTE' : ''}`;
 
-  // --- SMART MONEY (0-25) ---
-  let smScore = 12; // neutre
-  if (smartMoney.fundCount >= 1) smScore += Math.min(8, smartMoney.fundCount * 0.5);
-  if (smartMoney.avgDeltaPct > 5) smScore += 5;
+  // --- SMART MONEY (0-20) ---
+  let smScore = 10;
+  if (smartMoney.fundCount >= 1) smScore += Math.min(6, smartMoney.fundCount * 0.5);
+  if (smartMoney.avgDeltaPct > 5) smScore += 4;
   else if (smartMoney.avgDeltaPct > 0) smScore += 2;
-  else if (smartMoney.avgDeltaPct < -5) smScore -= 5;
+  else if (smartMoney.avgDeltaPct < -5) smScore -= 4;
   else if (smartMoney.avgDeltaPct < 0) smScore -= 2;
-  breakdown.smartMoney.score = Math.max(0, Math.min(25, Math.round(smScore)));
+  breakdown.smartMoney.score = Math.max(0, Math.min(20, Math.round(smScore)));
   breakdown.smartMoney.detail = `${smartMoney.fundCount} fonds, evolution moyenne ${smartMoney.avgDeltaPct.toFixed(1)}%`;
 
-  // --- GOV/GURU (0-15) ---
-  let ggScore = 7;
-  if (govEtf.inEtfs.length > 0) ggScore += govEtf.inEtfs.length * 2;
-  if (govEtf.totalPct > 1) ggScore += 2;
-  breakdown.govGuru.score = Math.max(0, Math.min(15, Math.round(ggScore)));
+  // --- GOV/GURU (0-10) ---
+  let ggScore = 5;
+  if (govEtf.inEtfs.length > 0) ggScore += govEtf.inEtfs.length * 1.5;
+  if (govEtf.totalPct > 1) ggScore += 1;
+  breakdown.govGuru.score = Math.max(0, Math.min(10, Math.round(ggScore)));
   breakdown.govGuru.detail = govEtf.inEtfs.length > 0
     ? `Present dans ${govEtf.inEtfs.map(e => e.etf).join(', ')} (${govEtf.totalPct.toFixed(2)}%)`
     : 'Absent des ETF suivis';
@@ -751,6 +1037,36 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   } else {
     breakdown.analyst.detail = 'Pas de consensus';
   }
+
+  // --- HEALTH (0-10) : Altman Z + Piotroski F + Debt/Equity ---
+  let healthScore = 5;
+  const h = health || {};
+  const bits = [];
+  if (h.altmanZ != null) {
+    if (h.altmanZ > 2.99) { healthScore += 3; bits.push(`Z=${h.altmanZ.toFixed(1)} (safe)`); }
+    else if (h.altmanZ > 1.81) { healthScore += 0; bits.push(`Z=${h.altmanZ.toFixed(1)} (grey)`); }
+    else { healthScore -= 3; bits.push(`Z=${h.altmanZ.toFixed(1)} (distress)`); }
+  }
+  if (h.piotroskiF != null) {
+    if (h.piotroskiF >= 7) { healthScore += 3; bits.push(`F=${h.piotroskiF}/9 (strong)`); }
+    else if (h.piotroskiF >= 4) { healthScore += 0; bits.push(`F=${h.piotroskiF}/9`); }
+    else { healthScore -= 2; bits.push(`F=${h.piotroskiF}/9 (weak)`); }
+  }
+  breakdown.health.score = Math.max(0, Math.min(10, Math.round(healthScore)));
+  breakdown.health.detail = bits.length > 0 ? bits.join(', ') : 'Scores indisponibles';
+
+  // --- EARNINGS MOMENTUM (0-5) : beats consecutifs ---
+  let earnScore = 2;
+  const hist = (earnings && earnings.history) || [];
+  const last4 = hist.slice(0, 4);
+  const beats = last4.filter(x => x.beat).length;
+  if (last4.length > 0) {
+    earnScore = Math.round((beats / last4.length) * 5);
+    breakdown.earnings.detail = `${beats}/${last4.length} beats sur les ${last4.length} derniers trimestres`;
+  } else {
+    breakdown.earnings.detail = 'Historique indisponible';
+  }
+  breakdown.earnings.score = Math.max(0, Math.min(5, earnScore));
 
   // --- Total ---
   const total = Object.values(breakdown).reduce((s, b) => s + b.score, 0);
