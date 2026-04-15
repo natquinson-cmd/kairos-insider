@@ -338,6 +338,11 @@ async function handleCustomerPortal(request, env, user, origin) {
 // ============================================================
 // BREVO : Email de bienvenue Premium (apres checkout Stripe)
 // Envoye en inline HTML pour ne pas dependre d'un template Brevo
+//
+// [SYNC:FEATURES] La liste de features ci-dessous est aussi dans:
+// - merci.html (page de confirmation post-paiement)
+// - index.html (section #features de la landing)
+// -> quand on ajoute/modifie une feature premium, mettre a jour les 3 endroits
 // ============================================================
 async function sendPremiumWelcomeEmail(email, env) {
   const html = `<!DOCTYPE html>
