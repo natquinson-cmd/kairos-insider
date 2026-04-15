@@ -3,8 +3,11 @@ Allow: /
 Disallow: /dashboard.html
 Disallow: /merci.html
 
+# Sitemap statique pour ce domaine (page d'accueil)
+Sitemap: https://kairosinsider.fr/sitemap.xml
+
 # Sitemap dynamique genere par le Cloudflare Worker.
-# Liste tous les tickers couverts avec leur URL publique /action.html?ticker=X
+# Liste tous les tickers couverts avec leur URL SSR /a/:ticker (pre-rendu)
 Sitemap: https://kairos-insider-api.natquinson.workers.dev/sitemap.xml
 
 # Bots IA : autorises pour l'indexation semantique

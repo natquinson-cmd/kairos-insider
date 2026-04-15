@@ -69,6 +69,13 @@ export default {
       return handleRobotsTxt(env);
     }
 
+    // SSR HTML pour bots sociaux + Googlebot (Facebook, Twitter, LinkedIn, ChatGPT...)
+    // Format : GET /a/:ticker -> HTML complet pre-rendu (meta tags + contenu indexable)
+    if (request.method === 'GET' && path.startsWith('/a/')) {
+      const ticker = decodeURIComponent(path.slice('/a/'.length));
+      return handleActionSSR(ticker, env);
+    }
+
     // ==========================================
     // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
     // ==========================================
@@ -245,7 +252,6 @@ async function handlePublicTickersList(env, origin) {
 // ============================================================
 async function handleSitemap(env) {
   try {
-    const SITE = 'https://kairosinsider.fr';
     const today = new Date().toISOString().slice(0, 10);
 
     // Recupere la liste des tickers depuis le cache KV
@@ -272,15 +278,14 @@ async function handleSitemap(env) {
     // Limite raisonnable pour Googlebot
     tickers = tickers.slice(0, 1000);
 
-    const urls = [];
-    // Pages statiques principales
-    urls.push(`<url><loc>${SITE}/</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>`);
-    urls.push(`<url><loc>${SITE}/dashboard.html</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.9</priority></url>`);
+    // URL de base du Worker (sitemap same-origin - Sitemaps.org spec)
+    const WORKER = 'https://kairos-insider-api.natquinson.workers.dev';
 
-    // Une URL par ticker (analyse publique SEO)
+    const urls = [];
+    // Une URL SSR par ticker (pre-rendu par le Worker = indexable sans JS)
     for (const t of tickers) {
       const tk = encodeURIComponent(t.ticker);
-      urls.push(`<url><loc>${SITE}/action.html?ticker=${tk}</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
+      urls.push(`<url><loc>${WORKER}/a/${tk}</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
@@ -299,6 +304,315 @@ async function handleSitemap(env) {
       headers: { 'Content-Type': 'application/xml; charset=utf-8' },
     });
   }
+}
+
+// ============================================================
+// SSR : HTML complet pre-rendu pour bots sociaux + SEO
+// Endpoint : GET /a/:ticker
+// Googlebot rend le JS mais c'est 2e vague ; Facebook/Twitter/LinkedIn/
+// ChatGPT/Slack ne rendent PAS le JS. Ce endpoint retourne du HTML deja
+// rempli -> previews sociaux nickel + indexation Google en 1ere vague.
+// ============================================================
+function escHtmlSsr(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function fmtCurrSsr(n, cur) {
+  if (n == null) return '—';
+  try { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: cur || 'USD', maximumFractionDigits: 2 }).format(n); }
+  catch { return String(n); }
+}
+function fmtPctSsr(n) {
+  if (n == null) return '—';
+  return (n > 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+}
+function fmtIntSsr(n) {
+  if (n == null) return '—';
+  try { return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n); }
+  catch { return String(n); }
+}
+function signalFromScoreSsr(total) {
+  if (total >= 75) return { label: 'ACHAT FORT', color: '#10B981' };
+  if (total >= 60) return { label: 'ACHAT', color: '#34D399' };
+  if (total >= 40) return { label: 'NEUTRE', color: '#9CA3AF' };
+  if (total >= 25) return { label: 'VENTE', color: '#F87171' };
+  return { label: 'VENTE FORTE', color: '#EF4444' };
+}
+
+async function handleActionSSR(rawTicker, env) {
+  const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
+  if (!ticker || ticker.length > 12) {
+    return new Response('Invalid ticker', { status: 400, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+
+  let data;
+  try {
+    data = await handleStockAnalysis(ticker, env, { publicView: true });
+  } catch (e) {
+    data = { error: 'Failed to load', detail: String(e && e.message || e) };
+  }
+
+  // Page d'erreur SSR (reste indexable)
+  if (!data || data.error) {
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Ticker introuvable — Kairos Insider</title><meta name="robots" content="noindex,follow"><style>body{font-family:system-ui;background:#0A0F1E;color:#F9FAFB;text-align:center;padding:80px 20px}a{color:#3B82F6}</style></head><body><h1>Ticker ${escHtmlSsr(ticker)} introuvable</h1><p>Cette action n'est pas couverte par Kairos Insider.</p><p><a href="https://kairosinsider.fr/dashboard.html">Retour au dashboard</a></p></body></html>`;
+    return new Response(html, {
+      status: 404,
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
+    });
+  }
+
+  const name = data.company?.name || ticker;
+  const sector = data.company?.sector || '';
+  const score = data.score?.total || 0;
+  const sig = signalFromScoreSsr(score);
+  const price = data.price?.current;
+  const currency = data.price?.currency || 'USD';
+  const changePct = data.price?.changePct;
+  const changeYtd = data.price?.changeYtdPct;
+  const change1y = data.price?.change1yPct;
+
+  const totalInsiderTx = data.insiders?._totalTransactions ?? (data.insiders?.transactions?.length ?? 0);
+  const insiderBuyCount = (data.insiders?.transactions || []).filter(t => (t.adType === 'A' || t.type === 'P')).length;
+  const totalFunds = data.smartMoney?._totalFunds ?? (data.smartMoney?.topFunds?.length ?? 0);
+  const totalNews = data._totalNews ?? (data.news?.length ?? 0);
+
+  const marketCap = data.fundamentals?.marketCap;
+  const pe = data.fundamentals?.peRatio;
+  const dividendYield = data.fundamentals?.dividendYield;
+
+  const title = `${name} (${ticker}) — Kairos Score ${score}/100 · ${sig.label} | Kairos Insider`;
+  const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). ${totalInsiderTx} transactions insiders, ${totalFunds} hedge funds 13F. Cours : ${fmtCurrSsr(price, currency)}.`;
+  // URL du dashboard (pour les CTA "Voir l'analyse complete")
+  const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
+  // Canonical = self (SSR) car c'est cette URL qu'on veut voir indexee
+  const canonical = `https://kairos-insider-api.natquinson.workers.dev/a/${encodeURIComponent(ticker)}`;
+
+  // Schema.org JSON-LD
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: `${name} (${ticker}) — Analyse Kairos Insider`,
+    description: desc,
+    datePublished: data.updatedAt || new Date().toISOString(),
+    dateModified: data.updatedAt || new Date().toISOString(),
+    image: 'https://kairosinsider.fr/assets/logo.png',
+    url: canonical,
+    author: { '@type': 'Organization', name: 'Kairos Insider', url: 'https://kairosinsider.fr' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Kairos Insider',
+      url: 'https://kairosinsider.fr',
+      logo: { '@type': 'ImageObject', url: 'https://kairosinsider.fr/assets/logo.png' },
+    },
+    about: {
+      '@type': 'Corporation',
+      name: name,
+      tickerSymbol: ticker,
+      ...(data.company?.exchange && { exchange: data.company.exchange }),
+      ...(data.company?.website && { url: data.company.website }),
+      ...(data.company?.industry && { industry: data.company.industry }),
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: (score / 20).toFixed(1),
+      bestRating: '5',
+      worstRating: '0',
+      ratingCount: '1',
+      reviewAspect: 'Kairos Score composite smart money',
+    },
+  };
+
+  const insiderTeaser = (data.insiders?.transactions || []).slice(0, 3).map(t => {
+    const action = (t.type === 'P' || t.adType === 'A') ? 'Achat' : 'Vente';
+    const who = escHtmlSsr(t.insider || 'Dirigeant');
+    return `<li>${who} — <strong>${action}</strong>${t.date ? ' · ' + escHtmlSsr(t.date) : ''}</li>`;
+  }).join('');
+
+  const fundsTeaser = (data.smartMoney?.topFunds || []).slice(0, 5).map(f => {
+    return `<li>${escHtmlSsr(f.fundName || f.cik || 'Fonds 13F')}</li>`;
+  }).join('');
+
+  const newsTeaser = (data.news || []).slice(0, 3).map(n => {
+    return `<li><strong>${escHtmlSsr(n.title || '')}</strong>${n.source ? ' <span style="opacity:0.6">· ' + escHtmlSsr(n.source) + '</span>' : ''}</li>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escHtmlSsr(title)}</title>
+<meta name="description" content="${escHtmlSsr(desc)}">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#0A0F1E">
+<link rel="canonical" href="${canonical}">
+<link rel="icon" type="image/png" href="https://kairosinsider.fr/assets/logo.png">
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Kairos Insider">
+<meta property="og:title" content="${escHtmlSsr(title)}">
+<meta property="og:description" content="${escHtmlSsr(desc)}">
+<meta property="og:url" content="${canonical}">
+<meta property="og:image" content="https://kairosinsider.fr/assets/logo.png">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escHtmlSsr(title)}">
+<meta name="twitter:description" content="${escHtmlSsr(desc)}">
+<meta name="twitter:image" content="https://kairosinsider.fr/assets/logo.png">
+
+<script type="application/ld+json">${JSON.stringify(schema)}</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:#0A0F1E;color:#F9FAFB;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
+.container{max-width:880px;margin:0 auto;padding:40px 24px}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}
+.logo{font-weight:700;font-size:20px;background:linear-gradient(135deg,#F9FAFB,#9CA3AF);-webkit-background-clip:text;color:transparent}
+.cta{padding:10px 20px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border-radius:8px;color:#fff;text-decoration:none;font-weight:600;font-size:14px}
+.ticker-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.05));border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:24px}
+.ticker-symbol{font-size:42px;font-weight:700;letter-spacing:-1px}
+.ticker-name{font-size:18px;color:#9CA3AF;margin-top:4px}
+.badges{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-size:12px;padding:4px 10px;background:rgba(255,255,255,0.06);border-radius:6px;color:#9CA3AF}
+.price-box{text-align:right}
+.price{font-size:32px;font-weight:600}
+.change-up{color:#10B981}.change-down{color:#EF4444}
+.score-card{display:flex;gap:24px;align-items:center;flex-wrap:wrap;padding:32px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:24px}
+.score-gauge{width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;flex-shrink:0}
+.score-info h1{font-size:26px;margin-bottom:10px}
+.signal{display:inline-block;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:10px}
+.section{padding:24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:14px;margin-bottom:20px}
+.section h2{font-size:18px;margin-bottom:12px}
+.section p{color:#9CA3AF;font-size:14px}
+.section ul{list-style:none;margin-top:12px}
+.section li{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:14px;color:#D1D5DB}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px}
+.info-item{padding:12px;background:rgba(255,255,255,0.03);border-radius:8px}
+.info-label{font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px}
+.info-value{font-size:15px;font-weight:600;margin-top:4px}
+.paywall{padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.1));border:1px solid rgba(59,130,246,0.3);border-radius:16px;text-align:center;margin-top:32px}
+.paywall h2{font-size:22px;margin-bottom:12px}
+.paywall p{color:#D1D5DB;margin-bottom:20px}
+.paywall .cta{display:inline-block;padding:14px 28px;font-size:15px}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:24px 0;text-align:left}
+.feature{padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:13px;color:#D1D5DB}
+footer{margin-top:60px;padding-top:30px;border-top:1px solid rgba(255,255,255,0.05);font-size:12px;color:#6B7280;text-align:center}
+footer a{color:#9CA3AF;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="https://kairosinsider.fr/" class="logo">Kairos Insider</a>
+    <a href="https://kairosinsider.fr/dashboard.html" class="cta">Ouvrir l'analyse complète →</a>
+  </nav>
+
+  <div class="ticker-header">
+    <div>
+      <div class="ticker-symbol">${escHtmlSsr(ticker)}</div>
+      <div class="ticker-name">${escHtmlSsr(name)}</div>
+      <div class="badges">
+        ${data.company?.exchange ? `<span class="badge">${escHtmlSsr(data.company.exchange)}</span>` : ''}
+        ${sector ? `<span class="badge">${escHtmlSsr(sector)}</span>` : ''}
+        ${data.company?.country ? `<span class="badge">${escHtmlSsr(data.company.country)}</span>` : ''}
+      </div>
+    </div>
+    <div class="price-box">
+      <div class="price">${fmtCurrSsr(price, currency)}</div>
+      ${changePct != null ? `<div class="${changePct >= 0 ? 'change-up' : 'change-down'}" style="margin-top:4px">${fmtPctSsr(changePct)} sur la séance</div>` : ''}
+      ${changeYtd != null ? `<div style="font-size:12px;color:#6B7280;margin-top:6px">${fmtPctSsr(changeYtd)} depuis le 1er janvier · ${fmtPctSsr(change1y)} sur 1 an</div>` : ''}
+    </div>
+  </div>
+
+  <div class="score-card">
+    <div class="score-gauge" style="background:conic-gradient(${sig.color} ${score * 3.6}deg, rgba(255,255,255,0.08) 0deg);position:relative">
+      <div style="position:absolute;inset:8px;background:#0A0F1E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <div style="color:${sig.color}">${score}</div>
+        <div style="font-size:11px;color:#9CA3AF;font-weight:400">/100</div>
+      </div>
+    </div>
+    <div class="score-info">
+      <h1>Kairos Score : ${score}/100</h1>
+      <div class="signal" style="background:${sig.color}22;color:${sig.color};border:1px solid ${sig.color}44">${sig.label}</div>
+      <p>Score composite qui agrège 8 dimensions du smart money : insiders (SEC/AMF/BaFin), hedge funds 13F, politiciens et gourous (NANC/GURU), momentum, valorisation, consensus analystes, santé financière et earnings.</p>
+    </div>
+  </div>
+
+  ${data.company?.description ? `
+    <div class="section">
+      <h2>À propos de ${escHtmlSsr(name)}</h2>
+      <p>${escHtmlSsr(data.company.description)}</p>
+    </div>
+  ` : ''}
+
+  <div class="section">
+    <h2>Informations clés</h2>
+    <div class="info-grid">
+      ${data.company?.ceo ? `<div class="info-item"><div class="info-label">PDG</div><div class="info-value">${escHtmlSsr(data.company.ceo)}</div></div>` : ''}
+      ${data.company?.founded ? `<div class="info-item"><div class="info-label">Fondée en</div><div class="info-value">${escHtmlSsr(data.company.founded)}</div></div>` : ''}
+      ${data.company?.headquarters ? `<div class="info-item"><div class="info-label">Siège</div><div class="info-value">${escHtmlSsr(data.company.headquarters)}</div></div>` : ''}
+      ${data.company?.employees ? `<div class="info-item"><div class="info-label">Employés</div><div class="info-value">${fmtIntSsr(data.company.employees)}</div></div>` : ''}
+      ${marketCap ? `<div class="info-item"><div class="info-label">Capitalisation</div><div class="info-value">${fmtCurrSsr(marketCap, currency)}</div></div>` : ''}
+      ${pe ? `<div class="info-item"><div class="info-label">PER</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : escHtmlSsr(pe)}</div></div>` : ''}
+      ${dividendYield ? `<div class="info-item"><div class="info-label">Rendement div.</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : escHtmlSsr(dividendYield)}</div></div>` : ''}
+      ${data.company?.ipoDate ? `<div class="info-item"><div class="info-label">IPO</div><div class="info-value">${escHtmlSsr(data.company.ipoDate)}</div></div>` : ''}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🕴️ Activité des initiés (90 jours)</h2>
+    <p><strong>${totalInsiderTx}</strong> transactions — dont <strong>${insiderBuyCount}</strong> achats déclarés par les dirigeants de ${escHtmlSsr(name)} auprès de la SEC / AMF / BaFin.</p>
+    ${insiderTeaser ? `<ul>${insiderTeaser}</ul>` : ''}
+  </div>
+
+  <div class="section">
+    <h2>🏦 Hedge funds (13F)</h2>
+    <p><strong>${totalFunds}</strong> fonds institutionnels déclarent une position sur ${escHtmlSsr(ticker)} dans leur dernier dépôt 13F SEC.</p>
+    ${fundsTeaser ? `<ul>${fundsTeaser}</ul>` : ''}
+  </div>
+
+  ${totalNews > 0 ? `
+    <div class="section">
+      <h2>📰 Actualités récentes</h2>
+      <p><strong>${totalNews}</strong> articles récents sur ${escHtmlSsr(ticker)}.</p>
+      ${newsTeaser ? `<ul>${newsTeaser}</ul>` : ''}
+    </div>
+  ` : ''}
+
+  <div class="paywall">
+    <h2>🔓 Débloquez l'analyse complète</h2>
+    <p>Cette page publique ne montre qu'un extrait. L'analyse complète de <strong>${escHtmlSsr(ticker)}</strong> sur le dashboard Kairos Insider inclut :</p>
+    <div class="features">
+      <div class="feature">✅ Historique complet des ${totalInsiderTx} transactions insiders</div>
+      <div class="feature">✅ Tous les ${totalFunds} hedge funds 13F détaillés</div>
+      <div class="feature">✅ Positions NANC, GOP et GURU</div>
+      <div class="feature">✅ Fondamentaux (P/E, PEG, EV/EBITDA, ROE…)</div>
+      <div class="feature">✅ Santé financière (Altman Z, Piotroski F)</div>
+      <div class="feature">✅ Earnings 6 trimestres + prochaine date</div>
+      <div class="feature">✅ Concurrents sectoriels (peers)</div>
+      <div class="feature">✅ Breakdown du Kairos Score (8 dimensions)</div>
+    </div>
+    <a href="${dashboardUrl}" class="cta">Voir l'analyse complète →</a>
+    <p style="margin-top:14px;font-size:12px;color:#6B7280">Inscription gratuite · Premium 29€/mois sans engagement</p>
+  </div>
+
+  <footer>
+    <p><a href="https://kairosinsider.fr/">kairosinsider.fr</a> · La plateforme francophone du smart money</p>
+    <p style="margin-top:6px">Données SEC EDGAR, AMF, BaFin, Yahoo Finance — mises à jour quotidiennement</p>
+  </footer>
+</div>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=900, s-maxage=1800',
+      'X-Robots-Tag': 'index, follow',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 // ============================================================
