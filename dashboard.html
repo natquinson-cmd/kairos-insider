@@ -2146,10 +2146,13 @@
           </div>
         </div>
 
-        <!-- CHART prix 1 an -->
+        <!-- CHART prix 1 an avec superposition insiders -->
         <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;margin-bottom:24px">
-          <h3 style="margin:0 0 12px;font-size:16px;opacity:0.9">Cours sur 1 an</h3>
-          <div style="height:220px;position:relative"><canvas id="stockPriceChart"></canvas></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <h3 style="margin:0;font-size:16px;opacity:0.9">Cours sur 1 an &amp; transactions d'initiés</h3>
+            <div style="font-size:11px;opacity:0.55">● achat &nbsp; ▲ vente &nbsp; · taille ∝ montant</div>
+          </div>
+          <div style="height:260px;position:relative"><canvas id="stockPriceChart"></canvas></div>
         </div>
 
         <!-- 3 COLONNES : Insiders / Smart Money / Politiciens -->
@@ -2319,32 +2322,163 @@
         ` : ''}
       `;
 
-      // Render chart prix
+      // Render chart prix + superposition insiders
       if (d.chart && d.chart.points && d.chart.points.length > 0) {
         const ctx = document.getElementById('stockPriceChart')?.getContext('2d');
         if (ctx) {
           if (stockChart) stockChart.destroy();
-          const labels = d.chart.points.map(p => p.date);
-          const values = d.chart.points.map(p => p.close);
+          const points = d.chart.points;
+          const labels = points.map(p => p.date);
+          const values = points.map(p => p.close);
+
+          // Index rapide : date YYYY-MM-DD -> index + close
+          const byDate = new Map();
+          points.forEach((p, i) => byDate.set(p.date, { i, close: p.close }));
+          const firstDate = labels[0];
+          const lastDate = labels[labels.length - 1];
+
+          // Fonction : trouver l'index de la premiere date >= targetDate
+          function findIndexForDate(targetDate) {
+            if (!targetDate) return -1;
+            // Date exacte
+            if (byDate.has(targetDate)) return byDate.get(targetDate).i;
+            if (targetDate < firstDate || targetDate > lastDate) return -1;
+            // Recherche lineaire de la premiere date >= target (ok car ~250 points max)
+            for (let i = 0; i < labels.length; i++) {
+              if (labels[i] >= targetDate) return i;
+            }
+            return -1;
+          }
+
+          // Construire les arrays d'overlay : null partout sauf aux dates d'insider
+          // Pour gerer plusieurs trades le meme jour, on utilise un tableau d'arrays
+          const buyOverlay = new Array(labels.length).fill(null);
+          const sellOverlay = new Array(labels.length).fill(null);
+          const buyMeta = new Array(labels.length).fill(null);   // metadata pour tooltip
+          const sellMeta = new Array(labels.length).fill(null);
+          const buyRadii = new Array(labels.length).fill(0);
+          const sellRadii = new Array(labels.length).fill(0);
+
+          const txs = (insiders.transactions || []).filter(t => t.fileDate);
+          // Calculer les tailles de points proportionnelles au volume
+          const values_arr = txs.map(t => Math.abs(t.value || 0)).filter(v => v > 0);
+          const maxVal = values_arr.length ? Math.max(...values_arr) : 0;
+          function radiusFor(value) {
+            if (!value || !maxVal) return 5;
+            const ratio = Math.min(Math.abs(value) / maxVal, 1);
+            return 4 + Math.round(ratio * 8); // 4 a 12px
+          }
+
+          txs.forEach(t => {
+            const idx = findIndexForDate(t.fileDate);
+            if (idx < 0) return;
+            const y = values[idx];
+            const r = radiusFor(t.value);
+            if (t.type === 'buy') {
+              // Empiler : si deja un point, garder le plus gros radius
+              if (r > buyRadii[idx]) {
+                buyOverlay[idx] = y;
+                buyRadii[idx] = r;
+                buyMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: t.fileDate, count: (buyMeta[idx]?.count || 0) + 1 };
+              } else if (buyMeta[idx]) {
+                buyMeta[idx].count = (buyMeta[idx].count || 1) + 1;
+              }
+            } else if (t.type === 'sell') {
+              if (r > sellRadii[idx]) {
+                sellOverlay[idx] = y;
+                sellRadii[idx] = r;
+                sellMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: t.fileDate, count: (sellMeta[idx]?.count || 0) + 1 };
+              } else if (sellMeta[idx]) {
+                sellMeta[idx].count = (sellMeta[idx].count || 1) + 1;
+              }
+            }
+          });
+
+          const datasets = [{
+            label: d.ticker,
+            data: values,
+            borderColor: '#74b9ff',
+            backgroundColor: 'rgba(116,185,255,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: true,
+            tension: 0.1,
+            order: 2,
+          }];
+
+          const hasBuys = buyOverlay.some(v => v !== null);
+          const hasSells = sellOverlay.some(v => v !== null);
+
+          if (hasBuys) {
+            datasets.push({
+              label: 'Achats insiders',
+              data: buyOverlay,
+              _meta: buyMeta,
+              borderColor: '#2ecc71',
+              backgroundColor: '#2ecc71',
+              pointRadius: buyRadii,
+              pointHoverRadius: buyRadii.map(r => r ? r + 2 : 0),
+              pointStyle: 'circle',
+              showLine: false,
+              borderWidth: 2,
+              order: 1,
+            });
+          }
+          if (hasSells) {
+            datasets.push({
+              label: 'Ventes insiders',
+              data: sellOverlay,
+              _meta: sellMeta,
+              borderColor: '#ff7675',
+              backgroundColor: '#ff7675',
+              pointRadius: sellRadii,
+              pointHoverRadius: sellRadii.map(r => r ? r + 2 : 0),
+              pointStyle: 'triangle',
+              showLine: false,
+              borderWidth: 2,
+              order: 0,
+            });
+          }
+
           stockChart = new Chart(ctx, {
             type: 'line',
-            data: {
-              labels,
-              datasets: [{
-                label: d.ticker,
-                data: values,
-                borderColor: '#74b9ff',
-                backgroundColor: 'rgba(116,185,255,0.08)',
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: true,
-                tension: 0.1,
-              }],
-            },
+            data: { labels, datasets },
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+              interaction: { mode: 'nearest', intersect: true },
+              plugins: {
+                legend: {
+                  display: hasBuys || hasSells,
+                  position: 'top',
+                  align: 'end',
+                  labels: { color: 'rgba(255,255,255,0.7)', boxWidth: 12, boxHeight: 12, padding: 12, font: { size: 11 } },
+                },
+                tooltip: {
+                  callbacks: {
+                    title: function(items) {
+                      if (!items.length) return '';
+                      return fmtDate(items[0].label);
+                    },
+                    label: function(ctx) {
+                      const ds = ctx.dataset;
+                      if (ds.label === d.ticker) {
+                        return `Cours : ${fmtCurr(ctx.parsed.y)}`;
+                      }
+                      const meta = ds._meta && ds._meta[ctx.dataIndex];
+                      if (!meta) return ds.label;
+                      const lines = [];
+                      const prefix = ds.label === 'Achats insiders' ? '🟢 ACHAT' : '🔴 VENTE';
+                      lines.push(`${prefix}${meta.count > 1 ? ' (+' + (meta.count - 1) + ' autre' + (meta.count > 2 ? 's' : '') + ')' : ''}`);
+                      if (meta.insider) lines.push(meta.insider + (meta.title ? ' · ' + meta.title : ''));
+                      if (meta.shares) lines.push(meta.shares.toLocaleString('fr-FR') + ' titres');
+                      if (meta.value) lines.push(fmtCurr(meta.value, meta.currency));
+                      return lines;
+                    },
+                  },
+                },
+              },
               scales: {
                 x: { ticks: { color: 'rgba(255,255,255,0.5)', maxTicksLimit: 8 }, grid: { color: 'rgba(255,255,255,0.04)' } },
                 y: { ticks: { color: 'rgba(255,255,255,0.5)' }, grid: { color: 'rgba(255,255,255,0.04)' } },
