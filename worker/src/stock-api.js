@@ -86,6 +86,12 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
       employees: (employeesData.stats && employeesData.stats.current) || (overview.profile && overview.profile.employees) || null,
       employeesGrowth: (employeesData.stats && employeesData.stats.growth) || null,
       exchange: (overview.profile && overview.profile.exchange) || null,
+      ceo: (overview.profile && overview.profile.ceo) || null,
+      founded: (overview.profile && overview.profile.founded) || null,
+      headquarters: (overview.profile && overview.profile.headquarters) || null,
+      ipoDate: (overview.profile && overview.profile.ipoDate) || null,
+      fiscalYearEnd: (overview.profile && overview.profile.fiscalYearEnd) || null,
+      isin: (overview.profile && overview.profile.isin) || null,
     },
     price: quote.price,
     chart: quote.chart,
@@ -164,18 +170,53 @@ async function fetchYahooQuote(ticker) {
       close: closes[i],
     })).filter(p => p.close != null);
 
+    // DAILY change : on doit prendre le VRAI previous close, pas chartPreviousClose
+    // (qui correspond au close d'il y a 1 an avec range=1y)
+    // Yahoo expose previousClose dans meta, mais parfois seulement chartPreviousClose.
+    // Fallback robuste : avant-dernier close du chart vs current price.
+    const current = meta.regularMarketPrice;
+    let dailyPrev = meta.previousClose;
+    if (dailyPrev == null && chartPoints.length >= 2) {
+      // avant-dernier close du chart (le dernier est aujourd'hui ou la veille)
+      dailyPrev = chartPoints[chartPoints.length - 2].close;
+    }
+    const dailyChange = (current != null && dailyPrev != null) ? current - dailyPrev : null;
+    const dailyChangePct = (current != null && dailyPrev != null && dailyPrev !== 0) ? (dailyChange / dailyPrev) * 100 : null;
+
+    // Performance 1 an : premier point du chart vs current
+    let change1y = null, change1yPct = null;
+    if (chartPoints.length > 0 && current != null) {
+      const firstClose = chartPoints[0].close;
+      if (firstClose != null && firstClose !== 0) {
+        change1y = current - firstClose;
+        change1yPct = ((current - firstClose) / firstClose) * 100;
+      }
+    }
+
+    // Performance YTD : premier close de l'année en cours vs current
+    let changeYtdPct = null;
+    const currentYear = new Date().getFullYear();
+    const ytdFirst = chartPoints.find(p => p.date && p.date.startsWith(String(currentYear) + '-'));
+    if (ytdFirst && ytdFirst.close && current != null) {
+      changeYtdPct = ((current - ytdFirst.close) / ytdFirst.close) * 100;
+    }
+
     return {
       price: {
-        current: meta.regularMarketPrice,
-        previousClose: meta.chartPreviousClose || meta.previousClose,
-        change: meta.regularMarketPrice != null && meta.chartPreviousClose != null
-          ? meta.regularMarketPrice - meta.chartPreviousClose : null,
-        changePct: meta.regularMarketPrice != null && meta.chartPreviousClose != null
-          ? ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100 : null,
+        current,
+        previousClose: dailyPrev,
+        change: dailyChange,
+        changePct: dailyChangePct,
+        change1y,
+        change1yPct,
+        changeYtdPct,
         currency: meta.currency || 'USD',
         exchange: meta.exchangeName || null,
+        exchangeFull: meta.fullExchangeName || null,
         high52w: meta.fiftyTwoWeekHigh,
         low52w: meta.fiftyTwoWeekLow,
+        marketState: meta.marketState || null,
+        regularMarketTime: meta.regularMarketTime || null,
       },
       chart: {
         range: '1y',
@@ -305,6 +346,12 @@ async function fetchStockAnalysisOverview(ticker) {
           website: info['Website'] || null,
           exchange: info['Stock Exchange'] || null,
           employees: parseNumericValue(info['Employees']),
+          ceo: info['CEO'] || info['Chief Executive Officer'] || null,
+          founded: info['Founded'] || null,
+          headquarters: info['Headquarters'] || info['HQ'] || null,
+          ipoDate: info['IPO Date'] || info['IPO'] || null,
+          fiscalYearEnd: info['Fiscal Year Ends'] || info['Fiscal Year'] || null,
+          isin: info['ISIN'] || null,
           description: d.description || null,
         },
       };
@@ -937,14 +984,14 @@ async function aggregateGovEtf(ticker, env) {
 // ============================================================
 function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings }) {
   const breakdown = {
-    insider: { score: 0, max: 20, label: 'Signal Insider', detail: '' },
-    smartMoney: { score: 0, max: 20, label: 'Smart Money 13F', detail: '' },
-    govGuru: { score: 0, max: 10, label: 'Politiciens & Gurus', detail: '' },
-    momentum: { score: 0, max: 15, label: 'Momentum', detail: '' },
+    insider: { score: 0, max: 20, label: 'Signal des initiés', detail: '' },
+    smartMoney: { score: 0, max: 20, label: 'Hedge funds (13F)', detail: '' },
+    govGuru: { score: 0, max: 10, label: 'Politiciens & gourous', detail: '' },
+    momentum: { score: 0, max: 15, label: 'Momentum du cours', detail: '' },
     valuation: { score: 0, max: 10, label: 'Valorisation', detail: '' },
     analyst: { score: 0, max: 10, label: 'Consensus analystes', detail: '' },
     health: { score: 0, max: 10, label: 'Santé financière', detail: '' },
-    earnings: { score: 0, max: 5, label: 'Earnings momentum', detail: '' },
+    earnings: { score: 0, max: 5, label: 'Momentum résultats', detail: '' },
   };
 
   // --- INSIDER (0-20) ---
@@ -958,7 +1005,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   if (insiders.clusterSignal) insiderScore += 3;
   if (insiders.uniqueInsiders >= 5) insiderScore += 1;
   breakdown.insider.score = Math.max(0, Math.min(20, Math.round(insiderScore)));
-  breakdown.insider.detail = `${insiders.buyCount} achats / ${insiders.sellCount} ventes, ${insiders.uniqueInsiders} insiders uniques${insiders.clusterSignal ? ', CLUSTER DETECTE' : ''}`;
+  breakdown.insider.detail = `${insiders.buyCount} achats / ${insiders.sellCount} ventes, ${insiders.uniqueInsiders} initiés uniques${insiders.clusterSignal ? ', CLUSTER DÉTECTÉ' : ''}`;
 
   // --- SMART MONEY (0-20) ---
   let smScore = 10;
@@ -968,7 +1015,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   else if (smartMoney.avgDeltaPct < -5) smScore -= 4;
   else if (smartMoney.avgDeltaPct < 0) smScore -= 2;
   breakdown.smartMoney.score = Math.max(0, Math.min(20, Math.round(smScore)));
-  breakdown.smartMoney.detail = `${smartMoney.fundCount} fonds, evolution moyenne ${smartMoney.avgDeltaPct.toFixed(1)}%`;
+  breakdown.smartMoney.detail = `${smartMoney.fundCount} fonds, évolution moyenne ${smartMoney.avgDeltaPct.toFixed(1)}%`;
 
   // --- GOV/GURU (0-10) ---
   let ggScore = 5;
@@ -976,7 +1023,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   if (govEtf.totalPct > 1) ggScore += 1;
   breakdown.govGuru.score = Math.max(0, Math.min(10, Math.round(ggScore)));
   breakdown.govGuru.detail = govEtf.inEtfs.length > 0
-    ? `Present dans ${govEtf.inEtfs.map(e => e.etf).join(', ')} (${govEtf.totalPct.toFixed(2)}%)`
+    ? `Présent dans ${govEtf.inEtfs.map(e => e.etf).join(', ')} (${govEtf.totalPct.toFixed(2)}%)`
     : 'Absent des ETF suivis';
 
   // --- MOMENTUM (0-15) ---
@@ -997,7 +1044,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
     const distHigh = ((price.high52w - price.current) / price.high52w) * 100;
     breakdown.momentum.detail = `${distHigh.toFixed(0)}% sous le plus-haut 52 sem.`;
   } else {
-    breakdown.momentum.detail = 'Donnees prix insuffisantes';
+    breakdown.momentum.detail = 'Données de cours insuffisantes';
   }
 
   // --- VALUATION (0-10) ---
@@ -1011,7 +1058,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   if (stats.forwardPE && stats.peRatio && stats.forwardPE < stats.peRatio) valScore += 1;
   breakdown.valuation.score = Math.max(0, Math.min(10, Math.round(valScore)));
   breakdown.valuation.detail = stats.peRatio
-    ? `P/E ${stats.peRatio.toFixed(1)}${stats.forwardPE ? `, Fwd ${stats.forwardPE.toFixed(1)}` : ''}`
+    ? `P/E ${stats.peRatio.toFixed(1)}${stats.forwardPE ? `, prév. ${stats.forwardPE.toFixed(1)}` : ''}`
     : 'P/E indisponible';
 
   // --- ANALYST CONSENSUS (0-10) ---
@@ -1033,7 +1080,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
     breakdown.analyst.detail = `${consensus.bullishPct.toFixed(0)}% haussiers (${consensus.total} analystes)`;
   } else if (stats.targetMeanPrice && price && price.current) {
     const upside = ((stats.targetMeanPrice - price.current) / price.current) * 100;
-    breakdown.analyst.detail = `Target ${stats.targetMeanPrice.toFixed(0)} (${upside > 0 ? '+' : ''}${upside.toFixed(0)}%)`;
+    breakdown.analyst.detail = `Objectif ${stats.targetMeanPrice.toFixed(0)} (${upside > 0 ? '+' : ''}${upside.toFixed(0)}%)`;
   } else {
     breakdown.analyst.detail = 'Pas de consensus';
   }
@@ -1043,14 +1090,14 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   const h = health || {};
   const bits = [];
   if (h.altmanZ != null) {
-    if (h.altmanZ > 2.99) { healthScore += 3; bits.push(`Z=${h.altmanZ.toFixed(1)} (safe)`); }
-    else if (h.altmanZ > 1.81) { healthScore += 0; bits.push(`Z=${h.altmanZ.toFixed(1)} (grey)`); }
-    else { healthScore -= 3; bits.push(`Z=${h.altmanZ.toFixed(1)} (distress)`); }
+    if (h.altmanZ > 2.99) { healthScore += 3; bits.push(`Z=${h.altmanZ.toFixed(1)} (sain)`); }
+    else if (h.altmanZ > 1.81) { healthScore += 0; bits.push(`Z=${h.altmanZ.toFixed(1)} (gris)`); }
+    else { healthScore -= 3; bits.push(`Z=${h.altmanZ.toFixed(1)} (détresse)`); }
   }
   if (h.piotroskiF != null) {
-    if (h.piotroskiF >= 7) { healthScore += 3; bits.push(`F=${h.piotroskiF}/9 (strong)`); }
+    if (h.piotroskiF >= 7) { healthScore += 3; bits.push(`F=${h.piotroskiF}/9 (solide)`); }
     else if (h.piotroskiF >= 4) { healthScore += 0; bits.push(`F=${h.piotroskiF}/9`); }
-    else { healthScore -= 2; bits.push(`F=${h.piotroskiF}/9 (weak)`); }
+    else { healthScore -= 2; bits.push(`F=${h.piotroskiF}/9 (faible)`); }
   }
   breakdown.health.score = Math.max(0, Math.min(10, Math.round(healthScore)));
   breakdown.health.detail = bits.length > 0 ? bits.join(', ') : 'Scores indisponibles';
@@ -1062,7 +1109,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   const beats = last4.filter(x => x.beat).length;
   if (last4.length > 0) {
     earnScore = Math.round((beats / last4.length) * 5);
-    breakdown.earnings.detail = `${beats}/${last4.length} beats sur les ${last4.length} derniers trimestres`;
+    breakdown.earnings.detail = `${beats}/${last4.length} dépassements sur les ${last4.length} derniers trimestres`;
   } else {
     breakdown.earnings.detail = 'Historique indisponible';
   }
@@ -1073,11 +1120,11 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
 
   let signal = 'NEUTRE';
   let signalColor = 'gray';
-  if (total >= 75) { signal = 'STRONG BUY'; signalColor = 'green'; }
-  else if (total >= 60) { signal = 'BUY'; signalColor = 'greenLight'; }
+  if (total >= 75) { signal = 'ACHAT FORT'; signalColor = 'green'; }
+  else if (total >= 60) { signal = 'ACHAT'; signalColor = 'greenLight'; }
   else if (total >= 40) { signal = 'NEUTRE'; signalColor = 'gray'; }
-  else if (total >= 25) { signal = 'SELL'; signalColor = 'redLight'; }
-  else { signal = 'STRONG SELL'; signalColor = 'red'; }
+  else if (total >= 25) { signal = 'VENTE'; signalColor = 'redLight'; }
+  else { signal = 'VENTE FORTE'; signalColor = 'red'; }
 
   return {
     total,
