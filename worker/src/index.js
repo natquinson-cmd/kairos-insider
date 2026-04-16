@@ -618,14 +618,14 @@ async function handleActionSSR(rawTicker, env) {
     description: desc,
     datePublished: data.updatedAt || new Date().toISOString(),
     dateModified: data.updatedAt || new Date().toISOString(),
-    image: 'https://kairosinsider.fr/assets/logo.png',
+    image: 'https://kairosinsider.fr/assets/logo.svg',
     url: canonical,
     author: { '@type': 'Organization', name: 'Kairos Insider', url: 'https://kairosinsider.fr' },
     publisher: {
       '@type': 'Organization',
       name: 'Kairos Insider',
       url: 'https://kairosinsider.fr',
-      logo: { '@type': 'ImageObject', url: 'https://kairosinsider.fr/assets/logo.png' },
+      logo: { '@type': 'ImageObject', url: 'https://kairosinsider.fr/assets/logo.svg' },
     },
     about: {
       '@type': 'Corporation',
@@ -665,7 +665,7 @@ async function handleActionSSR(rawTicker, env) {
 <meta name="robots" content="index,follow">
 <meta name="theme-color" content="#0A0F1E">
 <link rel="canonical" href="${canonical}">
-<link rel="icon" type="image/png" href="https://kairosinsider.fr/assets/logo.png">
+<link rel="icon" type="image/svg+xml" href="https://kairosinsider.fr/assets/logo.svg">
 
 <meta property="og:type" content="article">
 <meta property="og:locale" content="fr_FR">
@@ -673,12 +673,12 @@ async function handleActionSSR(rawTicker, env) {
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
 <meta property="og:url" content="${canonical}">
-<meta property="og:image" content="https://kairosinsider.fr/assets/logo.png">
+<meta property="og:image" content="https://kairosinsider.fr/assets/logo.svg">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escHtmlSsr(title)}">
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
-<meta name="twitter:image" content="https://kairosinsider.fr/assets/logo.png">
+<meta name="twitter:image" content="https://kairosinsider.fr/assets/logo.svg">
 
 <!-- Google Analytics 4 (RGPD-friendly) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-7YPCWL035M"></script>

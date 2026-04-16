@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="Kairos Insider">
+  <defs>
+    <linearGradient id="kairosGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="55%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <radialGradient id="kairosDot" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F9A8D4"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </radialGradient>
+  </defs>
+  <!-- Cercle d'arriere-plan (subtle) -->
+  <circle cx="20" cy="20" r="18.5" fill="none" stroke="url(#kairosGrad)" stroke-width="2.2" opacity="0.95"/>
+  <!-- Chart ascendante : smart money signal -->
+  <polyline points="9,27 14,22.5 20,24.5 26,14 31,15.5" fill="none" stroke="url(#kairosGrad)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Point culminant (le "signal") -->
+  <circle cx="26" cy="14" r="2.6" fill="url(#kairosDot)"/>
+  <!-- Petit accent scintillant sur le signal -->
+  <circle cx="25.3" cy="13.3" r="0.6" fill="#FCE7F3" opacity="0.9"/>
+</svg>
