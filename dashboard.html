@@ -386,6 +386,11 @@
       background: rgba(16,185,129,0.15);
       color: var(--accent-green);
     }
+    .sidebar-item .new-badge {
+      background: linear-gradient(135deg, rgba(116,185,255,0.2), rgba(162,155,254,0.2));
+      color: #74b9ff;
+      border: 1px solid rgba(116,185,255,0.35);
+    }
     .premium-locked {
       opacity: 0.5;
       pointer-events: none;
@@ -1077,6 +1082,11 @@
           <span>Analyse action</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
+        <button class="sidebar-item" data-section="hotStocks" onclick="switchSection('hotStocks')">
+          <span class="sidebar-icon">🔥</span>
+          <span>Hot Stocks</span>
+          <span class="sidebar-badge new-badge">NEW</span>
+        </button>
       </div>
 
       <div class="sidebar-section">
@@ -1288,6 +1298,19 @@
             <div style="font-size:48px;margin-bottom:12px">🔎</div>
             <p>Recherche un ticker pour afficher l'analyse complete</p>
             <p style="font-size:13px;margin-top:8px;opacity:0.7">Essaye : <a href="#" onclick="loadStockAnalysis('AAPL');return false" style="color:#74b9ff">AAPL</a> · <a href="#" onclick="loadStockAnalysis('MSFT');return false" style="color:#74b9ff">MSFT</a> · <a href="#" onclick="loadStockAnalysis('NVDA');return false" style="color:#74b9ff">NVDA</a> · <a href="#" onclick="loadStockAnalysis('MC.PA');return false" style="color:#74b9ff">MC.PA</a></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: HOT STOCKS (Google Trends) ===== -->
+      <div class="section-page" id="section-hotStocks">
+        <h2>🔥 Hot Stocks — Tendances recherche Google</h2>
+        <p class="section-desc">Les actions dont l'intérêt retail explose en ce moment. Basé sur les données Google Trends — l'attention retail précède souvent les mouvements de prix, surtout sur les small caps. Mis à jour quotidiennement.</p>
+
+        <div id="hotStocksBody">
+          <div style="text-align:center;padding:60px 20px;opacity:0.6">
+            <div style="font-size:36px;margin-bottom:12px">⏳</div>
+            <p>Chargement des tendances...</p>
           </div>
         </div>
       </div>
@@ -2195,6 +2218,7 @@
         if (section === 'shorts') loadShortInterest();
         if (section === 'portfolio') loadPortfolioFromFirebase();
         if (section === 'stockAnalysis') initStockAnalysis();
+        if (section === 'hotStocks') loadHotStocks();
         if (section === 'insider') loadInsiderTrades();
       }
 
@@ -2597,6 +2621,85 @@
       clearStockLoader();
     }
 
+    // ============================================================
+    // HOT STOCKS - Google Trends (top risers / hot tickers)
+    // ============================================================
+    async function loadHotStocks() {
+      const body = document.getElementById('hotStocksBody');
+      try {
+        const data = await apiFetch('/api/trends-hot');
+        if (!data || (!data.topRising && !data.topHot)) {
+          body.innerHTML = '<div style="text-align:center;padding:60px 20px;opacity:0.6"><p>Aucune donnée de tendance disponible (les données sont mises à jour une fois par jour).</p></div>';
+          return;
+        }
+
+        const renderCard = (entry, rank) => {
+          const spikeColor = entry.spike7d > 25 ? '#2ecc71' : entry.spike7d > 5 ? '#52b788' : entry.spike7d < -25 ? '#e74c3c' : entry.spike7d < -5 ? '#ff7675' : '#9CA3AF';
+          const spikeEmoji = entry.spike7d > 50 ? '🚀' : entry.spike7d > 10 ? '📈' : entry.spike7d < -25 ? '📉' : '→';
+          const rankColors = ['#fbbf24', '#e5e7eb', '#f59e0b']; // gold, silver, bronze for top 3
+          const rankBg = rank <= 3 ? rankColors[rank - 1] : 'rgba(255,255,255,0.1)';
+          const rankFg = rank <= 3 ? '#0A0F1E' : 'var(--text-primary)';
+          return `
+            <div onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${entry.ticker}'), 200)" style="padding:18px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='rgba(116,185,255,0.5)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
+              <div style="width:32px;height:32px;border-radius:50%;background:${rankBg};color:${rankFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">#${rank}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em">${entry.ticker}</div>
+                <div style="font-size:12px;opacity:0.6;margin-top:2px">Intérêt : ${entry.interestNow}/100</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:16px;font-weight:700;color:${spikeColor}">${spikeEmoji} ${entry.spike7d > 0 ? '+' : ''}${entry.spike7d}%</div>
+                <div style="font-size:10px;opacity:0.5;text-transform:uppercase">7 jours</div>
+              </div>
+            </div>
+          `;
+        };
+
+        const rising = (data.topRising || []).filter(e => e.spike7d > 0).slice(0, 12);
+        const hot = (data.topHot || []).slice(0, 12);
+        const falling = (data.topFalling || []).filter(e => e.spike7d < 0).slice(0, 10);
+
+        const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'}) : '';
+
+        body.innerHTML = `
+          ${updatedAt ? `<p style="font-size:12px;opacity:0.5;margin-bottom:20px">Dernière mise à jour : ${updatedAt}</p>` : ''}
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
+            <!-- Top Rising -->
+            <div>
+              <h3 style="font-size:18px;margin-bottom:14px">📈 En forte hausse (7j)</h3>
+              <div style="display:grid;gap:10px">
+                ${rising.length > 0 ? rising.map((e, i) => renderCard(e, i + 1)).join('') : '<p style="opacity:0.5">Aucune tendance détectée</p>'}
+              </div>
+            </div>
+
+            <!-- Top Hot (absolute interest) -->
+            <div>
+              <h3 style="font-size:18px;margin-bottom:14px">🔥 Les plus recherchées</h3>
+              <div style="display:grid;gap:10px">
+                ${hot.length > 0 ? hot.map((e, i) => renderCard(e, i + 1)).join('') : '<p style="opacity:0.5">Aucune donnée</p>'}
+              </div>
+            </div>
+          </div>
+
+          ${falling.length > 0 ? `
+            <div style="margin-top:32px">
+              <h3 style="font-size:18px;margin-bottom:14px">📉 En baisse d'intérêt (7j)</h3>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">
+                ${falling.map((e, i) => renderCard(e, i + 1)).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="margin-top:36px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.7;opacity:0.8">
+            <strong style="color:var(--text-primary)">💡 Comment interpréter ces données ?</strong><br>
+            Google Trends mesure l'intérêt de recherche relatif sur une échelle de 0 à 100 (100 = pic de la période). Un pic soudain d'intérêt précède souvent un mouvement de prix, surtout sur les small caps. Attention : l'intérêt peut aussi résulter d'une news négative — vérifie toujours le contexte avec l'analyse complète.
+          </div>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+      }
+    }
+
     async function loadStockAnalysis(ticker) {
       ticker = ticker.toUpperCase().trim();
       const body = document.getElementById('stockAnalysisBody');
@@ -2656,6 +2759,7 @@
       const sm = d.smartMoney || {};
       const gov = d.govEtf || {};
       const news = d.news || [];
+      const trends = d.googleTrends || null;
       const company = d.company || {};
       const consensus = d.consensus;
       const extRatios = d.extendedRatios || {};
@@ -3100,6 +3204,42 @@
           </div>
         ` : ''}
 
+        <!-- GOOGLE TRENDS -->
+        ${trends ? (() => {
+          const tr = trends;
+          const spikeColor = tr.spike7d > 10 ? '#2ecc71' : tr.spike7d > 0 ? '#52b788' : tr.spike7d < -10 ? '#e74c3c' : tr.spike7d < 0 ? '#ff7675' : '#9CA3AF';
+          const spikeEmoji = tr.spike7d > 10 ? '🚀' : tr.spike7d > 0 ? '📈' : tr.spike7d < -10 ? '📉' : tr.spike7d < 0 ? '🔻' : '→';
+          const trendLabel = tr.trend === 'rising' ? '↗️ en hausse' : tr.trend === 'falling' ? '↘️ en baisse' : '→ stable';
+          const trendColor = tr.trend === 'rising' ? '#2ecc71' : tr.trend === 'falling' ? '#ff7675' : '#9CA3AF';
+          return `
+            <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+              <h3 style="margin:0 0 14px;font-size:16px">🔎 Intérêt de recherche Google</h3>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Intérêt actuel</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestNow}/100</div>
+                </div>
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Spike 7j</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px;color:${spikeColor}">${spikeEmoji} ${tr.spike7d > 0 ? '+' : ''}${tr.spike7d}%</div>
+                </div>
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Tendance 30j</div>
+                  <div style="font-size:15px;font-weight:600;margin-top:8px;color:${trendColor}">${trendLabel}</div>
+                </div>
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Pic max 90j</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestMax}/100</div>
+                </div>
+              </div>
+              <canvas id="trendsChart" style="max-height:180px"></canvas>
+              <p style="font-size:11px;opacity:0.55;margin:10px 0 0">
+                Volume de recherche Google pour "${d.ticker}" sur 90 jours (Google Trends, échelle 0-100, 100 = pic de la période). Les pics précèdent souvent les mouvements de prix sur les small caps.
+              </p>
+            </div>
+          `;
+        })() : ''}
+
         <!-- NEWS -->
         ${news.length > 0 ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
@@ -3285,6 +3425,53 @@
               scales: {
                 x: { ticks: { color: getCssVar('--chart-text'), maxTicksLimit: 8 }, grid: { color: getCssVar('--chart-grid-subtle') } },
                 y: { ticks: { color: getCssVar('--chart-text') }, grid: { color: getCssVar('--chart-grid-subtle') } },
+              },
+            },
+          });
+        }
+      }
+
+      // Render Google Trends chart
+      if (trends && Array.isArray(trends.series) && trends.series.length > 0) {
+        const trCtx = document.getElementById('trendsChart')?.getContext('2d');
+        if (trCtx) {
+          if (window._trendsChartInstance) window._trendsChartInstance.destroy();
+          const trLabels = trends.series.map(p => p.date);
+          const trValues = trends.series.map(p => p.value);
+          window._trendsChartInstance = new Chart(trCtx, {
+            type: 'line',
+            data: {
+              labels: trLabels,
+              datasets: [{
+                label: 'Intérêt Google',
+                data: trValues,
+                borderColor: '#74b9ff',
+                backgroundColor: 'rgba(116,185,255,0.15)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(20,25,45,0.95)',
+                  titleColor: '#fff',
+                  bodyColor: '#fff',
+                  padding: 10,
+                  callbacks: {
+                    label: (ctx) => `${ctx.parsed.y}/100`,
+                  },
+                },
+              },
+              scales: {
+                x: { ticks: { color: getCssVar('--chart-text'), maxTicksLimit: 6 }, grid: { display: false } },
+                y: { min: 0, max: 100, ticks: { color: getCssVar('--chart-text'), stepSize: 25 }, grid: { color: getCssVar('--chart-grid-subtle') } },
               },
             },
           });

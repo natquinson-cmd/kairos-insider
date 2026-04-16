@@ -50,7 +50,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
 
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
   // Sources stockanalysis.com en parallele : overview + statistics + earnings + employees (peers)
-  const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf] = await Promise.all([
+  const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends] = await Promise.all([
     fetchYahooQuote(ticker),
     fetchStockAnalysisOverview(ticker),
     fetchStockAnalysisStatistics(ticker),
@@ -59,6 +59,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
     fetchYahooNews(ticker),
     aggregate13F(ticker, env, companyNameFromInsiders),
     aggregateGovEtf(ticker, env),
+    fetchGoogleTrends(ticker, env),
   ]);
   // Fusion : overview + statistics pour les fondamentaux (statistics = plus complet)
   const fundamentals = {
@@ -109,6 +110,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
     insiders,
     smartMoney,
     govEtf,
+    googleTrends,
     news,
     consensus,
   };
@@ -977,6 +979,34 @@ async function aggregateGovEtf(ticker, env) {
     console.error('aggregateGovEtf error:', e.message || e);
   }
   return result;
+}
+
+// ============================================================
+// GOOGLE TRENDS : interet de recherche (pre-fetche par GitHub Actions)
+// Stocke dans KV sous 'google-trends-data' par un script Python quotidien.
+// Retourne null si pas de donnees pour ce ticker.
+// ============================================================
+async function fetchGoogleTrends(ticker, env) {
+  try {
+    const bundle = await env.CACHE.get('google-trends-data', 'json');
+    if (!bundle || !bundle.tickers) return null;
+    const up = (ticker || '').toUpperCase();
+    const data = bundle.tickers[up];
+    if (!data) return null;
+    return {
+      interestNow: data.interestNow,
+      interestMean: data.interestMean,
+      interestMax: data.interestMax,
+      spike7d: data.spike7d,
+      trend: data.trend, // 'rising' | 'falling' | 'stable'
+      series: data.series, // [{date, value}]
+      pointsCount: data.pointsCount,
+      updatedAt: bundle.updatedAt || null,
+    };
+  } catch (e) {
+    console.error('fetchGoogleTrends error:', e.message || e);
+    return null;
+  }
 }
 
 // ============================================================

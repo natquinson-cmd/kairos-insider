@@ -16,7 +16,7 @@ import { handleStockAnalysis } from './stock-api.js';
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 
 // Routes gratuites (auth requise mais pas d'abonnement)
-const FREE_ROUTES = ['/api/feargreed', '/api/shorts'];
+const FREE_ROUTES = ['/api/feargreed', '/api/shorts', '/api/trends-hot'];
 
 export default {
   async fetch(request, env) {
@@ -186,6 +186,13 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/etf-guru') {
     const data = await env.CACHE.get('etf-guru', 'json');
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    return jsonResponse(data, 200, origin);
+  }
+
+  // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
+  if (path === '/api/trends-hot') {
+    const data = await env.CACHE.get('google-trends-hot', 'json');
+    if (!data) return jsonResponse({ error: 'Trends data not loaded yet' }, 503, origin);
     return jsonResponse(data, 200, origin);
   }
 
@@ -377,6 +384,7 @@ async function handleActionSSR(rawTicker, env) {
   const insiderBuyCount = (data.insiders?.transactions || []).filter(t => (t.adType === 'A' || t.type === 'P')).length;
   const totalFunds = data.smartMoney?._totalFunds ?? (data.smartMoney?.topFunds?.length ?? 0);
   const totalNews = data._totalNews ?? (data.news?.length ?? 0);
+  const trends = data.googleTrends;
 
   const marketCap = data.fundamentals?.marketCap;
   const pe = data.fundamentals?.peRatio;
@@ -579,6 +587,21 @@ footer a{color:#9CA3AF;text-decoration:none}
       <h2>📰 Actualités récentes</h2>
       <p><strong>${totalNews}</strong> articles récents sur ${escHtmlSsr(ticker)}.</p>
       ${newsTeaser ? `<ul>${newsTeaser}</ul>` : ''}
+    </div>
+  ` : ''}
+
+  ${trends ? `
+    <div class="section">
+      <h2>🔎 Intérêt de recherche Google</h2>
+      <p>
+        <strong>${trends.interestNow}/100</strong> — intérêt actuel
+        ${trends.spike7d > 5 ? ` · <span style="color:#10B981">+${trends.spike7d}% vs semaine dernière 📈</span>` : trends.spike7d < -5 ? ` · <span style="color:#EF4444">${trends.spike7d}% vs semaine dernière 📉</span>` : ` · stable (${trends.spike7d > 0 ? '+' : ''}${trends.spike7d}%)`}
+        · Tendance : <strong>${trends.trend === 'rising' ? '↗️ en hausse' : trends.trend === 'falling' ? '↘️ en baisse' : '→ stable'}</strong>
+      </p>
+      <p style="font-size:12px;color:#6B7280;margin-top:8px">
+        Volume de recherche Google pour "${escHtmlSsr(ticker)}" sur 90 jours (échelle 0-100, 100 = pic de la période).
+        ${trends.interestMean > 0 ? `Moyenne 90j : ${trends.interestMean}/100, pic max : ${trends.interestMax}/100.` : ''}
+      </p>
     </div>
   ` : ''}
 
