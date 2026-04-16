@@ -620,14 +620,10 @@ async function handleActionSSR(rawTicker, env) {
       ...(data.company?.website && { url: data.company.website }),
       ...(data.company?.industry && { industry: data.company.industry }),
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: (score / 20).toFixed(1),
-      bestRating: '5',
-      worstRating: '0',
-      ratingCount: '1',
-      reviewAspect: 'Kairos Score composite smart money',
-    },
+    // NOTE: AggregateRating retire car non valide sur un parent Article
+    // (Google Search Console error : "Type d'objet non valide pour parent_node").
+    // Le Kairos Score reste affiche dans le titre meta (SERP) mais pas comme
+    // "review snippet" structure.
   };
 
   const insiderTeaser = (data.insiders?.transactions || []).slice(0, 3).map(t => {
