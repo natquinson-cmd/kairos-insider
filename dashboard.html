@@ -1155,6 +1155,11 @@
           <span>Portefeuilles 13F</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
+        <button class="sidebar-item" data-section="consensus13f" data-premium="true" onclick="switchSection('consensus13f')">
+          <span class="sidebar-icon icon-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
+          <span>Consensus 13F</span>
+          <span class="sidebar-badge new-badge">NEW</span>
+        </button>
         <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
           <span class="sidebar-icon icon-cyan"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
           <span>ETF Live</span>
@@ -1440,8 +1445,23 @@
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
           Classement des plus grands fonds d'investissement par taille de portefeuille (AUM). Cliquez sur une ligne pour voir les principales positions.
         </p>
+
+        <!-- Bloc résumé : Activité du dernier trimestre -->
+        <div id="quarterActivityArea" style="margin-bottom:24px"></div>
+
         <div id="thirteenFArea">
           <div class="loading"><div class="spinner"></div>Chargement des portefeuilles...</div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: SMART MONEY CONSENSUS (13F) ===== -->
+      <div class="section-page" id="section-consensus13f">
+        <h2>🤝 Smart Money Consensus</h2>
+        <p class="section-desc">
+          Quelles actions sont détenues par <strong>plusieurs hedge funds simultanément</strong> ? Plus une position est partagée, plus elle est consensus du smart money. À l'inverse, les actions tenues par un seul fonds sont des "lonely picks" — paris originaux ou contrarian.
+        </p>
+        <div id="consensus13fBody">
+          <div class="loading"><div class="spinner"></div>Calcul du consensus...</div>
         </div>
       </div>
 
@@ -2264,13 +2284,14 @@
       if (!loadedSections[section]) {
         loadedSections[section] = true;
         if (section === 'home') loadHome();
-        if (section === '13f') load13FFunds();
+        if (section === '13f') { loadQuarterActivity(); load13FFunds(); }
         if (section === 'clustering') loadClustering();
         if (section === 'feargreed') loadFearGreed();
         if (section === 'shorts') loadShortInterest();
         if (section === 'portfolio') loadPortfolioFromFirebase();
         if (section === 'stockAnalysis') initStockAnalysis();
         if (section === 'hotStocks') loadHotStocks();
+        if (section === 'consensus13f') loadSmartMoneyConsensus();
         if (section === 'insider') { initInsiderSearch(); loadInsiderTrades(); }
       }
 
@@ -3711,6 +3732,197 @@
     // ============================================================
     // 13F — FONDS CELEBRES AVEC LIGNES DEPLIABLES
     // ============================================================
+    // ============================================================
+    // 13F : Activite du dernier trimestre (mouvements significatifs)
+    // ============================================================
+    async function loadQuarterActivity() {
+      const area = document.getElementById('quarterActivityArea');
+      if (!area) return;
+      try {
+        const data = await apiFetch('/api/13f-activity');
+        if (!data || !data.summary) {
+          area.innerHTML = '';
+          return;
+        }
+        const s = data.summary;
+        const fmtV = (v) => { if (v == null) return '—'; const a = Math.abs(v); if (a >= 1e9) return (a/1e9).toFixed(1)+'B$'; if (a >= 1e6) return (a/1e6).toFixed(0)+'M$'; return (a/1e3).toFixed(0)+'k$'; };
+
+        const renderRow = (e) => `
+          <div onclick="${e.ticker ? `switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${e.ticker}'), 200)` : ''}" style="display:grid;grid-template-columns:1.6fr 1.6fr 0.7fr 0.7fr;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--divider);font-size:12px;${e.ticker ? 'cursor:pointer' : ''}" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <strong style="color:var(--accent-blue);font-size:13px">${e.ticker || '—'}</strong>
+              <div style="opacity:0.6;font-size:11px;margin-top:1px">${(e.name || '').slice(0, 35)}</div>
+            </div>
+            <div>
+              <strong>${e.label || e.fundName}</strong>
+              ${e.category ? `<div style="opacity:0.5;font-size:10px;margin-top:1px">${e.category}</div>` : ''}
+            </div>
+            <div style="text-align:right;font-weight:600">${fmtV(e.value)}</div>
+            <div style="text-align:right;${e.sharesChange > 0 ? 'color:#2ecc71' : e.sharesChange < 0 ? 'color:#ff7675' : 'opacity:0.6'}">
+              ${e.status === 'new' ? '🆕 Nouveau' : e.status === 'sold' ? '❌ Sorti' : e.sharesChange != null ? `${e.sharesChange > 0 ? '+' : ''}${e.sharesChange.toFixed(0)}%` : '—'}
+            </div>
+          </div>
+        `;
+
+        const card = (title, color, items, emoji) => `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-left:3px solid ${color};border-radius:10px;overflow:hidden">
+            <div style="padding:12px 14px;background:${color}15;display:flex;justify-content:space-between;align-items:center">
+              <strong style="color:${color}">${emoji} ${title}</strong>
+              <span style="font-size:11px;opacity:0.7">${items.length} mouvements</span>
+            </div>
+            <div style="max-height:280px;overflow-y:auto">
+              ${items.length > 0 ? items.slice(0, 15).map(renderRow).join('') : '<p style="padding:14px;font-size:13px;opacity:0.5;text-align:center">Aucun mouvement</p>'}
+            </div>
+          </div>
+        `;
+
+        area.innerHTML = `
+          <h3 style="font-size:16px;margin:0 0 12px">📊 Activité du dernier trimestre</h3>
+          <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
+            Mouvements significatifs détectés dans les top holdings des fonds suivis :
+            <strong>${s.newCount}</strong> nouvelles positions ·
+            <strong>${s.soldCount}</strong> sorties ·
+            <strong>${s.increasedCount}</strong> renforcées (+20%) ·
+            <strong>${s.decreasedCount}</strong> réduites (-20%)
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px">
+            ${card('Nouvelles positions', '#2ecc71', data.newPositions, '🆕')}
+            ${card('Sorties complètes', '#e74c3c', data.soldPositions, '❌')}
+            ${card('Renforcées (+20%)', '#74b9ff', data.increased, '📈')}
+            ${card('Réduites (-20%)', '#f39c12', data.decreased, '📉')}
+          </div>
+          <hr style="margin:24px 0;border:none;border-top:1px solid var(--border-subtle)">
+        `;
+      } catch (e) {
+        area.innerHTML = '';
+      }
+    }
+
+    // ============================================================
+    // 13F : Smart Money Consensus (top holdings par # de fonds)
+    // ============================================================
+    async function loadSmartMoneyConsensus() {
+      const body = document.getElementById('consensus13fBody');
+      try {
+        const data = await apiFetch('/api/13f-consensus');
+        if (!data || !data.consensus || data.consensus.length === 0) {
+          body.innerHTML = '<div style="text-align:center;padding:60px 20px;opacity:0.6"><p>Aucune donnée de consensus disponible.</p></div>';
+          return;
+        }
+
+        const fmtBig2 = (n) => { if (n == null) return '—'; const a = Math.abs(n); if (a >= 1e12) return (a/1e12).toFixed(1)+'T$'; if (a >= 1e9) return (a/1e9).toFixed(1)+'B$'; if (a >= 1e6) return (a/1e6).toFixed(0)+'M$'; return a.toFixed(0)+'$'; };
+        const total = data.totalFunds;
+
+        // Tableau principal : top 50
+        const top = data.consensus.slice(0, 50);
+        const lonelyPicks = data.consensus.filter(c => c.fundCount === 1).slice(0, 12);
+        const ultraConsensus = data.consensus.filter(c => c.fundCount >= 5).length;
+
+        // Couleur basée sur le ratio de fonds qui détiennent
+        const dotColor = (count) => {
+          const pct = count / total;
+          if (pct >= 0.5) return '#2ecc71';   // >50% des fonds
+          if (pct >= 0.25) return '#74b9ff';  // 25-50%
+          if (pct >= 0.10) return '#a29bfe';  // 10-25%
+          return '#9CA3AF';                    // < 10%
+        };
+
+        const renderRow = (c, rank) => {
+          const fundsList = c.fundsHolding.slice(0, 3).map(f => f.label || f.fundName.slice(0,18)).join(', ') + (c.fundsHolding.length > 3 ? ` +${c.fundsHolding.length-3}` : '');
+          return `
+            <tr ${c.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${c.ticker}'), 200)" style="cursor:pointer"` : ''}>
+              <td style="text-align:center;font-weight:600;opacity:0.5">${rank}</td>
+              <td>
+                <strong style="color:${c.ticker ? 'var(--accent-blue)' : 'var(--text-primary)'}">${c.ticker || '—'}</strong>
+                <div style="opacity:0.6;font-size:11px;margin-top:2px">${(c.name || '').slice(0, 50)}</div>
+              </td>
+              <td style="text-align:center">
+                <div style="display:inline-flex;align-items:center;gap:6px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:${dotColor(c.fundCount)}"></span>
+                  <strong style="font-size:14px">${c.fundCount}</strong>
+                  <span style="opacity:0.5;font-size:11px">/ ${total}</span>
+                </div>
+              </td>
+              <td style="text-align:right;font-weight:600">${fmtBig2(c.totalValue)}</td>
+              <td style="text-align:right">${c.avgPctOfPortfolio ? c.avgPctOfPortfolio.toFixed(1) + '%' : '—'}</td>
+              <td style="font-size:11px;opacity:0.7">${fundsList}</td>
+            </tr>
+          `;
+        };
+
+        const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'}) : '';
+
+        body.innerHTML = `
+          <!-- Stats résumé -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px">
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(46,204,113,0.08),rgba(46,204,113,0.02));border:1px solid rgba(46,204,113,0.15);border-radius:10px">
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Fonds suivis</div>
+              <div style="font-size:24px;font-weight:700;color:#2ecc71;margin-top:4px">${total}</div>
+            </div>
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid rgba(116,185,255,0.15);border-radius:10px">
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Actions uniques</div>
+              <div style="font-size:24px;font-weight:700;color:#74b9ff;margin-top:4px">${data.totalUniqueStocks}</div>
+            </div>
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(162,155,254,0.08),rgba(162,155,254,0.02));border:1px solid rgba(162,155,254,0.15);border-radius:10px">
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Ultra-consensus (≥5 fonds)</div>
+              <div style="font-size:24px;font-weight:700;color:#a29bfe;margin-top:4px">${ultraConsensus}</div>
+            </div>
+          </div>
+
+          <h3 style="font-size:18px;margin:0 0 12px">🏆 Top 50 actions partagées</h3>
+          <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
+            Triées par nombre de fonds qui les détiennent. Une position partagée par 5+ fonds est rarement un hasard.
+          </p>
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:var(--surface-2)">
+                  <th style="text-align:center;padding:12px 8px;font-size:11px;text-transform:uppercase;opacity:0.7">#</th>
+                  <th style="text-align:left;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Action</th>
+                  <th style="text-align:center;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Fonds</th>
+                  <th style="text-align:right;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Value totale</th>
+                  <th style="text-align:right;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">% portefeuille moy.</th>
+                  <th style="text-align:left;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Détenue par</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${top.map((c, i) => renderRow(c, i + 1)).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          ${lonelyPicks.length > 0 ? `
+            <div style="margin-top:32px">
+              <h3 style="font-size:18px;margin:0 0 12px">🎯 Lonely Picks — paris uniques</h3>
+              <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
+                Actions détenues par <strong>un seul fonds</strong> dans notre liste. Soit pari contrarian / niche, soit position que les autres n'ont pas encore découverte.
+              </p>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px">
+                ${lonelyPicks.map(c => `
+                  <div ${c.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${c.ticker}'), 200)" style="cursor:pointer"` : ''} style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;transition:all 0.2s" onmouseover="this.style.borderColor='rgba(116,185,255,0.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                      <strong style="color:${c.ticker ? 'var(--accent-blue)' : 'var(--text-primary)'};font-size:15px">${c.ticker || '—'}</strong>
+                      <span style="font-size:12px;opacity:0.6">${fmtBig2(c.totalValue)}</span>
+                    </div>
+                    <div style="opacity:0.7;font-size:12px;margin-bottom:6px">${(c.name || '').slice(0, 45)}</div>
+                    <div style="font-size:11px;opacity:0.55">Détenue par <strong>${c.fundsHolding[0]?.label || c.fundsHolding[0]?.fundName}</strong> · ${c.fundsHolding[0]?.pct}% du portefeuille</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <div style="margin-top:32px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.7;opacity:0.8">
+            <strong style="color:var(--text-primary)">💡 Comment lire ces données ?</strong><br>
+            Le <strong>nombre de fonds</strong> partage chaque position dépend de notre liste de fonds suivis (${total} actuellement). Plus la liste s'étoffe, plus le signal devient fiable. Les <strong>actions très consensus</strong> (5+ fonds) bénéficient souvent d'un soutien structurel — mais sont aussi des "crowded trades" qui peuvent souffrir en cas de retournement de sentiment.
+            ${updatedAt ? `<br><span style="opacity:0.5;font-size:11px">Mis à jour : ${updatedAt}</span>` : ''}
+          </div>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+      }
+    }
+
     async function load13FFunds() {
       const area = document.getElementById('thirteenFArea');
       try {

@@ -177,6 +177,12 @@ async function handleApiRoute(path, url, env, origin) {
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
     return jsonResponse(data, 200, origin);
   }
+  if (path === '/api/13f-consensus') {
+    return handleSmartMoneyConsensus(env, origin);
+  }
+  if (path === '/api/13f-activity') {
+    return handleQuarterActivity(env, origin);
+  }
   if (path === '/api/etf-ark') {
     return handleEtfArk(url, env, origin);
   }
@@ -252,6 +258,198 @@ async function handlePublicTickersList(env, origin) {
   } catch (e) {
     return jsonResponse({ error: 'Failed to build tickers list', detail: String(e && e.message || e) }, 500, origin);
   }
+}
+
+// ============================================================
+// 13F : Smart Money Consensus
+// Aggrege les top holdings de tous les fonds suivis et compte combien
+// de fonds detiennent chaque action. C'est le "consensus" du smart money.
+// ============================================================
+async function handleSmartMoneyConsensus(env, origin) {
+  try {
+    const funds = await env.CACHE.get('13f-all-funds', 'json');
+    if (!funds || !Array.isArray(funds)) {
+      return jsonResponse({ error: 'No 13F data available' }, 503, origin);
+    }
+
+    // Mapping CUSIP / name -> ticker (depuis le cache des transactions)
+    // On utilise le name normalise comme cle d'agregation principale.
+    const tickerByName = new Map();
+    try {
+      const tx = await env.CACHE.get('insider-transactions', 'json');
+      if (tx && Array.isArray(tx.transactions)) {
+        for (const t of tx.transactions) {
+          const tk = (t.ticker || '').trim().toUpperCase();
+          const cn = normalizeForMatch(t.company);
+          if (tk && cn && !tickerByName.has(cn)) tickerByName.set(cn, tk);
+        }
+      }
+    } catch (_) {}
+
+    // Aggregation : pour chaque holding (par name normalise), on compile
+    // le nb de fonds, la value totale, la liste des fonds qui detiennent.
+    const consensus = new Map(); // name -> { name, ticker, fundCount, totalValue, totalShares, fundsHolding[] }
+
+    for (const fund of funds) {
+      if (!Array.isArray(fund.topHoldings)) continue;
+      for (const h of fund.topHoldings) {
+        if (!h.name) continue;
+        const key = normalizeForMatch(h.name);
+        if (!key) continue;
+
+        if (!consensus.has(key)) {
+          consensus.set(key, {
+            name: h.name,
+            ticker: tickerByName.get(key) || null,
+            cusip: h.cusip || null,
+            fundCount: 0,
+            totalValue: 0,
+            totalShares: 0,
+            avgPctOfPortfolio: 0,
+            fundsHolding: [],
+          });
+        }
+        const entry = consensus.get(key);
+        entry.fundCount += 1;
+        entry.totalValue += Number(h.value) || 0;
+        entry.totalShares += Number(h.shares) || 0;
+        entry.fundsHolding.push({
+          fundName: fund.fundName,
+          label: fund.label || null,
+          category: fund.category || null,
+          cik: fund.cik,
+          shares: Number(h.shares) || 0,
+          value: Number(h.value) || 0,
+          pct: Number(h.pct) || 0,            // % du portefeuille du fonds
+          sharesChange: h.sharesChange != null ? Number(h.sharesChange) : null,
+          status: h.status || null,            // 'new' / 'increased' / 'decreased' / 'sold'
+        });
+      }
+    }
+
+    // Calcul moyenne pct + tri par fundCount desc, puis totalValue desc
+    const list = Array.from(consensus.values()).map(c => {
+      const pcts = c.fundsHolding.map(f => f.pct).filter(p => p > 0);
+      c.avgPctOfPortfolio = pcts.length ? +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2) : 0;
+      // Trier les fundsHolding par value desc
+      c.fundsHolding.sort((a, b) => b.value - a.value);
+      return c;
+    });
+    list.sort((a, b) => (b.fundCount - a.fundCount) || (b.totalValue - a.totalValue));
+
+    return jsonResponse({
+      updatedAt: new Date().toISOString(),
+      totalFunds: funds.length,
+      totalUniqueStocks: list.length,
+      consensus: list.slice(0, 200),  // top 200
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'Consensus computation failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// 13F : Activite du dernier trimestre (mouvements significatifs)
+// Liste les nouvelles positions, sorties completes, augmentations, reductions
+// par fond (basee sur le champ "status" et "sharesChange" deja calcules par
+// prefetch-13f.py).
+// ============================================================
+async function handleQuarterActivity(env, origin) {
+  try {
+    const funds = await env.CACHE.get('13f-all-funds', 'json');
+    if (!funds || !Array.isArray(funds)) {
+      return jsonResponse({ error: 'No 13F data available' }, 503, origin);
+    }
+
+    const tickerByName = new Map();
+    try {
+      const tx = await env.CACHE.get('insider-transactions', 'json');
+      if (tx && Array.isArray(tx.transactions)) {
+        for (const t of tx.transactions) {
+          const tk = (t.ticker || '').trim().toUpperCase();
+          const cn = normalizeForMatch(t.company);
+          if (tk && cn && !tickerByName.has(cn)) tickerByName.set(cn, tk);
+        }
+      }
+    } catch (_) {}
+
+    const newPositions = [];
+    const soldPositions = [];
+    const increased = [];   // sharesChange >= +20%
+    const decreased = [];   // sharesChange <= -20%
+
+    for (const fund of funds) {
+      if (!Array.isArray(fund.topHoldings)) continue;
+      const fundMeta = {
+        fundName: fund.fundName,
+        label: fund.label || null,
+        category: fund.category || null,
+        cik: fund.cik,
+        reportDate: fund.reportDate || null,
+        prevReportDate: fund.prevReportDate || null,
+      };
+
+      for (const h of fund.topHoldings) {
+        if (!h.name) continue;
+        const key = normalizeForMatch(h.name);
+        const entry = {
+          ...fundMeta,
+          name: h.name,
+          ticker: tickerByName.get(key) || null,
+          cusip: h.cusip || null,
+          shares: Number(h.shares) || 0,
+          value: Number(h.value) || 0,
+          pct: Number(h.pct) || 0,
+          sharesChange: h.sharesChange != null ? Number(h.sharesChange) : null,
+          status: h.status || null,
+        };
+
+        if (h.status === 'new') {
+          newPositions.push(entry);
+        } else if (h.status === 'sold' || h.status === 'closed') {
+          soldPositions.push(entry);
+        } else if (h.sharesChange != null && h.sharesChange >= 20) {
+          increased.push(entry);
+        } else if (h.sharesChange != null && h.sharesChange <= -20) {
+          decreased.push(entry);
+        }
+      }
+    }
+
+    // Tri : par valeur descendante (les plus gros mouvements en haut)
+    newPositions.sort((a, b) => b.value - a.value);
+    soldPositions.sort((a, b) => b.value - a.value);
+    increased.sort((a, b) => b.value - a.value);
+    decreased.sort((a, b) => b.value - a.value);
+
+    return jsonResponse({
+      updatedAt: new Date().toISOString(),
+      summary: {
+        newCount: newPositions.length,
+        soldCount: soldPositions.length,
+        increasedCount: increased.length,
+        decreasedCount: decreased.length,
+      },
+      newPositions: newPositions.slice(0, 50),
+      soldPositions: soldPositions.slice(0, 50),
+      increased: increased.slice(0, 50),
+      decreased: decreased.slice(0, 50),
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'Activity computation failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// Normalisation pour matcher des noms (suppression suffixes corp/inc/sa, espaces, casse)
+function normalizeForMatch(s) {
+  if (!s) return '';
+  return String(s)
+    .toUpperCase()
+    .replace(/[.,'"`]/g, '')
+    .replace(/\s+(INC|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|SA|SE|AG|NV|PLC|HOLDINGS?|GROUP|TRUST|LP|LLC)$/gi, '')
+    .replace(/\s+CL\s*[A-Z]$/i, '')   // "Class A" suffix
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // ============================================================

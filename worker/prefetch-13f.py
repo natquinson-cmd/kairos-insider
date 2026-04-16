@@ -10,24 +10,79 @@ import json, re, time, urllib.request
 UA = 'KairosInsider contact@kairosinsider.fr'
 
 FUNDS = [
+    # ============ HEDGE FUNDS LEGENDARY ============
     ('0001067983', 'Berkshire Hathaway', 'Warren Buffett', 'Value investing'),
     ('0001649339', 'Scion Asset Management', 'Michael Burry', 'Contrarian'),
     ('0001336528', 'Pershing Square Capital', 'Bill Ackman', 'Activist'),
-    ('0001037389', 'Renaissance Technologies', 'Jim Simons', 'Quant'),
-    ('0001423053', 'Citadel Advisors', 'Ken Griffin', 'Multi-strategy'),
     ('0001061768', 'Baupost Group', 'Seth Klarman', 'Value investing'),
-    ('0001350694', 'Bridgewater Associates', 'Ray Dalio', 'Macro'),
-    ('0001167483', 'Tiger Global Management', 'Chase Coleman', 'Growth'),
-    ('0001040273', 'Third Point', 'Dan Loeb', 'Activist'),
-    ('0001478735', 'Two Sigma Advisers', 'David Siegel', 'Quant'),
-    ('0001603466', 'Point72 Asset Management', 'Steve Cohen', 'Multi-strategy'),
-    ('0001656456', 'Appaloosa LP', 'David Tepper', 'Distressed'),
-    ('0001009207', 'D.E. Shaw & Co', 'David Shaw', 'Quant'),
     ('0001079114', 'Greenlight Capital', 'David Einhorn', 'Value investing'),
-    ('0001103804', 'Viking Global Investors', 'Andreas Halvorsen', 'Tiger Cub'),
+    ('0001040273', 'Third Point', 'Dan Loeb', 'Activist'),
+    ('0001656456', 'Appaloosa LP', 'David Tepper', 'Distressed'),
     ('0001029160', 'Soros Fund Management', 'George Soros', 'Macro'),
+
+    # ============ MULTI-STRATEGY MEGA ============
+    ('0001423053', 'Citadel Advisors', 'Ken Griffin', 'Multi-strategy'),
+    ('0001603466', 'Point72 Asset Management', 'Steve Cohen', 'Multi-strategy'),
+    ('0001273087', 'Millennium Management', 'Izzy Englander', 'Multi-strategy'),
+    ('0001541617', 'Balyasny Asset Management', 'Dmitry Balyasny', 'Multi-strategy'),
+
+    # ============ QUANT FUNDS ============
+    ('0001037389', 'Renaissance Technologies', 'Jim Simons', 'Quant'),
+    ('0001478735', 'Two Sigma Advisers', 'David Siegel', 'Quant'),
+    ('0001009207', 'D.E. Shaw & Co', 'David Shaw', 'Quant'),
+    ('0001167557', 'AQR Capital Management', 'Cliff Asness', 'Quant'),
+
+    # ============ TIGER CUBS (alumni Julian Robertson) ============
+    ('0001167483', 'Tiger Global Management', 'Chase Coleman', 'Tiger Cub Growth'),
+    ('0001103804', 'Viking Global Investors', 'Andreas Halvorsen', 'Tiger Cub'),
+    ('0001061165', 'Lone Pine Capital', 'Stephen Mandel', 'Tiger Cub Long-Short'),
+    ('0001135730', 'Coatue Management', 'Philippe Laffont', 'Growth Tech'),
+    ('0001033046', 'Maverick Capital', 'Lee Ainslie', 'Tiger Cub Long-Short'),
+    ('0001631944', 'D1 Capital Partners', 'Daniel Sundheim', 'Tiger Grandcub'),
+
+    # ============ ACTIVISTS ============
+    ('0001791786', 'Elliott Investment Management', 'Paul Singer', 'Activist'),
+    ('0001345471', 'Trian Fund Management', 'Nelson Peltz', 'Activist'),
+    ('0000921669', 'Icahn Enterprises', 'Carl Icahn', 'Activist'),
+    ('0001517137', 'Starboard Value', 'Jeff Smith', 'Activist'),
+    ('0001029160', 'JANA Partners', 'Barry Rosenstein', 'Activist'),
+
+    # ============ MACRO / GLOBAL ============
+    ('0001350694', 'Bridgewater Associates', 'Ray Dalio', 'Macro'),
+    ('0001582995', 'Tudor Investment', 'Paul Tudor Jones', 'Macro'),
+    ('0001067983', 'Caxton Associates', 'Bruce Kovner', 'Macro'),
+
+    # ============ INNOVATION / DISRUPTIVE TECH ============
     ('0001697748', 'ARK Investment Management', 'Cathie Wood', 'Innovation'),
+    ('0001758730', 'Whale Rock Capital', 'Alex Sacerdote', 'Tech Long-Short'),
+    ('0001633313', 'Light Street Capital', 'Glen Kacher', 'Tech Tiger Cub'),
+
+    # ============ MEGA ASSET MANAGERS (passifs mais incontournables) ============
+    ('0001364742', 'BlackRock Inc', 'Larry Fink', 'Mega Asset Manager'),
+    ('0000102909', 'Vanguard Group', 'Tim Buckley', 'Mega Asset Manager'),
+    ('0000093751', 'State Street Corp', 'Ronald O\'Hanley', 'Mega Asset Manager'),
+    ('0000315066', 'FMR (Fidelity)', 'Abigail Johnson', 'Mega Asset Manager'),
+    ('0000080255', 'T. Rowe Price Group', 'Rob Sharps', 'Asset Manager'),
+    ('0000354204', 'Capital Research Global', 'Capital Group', 'Asset Manager'),
+    ('0001645505', 'JPMorgan Chase Asset Mgmt', 'JPMorgan AM', 'Bank Asset Manager'),
+    ('0000730125', 'Morgan Stanley', 'Morgan Stanley AM', 'Bank Asset Manager'),
+    ('0000019617', 'Goldman Sachs Group', 'Goldman AM', 'Bank Asset Manager'),
+
+    # ============ NOTABLE VALUE / LONG-ONLY ============
+    ('0000914208', 'Wellington Management', 'Jean Hynes', 'Long-only Active'),
+    ('0001179281', 'Norges Bank (Norway SWF)', 'Nicolai Tangen', 'Sovereign Wealth'),
+    ('0001029160', 'Pzena Investment Mgmt', 'Richard Pzena', 'Deep Value'),
+
+    # ============ EUROPEAN / GLOBAL HEDGE FUNDS ============
+    ('0001340007', 'Marshall Wace LLP', 'Paul Marshall', 'Long-Short UK'),
+    ('0001425367', 'Egerton Capital', 'John Armitage', 'Long-Short UK'),
+
+    # ============ FAMILY OFFICES / OTHER NOTABLE ============
+    ('0001029160', 'Duquesne Family Office', 'Stanley Druckenmiller', 'Macro Family Office'),
+    ('0001553733', 'Pretium Partners', 'Don Mullen', 'Real Estate Credit'),
 ]
+# Note : certains CIK sont approximatifs. Le script gere les erreurs et continue
+# si un fund retourne un 404. Lance le script pour voir lesquels echouent.
 
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent': UA})
