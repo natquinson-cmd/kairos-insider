@@ -2224,6 +2224,126 @@
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     }
 
+    // ============================================================
+    // I18N — Module de traductions minimaliste
+    // ============================================================
+    // Architecture : Map { lang -> { key -> translation } }
+    // Helper t(key, fallback?) lit dans la langue courante.
+    // Langue = localStorage.kairos-lang ou 'fr' par defaut.
+    // Pour ajouter une langue : etoffer DICT[lang], puis exposer un toggle
+    // dans la nav (similaire au theme dark/light deja en place).
+    const I18N_LANG_KEY = 'kairos-lang';
+    const I18N_DEFAULT = 'fr';
+    const I18N_DICT = {
+      fr: {
+        // Statuts transactions insiders (depuis SEC Form 4 type codes)
+        'tx.buy': 'Achat',
+        'tx.sell': 'Vente',
+        'tx.other': 'Autre',
+        'tx.A': 'Attribution',
+        'tx.D': 'Cession',
+        'tx.P': 'Achat',
+        'tx.S': 'Vente',
+        'tx.M': 'Exercice',
+        'tx.F': 'Retenue fiscale',
+        'tx.X': 'Exercice',
+        'tx.G': 'Don',
+        'tx.C': 'Conversion',
+        // Statuts holdings hedge funds (variation Q/Q)
+        'hf.new': 'Nouvelle position',
+        'hf.sold': 'Sortie complète',
+        'hf.closed': 'Position fermée',
+        'hf.increased': 'Renforcée',
+        'hf.decreased': 'Réduite',
+        'hf.unchanged': 'Inchangée',
+        // Generic
+        'unknown': '—',
+      },
+      en: {
+        'tx.buy': 'Buy',
+        'tx.sell': 'Sell',
+        'tx.other': 'Other',
+        'tx.A': 'Award',
+        'tx.D': 'Disposal',
+        'tx.P': 'Purchase',
+        'tx.S': 'Sale',
+        'tx.M': 'Exercise',
+        'tx.F': 'Tax withheld',
+        'tx.X': 'Exercise',
+        'tx.G': 'Gift',
+        'tx.C': 'Conversion',
+        'hf.new': 'New position',
+        'hf.sold': 'Fully sold',
+        'hf.closed': 'Closed position',
+        'hf.increased': 'Increased',
+        'hf.decreased': 'Decreased',
+        'hf.unchanged': 'Unchanged',
+        'unknown': '—',
+      },
+    };
+    function getLang() {
+      try { return localStorage.getItem(I18N_LANG_KEY) || I18N_DEFAULT; }
+      catch { return I18N_DEFAULT; }
+    }
+    function t(key, fallback) {
+      const lang = getLang();
+      return (I18N_DICT[lang] && I18N_DICT[lang][key]) || (I18N_DICT[I18N_DEFAULT][key]) || fallback || key;
+    }
+    // Helpers traductions speciales avec emojis pour la lisibilite UX
+    function txStatusLabel(type) {
+      // type peut être 'buy' | 'sell' | code SEC ('P','S','A','D'...) | autre
+      if (!type) return t('unknown');
+      const lc = String(type).toLowerCase();
+      if (lc === 'buy')  return '🟢 ' + t('tx.buy');
+      if (lc === 'sell') return '🔴 ' + t('tx.sell');
+      // Codes SEC bruts
+      const code = String(type).toUpperCase();
+      if (I18N_DICT[I18N_DEFAULT]['tx.' + code]) {
+        const isAcq = ['A','P','M','X','C'].includes(code);
+        const dot = isAcq ? '🟢' : ['D','S','F'].includes(code) ? '🔴' : '⚪';
+        return `${dot} ${t('tx.' + code)}`;
+      }
+      return '⚪ ' + t('tx.other');
+    }
+    function hfStatusLabel(status) {
+      if (!status) return '—';
+      const lc = String(status).toLowerCase();
+      if (lc === 'new')       return '🆕 ' + t('hf.new');
+      if (lc === 'sold')      return '❌ ' + t('hf.sold');
+      if (lc === 'closed')    return '❌ ' + t('hf.closed');
+      if (lc === 'increased') return '📈 ' + t('hf.increased');
+      if (lc === 'decreased') return '📉 ' + t('hf.decreased');
+      if (lc === 'unchanged') return '➖ ' + t('hf.unchanged');
+      return status;
+    }
+
+    // ============================================================
+    // Plugin Chart.js : ligne verticale crosshair qui suit le curseur.
+    // S'active automatiquement quand le tooltip est visible.
+    // A appliquer sur tous les charts en ligne pour un meilleur UX
+    // (toute la colonne X devient hoverable, plus besoin de cibler un point).
+    // ============================================================
+    const KairosCrosshairPlugin = {
+      id: 'kairosCrosshair',
+      afterDraw(chart) {
+        const ttip = chart.tooltip;
+        if (!ttip || !ttip.opacity || !ttip._active || !ttip._active.length) return;
+        const x = ttip._active[0].element.x;
+        const top = chart.chartArea.top;
+        const bot = chart.chartArea.bottom;
+        const c = chart.ctx;
+        c.save();
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bot);
+        c.lineWidth = 1;
+        c.setLineDash([4, 4]);
+        c.strokeStyle = 'rgba(116, 185, 255, 0.55)';
+        c.stroke();
+        c.restore();
+      }
+    };
+
     function applyThemeIcon() {
       const icon = document.getElementById('themeToggleIcon');
       if (!icon) return;
@@ -3162,7 +3282,7 @@
                       <strong>${(t.insider||'').slice(0,25)}</strong>
                       <span style="font-size:11px;opacity:0.5;margin-left:6px">${t.title || ''}</span>
                     </div>
-                    <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#aaa'};font-weight:600;font-size:11px">${(t.type||'').toUpperCase()}</span>
+                    <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(t.type)}</span>
                   </div>
                   <div style="font-size:11px;opacity:0.6;margin-top:2px">
                     ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
@@ -3196,7 +3316,7 @@
                       <strong>${f.label || f.fundName || 'Inconnu'}</strong>
                       <div style="font-size:11px;opacity:0.55">${f.category || ''} · ${f.reportDate || ''}</div>
                     </div>
-                    <span style="color:${f.deltaPct>0?'#2ecc71':f.deltaPct<0?'#ff7675':'#aaa'};font-size:11px">${f.status || (f.deltaPct>0?'+'+f.deltaPct.toFixed(0)+'%':f.deltaPct.toFixed(0)+'%')}</span>
+                    <span style="color:${f.deltaPct>0?'#2ecc71':f.deltaPct<0?'#ff7675':'#9CA3AF'};font-size:11px;font-weight:600">${f.status ? hfStatusLabel(f.status) : (f.deltaPct>0?'📈 +'+f.deltaPct.toFixed(0)+'%':f.deltaPct<0?'📉 '+f.deltaPct.toFixed(0)+'%':'➖ —')}</span>
                   </div>
                   <div style="font-size:11px;opacity:0.7;margin-top:2px">
                     $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
@@ -3743,33 +3863,90 @@
           const hasBuys = buyOverlay.some(v => v !== null);
           const hasSells = sellOverlay.some(v => v !== null);
 
+          // Icones SVG custom (achat/vente) — plus jolies que circle/triangle plats.
+          // pointStyle accepte HTMLImageElement | HTMLCanvasElement -> on prerend en canvas.
+          const makeMarkerCanvas = (kind, sizePx, accentColor) => {
+            const dpr = window.devicePixelRatio || 1;
+            const c = document.createElement('canvas');
+            c.width = sizePx * 2 * dpr;
+            c.height = sizePx * 2 * dpr;
+            const cx = c.width / 2, cy = c.height / 2;
+            const ctx2 = c.getContext('2d');
+            ctx2.scale(dpr, dpr);
+            // Halo glow
+            const glowR = sizePx * 0.95;
+            const grad = ctx2.createRadialGradient(sizePx, sizePx, glowR * 0.4, sizePx, sizePx, glowR);
+            grad.addColorStop(0, accentColor + 'cc');
+            grad.addColorStop(1, accentColor + '00');
+            ctx2.fillStyle = grad;
+            ctx2.beginPath();
+            ctx2.arc(sizePx, sizePx, glowR, 0, 2 * Math.PI);
+            ctx2.fill();
+            // Cercle plein central
+            ctx2.fillStyle = accentColor;
+            ctx2.strokeStyle = '#0A0F1E';
+            ctx2.lineWidth = 1.6;
+            ctx2.beginPath();
+            ctx2.arc(sizePx, sizePx, sizePx * 0.55, 0, 2 * Math.PI);
+            ctx2.fill();
+            ctx2.stroke();
+            // Symbole interne (fleche montante = achat, descendante = vente)
+            ctx2.strokeStyle = '#fff';
+            ctx2.fillStyle = '#fff';
+            ctx2.lineWidth = Math.max(sizePx * 0.18, 1.5);
+            ctx2.lineCap = 'round';
+            ctx2.lineJoin = 'round';
+            const armLen = sizePx * 0.34;
+            const armWidth = sizePx * 0.22;
+            ctx2.beginPath();
+            if (kind === 'buy') {
+              // Fleche vers le HAUT
+              ctx2.moveTo(sizePx, sizePx - armLen);
+              ctx2.lineTo(sizePx - armWidth, sizePx + armLen * 0.2);
+              ctx2.lineTo(sizePx + armWidth, sizePx + armLen * 0.2);
+              ctx2.closePath();
+              ctx2.fill();
+            } else {
+              // Fleche vers le BAS
+              ctx2.moveTo(sizePx, sizePx + armLen);
+              ctx2.lineTo(sizePx - armWidth, sizePx - armLen * 0.2);
+              ctx2.lineTo(sizePx + armWidth, sizePx - armLen * 0.2);
+              ctx2.closePath();
+              ctx2.fill();
+            }
+            return c;
+          };
+
           if (hasBuys) {
+            // Pour chaque point, on génère un canvas adapté à son rayon
+            const buyMarkers = buyRadii.map(r => r ? makeMarkerCanvas('buy', r, '#10B981') : null);
             datasets.push({
               label: 'Achats insiders',
               data: buyOverlay,
               _meta: buyMeta,
-              borderColor: '#2ecc71',
-              backgroundColor: '#2ecc71',
-              pointRadius: buyRadii,
-              pointHoverRadius: buyRadii.map(r => r ? r + 2 : 0),
-              pointStyle: 'circle',
+              borderColor: '#10B981',
+              backgroundColor: '#10B981',
+              pointStyle: buyMarkers,
+              pointRadius: buyRadii.map(r => r ? r * 0.001 : 0), // pas utilise quand pointStyle est canvas
+              pointHoverRadius: 0,
               showLine: false,
-              borderWidth: 2,
+              borderWidth: 0,
               order: 1,
             });
           }
           if (hasSells) {
+            const sellMarkers = sellRadii.map(r => r ? makeMarkerCanvas('sell', r, '#EF4444') : null);
             datasets.push({
               label: 'Ventes insiders',
               data: sellOverlay,
               _meta: sellMeta,
-              borderColor: '#ff7675',
-              backgroundColor: '#ff7675',
-              pointRadius: sellRadii,
-              pointHoverRadius: sellRadii.map(r => r ? r + 2 : 0),
-              pointStyle: 'triangle',
+              borderColor: '#EF4444',
+              backgroundColor: '#EF4444',
+              pointStyle: sellMarkers,
+              pointRadius: sellRadii.map(r => r ? r * 0.001 : 0),
+              pointHoverRadius: 0,
               showLine: false,
-              borderWidth: 2,
+              borderWidth: 0,
               order: 0,
             });
           }
@@ -3777,18 +3954,40 @@
           stockChart = new Chart(ctx, {
             type: 'line',
             data: { labels, datasets },
+            plugins: [KairosCrosshairPlugin],
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              interaction: { mode: 'nearest', intersect: true },
+              // 'index' = tooltip activé pour TOUTE la colonne verticale
+              // intersect:false = pas besoin de toucher exactement un point
+              interaction: { mode: 'index', intersect: false, axis: 'x' },
+              hover: { mode: 'index', intersect: false, axis: 'x' },
               plugins: {
                 legend: {
                   display: hasBuys || hasSells,
                   position: 'top',
                   align: 'end',
-                  labels: { color: getCssVar('--chart-text-strong'), boxWidth: 12, boxHeight: 12, padding: 12, font: { size: 11 } },
+                  labels: {
+                    color: getCssVar('--chart-text-strong'),
+                    boxWidth: 12, boxHeight: 12, padding: 12,
+                    font: { size: 11 },
+                    usePointStyle: true,  // utilise pointStyle (canvas) dans la legende
+                  },
                 },
                 tooltip: {
+                  enabled: true,
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#D1D5DB',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  borderWidth: 1,
+                  padding: 12,
+                  cornerRadius: 8,
+                  titleFont: { size: 12, weight: '600' },
+                  bodyFont: { size: 12 },
+                  bodySpacing: 4,
+                  // Filtre : ne montre que les datasets qui ont une valeur a cet index
+                  filter: (item) => item.parsed.y !== null && item.parsed.y !== undefined,
                   callbacks: {
                     title: function(items) {
                       if (!items.length) return '';
@@ -3844,18 +4043,25 @@
                 pointHoverRadius: 4,
               }]
             },
+            plugins: [KairosCrosshairPlugin],
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false, axis: 'x' },
+              hover: { mode: 'index', intersect: false, axis: 'x' },
               plugins: {
                 legend: { display: false },
                 tooltip: {
-                  backgroundColor: 'rgba(20,25,45,0.95)',
-                  titleColor: '#fff',
-                  bodyColor: '#fff',
-                  padding: 10,
+                  backgroundColor: 'rgba(15,23,42,0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#D1D5DB',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  borderWidth: 1,
+                  cornerRadius: 8,
+                  padding: 12,
                   callbacks: {
-                    label: (ctx) => `${ctx.parsed.y}/100`,
+                    title: (items) => items.length ? fmtDate(items[0].label) : '',
+                    label: (ctx) => `Intérêt : ${ctx.parsed.y}/100`,
                   },
                 },
               },
