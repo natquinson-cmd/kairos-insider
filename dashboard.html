@@ -1334,9 +1334,12 @@
         <h2>Transactions Insiders</h2>
         <p class="section-desc">Achats et ventes des dirigeants — donnees officielles SEC (US, Form 4), AMF (France) et BaFin (Europe, MAR art. 19), mises a jour quotidiennement.</p>
 
-        <div class="search-bar">
-          <input type="text" id="searchInsider" placeholder="Rechercher ticker, ISIN ou entreprise (ex: AAPL, Siemens, DE0007100000)..." onkeydown="if(event.key==='Enter') searchInsider()" />
-          <button class="btn-search" onclick="searchInsider()">Rechercher</button>
+        <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
+          <div style="position:relative;flex:1">
+            <input id="searchInsider" type="text" placeholder="Rechercher ticker, ISIN ou entreprise (ex: AAPL, Siemens, DE0007100000)..." autocomplete="off"
+                   style="width:100%;padding:14px 18px;font-size:16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;">
+            <div id="searchInsiderSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
+          </div>
           <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" style="display:none">Effacer</button>
         </div>
 
@@ -2233,7 +2236,7 @@
         if (section === 'portfolio') loadPortfolioFromFirebase();
         if (section === 'stockAnalysis') initStockAnalysis();
         if (section === 'hotStocks') loadHotStocks();
-        if (section === 'insider') loadInsiderTrades();
+        if (section === 'insider') { initInsiderSearch(); loadInsiderTrades(); }
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -2485,8 +2488,9 @@
     let stockTickerList = null; // { ticker, name, region, market }[]
     let stockChart = null;
 
-    async function initStockAnalysis() {
-      // Fetch la liste des tickers suivis pour l'autocomplete (public, pas d'auth)
+    // Fetch la liste de tickers une seule fois (partagee par Analyse action + Transactions Insiders)
+    async function ensureTickerList() {
+      if (stockTickerList && stockTickerList.length) return stockTickerList;
       try {
         const resp = await fetch(`${API_BASE}/public/tickers`);
         const data = await resp.json();
@@ -2494,49 +2498,78 @@
       } catch (e) {
         stockTickerList = [];
       }
-      // Wire input autocomplete
-      const input = document.getElementById('stockSearchInput');
-      const suggest = document.getElementById('stockSearchSuggest');
-      if (!input) return;
+      return stockTickerList;
+    }
+
+    // Helper generique : cable autocomplete sur un input + dropdown, callback onChoose(ticker)
+    // Stocke l'etat "wired" dans dataset pour ne le brancher qu'une fois par input.
+    function wireTickerAutocomplete(input, suggest, onChoose) {
+      if (!input || !suggest) return;
+      if (input.dataset.autocompleteWired === '1') return;
+      input.dataset.autocompleteWired = '1';
 
       let selectedIdx = -1;
       input.addEventListener('input', () => {
         const q = input.value.trim().toUpperCase();
         selectedIdx = -1;
-        if (q.length < 1) { suggest.style.display = 'none'; return; }
+        if (!stockTickerList || q.length < 1) { suggest.style.display = 'none'; return; }
         const matches = stockTickerList
           .filter(t => t.ticker.startsWith(q) || (t.name && t.name.toUpperCase().includes(q)))
           .slice(0, 10);
         if (matches.length === 0) { suggest.style.display = 'none'; return; }
         suggest.innerHTML = matches.map((t, i) => `
-          <div class="stock-suggest-item" data-idx="${i}" data-ticker="${t.ticker}" onclick="loadStockAnalysis('${t.ticker}')" style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--divider)">
+          <div class="ticker-suggest-item" data-idx="${i}" data-ticker="${t.ticker}" style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--divider)">
             <div>
-              <strong style="color:#74b9ff">${t.ticker}</strong>
+              <strong style="color:var(--accent-blue)">${t.ticker}</strong>
               <span style="opacity:0.7;font-size:13px;margin-left:10px">${(t.name||'').slice(0,50)}</span>
             </div>
             <div style="font-size:12px;opacity:0.5">${t.market || t.region}</div>
           </div>
         `).join('');
+        // Bind clics sur les items fraichement crees
+        suggest.querySelectorAll('.ticker-suggest-item').forEach(el => {
+          el.addEventListener('click', () => {
+            suggest.style.display = 'none';
+            onChoose(el.dataset.ticker);
+          });
+        });
         suggest.style.display = 'block';
       });
 
       input.addEventListener('keydown', (e) => {
-        const items = suggest.querySelectorAll('.stock-suggest-item');
+        const items = suggest.querySelectorAll('.ticker-suggest-item');
         if (e.key === 'ArrowDown') { e.preventDefault(); selectedIdx = Math.min(items.length - 1, selectedIdx + 1); }
         else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIdx = Math.max(-1, selectedIdx - 1); }
         else if (e.key === 'Enter') {
           e.preventDefault();
           const ticker = (selectedIdx >= 0 && items[selectedIdx]) ? items[selectedIdx].dataset.ticker : input.value.trim().toUpperCase();
-          if (ticker) loadStockAnalysis(ticker);
+          if (ticker) { suggest.style.display = 'none'; onChoose(ticker); }
           return;
         } else if (e.key === 'Escape') { suggest.style.display = 'none'; return; }
-        items.forEach((it, i) => it.style.background = i === selectedIdx ? 'rgba(116,185,255,0.15)' : 'transparent');
+        items.forEach((it, i) => it.style.background = i === selectedIdx ? 'rgba(59,130,246,0.15)' : 'transparent');
       });
 
       document.addEventListener('click', (e) => {
-        if (!e.target.closest('#stockSearchInput') && !e.target.closest('#stockSearchSuggest')) {
+        if (!e.target.closest(`#${input.id}`) && !e.target.closest(`#${suggest.id}`)) {
           suggest.style.display = 'none';
         }
+      });
+    }
+
+    async function initStockAnalysis() {
+      await ensureTickerList();
+      const input = document.getElementById('stockSearchInput');
+      const suggest = document.getElementById('stockSearchSuggest');
+      wireTickerAutocomplete(input, suggest, (ticker) => loadStockAnalysis(ticker));
+    }
+
+    async function initInsiderSearch() {
+      await ensureTickerList();
+      const input = document.getElementById('searchInsider');
+      const suggest = document.getElementById('searchInsiderSuggest');
+      wireTickerAutocomplete(input, suggest, (ticker) => {
+        input.value = ticker;
+        searchInsider();
       });
     }
 
