@@ -272,19 +272,7 @@ async function handleSmartMoneyConsensus(env, origin) {
       return jsonResponse({ error: 'No 13F data available' }, 503, origin);
     }
 
-    // Mapping CUSIP / name -> ticker (depuis le cache des transactions)
-    // On utilise le name normalise comme cle d'agregation principale.
-    const tickerByName = new Map();
-    try {
-      const tx = await env.CACHE.get('insider-transactions', 'json');
-      if (tx && Array.isArray(tx.transactions)) {
-        for (const t of tx.transactions) {
-          const tk = (t.ticker || '').trim().toUpperCase();
-          const cn = normalizeForMatch(t.company);
-          if (tk && cn && !tickerByName.has(cn)) tickerByName.set(cn, tk);
-        }
-      }
-    } catch (_) {}
+    const tickerByName = await buildTickerByName(env);
 
     // Aggregation : pour chaque holding (par name normalise), on compile
     // le nb TOTAL de fonds qui detiennent + un sous-compte "conviction"
@@ -300,19 +288,53 @@ async function handleSmartMoneyConsensus(env, origin) {
 
     for (const fund of funds) {
       if (!Array.isArray(fund.topHoldings)) continue;
+
+      // ETAPE 1 : pre-aggreger les holdings DU FOND par key normalisee.
+      // Un meme fond peut avoir plusieurs lignes pour la meme entreprise
+      // (ex. ALPHABET CL A + ALPHABET CL C, ou plusieurs ETF iShares
+      // qui se normalisent en "ISHARES TR"). On les fusionne d'abord.
+      const fundAgg = new Map();  // key -> { name, cusip, shares, value, pct, sharesChange, status }
       for (const h of fund.topHoldings) {
         if (!h.name) continue;
-        const pct = Number(h.pct) || 0;
         const key = normalizeForMatch(h.name);
         if (!key) continue;
+        if (!fundAgg.has(key)) {
+          fundAgg.set(key, {
+            name: h.name,
+            cusip: h.cusip || null,
+            shares: 0,
+            value: 0,
+            pct: 0,
+            sharesChange: null,
+            status: null,
+            count: 0,
+          });
+        }
+        const a = fundAgg.get(key);
+        a.shares += Number(h.shares) || 0;
+        a.value += Number(h.value) || 0;
+        a.pct += Number(h.pct) || 0;          // % cumule (ex. 1.2% + 0.8% sur GOOGL+GOOG = 2%)
+        a.count += 1;
+        // Pour sharesChange et status : on prend le plus gros mouvement (en valeur absolue)
+        const sc = h.sharesChange != null ? Number(h.sharesChange) : null;
+        if (sc != null && (a.sharesChange == null || Math.abs(sc) > Math.abs(a.sharesChange))) {
+          a.sharesChange = sc;
+        }
+        if (h.status === 'new' && !a.status) a.status = 'new';
+        else if (h.status === 'sold' && a.status !== 'new') a.status = 'sold';
+        else if (h.status && !a.status) a.status = h.status;
+      }
 
+      // ETAPE 2 : agreger dans le consensus inter-fonds
+      for (const [key, h] of fundAgg) {
+        const pct = h.pct;
         if (!consensus.has(key)) {
           consensus.set(key, {
             name: h.name,
             ticker: tickerByName.get(key) || null,
             cusip: h.cusip || null,
-            fundCount: 0,          // Total de fonds qui detiennent (toute position)
-            convictionCount: 0,    // Sous-compte : fonds avec position >= 0.3% (vrai signal)
+            fundCount: 0,
+            convictionCount: 0,
             totalValue: 0,
             totalShares: 0,
             avgPctOfPortfolio: 0,
@@ -322,19 +344,19 @@ async function handleSmartMoneyConsensus(env, origin) {
         const entry = consensus.get(key);
         entry.fundCount += 1;
         if (pct >= CONVICTION_THRESHOLD) entry.convictionCount += 1;
-        entry.totalValue += Number(h.value) || 0;
-        entry.totalShares += Number(h.shares) || 0;
+        entry.totalValue += h.value;
+        entry.totalShares += h.shares;
         entry.fundsHolding.push({
           fundName: fund.fundName,
           label: fund.label || null,
           category: fund.category || null,
           cik: fund.cik,
-          shares: Number(h.shares) || 0,
-          value: Number(h.value) || 0,
-          pct: Number(h.pct) || 0,            // % du portefeuille du fonds
-          isConviction: pct >= CONVICTION_THRESHOLD,  // helper pour l'UI
-          sharesChange: h.sharesChange != null ? Number(h.sharesChange) : null,
-          status: h.status || null,            // 'new' / 'increased' / 'decreased' / 'sold'
+          shares: h.shares,
+          value: h.value,
+          pct: pct,
+          isConviction: pct >= CONVICTION_THRESHOLD,
+          sharesChange: h.sharesChange,
+          status: h.status,
         });
       }
     }
@@ -376,17 +398,7 @@ async function handleQuarterActivity(env, origin) {
       return jsonResponse({ error: 'No 13F data available' }, 503, origin);
     }
 
-    const tickerByName = new Map();
-    try {
-      const tx = await env.CACHE.get('insider-transactions', 'json');
-      if (tx && Array.isArray(tx.transactions)) {
-        for (const t of tx.transactions) {
-          const tk = (t.ticker || '').trim().toUpperCase();
-          const cn = normalizeForMatch(t.company);
-          if (tk && cn && !tickerByName.has(cn)) tickerByName.set(cn, tk);
-        }
-      }
-    } catch (_) {}
+    const tickerByName = await buildTickerByName(env);
 
     const newPositions = [];
     const soldPositions = [];
@@ -456,6 +468,102 @@ async function handleQuarterActivity(env, origin) {
 }
 
 // Normalisation pour matcher des noms (suppression suffixes corp/inc/sa, espaces, casse)
+// Mapping name normalise -> ticker pour les megas a plusieurs classes,
+// les ADR, et les valeurs absentes des transactions insiders (parce que
+// les insiders deposent rarement sur les megacaps super-liquides).
+const KNOWN_TICKERS = {
+  'ALPHABET': 'GOOGL',
+  'BERKSHIRE HATHAWAY DEL': 'BRK.B',
+  'META PLATFORMS': 'META',
+  'AMAZON COM': 'AMZN',
+  'APPLE': 'AAPL',
+  'MICROSOFT': 'MSFT',
+  'NVIDIA': 'NVDA',
+  'TESLA': 'TSLA',
+  'BROADCOM': 'AVGO',
+  'JPMORGAN CHASE & CO': 'JPM',
+  'JOHNSON & JOHNSON': 'JNJ',
+  'EXXON MOBIL': 'XOM',
+  'PROCTER & GAMBLE': 'PG',
+  'VISA': 'V',
+  'MASTERCARD': 'MA',
+  'COCA COLA CO': 'KO',
+  'PEPSICO': 'PEP',
+  'WALMART': 'WMT',
+  'COSTCO WHOLESALE': 'COST',
+  'ELI LILLY & CO': 'LLY',
+  'UNITEDHEALTH': 'UNH',
+  'NETFLIX': 'NFLX',
+  'ADOBE': 'ADBE',
+  'ORACLE': 'ORCL',
+  'SALESFORCE': 'CRM',
+  'ADVANCED MICRO DEVICES': 'AMD',
+  'INTEL': 'INTC',
+  'QUALCOMM': 'QCOM',
+  'CISCO SYSTEMS': 'CSCO',
+  'BANK OF AMERICA': 'BAC',
+  'WELLS FARGO': 'WFC',
+  'GOLDMAN SACHS': 'GS',
+  'MORGAN STANLEY': 'MS',
+  'CITIGROUP': 'C',
+  'HOME DEPOT': 'HD',
+  'MCDONALDS': 'MCD',
+  'NIKE': 'NKE',
+  'STARBUCKS': 'SBUX',
+  'BOEING': 'BA',
+  'CATERPILLAR': 'CAT',
+  'DEERE & CO': 'DE',
+  'GENERAL ELECTRIC': 'GE',
+  'CHEVRON': 'CVX',
+  'CONOCOPHILLIPS': 'COP',
+  'AT&T': 'T',
+  'VERIZON COMMUNICATIONS': 'VZ',
+  'WALT DISNEY': 'DIS',
+  'PFIZER': 'PFE',
+  'MERCK & CO': 'MRK',
+  'ABBVIE': 'ABBV',
+  'NOVO NORDISK A S ADR': 'NVO',
+  'TAIWAN SEMICONDUCTOR': 'TSM',
+  'PALANTIR TECHNOLOGIES': 'PLTR',
+  'COINBASE GLOBAL': 'COIN',
+  'SHOPIFY': 'SHOP',
+  'ROBLOX': 'RBLX',
+  'PALO ALTO NETWORKS': 'PANW',
+  'CROWDSTRIKE': 'CRWD',
+  'DATADOG': 'DDOG',
+  'SNOWFLAKE': 'SNOW',
+  'CLOUDFLARE': 'NET',
+  'MONGODB': 'MDB',
+  'UBER TECHNOLOGIES': 'UBER',
+  'AIRBNB': 'ABNB',
+  'SPOTIFY TECHNOLOGY': 'SPOT',
+  'BLOCK': 'SQ',
+  'PAYPAL HOLDINGS': 'PYPL',
+  'INTUIT': 'INTU',
+  'SERVICENOW': 'NOW',
+};
+
+// Construit un Map(normalizedName -> ticker) en combinant :
+// 1. KNOWN_TICKERS hardcodes (priorite : Alphabet -> GOOGL pas GOOG)
+// 2. Transactions insiders (couvre les autres tickers cotes US/EU)
+async function buildTickerByName(env) {
+  const m = new Map();
+  for (const [name, ticker] of Object.entries(KNOWN_TICKERS)) {
+    m.set(name, ticker);
+  }
+  try {
+    const tx = await env.CACHE.get('insider-transactions', 'json');
+    if (tx && Array.isArray(tx.transactions)) {
+      for (const t of tx.transactions) {
+        const tk = (t.ticker || '').trim().toUpperCase();
+        const cn = normalizeForMatch(t.company);
+        if (tk && cn && !m.has(cn)) m.set(cn, tk);
+      }
+    }
+  } catch (_) {}
+  return m;
+}
+
 function normalizeForMatch(s) {
   if (!s) return '';
   return String(s)
