@@ -3392,7 +3392,7 @@
         <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
             <h3 style="margin:0;font-size:16px;opacity:0.9">Cours sur 1 an &amp; transactions d'initiés</h3>
-            <div style="font-size:11px;opacity:0.55">● achat &nbsp; ▲ vente &nbsp; · taille ∝ montant</div>
+            <div style="font-size:11px;opacity:0.55"><span style="color:#10B981">◆</span> achat &nbsp; <span style="color:#EF4444">▼</span> vente &nbsp; · taille ∝ montant</div>
           </div>
           <div style="height:260px;position:relative"><canvas id="stockPriceChart"></canvas></div>
         </div>
@@ -4101,90 +4101,48 @@
           const hasBuys = buyOverlay.some(v => v !== null);
           const hasSells = sellOverlay.some(v => v !== null);
 
-          // Icones SVG custom (achat/vente) — plus jolies que circle/triangle plats.
-          // pointStyle accepte HTMLImageElement | HTMLCanvasElement -> on prerend en canvas.
-          const makeMarkerCanvas = (kind, sizePx, accentColor) => {
-            const dpr = window.devicePixelRatio || 1;
-            const c = document.createElement('canvas');
-            c.width = sizePx * 2 * dpr;
-            c.height = sizePx * 2 * dpr;
-            const cx = c.width / 2, cy = c.height / 2;
-            const ctx2 = c.getContext('2d');
-            ctx2.scale(dpr, dpr);
-            // Halo glow
-            const glowR = sizePx * 0.95;
-            const grad = ctx2.createRadialGradient(sizePx, sizePx, glowR * 0.4, sizePx, sizePx, glowR);
-            grad.addColorStop(0, accentColor + 'cc');
-            grad.addColorStop(1, accentColor + '00');
-            ctx2.fillStyle = grad;
-            ctx2.beginPath();
-            ctx2.arc(sizePx, sizePx, glowR, 0, 2 * Math.PI);
-            ctx2.fill();
-            // Cercle plein central
-            ctx2.fillStyle = accentColor;
-            ctx2.strokeStyle = '#0A0F1E';
-            ctx2.lineWidth = 1.6;
-            ctx2.beginPath();
-            ctx2.arc(sizePx, sizePx, sizePx * 0.55, 0, 2 * Math.PI);
-            ctx2.fill();
-            ctx2.stroke();
-            // Symbole interne (fleche montante = achat, descendante = vente)
-            ctx2.strokeStyle = '#fff';
-            ctx2.fillStyle = '#fff';
-            ctx2.lineWidth = Math.max(sizePx * 0.18, 1.5);
-            ctx2.lineCap = 'round';
-            ctx2.lineJoin = 'round';
-            const armLen = sizePx * 0.34;
-            const armWidth = sizePx * 0.22;
-            ctx2.beginPath();
-            if (kind === 'buy') {
-              // Fleche vers le HAUT
-              ctx2.moveTo(sizePx, sizePx - armLen);
-              ctx2.lineTo(sizePx - armWidth, sizePx + armLen * 0.2);
-              ctx2.lineTo(sizePx + armWidth, sizePx + armLen * 0.2);
-              ctx2.closePath();
-              ctx2.fill();
-            } else {
-              // Fleche vers le BAS
-              ctx2.moveTo(sizePx, sizePx + armLen);
-              ctx2.lineTo(sizePx - armWidth, sizePx - armLen * 0.2);
-              ctx2.lineTo(sizePx + armWidth, sizePx - armLen * 0.2);
-              ctx2.closePath();
-              ctx2.fill();
-            }
-            return c;
-          };
-
+          // Markers achat/vente : pointStyle Chart.js natif (rectRot pour
+          // achat = losange/diamant, triangle pour vente). Couleurs vives
+          // avec border-color contraste pour faire ressortir.
+          // Plus simple et plus fiable que des canvas custom.
           if (hasBuys) {
-            // Pour chaque point, on génère un canvas adapté à son rayon
-            const buyMarkers = buyRadii.map(r => r ? makeMarkerCanvas('buy', r, '#10B981') : null);
             datasets.push({
               label: 'Achats insiders',
               data: buyOverlay,
               _meta: buyMeta,
-              borderColor: '#10B981',
-              backgroundColor: '#10B981',
-              pointStyle: buyMarkers,
-              pointRadius: buyRadii.map(r => r ? r * 0.001 : 0), // pas utilise quand pointStyle est canvas
-              pointHoverRadius: 0,
+              borderColor: '#0A0F1E',           // bordure sombre = halo de contraste
+              backgroundColor: '#10B981',       // emerald-500
+              pointBorderColor: '#0A0F1E',
+              pointBorderWidth: 1.5,
+              pointBackgroundColor: '#10B981',
+              pointStyle: 'rectRot',            // losange pointe vers le haut/bas
+              pointRadius: buyRadii,
+              pointHoverRadius: buyRadii.map(r => r ? r + 3 : 0),
+              pointHoverBackgroundColor: '#34D399',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
               showLine: false,
-              borderWidth: 0,
               order: 1,
             });
           }
           if (hasSells) {
-            const sellMarkers = sellRadii.map(r => r ? makeMarkerCanvas('sell', r, '#EF4444') : null);
             datasets.push({
               label: 'Ventes insiders',
               data: sellOverlay,
               _meta: sellMeta,
-              borderColor: '#EF4444',
-              backgroundColor: '#EF4444',
-              pointStyle: sellMarkers,
-              pointRadius: sellRadii.map(r => r ? r * 0.001 : 0),
-              pointHoverRadius: 0,
+              borderColor: '#0A0F1E',
+              backgroundColor: '#EF4444',       // red-500
+              pointBorderColor: '#0A0F1E',
+              pointBorderWidth: 1.5,
+              pointBackgroundColor: '#EF4444',
+              pointStyle: 'triangle',           // triangle pointe vers le haut
+              pointRadius: sellRadii,
+              pointHoverRadius: sellRadii.map(r => r ? r + 3 : 0),
+              pointHoverBackgroundColor: '#F87171',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              rotation: 180,                    // pointe vers le bas (= vente)
               showLine: false,
-              borderWidth: 0,
               order: 0,
             });
           }
