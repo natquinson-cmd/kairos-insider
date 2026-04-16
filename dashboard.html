@@ -450,6 +450,36 @@
       color: #74b9ff;
       border: 1px solid rgba(116,185,255,0.35);
     }
+    .sidebar-item .beta-badge {
+      background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(251,191,36,0.12));
+      color: #FBBF24;
+      border: 1px solid rgba(245,158,11,0.35);
+    }
+    /* Badge Beta inline (a cote des titres H2) */
+    .beta-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      margin-left: 12px;
+      background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.08));
+      color: #FBBF24;
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      font-family: 'Inter', sans-serif;
+    }
+    .beta-tag::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: #FBBF24;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #FBBF24;
+    }
     .premium-locked {
       opacity: 0.5;
       pointer-events: none;
@@ -1164,7 +1194,7 @@
         <button class="sidebar-item" data-section="portfolio" data-premium="true" onclick="switchSection('portfolio')">
           <span class="sidebar-icon icon-pink"><svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
           <span>Mon Portefeuille</span>
-          <span class="sidebar-badge premium-badge">PRO</span>
+          <span class="sidebar-badge beta-badge" title="Module en bêta — synchronisation automatique à venir">BETA</span>
         </button>
       </div>
 
@@ -1513,8 +1543,8 @@
 
       <!-- ===== SECTION: MON PORTEFEUILLE ===== -->
       <div class="section-page" id="section-portfolio">
-        <h2>Mon Portefeuille</h2>
-        <p class="section-desc">Importez vos trades depuis votre plateforme de trading pour suivre votre performance.</p>
+        <h2>Mon Portefeuille <span class="beta-tag">Beta</span></h2>
+        <p class="section-desc">Importez vos trades depuis votre plateforme de trading pour suivre votre performance. <strong style="color:#FBBF24">Module en bêta</strong> — la synchronisation automatique avec votre broker arrive bientôt.</p>
 
         <!-- Zone d'upload CSV -->
         <div id="portfolioUpload" style="margin-bottom:32px">
