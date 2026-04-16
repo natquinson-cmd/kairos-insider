@@ -9,7 +9,8 @@ import json, re, time, urllib.request
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 
-FUNDS = [
+# Liste fallback hardcodee (utilisee si discover-13f-funds.py n'a pas tourne)
+HARDCODED_FUNDS = [
     # ============ HEDGE FUNDS LEGENDARY ============
     ('0001067983', 'Berkshire Hathaway', 'Warren Buffett', 'Value investing'),
     ('0001649339', 'Scion Asset Management', 'Michael Burry', 'Contrarian'),
@@ -83,6 +84,33 @@ FUNDS = [
 ]
 # Note : certains CIK sont approximatifs. Le script gere les erreurs et continue
 # si un fund retourne un 404. Lance le script pour voir lesquels echouent.
+
+
+# V2 : si 13f_funds_list.json existe (genere par discover-13f-funds.py),
+# on l'utilise au lieu de la liste hardcodee.
+import os as _os
+def _load_dynamic_funds():
+    path = '13f_funds_list.json'
+    if not _os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+        funds = data.get('funds', [])
+        if not funds:
+            return None
+        return [(f['cik'], f['name'], f['label'], f.get('category', 'Asset Manager')) for f in funds]
+    except Exception as e:
+        print(f'Warning: 13f_funds_list.json read failed ({e}), fallback to hardcoded.')
+        return None
+
+_dynamic = _load_dynamic_funds()
+if _dynamic:
+    print(f'Loaded {len(_dynamic)} funds from 13f_funds_list.json (dynamic discovery)')
+    FUNDS = _dynamic
+else:
+    print(f'Using hardcoded FUNDS list ({len(HARDCODED_FUNDS)} funds, no dynamic discovery)')
+    FUNDS = HARDCODED_FUNDS
 
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent': UA})
@@ -267,9 +295,9 @@ for cik, name, label, category in FUNDS:
                 'value': holding_value(h, prev_raw_sum),
             }
 
-    # Top 15 positions avec variation
+    # Top 50 positions avec variation (etoffe pour Smart Money Consensus + activite)
     top_holdings = []
-    for h in holdings_current[:15]:
+    for h in holdings_current[:50]:
         h_val = holding_value(h, raw_sum)
         pct = round((h_val / total_value) * 1000) / 10 if total_value > 0 else 0
 

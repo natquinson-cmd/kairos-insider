@@ -1044,7 +1044,7 @@
         <img src="assets/logo.png" alt="Kairos Insider" />
       </div>
       <h2 style="margin-bottom:16px">Passez a Kairos Insider Premium</h2>
-      <p style="margin-bottom:24px">Debloquez l'acces complet au Smart Money Dashboard : transactions insiders, signaux de clusters, portefeuilles 13F, ETF en temps reel.</p>
+      <p style="margin-bottom:24px">Debloquez l'acces complet au Smart Money Dashboard : transactions insiders, signaux de clusters, portefeuilles hedge funds, ETF en temps reel.</p>
       <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
         <div style="font-family:'Space Grotesk';font-size:36px;font-weight:800;color:var(--accent-blue)">29&#8364;<span style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
         <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable a tout moment</div>
@@ -1127,12 +1127,12 @@
         </button>
         <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')">
           <span class="sidebar-icon icon-teal"><svg viewBox="0 0 24 24"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span>
-          <span>Portefeuilles 13F</span>
+          <span>Hedge Funds</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="consensus13f" data-premium="true" onclick="switchSection('consensus13f')">
           <span class="sidebar-icon icon-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
-          <span>Consensus 13F</span>
+          <span>Consensus Hedge Funds</span>
           <span class="sidebar-badge new-badge">NEW</span>
         </button>
         <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
@@ -1202,7 +1202,7 @@
           <div class="home-stat" style="padding:16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
             <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Hedge funds suivis</div>
             <div style="font-size:22px;font-weight:700;color:#74b9ff" id="homeStatFunds">…</div>
-            <div style="font-size:11px;opacity:0.55;margin-top:2px">Portefeuilles 13F agrégés</div>
+            <div style="font-size:11px;opacity:0.55;margin-top:2px">Portefeuilles hedge funds agrégés</div>
           </div>
           <div class="home-stat" style="padding:16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
             <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Dernière mise à jour</div>
@@ -1251,7 +1251,7 @@
               <div style="font-size:32px">🏦</div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
             </div>
-            <h4 style="margin:0 0 6px;font-size:16px">Portefeuilles 13F</h4>
+            <h4 style="margin:0 0 6px;font-size:16px">Portefeuilles Hedge Funds</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Les positions des plus grands hedge funds : <strong>Berkshire</strong> (Buffett), <strong>Pershing Square</strong> (Ackman), <strong>Tiger Global</strong>, <strong>Bridgewater</strong> et 100+ autres.</p>
             <div style="margin-top:12px;font-size:12px;color:#74b9ff">Explorer les fonds →</div>
           </div>
@@ -1305,7 +1305,7 @@
             </div>
             <div>
               <strong style="color:#74b9ff">3. Kairos Score ≥ 75</strong><br>
-              <span style="opacity:0.75">Notre score composite agrège 8 dimensions (initiés, 13F, ETF, momentum, valo, consensus, santé, earnings). Au-delà de 75, c'est un ACHAT FORT.</span>
+              <span style="opacity:0.75">Notre score composite agrège 8 dimensions (initiés, hedge funds, ETF, momentum, valo, consensus, santé, earnings). Au-delà de 75, c'est un ACHAT FORT.</span>
             </div>
           </div>
         </div>
@@ -1314,7 +1314,7 @@
       <!-- ===== SECTION: ANALYSE ACTION (ticker deep-dive) ===== -->
       <div class="section-page" id="section-stockAnalysis">
         <h2>Analyse action</h2>
-        <p class="section-desc">Cherche un ticker et obtiens une analyse complete : insiders, hedge funds (13F), ETF politiciens/gurus, prix, fondamentaux, news — le tout synthetise en un <strong>Kairos Score</strong> de 0 a 100.</p>
+        <p class="section-desc">Cherche un ticker et obtiens une analyse complete : insiders, hedge funds, ETF politiciens/gurus, prix, fondamentaux, news — le tout synthetise en un <strong>Kairos Score</strong> de 0 a 100.</p>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;">
           <input id="stockSearchInput" type="text" placeholder="Ticker (ex. AAPL, MSFT, ASML, MC.PA)..." autocomplete="off"
@@ -1347,7 +1347,7 @@
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page" id="section-insider">
         <h2>Transactions Insiders</h2>
-        <p class="section-desc">Achats et ventes des dirigeants — donnees officielles SEC (US, Form 4), AMF (France) et BaFin (Europe, MAR art. 19), mises a jour quotidiennement.</p>
+        <p class="section-desc">Achats et ventes des dirigeants — declarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement.</p>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
           <div style="position:relative;flex:1">
@@ -2609,7 +2609,7 @@
     function renderStockLoader(body, ticker) {
       const steps = [
         { icon: '🔍', label: "Recherche des transactions d'initiés (SEC + AMF + BaFin)" },
-        { icon: '💰', label: "Interrogation des portefeuilles 13F des hedge funds" },
+        { icon: '💰', label: "Interrogation des portefeuilles des hedge funds" },
         { icon: '🏛️', label: "Vérification dans les ETF politiciens & gurus" },
         { icon: '📈', label: "Récupération du cours et de l'historique 1 an" },
         { icon: '📊', label: "Chargement des fondamentaux (P/E, ROE, marge…)" },
@@ -3009,7 +3009,7 @@
 
           <!-- SMART MONEY -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">💰 Smart Money (13F)</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">💰 Hedge Funds</h3>
             <div style="display:flex;gap:12px;margin-bottom:12px">
               <div style="flex:1;padding:10px;background:rgba(116,185,255,0.08);border-radius:8px;text-align:center">
                 <div style="font-size:20px;font-weight:600;color:#74b9ff">${sm.fundCount || 0}</div>
@@ -4357,7 +4357,7 @@
             </table>
           </div>
           <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
-            Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose un Form 4 (declaration de transaction) dans les 90 derniers jours.
+            Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose une declaration insider (transaction sur leurs propres actions) dans les 90 derniers jours.
             Plus le nombre d'insiders est eleve, plus le signal est fort. Cliquez sur une ligne pour voir les noms des declarants.
           </p>`;
     }

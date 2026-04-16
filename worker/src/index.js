@@ -288,12 +288,20 @@ async function handleSmartMoneyConsensus(env, origin) {
 
     // Aggregation : pour chaque holding (par name normalise), on compile
     // le nb de fonds, la value totale, la liste des fonds qui detiennent.
+    // FILTRE ANTI-BRUIT : on ne compte une position dans le "consensus" que
+    // si elle represente >= 0.3% du portefeuille du fonds. Sinon les
+    // index passifs (BlackRock 5000 stocks, Vanguard 4000) detiennent
+    // techniquement TOUT et faussent le signal.
+    const MIN_PCT_FOR_CONSENSUS = 0.3;
     const consensus = new Map(); // name -> { name, ticker, fundCount, totalValue, totalShares, fundsHolding[] }
 
     for (const fund of funds) {
       if (!Array.isArray(fund.topHoldings)) continue;
       for (const h of fund.topHoldings) {
         if (!h.name) continue;
+        // Filtre signal : ignorer les positions trop diluees
+        const pct = Number(h.pct) || 0;
+        if (pct < MIN_PCT_FOR_CONSENSUS) continue;
         const key = normalizeForMatch(h.name);
         if (!key) continue;
 
@@ -589,7 +597,7 @@ async function handleActionSSR(rawTicker, env) {
   const dividendYield = data.fundamentals?.dividendYield;
 
   const title = `${name} (${ticker}) — Kairos Score ${score}/100 · ${sig.label} | Kairos Insider`;
-  const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). ${totalInsiderTx} transactions insiders, ${totalFunds} hedge funds 13F. Cours : ${fmtCurrSsr(price, currency)}.`;
+  const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). ${totalInsiderTx} transactions insiders, ${totalFunds} hedge funds. Cours : ${fmtCurrSsr(price, currency)}.`;
   // URL du dashboard (pour les CTA "Voir l'analyse complete")
   const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
   // Canonical = URL brande (Worker route sur kairosinsider.fr/a/*)
@@ -633,7 +641,7 @@ async function handleActionSSR(rawTicker, env) {
   }).join('');
 
   const fundsTeaser = (data.smartMoney?.topFunds || []).slice(0, 5).map(f => {
-    return `<li>${escHtmlSsr(f.fundName || f.cik || 'Fonds 13F')}</li>`;
+    return `<li>${escHtmlSsr(f.fundName || f.cik || 'Hedge fund')}</li>`;
   }).join('');
 
   const newsTeaser = (data.news || []).slice(0, 3).map(n => {
@@ -749,7 +757,7 @@ footer a{color:#9CA3AF;text-decoration:none}
     <div class="score-info">
       <h1>Kairos Score : ${score}/100</h1>
       <div class="signal" style="background:${sig.color}22;color:${sig.color};border:1px solid ${sig.color}44">${sig.label}</div>
-      <p>Score composite qui agrège 8 dimensions du smart money : insiders (SEC/AMF/BaFin), hedge funds 13F, politiciens et gourous (NANC/GURU), momentum, valorisation, consensus analystes, santé financière et earnings.</p>
+      <p>Score composite qui agrège 8 dimensions du smart money : insiders (SEC/AMF/BaFin), hedge funds, politiciens et gourous (NANC/GURU), momentum, valorisation, consensus analystes, santé financière et earnings.</p>
     </div>
   </div>
 
@@ -781,8 +789,8 @@ footer a{color:#9CA3AF;text-decoration:none}
   </div>
 
   <div class="section">
-    <h2>🏦 Hedge funds (13F)</h2>
-    <p><strong>${totalFunds}</strong> fonds institutionnels déclarent une position sur ${escHtmlSsr(ticker)} dans leur dernier dépôt 13F SEC.</p>
+    <h2>🏦 Hedge Funds</h2>
+    <p><strong>${totalFunds}</strong> fonds institutionnels déclarent une position sur ${escHtmlSsr(ticker)} dans leur dernière déclaration trimestrielle SEC.</p>
     ${fundsTeaser ? `<ul>${fundsTeaser}</ul>` : ''}
   </div>
 
@@ -818,7 +826,7 @@ footer a{color:#9CA3AF;text-decoration:none}
     <p>Cette page publique ne montre qu'un extrait. L'analyse complète de <strong>${escHtmlSsr(ticker)}</strong> sur le dashboard Kairos Insider inclut :</p>
     <div class="features">
       <div class="feature">✅ Historique complet des ${totalInsiderTx} transactions insiders</div>
-      <div class="feature">✅ Tous les ${totalFunds} hedge funds 13F détaillés</div>
+      <div class="feature">✅ Tous les ${totalFunds} hedge funds détaillés</div>
       <div class="feature">✅ Positions NANC, GOP et GURU</div>
       <div class="feature">✅ Fondamentaux (P/E, PEG, EV/EBITDA, ROE…)</div>
       <div class="feature">✅ Santé financière (Altman Z, Piotroski F)</div>
@@ -1094,9 +1102,9 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
 <h1>Bienvenue dans Kairos Insider Premium 🎉</h1>
 <p>Votre abonnement est actif. Vous avez maintenant acces a l'ensemble du Smart Money Dashboard :</p>
 <div class="features"><ul>
-  <li>✓ Transactions d'inities US (SEC Form 4) &amp; Europe (BaFin MAR art.19) en quasi-temps reel</li>
+  <li>✓ Transactions d'inities US, Europe et France en quasi-temps reel</li>
   <li>✓ Signaux de clusters d'insiders sur 90 jours</li>
-  <li>✓ Portefeuilles 13F des plus grands hedge funds</li>
+  <li>✓ Portefeuilles des plus grands hedge funds (consensus + activite trimestre)</li>
   <li>✓ Suivi des ETF Smart Money (NANC, GOP, GURU)</li>
   <li>✓ Import multi-plateforme de votre portefeuille personnel</li>
 </ul></div>

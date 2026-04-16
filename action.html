@@ -20,7 +20,7 @@
   <!-- Meta tags dynamiquement remplacés par JS après fetch du ticker.
        Les valeurs par défaut sont génériques pour les bots qui n'exécutent pas JS. -->
   <title id="pageTitle">Analyse action — Kairos Insider</title>
-  <meta id="metaDesc" name="description" content="Analyse smart money d'une action : Kairos Score composite, transactions insiders, hedge funds 13F, fondamentaux, momentum, valorisation. Vue publique gratuite." />
+  <meta id="metaDesc" name="description" content="Analyse smart money d'une action : Kairos Score composite, transactions insiders, hedge funds, fondamentaux, momentum, valorisation. Vue publique gratuite." />
   <meta name="theme-color" content="#0A0F1E" />
   <meta name="robots" content="index, follow" />
   <link id="canonicalLink" rel="canonical" href="https://kairosinsider.fr/action.html" />
@@ -324,7 +324,7 @@
       const currency = d.price?.currency || 'USD';
 
       const title = `${name} (${ticker}) — Kairos Score ${score}/100 · ${sig.label} | Kairos Insider`;
-      const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). Activité des initiés, hedge funds 13F, momentum et valorisation. Cours : ${fmtCurr(price, currency)}.`;
+      const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). Activité des initiés, hedge funds, momentum et valorisation. Cours : ${fmtCurr(price, currency)}.`;
       const canonical = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
 
       document.title = title;
@@ -439,7 +439,7 @@
           <div class="score-info">
             <h1>Kairos Score : ${score}/100</h1>
             <div class="signal ${sig.cls}">${sig.label}</div>
-            <p>Le <strong>Kairos Score</strong> est un score composite qui agrège 8 dimensions du smart money : activité des initiés (SEC/AMF/BaFin), détentions des hedge funds (13F), positions des politiciens et gourous (NANC/GURU), momentum du cours, valorisation, consensus analystes, santé financière et momentum des résultats.</p>
+            <p>Le <strong>Kairos Score</strong> est un score composite qui agrège 8 dimensions du smart money : activité des initiés (SEC/AMF/BaFin), détentions des hedge funds, positions des politiciens et gourous (NANC/GURU), momentum du cours, valorisation, consensus analystes, santé financière et momentum des résultats.</p>
           </div>
         </div>
 
@@ -475,9 +475,9 @@
         </div>
 
         <div class="teaser-section">
-          <h2>🏦 Hedge funds (13F)</h2>
+          <h2>🏦 Hedge Funds</h2>
           <div class="stat">${totalFunds} fonds</div>
-          <p>Nombre de hedge funds déclarant une position sur ${ticker} dans leur dernier dépôt 13F SEC.</p>
+          <p>Nombre de hedge funds déclarant une position sur ${ticker} dans leur dernière déclaration trimestrielle SEC.</p>
           ${(d.smartMoney?.topFunds || []).length > 0 ? `
             <div class="teaser-peek">
               <strong>Top détenteurs :</strong> ${d.smartMoney.topFunds.map(f => escHtml(f.fundName || f.cik || 'Fonds')).join(' · ')} …
@@ -504,7 +504,7 @@
           <p>Cette page publique ne montre qu'un extrait. L'analyse complète de <strong>${ticker}</strong> sur le dashboard Kairos Insider inclut :</p>
           <div class="paywall-features">
             <div class="paywall-feature">✅ Historique complet des ${totalInsiderTx} transactions insiders</div>
-            <div class="paywall-feature">✅ Tous les ${totalFunds} hedge funds (13F) détaillés</div>
+            <div class="paywall-feature">✅ Tous les ${totalFunds} hedge funds détaillés</div>
             <div class="paywall-feature">✅ Positions NANC, GOP et GURU</div>
             <div class="paywall-feature">✅ Fondamentaux complets (P/E, PEG, EV/EBITDA, marges, ROE…)</div>
             <div class="paywall-feature">✅ Santé financière (Altman Z, Piotroski F)</div>
