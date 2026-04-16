@@ -35,3 +35,10 @@ STRIPE_PRICE_ID = "price_1TM8ATDmX73q2YzDLtmLnk9k"
 [[kv_namespaces]]
 binding = "CACHE"
 id = "aca7ff9d2a244b06ae92d6a7129b4cc4"
+
+# DB historique (snapshots ETF / 13F / Kairos Score)
+# Utilisee pour les comparaisons et evolutions long terme.
+[[d1_databases]]
+binding = "HISTORY"
+database_name = "kairos-history"
+database_id = "e26b41bc-9a11-42b4-a33e-e369f2fd7602"

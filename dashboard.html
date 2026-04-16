@@ -2990,9 +2990,88 @@
         const elapsed = Date.now() - startedAt;
         if (elapsed < 400) await new Promise(r => setTimeout(r, 400 - elapsed));
         renderStockAnalysis(data);
+        // Charge l'historique D1 en parallele (non-bloquant pour le rendu principal)
+        loadEtfHistoryFor(ticker).catch(() => {});
       } catch (e) {
         clearStockLoader();
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+      }
+    }
+
+    // ============================================================
+    // Historique ETF : "ce ticker apparait dans X ETF depuis Y jours"
+    // Affiche en bas de l'analyse action si data D1 dispo.
+    // ============================================================
+    async function loadEtfHistoryFor(ticker) {
+      try {
+        const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=180`);
+        if (!res || !res.etfs || res.etfs.length === 0) return;
+
+        // Cherche/cree le slot d'affichage juste apres le hero ticker
+        const body = document.getElementById('stockAnalysisBody');
+        if (!body) return;
+        let slot = document.getElementById('etfHistorySlot');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.id = 'etfHistorySlot';
+          slot.style.cssText = 'margin-top:24px';
+          body.appendChild(slot);
+        }
+
+        const fmtD = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}); } catch { return s; } };
+        const totalEtfs = res.etfs.length;
+
+        slot.innerHTML = `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+              <div>
+                <h3 style="margin:0 0 4px;font-size:16px">📊 Présence dans les ETF suivis</h3>
+                <p style="margin:0;font-size:12px;opacity:0.6">${ticker} apparaît actuellement dans <strong style="color:var(--text-primary)">${totalEtfs} ETF</strong> sur les 180 derniers jours</p>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+              ${res.etfs.map(e => {
+                const points = e.series || [];
+                if (!points.length) return '';
+                const minW = Math.min(...points.map(p => p.weight));
+                const maxW = Math.max(...points.map(p => p.weight));
+                const trend = points.length > 1 ? (points[points.length-1].weight - points[0].weight) : 0;
+                const trendCol = trend > 0 ? '#2ecc71' : trend < 0 ? '#ff7675' : '#9CA3AF';
+                const trendIcon = trend > 0.05 ? '↗' : trend < -0.05 ? '↘' : '→';
+                // Sparkline SVG simple
+                const w = 200, h = 32;
+                const xStep = points.length > 1 ? w / (points.length - 1) : w;
+                const yMin = minW, yMax = maxW > minW ? maxW : minW + 0.01;
+                const path = points.map((p, i) => {
+                  const x = i * xStep;
+                  const y = h - ((p.weight - yMin) / (yMax - yMin)) * h;
+                  return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+                }).join(' ');
+                return `
+                  <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                      <strong style="font-size:13px;color:var(--accent-blue)">${e.symbol}</strong>
+                      <span style="font-size:11px;color:${trendCol};font-weight:600">${trendIcon} ${e.currentWeight.toFixed(2)}%</span>
+                    </div>
+                    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:32px">
+                      <path d="${path}" fill="none" stroke="${trendCol}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+                    </svg>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;opacity:0.5;margin-top:2px">
+                      <span>${fmtD(e.firstSeen)}</span>
+                      <span>Rang #${e.currentRank}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <p style="font-size:11px;opacity:0.5;margin:14px 0 0">
+              Évolution du poids de ${ticker} dans chaque ETF qui le détient. Les rotations rapides (entrées/sorties) sont des signaux de momentum.
+            </p>
+          </div>
+        `;
+      } catch (e) {
+        // Silencieux : si D1 vide ou route absente, on n'affiche rien (UX progressive)
+        console.debug('ETF history not available:', e.message || e);
       }
     }
 

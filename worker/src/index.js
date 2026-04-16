@@ -241,6 +241,22 @@ async function handleApiRoute(path, url, env, origin) {
     }, 200, origin);
   }
 
+  // ============================================================
+  // HISTORIQUE D1 (Cloudflare D1 SQLite serverless)
+  // - /api/history/score?ticker=AAPL  -> evolution Kairos Score 90j
+  // - /api/history/etf?ticker=NVDA    -> evolution dans les ETF (qui detient quand)
+  // - /api/history/fund?cik=0001067983&ticker=AAPL -> evolution position d'un fonds
+  // ============================================================
+  if (path === '/api/history/score') {
+    return handleHistoryScore(url, env, origin);
+  }
+  if (path === '/api/history/etf') {
+    return handleHistoryEtfTicker(url, env, origin);
+  }
+  if (path === '/api/history/fund') {
+    return handleHistoryFund(url, env, origin);
+  }
+
   // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
   if (path === '/api/trends-hot') {
     const data = await env.CACHE.get('google-trends-hot', 'json');
@@ -510,6 +526,125 @@ async function handleQuarterActivity(env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'Activity computation failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : evolution Kairos Score d'un ticker
+// GET /api/history/score?ticker=AAPL[&days=90]
+// Retourne : { ticker, series: [{date, total, insider, smart_money, ...}, ...] }
+// ============================================================
+async function handleHistoryScore(url, env, origin) {
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '90', 10), 7), 365);
+  if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  try {
+    const result = await env.HISTORY.prepare(
+      `SELECT date, total, insider, smart_money, gov_guru, momentum, valuation, analyst, health, earnings
+       FROM score_history
+       WHERE ticker = ?
+         AND date >= date('now', ?)
+       ORDER BY date ASC`
+    ).bind(ticker, `-${days} days`).all();
+
+    return jsonResponse({
+      ticker,
+      days,
+      pointsCount: result.results?.length || 0,
+      series: result.results || [],
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : presence d'un ticker dans les ETF au fil du temps
+// GET /api/history/etf?ticker=NVDA[&days=90]
+// Retourne : { ticker, series: [{date, etf_symbol, weight, rank}, ...] }
+// Permet de voir : "NVDA est passe du #5 au #1 dans BUZZ en 30 jours"
+// ============================================================
+async function handleHistoryEtfTicker(url, env, origin) {
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '90', 10), 7), 365);
+  if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  try {
+    const result = await env.HISTORY.prepare(
+      `SELECT date, etf_symbol, weight, rank
+       FROM etf_snapshots
+       WHERE ticker = ?
+         AND date >= date('now', ?)
+       ORDER BY date ASC, etf_symbol ASC`
+    ).bind(ticker, `-${days} days`).all();
+
+    // Grouper par ETF pour faciliter le rendu cote client
+    const byEtf = {};
+    for (const r of (result.results || [])) {
+      if (!byEtf[r.etf_symbol]) byEtf[r.etf_symbol] = [];
+      byEtf[r.etf_symbol].push({ date: r.date, weight: r.weight, rank: r.rank });
+    }
+    const etfs = Object.keys(byEtf).sort();
+
+    return jsonResponse({
+      ticker,
+      days,
+      etfsCount: etfs.length,
+      etfs: etfs.map(sym => ({
+        symbol: sym,
+        firstSeen: byEtf[sym][0].date,
+        lastSeen: byEtf[sym][byEtf[sym].length - 1].date,
+        currentWeight: byEtf[sym][byEtf[sym].length - 1].weight,
+        currentRank: byEtf[sym][byEtf[sym].length - 1].rank,
+        series: byEtf[sym],
+      })),
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : evolution position d'un fonds sur un ticker
+// GET /api/history/fund?cik=0001067983&ticker=AAPL
+// Retourne : { cik, ticker, quarters: [{report_date, shares, value, pct}, ...] }
+// Ex : "Buffett a divise par 3 sa position AAPL en 6 trimestres"
+// ============================================================
+async function handleHistoryFund(url, env, origin) {
+  const cik = (url.searchParams.get('cik') || '').replace(/[^0-9]/g, '').padStart(10, '0');
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  if (!cik || cik === '0000000000') return jsonResponse({ error: 'Missing cik' }, 400, origin);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  try {
+    let query, args;
+    if (ticker) {
+      // Evolution d'un ticker dans le portefeuille d'un fond
+      query = `SELECT report_date, ticker, name, shares, value, pct
+               FROM fund_holdings_history
+               WHERE cik = ? AND ticker = ?
+               ORDER BY report_date ASC`;
+      args = [cik, ticker];
+    } else {
+      // Liste des positions d'un fond a chaque trimestre (top 50 par trim)
+      query = `SELECT report_date, ticker, name, shares, value, pct
+               FROM fund_holdings_history
+               WHERE cik = ?
+               ORDER BY report_date DESC, value DESC
+               LIMIT 500`;
+      args = [cik];
+    }
+    const result = await env.HISTORY.prepare(query).bind(...args).all();
+    return jsonResponse({
+      cik,
+      ticker: ticker || null,
+      quarters: result.results || [],
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
