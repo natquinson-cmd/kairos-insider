@@ -695,39 +695,14 @@
     .chart-card.full-width {
       grid-column: 1 / -1;
     }
+    /* Squarified treemap (cellules positionnees en absolute par squarifyTreemap) */
     .treemap-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
+      position: relative;
       border-radius: 8px;
       overflow: hidden;
     }
-    .treemap-cell {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      border-radius: 4px;
-      padding: 4px;
-      font-size: 10px;
-      font-weight: 700;
-      color: white;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-      cursor: default;
-      transition: opacity 0.2s;
-      overflow: hidden;
-    }
-    .treemap-cell:hover {
-      opacity: 0.85;
-    }
-    .treemap-cell .tm-ticker {
-      font-size: 11px;
-      font-weight: 800;
-    }
-    .treemap-cell .tm-pct {
-      font-size: 9px;
-      font-weight: 600;
-      opacity: 0.85;
+    .tm-cell {
+      transition: filter 0.15s, transform 0.15s;
     }
     @media (max-width: 768px) {
       .charts-row { grid-template-columns: 1fr; }
@@ -4157,10 +4132,10 @@
         etfHasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
         etfPrevDate = data.prevDate || null;
 
-        // Graphiques
+        // Graphiques (ETF Live = heatmap seul, pas de donut + bar redondants avec le tableau)
         destroyCharts();
         renderEtfPage();
-        setTimeout(() => renderChartsForHoldings('etfCharts', data.holdings, data.symbol + ' — ' + (data.label || '')), 100);
+        setTimeout(() => renderChartsForHoldings('etfCharts', data.holdings, data.symbol + ' — ' + (data.label || ''), { treemapOnly: true }), 100);
       } catch (err) {
         if (err.message !== 'Unauthorized') {
           area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
@@ -4589,9 +4564,101 @@
       activeCharts = {};
     }
 
-    function renderChartsForHoldings(containerId, holdings, title) {
+    // ============================================================
+    // SQUARIFIED TREEMAP (Mark Bruls 1999)
+    // Calcule le placement optimal de rectangles de tailles donnees pour
+    // remplir un conteneur, en gardant des aspect ratios proches de 1.
+    // ============================================================
+    function squarifyTreemap(items, width, height) {
+      // items : [{value, ...meta}] triés par value desc, tous values > 0
+      // Retourne : [{x, y, w, h, item}]
+      const placed = [];
+      // Normaliser les values pour qu'elles correspondent a l'aire totale
+      const totalValue = items.reduce((s, it) => s + it.value, 0);
+      if (totalValue <= 0) return placed;
+      const totalArea = width * height;
+      const norm = items.map(it => ({ ...it, area: (it.value / totalValue) * totalArea }));
+
+      // Etat du rectangle disponible
+      let x = 0, y = 0, w = width, h = height;
+
+      function worstRatio(row, sideLength) {
+        // Pour un strip avec ces aires et largeur sideLength :
+        // worst aspect ratio = max(w*w*max / sum^2, sum^2 / (w*w*min))
+        const sum = row.reduce((s, r) => s + r.area, 0);
+        const sl2 = sideLength * sideLength;
+        const sum2 = sum * sum;
+        let maxA = -Infinity, minA = Infinity;
+        for (const r of row) { if (r.area > maxA) maxA = r.area; if (r.area < minA) minA = r.area; }
+        return Math.max((sl2 * maxA) / sum2, sum2 / (sl2 * minA));
+      }
+
+      function layoutRow(row, sideLength, isHorizontal) {
+        // isHorizontal = true : strip horizontal (cellules disposees en row, hauteur = strip thickness)
+        // isHorizontal = false : strip vertical (cellules disposees en column)
+        const sum = row.reduce((s, r) => s + r.area, 0);
+        const thickness = sum / sideLength;
+        let cursor = isHorizontal ? x : y;
+        for (const r of row) {
+          const cellLength = r.area / thickness;
+          if (isHorizontal) {
+            placed.push({ x: cursor, y, w: cellLength, h: thickness, item: r });
+            cursor += cellLength;
+          } else {
+            placed.push({ x, y: cursor, w: thickness, h: cellLength, item: r });
+            cursor += cellLength;
+          }
+        }
+        if (isHorizontal) { y += thickness; h -= thickness; }
+        else              { x += thickness; w -= thickness; }
+      }
+
+      let queue = norm.slice();
+      let row = [];
+      while (queue.length > 0) {
+        const isHorizontal = w >= h;
+        const sideLength = isHorizontal ? w : h;
+        if (sideLength <= 0) break;
+
+        const next = queue[0];
+        const newRow = [...row, next];
+        const currentWorst = row.length > 0 ? worstRatio(row, sideLength) : Infinity;
+        const newWorst = worstRatio(newRow, sideLength);
+
+        if (row.length === 0 || newWorst < currentWorst) {
+          // Ajouter au row courant et continuer
+          row = newRow;
+          queue.shift();
+        } else {
+          // Le row est optimal, on le pose
+          layoutRow(row, sideLength, isHorizontal);
+          row = [];
+        }
+      }
+      // Vider le dernier row si non vide
+      if (row.length > 0) {
+        const isHorizontal = w >= h;
+        const sideLength = isHorizontal ? w : h;
+        if (sideLength > 0) layoutRow(row, sideLength, isHorizontal);
+      }
+
+      return placed;
+    }
+
+    // Genere une couleur tinted depuis une palette de teintes harmonieuses (style finviz)
+    function treemapColor(index, total) {
+      const palette = [
+        '#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B',
+        '#EF4444', '#EC4899', '#14B8A6', '#6366F1', '#F97316',
+        '#84CC16', '#A855F7', '#0EA5E9', '#22C55E', '#EAB308',
+      ];
+      return palette[index % palette.length];
+    }
+
+    function renderChartsForHoldings(containerId, holdings, title, opts = {}) {
       const container = document.getElementById(containerId);
       if (!container || !holdings || holdings.length === 0) return;
+      const treemapOnly = opts.treemapOnly === true;
 
       const top = holdings.slice(0, 10);
       const otherPct = holdings.slice(10).reduce((s, h) => s + (h.weight || h.pct || 0), 0);
@@ -4603,115 +4670,129 @@
 
       container.innerHTML = `
         <div class="charts-row">
-          <div class="chart-card">
-            <h4>Repartition du portefeuille</h4>
-            <canvas id="${containerId}-pie"></canvas>
-          </div>
-          <div class="chart-card">
-            <h4>Top 10 positions par poids</h4>
-            <canvas id="${containerId}-bar"></canvas>
-          </div>
+          ${treemapOnly ? '' : `
+            <div class="chart-card">
+              <h4>Repartition du portefeuille</h4>
+              <canvas id="${containerId}-pie"></canvas>
+            </div>
+            <div class="chart-card">
+              <h4>Top 10 positions par poids</h4>
+              <canvas id="${containerId}-bar"></canvas>
+            </div>
+          `}
           <div class="chart-card full-width">
             <h4>Carte des positions — ${title || ''}</h4>
-            <div class="treemap-container" id="${containerId}-treemap"></div>
+            <div class="treemap-container" id="${containerId}-treemap" style="position:relative;width:100%;height:520px;background:var(--bg-card);border-radius:8px;overflow:hidden"></div>
           </div>
         </div>
       `;
 
-      // Pie Chart
-      const pieCtx = document.getElementById(`${containerId}-pie`);
-      if (pieCtx) {
-        activeCharts[`${containerId}-pie`] = new Chart(pieCtx, {
-          type: 'doughnut',
-          data: {
-            labels,
-            datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '55%',
-            plugins: {
-              legend: {
-                position: 'right',
-                labels: { color: getCssVar('--text-secondary'), font: { size: 11, family: 'Inter' }, padding: 8, boxWidth: 12 }
-              },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%`
-                }
+      // Pie + Bar (uniquement si treemapOnly false)
+      if (!treemapOnly) {
+        const pieCtx = document.getElementById(`${containerId}-pie`);
+        if (pieCtx) {
+          activeCharts[`${containerId}-pie`] = new Chart(pieCtx, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] },
+            options: {
+              responsive: true, maintainAspectRatio: true, cutout: '55%',
+              plugins: {
+                legend: { position: 'right', labels: { color: getCssVar('--text-secondary'), font: { size: 11, family: 'Inter' }, padding: 8, boxWidth: 12 } },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%` } }
               }
             }
-          }
-        });
-      }
-
-      // Bar Chart
-      const barCtx = document.getElementById(`${containerId}-bar`);
-      if (barCtx) {
-        activeCharts[`${containerId}-bar`] = new Chart(barCtx, {
-          type: 'bar',
-          data: {
-            labels: top.map(h => h.ticker || h.name || '?'),
-            datasets: [{
-              data: top.map(h => h.weight || h.pct || 0),
-              backgroundColor: colors.slice(0, top.length),
-              borderRadius: 4,
-              barPercentage: 0.7,
-            }]
-          },
-          options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` ${ctx.parsed.x}%`
-                }
-              }
-            },
-            scales: {
-              x: {
-                grid: { color: getCssVar('--chart-grid') },
-                ticks: { color: getCssVar('--text-muted'), font: { size: 11 }, callback: v => v + '%' }
-              },
-              y: {
-                grid: { display: false },
-                ticks: { color: getCssVar('--text-secondary'), font: { size: 11, weight: 600, family: 'Space Grotesk' } }
+          });
+        }
+        const barCtx = document.getElementById(`${containerId}-bar`);
+        if (barCtx) {
+          activeCharts[`${containerId}-bar`] = new Chart(barCtx, {
+            type: 'bar',
+            data: { labels: top.map(h => h.ticker || h.name || '?'), datasets: [{ data: top.map(h => h.weight || h.pct || 0), backgroundColor: colors.slice(0, top.length), borderRadius: 4, barPercentage: 0.7 }] },
+            options: {
+              indexAxis: 'y', responsive: true, maintainAspectRatio: true,
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.x}%` } } },
+              scales: {
+                x: { grid: { color: getCssVar('--chart-grid') }, ticks: { color: getCssVar('--text-muted'), font: { size: 11 }, callback: v => v + '%' } },
+                y: { grid: { display: false }, ticks: { color: getCssVar('--text-secondary'), font: { size: 11, weight: 600, family: 'Space Grotesk' } } }
               }
             }
-          }
-        });
+          });
+        }
       }
 
-      // Treemap
+      // ============================================================
+      // TREEMAP SQUARIFIED (style finviz : cellules absolument positionnees,
+      // tailles vraiment proportionnelles au poids, agencement optimal)
+      // ============================================================
       const treemapDiv = document.getElementById(`${containerId}-treemap`);
       if (treemapDiv) {
-        const totalW = holdings.reduce((s, h) => s + (h.weight || h.pct || 0), 0);
-        const containerWidth = treemapDiv.offsetWidth || 800;
-        const containerHeight = 280;
-        treemapDiv.style.height = containerHeight + 'px';
+        const renderTreemap = () => {
+          const W = treemapDiv.clientWidth || 800;
+          const H = treemapDiv.clientHeight || 520;
+          // Top 30 + "Autres" pour rester lisible
+          const TOP_N = 30;
+          const tops = holdings.slice(0, TOP_N);
+          const others = holdings.slice(TOP_N);
+          const items = tops.map((h, i) => ({
+            value: Math.max(h.weight || h.pct || 0, 0.01),  // floor pour eviter areas = 0
+            ticker: h.ticker || h.name || '?',
+            name: h.company || h.name || '',
+            pct: h.weight || h.pct || 0,
+            value$: h.value,
+            change: h.sharesChange,
+            isOthers: false,
+            colorIdx: i,
+          }));
+          if (others.length > 0) {
+            const otherSum = others.reduce((s, h) => s + (h.weight || h.pct || 0), 0);
+            if (otherSum > 0.5) {
+              items.push({ value: otherSum, ticker: 'Autres', name: `${others.length} positions plus petites`, pct: Math.round(otherSum * 10) / 10, value$: null, change: null, isOthers: true, colorIdx: TOP_N });
+            }
+          }
+          const placed = squarifyTreemap(items, W, H);
 
-        // Simple treemap: proportional width cells in rows
-        let html = '';
-        const maxItems = Math.min(holdings.length, 30);
-        for (let i = 0; i < maxItems; i++) {
-          const h = holdings[i];
-          const w = h.weight || h.pct || 0;
-          const pctOfTotal = totalW > 0 ? (w / totalW) : 0;
-          const area = pctOfTotal * containerWidth * containerHeight;
-          const cellW = Math.max(Math.sqrt(area * 1.5), 40);
-          const cellH = Math.max(area / cellW, 30);
-          const color = CHART_COLORS[i % CHART_COLORS.length];
+          let html = '';
+          for (const p of placed) {
+            const it = p.item;
+            const color = it.isOthers ? '#475569' : treemapColor(it.colorIdx, items.length);
+            const fontSize = Math.min(Math.max(Math.sqrt(p.w * p.h) / 8, 10), 28);
+            const showLabel = p.w > 32 && p.h > 24;
+            const showPct = p.w > 50 && p.h > 38;
+            const changeArrow = it.change != null ? (it.change >= 0 ? '▲' : '▼') : '';
+            const changeColor = it.change != null ? (it.change >= 0 ? '#86efac' : '#fca5a5') : '';
+            html += `
+              <div class="tm-cell" title="${it.ticker} — ${it.name} (${it.pct}%)" style="
+                position:absolute;
+                left:${p.x}px; top:${p.y}px; width:${p.w}px; height:${p.h}px;
+                background:${color};
+                box-sizing:border-box;
+                border:1px solid rgba(0,0,0,0.25);
+                color:#fff;
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                text-align:center;
+                overflow:hidden;
+                padding:4px;
+                cursor:default;
+                transition:filter 0.15s;
+              " onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='brightness(1)'">
+                ${showLabel ? `<div style="font-weight:700;font-size:${fontSize}px;line-height:1.1;text-shadow:0 1px 2px rgba(0,0,0,0.4)">${it.ticker}</div>` : ''}
+                ${showPct ? `<div style="font-size:${Math.max(fontSize * 0.55, 10)}px;opacity:0.9;margin-top:2px">${it.pct}%</div>` : ''}
+                ${showPct && changeArrow ? `<div style="font-size:${Math.max(fontSize * 0.5, 9)}px;color:${changeColor};margin-top:2px">${changeArrow} ${Math.abs(it.change).toFixed(1)}%</div>` : ''}
+              </div>
+            `;
+          }
+          treemapDiv.innerHTML = html;
+        };
 
-          const showLabel = cellW > 45 && cellH > 25;
-          html += `<div class="treemap-cell" style="width:${cellW}px;height:${cellH}px;background:${color}" title="${h.ticker || h.name}: ${w}%">
-            ${showLabel ? `<span class="tm-ticker">${h.ticker || ''}</span><span class="tm-pct">${w}%</span>` : ''}
-          </div>`;
-        }
-        treemapDiv.innerHTML = html;
+        renderTreemap();
+        // Re-render au resize de la fenetre (debounced)
+        if (treemapDiv._resizeHandler) window.removeEventListener('resize', treemapDiv._resizeHandler);
+        let rt = null;
+        treemapDiv._resizeHandler = () => { clearTimeout(rt); rt = setTimeout(renderTreemap, 150); };
+        window.addEventListener('resize', treemapDiv._resizeHandler);
       }
     }
 
