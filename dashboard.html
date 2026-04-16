@@ -4822,7 +4822,7 @@
                 padding:4px;
                 cursor:${isClickable ? 'pointer' : 'default'};
                 transition:filter 0.15s, transform 0.1s;
-              " onmouseover="this.style.filter='brightness(1.08) saturate(1.15)'${isClickable ? ';this.style.transform=\\'scale(1.01)\\'' : ''}" onmouseout="this.style.filter='brightness(1) saturate(1)';this.style.transform='scale(1)'">
+              " onmouseover="this.style.filter='brightness(1.08) saturate(1.15)'${isClickable ? ";this.style.transform='scale(1.01)'" : ""}" onmouseout="this.style.filter='brightness(1) saturate(1)';this.style.transform='scale(1)'">
                 ${showLabel ? `<div style="font-weight:800;font-size:${fontSize}px;line-height:1.1;text-shadow:0 1px 3px rgba(0,0,0,0.35);letter-spacing:-0.01em">${it.ticker}</div>` : ''}
                 ${showPct ? `<div style="font-size:${Math.max(fontSize * 0.55, 10)}px;opacity:0.92;margin-top:2px;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.25)">${it.pct}%</div>` : ''}
                 ${showPct && changeArrow ? `<div style="font-size:${Math.max(fontSize * 0.5, 9)}px;background:rgba(255,255,255,0.88);color:${changeColor};margin-top:3px;padding:1px 6px;border-radius:8px;font-weight:700">${changeArrow} ${Math.abs(it.change).toFixed(1)}%</div>` : ''}
