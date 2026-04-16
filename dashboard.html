@@ -638,6 +638,21 @@
 
     /* ===== TABLE ===== */
     .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+    /* Variante pour la table principale Hedge Funds : scrollbar horizontale
+       toujours visible (max-height + sticky header) au lieu d'etre tout
+       en bas apres tous les fonds. */
+    .funds-table-wrap {
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+    .funds-table-wrap thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-secondary);
+      backdrop-filter: blur(8px);
+    }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     thead th {
       padding: 14px 16px; text-align: left; font-weight: 600; font-size: 12px;
@@ -4437,16 +4452,24 @@
             ? `<span style="color:var(--accent-${perfY >= 0 ? 'green' : 'red'});font-weight:700">${perfY >= 0 ? '+' : ''}${perfY}%</span>`
             : '—';
 
+          // Fusion Investisseur + Fonds + Categorie : tout regroupe dans
+          // une seule cellule (label gros + sous-titres) -> 9 colonnes -> 6
+          const labelTxt = f.label || f.fundName || 'Inconnu';
+          const fundTxt = f.fundName && f.fundName !== labelTxt ? f.fundName : '';
+          const categoryTxt = f.category || '';
+          const subline = [fundTxt, categoryTxt].filter(Boolean).join(' · ');
+
           rows += `<tr class="fund-row" onclick="toggleFund(${i})">
-            <td>${i + 1}</td>
-            <td style="font-weight:600;color:var(--text-primary)">${f.label || f.fundName} <span class="chevron">&#9654;</span></td>
-            <td>${f.fundName || '—'}</td>
-            <td>${f.category || '—'}</td>
+            <td style="opacity:0.6">${i + 1}</td>
+            <td>
+              <div style="font-weight:600;color:var(--text-primary)">${labelTxt} <span class="chevron">&#9654;</span></div>
+              ${subline ? `<div style="font-size:11px;opacity:0.55;margin-top:2px">${subline}</div>` : ''}
+            </td>
             <td style="text-align:right;font-weight:600">${aum}</td>
             <td style="text-align:right">${perfStr}</td>
             <td style="text-align:right">${perfYStr}</td>
             <td style="text-align:right">${holdings > 0 ? fmtNum(holdings) : '—'}</td>
-            <td class="last-update">${fmtDate(f.filingDate)}</td>
+            <td class="last-update" style="text-align:right;white-space:nowrap">${fmtDate(f.filingDate)}</td>
           </tr>`;
 
           // Ligne dépliable avec les top holdings
@@ -4501,25 +4524,23 @@
           }
 
           rows += `<tr class="fund-detail-row" id="fund-detail-${i}">
-            <td colspan="9" class="fund-detail-cell">
+            <td colspan="7" class="fund-detail-cell">
               <div class="fund-detail-inner">${detailContent}</div>
             </td>
           </tr>`;
         }
 
         area.innerHTML = `
-          <div class="table-wrap">
+          <div class="table-wrap funds-table-wrap">
             <table>
               <thead><tr>
-                <th>#</th>
+                <th style="width:40px">#</th>
                 <th>Investisseur</th>
-                <th>Fonds</th>
-                <th>Categorie</th>
-                <th style="text-align:right">AUM estime</th>
-                <th style="text-align:right">Perf. trim.</th>
-                <th style="text-align:right">Perf. annuelle</th>
+                <th style="text-align:right;white-space:nowrap">AUM estimé</th>
+                <th style="text-align:right;white-space:nowrap" title="Performance du dernier trimestre">Perf. trim.</th>
+                <th style="text-align:right;white-space:nowrap" title="Performance sur 1 an">Perf. 1 an</th>
                 <th style="text-align:right">Positions</th>
-                <th>Derniere MaJ</th>
+                <th style="text-align:right;white-space:nowrap">Dernière MàJ</th>
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>
