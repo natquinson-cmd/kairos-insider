@@ -1167,7 +1167,7 @@
           </p>
           <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
             <button onclick="switchSection('stockAnalysis')" style="padding:10px 18px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;cursor:pointer">🔎 Analyser une action</button>
-            <button onclick="switchSection('clustering')" style="padding:10px 18px;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:8px;color:#fff;font-size:14px;cursor:pointer">🎯 Voir les signaux chauds</button>
+            <button onclick="switchSection('clustering')" style="padding:10px 18px;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:14px;cursor:pointer">🎯 Voir les signaux chauds</button>
           </div>
         </div>
 
@@ -1303,8 +1303,8 @@
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;">
           <input id="stockSearchInput" type="text" placeholder="Ticker (ex. AAPL, MSFT, ASML, MC.PA)..." autocomplete="off"
-                 style="width:100%;padding:14px 18px;font-size:16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:#fff;outline:none;">
-          <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1a1d2e;border:1px solid var(--border-strong);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100"></div>
+                 style="width:100%;padding:14px 18px;font-size:16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;">
+          <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
         </div>
 
         <div id="stockAnalysisBody">
@@ -3208,7 +3208,7 @@
             ` : `
               <div style="opacity:0.5;padding:12px 0;font-size:13px">
                 ${fund.targetMeanPrice && price.current ? `
-                  Objectif de cours : <strong style="color:#fff">${fmtCurr(fund.targetMeanPrice, cur)}</strong><br>
+                  Objectif de cours : <strong style="color:var(--text-primary)">${fmtCurr(fund.targetMeanPrice, cur)}</strong><br>
                   Potentiel : <strong style="color:${fund.targetMeanPrice > price.current ? '#2ecc71' : '#ff7675'}">${((fund.targetMeanPrice - price.current) / price.current * 100).toFixed(1)}%</strong><br>
                   <span style="font-size:11px">${fund.numberOfAnalystOpinions || '?'} analystes</span>
                 ` : 'Consensus indisponible'}
