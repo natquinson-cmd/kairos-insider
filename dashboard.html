@@ -144,11 +144,29 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
 
-    /* Scrollbar fine et discrete sur les listes internes */
+    /* ===== SCROLLBAR GLOBALE (page + sidebar + tout) =====
+       Style uniforme, fine et discrete, qui s'adapte au theme clair/sombre
+       via les variables CSS. Plus de grosse barre blanche par defaut. */
+    * {
+      scrollbar-width: thin;                                 /* Firefox */
+      scrollbar-color: var(--border-strong) transparent;     /* Firefox : thumb track */
+    }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    *::-webkit-scrollbar-thumb:hover { background: var(--border-hover); background-clip: content-box; }
+    *::-webkit-scrollbar-corner { background: transparent; }
+
+    /* Scrollbar fine et discrete sur les listes internes (legacy class) */
     .scroll-y {
       overflow-y: auto;
-      scrollbar-width: thin;                           /* Firefox */
-      scrollbar-color: var(--border-hover) transparent; /* Firefox */
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hover) transparent;
     }
     .scroll-y::-webkit-scrollbar { width: 6px; }
     .scroll-y::-webkit-scrollbar-track { background: transparent; }
@@ -200,12 +218,9 @@
     .logo { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .logo-mark {
       width: 40px; height: 40px; min-width: 40px; flex-shrink: 0;
-      border-radius: 10px; overflow: hidden;
-      background: radial-gradient(circle at 50% 30%, rgba(34,211,238,0.18) 0%, rgba(5,10,25,0.95) 70%);
-      border: 1px solid rgba(34,211,238,0.35);
-      box-shadow: 0 0 20px rgba(14,116,144,0.35);
+      display: flex; align-items: center; justify-content: center;
     }
-    .logo-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .logo-text { background: var(--logo-text-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .nav-links { display: flex; gap: 24px; align-items: center; list-style: none; }
     .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
@@ -2834,9 +2849,10 @@
     // KAIROS SCORE - composant brande avec radar SVG 8 dimensions
     // Genere la card complete (score global + radar + breakdown)
     // ============================================================
-    function renderKairosScoreCard(score) {
+    function renderKairosScoreCard(score, ticker) {
       _ensureKairosRadarAnim();
       const total = score && typeof score.total === 'number' ? score.total : 0;
+      const tk = ticker || '';
       // Palette de couleurs selon le score (continue)
       const palette = total >= 75 ? { main: '#10B981', glow: 'rgba(16,185,129,0.35)', label: '#34D399', light: '#6EE7B7' }
                     : total >= 60 ? { main: '#3B82F6', glow: 'rgba(59,130,246,0.35)', label: '#60A5FA', light: '#93C5FD' }
@@ -2980,7 +2996,7 @@
                 Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:20px">/100</span>
               </h2>
               <p style="font-size:13px;line-height:1.65;color:var(--text-secondary);margin-bottom:18px">
-                Score composite qui agrège <strong style="color:var(--text-primary)">8 dimensions du smart money</strong> pour ${d.ticker}. Plus le score est élevé, plus le consensus des signaux institutionnels est favorable à l'achat.
+                Score composite qui agrège <strong style="color:var(--text-primary)">8 dimensions du smart money</strong>${tk ? ' pour ' + tk : ''}. Plus le score est élevé, plus le consensus des signaux institutionnels est favorable à l'achat.
               </p>
 
               <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
@@ -3108,7 +3124,7 @@
         </div>
 
         <!-- KAIROS SCORE BRANDED CARD -->
-        ${renderKairosScoreCard(score)}
+        ${renderKairosScoreCard(score, d.ticker)}
 
         <!-- CHART prix 1 an avec superposition insiders -->
         <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">

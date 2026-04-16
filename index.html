@@ -61,7 +61,21 @@
                         radial-gradient(ellipse at bottom left, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      scrollbar-width: thin;                                 /* Firefox */
+      scrollbar-color: var(--border-strong) transparent;
+    }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    *::-webkit-scrollbar-thumb:hover { background: var(--border-hover, var(--accent-blue)); background-clip: content-box; }
+    *::-webkit-scrollbar-corner { background: transparent; }
     html { scroll-behavior: smooth; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
