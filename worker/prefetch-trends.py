@@ -197,12 +197,20 @@ def main():
         json.dump(payload, f)
 
     # Top spikes (pour la section "Hot Stocks")
+    # IMPORTANT : on filtre les tickers avec interet trop faible (<8/100) pour
+    # eviter les faux-positifs type "JBHT +100% spike" alors que interestNow=1
+    # (bruit statistique de l'echelle Google Trends 0-100).
+    MIN_INTEREST_FOR_RISING = 8
+    MIN_INTEREST_FOR_FALLING = 15  # falling plus exigeant : chute d'un signal qui COMPTAIT
     with_spike = [
         (t, data['spike7d'], data['interestNow'])
         for t, data in results.items()
     ]
-    top_rising = sorted(with_spike, key=lambda x: -x[1])[:15]
-    top_falling = sorted(with_spike, key=lambda x: x[1])[:10]
+    rising_candidates = [x for x in with_spike if x[2] >= MIN_INTEREST_FOR_RISING]
+    falling_candidates = [x for x in with_spike if x[2] >= MIN_INTEREST_FOR_FALLING]
+
+    top_rising = sorted(rising_candidates, key=lambda x: -x[1])[:15]
+    top_falling = sorted(falling_candidates, key=lambda x: x[1])[:10]
     top_hot = sorted(with_spike, key=lambda x: -x[2])[:15]
 
     print('\n--- TOP RISING (spike 7d) ---')

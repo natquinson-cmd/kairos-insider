@@ -3,6 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google Analytics 4 (RGPD-friendly : IP anonymisee, pas de signaux publicitaires) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7YPCWL035M"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-7YPCWL035M', {
+      anonymize_ip: true,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+    });
+  </script>
+
   <title>Dashboard — Kairos Insider</title>
   <meta name="description" content="Smart Money Dashboard — Suivez les transactions des insiders et les portefeuilles des hedge funds en temps réel." />
   <meta name="theme-color" content="#0A0F1E" />
@@ -2989,49 +3003,188 @@
 
         <!-- 2 COLONNES : Fondamentaux / Consensus -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
-          <!-- FONDAMENTAUX -->
+          <!-- FONDAMENTAUX (refonte UX : chiffres abreges + codes couleurs sur ratios) -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">📊 Fondamentaux</h3>
-            <table style="width:100%;font-size:13px">
-              <tr><td style="padding:6px 0;opacity:0.7">Capitalisation boursière</td><td style="text-align:right"><strong>${fund.marketCap ? fmtCurr(fund.marketCap, cur) : '—'}</strong></td></tr>
-              ${fund.enterpriseValue ? `<tr><td style="padding:6px 0;opacity:0.7">Valeur d'entreprise</td><td style="text-align:right"><strong>${fmtCurr(fund.enterpriseValue, cur)}</strong></td></tr>` : ''}
-              <tr><td style="padding:6px 0;opacity:0.7">P/E (12 mois)</td><td style="text-align:right"><strong>${fund.peRatio ? fund.peRatio.toFixed(1) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">P/E prévisionnel</td><td style="text-align:right"><strong>${fund.forwardPE ? fund.forwardPE.toFixed(1) : '—'}</strong></td></tr>
-              ${extRatios.peg ? `<tr><td style="padding:6px 0;opacity:0.7">PEG</td><td style="text-align:right"><strong>${extRatios.peg}</strong></td></tr>` : ''}
-              ${extRatios.ps ? `<tr><td style="padding:6px 0;opacity:0.7">P/S (cours / ventes)</td><td style="text-align:right"><strong>${extRatios.ps}</strong></td></tr>` : ''}
-              ${extRatios.pb ? `<tr><td style="padding:6px 0;opacity:0.7">P/B (cours / actif net)</td><td style="text-align:right"><strong>${extRatios.pb}</strong></td></tr>` : ''}
-              ${extRatios.pfcf ? `<tr><td style="padding:6px 0;opacity:0.7">P/FCF (cours / FCF)</td><td style="text-align:right"><strong>${extRatios.pfcf}</strong></td></tr>` : ''}
-              ${extRatios.evEbitda ? `<tr><td style="padding:6px 0;opacity:0.7">VE / EBITDA</td><td style="text-align:right"><strong>${extRatios.evEbitda}</strong></td></tr>` : ''}
-              ${extRatios.evSales ? `<tr><td style="padding:6px 0;opacity:0.7">VE / Ventes</td><td style="text-align:right"><strong>${extRatios.evSales}</strong></td></tr>` : ''}
-              ${extRatios.evFcf ? `<tr><td style="padding:6px 0;opacity:0.7">VE / FCF</td><td style="text-align:right"><strong>${extRatios.evFcf}</strong></td></tr>` : ''}
-              <tr><td style="padding:6px 0;opacity:0.7">BPA (bénéfice / action)</td><td style="text-align:right"><strong>${fund.eps != null ? fund.eps.toFixed(2) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Rendement du dividende</td><td style="text-align:right"><strong>${fund.dividendYield ? (fund.dividendYield*100).toFixed(2)+'%' : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Bêta</td><td style="text-align:right"><strong>${fund.beta != null ? fund.beta.toFixed(2) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Chiffre d'affaires</td><td style="text-align:right"><strong>${fund.revenue ? fmtCurr(fund.revenue, cur) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Résultat net</td><td style="text-align:right"><strong>${fund.netIncome ? fmtCurr(fund.netIncome, cur) : '—'}</strong></td></tr>
-              <tr><td style="padding:6px 0;opacity:0.7">Titres en circulation</td><td style="text-align:right"><strong>${fund.sharesOut ? fmtBig(fund.sharesOut) : '—'}</strong></td></tr>
-              ${fund.insiderOwnership != null ? `<tr><td style="padding:6px 0;opacity:0.7">Détention initiés</td><td style="text-align:right"><strong>${fund.insiderOwnership.toFixed(1)}%</strong></td></tr>` : ''}
-              ${fund.institutionalOwnership != null ? `<tr><td style="padding:6px 0;opacity:0.7">Détention institutionnelle</td><td style="text-align:right"><strong>${fund.institutionalOwnership.toFixed(1)}%</strong></td></tr>` : ''}
-            </table>
+            <h3 style="margin:0 0 14px;font-size:16px">📊 Fondamentaux</h3>
+            ${(() => {
+              // Helpers locaux
+              // Format compact pour les grandes valeurs : 177.8B$, 125.6B$, 3.2T$
+              const fmtCurrShort = (n, c=cur) => {
+                if (n == null) return '—';
+                const symbol = c === 'EUR' ? '€' : c === 'USD' ? '$' : c === 'GBP' ? '£' : c === 'CHF' ? 'Fr' : ' ' + c;
+                const abs = Math.abs(n);
+                const sign = n < 0 ? '-' : '';
+                if (abs >= 1e12) return `${sign}${(abs/1e12).toFixed(1)}T${symbol}`;
+                if (abs >= 1e9) return `${sign}${(abs/1e9).toFixed(1)}B${symbol}`;
+                if (abs >= 1e6) return `${sign}${(abs/1e6).toFixed(1)}M${symbol}`;
+                if (abs >= 1e3) return `${sign}${(abs/1e3).toFixed(1)}K${symbol}`;
+                return `${sign}${abs.toFixed(0)}${symbol}`;
+              };
+              // Parse ratio (peut etre string "8.3" ou number)
+              const parseR = (v) => {
+                if (v == null) return null;
+                if (typeof v === 'number') return v;
+                const n = parseFloat(String(v).replace(',', '.'));
+                return isNaN(n) ? null : n;
+              };
+              // Rating : verdict color + label selon le type de ratio
+              // Retourne {color, bg, label, tooltip}
+              const rate = (val, type) => {
+                if (val == null) return { color: 'var(--text-muted)', bg: 'rgba(156,163,175,0.08)', label: '—', tooltip: '' };
+                const thresholds = {
+                  pe:        [{ max: 15, c: '#2ecc71', l: 'Bon marché', tip: 'P/E < 15 = peu cher' }, { max: 25, c: '#9CA3AF', l: 'Neutre', tip: 'P/E entre 15 et 25 = valorisation moyenne' }, { max: 40, c: '#f39c12', l: 'Cher', tip: 'P/E entre 25 et 40 = valorisation élevée' }, { max: 1e9, c: '#e74c3c', l: 'Très cher', tip: 'P/E > 40 = valorisation très élevée' }],
+                  ps:        [{ max: 2, c: '#2ecc71', l: 'Bon', tip: 'P/S < 2 = sous-évalué vs ventes' }, { max: 5, c: '#9CA3AF', l: 'Neutre', tip: 'P/S entre 2 et 5 = juste prix' }, { max: 10, c: '#f39c12', l: 'Élevé', tip: 'P/S entre 5 et 10 = cher vs ventes' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: 'P/S > 10 = très cher vs ventes' }],
+                  pb:        [{ max: 1.5, c: '#2ecc71', l: 'Bon', tip: 'P/B < 1.5 = sous-évalué vs actif net' }, { max: 3, c: '#9CA3AF', l: 'Neutre', tip: 'P/B entre 1.5 et 3' }, { max: 5, c: '#f39c12', l: 'Élevé', tip: 'P/B entre 3 et 5 = cher vs actif' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: 'P/B > 5' }],
+                  pfcf:      [{ max: 15, c: '#2ecc71', l: 'Bon', tip: 'P/FCF < 15 = bon flux de trésorerie' }, { max: 25, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 40, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
+                  evEbitda:  [{ max: 10, c: '#2ecc71', l: 'Bon', tip: 'EV/EBITDA < 10 = peu cher' }, { max: 15, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 25, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
+                  evSales:   [{ max: 3, c: '#2ecc71', l: 'Bon', tip: '' }, { max: 6, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 12, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
+                  evFcf:     [{ max: 20, c: '#2ecc71', l: 'Bon', tip: '' }, { max: 35, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 60, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
+                  peg:       [{ max: 1, c: '#2ecc71', l: 'Sous-évalué', tip: 'PEG < 1 = sous-évalué vs croissance' }, { max: 2, c: '#9CA3AF', l: 'Juste prix', tip: 'PEG entre 1 et 2' }, { max: 1e9, c: '#e74c3c', l: 'Surévalué', tip: 'PEG > 2 = trop cher vs croissance' }],
+                  beta:      [{ max: 0.7, c: '#3498db', l: 'Défensif', tip: 'Beta < 0.7 = moins volatile que le marché' }, { max: 1.3, c: '#9CA3AF', l: 'Marché', tip: 'Beta proche de 1 = bouge comme le marché' }, { max: 1e9, c: '#f39c12', l: 'Volatile', tip: 'Beta > 1.3 = plus volatile que le marché' }],
+                  divYield:  [{ max: 0.01, c: 'var(--text-muted)', l: 'Aucun', tip: '' }, { max: 0.02, c: '#9CA3AF', l: 'Faible', tip: '' }, { max: 0.05, c: '#52b788', l: 'Correct', tip: '' }, { max: 1e9, c: '#2ecc71', l: 'Élevé', tip: 'Dividende > 5% = haut rendement' }],
+                };
+                const t = thresholds[type];
+                if (!t) return { color: 'var(--text-primary)', bg: 'rgba(255,255,255,0.05)', label: '', tooltip: '' };
+                const v = Math.abs(val);
+                for (const lvl of t) {
+                  if (v <= lvl.max) {
+                    return { color: lvl.c, bg: lvl.c.startsWith('#') ? `${lvl.c}1a` : 'rgba(156,163,175,0.08)', label: lvl.l, tooltip: lvl.tip };
+                  }
+                }
+                return { color: 'var(--text-primary)', bg: 'rgba(255,255,255,0.05)', label: '', tooltip: '' };
+              };
+
+              // Carte d'un ratio avec verdict couleur
+              const ratioCard = (label, value, type, displayVal) => {
+                const v = parseR(value);
+                if (v == null) return '';
+                const r = rate(v, type);
+                const display = displayVal != null ? displayVal : (typeof v === 'number' ? v.toFixed(2) : v);
+                return `
+                  <div title="${r.tooltip}" style="padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;border-left:3px solid ${r.color};transition:transform 0.15s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${label}</div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                      <span style="font-size:18px;font-weight:700;color:${r.color}">${display}</span>
+                      ${r.label ? `<span style="font-size:10px;padding:2px 7px;background:${r.bg};color:${r.color};border-radius:20px;font-weight:600">${r.label}</span>` : ''}
+                    </div>
+                  </div>
+                `;
+              };
+
+              const peg = parseR(extRatios.peg);
+              const ps = parseR(extRatios.ps);
+              const pb = parseR(extRatios.pb);
+              const pfcf = parseR(extRatios.pfcf);
+              const evEbitda = parseR(extRatios.evEbitda);
+              const evSales = parseR(extRatios.evSales);
+              const evFcf = parseR(extRatios.evFcf);
+              const divPct = fund.dividendYield != null ? fund.dividendYield * 100 : null;
+
+              return `
+                <!-- BLOC 1 : Taille de l'entreprise (cards principales) -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+                  ${fund.marketCap ? `
+                    <div style="padding:14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid rgba(116,185,255,0.15);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Capitalisation</div>
+                      <div style="font-size:20px;font-weight:700;color:#74b9ff">${fmtCurrShort(fund.marketCap)}</div>
+                    </div>
+                  ` : ''}
+                  ${fund.enterpriseValue ? `
+                    <div style="padding:14px;background:linear-gradient(135deg,rgba(162,155,254,0.08),rgba(162,155,254,0.02));border:1px solid rgba(162,155,254,0.15);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Valeur d'entreprise</div>
+                      <div style="font-size:20px;font-weight:700;color:#a29bfe">${fmtCurrShort(fund.enterpriseValue)}</div>
+                    </div>
+                  ` : ''}
+                  ${fund.revenue ? `
+                    <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Chiffre d'affaires</div>
+                      <div style="font-size:20px;font-weight:700">${fmtCurrShort(fund.revenue)}</div>
+                    </div>
+                  ` : ''}
+                  ${fund.netIncome ? `
+                    <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Résultat net</div>
+                      <div style="font-size:20px;font-weight:700;color:${fund.netIncome > 0 ? '#2ecc71' : '#ff7675'}">${fmtCurrShort(fund.netIncome)}</div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- BLOC 2 : Multiples de valorisation avec verdict couleur -->
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Multiples de valorisation</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px">
+                  ${ratioCard('P/E (12 mois)', fund.peRatio, 'pe')}
+                  ${ratioCard('P/E prévisionnel', fund.forwardPE, 'pe')}
+                  ${peg != null ? ratioCard('PEG', peg, 'peg') : ''}
+                  ${ps != null ? ratioCard('P/S (cours/ventes)', ps, 'ps') : ''}
+                  ${pb != null ? ratioCard('P/B (cours/actif)', pb, 'pb') : ''}
+                  ${pfcf != null ? ratioCard('P/FCF', pfcf, 'pfcf') : ''}
+                  ${evEbitda != null ? ratioCard('VE/EBITDA', evEbitda, 'evEbitda') : ''}
+                  ${evSales != null ? ratioCard('VE/Ventes', evSales, 'evSales') : ''}
+                  ${evFcf != null ? ratioCard('VE/FCF', evFcf, 'evFcf') : ''}
+                </div>
+
+                <!-- BLOC 3 : Caracteristiques (BPA, Beta, dividende, ownership) -->
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Caractéristiques</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px">
+                  ${fund.eps != null ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">BPA</div>
+                      <strong style="font-size:14px">${fund.eps.toFixed(2)}</strong>
+                    </div>` : ''}
+                  ${divPct != null ? (() => {
+                    const r = rate(fund.dividendYield, 'divYield');
+                    return `<div style="padding:10px 12px;background:${r.bg};border-radius:8px;font-size:12px;border-left:3px solid ${r.color}" title="${r.tooltip}">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Dividende</div>
+                      <strong style="font-size:14px;color:${r.color}">${divPct.toFixed(2)}%</strong>
+                      ${r.label ? `<div style="font-size:9px;color:${r.color};opacity:0.85;margin-top:2px">${r.label}</div>` : ''}
+                    </div>`;
+                  })() : ''}
+                  ${fund.beta != null ? (() => {
+                    const r = rate(fund.beta, 'beta');
+                    return `<div style="padding:10px 12px;background:${r.bg};border-radius:8px;font-size:12px;border-left:3px solid ${r.color}" title="${r.tooltip}">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Bêta</div>
+                      <strong style="font-size:14px;color:${r.color}">${fund.beta.toFixed(2)}</strong>
+                      ${r.label ? `<div style="font-size:9px;color:${r.color};opacity:0.85;margin-top:2px">${r.label}</div>` : ''}
+                    </div>`;
+                  })() : ''}
+                  ${fund.sharesOut ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Actions en circulation</div>
+                      <strong style="font-size:14px">${fmtBig(fund.sharesOut)}</strong>
+                    </div>` : ''}
+                  ${fund.insiderOwnership != null ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Détenu par initiés</div>
+                      <strong style="font-size:14px">${fund.insiderOwnership.toFixed(1)}%</strong>
+                    </div>` : ''}
+                  ${fund.institutionalOwnership != null ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Institutionnels</div>
+                      <strong style="font-size:14px">${fund.institutionalOwnership.toFixed(1)}%</strong>
+                    </div>` : ''}
+                </div>
+              `;
+            })()}
+
             ${(margins.gross && margins.gross.display) || (returns.roe && returns.roe.display) ? `
               <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)">
                 <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Marges &amp; rentabilité</div>
-                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:12px">
-                  ${margins.gross && margins.gross.display ? `<div style="padding:6px 10px;background:rgba(46,204,113,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">Marge brute</div><strong style="color:#2ecc71">${margins.gross.display}</strong></div>` : ''}
-                  ${margins.operating && margins.operating.display ? `<div style="padding:6px 10px;background:rgba(46,204,113,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">Marge op.</div><strong style="color:#2ecc71">${margins.operating.display}</strong></div>` : ''}
-                  ${margins.profit && margins.profit.display ? `<div style="padding:6px 10px;background:rgba(46,204,113,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">Marge nette</div><strong style="color:#2ecc71">${margins.profit.display}</strong></div>` : ''}
-                  ${margins.fcf && margins.fcf.display ? `<div style="padding:6px 10px;background:rgba(46,204,113,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">Marge FCF</div><strong style="color:#2ecc71">${margins.fcf.display}</strong></div>` : ''}
-                  ${returns.roe && returns.roe.display ? `<div style="padding:6px 10px;background:rgba(116,185,255,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">ROE</div><strong style="color:#74b9ff">${returns.roe.display}</strong></div>` : ''}
-                  ${returns.roa && returns.roa.display ? `<div style="padding:6px 10px;background:rgba(116,185,255,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">ROA</div><strong style="color:#74b9ff">${returns.roa.display}</strong></div>` : ''}
-                  ${returns.roic && returns.roic.display ? `<div style="padding:6px 10px;background:rgba(116,185,255,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">ROIC</div><strong style="color:#74b9ff">${returns.roic.display}</strong></div>` : ''}
-                  ${returns.roce && returns.roce.display ? `<div style="padding:6px 10px;background:rgba(116,185,255,0.05);border-radius:6px"><div style="opacity:0.65;font-size:10px">ROCE</div><strong style="color:#74b9ff">${returns.roce.display}</strong></div>` : ''}
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:12px">
+                  ${margins.gross && margins.gross.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge brute</div><strong style="color:#2ecc71;font-size:14px">${margins.gross.display}</strong></div>` : ''}
+                  ${margins.operating && margins.operating.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge op.</div><strong style="color:#2ecc71;font-size:14px">${margins.operating.display}</strong></div>` : ''}
+                  ${margins.profit && margins.profit.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge nette</div><strong style="color:#2ecc71;font-size:14px">${margins.profit.display}</strong></div>` : ''}
+                  ${margins.fcf && margins.fcf.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge FCF</div><strong style="color:#2ecc71;font-size:14px">${margins.fcf.display}</strong></div>` : ''}
+                  ${returns.roe && returns.roe.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROE</div><strong style="color:#74b9ff;font-size:14px">${returns.roe.display}</strong></div>` : ''}
+                  ${returns.roa && returns.roa.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROA</div><strong style="color:#74b9ff;font-size:14px">${returns.roa.display}</strong></div>` : ''}
+                  ${returns.roic && returns.roic.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROIC</div><strong style="color:#74b9ff;font-size:14px">${returns.roic.display}</strong></div>` : ''}
+                  ${returns.roce && returns.roce.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROCE</div><strong style="color:#74b9ff;font-size:14px">${returns.roce.display}</strong></div>` : ''}
                 </div>
               </div>
             ` : ''}
             ${shortInt.shortPctFloat && shortInt.shortPctFloat.display ? `
-              <div style="margin-top:12px;padding:8px 12px;background:rgba(255,118,117,0.05);border-radius:6px;font-size:12px">
-                <span style="opacity:0.65">Ventes à découvert :</span>
-                <strong style="color:#ff7675">${shortInt.shortPctFloat.display}</strong>
+              <div style="margin-top:12px;padding:10px 12px;background:rgba(255,118,117,0.06);border-left:3px solid #ff7675;border-radius:6px;font-size:12px">
+                <span style="opacity:0.7">🔻 Ventes à découvert :</span>
+                <strong style="color:#ff7675;font-size:14px">${shortInt.shortPctFloat.display}</strong>
                 <span style="opacity:0.5"> du flottant</span>
                 ${shortInt.daysToCover && shortInt.daysToCover.display ? ` · <span style="opacity:0.65">${shortInt.daysToCover.display} jours pour racheter</span>` : ''}
               </div>
@@ -3207,13 +3360,21 @@
         <!-- GOOGLE TRENDS -->
         ${trends ? (() => {
           const tr = trends;
-          const spikeColor = tr.spike7d > 10 ? '#2ecc71' : tr.spike7d > 0 ? '#52b788' : tr.spike7d < -10 ? '#e74c3c' : tr.spike7d < 0 ? '#ff7675' : '#9CA3AF';
-          const spikeEmoji = tr.spike7d > 10 ? '🚀' : tr.spike7d > 0 ? '📈' : tr.spike7d < -10 ? '📉' : tr.spike7d < 0 ? '🔻' : '→';
-          const trendLabel = tr.trend === 'rising' ? '↗️ en hausse' : tr.trend === 'falling' ? '↘️ en baisse' : '→ stable';
-          const trendColor = tr.trend === 'rising' ? '#2ecc71' : tr.trend === 'falling' ? '#ff7675' : '#9CA3AF';
+          // Seuil anti-bruit : si l'interet est trop faible, le spike est du bruit statistique
+          const LOW_VOLUME = tr.interestMax < 8;
+          const MEANINGFUL = tr.interestNow >= 8;
+          // On n'affiche le spike colore que si le signal est significatif
+          const spikeColor = !MEANINGFUL ? '#6B7280' : (tr.spike7d > 10 ? '#2ecc71' : tr.spike7d > 0 ? '#52b788' : tr.spike7d < -10 ? '#e74c3c' : tr.spike7d < 0 ? '#ff7675' : '#9CA3AF');
+          const spikeEmoji = !MEANINGFUL ? '·' : (tr.spike7d > 10 ? '🚀' : tr.spike7d > 0 ? '📈' : tr.spike7d < -10 ? '📉' : tr.spike7d < 0 ? '🔻' : '→');
+          const trendLabel = !MEANINGFUL ? 'bruit de fond' : (tr.trend === 'rising' ? '↗️ en hausse' : tr.trend === 'falling' ? '↘️ en baisse' : '→ stable');
+          const trendColor = !MEANINGFUL ? '#9CA3AF' : (tr.trend === 'rising' ? '#2ecc71' : tr.trend === 'falling' ? '#ff7675' : '#9CA3AF');
+          const spikeDisplay = !MEANINGFUL ? 'n/a' : `${tr.spike7d > 0 ? '+' : ''}${tr.spike7d}%`;
           return `
             <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
-              <h3 style="margin:0 0 14px;font-size:16px">🔎 Intérêt de recherche Google</h3>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+                <h3 style="margin:0;font-size:16px">🔎 Intérêt de recherche Google</h3>
+                ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">⚠️ Volume trop faible pour un signal fiable</span>` : ''}
+              </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
                 <div style="padding:14px;background:var(--bg-card);border-radius:8px">
                   <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Intérêt actuel</div>
@@ -3221,7 +3382,7 @@
                 </div>
                 <div style="padding:14px;background:var(--bg-card);border-radius:8px">
                   <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Spike 7j</div>
-                  <div style="font-size:22px;font-weight:600;margin-top:4px;color:${spikeColor}">${spikeEmoji} ${tr.spike7d > 0 ? '+' : ''}${tr.spike7d}%</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px;color:${spikeColor}">${spikeEmoji} ${spikeDisplay}</div>
                 </div>
                 <div style="padding:14px;background:var(--bg-card);border-radius:8px">
                   <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Tendance 30j</div>
@@ -3232,7 +3393,7 @@
                   <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestMax}/100</div>
                 </div>
               </div>
-              <canvas id="trendsChart" style="max-height:180px"></canvas>
+              ${!LOW_VOLUME ? `<canvas id="trendsChart" style="max-height:180px"></canvas>` : `<p style="opacity:0.55;font-size:13px;padding:20px 0">Le volume de recherche pour "${d.ticker}" est trop faible sur les 90 derniers jours pour qu'un signal soit exploitable (max ${tr.interestMax}/100 sur la période). Ce ticker n'attire pas encore l'attention retail sur Google.</p>`}
               <p style="font-size:11px;opacity:0.55;margin:10px 0 0">
                 Volume de recherche Google pour "${d.ticker}" sur 90 jours (Google Trends, échelle 0-100, 100 = pic de la période). Les pics précèdent souvent les mouvements de prix sur les small caps.
               </p>

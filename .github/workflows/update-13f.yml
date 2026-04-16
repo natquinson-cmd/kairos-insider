@@ -2,9 +2,11 @@ name: Update 13F + ETF Data
 
 on:
   schedule:
-    # 13F: tous les lundis a 7h UTC (trimestriel mais on check chaque semaine)
-    # ETF: tous les jours a 7h UTC (donnees quotidiennes)
-    - cron: '0 7 * * *'
+    # Tous les jours a 5h UTC = 7h Paris (ete) / 6h Paris (hiver)
+    # Choisi pour finir AVANT 9h Paris (ouverture Euronext) = donnees fraiches
+    # le matin pour les utilisateurs.
+    # Run total: ~30 min (insiders SEC + AMF + BaFin + 13F + ETFs + Trends)
+    - cron: '0 5 * * *'
   workflow_dispatch:
 
 jobs:

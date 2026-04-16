@@ -471,6 +471,16 @@ async function handleActionSSR(rawTicker, env) {
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
 <meta name="twitter:image" content="https://kairosinsider.fr/assets/logo.png">
 
+<!-- Google Analytics 4 (RGPD-friendly) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-7YPCWL035M"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-7YPCWL035M', { anonymize_ip: true, allow_google_signals: false, allow_ad_personalization_signals: false });
+  gtag('event', 'ssr_ticker_viewed', { event_category: 'seo_ssr', event_label: ${JSON.stringify(ticker)} });
+</script>
+
 <script type="application/ld+json">${JSON.stringify(schema)}</script>
 
 <style>
@@ -590,17 +600,21 @@ footer a{color:#9CA3AF;text-decoration:none}
     </div>
   ` : ''}
 
-  ${trends ? `
+  ${trends && trends.interestMax >= 8 ? `
     <div class="section">
       <h2>🔎 Intérêt de recherche Google</h2>
       <p>
         <strong>${trends.interestNow}/100</strong> — intérêt actuel
-        ${trends.spike7d > 5 ? ` · <span style="color:#10B981">+${trends.spike7d}% vs semaine dernière 📈</span>` : trends.spike7d < -5 ? ` · <span style="color:#EF4444">${trends.spike7d}% vs semaine dernière 📉</span>` : ` · stable (${trends.spike7d > 0 ? '+' : ''}${trends.spike7d}%)`}
-        · Tendance : <strong>${trends.trend === 'rising' ? '↗️ en hausse' : trends.trend === 'falling' ? '↘️ en baisse' : '→ stable'}</strong>
+        ${trends.interestNow >= 8 ? (
+          trends.spike7d > 5 ? ` · <span style="color:#10B981">+${trends.spike7d}% vs semaine dernière 📈</span>` :
+          trends.spike7d < -5 ? ` · <span style="color:#EF4444">${trends.spike7d}% vs semaine dernière 📉</span>` :
+          ` · stable`
+        ) : ''}
+        ${trends.interestNow >= 8 ? ` · Tendance : <strong>${trends.trend === 'rising' ? '↗️ en hausse' : trends.trend === 'falling' ? '↘️ en baisse' : '→ stable'}</strong>` : ''}
       </p>
       <p style="font-size:12px;color:#6B7280;margin-top:8px">
         Volume de recherche Google pour "${escHtmlSsr(ticker)}" sur 90 jours (échelle 0-100, 100 = pic de la période).
-        ${trends.interestMean > 0 ? `Moyenne 90j : ${trends.interestMean}/100, pic max : ${trends.interestMax}/100.` : ''}
+        Moyenne 90j : ${trends.interestMean}/100, pic max : ${trends.interestMax}/100.
       </p>
     </div>
   ` : ''}

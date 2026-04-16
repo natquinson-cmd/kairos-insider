@@ -3,6 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google Analytics 4 + conversion (RGPD-friendly) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7YPCWL035M"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-7YPCWL035M', { anonymize_ip: true, allow_google_signals: false, allow_ad_personalization_signals: false });
+    // Event de conversion : inscription premium confirmee
+    gtag('event', 'premium_signup_complete', { event_category: 'conversion', event_label: 'stripe_checkout' });
+  </script>
+
   <title>Merci ! Bienvenue dans Kairos Insider Premium</title>
   <meta name="description" content="Votre abonnement Kairos Insider Premium est actif." />
   <meta name="robots" content="noindex, nofollow" />

@@ -23,6 +23,11 @@ Thumbs.db
 API Brevo.txt
 brevo-template.json
 *.secret
+# Script local de prefetch 13F qui contient un token Cloudflare en dur
+worker/prefetch-13f.sh
+# Donnees Google Trends generees localement (uploadees vers KV par GitHub Actions)
+worker/trends_data.json
+worker/trends_hot.json
 
 # Wrangler local state
 worker/.wrangler/
