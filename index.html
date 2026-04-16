@@ -114,6 +114,12 @@
       font-weight: 500; transition: color 0.2s;
     }
     .nav-links a:hover { color: var(--text-primary); }
+    /* Fix specificite : dans la nav, les btn-primary doivent rester blancs */
+    .nav-links a.btn-primary,
+    .nav-links a.btn-primary:hover {
+      color: white;
+      font-weight: 600;
+    }
 
     /* ===== BUTTONS ===== */
     .btn {
@@ -127,9 +133,13 @@
     .btn-primary {
       background: var(--gradient-primary);
       color: white;
-      box-shadow: 0 4px 14px rgba(59,130,246,0.3);
+      box-shadow: 0 4px 14px rgba(59,130,246,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
     }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59,130,246,0.4); }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(59,130,246,0.55), 0 0 0 1px rgba(255,255,255,0.18) inset;
+      filter: brightness(1.08);
+    }
     .btn-secondary {
       background: var(--bg-elevated);
       color: var(--text-primary);
@@ -305,18 +315,18 @@
 
     /* ===== STATS BAR ===== */
     .stats-bar {
-      margin: 0 auto;
+      margin: 60px auto 0;
       max-width: 1100px;
-      padding: 32px;
+      padding: 28px 32px;
       background: linear-gradient(180deg, rgba(20, 25, 45, 0.6), rgba(10, 15, 30, 0.3));
       border: 1px solid var(--border);
       border-radius: 16px;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 20px;
-      margin-top: -40px;
       position: relative;
       z-index: 5;
+      backdrop-filter: blur(8px);
     }
     .stat-item { text-align: center; }
     .stat-number {
@@ -757,7 +767,7 @@
       .hero-grid { grid-template-columns: 1fr; gap: 60px; }
       .mockup-card { transform: none; }
       .mockup-float { display: none; }
-      .stats-bar { grid-template-columns: repeat(2, 1fr); margin-top: 24px; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); margin-top: 40px; padding: 22px; }
       .pricing-grid { grid-template-columns: 1fr; }
       .pricing-card.featured { transform: none; }
       .nav-links li:not(:last-child) { display: none; }
