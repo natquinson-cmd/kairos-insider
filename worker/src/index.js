@@ -561,6 +561,94 @@ function signalFromScoreSsr(total) {
   return { label: 'VENTE FORTE', color: '#EF4444' };
 }
 
+// ============================================================
+// Radar SVG pour le SSR Kairos Score (statique, pas d'animation JS)
+// Affiche le radar 8 axes si breakdown dispo, sinon un gauge simple.
+// ============================================================
+function renderKairosRadarSsr(scoreObj, sig) {
+  const total = (scoreObj && typeof scoreObj.total === 'number') ? scoreObj.total : 0;
+  const color = sig.color;
+  const breakdown = scoreObj?.breakdown || null;
+
+  // Si pas de breakdown (vue publique tronquee) : gauge simple
+  if (!breakdown) {
+    const deg = Math.max(0, Math.min(100, total)) * 3.6;
+    return `
+      <div style="flex:0 0 220px;position:relative;z-index:1">
+        <div style="width:200px;height:200px;border-radius:50%;background:conic-gradient(${color} ${deg}deg, rgba(255,255,255,0.08) 0deg);position:relative;margin:0 auto;box-shadow:0 12px 24px ${color}33">
+          <div style="position:absolute;inset:12px;background:#0A0F1E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column">
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:48px;font-weight:700;color:${color};line-height:1;letter-spacing:-0.02em">${total}</div>
+            <div style="font-size:11px;color:#6B7280;letter-spacing:0.12em;margin-top:4px">/ 100</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Version complete avec radar (disponible si breakdown present)
+  const axesOrder = [
+    { key: 'insider',    short: 'INS' },
+    { key: 'smartMoney', short: 'HF'  },
+    { key: 'momentum',   short: 'MOM' },
+    { key: 'earnings',   short: 'EPS' },
+    { key: 'analyst',    short: 'ANA' },
+    { key: 'valuation',  short: 'VAL' },
+    { key: 'health',     short: 'FIN' },
+    { key: 'govGuru',    short: 'GOV' },
+  ];
+  const CX = 200, CY = 200, R = 140;
+  const N = axesOrder.length;
+  const points = [];
+  const grid = [];
+  axesOrder.forEach((axis, i) => {
+    const angle = (-Math.PI / 2) + (i * 2 * Math.PI / N);
+    const b = breakdown[axis.key];
+    const pctFill = (b && b.max > 0) ? (b.score / b.max) : 0;
+    const r = R * Math.max(0.05, Math.min(1, pctFill));
+    const x = CX + r * Math.cos(angle);
+    const y = CY + r * Math.sin(angle);
+    points.push({ x, y, angle, short: axis.short, score: b?.score || 0, max: b?.max || 0 });
+    grid.push({ x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle), angle });
+  });
+
+  const polyPath = points.map(p => `${p.x},${p.y}`).join(' ');
+  const rings = [0.25, 0.5, 0.75, 1.0].map(frac => {
+    const pts = grid.map(p => {
+      const x = CX + (R * frac) * Math.cos(p.angle);
+      const y = CY + (R * frac) * Math.sin(p.angle);
+      return `${x},${y}`;
+    }).join(' ');
+    return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+  }).join('');
+  const axes = grid.map(p => `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`).join('');
+
+  const labels = points.map(p => {
+    const r = R + 24;
+    const x = CX + r * Math.cos(p.angle);
+    const y = CY + r * Math.sin(p.angle);
+    let anchor = 'middle';
+    if (Math.cos(p.angle) > 0.3) anchor = 'start';
+    else if (Math.cos(p.angle) < -0.3) anchor = 'end';
+    return `<text x="${x}" y="${y + 4}" text-anchor="${anchor}" font-size="11" font-weight="600" fill="${color}" font-family="'Space Grotesk', sans-serif">${p.short}</text>`;
+  }).join('');
+
+  const dots = points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${color}" stroke="#0A0F1E" stroke-width="1.5"/>`).join('');
+
+  return `
+    <div style="flex:0 0 280px;position:relative;z-index:1">
+      <svg viewBox="0 0 400 400" style="width:100%;max-width:300px;height:auto;display:block;filter:drop-shadow(0 10px 20px ${color}55)">
+        ${axes}
+        ${rings}
+        <polygon points="${polyPath}" fill="${color}" fill-opacity="0.22" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
+        ${dots}
+        ${labels}
+        <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="48" font-weight="700" fill="${color}" font-family="'Space Grotesk', sans-serif" letter-spacing="-0.02em">${total}</text>
+        <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="10" fill="#6B7280" font-family="'Space Grotesk', sans-serif" letter-spacing="0.12em">/ 100</text>
+      </svg>
+    </div>
+  `;
+}
+
 async function handleActionSSR(rawTicker, env) {
   const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker || ticker.length > 12) {
@@ -754,17 +842,17 @@ footer a{color:#9CA3AF;text-decoration:none}
     </div>
   </div>
 
-  <div class="score-card">
-    <div class="score-gauge" style="background:conic-gradient(${sig.color} ${score * 3.6}deg, rgba(255,255,255,0.08) 0deg);position:relative">
-      <div style="position:absolute;inset:8px;background:#0A0F1E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column">
-        <div style="color:${sig.color}">${score}</div>
-        <div style="font-size:11px;color:#9CA3AF;font-weight:400">/100</div>
+  <div class="score-card" style="display:flex;flex-wrap:wrap;gap:32px;align-items:center;position:relative;overflow:hidden">
+    <div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle, ${sig.color}50 0%, transparent 65%);pointer-events:none"></div>
+    ${renderKairosRadarSsr(data.score, sig)}
+    <div class="score-info" style="flex:1;min-width:260px;position:relative;z-index:1">
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;background:${sig.color}22;color:${sig.color};border:1px solid ${sig.color}55;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.06em;margin-bottom:12px">
+        <span style="width:6px;height:6px;background:${sig.color};border-radius:50%;box-shadow:0 0 10px ${sig.color}"></span>
+        ${sig.label}
       </div>
-    </div>
-    <div class="score-info">
-      <h1>Kairos Score : ${score}/100</h1>
-      <div class="signal" style="background:${sig.color}22;color:${sig.color};border:1px solid ${sig.color}44">${sig.label}</div>
-      <p>Score composite qui agrège 8 dimensions du smart money : insiders (SEC/AMF/BaFin), hedge funds, politiciens et gourous (NANC/GURU), momentum, valorisation, consensus analystes, santé financière et earnings.</p>
+      <h1 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em">Kairos Score : <span style="color:${sig.color}">${score}</span><span style="opacity:0.4;font-size:20px">/100</span></h1>
+      <p>Score composite qui agrège <strong>8 dimensions du smart money</strong> : initiés (SEC/AMF/BaFin), hedge funds, politiciens &amp; gourous, momentum du cours, valorisation, consensus analystes, santé financière, momentum des résultats. Plus le score est élevé, plus le consensus des signaux institutionnels est favorable à l'achat.</p>
+      ${data.score && data.score._breakdownHidden ? `<p style="font-size:12px;opacity:0.6;margin-top:10px">💡 <strong>Décomposition détaillée</strong> (les 8 sous-scores) disponible dans le dashboard Premium.</p>` : ''}
     </div>
   </div>
 

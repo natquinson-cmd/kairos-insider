@@ -2830,6 +2830,179 @@
       }
     }
 
+    // ============================================================
+    // KAIROS SCORE - composant brande avec radar SVG 8 dimensions
+    // Genere la card complete (score global + radar + breakdown)
+    // ============================================================
+    function renderKairosScoreCard(score) {
+      _ensureKairosRadarAnim();
+      const total = score && typeof score.total === 'number' ? score.total : 0;
+      // Palette de couleurs selon le score (continue)
+      const palette = total >= 75 ? { main: '#10B981', glow: 'rgba(16,185,129,0.35)', label: '#34D399', light: '#6EE7B7' }
+                    : total >= 60 ? { main: '#3B82F6', glow: 'rgba(59,130,246,0.35)', label: '#60A5FA', light: '#93C5FD' }
+                    : total >= 40 ? { main: '#8B5CF6', glow: 'rgba(139,92,246,0.30)', label: '#A78BFA', light: '#C4B5FD' }
+                    : total >= 25 ? { main: '#F59E0B', glow: 'rgba(245,158,11,0.30)', label: '#FBBF24', light: '#FCD34D' }
+                                  : { main: '#EF4444', glow: 'rgba(239,68,68,0.30)', label: '#F87171', light: '#FCA5A5' };
+
+      const signal = score?.signal || (total >= 75 ? 'ACHAT FORT' : total >= 60 ? 'ACHAT' : total >= 40 ? 'NEUTRE' : total >= 25 ? 'VENTE' : 'VENTE FORTE');
+
+      // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
+      const axesOrder = [
+        { key: 'insider',    label: 'Initiés',    short: 'INS' },
+        { key: 'smartMoney', label: 'Hedge Funds',short: 'HF'  },
+        { key: 'momentum',   label: 'Momentum',   short: 'MOM' },
+        { key: 'earnings',   label: 'Résultats',  short: 'EPS' },
+        { key: 'analyst',    label: 'Analystes',  short: 'ANA' },
+        { key: 'valuation',  label: 'Valo',       short: 'VAL' },
+        { key: 'health',     label: 'Santé',      short: 'FIN' },
+        { key: 'govGuru',    label: 'Politique',  short: 'GOV' },
+      ];
+      const breakdown = score?.breakdown || {};
+
+      // Construction des points du polygon (percentage de remplissage par dimension)
+      // Radar centre (200, 200), rayon 150
+      const CX = 200, CY = 200, R = 150;
+      const N = axesOrder.length;
+      const points = [];
+      const gridPoints = []; // max values per axis pour les lignes grises
+      axesOrder.forEach((axis, i) => {
+        const angle = (-Math.PI / 2) + (i * 2 * Math.PI / N);  // top puis clockwise
+        const b = breakdown[axis.key];
+        const pctFill = (b && b.max > 0) ? (b.score / b.max) : 0;
+        const r = R * Math.max(0.05, Math.min(1, pctFill));  // floor a 5% pour etre visible
+        const x = CX + r * Math.cos(angle);
+        const y = CY + r * Math.sin(angle);
+        points.push({ x, y, pctFill, axis, angle, score: b?.score || 0, max: b?.max || 0, label: b?.label || axis.label, detail: b?.detail || '' });
+        gridPoints.push({ x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle), angle, axis });
+      });
+
+      // Polygon des points (fill polygon)
+      const polyPath = points.map(p => `${p.x},${p.y}`).join(' ');
+      // Polygon outer (100% = max)
+      const polyOuter = gridPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+      // Anneaux concentriques (25%, 50%, 75%, 100%)
+      const rings = [0.25, 0.5, 0.75, 1.0].map(frac => {
+        const pts = gridPoints.map(p => {
+          const x = CX + (R * frac) * Math.cos(p.angle);
+          const y = CY + (R * frac) * Math.sin(p.angle);
+          return `${x},${y}`;
+        }).join(' ');
+        return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+      }).join('');
+
+      // Axes (8 rayons)
+      const axes = gridPoints.map(p => `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('');
+
+      // Labels autour
+      const labels = points.map(p => {
+        const r = R + 28;
+        const x = CX + r * Math.cos(p.angle);
+        const y = CY + r * Math.sin(p.angle);
+        const anchor = p.angle > Math.PI/2 && p.angle < 3*Math.PI/2 ? 'end' :
+                       Math.abs(p.angle - Math.PI/2) < 0.1 || Math.abs(p.angle + Math.PI/2) < 0.1 ? 'middle' : 'start';
+        // Ajuster le X si anchor est middle (top/bottom)
+        let xAdj = x;
+        if (Math.abs(Math.cos(p.angle)) < 0.15) xAdj = CX;
+        return `
+          <text x="${xAdj}" y="${y + 4}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="${palette.label}" font-family="'Space Grotesk', sans-serif" letter-spacing="0.03em">${p.axis.short}</text>
+          <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${p.score}/${p.max}</text>
+        `;
+      }).join('');
+
+      // Points sur le polygon
+      const dots = points.map(p => `
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="${palette.main}" stroke="var(--bg-primary)" stroke-width="2">
+          <title>${p.label}: ${p.score}/${p.max}${p.detail ? ' — ' + p.detail : ''}</title>
+        </circle>
+      `).join('');
+
+      // ID unique pour le gradient (eviter les conflits entre rendus)
+      const gradId = 'kairosGrad_' + Math.random().toString(36).slice(2, 8);
+
+      // Mini barres de detail (sous le radar, pour explications)
+      const breakdownRows = axesOrder.map(axis => {
+        const b = breakdown[axis.key];
+        if (!b) return '';
+        const pct = b.max > 0 ? (b.score / b.max) * 100 : 0;
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider)">
+            <div style="flex:0 0 110px;font-size:12px;color:var(--text-secondary)">${b.label}</div>
+            <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;position:relative">
+              <div style="height:100%;background:linear-gradient(90deg, ${palette.main}, ${palette.light});width:${pct}%;border-radius:3px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
+            </div>
+            <div style="flex:0 0 52px;text-align:right;font-size:12px;font-family:'Space Grotesk',sans-serif">
+              <strong style="color:${palette.main}">${b.score}</strong><span style="opacity:0.5">/${b.max}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="kairos-score-card" style="background:linear-gradient(135deg,var(--surface-1) 0%,rgba(255,255,255,0.01) 100%);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px;position:relative;overflow:hidden">
+          <!-- Halo de couleur en fond (signature branding) -->
+          <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,${palette.glow} 0%,transparent 65%);pointer-events:none;z-index:0;opacity:0.9"></div>
+          <div style="position:absolute;bottom:-100px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,${palette.glow} 0%,transparent 60%);pointer-events:none;z-index:0;opacity:0.5"></div>
+
+          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(320px, 380px) 1fr;gap:36px;align-items:center">
+
+            <!-- Radar SVG -->
+            <div style="position:relative;text-align:center">
+              <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;opacity:0.55;font-weight:600;margin-bottom:-6px">Kairos Score</div>
+              <svg viewBox="0 0 400 400" style="width:100%;max-width:380px;height:auto;display:block;margin:0 auto;filter:drop-shadow(0 12px 24px ${palette.glow})">
+                <defs>
+                  <radialGradient id="${gradId}" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="${palette.main}" stop-opacity="0.45"/>
+                    <stop offset="70%" stop-color="${palette.main}" stop-opacity="0.2"/>
+                    <stop offset="100%" stop-color="${palette.main}" stop-opacity="0.05"/>
+                  </radialGradient>
+                </defs>
+                <!-- Grille -->
+                ${axes}
+                ${rings}
+                <!-- Polygon du score (animation via CSS via scale) -->
+                <polygon points="${polyPath}" fill="url(#${gradId})" stroke="${palette.main}" stroke-width="2.2" stroke-linejoin="round" style="transform-origin:${CX}px ${CY}px;animation:kairosRadarGrow 0.8s cubic-bezier(0.22,1,0.36,1) forwards"/>
+                ${dots}
+                ${labels}
+                <!-- Score central -->
+                <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="52" font-weight="700" fill="${palette.main}" font-family="'Space Grotesk', sans-serif" letter-spacing="-0.02em">${total}</text>
+                <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="'Space Grotesk', sans-serif" letter-spacing="0.08em">/ 100</text>
+              </svg>
+            </div>
+
+            <!-- Info panel -->
+            <div>
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;background:${palette.main}22;color:${palette.label};border:1px solid ${palette.main}55;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.06em;margin-bottom:12px">
+                <span style="width:6px;height:6px;background:${palette.main};border-radius:50%;box-shadow:0 0 10px ${palette.main}"></span>
+                ${signal}
+              </div>
+              <h2 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em;font-family:'Space Grotesk',sans-serif;font-weight:700">
+                Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:20px">/100</span>
+              </h2>
+              <p style="font-size:13px;line-height:1.65;color:var(--text-secondary);margin-bottom:18px">
+                Score composite qui agrège <strong style="color:var(--text-primary)">8 dimensions du smart money</strong> pour ${d.ticker}. Plus le score est élevé, plus le consensus des signaux institutionnels est favorable à l'achat.
+              </p>
+
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px">Décomposition (8 axes)</div>
+                ${breakdownRows || '<div style="opacity:0.5;font-size:12px">Détails indisponibles</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      `;
+    }
+
+    // Injection unique de l'animation CSS du radar (appele apres render)
+    function _ensureKairosRadarAnim() {
+      if (document.getElementById('kairosRadarAnim')) return;
+      const s = document.createElement('style');
+      s.id = 'kairosRadarAnim';
+      s.textContent = '@keyframes kairosRadarGrow { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }';
+      document.head.appendChild(s);
+    }
+
     function renderStockAnalysis(d) {
       const body = document.getElementById('stockAnalysisBody');
       const price = d.price || {};
@@ -2934,34 +3107,8 @@
           </div>
         </div>
 
-        <!-- KAIROS SCORE -->
-        <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:24px">
-          <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:center">
-            <div style="flex:0 0 200px;text-align:center">
-              <div style="font-size:14px;opacity:0.6;margin-bottom:8px">KAIROS SCORE</div>
-              <div style="font-size:72px;font-weight:700;color:${scoreColor};line-height:1">${sc}</div>
-              <div style="font-size:12px;opacity:0.5;margin-top:-4px">/100</div>
-              <div style="margin-top:12px;display:inline-block;padding:6px 16px;background:${scoreColor};color:white;border-radius:20px;font-weight:600;font-size:13px;letter-spacing:0.5px">${score.signal || 'N/A'}</div>
-            </div>
-            <div style="flex:1;min-width:320px">
-              ${score.breakdown ? Object.entries(score.breakdown).map(([k, b]) => {
-                const pctScore = b.max > 0 ? (b.score / b.max) * 100 : 0;
-                return `
-                  <div style="margin-bottom:10px">
-                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
-                      <span style="opacity:0.9">${b.label}</span>
-                      <span><strong>${b.score}</strong><span style="opacity:0.5">/${b.max}</span></span>
-                    </div>
-                    <div style="height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden">
-                      <div style="height:100%;background:${scoreColor};width:${pctScore}%;transition:width 0.5s"></div>
-                    </div>
-                    <div style="font-size:11px;opacity:0.55;margin-top:3px">${b.detail}</div>
-                  </div>
-                `;
-              }).join('') : '<p style="opacity:0.6">Détail indisponible</p>'}
-            </div>
-          </div>
-        </div>
+        <!-- KAIROS SCORE BRANDED CARD -->
+        ${renderKairosScoreCard(score)}
 
         <!-- CHART prix 1 an avec superposition insiders -->
         <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
