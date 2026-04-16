@@ -1524,6 +1524,9 @@
           Positions en temps réel des ETF qui répliquent les stratégies des grands investisseurs, politiciens, sentiment retail et thématiques.
         </p>
 
+        <!-- Encart rotations recentes (alimente par D1 si historique dispo) -->
+        <div id="etfRotationsArea" style="margin-bottom:18px"></div>
+
         <!-- Sous-onglets ETF (groupes par categorie) -->
         <div id="etfTabs" class="etf-tabs-grouped"></div>
 
@@ -2461,6 +2464,8 @@
           renderEtfTabs();
           // Charge NANC par defaut au premier passage sur l'onglet
           loadEtf('congress', 'NANC');
+          // Affiche les rotations recentes si l'historique D1 existe
+          loadEtfRotations();
         }
       }
 
@@ -4722,9 +4727,143 @@
           apiFetch('/api/13f-funds').then(funds => {
             if (funds && funds[idx] && funds[idx].topHoldings) {
               setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName), 200);
+              // Charge l'historique D1 du fond (AUM + top holdings sur N trimestres)
+              loadFundHistoryFor(idx, funds[idx].cik, funds[idx].label || funds[idx].fundName);
             }
           }).catch(() => {});
         }
+      }
+    }
+
+    // ============================================================
+    // Historique D1 d'un fonds : evolution AUM + holdings sur 4-8 trim
+    // Affiche dans la ligne dépliable, sous les charts existants.
+    // ============================================================
+    async function loadFundHistoryFor(idx, cik, fundLabel) {
+      const wrap = document.getElementById(`fund-charts-${idx}`);
+      if (!wrap || !cik) return;
+      try {
+        // 1. Lecture historique : on prend toutes les positions du fond
+        //    sur tous les trimestres connus
+        const data = await apiFetch(`/api/history/fund?cik=${encodeURIComponent(cik)}`);
+        if (!data || !data.quarters || data.quarters.length === 0) {
+          return; // Silencieux si pas d'historique encore
+        }
+        const rows = data.quarters;
+
+        // 2. Calcul AUM par trimestre (somme de la value)
+        const byQuarter = new Map();
+        for (const r of rows) {
+          if (!byQuarter.has(r.report_date)) byQuarter.set(r.report_date, { totalValue: 0, holdings: [] });
+          const e = byQuarter.get(r.report_date);
+          e.totalValue += Number(r.value) || 0;
+          e.holdings.push(r);
+        }
+        const quarters = Array.from(byQuarter.entries())
+          .map(([date, info]) => ({ date, ...info }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (quarters.length < 2) return; // Au moins 2 points pour faire une courbe
+
+        // 3. Sparkline AUM
+        const aumValues = quarters.map(q => q.totalValue);
+        const aumMin = Math.min(...aumValues), aumMax = Math.max(...aumValues);
+        const W = 600, H = 60;
+        const xStep = W / (quarters.length - 1);
+        const path = quarters.map((q, i) => {
+          const x = i * xStep;
+          const y = H - ((q.totalValue - aumMin) / (aumMax - aumMin || 1)) * H;
+          return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        const fillPath = path + ` L${W},${H} L0,${H} Z`;
+        const aumChange = ((aumValues[aumValues.length - 1] - aumValues[0]) / aumValues[0]) * 100;
+        const aumColor = aumChange > 0 ? '#10B981' : '#EF4444';
+
+        // 4. Top 5 holdings actuels avec leur evolution sur la periode
+        const lastQ = quarters[quarters.length - 1];
+        const firstQ = quarters[0];
+        const lastByName = new Map(lastQ.holdings.map(h => [h.name, h]));
+        const firstByName = new Map(firstQ.holdings.map(h => [h.name, h]));
+        // Top 5 par value du dernier trimestre
+        const topHoldings = lastQ.holdings.sort((a, b) => b.value - a.value).slice(0, 5);
+
+        const fmtBigShort = (n) => {
+          if (n == null) return '—';
+          if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T$';
+          if (n >= 1e9)  return (n / 1e9).toFixed(1)  + 'B$';
+          if (n >= 1e6)  return (n / 1e6).toFixed(0)  + 'M$';
+          return n.toFixed(0) + '$';
+        };
+        const fmtQ = (d) => {
+          try {
+            const date = new Date(d);
+            const q = Math.ceil((date.getMonth() + 1) / 3);
+            return `Q${q} ${date.getFullYear()}`;
+          } catch { return d; }
+        };
+
+        // 5. Render
+        const histDiv = document.createElement('div');
+        histDiv.style.cssText = 'margin-top:24px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px';
+        histDiv.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+            <div>
+              <h4 style="margin:0 0 4px;font-size:15px;color:var(--text-primary)">📈 Évolution sur ${quarters.length} trimestre${quarters.length > 1 ? 's' : ''}</h4>
+              <p style="margin:0;font-size:12px;opacity:0.6">${fmtQ(quarters[0].date)} → ${fmtQ(lastQ.date)}</p>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em">AUM</div>
+              <div style="font-size:18px;font-weight:700">${fmtBigShort(lastQ.totalValue)}</div>
+              <div style="font-size:11px;font-weight:600;color:${aumColor}">${aumChange > 0 ? '+' : ''}${aumChange.toFixed(1)}% sur la période</div>
+            </div>
+          </div>
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:60px;display:block;margin-bottom:14px">
+            <defs>
+              <linearGradient id="aumGrad${idx}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${aumColor}" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="${aumColor}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="${fillPath}" fill="url(#aumGrad${idx})"/>
+            <path d="${path}" fill="none" stroke="${aumColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+
+          <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Top 5 positions actuelles · évolution depuis ${fmtQ(firstQ.date)}</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${topHoldings.map(h => {
+              const first = firstByName.get(h.name);
+              const sharesNow = h.shares || 0;
+              const sharesBefore = first ? (first.shares || 0) : 0;
+              let trendTxt, trendCol;
+              if (!first) {
+                trendTxt = '🆕 Nouvelle';
+                trendCol = '#10B981';
+              } else if (sharesBefore === 0) {
+                trendTxt = '🆕 Nouvelle';
+                trendCol = '#10B981';
+              } else {
+                const pct = ((sharesNow - sharesBefore) / sharesBefore) * 100;
+                if (Math.abs(pct) < 1) { trendTxt = '➖ Inchangée'; trendCol = '#9CA3AF'; }
+                else if (pct > 0) { trendTxt = `📈 +${pct.toFixed(0)}%`; trendCol = '#10B981'; }
+                else { trendTxt = `📉 ${pct.toFixed(0)}%`; trendCol = '#EF4444'; }
+              }
+              return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface-2);border-radius:6px;font-size:12px">
+                  <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    ${h.ticker ? `<strong style="color:var(--accent-blue)">${h.ticker}</strong> · ` : ''}<span style="opacity:0.85">${h.name}</span>
+                  </div>
+                  <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
+                    <span style="opacity:0.6">${(h.pct || 0).toFixed(1)}%</span>
+                    <span style="color:${trendCol};font-weight:600;min-width:90px;text-align:right">${trendTxt}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        wrap.parentNode.insertBefore(histDiv, wrap.nextSibling);
+      } catch (e) {
+        console.debug('Fund history not available:', e.message || e);
       }
     }
 
@@ -4810,6 +4949,75 @@
           { symbol: 'MJ',  name: 'Cannabis',             type: 'generic', badgeCls: 'thematic' },
         ]},
     ];
+
+    // ============================================================
+    // ETF rotations recentes (depuis D1 historique)
+    // S'affiche uniquement si on a au moins 2 snapshots espaces.
+    // ============================================================
+    async function loadEtfRotations() {
+      const area = document.getElementById('etfRotationsArea');
+      if (!area) return;
+      try {
+        const data = await apiFetch('/api/history/etf-rotations?days=7');
+        if (!data || !data.rotations || data.rotations.length === 0) {
+          // Premier jour ou historique vide : on n'affiche rien (UX gracieuse)
+          return;
+        }
+        // Filtre : on ne montre que les ETF avec au moins 1 entree/sortie
+        const meaningful = data.rotations.filter(r => r.summary.entriesCount + r.summary.exitsCount > 0);
+        if (meaningful.length === 0) return;
+
+        const fmtD = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}); } catch { return s; } };
+
+        area.innerHTML = `
+          <div style="background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:14px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+              <div>
+                <h3 style="margin:0 0 4px;font-size:15px;color:var(--text-primary)">🔄 Rotations récentes (${data.days} derniers jours)</h3>
+                <p style="margin:0;font-size:12px;opacity:0.65">${meaningful.length} ETF ont rebalancé leur portefeuille</p>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+              ${meaningful.slice(0, 6).map(r => `
+                <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <strong style="color:var(--accent-blue);font-size:14px">${r.etf}</strong>
+                    <span style="font-size:10px;opacity:0.5">${fmtD(r.fromDate)} → ${fmtD(r.toDate)}</span>
+                  </div>
+                  ${r.entries.length > 0 ? `
+                    <div style="font-size:11px;margin-bottom:6px">
+                      <span style="color:#34D399;font-weight:600">+ ${r.summary.entriesCount} entrée${r.summary.entriesCount > 1 ? 's' : ''} :</span>
+                      <span style="opacity:0.85"> ${r.entries.slice(0, 4).map(e => `<span class="clickable-ticker" onclick="loadEtf('generic','${e.ticker}')" style="color:#34D399;cursor:pointer" title="Cliquer">${e.ticker}</span>`).join(', ')}${r.entries.length > 4 ? ` +${r.entries.length - 4}` : ''}</span>
+                    </div>
+                  ` : ''}
+                  ${r.exits.length > 0 ? `
+                    <div style="font-size:11px;margin-bottom:6px">
+                      <span style="color:#F87171;font-weight:600">− ${r.summary.exitsCount} sortie${r.summary.exitsCount > 1 ? 's' : ''} :</span>
+                      <span style="opacity:0.85"> ${r.exits.slice(0, 4).map(e => `<span style="color:#F87171">${e.ticker}</span>`).join(', ')}${r.exits.length > 4 ? ` +${r.exits.length - 4}` : ''}</span>
+                    </div>
+                  ` : ''}
+                  ${r.movers.length > 0 ? `
+                    <div style="font-size:11px">
+                      <span style="opacity:0.6">Gros mouvements :</span>
+                      <span style="opacity:0.85"> ${r.movers.slice(0, 3).map(m => {
+                        const c = m.delta > 0 ? '#34D399' : '#F87171';
+                        const arrow = m.delta > 0 ? '↗' : '↘';
+                        return `<strong style="color:${c}">${m.ticker}</strong> <span style="color:${c}">${arrow}${Math.abs(m.delta).toFixed(1)}pt</span>`;
+                      }).join(' · ')}</span>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+            <p style="font-size:11px;opacity:0.5;margin:14px 0 0">
+              Comparaison entre le snapshot du jour et celui d'il y a 7 jours. Plus l'historique s'étoffe, plus les signaux deviennent fiables.
+            </p>
+          </div>
+        `;
+      } catch (e) {
+        console.debug('ETF rotations not available:', e.message || e);
+      }
+    }
 
     function renderEtfTabs() {
       const wrap = document.getElementById('etfTabs');

@@ -31,6 +31,10 @@ worker/trends_hot.json
 # Liste dynamique des top hedge funds (genere par discover-13f-funds.py)
 worker/13f_funds_list.json
 worker/discover_test.log
+worker/backfill_13f.log
+worker/_backfill_*.sql
+worker/_d1_chunk_*.sql
+worker/_score_history_chunk.sql
 
 # Wrangler local state
 worker/.wrangler/

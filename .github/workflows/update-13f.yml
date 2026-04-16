@@ -194,6 +194,16 @@ jobs:
         timeout-minutes: 10
         continue-on-error: true
 
+      - name: Push Kairos Scores quotidiens to D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python push-scores-to-d1.py
+        timeout-minutes: 5
+        continue-on-error: true
+
       - name: Summary
         run: |
           cd worker

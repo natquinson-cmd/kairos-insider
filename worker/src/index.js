@@ -256,6 +256,9 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/history/fund') {
     return handleHistoryFund(url, env, origin);
   }
+  if (path === '/api/history/etf-rotations') {
+    return handleEtfRotations(url, env, origin);
+  }
 
   // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
   if (path === '/api/trends-hot') {
@@ -645,6 +648,116 @@ async function handleHistoryFund(url, env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'D1 query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : rotations recentes des ETF (entrees/sorties)
+// GET /api/history/etf-rotations[?etf=BUZZ][&days=7]
+// Compare le dernier snapshot vs un snapshot N jours avant pour
+// detecter les nouveaux holdings (entrees) et les disparus (sorties).
+// ============================================================
+async function handleEtfRotations(url, env, origin) {
+  const etfFilter = (url.searchParams.get('etf') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '7', 10), 1), 60);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  try {
+    // 1. Trouve la derniere date snapshot par ETF
+    const sql = etfFilter
+      ? `SELECT etf_symbol, MAX(date) as last_date FROM etf_snapshots WHERE etf_symbol = ? GROUP BY etf_symbol`
+      : `SELECT etf_symbol, MAX(date) as last_date FROM etf_snapshots GROUP BY etf_symbol`;
+    const lastDates = etfFilter
+      ? await env.HISTORY.prepare(sql).bind(etfFilter).all()
+      : await env.HISTORY.prepare(sql).all();
+
+    const rotations = [];
+    for (const row of (lastDates.results || [])) {
+      const sym = row.etf_symbol;
+      const lastDate = row.last_date;
+
+      // 2. Trouve le snapshot le plus proche de "lastDate - days"
+      const prev = await env.HISTORY.prepare(
+        `SELECT date FROM etf_snapshots
+         WHERE etf_symbol = ? AND date <= date(?, ?)
+         ORDER BY date DESC LIMIT 1`
+      ).bind(sym, lastDate, `-${days} days`).all();
+      const prevDate = prev.results?.[0]?.date;
+      if (!prevDate || prevDate === lastDate) {
+        // Pas assez d'historique pour ce ETF
+        continue;
+      }
+
+      // 3. Holdings actuels et anciens
+      const currentRes = await env.HISTORY.prepare(
+        `SELECT ticker, weight, rank FROM etf_snapshots WHERE etf_symbol = ? AND date = ?`
+      ).bind(sym, lastDate).all();
+      const previousRes = await env.HISTORY.prepare(
+        `SELECT ticker, weight, rank FROM etf_snapshots WHERE etf_symbol = ? AND date = ?`
+      ).bind(sym, prevDate).all();
+
+      const current = new Map((currentRes.results || []).map(h => [h.ticker, h]));
+      const previous = new Map((previousRes.results || []).map(h => [h.ticker, h]));
+
+      const entries = []; // nouveaux
+      const exits = [];   // sortis
+      const movers = [];  // changement de poids significatif
+
+      for (const [t, h] of current) {
+        if (!previous.has(t)) {
+          entries.push({ ticker: t, weight: h.weight, rank: h.rank });
+        } else {
+          const old = previous.get(t);
+          const delta = h.weight - old.weight;
+          if (Math.abs(delta) >= 0.5) {
+            movers.push({
+              ticker: t,
+              currentWeight: h.weight,
+              previousWeight: old.weight,
+              delta,
+              currentRank: h.rank,
+              previousRank: old.rank,
+            });
+          }
+        }
+      }
+      for (const [t, h] of previous) {
+        if (!current.has(t)) {
+          exits.push({ ticker: t, previousWeight: h.weight, previousRank: h.rank });
+        }
+      }
+
+      // Tri : entrees par poids desc, sorties par poids desc, movers par |delta| desc
+      entries.sort((a, b) => b.weight - a.weight);
+      exits.sort((a, b) => b.previousWeight - a.previousWeight);
+      movers.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+      if (entries.length || exits.length || movers.length) {
+        rotations.push({
+          etf: sym,
+          fromDate: prevDate,
+          toDate: lastDate,
+          entries: entries.slice(0, 10),
+          exits: exits.slice(0, 10),
+          movers: movers.slice(0, 5),
+          summary: {
+            entriesCount: entries.length,
+            exitsCount: exits.length,
+            moversCount: movers.length,
+          },
+        });
+      }
+    }
+
+    // Tri global : ETF avec le plus de mouvements en haut
+    rotations.sort((a, b) => (b.summary.entriesCount + b.summary.exitsCount) - (a.summary.entriesCount + a.summary.exitsCount));
+
+    return jsonResponse({
+      days,
+      rotations,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 rotations query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
