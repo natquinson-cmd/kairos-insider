@@ -659,6 +659,39 @@
     }
   }
 
+  // ============================================================
+  // SVG drapeaux cross-platform (Windows n'a pas de glyphes flag emoji)
+  // ============================================================
+  // 'gb' = Union Jack (a afficher quand l'utilisateur va passer en EN)
+  // 'fr' = Drapeau France (a afficher quand l'utilisateur va passer en FR)
+  function flagSvg(code) {
+    const c = String(code || '').toLowerCase();
+    if (c === 'fr') {
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2" width="20" height="14" ' +
+             'style="display:block;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)">' +
+             '<rect width="1" height="2" fill="#002654"/>' +
+             '<rect x="1" width="1" height="2" fill="#FFFFFF"/>' +
+             '<rect x="2" width="1" height="2" fill="#CE1126"/>' +
+             '</svg>';
+    }
+    // Default = UK / Union Jack
+    const id = 'kfg' + Math.random().toString(36).slice(2, 8);
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" width="20" height="14" ' +
+           'style="display:block;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)">' +
+           '<clipPath id="' + id + '"><path d="M30,15 h30 v15 z v-15 h-30 z h-30 v-15 z v15 h30 z"/></clipPath>' +
+           '<rect width="60" height="30" fill="#012169"/>' +
+           '<path d="M0,0 L60,30 M60,0 L0,30" stroke="#FFFFFF" stroke-width="6"/>' +
+           '<path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#' + id + ')" stroke="#C8102E" stroke-width="4"/>' +
+           '<path d="M30,0 v30 M0,15 h60" stroke="#FFFFFF" stroke-width="10"/>' +
+           '<path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/>' +
+           '</svg>';
+  }
+
+  // Retourne le drapeau a afficher dans le bouton (= drapeau de la langue cible)
+  function targetFlagSvg() {
+    return flagSvg(CURRENT_LANG === 'fr' ? 'gb' : 'fr');
+  }
+
   // Bouton toggle FR/EN reutilisable (a placer dans la nav)
   function renderLangButton() {
     return '<button onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === \'fr\' ? \'en\' : \'fr\')" ' +
@@ -667,7 +700,7 @@
            'color:var(--text-primary, #fff);padding:6px 12px;border-radius:8px;cursor:pointer;' +
            'font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;' +
            'display:inline-flex;align-items:center;gap:6px">' +
-           '<span style="font-size:14px">' + (CURRENT_LANG === 'fr' ? '🇬🇧' : '🇫🇷') + '</span>' +
+           targetFlagSvg() +
            '<span data-i18n="nav.lang_switch">' + t('nav.lang_switch') + '</span>' +
            '</button>';
   }
@@ -679,6 +712,8 @@
     setLang: setLang,
     applyTranslations: applyTranslations,
     renderLangButton: renderLangButton,
+    flagSvg: flagSvg,
+    targetFlagSvg: targetFlagSvg,
     DICT: DICT,
   };
 

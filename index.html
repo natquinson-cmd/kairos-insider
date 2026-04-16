@@ -816,7 +816,7 @@
                   style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 12px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
                   onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'"
                   onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'">
-            <span id="navLangFlag">🇬🇧</span><span data-i18n="nav.lang_switch">EN</span>
+            <span id="navLangFlag" style="display:inline-flex;align-items:center"></span><span data-i18n="nav.lang_switch">EN</span>
           </button>
         </li>
         <li><a href="dashboard.html" class="btn btn-primary" data-i18n="nav.try_free">Essayer gratuitement</a></li>
@@ -1516,19 +1516,22 @@
         tabA.classList.remove('active');
       }
     }
+    // Helper : injecte le SVG drapeau cible (UK si on est en FR, FR si on est en EN)
+    function applyLangFlagIcon() {
+      const flag = document.getElementById('navLangFlag');
+      if (!flag || !window.KairosI18n) return;
+      flag.innerHTML = window.KairosI18n.targetFlagSvg
+        ? window.KairosI18n.targetFlagSvg()
+        : (window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷');
+    }
     // Re-applique le pricing courant quand on change la langue
     window.addEventListener('kairos:langchange', () => {
       const tabA = document.getElementById('tabAnnual');
       setPricing(tabA && tabA.classList.contains('active') ? 'annual' : 'monthly');
-      // Met aussi a jour le drapeau du toggle
-      const flag = document.getElementById('navLangFlag');
-      if (flag) flag.textContent = window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷';
+      applyLangFlagIcon();
     });
     // Au chargement initial : ajuste le drapeau selon la langue detectee
-    document.addEventListener('DOMContentLoaded', () => {
-      const flag = document.getElementById('navLangFlag');
-      if (flag && window.KairosI18n) flag.textContent = window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷';
-    });
+    document.addEventListener('DOMContentLoaded', applyLangFlagIcon);
 
     // Newsletter form → Firebase
     async function handleSubmit(event) {

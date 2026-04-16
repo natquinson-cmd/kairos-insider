@@ -1166,7 +1166,7 @@
                   style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:6px 11px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:5px;transition:all 0.2s"
                   onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'"
                   onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'">
-            <span id="navLangFlagDash">🇬🇧</span><span data-i18n="nav.lang_switch">EN</span>
+            <span id="navLangFlagDash" style="display:inline-flex;align-items:center"></span><span data-i18n="nav.lang_switch">EN</span>
           </button>
         </li>
         <li><a href="#" onclick="logout()" style="color:var(--accent-red)" data-i18n="nav.logout">Déconnexion</a></li>
@@ -2369,11 +2369,13 @@
     }
 
     // Synchronise le drapeau du toggle FR/EN selon la langue courante
+    // Utilise un vrai SVG inline (les emojis flag ne sont pas rendus sur Windows)
     function applyLangFlagIcon() {
       const flag = document.getElementById('navLangFlagDash');
-      if (flag && window.KairosI18n) {
-        flag.textContent = window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷';
-      }
+      if (!flag || !window.KairosI18n) return;
+      flag.innerHTML = window.KairosI18n.targetFlagSvg
+        ? window.KairosI18n.targetFlagSvg()
+        : (window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷');
     }
     document.addEventListener('DOMContentLoaded', applyLangFlagIcon);
     window.addEventListener('kairos:langchange', applyLangFlagIcon);
