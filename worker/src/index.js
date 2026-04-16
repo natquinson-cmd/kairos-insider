@@ -194,6 +194,52 @@ async function handleApiRoute(path, url, env, origin) {
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
     return jsonResponse(data, 200, origin);
   }
+  // Route generique ETF (symbol=BUZZ -> KV etf-buzz)
+  // Couvre les nouveaux ETF Zacks : BUZZ, MEME, JEPI, JEPQ, ITA, URA, UFO, MJ
+  if (path === '/api/etf') {
+    const symbol = (url.searchParams.get('symbol') || '').toUpperCase().replace(/[^A-Z0-9.]/g, '');
+    if (!symbol || symbol.length > 10) {
+      return jsonResponse({ error: 'Invalid symbol' }, 400, origin);
+    }
+    const data = await env.CACHE.get(`etf-${symbol.toLowerCase()}`, 'json');
+    if (!data) return jsonResponse({ error: 'ETF not loaded', symbol }, 404, origin);
+    return jsonResponse(data, 200, origin);
+  }
+  // Liste des ETF disponibles (groupes par categorie pour l'UI)
+  if (path === '/api/etf-list') {
+    return jsonResponse({
+      categories: [
+        { name: 'Politique US', etfs: [
+          { symbol: 'NANC', label: 'Démocrates US (Pelosi & co)' },
+          { symbol: 'GOP',  label: 'Républicains US' },
+        ]},
+        { name: 'Smart Money / Hedge Funds', etfs: [
+          { symbol: 'GURU', label: 'Top 60 hedge funds' },
+        ]},
+        { name: 'Innovation (ARK)', etfs: [
+          { symbol: 'ARKK', label: 'ARK Innovation' },
+          { symbol: 'ARKW', label: 'ARK Internet' },
+          { symbol: 'ARKG', label: 'ARK Genomics' },
+          { symbol: 'ARKF', label: 'ARK Fintech' },
+          { symbol: 'ARKQ', label: 'ARK Robotique' },
+        ]},
+        { name: 'Sentiment retail', etfs: [
+          { symbol: 'BUZZ', label: 'Social Sentiment (VanEck)' },
+          { symbol: 'MEME', label: 'Roundhill MEME' },
+        ]},
+        { name: 'Income (Covered call)', etfs: [
+          { symbol: 'JEPI', label: 'JPMorgan Equity Premium' },
+          { symbol: 'JEPQ', label: 'JPMorgan Nasdaq Premium' },
+        ]},
+        { name: 'Thématiques', etfs: [
+          { symbol: 'ITA', label: 'Defense & Aerospace' },
+          { symbol: 'URA', label: 'Uranium' },
+          { symbol: 'UFO', label: 'Espace' },
+          { symbol: 'MJ',  label: 'Cannabis' },
+        ]},
+      ],
+    }, 200, origin);
+  }
 
   // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
   if (path === '/api/trends-hot') {

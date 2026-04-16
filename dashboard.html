@@ -789,6 +789,22 @@
     .etf-badge.rep { background: rgba(239,68,68,0.2); color: #F87171; }
     .etf-badge.guru { background: rgba(139,92,246,0.2); color: #A78BFA; }
     .etf-badge.ark { background: rgba(6,182,212,0.2); color: #22D3EE; }
+    .etf-badge.sentiment { background: rgba(245,158,11,0.2); color: #FBBF24; }
+    .etf-badge.income { background: rgba(16,185,129,0.2); color: #34D399; }
+    .etf-badge.thematic { background: rgba(236,72,153,0.2); color: #F472B6; }
+
+    /* Layout group\u00e9 par cat\u00e9gorie */
+    .etf-tabs-grouped { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+    .etf-cat-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .etf-cat-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); font-weight: 700;
+      min-width: 140px; flex-shrink: 0;
+    }
+    .etf-cat-buttons { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+    @media (max-width: 768px) {
+      .etf-cat-label { min-width: 0; width: 100%; }
+    }
 
     /* ===== iOS-style Toggle (repris Trading Dashboard) ===== */
     .toggle-wrap {
@@ -1505,20 +1521,11 @@
       <!-- ===== SECTION: ETF LIVE ===== -->
       <div class="section-page" id="section-etf">
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
-          Positions en temps reel des ETF qui repliquent les strategies des grands investisseurs et politiciens.
+          Positions en temps réel des ETF qui répliquent les stratégies des grands investisseurs, politiciens, sentiment retail et thématiques.
         </p>
 
-        <!-- Sous-onglets ETF -->
-        <div class="etf-subtabs">
-          <button class="etf-subtab active" onclick="loadEtf('congress','NANC')">NANC <span class="etf-badge dem">Democrates</span></button>
-          <button class="etf-subtab" onclick="loadEtf('congress','GOP')">GOP <span class="etf-badge rep">Republicains</span></button>
-          <button class="etf-subtab" onclick="loadEtf('guru','GURU')">GURU <span class="etf-badge guru">Hedge Funds</span></button>
-          <button class="etf-subtab" onclick="loadEtf('ark','ARKK')">ARKK <span class="etf-badge ark">Innovation</span></button>
-          <button class="etf-subtab" onclick="loadEtf('ark','ARKW')">ARKW <span class="etf-badge ark">Internet</span></button>
-          <button class="etf-subtab" onclick="loadEtf('ark','ARKG')">ARKG <span class="etf-badge ark">Biotech</span></button>
-          <button class="etf-subtab" onclick="loadEtf('ark','ARKF')">ARKF <span class="etf-badge ark">Fintech</span></button>
-          <button class="etf-subtab" onclick="loadEtf('ark','ARKQ')">ARKQ <span class="etf-badge ark">Robotique</span></button>
-        </div>
+        <!-- Sous-onglets ETF (groupes par categorie) -->
+        <div id="etfTabs" class="etf-tabs-grouped"></div>
 
         <div id="etfInfoBar" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <span id="etfInfoLabel"></span>
@@ -2450,6 +2457,11 @@
         if (section === 'hotStocks') loadHotStocks();
         if (section === 'consensus13f') loadSmartMoneyConsensus();
         if (section === 'insider') { initInsiderSearch(); loadInsiderTrades(); }
+        if (section === 'etf') {
+          renderEtfTabs();
+          // Charge NANC par defaut au premier passage sur l'onglet
+          loadEtf('congress', 'NANC');
+        }
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -4682,11 +4694,67 @@
     let etfPage = 0;
     const ETF_PAGE_SIZE = 25;
 
-    async function loadEtf(type, symbol) {
+    // Definition des onglets ETF groupes par categorie (UI + endpoint mapping)
+    const ETF_GROUPS = [
+      { label: 'Politique US', badge: 'dem',
+        items: [
+          { symbol: 'NANC', name: 'Démocrates US',  type: 'congress', badgeCls: 'dem' },
+          { symbol: 'GOP',  name: 'Républicains',   type: 'congress', badgeCls: 'rep' },
+        ]},
+      { label: 'Hedge funds',
+        items: [
+          { symbol: 'GURU', name: 'Top 60 hedge funds', type: 'guru', badgeCls: 'guru' },
+        ]},
+      { label: 'Innovation (ARK)',
+        items: [
+          { symbol: 'ARKK', name: 'Innovation', type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKW', name: 'Internet',   type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKG', name: 'Biotech',    type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKF', name: 'Fintech',    type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKQ', name: 'Robotique',  type: 'ark', badgeCls: 'ark' },
+        ]},
+      { label: 'Sentiment retail',
+        items: [
+          { symbol: 'BUZZ', name: 'Social Sentiment', type: 'generic', badgeCls: 'sentiment' },
+          { symbol: 'MEME', name: 'MEME stocks',      type: 'generic', badgeCls: 'sentiment' },
+        ]},
+      { label: 'Income (Covered call)',
+        items: [
+          { symbol: 'JEPI', name: 'JPM Equity Premium',  type: 'generic', badgeCls: 'income' },
+          { symbol: 'JEPQ', name: 'JPM Nasdaq Premium',  type: 'generic', badgeCls: 'income' },
+        ]},
+      { label: 'Thématiques',
+        items: [
+          { symbol: 'ITA', name: 'Defense & Aerospace', type: 'generic', badgeCls: 'thematic' },
+          { symbol: 'URA', name: 'Uranium',              type: 'generic', badgeCls: 'thematic' },
+          { symbol: 'UFO', name: 'Espace',               type: 'generic', badgeCls: 'thematic' },
+          { symbol: 'MJ',  name: 'Cannabis',             type: 'generic', badgeCls: 'thematic' },
+        ]},
+    ];
+
+    function renderEtfTabs() {
+      const wrap = document.getElementById('etfTabs');
+      if (!wrap) return;
+      wrap.innerHTML = ETF_GROUPS.map(group => `
+        <div class="etf-cat-group">
+          <div class="etf-cat-label">${group.label}</div>
+          <div class="etf-cat-buttons">
+            ${group.items.map(it => `
+              <button class="etf-subtab" data-type="${it.type}" data-symbol="${it.symbol}" onclick="loadEtf('${it.type}','${it.symbol}', this)">
+                ${it.symbol} <span class="etf-badge ${it.badgeCls}">${it.name}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function loadEtf(type, symbol, btnEl) {
       etfPage = 0;
-      // Activer le sous-onglet
+      // Activer le sous-onglet (par data-attribute, plus fiable que event.target)
       document.querySelectorAll('.etf-subtab').forEach(b => b.classList.remove('active'));
-      event.target.closest('.etf-subtab').classList.add('active');
+      const target = btnEl || document.querySelector(`.etf-subtab[data-symbol="${symbol}"][data-type="${type}"]`);
+      if (target) target.classList.add('active');
       currentEtf = symbol;
 
       const area = document.getElementById('etfTableArea');
@@ -4700,6 +4768,8 @@
           data = await apiFetch('/api/etf-congress', { symbol });
         } else if (type === 'guru') {
           data = await apiFetch('/api/etf-guru');
+        } else if (type === 'generic') {
+          data = await apiFetch('/api/etf', { symbol });
         }
 
         if (!data || !data.holdings || data.holdings.length === 0) {

@@ -4,10 +4,10 @@ Utilise curl via subprocess car urllib est bloque par certains sites.
 """
 import json, subprocess, csv, io, re, os
 
-def curl_fetch(url):
+def curl_fetch(url, ua='Mozilla/5.0'):
     """Fetch via curl (contourne les blocages User-Agent)."""
     result = subprocess.run(
-        ['curl', '-s', '-L', url],
+        ['curl', '-s', '-L', '-A', ua, url],
         capture_output=True, timeout=30
     )
     return result.stdout.decode('utf-8', errors='replace') if result.returncode == 0 else None
@@ -40,6 +40,107 @@ def parse_congress_csv(csv_text, symbol):
         'totalValue': sum(h['value'] for h in holdings),
         'holdings': holdings,
     }
+
+def parse_zacks_holdings(html, symbol, label, category):
+    """Parse les holdings depuis une page Zacks /funds/etf/<TICKER>/holding.
+
+    Le HTML contient un block JS :
+      etf_holdings.formatted_data = [ [ name_html, ticker_html, shares, weight%, ytd%, report_html ], ... ];
+
+    Strategie : on convertit le block en JSON valide (le format est deja
+    proche : guillemets doubles + arrays), puis json.loads."""
+    from datetime import date
+
+    m = re.search(r'etf_holdings\.formatted_data\s*=\s*(\[.*?\]);', html, re.DOTALL)
+    if not m:
+        return None
+    raw = m.group(1)
+    # Le block est deja en JSON-like : [ [ "...", "...", ... ], [ ... ] ]
+    # Le seul bemol : les strings contiennent des escapes JS (\/) qui sont
+    # valides en JSON aussi (\/  est une sequence d'echappement valide).
+    try:
+        data = json.loads(raw)
+    except Exception as e:
+        # Fallback : nettoyer les caracteres problematiques
+        cleaned = raw
+        try:
+            data = json.loads(cleaned)
+        except Exception:
+            print(f'    JSON parse failed for {symbol}: {e}')
+            return None
+
+    holdings = []
+    for row in data:
+        if not isinstance(row, list) or len(row) < 4:
+            continue
+        # row = [name_html, ticker_html, shares_str, weight_str, ytd_str?, report_html?]
+        name_html = str(row[0]) if row[0] else ''
+        ticker_html = str(row[1]) if row[1] else ''
+        shares_str = str(row[2]) if row[2] else ''
+        weight_str = str(row[3]) if row[3] else ''
+        ytd_str = str(row[4]) if len(row) > 4 and row[4] else ''
+
+        # Extraire le nom
+        title_m = re.search(r'title="([^"]+)"', name_html)
+        if title_m:
+            name = title_m.group(1).strip()
+        else:
+            name = re.sub(r'<[^>]+>', '', name_html).strip()
+
+        # Extraire le ticker depuis rel="TICKER" ou hoverquote-symbol
+        ticker_m = re.search(r'rel="([^"]+)"', ticker_html)
+        if not ticker_m:
+            sym_m = re.search(r'hoverquote-symbol">([^<]+)<', ticker_html)
+            if not sym_m:
+                continue
+            ticker = sym_m.group(1).strip()
+        else:
+            ticker = ticker_m.group(1).strip()
+
+        if not ticker or ticker in ('CASH', 'OTHER', 'USD'):
+            continue
+
+        try:
+            shares = int(shares_str.replace(',', '')) if shares_str else 0
+        except ValueError:
+            shares = 0
+        try:
+            weight = float(weight_str) if weight_str else 0
+        except ValueError:
+            weight = 0
+        ytd = None
+        if ytd_str:
+            try: ytd = float(ytd_str)
+            except ValueError: pass
+
+        holdings.append({
+            'ticker': ticker,
+            'company': name,
+            'shares': shares,
+            'price': None,
+            'value': None,
+            'weight': weight,
+            'ytdPct': ytd,
+        })
+
+    if not holdings:
+        return None
+
+    holdings.sort(key=lambda h: h['weight'], reverse=True)
+    for i, h in enumerate(holdings):
+        h['rank'] = i + 1
+
+    return {
+        'symbol': symbol,
+        'date': date.today().isoformat(),
+        'label': label,
+        'category': category,
+        'holdingsCount': len(holdings),
+        'totalValue': None,
+        'source': 'zacks.com',
+        'holdings': holdings,
+    }
+
 
 def parse_guru_csv(csv_text):
     """Parse le CSV GURU (Global X) avec gestion des guillemets/virgules."""
@@ -113,5 +214,43 @@ if guru_page:
         print('  GURU CSV link: NOT FOUND')
 else:
     print('  GURU page: FAILED')
+
+# ============================================================
+# NOUVEAUX ETF (via Zacks - holdings updated daily)
+# ============================================================
+# Format : (symbol, label_friendly, category, lowercase_symbol_for_url)
+# La category sert au regroupement des sous-onglets dans l'UI dashboard.
+ZACKS_ETFS = [
+    # === Smart retail / Sentiment ===
+    ('BUZZ', 'Social Sentiment',           'Sentiment retail'),
+    ('MEME', 'Roundhill MEME',             'Sentiment retail'),
+
+    # === Income (covered call) ===
+    ('JEPI', 'JPMorgan Equity Premium',    'Income / Covered call'),
+    ('JEPQ', 'JPMorgan Nasdaq Premium',    'Income / Covered call'),
+
+    # === Thematiques sectorielles ===
+    ('ITA',  'iShares Defense & Aerospace','Thematique - Defense'),
+    ('URA',  'Global X Uranium',           'Thematique - Uranium'),
+    ('UFO',  'Procure Space',              'Thematique - Espace'),
+    ('MJ',   'ETFMG Alternative Harvest',  'Thematique - Cannabis'),
+]
+
+for symbol, label, category in ZACKS_ETFS:
+    print(f'Fetching {symbol} ({label})...')
+    url = f'https://www.zacks.com/funds/etf/{symbol}/holding'
+    html = curl_fetch(url)
+    if not html or 'etf_holdings.formatted_data' not in html:
+        print(f'  {symbol}: FAILED (page or formatted_data missing)')
+        continue
+    parsed = parse_zacks_holdings(html, symbol, label, category)
+    if not parsed:
+        print(f'  {symbol}: PARSE FAILED')
+        continue
+    out_file = f'etf_{symbol.lower()}.json'
+    with open(out_file, 'w') as f:
+        json.dump(parsed, f)
+    top = parsed['holdings'][0]['ticker'] if parsed['holdings'] else 'N/A'
+    print(f'  {symbol}: {parsed["holdingsCount"]} pos | Top: {top}')
 
 print('\nDone!')

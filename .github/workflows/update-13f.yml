@@ -174,7 +174,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          for etf in nanc gop guru; do
+          for etf in nanc gop guru buzz meme jepi jepq ita ura ufo mj; do
             if [ -f "etf_${etf}.json" ]; then
               wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "etf-${etf}" --path="etf_${etf}.json"
               echo "Uploaded etf-${etf}"
