@@ -287,21 +287,22 @@ async function handleSmartMoneyConsensus(env, origin) {
     } catch (_) {}
 
     // Aggregation : pour chaque holding (par name normalise), on compile
-    // le nb de fonds, la value totale, la liste des fonds qui detiennent.
-    // FILTRE ANTI-BRUIT : on ne compte une position dans le "consensus" que
-    // si elle represente >= 0.3% du portefeuille du fonds. Sinon les
-    // index passifs (BlackRock 5000 stocks, Vanguard 4000) detiennent
-    // techniquement TOUT et faussent le signal.
-    const MIN_PCT_FOR_CONSENSUS = 0.3;
-    const consensus = new Map(); // name -> { name, ticker, fundCount, totalValue, totalShares, fundsHolding[] }
+    // le nb TOTAL de fonds qui detiennent + un sous-compte "conviction"
+    // (positions >= CONVICTION_THRESHOLD % du portefeuille).
+    //
+    // Rationale : les mega passifs (BlackRock, Vanguard) detiennent techniquement
+    // des milliers de titres avec des pourcentages tres dilues. On NE veut pas
+    // les exclure totalement (c'est rassurant de voir qu'AAPL est detenu par
+    // Vanguard meme si c'est 0.1%), mais on ajoute un score "conviction"
+    // pour faire ressortir les vrais signaux smart money sans polluer.
+    const CONVICTION_THRESHOLD = 0.3;  // % du portefeuille du fonds
+    const consensus = new Map(); // name -> { ..., fundCount, convictionCount, fundsHolding[] }
 
     for (const fund of funds) {
       if (!Array.isArray(fund.topHoldings)) continue;
       for (const h of fund.topHoldings) {
         if (!h.name) continue;
-        // Filtre signal : ignorer les positions trop diluees
         const pct = Number(h.pct) || 0;
-        if (pct < MIN_PCT_FOR_CONSENSUS) continue;
         const key = normalizeForMatch(h.name);
         if (!key) continue;
 
@@ -310,7 +311,8 @@ async function handleSmartMoneyConsensus(env, origin) {
             name: h.name,
             ticker: tickerByName.get(key) || null,
             cusip: h.cusip || null,
-            fundCount: 0,
+            fundCount: 0,          // Total de fonds qui detiennent (toute position)
+            convictionCount: 0,    // Sous-compte : fonds avec position >= 0.3% (vrai signal)
             totalValue: 0,
             totalShares: 0,
             avgPctOfPortfolio: 0,
@@ -319,6 +321,7 @@ async function handleSmartMoneyConsensus(env, origin) {
         }
         const entry = consensus.get(key);
         entry.fundCount += 1;
+        if (pct >= CONVICTION_THRESHOLD) entry.convictionCount += 1;
         entry.totalValue += Number(h.value) || 0;
         entry.totalShares += Number(h.shares) || 0;
         entry.fundsHolding.push({
@@ -329,21 +332,25 @@ async function handleSmartMoneyConsensus(env, origin) {
           shares: Number(h.shares) || 0,
           value: Number(h.value) || 0,
           pct: Number(h.pct) || 0,            // % du portefeuille du fonds
+          isConviction: pct >= CONVICTION_THRESHOLD,  // helper pour l'UI
           sharesChange: h.sharesChange != null ? Number(h.sharesChange) : null,
           status: h.status || null,            // 'new' / 'increased' / 'decreased' / 'sold'
         });
       }
     }
 
-    // Calcul moyenne pct + tri par fundCount desc, puis totalValue desc
+    // Calcul moyenne pct + tri par convictionCount desc (vrai smart money signal),
+    // puis fundCount desc, puis totalValue desc. Cela fait remonter les actions
+    // ou plusieurs fonds ont une position significative, meme si d'autres
+    // passifs les detiennent aussi.
     const list = Array.from(consensus.values()).map(c => {
       const pcts = c.fundsHolding.map(f => f.pct).filter(p => p > 0);
       c.avgPctOfPortfolio = pcts.length ? +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2) : 0;
-      // Trier les fundsHolding par value desc
-      c.fundsHolding.sort((a, b) => b.value - a.value);
+      // Trier les fundsHolding : conviction en premier, puis par value desc
+      c.fundsHolding.sort((a, b) => (b.isConviction - a.isConviction) || (b.value - a.value));
       return c;
     });
-    list.sort((a, b) => (b.fundCount - a.fundCount) || (b.totalValue - a.totalValue));
+    list.sort((a, b) => (b.convictionCount - a.convictionCount) || (b.fundCount - a.fundCount) || (b.totalValue - a.totalValue));
 
     return jsonResponse({
       updatedAt: new Date().toISOString(),

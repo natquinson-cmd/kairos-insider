@@ -3791,19 +3791,32 @@
         // Tableau principal : top 50
         const top = data.consensus.slice(0, 50);
         const lonelyPicks = data.consensus.filter(c => c.fundCount === 1).slice(0, 12);
-        const ultraConsensus = data.consensus.filter(c => c.fundCount >= 5).length;
+        // Ultra-consensus = plusieurs fonds en CONVICTION (pas juste detention passive)
+        const ultraConsensus = data.consensus.filter(c => (c.convictionCount || 0) >= 3).length;
 
-        // Couleur basée sur le ratio de fonds qui détiennent
-        const dotColor = (count) => {
-          const pct = count / total;
-          if (pct >= 0.5) return '#2ecc71';   // >50% des fonds
-          if (pct >= 0.25) return '#74b9ff';  // 25-50%
-          if (pct >= 0.10) return '#a29bfe';  // 10-25%
-          return '#9CA3AF';                    // < 10%
+        // Couleur basée sur le ratio de fonds qui détiennent EN CONVICTION
+        const dotColor = (convictionCount) => {
+          if (convictionCount >= 5) return '#2ecc71';
+          if (convictionCount >= 3) return '#74b9ff';
+          if (convictionCount >= 1) return '#a29bfe';
+          return '#9CA3AF';
         };
 
         const renderRow = (c, rank) => {
-          const fundsList = c.fundsHolding.slice(0, 3).map(f => f.label || f.fundName.slice(0,18)).join(', ') + (c.fundsHolding.length > 3 ? ` +${c.fundsHolding.length-3}` : '');
+          // Distingue visuellement conviction vs passifs dans la liste des fonds
+          const convictionFunds = c.fundsHolding.filter(f => f.isConviction).slice(0, 2);
+          const passiveFunds = c.fundsHolding.filter(f => !f.isConviction).slice(0, 2);
+          const fundsChips = [
+            ...convictionFunds.map(f => `<span style="display:inline-block;padding:2px 7px;background:rgba(46,204,113,0.15);color:#2ecc71;border-radius:10px;font-size:10px;font-weight:600;margin-right:4px;margin-bottom:2px">★ ${(f.label || f.fundName || '').slice(0, 16)}</span>`),
+            ...passiveFunds.map(f => `<span style="display:inline-block;padding:2px 7px;background:var(--surface-3);opacity:0.7;border-radius:10px;font-size:10px;margin-right:4px;margin-bottom:2px">${(f.label || f.fundName || '').slice(0, 16)}</span>`),
+          ].join('');
+          const more = c.fundsHolding.length - convictionFunds.length - passiveFunds.length;
+          const moreChip = more > 0 ? `<span style="opacity:0.5;font-size:11px">+${more}</span>` : '';
+
+          const convBadge = (c.convictionCount || 0) > 0
+            ? `<div style="font-size:10px;margin-top:2px;color:#2ecc71">★ ${c.convictionCount} conviction</div>`
+            : `<div style="font-size:10px;margin-top:2px;opacity:0.5">aucune conviction</div>`;
+
           return `
             <tr ${c.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${c.ticker}'), 200)" style="cursor:pointer"` : ''}>
               <td style="text-align:center;font-weight:600;opacity:0.5">${rank}</td>
@@ -3813,14 +3826,15 @@
               </td>
               <td style="text-align:center">
                 <div style="display:inline-flex;align-items:center;gap:6px">
-                  <span style="width:8px;height:8px;border-radius:50%;background:${dotColor(c.fundCount)}"></span>
+                  <span style="width:8px;height:8px;border-radius:50%;background:${dotColor(c.convictionCount || 0)}"></span>
                   <strong style="font-size:14px">${c.fundCount}</strong>
                   <span style="opacity:0.5;font-size:11px">/ ${total}</span>
                 </div>
+                ${convBadge}
               </td>
               <td style="text-align:right;font-weight:600">${fmtBig2(c.totalValue)}</td>
               <td style="text-align:right">${c.avgPctOfPortfolio ? c.avgPctOfPortfolio.toFixed(1) + '%' : '—'}</td>
-              <td style="font-size:11px;opacity:0.7">${fundsList}</td>
+              <td style="font-size:11px">${fundsChips}${moreChip}</td>
             </tr>
           `;
         };
@@ -3839,14 +3853,14 @@
               <div style="font-size:24px;font-weight:700;color:#74b9ff;margin-top:4px">${data.totalUniqueStocks}</div>
             </div>
             <div style="padding:16px;background:linear-gradient(135deg,rgba(162,155,254,0.08),rgba(162,155,254,0.02));border:1px solid rgba(162,155,254,0.15);border-radius:10px">
-              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Ultra-consensus (≥5 fonds)</div>
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Ultra-conviction (≥3 fonds ★)</div>
               <div style="font-size:24px;font-weight:700;color:#a29bfe;margin-top:4px">${ultraConsensus}</div>
             </div>
           </div>
 
           <h3 style="font-size:18px;margin:0 0 12px">🏆 Top 50 actions partagées</h3>
           <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
-            Triées par nombre de fonds qui les détiennent. Une position partagée par 5+ fonds est rarement un hasard.
+            Triées par nombre de fonds en <strong>conviction</strong> (position ≥ 0.3% du portefeuille). Les puces vertes ★ indiquent les convictions, les grises sont les positions passives.
           </p>
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -3854,7 +3868,7 @@
                 <tr style="background:var(--surface-2)">
                   <th style="text-align:center;padding:12px 8px;font-size:11px;text-transform:uppercase;opacity:0.7">#</th>
                   <th style="text-align:left;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Action</th>
-                  <th style="text-align:center;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Fonds</th>
+                  <th style="text-align:center;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7" title="Total de fonds qui détiennent + badge conviction (≥0.3% du portefeuille)">Fonds (total / conviction)</th>
                   <th style="text-align:right;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Value totale</th>
                   <th style="text-align:right;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">% portefeuille moy.</th>
                   <th style="text-align:left;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Détenue par</th>
@@ -3889,7 +3903,9 @@
 
           <div style="margin-top:32px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.7;opacity:0.8">
             <strong style="color:var(--text-primary)">💡 Comment lire ces données ?</strong><br>
-            Le <strong>nombre de fonds</strong> partage chaque position dépend de notre liste de fonds suivis (${total} actuellement). Plus la liste s'étoffe, plus le signal devient fiable. Les <strong>actions très consensus</strong> (5+ fonds) bénéficient souvent d'un soutien structurel — mais sont aussi des "crowded trades" qui peuvent souffrir en cas de retournement de sentiment.
+            • <strong>Nombre de fonds</strong> (${total} suivis) : combien détiennent la position, même infime. Rassurant car montre que les institutionnels valident le titre.<br>
+            • <span style="color:#2ecc71">★ <strong>Conviction</strong></span> : fonds dont la position représente <strong>≥ 0.3% du portefeuille</strong> (signal fort : ils l'ont choisie activement, ce n'est pas juste de l'indexation passive type BlackRock/Vanguard).<br>
+            • Le tri privilégie les <strong>actions avec plusieurs fonds en conviction simultanément</strong> — c'est le vrai smart money consensus.
             ${updatedAt ? `<br><span style="opacity:0.5;font-size:11px">Mis à jour : ${updatedAt}</span>` : ''}
           </div>
         `;
