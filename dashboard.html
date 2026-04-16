@@ -606,6 +606,8 @@
     tbody tr:hover { background: var(--bg-card); }
     tbody tr:last-child td { border-bottom: none; }
     .ticker { color: var(--accent-blue); font-weight: 700; font-family: 'Space Grotesk', monospace; }
+    .clickable-ticker { cursor: pointer; transition: all 0.15s; }
+    .clickable-ticker:hover { text-decoration: underline; transform: translateX(2px); }
     .pill {
       display: inline-block; padding: 3px 10px; border-radius: 100px;
       font-size: 11px; font-weight: 700; text-transform: uppercase;
@@ -2461,7 +2463,7 @@
         rows += `<tr>
           <td style="white-space:nowrap">${dateCell}</td>
           <td style="white-space:nowrap;text-align:center" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
-          <td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>
+          ${t.ticker ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(t.ticker).replace(/'/g, "\\'")}'), 150)" title="${t.isin || ''} · Cliquer pour analyser ${t.ticker}">${tickerDisplay}</td>` : `<td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>`}
           <td style="color:var(--text-primary)">${t.company || '—'}</td>
           <td>${t.insider || '—'}</td>
           <td>${translatePosition(t.title)}</td>
@@ -4180,9 +4182,14 @@
             changeHtml = '<span style="color:var(--text-muted)">—</span>';
           }
 
+          // Ticker cliquable : ouvre l'Analyse action
+          const tickerClickable = h.ticker
+            ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(h.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${h.ticker}">${h.ticker}</td>`
+            : `<td class="ticker">—</td>`;
+
           rows += `<tr>
             <td style="text-align:center;color:var(--text-muted)">${h.rank}</td>
-            <td class="ticker">${h.ticker || '—'}</td>
+            ${tickerClickable}
             <td style="color:var(--text-primary)">${h.company || '—'}</td>
             <td style="text-align:right">${fmtNum(h.shares)}</td>
             <td style="text-align:right">${h.price ? fmtCur(h.price) : '—'}</td>
@@ -4534,7 +4541,7 @@
         const squeezCls = s.si >= 25 ? 'sell' : s.si >= 15 ? 'other' : 'buy';
 
         rows += `<tr>
-          <td class="ticker">${s.ticker}</td>
+          <td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(s.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${s.ticker}">${s.ticker}</td>
           <td style="color:var(--text-primary)">${s.company}</td>
           <td style="text-align:right;font-weight:700;color:var(--accent-red)">${s.si}%</td>
           <td style="text-align:right">
@@ -4661,12 +4668,26 @@
       return placed;
     }
 
-    // Genere une couleur tinted depuis une palette de teintes harmonieuses (style finviz)
+    // Palette pastel douce pour le heatmap (style TradeZella)
+    // Tailwind 400 = tinted, doux, mais assez sature pour que le texte blanc
+    // reste lisible (contrast ratio suffisant).
     function treemapColor(index, total) {
       const palette = [
-        '#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B',
-        '#EF4444', '#EC4899', '#14B8A6', '#6366F1', '#F97316',
-        '#84CC16', '#A855F7', '#0EA5E9', '#22C55E', '#EAB308',
+        '#60A5FA', // blue-400 (bleu doux)
+        '#A78BFA', // violet-400 (violet pastel)
+        '#22D3EE', // cyan-400 (cyan doux)
+        '#34D399', // emerald-400 (vert jade)
+        '#FBBF24', // amber-400 (ambre doux)
+        '#F87171', // red-400 (rouge corail)
+        '#F472B6', // pink-400 (rose doux)
+        '#2DD4BF', // teal-400 (turquoise doux)
+        '#818CF8', // indigo-400 (indigo clair)
+        '#FB923C', // orange-400 (orange pastel)
+        '#A3E635', // lime-400 (vert lime doux)
+        '#C084FC', // purple-400 (mauve pastel)
+        '#38BDF8', // sky-400 (bleu ciel doux)
+        '#4ADE80', // green-400 (vert pastel)
+        '#FACC15', // yellow-400 (jaune doux)
       ];
       return palette[index % palette.length];
     }
@@ -4770,19 +4791,27 @@
           let html = '';
           for (const p of placed) {
             const it = p.item;
-            const color = it.isOthers ? '#475569' : treemapColor(it.colorIdx, items.length);
+            // Couleur pastel (Tailwind 400). "Autres" = slate-400 doux.
+            const color = it.isOthers ? '#94A3B8' : treemapColor(it.colorIdx, items.length);
             const fontSize = Math.min(Math.max(Math.sqrt(p.w * p.h) / 8, 10), 28);
             const showLabel = p.w > 32 && p.h > 24;
             const showPct = p.w > 50 && p.h > 38;
             const changeArrow = it.change != null ? (it.change >= 0 ? '▲' : '▼') : '';
-            const changeColor = it.change != null ? (it.change >= 0 ? '#86efac' : '#fca5a5') : '';
+            // Couleurs variation adaptees au fond pastel (contrast ratio OK)
+            const changeColor = it.change != null ? (it.change >= 0 ? '#064E3B' : '#7F1D1D') : '';
+            // Ticker cliquable (sauf "Autres") : ouvre l'Analyse action
+            const isClickable = !it.isOthers && it.ticker && it.ticker !== '?';
+            const tickerEscaped = isClickable ? String(it.ticker).replace(/'/g, "\\'") : '';
+            const onclickAttr = isClickable
+              ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${tickerEscaped}'), 150)"`
+              : '';
             html += `
-              <div class="tm-cell" title="${it.ticker} — ${it.name} (${it.pct}%)" style="
+              <div class="tm-cell" title="${it.ticker} — ${it.name} (${it.pct}%)${isClickable ? ' · Cliquer pour analyser' : ''}" ${onclickAttr} style="
                 position:absolute;
                 left:${p.x}px; top:${p.y}px; width:${p.w}px; height:${p.h}px;
                 background:${color};
                 box-sizing:border-box;
-                border:1px solid rgba(0,0,0,0.25);
+                border:1px solid rgba(255,255,255,0.2);
                 color:#fff;
                 display:flex;
                 flex-direction:column;
@@ -4791,12 +4820,12 @@
                 text-align:center;
                 overflow:hidden;
                 padding:4px;
-                cursor:default;
-                transition:filter 0.15s;
-              " onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='brightness(1)'">
-                ${showLabel ? `<div style="font-weight:700;font-size:${fontSize}px;line-height:1.1;text-shadow:0 1px 2px rgba(0,0,0,0.4)">${it.ticker}</div>` : ''}
-                ${showPct ? `<div style="font-size:${Math.max(fontSize * 0.55, 10)}px;opacity:0.9;margin-top:2px">${it.pct}%</div>` : ''}
-                ${showPct && changeArrow ? `<div style="font-size:${Math.max(fontSize * 0.5, 9)}px;color:${changeColor};margin-top:2px">${changeArrow} ${Math.abs(it.change).toFixed(1)}%</div>` : ''}
+                cursor:${isClickable ? 'pointer' : 'default'};
+                transition:filter 0.15s, transform 0.1s;
+              " onmouseover="this.style.filter='brightness(1.08) saturate(1.15)'${isClickable ? ';this.style.transform=\\'scale(1.01)\\'' : ''}" onmouseout="this.style.filter='brightness(1) saturate(1)';this.style.transform='scale(1)'">
+                ${showLabel ? `<div style="font-weight:800;font-size:${fontSize}px;line-height:1.1;text-shadow:0 1px 3px rgba(0,0,0,0.35);letter-spacing:-0.01em">${it.ticker}</div>` : ''}
+                ${showPct ? `<div style="font-size:${Math.max(fontSize * 0.55, 10)}px;opacity:0.92;margin-top:2px;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.25)">${it.pct}%</div>` : ''}
+                ${showPct && changeArrow ? `<div style="font-size:${Math.max(fontSize * 0.5, 9)}px;background:rgba(255,255,255,0.88);color:${changeColor};margin-top:3px;padding:1px 6px;border-radius:8px;font-weight:700">${changeArrow} ${Math.abs(it.change).toFixed(1)}%</div>` : ''}
               </div>
             `;
           }
@@ -5619,7 +5648,7 @@
         const cls = t.pnl >= 0 ? 'buy' : 'sell';
         rows += `<tr>
           <td>${fmtDate(t.date)}</td>
-          <td class="ticker">${t.symbol || '—'}</td>
+          ${t.symbol ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(t.symbol).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${t.symbol}">${t.symbol}</td>` : `<td class="ticker">—</td>`}
           <td>${t.type === 'sell' ? '<span class="pill sell">VENTE</span>' : '<span class="pill buy">ACHAT</span>'}</td>
           <td style="text-align:right">${t.size ? fmtNum(t.size) : '—'}</td>
           <td style="text-align:right;font-weight:600;color:var(--accent-${cls})">${t.pnl >= 0 ? '+' : ''}${fmtEur(t.pnl)}</td>
