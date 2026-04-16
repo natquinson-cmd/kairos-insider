@@ -38,6 +38,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
+  <!-- SEO international : signaler a Google qu'on a une version EN -->
+  <link rel="alternate" hreflang="fr" href="https://kairosinsider.fr/" />
+  <link rel="alternate" hreflang="en" href="https://kairosinsider.fr/?lang=en" />
+  <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
+
+  <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
+  <script src="assets/i18n.js"></script>
+
   <style>
     :root {
       --bg-primary: #0A0F1E;
@@ -800,10 +808,18 @@
         <span class="logo-text">Kairos Insider</span>
       </div>
       <ul class="nav-links">
-        <li><a href="#features">Fonctionnalités</a></li>
-        <li><a href="#pricing">Tarifs</a></li>
-        <li><a href="#data">Données</a></li>
-        <li><a href="dashboard.html" class="btn btn-primary">Essayer gratuitement</a></li>
+        <li><a href="#features" data-i18n="nav.features">Fonctionnalités</a></li>
+        <li><a href="#pricing" data-i18n="nav.pricing">Tarifs</a></li>
+        <li><a href="#data" data-i18n="nav.data">Données</a></li>
+        <li>
+          <button id="navLangToggle" onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === 'fr' ? 'en' : 'fr')" data-i18n-title="nav.lang_switch_title" title="Switch to English"
+                  style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 12px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
+                  onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'"
+                  onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'">
+            <span id="navLangFlag">🇬🇧</span><span data-i18n="nav.lang_switch">EN</span>
+          </button>
+        </li>
+        <li><a href="dashboard.html" class="btn btn-primary" data-i18n="nav.try_free">Essayer gratuitement</a></li>
       </ul>
     </div>
   </nav>
@@ -815,27 +831,27 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="pulse"></span>
-            <span>Plateforme en ligne · Données live SEC / AMF / BaFin</span>
+            <span data-i18n="hero.badge">Plateforme en ligne · Données live SEC / AMF / BaFin</span>
           </div>
 
           <h1>
-            Voyez ce que<br />
-            <span class="gradient-text">les pros voient.</span>
+            <span data-i18n="hero.title_part1">Voyez ce que</span><br />
+            <span class="gradient-text" data-i18n="hero.title_part2">les pros voient.</span>
           </h1>
 
-          <p class="hero-subtitle">
+          <p class="hero-subtitle" data-i18n="hero.subtitle_html">
             Suivez chaque jour les mouvements des <strong style="color:var(--text-primary)">200+ plus grands hedge funds</strong>, des <strong style="color:var(--text-primary)">dirigeants d'entreprise</strong>, des <strong style="color:var(--text-primary)">politiciens US</strong> et des <strong style="color:var(--text-primary)">ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.
           </p>
 
           <div class="hero-cta">
-            <a href="dashboard.html" class="btn btn-primary btn-large">Essayer gratuitement →</a>
-            <a href="/a/AAPL" class="btn btn-secondary btn-large">Voir un exemple d'analyse</a>
+            <a href="dashboard.html" class="btn btn-primary btn-large" data-i18n="hero.cta_try">Essayer gratuitement →</a>
+            <a href="/a/AAPL" class="btn btn-secondary btn-large" data-i18n="hero.cta_example">Voir un exemple d'analyse</a>
           </div>
 
           <div class="hero-meta">
-            <span><span class="check">✓</span> 100% légal</span>
-            <span><span class="check">✓</span> MàJ chaque matin à 7h</span>
-            <span><span class="check">✓</span> 100% en français</span>
+            <span><span class="check">✓</span> <span data-i18n="hero.meta_legal">100% légal</span></span>
+            <span><span class="check">✓</span> <span data-i18n="hero.meta_update">MàJ chaque matin à 7h</span></span>
+            <span><span class="check">✓</span> <span data-i18n="hero.meta_french">100% en français</span></span>
           </div>
         </div>
 
@@ -918,19 +934,19 @@
       <div class="stats-bar">
         <div class="stat-item">
           <div class="stat-number">200+</div>
-          <div class="stat-label">Hedge funds suivis</div>
+          <div class="stat-label" data-i18n="stats.funds_tracked">Hedge funds suivis</div>
         </div>
         <div class="stat-item">
           <div class="stat-number">1000+</div>
-          <div class="stat-label">Actions analysées</div>
+          <div class="stat-label" data-i18n="stats.stocks_analyzed">Actions analysées</div>
         </div>
         <div class="stat-item">
           <div class="stat-number">0-100</div>
-          <div class="stat-label">Kairos Score composite</div>
+          <div class="stat-label" data-i18n="stats.kairos_score">Kairos Score composite</div>
         </div>
         <div class="stat-item">
           <div class="stat-number">7h</div>
-          <div class="stat-label">MàJ quotidienne (Paris)</div>
+          <div class="stat-label" data-i18n="stats.daily_update">MàJ quotidienne (Paris)</div>
         </div>
       </div>
     </div>
@@ -940,9 +956,9 @@
   <section class="section" id="profiles">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Pour qui ?</span>
-        <h2>Fait pour tous les investisseurs<br />qui veulent <span class="gradient-text">un vrai avantage</span>.</h2>
-        <p class="section-subtitle">
+        <span class="section-badge" data-i18n="profiles.badge">Pour qui ?</span>
+        <h2><span data-i18n="profiles.title_part1">Fait pour tous les investisseurs</span><br /><span data-i18n="profiles.title_part2">qui veulent</span> <span class="gradient-text" data-i18n="profiles.title_part3">un vrai avantage</span>.</h2>
+        <p class="section-subtitle" data-i18n="profiles.subtitle">
           Que tu investisses sur le long terme ou trade au jour le jour, Kairos Insider te donne l'information que les institutionnels utilisent depuis toujours.
         </p>
       </div>
@@ -952,29 +968,29 @@
           <div class="profile-icon green">
             <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg>
           </div>
-          <h3>Investisseur long terme</h3>
-          <p>Construis un portefeuille aligné avec les convictions des plus grands gérants. Vois qui achète, qui vend, sur quel horizon.</p>
+          <h3 data-i18n="profiles.long_term.title">Investisseur long terme</h3>
+          <p data-i18n="profiles.long_term.desc">Construis un portefeuille aligné avec les convictions des plus grands gérants. Vois qui achète, qui vend, sur quel horizon.</p>
         </div>
         <div class="profile-card">
           <div class="profile-icon blue">
             <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
           </div>
-          <h3>Swing trader</h3>
-          <p>Détecte les rotations sectorielles, les mouvements d'insiders en cluster et les spikes d'intérêt retail sur les small caps.</p>
+          <h3 data-i18n="profiles.swing.title">Swing trader</h3>
+          <p data-i18n="profiles.swing.desc">Détecte les rotations sectorielles, les mouvements d'insiders en cluster et les spikes d'intérêt retail sur les small caps.</p>
         </div>
         <div class="profile-card">
           <div class="profile-icon purple">
             <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
-          <h3>Trader actif</h3>
-          <p>Analyse un ticker en 30 secondes : Kairos Score, insiders, 13F, Google Trends, fondamentaux, santé financière. Tout en un.</p>
+          <h3 data-i18n="profiles.active.title">Trader actif</h3>
+          <p data-i18n="profiles.active.desc">Analyse un ticker en 30 secondes : Kairos Score, insiders, 13F, Google Trends, fondamentaux, santé financière. Tout en un.</p>
         </div>
         <div class="profile-card">
           <div class="profile-icon orange">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           </div>
-          <h3>Épargnant DIY</h3>
-          <p>Importe ton portefeuille (tous brokers), suis tes performances, et ne rate plus jamais un signal majeur sur tes positions.</p>
+          <h3 data-i18n="profiles.diy.title">Épargnant DIY</h3>
+          <p data-i18n="profiles.diy.desc">Importe ton portefeuille (tous brokers), suis tes performances, et ne rate plus jamais un signal majeur sur tes positions.</p>
         </div>
       </div>
     </div>
@@ -984,9 +1000,9 @@
   <section class="section" id="features" style="padding-top:60px">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Fonctionnalités</span>
-        <h2>Tout le smart money<br />en une seule interface.</h2>
-        <p class="section-subtitle">
+        <span class="section-badge" data-i18n="features.badge">Fonctionnalités</span>
+        <h2><span data-i18n="features.title_part1">Tout le smart money</span><br /><span data-i18n="features.title_part2">en une seule interface.</span></h2>
+        <p class="section-subtitle" data-i18n="features.subtitle">
           Huit modules connectés, mis à jour chaque matin à 7h Paris, avant l'ouverture d'Euronext.
         </p>
       </div>
@@ -994,58 +1010,58 @@
       <div class="features-detailed">
         <div class="feature-big">
           <div class="feature-big-icon blue">🔎</div>
-          <h3>Kairos Score 0-100</h3>
-          <p>Score composite qui agrège 8 dimensions : initiés (SEC/AMF/BaFin), hedge funds, politiciens &amp; gourous, momentum, valorisation, consensus analystes, santé financière, résultats. Visualisé en radar SVG signature avec synthèse textuelle adaptative.</p>
-          <span class="feature-big-chip live">● Calculé pour 1000+ actions</span>
+          <h3 data-i18n="feat.score.title">Kairos Score 0-100</h3>
+          <p data-i18n="feat.score.desc">Score composite qui agrège 8 dimensions : initiés (SEC/AMF/BaFin), hedge funds, politiciens &amp; gourous, momentum, valorisation, consensus analystes, santé financière, résultats. Visualisé en radar SVG signature avec synthèse textuelle adaptative.</p>
+          <span class="feature-big-chip live" data-i18n="feat.score.chip">● Calculé pour 1000+ actions</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon purple">🤝</div>
-          <h3>Consensus Hedge Funds</h3>
-          <p><strong>200+ hedge funds suivis</strong> (Buffett, Burry, Ackman, Tiger Global, Coatue, BlackRock, Vanguard…). Voyez quelles actions sont partagées en <strong>conviction ★</strong> et qui sont les "lonely picks" — ces paris contrariens qu'un seul fonds détient.</p>
-          <span class="feature-big-chip live">● Activité du trimestre</span>
+          <h3 data-i18n="feat.consensus.title">Consensus Hedge Funds</h3>
+          <p data-i18n="feat.consensus.desc_html"><strong>200+ hedge funds suivis</strong> (Buffett, Burry, Ackman, Tiger Global, Coatue, BlackRock, Vanguard…). Voyez quelles actions sont partagées en <strong>conviction ★</strong> et qui sont les "lonely picks" — ces paris contrariens qu'un seul fonds détient.</p>
+          <span class="feature-big-chip live" data-i18n="feat.consensus.chip">● Activité du trimestre</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon pink">📋</div>
-          <h3>Transactions Insiders</h3>
-          <p>Chaque achat ou vente déclaré par les dirigeants aux régulateurs : SEC (États-Unis), AMF (France), BaFin (Allemagne / UE). Traduit et contextualisé en français, avec détection automatique des clusters d'initiés (signal historiquement fort).</p>
-          <span class="feature-big-chip live">● MàJ quotidienne</span>
+          <h3 data-i18n="feat.insiders.title">Transactions Insiders</h3>
+          <p data-i18n="feat.insiders.desc">Chaque achat ou vente déclaré par les dirigeants aux régulateurs : SEC (États-Unis), AMF (France), BaFin (Allemagne / UE). Traduit et contextualisé en français, avec détection automatique des clusters d'initiés (signal historiquement fort).</p>
+          <span class="feature-big-chip live" data-i18n="feat.insiders.chip">● MàJ quotidienne</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon orange">🔥</div>
-          <h3>Hot Stocks — Google Trends</h3>
-          <p>Détectez les spikes d'intérêt retail avant qu'ils ne se traduisent en mouvement de prix. Données Google Trends filtrées anti-bruit (seuils d'intérêt absolu), top risers / top hot rafraîchis chaque jour.</p>
-          <span class="feature-big-chip new">NEW · Signal retail</span>
+          <h3 data-i18n="feat.trends.title">Hot Stocks — Google Trends</h3>
+          <p data-i18n="feat.trends.desc">Détectez les spikes d'intérêt retail avant qu'ils ne se traduisent en mouvement de prix. Données Google Trends filtrées anti-bruit (seuils d'intérêt absolu), top risers / top hot rafraîchis chaque jour.</p>
+          <span class="feature-big-chip new" data-i18n="feat.trends.chip">NEW · Signal retail</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon green">📊</div>
-          <h3>ETF Live (11 ETF thématiques)</h3>
-          <p><strong>Politique US</strong> (NANC, GOP), <strong>hedge funds consensus</strong> (GURU), <strong>innovation</strong> (ARKK, ARKW, ARKG, ARKF, ARKQ), <strong>sentiment retail</strong> (BUZZ, MEME), <strong>income</strong> (JEPI, JEPQ), <strong>thématiques</strong> (Defense, Uranium, Espace, Cannabis). Heatmap visuelle + détection rotations.</p>
-          <span class="feature-big-chip new">NEW · 11 ETF</span>
+          <h3 data-i18n="feat.etf.title">ETF Live (11 ETF thématiques)</h3>
+          <p data-i18n="feat.etf.desc_html"><strong>Politique US</strong> (NANC, GOP), <strong>hedge funds consensus</strong> (GURU), <strong>innovation</strong> (ARKK, ARKW, ARKG, ARKF, ARKQ), <strong>sentiment retail</strong> (BUZZ, MEME), <strong>income</strong> (JEPI, JEPQ), <strong>thématiques</strong> (Defense, Uranium, Espace, Cannabis). Heatmap visuelle + détection rotations.</p>
+          <span class="feature-big-chip new" data-i18n="feat.etf.chip">NEW · 11 ETF</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon cyan">📈</div>
-          <h3>Historique 2 ans</h3>
-          <p>Suivez l'évolution AUM des fonds et leurs rotations sur <strong>jusqu'à 8 trimestres</strong>. Voyez les rotations ETF récentes (entrées/sorties) et l'évolution du Kairos Score sur 90 jours. Stocké dans Cloudflare D1 (SQL serverless).</p>
-          <span class="feature-big-chip new">NEW · Sparklines évolution</span>
+          <h3 data-i18n="feat.history.title">Historique 2 ans</h3>
+          <p data-i18n="feat.history.desc_html">Suivez l'évolution AUM des fonds et leurs rotations sur <strong>jusqu'à 8 trimestres</strong>. Voyez les rotations ETF récentes (entrées/sorties) et l'évolution du Kairos Score sur 90 jours. Stocké dans Cloudflare D1 (SQL serverless).</p>
+          <span class="feature-big-chip new" data-i18n="feat.history.chip">NEW · Sparklines évolution</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon blue">🎯</div>
-          <h3>Analyse action complète</h3>
-          <p>Deep-dive sur n'importe quel ticker : Kairos Score visuel, fondamentaux avec verdict couleur (P/E, PEG, EV/EBITDA…), santé financière (Altman Z, Piotroski F), earnings 6 trimestres, peers sectoriels, consensus analystes avec objectif de cours, chart 1 an avec overlay insiders.</p>
-          <span class="feature-big-chip live">● 1000+ tickers couverts</span>
+          <h3 data-i18n="feat.deep.title">Analyse action complète</h3>
+          <p data-i18n="feat.deep.desc">Deep-dive sur n'importe quel ticker : Kairos Score visuel, fondamentaux avec verdict couleur (P/E, PEG, EV/EBITDA…), santé financière (Altman Z, Piotroski F), earnings 6 trimestres, peers sectoriels, consensus analystes avec objectif de cours, chart 1 an avec overlay insiders.</p>
+          <span class="feature-big-chip live" data-i18n="feat.deep.chip">● 1000+ tickers couverts</span>
         </div>
 
         <div class="feature-big">
           <div class="feature-big-icon orange">💼</div>
-          <h3>Mon Portefeuille <span style="color:#FDE047;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:rgba(250,204,21,0.18);border:1px solid rgba(250,204,21,0.35);padding:2px 7px;border-radius:100px;margin-left:6px;vertical-align:middle">Beta</span></h3>
-          <p>Importez votre historique depuis n'importe quelle plateforme (Trade Republic, Degiro, Boursorama, eToro…). Suivez vos performances mensuelles, win rate, drawdown. <em>Synchronisation automatique avec brokers à venir.</em></p>
-          <span class="feature-big-chip new">BETA · Multi-broker CSV</span>
+          <h3><span data-i18n="feat.portfolio.title">Mon Portefeuille</span> <span style="color:#FDE047;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:rgba(250,204,21,0.18);border:1px solid rgba(250,204,21,0.35);padding:2px 7px;border-radius:100px;margin-left:6px;vertical-align:middle">Beta</span></h3>
+          <p data-i18n="feat.portfolio.desc_html">Importez votre historique depuis n'importe quelle plateforme (Trade Republic, Degiro, Boursorama, eToro…). Suivez vos performances mensuelles, win rate, drawdown. <em>Synchronisation automatique avec brokers à venir.</em></p>
+          <span class="feature-big-chip new" data-i18n="feat.portfolio.chip">BETA · Multi-broker CSV</span>
         </div>
       </div>
     </div>
@@ -1055,9 +1071,9 @@
   <section class="section" id="comparison" style="padding-top:40px">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Comparaison</span>
-        <h2>Pourquoi <span class="gradient-text">Kairos Insider</span> ?</h2>
-        <p class="section-subtitle">
+        <span class="section-badge" data-i18n="comp.badge">Comparaison</span>
+        <h2><span data-i18n="comp.title_part1">Pourquoi</span> <span class="gradient-text">Kairos Insider</span><span data-i18n="comp.title_part2"> ?</span></h2>
+        <p class="section-subtitle" data-i18n="comp.subtitle">
           La seule plateforme qui combine smart money + fondamentaux + retail + analyse francophone dans une interface unifiée.
         </p>
       </div>
@@ -1066,7 +1082,7 @@
         <table class="comparison-table">
           <thead>
             <tr>
-              <th style="text-align:left">Fonctionnalité</th>
+              <th style="text-align:left" data-i18n="comp.col_feature">Fonctionnalité</th>
               <th class="kairos">Kairos Insider</th>
               <th>Finviz</th>
               <th>Whalewisdom</th>
@@ -1075,70 +1091,70 @@
           </thead>
           <tbody>
             <tr>
-              <td class="feature-name">Interface 100% française</td>
+              <td class="feature-name" data-i18n="comp.row_french">Interface 100% française</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="no">✗</td>
-              <td class="partial">Partiel</td>
+              <td class="partial" data-i18n="comp.partial">Partiel</td>
             </tr>
             <tr>
-              <td class="feature-name">Score composite 0-100 (8 dimensions)</td>
-              <td class="kairos-col yes">✓</td>
-              <td class="no">✗</td>
-              <td class="no">✗</td>
-              <td class="no">✗</td>
-            </tr>
-            <tr>
-              <td class="feature-name">Insiders Europe (AMF + BaFin)</td>
+              <td class="feature-name" data-i18n="comp.row_score">Score composite 0-100 (8 dimensions)</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="no">✗</td>
               <td class="no">✗</td>
             </tr>
             <tr>
-              <td class="feature-name">Hedge Funds 13F (200+ fonds)</td>
+              <td class="feature-name" data-i18n="comp.row_eu_insiders">Insiders Europe (AMF + BaFin)</td>
+              <td class="kairos-col yes">✓</td>
+              <td class="no">✗</td>
+              <td class="no">✗</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
+              <td class="feature-name" data-i18n="comp.row_hedge_funds">Hedge Funds 13F (200+ fonds)</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="yes">✓</td>
               <td class="no">✗</td>
             </tr>
             <tr>
-              <td class="feature-name">Consensus de conviction (★)</td>
+              <td class="feature-name" data-i18n="comp.row_conviction">Consensus de conviction (★)</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
-              <td class="partial">Basique</td>
+              <td class="partial" data-i18n="comp.basic">Basique</td>
               <td class="no">✗</td>
             </tr>
             <tr>
-              <td class="feature-name">ETF thématiques (politique, retail, ARK…)</td>
+              <td class="feature-name" data-i18n="comp.row_etf">ETF thématiques (politique, retail, ARK…)</td>
               <td class="kairos-col yes">11 ETF</td>
-              <td class="partial">Limité</td>
+              <td class="partial" data-i18n="comp.limited">Limité</td>
               <td class="no">✗</td>
-              <td class="partial">Manuel</td>
+              <td class="partial" data-i18n="comp.manual">Manuel</td>
             </tr>
             <tr>
-              <td class="feature-name">Google Trends intégré</td>
+              <td class="feature-name" data-i18n="comp.row_trends">Google Trends intégré</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="no">✗</td>
               <td class="no">✗</td>
             </tr>
             <tr>
-              <td class="feature-name">Historique évolution (2 ans)</td>
+              <td class="feature-name" data-i18n="comp.row_history">Historique évolution (2 ans)</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="yes">✓</td>
-              <td class="partial">Charts seul</td>
+              <td class="partial" data-i18n="comp.charts_only">Charts seul</td>
             </tr>
             <tr>
-              <td class="feature-name">Import portefeuille multi-broker</td>
+              <td class="feature-name" data-i18n="comp.row_portfolio">Import portefeuille multi-broker</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="no">✗</td>
-              <td class="partial">Manuel</td>
+              <td class="partial" data-i18n="comp.manual">Manuel</td>
             </tr>
             <tr>
-              <td class="feature-name">Prix</td>
+              <td class="feature-name" data-i18n="comp.row_price">Prix</td>
               <td class="kairos-col" style="font-weight:700;color:var(--text-primary)">29€/mois</td>
               <td>39,50 $ / mois</td>
               <td>169 $ / mois</td>
@@ -1154,26 +1170,26 @@
   <section class="section how-it-works" id="how">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Comment ça marche</span>
-        <h2>Trois étapes. Un avantage.</h2>
-        <p class="section-subtitle">Accédez en quelques minutes aux informations que les institutionnels utilisent depuis toujours.</p>
+        <span class="section-badge" data-i18n="how.badge">Comment ça marche</span>
+        <h2 data-i18n="how.title">Trois étapes. Un avantage.</h2>
+        <p class="section-subtitle" data-i18n="how.subtitle">Accédez en quelques minutes aux informations que les institutionnels utilisent depuis toujours.</p>
       </div>
 
       <div class="steps">
         <div class="step">
           <div class="step-number">1</div>
-          <h3>Créez votre compte gratuit</h3>
-          <p>30 secondes, sans carte bancaire. Explorez la Fear &amp; Greed, Short Interest, et les analyses publiques de 1000+ tickers.</p>
+          <h3 data-i18n="how.step1.title">Créez votre compte gratuit</h3>
+          <p data-i18n="how.step1.desc">30 secondes, sans carte bancaire. Explorez la Fear &amp; Greed, Short Interest, et les analyses publiques de 1000+ tickers.</p>
         </div>
         <div class="step">
           <div class="step-number">2</div>
-          <h3>Passez Premium (29€/mois)</h3>
-          <p>Débloquez le Kairos Score complet, tous les hedge funds, le consensus, les signaux insiders et l'import de portefeuille.</p>
+          <h3 data-i18n="how.step2.title">Passez Premium (29€/mois)</h3>
+          <p data-i18n="how.step2.desc">Débloquez le Kairos Score complet, tous les hedge funds, le consensus, les signaux insiders et l'import de portefeuille.</p>
         </div>
         <div class="step">
           <div class="step-number">3</div>
-          <h3>Surveillez le smart money</h3>
-          <p>Chaque matin à 7h, retrouvez les mouvements majeurs, les Hot Stocks et les nouveaux signaux sur vos actions suivies.</p>
+          <h3 data-i18n="how.step3.title">Surveillez le smart money</h3>
+          <p data-i18n="how.step3.desc">Chaque matin à 7h, retrouvez les mouvements majeurs, les Hot Stocks et les nouveaux signaux sur vos actions suivies.</p>
         </div>
       </div>
     </div>
@@ -1183,22 +1199,22 @@
   <section class="section" id="data" style="padding-top:60px">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Sources de données</span>
-        <h2>Des données publiques.<br />Un traitement d'expert.</h2>
-        <p class="section-subtitle">
+        <span class="section-badge" data-i18n="data.badge">Sources de données</span>
+        <h2><span data-i18n="data.title_part1">Des données publiques.</span><br /><span data-i18n="data.title_part2">Un traitement d'expert.</span></h2>
+        <p class="section-subtitle" data-i18n="data.subtitle">
           Kairos Insider agrège, traduit et analyse les déclarations officielles des régulateurs financiers — 100% légal, 100% transparent.
         </p>
       </div>
 
       <div class="data-sources">
-        <div class="data-tag"><strong>SEC Form 4</strong>Transactions d'insiders US</div>
-        <div class="data-tag"><strong>SEC Form 13F</strong>Portefeuilles hedge funds</div>
-        <div class="data-tag"><strong>AMF France</strong>Déclarations dirigeants</div>
-        <div class="data-tag"><strong>BaFin</strong>Directors' dealings (Europe)</div>
-        <div class="data-tag"><strong>Google Trends</strong>Intérêt retail (proxy)</div>
-        <div class="data-tag"><strong>Subversive ETFs</strong>NANC / GOP politique US</div>
-        <div class="data-tag"><strong>Global X / Zacks</strong>Holdings ETF temps réel</div>
-        <div class="data-tag"><strong>Yahoo / StockAnalysis</strong>Prix, fondamentaux, consensus</div>
+        <div class="data-tag"><strong>SEC Form 4</strong><span data-i18n="data.sec_4">Transactions d'insiders US</span></div>
+        <div class="data-tag"><strong>SEC Form 13F</strong><span data-i18n="data.sec_13f">Portefeuilles hedge funds</span></div>
+        <div class="data-tag"><strong>AMF France</strong><span data-i18n="data.amf">Déclarations dirigeants</span></div>
+        <div class="data-tag"><strong>BaFin</strong><span data-i18n="data.bafin">Directors' dealings (Europe)</span></div>
+        <div class="data-tag"><strong>Google Trends</strong><span data-i18n="data.trends">Intérêt retail (proxy)</span></div>
+        <div class="data-tag"><strong>Subversive ETFs</strong><span data-i18n="data.subversive">NANC / GOP politique US</span></div>
+        <div class="data-tag"><strong>Global X / Zacks</strong><span data-i18n="data.zacks">Holdings ETF temps réel</span></div>
+        <div class="data-tag"><strong>Yahoo / StockAnalysis</strong><span data-i18n="data.yahoo">Prix, fondamentaux, consensus</span></div>
       </div>
     </div>
   </section>
@@ -1207,62 +1223,62 @@
   <section class="section" id="pricing" style="padding-top:60px">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Tarifs</span>
-        <h2>Simple et transparent.</h2>
-        <p class="section-subtitle">
+        <span class="section-badge" data-i18n="pricing.badge">Tarifs</span>
+        <h2 data-i18n="pricing.title">Simple et transparent.</h2>
+        <p class="section-subtitle" data-i18n="pricing.subtitle">
           Essayez gratuitement. Passez Premium quand vous êtes prêt. Annulez quand vous voulez.
         </p>
       </div>
 
       <div style="text-align:center">
         <div class="pricing-toggle" role="tablist">
-          <button id="tabMonthly" class="active" onclick="setPricing('monthly')">Mensuel</button>
-          <button id="tabAnnual" onclick="setPricing('annual')">Annuel <span class="discount-chip">−17%</span></button>
+          <button id="tabMonthly" class="active" onclick="setPricing('monthly')" data-i18n="pricing.toggle_monthly">Mensuel</button>
+          <button id="tabAnnual" onclick="setPricing('annual')"><span data-i18n="pricing.toggle_annual">Annuel</span> <span class="discount-chip" data-i18n="pricing.discount">−17%</span></button>
         </div>
       </div>
 
       <div class="pricing-grid">
         <div class="pricing-card">
-          <div class="pricing-name">Gratuit</div>
-          <div class="pricing-desc">Pour découvrir le smart money</div>
+          <div class="pricing-name" data-i18n="pricing.free.name">Gratuit</div>
+          <div class="pricing-desc" data-i18n="pricing.free.desc">Pour découvrir le smart money</div>
           <div class="pricing-price">
             <span class="pricing-amount">0€</span>
-            <span class="pricing-period">/mois</span>
+            <span class="pricing-period" data-i18n="pricing.premium.period_monthly">/mois</span>
           </div>
-          <div class="pricing-subline">Aucune carte bancaire requise</div>
+          <div class="pricing-subline" data-i18n="pricing.free.subline">Aucune carte bancaire requise</div>
           <ul class="pricing-features">
-            <li><span class="feat-check">✓</span> Analyse publique de 1000+ tickers (vue tronquée)</li>
-            <li><span class="feat-check">✓</span> Indicateur Fear &amp; Greed</li>
-            <li><span class="feat-check">✓</span> Short Interest top tickers</li>
-            <li><span class="feat-check">✓</span> Hot Stocks Google Trends</li>
-            <li><span class="feat-cross">✗</span> Kairos Score complet</li>
-            <li><span class="feat-cross">✗</span> Hedge Funds &amp; Consensus</li>
-            <li><span class="feat-cross">✗</span> Import portefeuille</li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f1">Analyse publique de 1000+ tickers (vue tronquée)</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f2">Indicateur Fear &amp; Greed</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f3">Short Interest top tickers</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f4">Hot Stocks Google Trends</span></li>
+            <li><span class="feat-cross">✗</span> <span data-i18n="pricing.free.f5">Kairos Score complet</span></li>
+            <li><span class="feat-cross">✗</span> <span data-i18n="pricing.free.f6">Hedge Funds &amp; Consensus</span></li>
+            <li><span class="feat-cross">✗</span> <span data-i18n="pricing.free.f7">Import portefeuille</span></li>
           </ul>
-          <a href="dashboard.html" class="btn btn-secondary">Commencer gratuitement</a>
+          <a href="dashboard.html" class="btn btn-secondary" data-i18n="pricing.free.cta">Commencer gratuitement</a>
         </div>
 
         <div class="pricing-card featured">
-          <div class="pricing-badge">★ Premium</div>
-          <div class="pricing-name">Premium</div>
-          <div class="pricing-desc">L'accès complet au smart money</div>
+          <div class="pricing-badge" data-i18n="pricing.premium.badge">★ Premium</div>
+          <div class="pricing-name" data-i18n="pricing.premium.name">Premium</div>
+          <div class="pricing-desc" data-i18n="pricing.premium.desc">L'accès complet au smart money</div>
           <div class="pricing-price">
             <span class="pricing-amount" id="priceAmount">29€</span>
             <span class="pricing-period" id="pricePeriod">/mois</span>
           </div>
           <div class="pricing-subline" id="priceSubline">Sans engagement, annulable à tout moment</div>
           <ul class="pricing-features">
-            <li><span class="feat-check">✓</span> <strong style="color:var(--text-primary)">Tout le plan Gratuit</strong></li>
-            <li><span class="feat-check">✓</span> Kairos Score composite 0-100 (radar 8 axes + synthèse)</li>
-            <li><span class="feat-check">✓</span> Transactions insiders SEC + AMF + BaFin en détail</li>
-            <li><span class="feat-check">✓</span> Signaux Insiders (clusters 90j)</li>
-            <li><span class="feat-check">✓</span> <strong>200+ hedge funds</strong> 13F consolidés</li>
-            <li><span class="feat-check">✓</span> Consensus Hedge Funds avec ★ conviction</li>
-            <li><span class="feat-check">✓</span> <strong>11 ETF Live</strong> (politique, ARK, sentiment, income, thématiques)</li>
-            <li><span class="feat-check">✓</span> Historique 2 ans (AUM, rotations, scores)</li>
-            <li><span class="feat-check">✓</span> Import portefeuille multi-broker (CSV)</li>
+            <li><span class="feat-check">✓</span> <strong style="color:var(--text-primary)" data-i18n="pricing.premium.all_free">Tout le plan Gratuit</strong></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_score">Kairos Score composite 0-100 (radar 8 axes + synthèse)</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_insiders">Transactions insiders SEC + AMF + BaFin en détail</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_clusters">Signaux Insiders (clusters 90j)</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_funds"><strong>200+ hedge funds</strong> 13F consolidés</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_consensus">Consensus Hedge Funds avec ★ conviction</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_etf"><strong>11 ETF Live</strong> (politique, ARK, sentiment, income, thématiques)</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_history">Historique 2 ans (AUM, rotations, scores)</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_portfolio">Import portefeuille multi-broker (CSV)</span></li>
           </ul>
-          <a href="dashboard.html" class="btn btn-primary" id="priceCta">S'abonner — 29€/mois</a>
+          <a href="dashboard.html" class="btn btn-primary" id="priceCta" data-i18n="pricing.premium.cta_monthly">S'abonner — 29€/mois</a>
         </div>
       </div>
     </div>
@@ -1272,66 +1288,66 @@
   <section class="section" id="popular" style="padding-top:60px">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Analyses populaires</span>
-        <h2>Les actions les plus suivies<br />sur Kairos Insider</h2>
-        <p class="section-subtitle">
+        <span class="section-badge" data-i18n="popular.badge">Analyses populaires</span>
+        <h2><span data-i18n="popular.title_part1">Les actions les plus suivies</span><br /><span data-i18n="popular.title_part2">sur Kairos Insider</span></h2>
+        <p class="section-subtitle" data-i18n="popular.subtitle">
           Consulte l'analyse smart money de n'importe quelle action : Kairos Score, insiders, hedge funds, Google Trends, fondamentaux.
         </p>
       </div>
 
       <div class="popular-stocks">
         <a href="https://kairosinsider.fr/a/AAPL" class="stock-link" title="Analyse Apple (AAPL)">
-          <div class="stock-link-top"><span class="stock-ticker">AAPL</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">AAPL</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Apple Inc. — Technology</span>
         </a>
         <a href="https://kairosinsider.fr/a/NVDA" class="stock-link" title="Analyse NVIDIA (NVDA)">
-          <div class="stock-link-top"><span class="stock-ticker">NVDA</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">NVDA</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">NVIDIA Corp. — Semiconductors</span>
         </a>
         <a href="https://kairosinsider.fr/a/MSFT" class="stock-link" title="Analyse Microsoft (MSFT)">
-          <div class="stock-link-top"><span class="stock-ticker">MSFT</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">MSFT</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Microsoft Corp. — Software</span>
         </a>
         <a href="https://kairosinsider.fr/a/GOOGL" class="stock-link" title="Analyse Alphabet (GOOGL)">
-          <div class="stock-link-top"><span class="stock-ticker">GOOGL</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">GOOGL</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Alphabet Inc. — Communication</span>
         </a>
         <a href="https://kairosinsider.fr/a/AMZN" class="stock-link" title="Analyse Amazon (AMZN)">
-          <div class="stock-link-top"><span class="stock-ticker">AMZN</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">AMZN</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Amazon.com Inc. — E-commerce</span>
         </a>
         <a href="https://kairosinsider.fr/a/TSLA" class="stock-link" title="Analyse Tesla (TSLA)">
-          <div class="stock-link-top"><span class="stock-ticker">TSLA</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">TSLA</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Tesla Inc. — Automotive</span>
         </a>
         <a href="https://kairosinsider.fr/a/META" class="stock-link" title="Analyse Meta (META)">
-          <div class="stock-link-top"><span class="stock-ticker">META</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">META</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Meta Platforms — Social</span>
         </a>
         <a href="https://kairosinsider.fr/a/ASML" class="stock-link" title="Analyse ASML">
-          <div class="stock-link-top"><span class="stock-ticker">ASML</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">ASML</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">ASML Holding — Semiconductors</span>
         </a>
         <a href="https://kairosinsider.fr/a/MC.PA" class="stock-link" title="Analyse LVMH (MC.PA)">
-          <div class="stock-link-top"><span class="stock-ticker">MC.PA</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">MC.PA</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">LVMH — Luxe (France)</span>
         </a>
         <a href="https://kairosinsider.fr/a/AIR.PA" class="stock-link" title="Analyse Airbus (AIR.PA)">
-          <div class="stock-link-top"><span class="stock-ticker">AIR.PA</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">AIR.PA</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Airbus SE — Aerospace (FR)</span>
         </a>
         <a href="https://kairosinsider.fr/a/SAP" class="stock-link" title="Analyse SAP">
-          <div class="stock-link-top"><span class="stock-ticker">SAP</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">SAP</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">SAP SE — Software (DE)</span>
         </a>
         <a href="https://kairosinsider.fr/a/NESN.SW" class="stock-link" title="Analyse Nestlé (NESN.SW)">
-          <div class="stock-link-top"><span class="stock-ticker">NESN.SW</span><span class="stock-score">Score live</span></div>
+          <div class="stock-link-top"><span class="stock-ticker">NESN.SW</span><span class="stock-score" data-i18n="popular.score_live">Score live</span></div>
           <span class="stock-name">Nestlé SA — Consommation (CH)</span>
         </a>
       </div>
 
       <div class="popular-cta">
-        <a href="dashboard.html">Rechercher une autre action dans le dashboard →</a>
+        <a href="dashboard.html" data-i18n="popular.cta">Rechercher une autre action dans le dashboard →</a>
       </div>
     </div>
   </section>
@@ -1340,73 +1356,59 @@
   <section class="section" id="faq" style="padding-top:60px">
     <div class="container">
       <div class="section-header">
-        <span class="section-badge">Questions fréquentes</span>
-        <h2>Tout ce qu'il faut savoir.</h2>
+        <span class="section-badge" data-i18n="faq.badge">Questions fréquentes</span>
+        <h2 data-i18n="faq.title">Tout ce qu'il faut savoir.</h2>
       </div>
 
       <div class="faq-list">
         <details class="faq-item">
-          <summary>Est-ce que c'est légal ?</summary>
-          <p>Oui, 100% légal. Kairos Insider agrège uniquement des données <strong>publiques officielles</strong> publiées par les régulateurs financiers (SEC Form 4 &amp; 13F aux États-Unis, AMF en France, BaFin en Allemagne). Ces déclarations sont une obligation légale : quand un dirigeant achète ou vend des actions de sa propre entreprise, ou qu'un hedge fund dépasse un certain montant géré, il <strong>doit</strong> le déclarer publiquement. Nous ne faisons que les agréger, traduire et analyser.</p>
+          <summary data-i18n="faq.q_legal">Est-ce que c'est légal ?</summary>
+          <p data-i18n="faq.a_legal">Oui, 100% légal. Kairos Insider agrège uniquement des données <strong>publiques officielles</strong> publiées par les régulateurs financiers (SEC Form 4 &amp; 13F aux États-Unis, AMF en France, BaFin en Allemagne). Ces déclarations sont une obligation légale : quand un dirigeant achète ou vend des actions de sa propre entreprise, ou qu'un hedge fund dépasse un certain montant géré, il <strong>doit</strong> le déclarer publiquement. Nous ne faisons que les agréger, traduire et analyser.</p>
         </details>
 
         <details class="faq-item">
-          <summary>Qu'est-ce que le Kairos Score ?</summary>
-          <p>C'est notre score composite propriétaire qui note chaque action de 0 à 100 en agrégeant 8 dimensions du smart money : activité des initiés, détentions des hedge funds (13F), positions des politiciens &amp; gourous (ETF NANC/GOP/GURU), momentum du cours, valorisation, consensus analystes, santé financière (Altman Z, Piotroski F), momentum des résultats. Au-delà de 75 : signal ACHAT FORT. En dessous de 25 : VENTE FORTE.</p>
+          <summary data-i18n="faq.q_score">Qu'est-ce que le Kairos Score ?</summary>
+          <p data-i18n="faq.a_score">C'est notre score composite propriétaire qui note chaque action de 0 à 100 en agrégeant 8 dimensions du smart money : activité des initiés, détentions des hedge funds (13F), positions des politiciens &amp; gourous (ETF NANC/GOP/GURU), momentum du cours, valorisation, consensus analystes, santé financière (Altman Z, Piotroski F), momentum des résultats. Au-delà de 75 : signal ACHAT FORT. En dessous de 25 : VENTE FORTE.</p>
         </details>
 
         <details class="faq-item">
-          <summary>Puis-je essayer avant de payer ?</summary>
-          <p>Oui. Créez un compte gratuit en 30 secondes — sans carte bancaire. Vous aurez accès à : l'analyse publique de 1000+ tickers (vue tronquée), l'indicateur Fear &amp; Greed, le Short Interest, et les Hot Stocks Google Trends. Si vous aimez, vous pouvez passer Premium à 29€/mois pour débloquer le Kairos Score complet, les hedge funds et le consensus.</p>
+          <summary data-i18n="faq.q_try">Puis-je essayer avant de payer ?</summary>
+          <p data-i18n="faq.a_try">Oui. Créez un compte gratuit en 30 secondes — sans carte bancaire. Vous aurez accès à : l'analyse publique de 1000+ tickers (vue tronquée), l'indicateur Fear &amp; Greed, le Short Interest, et les Hot Stocks Google Trends. Si vous aimez, vous pouvez passer Premium à 29€/mois pour débloquer le Kairos Score complet, les hedge funds et le consensus.</p>
         </details>
 
         <details class="faq-item">
-          <summary>À quelle fréquence les données sont-elles mises à jour ?</summary>
-          <p>Toutes les données sont rafraîchies automatiquement chaque matin à <strong>7h heure de Paris</strong>, <em>avant l'ouverture d'Euronext</em>. Nos pipelines GitHub Actions scrapent quotidiennement SEC EDGAR, AMF, BaFin, Yahoo Finance et Google Trends pour 1000+ tickers et 40+ hedge funds. La sitemap est également régénérée automatiquement.</p>
+          <summary data-i18n="faq.q_freq">À quelle fréquence les données sont-elles mises à jour ?</summary>
+          <p data-i18n="faq.a_freq">Toutes les données sont rafraîchies automatiquement chaque matin à <strong>7h heure de Paris</strong>, <em>avant l'ouverture d'Euronext</em>. Nos pipelines GitHub Actions scrapent quotidiennement SEC EDGAR, AMF, BaFin, Yahoo Finance et Google Trends pour 1000+ tickers et 40+ hedge funds. La sitemap est également régénérée automatiquement.</p>
         </details>
 
         <details class="faq-item">
-          <summary>Puis-je annuler à tout moment ?</summary>
-          <p>Oui, aucun engagement. Votre abonnement Premium est résiliable en 1 clic dans votre espace personnel. Vous gardez l'accès jusqu'à la fin du cycle de facturation payé. Le paiement est géré par Stripe (sécurisé, conforme PCI-DSS).</p>
+          <summary data-i18n="faq.q_cancel">Puis-je annuler à tout moment ?</summary>
+          <p data-i18n="faq.a_cancel">Oui, aucun engagement. Votre abonnement Premium est résiliable en 1 clic dans votre espace personnel. Vous gardez l'accès jusqu'à la fin du cycle de facturation payé. Le paiement est géré par Stripe (sécurisé, conforme PCI-DSS).</p>
         </details>
 
         <details class="faq-item">
-          <summary>Sur quels marchés Kairos Insider fonctionne-t-il ?</summary>
-          <p>Nous couvrons actuellement : 🇺🇸 États-Unis (NYSE, NASDAQ — via SEC), 🇫🇷 France (Euronext Paris — via AMF), 🇩🇪 Allemagne &amp; zone euro (Xetra, Euronext — via BaFin). Cela représente 1000+ actions analysables. D'autres marchés seront ajoutés progressivement (UK FCA, Suisse SIX).</p>
+          <summary data-i18n="faq.q_markets">Sur quels marchés Kairos Insider fonctionne-t-il ?</summary>
+          <p data-i18n="faq.a_markets">Nous couvrons actuellement : 🇺🇸 États-Unis (NYSE, NASDAQ — via SEC), 🇫🇷 France (Euronext Paris — via AMF), 🇩🇪 Allemagne &amp; zone euro (Xetra, Euronext — via BaFin). Cela représente 1000+ actions analysables. D'autres marchés seront ajoutés progressivement (UK FCA, Suisse SIX).</p>
         </details>
 
         <details class="faq-item">
-          <summary>Comment sont sélectionnés les 200+ hedge funds suivis ?</summary>
-          <p>Nous suivons les <strong>200 plus grands hedge funds et asset managers par AUM</strong>, découverts <strong>automatiquement chaque semaine</strong> via SEC EDGAR (script qui scanne tous les filings 13F-HR récents et trie par taille). Inclut les légendes (Buffett, Burry, Klarman, Ackman, Einhorn…), multi-strategy mega (Citadel, Point72, Millennium), quants (Renaissance, Two Sigma, D.E. Shaw, AQR), Tiger Cubs (Tiger Global, Coatue, Viking, Lone Pine), activistes (Elliott, Trian, Icahn, Starboard), macro (Bridgewater, Tudor, Druckenmiller) et mega managers (Vanguard $5.9T, BlackRock $4.4T, State Street, Fidelity, Morgan Stanley…).</p>
+          <summary data-i18n="faq.q_funds">Comment sont sélectionnés les 200+ hedge funds suivis ?</summary>
+          <p data-i18n="faq.a_funds">Nous suivons les <strong>200 plus grands hedge funds et asset managers par AUM</strong>, découverts <strong>automatiquement chaque semaine</strong> via SEC EDGAR (script qui scanne tous les filings 13F-HR récents et trie par taille). Inclut les légendes (Buffett, Burry, Klarman, Ackman, Einhorn…), multi-strategy mega (Citadel, Point72, Millennium), quants (Renaissance, Two Sigma, D.E. Shaw, AQR), Tiger Cubs (Tiger Global, Coatue, Viking, Lone Pine), activistes (Elliott, Trian, Icahn, Starboard), macro (Bridgewater, Tudor, Druckenmiller) et mega managers (Vanguard $5.9T, BlackRock $4.4T, State Street, Fidelity, Morgan Stanley…).</p>
         </details>
 
         <details class="faq-item">
-          <summary>Est-ce que vous gardez l'historique des données ?</summary>
-          <p>Oui, depuis la mise en place de notre base historique Cloudflare D1 :<br>
-            • <strong>13F hedge funds</strong> : <strong>2 ans d'historique</strong> (8 trimestres) pour les 200 fonds suivis. Permet de voir l'évolution AUM et les rotations de positions sur 2 ans.<br>
-            • <strong>ETF Live</strong> : snapshots <strong>quotidiens</strong> qui se cumulent. Détection automatique des entrées/sorties/rotations.<br>
-            • <strong>Kairos Score</strong> : courbes du score sur les 50 tickers populaires (constitution progressive).<br>
-            • <strong>Insiders</strong> : 90 jours rolling.<br>
-            • <strong>Google Trends</strong> : 90 jours par ticker.
-          </p>
+          <summary data-i18n="faq.q_history">Est-ce que vous gardez l'historique des données ?</summary>
+          <p data-i18n="faq.a_history">Oui, depuis la mise en place de notre base historique Cloudflare D1 :<br>• <strong>13F hedge funds</strong> : <strong>2 ans d'historique</strong> (8 trimestres) pour les 200 fonds suivis. Permet de voir l'évolution AUM et les rotations de positions sur 2 ans.<br>• <strong>ETF Live</strong> : snapshots <strong>quotidiens</strong> qui se cumulent. Détection automatique des entrées/sorties/rotations.<br>• <strong>Kairos Score</strong> : courbes du score sur les 50 tickers populaires (constitution progressive).<br>• <strong>Insiders</strong> : 90 jours rolling.<br>• <strong>Google Trends</strong> : 90 jours par ticker.</p>
         </details>
 
         <details class="faq-item">
-          <summary>Quels ETF thématiques sont suivis ?</summary>
-          <p>11 ETF répartis en 6 catégories :<br>
-            • <strong>Politique US</strong> : NANC (démocrates) · GOP (républicains)<br>
-            • <strong>Hedge funds consensus</strong> : GURU<br>
-            • <strong>Innovation ARK</strong> : ARKK · ARKW · ARKG · ARKF · ARKQ<br>
-            • <strong>Sentiment retail</strong> : BUZZ (social) · MEME (Reddit/Twitter)<br>
-            • <strong>Income covered call</strong> : JEPI · JEPQ<br>
-            • <strong>Thématiques</strong> : ITA (defense) · URA (uranium) · UFO (espace) · MJ (cannabis)<br>
-            Chaque ETF est rafraîchi quotidiennement. Heatmap visuelle des poids + détection des rotations sur 7 jours.
-          </p>
+          <summary data-i18n="faq.q_etf">Quels ETF thématiques sont suivis ?</summary>
+          <p data-i18n="faq.a_etf">11 ETF répartis en 6 catégories :<br>• <strong>Politique US</strong> : NANC (démocrates) · GOP (républicains)<br>• <strong>Hedge funds consensus</strong> : GURU<br>• <strong>Innovation ARK</strong> : ARKK · ARKW · ARKG · ARKF · ARKQ<br>• <strong>Sentiment retail</strong> : BUZZ (social) · MEME (Reddit/Twitter)<br>• <strong>Income covered call</strong> : JEPI · JEPQ<br>• <strong>Thématiques</strong> : ITA (defense) · URA (uranium) · UFO (espace) · MJ (cannabis)<br>Chaque ETF est rafraîchi quotidiennement. Heatmap visuelle des poids + détection des rotations sur 7 jours.</p>
         </details>
 
         <details class="faq-item">
-          <summary>Est-ce qu'il y a un conseil en investissement ?</summary>
-          <p><strong>Non.</strong> Kairos Insider est un <strong>outil d'information</strong>, pas un conseiller en investissement. Nous ne sommes ni PSI, ni CIF. Les analyses présentées sont à visée informative et éducative uniquement. Toute décision d'investissement reste votre responsabilité. Consultez un professionnel agréé pour tout conseil personnalisé.</p>
+          <summary data-i18n="faq.q_advice">Est-ce qu'il y a un conseil en investissement ?</summary>
+          <p data-i18n="faq.a_advice"><strong>Non.</strong> Kairos Insider est un <strong>outil d'information</strong>, pas un conseiller en investissement. Nous ne sommes ni PSI, ni CIF. Les analyses présentées sont à visée informative et éducative uniquement. Toute décision d'investissement reste votre responsabilité. Consultez un professionnel agréé pour tout conseil personnalisé.</p>
         </details>
       </div>
     </div>
@@ -1416,22 +1418,22 @@
   <section class="cta-section" id="waitlist">
     <div class="container">
       <div class="cta-box">
-        <h2>Prêt à voir<br/><span class="gradient-text">ce que les pros voient</span> ?</h2>
-        <p>
+        <h2><span data-i18n="cta.title_part1">Prêt à voir</span><br/><span class="gradient-text" data-i18n="cta.title_part2">ce que les pros voient</span> ?</h2>
+        <p data-i18n="cta.subtitle">
           Créez votre compte gratuit en 30 secondes. Aucune carte bancaire requise. Passez Premium quand vous êtes prêt.
         </p>
         <div class="hero-cta">
-          <a href="dashboard.html" class="btn btn-primary btn-large">Essayer gratuitement →</a>
-          <a href="#pricing" class="btn btn-secondary btn-large">Voir les tarifs</a>
+          <a href="dashboard.html" class="btn btn-primary btn-large" data-i18n="hero.cta_try">Essayer gratuitement →</a>
+          <a href="#pricing" class="btn btn-secondary btn-large" data-i18n="cta.see_pricing">Voir les tarifs</a>
         </div>
 
         <!-- Newsletter inscription (alternative) -->
-        <p style="font-size:13px;color:var(--text-muted);margin-top:40px;margin-bottom:10px">Ou recevez notre newsletter hebdomadaire sur le smart money :</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:40px;margin-bottom:10px" data-i18n="cta.newsletter_label">Ou recevez notre newsletter hebdomadaire sur le smart money :</p>
         <form class="email-form" id="waitlistForm" onsubmit="return handleSubmit(event)">
-          <input type="email" placeholder="votre@email.fr" required id="emailInput" />
-          <button type="submit" class="btn btn-secondary">S'abonner</button>
+          <input type="email" data-i18n-placeholder="cta.newsletter_placeholder" placeholder="votre@email.fr" required id="emailInput" />
+          <button type="submit" class="btn btn-secondary" data-i18n="cta.newsletter_submit">S'abonner</button>
         </form>
-        <p class="form-message" id="formMessage">✓ Parfait ! Vous êtes inscrit à la newsletter.</p>
+        <p class="form-message" id="formMessage" data-i18n="cta.newsletter_ok">✓ Parfait ! Vous êtes inscrit à la newsletter.</p>
       </div>
     </div>
   </section>
@@ -1444,17 +1446,17 @@
           <div class="logo-mark"><img src="assets/logo.svg" alt="Kairos Insider" /></div>
           <div>
             <div class="footer-brand-text">Kairos Insider</div>
-            <div class="footer-text">© 2026 — Voyez ce que les pros voient.</div>
+            <div class="footer-text" data-i18n="footer.copyright">© 2026 — Voyez ce que les pros voient.</div>
           </div>
         </div>
         <ul class="footer-links">
-          <li><a href="#features">Fonctionnalités</a></li>
-          <li><a href="#pricing">Tarifs</a></li>
-          <li><a href="#faq">FAQ</a></li>
-          <li><a href="legal.html">Mentions légales</a></li>
-          <li><a href="cgv.html">CGV</a></li>
-          <li><a href="privacy.html">Confidentialité</a></li>
-          <li><a href="mailto:contact@kairosinsider.fr">Contact</a></li>
+          <li><a href="#features" data-i18n="nav.features">Fonctionnalités</a></li>
+          <li><a href="#pricing" data-i18n="nav.pricing">Tarifs</a></li>
+          <li><a href="#faq" data-i18n="footer.faq">FAQ</a></li>
+          <li><a href="legal.html" data-i18n="footer.legal">Mentions légales</a></li>
+          <li><a href="cgv.html" data-i18n="footer.cgv">CGV</a></li>
+          <li><a href="privacy.html" data-i18n="footer.privacy">Confidentialité</a></li>
+          <li><a href="mailto:contact@kairosinsider.fr" data-i18n="footer.contact">Contact</a></li>
         </ul>
       </div>
     </div>
@@ -1497,22 +1499,36 @@
       const cta = document.getElementById('priceCta');
       const tabM = document.getElementById('tabMonthly');
       const tabA = document.getElementById('tabAnnual');
+      const t = (window.KairosI18n && window.KairosI18n.t) || ((k, fb) => fb || k);
       if (mode === 'annual') {
-        amount.textContent = '290€';
-        period.textContent = '/an';
-        subline.textContent = 'Soit 24,17€/mois · Économisez 58€/an (17%)';
-        cta.textContent = "S'abonner — 290€/an";
+        amount.textContent = t('pricing.premium.amount_annual', '290€');
+        period.textContent = t('pricing.premium.period_annual', '/an');
+        subline.textContent = t('pricing.premium.subline_annual', 'Soit 24,17€/mois · Économisez 58€/an (17%)');
+        cta.textContent = t('pricing.premium.cta_annual', "S'abonner — 290€/an");
         tabA.classList.add('active');
         tabM.classList.remove('active');
       } else {
-        amount.textContent = '29€';
-        period.textContent = '/mois';
-        subline.textContent = 'Sans engagement, annulable à tout moment';
-        cta.textContent = "S'abonner — 29€/mois";
+        amount.textContent = t('pricing.premium.amount_monthly', '29€');
+        period.textContent = t('pricing.premium.period_monthly', '/mois');
+        subline.textContent = t('pricing.premium.subline_monthly', 'Sans engagement, annulable à tout moment');
+        cta.textContent = t('pricing.premium.cta_monthly', "S'abonner — 29€/mois");
         tabM.classList.add('active');
         tabA.classList.remove('active');
       }
     }
+    // Re-applique le pricing courant quand on change la langue
+    window.addEventListener('kairos:langchange', () => {
+      const tabA = document.getElementById('tabAnnual');
+      setPricing(tabA && tabA.classList.contains('active') ? 'annual' : 'monthly');
+      // Met aussi a jour le drapeau du toggle
+      const flag = document.getElementById('navLangFlag');
+      if (flag) flag.textContent = window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷';
+    });
+    // Au chargement initial : ajuste le drapeau selon la langue detectee
+    document.addEventListener('DOMContentLoaded', () => {
+      const flag = document.getElementById('navLangFlag');
+      if (flag && window.KairosI18n) flag.textContent = window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷';
+    });
 
     // Newsletter form → Firebase
     async function handleSubmit(event) {
@@ -1521,15 +1537,16 @@
       const button = event.target.querySelector('button[type="submit"]');
       const message = document.getElementById('formMessage');
       const email = input.value.trim().toLowerCase();
+      const t = (window.KairosI18n && window.KairosI18n.t) || ((k, fb) => fb || k);
       const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
       if (!emailRegex.test(email)) {
-        message.textContent = '⚠️ Adresse email invalide.';
+        message.textContent = t('cta.newsletter_invalid', '⚠️ Adresse email invalide.');
         message.style.color = '#F87171';
         message.classList.add('visible');
         return false;
       }
       const originalBtnText = button.innerHTML;
-      button.innerHTML = 'Envoi…';
+      button.innerHTML = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'Sending…' : 'Envoi…';
       button.disabled = true;
       try {
         const kairos = window.__kairos;
@@ -1548,13 +1565,13 @@
             body: JSON.stringify({ email })
           });
         } catch (e) {}
-        message.textContent = '✓ Parfait ! Vous êtes inscrit à la newsletter.';
+        message.textContent = t('cta.newsletter_ok', '✓ Parfait ! Vous êtes inscrit à la newsletter.');
         message.style.color = '#10B981';
         message.classList.add('visible');
         input.value = '';
       } catch (err) {
         console.error('[Kairos Insider] Erreur :', err);
-        message.textContent = '⚠️ Une erreur est survenue. Réessayez.';
+        message.textContent = t('cta.newsletter_error', '⚠️ Une erreur est survenue. Réessayez.');
         message.style.color = '#F87171';
         message.classList.add('visible');
       } finally {
