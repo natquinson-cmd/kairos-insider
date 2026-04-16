@@ -20,7 +20,7 @@
   <!-- Meta tags dynamiquement remplacés par JS après fetch du ticker.
        Les valeurs par défaut sont génériques pour les bots qui n'exécutent pas JS. -->
   <title id="pageTitle">Analyse action — Kairos Insider</title>
-  <meta id="metaDesc" name="description" content="Analyse smart money d'une action : Kairos Score composite, transactions insiders, hedge funds, fondamentaux, momentum, valorisation. Vue publique gratuite." />
+  <meta id="metaDesc" name="description" content="Analyse smart money d'une action : Kairos Score 0-100 (8 dimensions), transactions insiders SEC/AMF/BaFin, 200+ hedge funds 13F, ETF thématiques, fondamentaux, santé financière. Vue publique gratuite." />
   <meta name="theme-color" content="#0A0F1E" />
   <meta name="robots" content="index, follow" />
   <link id="canonicalLink" rel="canonical" href="https://kairosinsider.fr/action.html" />
@@ -31,7 +31,7 @@
 
   <!-- Open Graph -->
   <meta id="ogTitle" property="og:title" content="Analyse action — Kairos Insider" />
-  <meta id="ogDesc" property="og:description" content="Analyse smart money d'une action : Kairos Score, insiders, hedge funds." />
+  <meta id="ogDesc" property="og:description" content="Kairos Score, 200+ hedge funds, insiders SEC/AMF/BaFin, ETF thématiques. Analyse smart money en français." />
   <meta property="og:type" content="article" />
   <meta property="og:locale" content="fr_FR" />
   <meta property="og:image" content="https://kairosinsider.fr/assets/logo.svg" />
@@ -503,16 +503,18 @@
           <h2>🔓 Débloquez l'analyse complète</h2>
           <p>Cette page publique ne montre qu'un extrait. L'analyse complète de <strong>${ticker}</strong> sur le dashboard Kairos Insider inclut :</p>
           <div class="paywall-features">
-            <div class="paywall-feature">✅ Historique complet des ${totalInsiderTx} transactions insiders</div>
-            <div class="paywall-feature">✅ Tous les ${totalFunds} hedge funds détaillés</div>
-            <div class="paywall-feature">✅ Positions NANC, GOP et GURU</div>
-            <div class="paywall-feature">✅ Fondamentaux complets (P/E, PEG, EV/EBITDA, marges, ROE…)</div>
+            <div class="paywall-feature">✅ Kairos Score complet (radar 8 axes + synthèse adaptative)</div>
+            <div class="paywall-feature">✅ Historique des ${totalInsiderTx} transactions insiders sur 90j</div>
+            <div class="paywall-feature">✅ Tous les ${totalFunds} hedge funds détaillés (sur 200+ suivis)</div>
+            <div class="paywall-feature">✅ 11 ETF (NANC, GOP, GURU, ARK, BUZZ, MEME, JEPI, JEPQ, ITA, URA, MJ…)</div>
+            <div class="paywall-feature">✅ Hot Stocks via Google Trends (signal retail)</div>
+            <div class="paywall-feature">✅ Historique 2 ans : évolution AUM des fonds + rotations ETF</div>
+            <div class="paywall-feature">✅ Fondamentaux complets (P/E, PEG, EV/EBITDA, ROE…)</div>
             <div class="paywall-feature">✅ Santé financière (Altman Z, Piotroski F)</div>
             <div class="paywall-feature">✅ Earnings 6 trimestres + prochaine publication</div>
-            <div class="paywall-feature">✅ Concurrents sectoriels (peers)</div>
-            <div class="paywall-feature">✅ Consensus analystes & valeur intrinsèque</div>
-            <div class="paywall-feature">✅ Graphique 1 an avec overlays insiders</div>
-            <div class="paywall-feature">✅ Breakdown détaillé du Kairos Score (8 dimensions)</div>
+            <div class="paywall-feature">✅ Consensus analystes &amp; objectif de cours</div>
+            <div class="paywall-feature">✅ Graphique 1 an avec overlays insiders (achats/ventes)</div>
+            <div class="paywall-feature">✅ Import portefeuille multi-broker (CSV)</div>
           </div>
           <div class="paywall-actions">
             <a href="dashboard.html" class="btn-primary">Créer un compte gratuit →</a>

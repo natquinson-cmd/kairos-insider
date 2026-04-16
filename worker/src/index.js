@@ -1322,14 +1322,15 @@ footer a{color:#9CA3AF;text-decoration:none}
     <h2>🔓 Débloquez l'analyse complète</h2>
     <p>Cette page publique ne montre qu'un extrait. L'analyse complète de <strong>${escHtmlSsr(ticker)}</strong> sur le dashboard Kairos Insider inclut :</p>
     <div class="features">
-      <div class="feature">✅ Historique complet des ${totalInsiderTx} transactions insiders</div>
-      <div class="feature">✅ Tous les ${totalFunds} hedge funds détaillés</div>
-      <div class="feature">✅ Positions NANC, GOP et GURU</div>
+      <div class="feature">✅ Kairos Score complet (radar 8 axes + synthèse)</div>
+      <div class="feature">✅ Historique des ${totalInsiderTx} transactions insiders sur 90j</div>
+      <div class="feature">✅ Tous les ${totalFunds} hedge funds (sur 200+ suivis)</div>
+      <div class="feature">✅ 11 ETF thématiques (ARK, BUZZ, NANC, GOP, JEPI…)</div>
+      <div class="feature">✅ Hot Stocks Google Trends</div>
+      <div class="feature">✅ Historique 2 ans : AUM + rotations</div>
       <div class="feature">✅ Fondamentaux (P/E, PEG, EV/EBITDA, ROE…)</div>
       <div class="feature">✅ Santé financière (Altman Z, Piotroski F)</div>
-      <div class="feature">✅ Earnings 6 trimestres + prochaine date</div>
-      <div class="feature">✅ Concurrents sectoriels (peers)</div>
-      <div class="feature">✅ Breakdown du Kairos Score (8 dimensions)</div>
+      <div class="feature">✅ Concurrents sectoriels + earnings 6 trim.</div>
     </div>
     <a href="${dashboardUrl}" class="cta">Voir l'analyse complète →</a>
     <p style="margin-top:14px;font-size:12px;color:#6B7280">Inscription gratuite · Premium 29€/mois sans engagement</p>
@@ -1599,10 +1600,14 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
 <h1>Bienvenue dans Kairos Insider Premium 🎉</h1>
 <p>Votre abonnement est actif. Vous avez maintenant acces a l'ensemble du Smart Money Dashboard :</p>
 <div class="features"><ul>
+  <li>✓ <strong>Kairos Score 0-100</strong> (radar 8 axes + synthese textuelle)</li>
   <li>✓ Transactions d'inities US, Europe et France en quasi-temps reel</li>
   <li>✓ Signaux de clusters d'insiders sur 90 jours</li>
-  <li>✓ Portefeuilles des plus grands hedge funds (consensus + activite trimestre)</li>
-  <li>✓ Suivi des ETF Smart Money (NANC, GOP, GURU)</li>
+  <li>✓ <strong>200+ hedge funds</strong> 13F consolides (Buffett, Burry, Tiger, BlackRock...)</li>
+  <li>✓ Smart Money Consensus avec ★ conviction</li>
+  <li>✓ <strong>11 ETF thematiques</strong> (politique, ARK, sentiment retail, income, defense, uranium...)</li>
+  <li>✓ Hot Stocks via Google Trends</li>
+  <li>✓ Historique 2 ans (evolution AUM, rotations, scores)</li>
   <li>✓ Import multi-plateforme de votre portefeuille personnel</li>
 </ul></div>
 <p style="text-align:center"><a href="https://kairosinsider.fr/dashboard.html" class="btn">Acceder au Dashboard →</a></p>
