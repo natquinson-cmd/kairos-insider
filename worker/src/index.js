@@ -70,10 +70,11 @@ export default {
     }
 
     // SSR HTML pour bots sociaux + Googlebot (Facebook, Twitter, LinkedIn, ChatGPT...)
-    // Format : GET /a/:ticker -> HTML complet pre-rendu (meta tags + contenu indexable)
+    // Format : GET /a/:ticker[?lang=fr|en] -> HTML complet pre-rendu (meta tags + contenu indexable)
     if (request.method === 'GET' && path.startsWith('/a/')) {
       const ticker = decodeURIComponent(path.slice('/a/'.length));
-      return handleActionSSR(ticker, env);
+      const lang = (url.searchParams.get('lang') || '').toLowerCase() === 'en' ? 'en' : 'fr';
+      return handleActionSSR(ticker, env, lang);
     }
 
     // ==========================================
@@ -904,16 +905,28 @@ async function handleSitemap(env) {
     const SITE = 'https://kairosinsider.fr';
 
     const urls = [];
-    // Pages principales (home + liste tickers visible dans action.html)
-    urls.push(`<url><loc>${SITE}/</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>`);
+    // Pages principales (home en FR + EN signales via xhtml:link hreflang)
+    urls.push(`<url>
+<loc>${SITE}/</loc>
+<xhtml:link rel="alternate" hreflang="fr" href="${SITE}/"/>
+<xhtml:link rel="alternate" hreflang="en" href="${SITE}/?lang=en"/>
+<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/"/>
+<lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority>
+</url>`);
 
-    // Une URL SSR par ticker (pre-rendu par le Worker = indexable sans JS)
+    // Une URL SSR par ticker avec hreflang FR + EN (Googlebot indexera les 2)
     for (const t of tickers) {
       const tk = encodeURIComponent(t.ticker);
-      urls.push(`<url><loc>${SITE}/a/${tk}</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
+      urls.push(`<url>
+<loc>${SITE}/a/${tk}</loc>
+<xhtml:link rel="alternate" hreflang="fr" href="${SITE}/a/${tk}"/>
+<xhtml:link rel="alternate" hreflang="en" href="${SITE}/a/${tk}?lang=en"/>
+<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/a/${tk}"/>
+<lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority>
+</url>`);
     }
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls.join('\n')}\n</urlset>`;
 
     return new Response(xml, {
       status: 200,
@@ -955,12 +968,14 @@ function fmtIntSsr(n) {
   try { return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n); }
   catch { return String(n); }
 }
-function signalFromScoreSsr(total) {
-  if (total >= 75) return { label: 'ACHAT FORT', color: '#10B981' };
-  if (total >= 60) return { label: 'ACHAT', color: '#34D399' };
-  if (total >= 40) return { label: 'NEUTRE', color: '#9CA3AF' };
-  if (total >= 25) return { label: 'VENTE', color: '#F87171' };
-  return { label: 'VENTE FORTE', color: '#EF4444' };
+function signalFromScoreSsr(total, lang = 'fr') {
+  // SSR_I18N defini plus loin dans le fichier ; fallback FR si pas dispo
+  const t = (k) => (typeof SSR_I18N !== 'undefined' && SSR_I18N[lang] && SSR_I18N[lang][k]) || k;
+  if (total >= 75) return { label: t('sig_strong_buy') || 'ACHAT FORT', color: '#10B981' };
+  if (total >= 60) return { label: t('sig_buy') || 'ACHAT', color: '#34D399' };
+  if (total >= 40) return { label: t('sig_neutral') || 'NEUTRE', color: '#9CA3AF' };
+  if (total >= 25) return { label: t('sig_sell') || 'VENTE', color: '#F87171' };
+  return { label: t('sig_strong_sell') || 'VENTE FORTE', color: '#EF4444' };
 }
 
 // ============================================================
@@ -1051,11 +1066,120 @@ function renderKairosRadarSsr(scoreObj, sig) {
   `;
 }
 
-async function handleActionSSR(rawTicker, env) {
+// Mini dictionnaire i18n inline pour le SSR (pas besoin de charger un module
+// cote serveur, on duplique les cles strictement necessaires).
+const SSR_I18N = {
+  fr: {
+    not_found_title: 'Ticker introuvable — Kairos Insider',
+    not_found_h1: 'Ticker {ticker} introuvable',
+    not_found_p: 'Cette action n\'est pas couverte par Kairos Insider.',
+    back_to_dashboard: 'Retour au dashboard',
+    description: 'Analyse smart money de {name} ({ticker}){sector}. Kairos Score : {score}/100 ({signal}). {insiders} transactions insiders, {funds} hedge funds. Cours : {price}.',
+    open_full: 'Ouvrir l\'analyse complète →',
+    score_intro: 'Score composite qui agrège <strong>8 dimensions du smart money</strong> : initiés (SEC/AMF/BaFin), hedge funds, politiciens & gourous, momentum du cours, valorisation, consensus analystes, santé financière, momentum des résultats. Plus le score est élevé, plus le consensus des signaux institutionnels est favorable à l\'achat.',
+    breakdown_locked: '💡 <strong>Décomposition détaillée</strong> (les 8 sous-scores) disponible dans le dashboard Premium.',
+    about: 'À propos de {name}',
+    key_info: 'Informations clés',
+    info_ceo: 'PDG', info_founded: 'Fondée en', info_hq: 'Siège', info_employees: 'Employés',
+    info_marketcap: 'Capitalisation', info_pe: 'PER', info_div: 'Rendement div.', info_ipo: 'IPO',
+    insiders_h2: '🕴️ Activité des initiés (90 jours)',
+    insiders_p: '<strong>{total}</strong> transactions — dont <strong>{buys}</strong> achats déclarés par les dirigeants de {name} auprès de la SEC / AMF / BaFin.',
+    funds_h2: '🏦 Hedge Funds',
+    funds_p: '<strong>{total}</strong> fonds institutionnels déclarent une position sur {ticker} dans leur dernière déclaration trimestrielle SEC.',
+    news_h2: '📰 Actualités récentes',
+    news_p: '<strong>{total}</strong> articles récents sur {ticker}.',
+    trends_h2: '🔎 Intérêt de recherche Google',
+    trends_subtitle_part1: '{interest}/100 — intérêt actuel',
+    trends_spike_up: '+{spike}% vs semaine dernière 📈',
+    trends_spike_down: '{spike}% vs semaine dernière 📉',
+    trends_spike_stable: 'stable ({spike}%)',
+    trends_trend_label: 'Tendance :',
+    trend_rising: '↗️ en hausse', trend_falling: '↘️ en baisse', trend_stable: '→ stable',
+    trends_helper: 'Volume de recherche Google pour "{ticker}" sur 90 jours (échelle 0-100, 100 = pic de la période).',
+    trends_avg_max: 'Moyenne 90j : {avg}/100, pic max : {max}/100.',
+    paywall_h2: '🔓 Débloquez l\'analyse complète',
+    paywall_p: 'Cette page publique ne montre qu\'un extrait. L\'analyse complète de <strong>{ticker}</strong> sur le dashboard Kairos Insider inclut :',
+    paywall_f1: '✅ Kairos Score complet (radar 8 axes + synthèse)',
+    paywall_f2: '✅ Historique des {total} transactions insiders sur 90j',
+    paywall_f3: '✅ Tous les {total} hedge funds (sur 200+ suivis)',
+    paywall_f4: '✅ 11 ETF thématiques (ARK, BUZZ, NANC, GOP, JEPI…)',
+    paywall_f5: '✅ Hot Stocks Google Trends',
+    paywall_f6: '✅ Historique 2 ans : AUM + rotations',
+    paywall_f7: '✅ Fondamentaux (P/E, PEG, EV/EBITDA, ROE…)',
+    paywall_f8: '✅ Santé financière (Altman Z, Piotroski F)',
+    paywall_f9: '✅ Concurrents sectoriels + earnings 6 trim.',
+    paywall_cta: 'Voir l\'analyse complète →',
+    paywall_terms: 'Inscription gratuite · Premium 29€/mois sans engagement',
+    footer_tagline: 'kairosinsider.fr · La plateforme francophone du smart money',
+    footer_sources: 'Données SEC EDGAR, AMF, BaFin, Yahoo Finance — mises à jour quotidiennement',
+    sig_strong_buy: 'ACHAT FORT', sig_buy: 'ACHAT', sig_neutral: 'NEUTRE', sig_sell: 'VENTE', sig_strong_sell: 'VENTE FORTE',
+    session_change: 'sur la séance', ytd_label: 'depuis le 1er janvier', y1_label: 'sur 1 an',
+    aperçu: 'Aperçu', top_funds: 'Top détenteurs',
+  },
+  en: {
+    not_found_title: 'Ticker not found — Kairos Insider',
+    not_found_h1: 'Ticker {ticker} not found',
+    not_found_p: 'This stock is not covered by Kairos Insider.',
+    back_to_dashboard: 'Back to dashboard',
+    description: 'Smart money analysis of {name} ({ticker}){sector}. Kairos Score: {score}/100 ({signal}). {insiders} insider transactions, {funds} hedge funds. Price: {price}.',
+    open_full: 'Open full analysis →',
+    score_intro: 'Composite score aggregating <strong>8 smart money dimensions</strong>: insiders (SEC/AMF/BaFin), hedge funds, politicians & gurus, price momentum, valuation, analyst consensus, financial health, earnings momentum. The higher the score, the more favorable the institutional signals consensus.',
+    breakdown_locked: '💡 <strong>Detailed breakdown</strong> (the 8 sub-scores) available in the Premium dashboard.',
+    about: 'About {name}',
+    key_info: 'Key info',
+    info_ceo: 'CEO', info_founded: 'Founded', info_hq: 'HQ', info_employees: 'Employees',
+    info_marketcap: 'Market cap', info_pe: 'P/E', info_div: 'Dividend yield', info_ipo: 'IPO',
+    insiders_h2: '🕴️ Insider activity (90 days)',
+    insiders_p: '<strong>{total}</strong> transactions — including <strong>{buys}</strong> buys declared by {name} executives to SEC / AMF / BaFin.',
+    funds_h2: '🏦 Hedge Funds',
+    funds_p: '<strong>{total}</strong> institutional funds report a position on {ticker} in their latest SEC quarterly filing.',
+    news_h2: '📰 Recent news',
+    news_p: '<strong>{total}</strong> recent articles on {ticker}.',
+    trends_h2: '🔎 Google search interest',
+    trends_subtitle_part1: '{interest}/100 — current interest',
+    trends_spike_up: '+{spike}% vs last week 📈',
+    trends_spike_down: '{spike}% vs last week 📉',
+    trends_spike_stable: 'stable ({spike}%)',
+    trends_trend_label: 'Trend:',
+    trend_rising: '↗️ rising', trend_falling: '↘️ falling', trend_stable: '→ stable',
+    trends_helper: 'Google search volume for "{ticker}" over 90 days (0-100 scale, 100 = period peak).',
+    trends_avg_max: '90-day average: {avg}/100, peak max: {max}/100.',
+    paywall_h2: '🔓 Unlock the full analysis',
+    paywall_p: 'This public page only shows a preview. The full analysis of <strong>{ticker}</strong> on the Kairos Insider dashboard includes:',
+    paywall_f1: '✅ Full Kairos Score (8-axis radar + synthesis)',
+    paywall_f2: '✅ History of all {total} insider transactions over 90 days',
+    paywall_f3: '✅ All {total} hedge funds (among 200+ tracked)',
+    paywall_f4: '✅ 11 thematic ETFs (ARK, BUZZ, NANC, GOP, JEPI…)',
+    paywall_f5: '✅ Hot Stocks Google Trends',
+    paywall_f6: '✅ 2-year history: AUM + rotations',
+    paywall_f7: '✅ Fundamentals (P/E, PEG, EV/EBITDA, ROE…)',
+    paywall_f8: '✅ Financial health (Altman Z, Piotroski F)',
+    paywall_f9: '✅ Sector peers + 6-quarter earnings',
+    paywall_cta: 'See full analysis →',
+    paywall_terms: 'Free signup · Premium €29/month no commitment',
+    footer_tagline: 'kairosinsider.fr · The smart money platform',
+    footer_sources: 'Data from SEC EDGAR, AMF, BaFin, Yahoo Finance — updated daily',
+    sig_strong_buy: 'STRONG BUY', sig_buy: 'BUY', sig_neutral: 'NEUTRAL', sig_sell: 'SELL', sig_strong_sell: 'STRONG SELL',
+    session_change: 'today', ytd_label: 'YTD', y1_label: '1Y',
+    aperçu: 'Preview', top_funds: 'Top holders',
+  },
+};
+function ssrT(lang, key, vars) {
+  const dict = SSR_I18N[lang] || SSR_I18N.fr;
+  let s = dict[key] || SSR_I18N.fr[key] || key;
+  if (vars) {
+    for (const k in vars) s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+  }
+  return s;
+}
+
+async function handleActionSSR(rawTicker, env, lang = 'fr') {
   const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker || ticker.length > 12) {
     return new Response('Invalid ticker', { status: 400, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   }
+  // Normalise lang
+  if (lang !== 'fr' && lang !== 'en') lang = 'fr';
 
   let data;
   try {
@@ -1066,7 +1190,7 @@ async function handleActionSSR(rawTicker, env) {
 
   // Page d'erreur SSR (reste indexable)
   if (!data || data.error) {
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Ticker introuvable — Kairos Insider</title><meta name="robots" content="noindex,follow"><style>body{font-family:system-ui;background:#0A0F1E;color:#F9FAFB;text-align:center;padding:80px 20px}a{color:#3B82F6}</style></head><body><h1>Ticker ${escHtmlSsr(ticker)} introuvable</h1><p>Cette action n'est pas couverte par Kairos Insider.</p><p><a href="https://kairosinsider.fr/dashboard.html">Retour au dashboard</a></p></body></html>`;
+    const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"><title>${escHtmlSsr(ssrT(lang, 'not_found_title'))}</title><meta name="robots" content="noindex,follow"><style>body{font-family:system-ui;background:#0A0F1E;color:#F9FAFB;text-align:center;padding:80px 20px}a{color:#3B82F6}</style></head><body><h1>${ssrT(lang, 'not_found_h1', { ticker: escHtmlSsr(ticker) })}</h1><p>${ssrT(lang, 'not_found_p')}</p><p><a href="https://kairosinsider.fr/dashboard.html?lang=${lang}">${ssrT(lang, 'back_to_dashboard')}</a></p></body></html>`;
     return new Response(html, {
       status: 404,
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' },
@@ -1076,7 +1200,7 @@ async function handleActionSSR(rawTicker, env) {
   const name = data.company?.name || ticker;
   const sector = data.company?.sector || '';
   const score = data.score?.total || 0;
-  const sig = signalFromScoreSsr(score);
+  const sig = signalFromScoreSsr(score, lang);
   const price = data.price?.current;
   const currency = data.price?.currency || 'USD';
   const changePct = data.price?.changePct;
@@ -1094,7 +1218,15 @@ async function handleActionSSR(rawTicker, env) {
   const dividendYield = data.fundamentals?.dividendYield;
 
   const title = `${name} (${ticker}) — Kairos Score ${score}/100 · ${sig.label} | Kairos Insider`;
-  const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). ${totalInsiderTx} transactions insiders, ${totalFunds} hedge funds. Cours : ${fmtCurrSsr(price, currency)}.`;
+  const desc = ssrT(lang, 'description', {
+    name, ticker,
+    sector: sector ? ' — ' + sector : '',
+    score: String(score),
+    signal: sig.label,
+    insiders: String(totalInsiderTx),
+    funds: String(totalFunds),
+    price: fmtCurrSsr(price, currency),
+  });
   // URL du dashboard (pour les CTA "Voir l'analyse complete")
   const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
   // Canonical = URL brande (Worker route sur kairosinsider.fr/a/*)
@@ -1145,8 +1277,13 @@ async function handleActionSSR(rawTicker, env) {
     return `<li><strong>${escHtmlSsr(n.title || '')}</strong>${n.source ? ' <span style="opacity:0.6">· ' + escHtmlSsr(n.source) + '</span>' : ''}</li>`;
   }).join('');
 
+  // URLs pour hreflang (SEO international : signaler les versions FR/EN)
+  const baseUrl = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
+  const ogLocale = lang === 'en' ? 'en_US' : 'fr_FR';
+  const altLocale = lang === 'en' ? 'fr_FR' : 'en_US';
+
   const html = `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${lang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1154,15 +1291,19 @@ async function handleActionSSR(rawTicker, env) {
 <meta name="description" content="${escHtmlSsr(desc)}">
 <meta name="robots" content="index,follow">
 <meta name="theme-color" content="#0A0F1E">
-<link rel="canonical" href="${canonical}">
+<link rel="canonical" href="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
+<link rel="alternate" hreflang="fr" href="${baseUrl}">
+<link rel="alternate" hreflang="en" href="${baseUrl}?lang=en">
+<link rel="alternate" hreflang="x-default" href="${baseUrl}">
 <link rel="icon" type="image/svg+xml" href="https://kairosinsider.fr/assets/logo.svg">
 
 <meta property="og:type" content="article">
-<meta property="og:locale" content="fr_FR">
+<meta property="og:locale" content="${ogLocale}">
+<meta property="og:locale:alternate" content="${altLocale}">
 <meta property="og:site_name" content="Kairos Insider">
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
-<meta property="og:url" content="${canonical}">
+<meta property="og:url" content="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
 <meta property="og:image" content="https://kairosinsider.fr/assets/logo.svg">
 
 <meta name="twitter:card" content="summary_large_image">
@@ -1260,85 +1401,85 @@ footer a{color:#9CA3AF;text-decoration:none}
 
   ${data.company?.description ? `
     <div class="section">
-      <h2>À propos de ${escHtmlSsr(name)}</h2>
+      <h2>${ssrT(lang, 'about', { name: escHtmlSsr(name) })}</h2>
       <p>${escHtmlSsr(data.company.description)}</p>
     </div>
   ` : ''}
 
   <div class="section">
-    <h2>Informations clés</h2>
+    <h2>${ssrT(lang, 'key_info')}</h2>
     <div class="info-grid">
-      ${data.company?.ceo ? `<div class="info-item"><div class="info-label">PDG</div><div class="info-value">${escHtmlSsr(data.company.ceo)}</div></div>` : ''}
-      ${data.company?.founded ? `<div class="info-item"><div class="info-label">Fondée en</div><div class="info-value">${escHtmlSsr(data.company.founded)}</div></div>` : ''}
-      ${data.company?.headquarters ? `<div class="info-item"><div class="info-label">Siège</div><div class="info-value">${escHtmlSsr(data.company.headquarters)}</div></div>` : ''}
-      ${data.company?.employees ? `<div class="info-item"><div class="info-label">Employés</div><div class="info-value">${fmtIntSsr(data.company.employees)}</div></div>` : ''}
-      ${marketCap ? `<div class="info-item"><div class="info-label">Capitalisation</div><div class="info-value">${fmtCurrSsr(marketCap, currency)}</div></div>` : ''}
-      ${pe ? `<div class="info-item"><div class="info-label">PER</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : escHtmlSsr(pe)}</div></div>` : ''}
-      ${dividendYield ? `<div class="info-item"><div class="info-label">Rendement div.</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : escHtmlSsr(dividendYield)}</div></div>` : ''}
-      ${data.company?.ipoDate ? `<div class="info-item"><div class="info-label">IPO</div><div class="info-value">${escHtmlSsr(data.company.ipoDate)}</div></div>` : ''}
+      ${data.company?.ceo ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_ceo')}</div><div class="info-value">${escHtmlSsr(data.company.ceo)}</div></div>` : ''}
+      ${data.company?.founded ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_founded')}</div><div class="info-value">${escHtmlSsr(data.company.founded)}</div></div>` : ''}
+      ${data.company?.headquarters ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_hq')}</div><div class="info-value">${escHtmlSsr(data.company.headquarters)}</div></div>` : ''}
+      ${data.company?.employees ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_employees')}</div><div class="info-value">${fmtIntSsr(data.company.employees)}</div></div>` : ''}
+      ${marketCap ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_marketcap')}</div><div class="info-value">${fmtCurrSsr(marketCap, currency)}</div></div>` : ''}
+      ${pe ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_pe')}</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : escHtmlSsr(pe)}</div></div>` : ''}
+      ${dividendYield ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_div')}</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : escHtmlSsr(dividendYield)}</div></div>` : ''}
+      ${data.company?.ipoDate ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_ipo')}</div><div class="info-value">${escHtmlSsr(data.company.ipoDate)}</div></div>` : ''}
     </div>
   </div>
 
   <div class="section">
-    <h2>🕴️ Activité des initiés (90 jours)</h2>
-    <p><strong>${totalInsiderTx}</strong> transactions — dont <strong>${insiderBuyCount}</strong> achats déclarés par les dirigeants de ${escHtmlSsr(name)} auprès de la SEC / AMF / BaFin.</p>
+    <h2>${ssrT(lang, 'insiders_h2')}</h2>
+    <p>${ssrT(lang, 'insiders_p', { total: String(totalInsiderTx), buys: String(insiderBuyCount), name: escHtmlSsr(name) })}</p>
     ${insiderTeaser ? `<ul>${insiderTeaser}</ul>` : ''}
   </div>
 
   <div class="section">
-    <h2>🏦 Hedge Funds</h2>
-    <p><strong>${totalFunds}</strong> fonds institutionnels déclarent une position sur ${escHtmlSsr(ticker)} dans leur dernière déclaration trimestrielle SEC.</p>
+    <h2>${ssrT(lang, 'funds_h2')}</h2>
+    <p>${ssrT(lang, 'funds_p', { total: String(totalFunds), ticker: escHtmlSsr(ticker) })}</p>
     ${fundsTeaser ? `<ul>${fundsTeaser}</ul>` : ''}
   </div>
 
   ${totalNews > 0 ? `
     <div class="section">
-      <h2>📰 Actualités récentes</h2>
-      <p><strong>${totalNews}</strong> articles récents sur ${escHtmlSsr(ticker)}.</p>
+      <h2>${ssrT(lang, 'news_h2')}</h2>
+      <p>${ssrT(lang, 'news_p', { total: String(totalNews), ticker: escHtmlSsr(ticker) })}</p>
       ${newsTeaser ? `<ul>${newsTeaser}</ul>` : ''}
     </div>
   ` : ''}
 
   ${trends && trends.interestMax >= 8 ? `
     <div class="section">
-      <h2>🔎 Intérêt de recherche Google</h2>
+      <h2>${ssrT(lang, 'trends_h2')}</h2>
       <p>
-        <strong>${trends.interestNow}/100</strong> — intérêt actuel
+        ${ssrT(lang, 'trends_subtitle_part1', { interest: String(trends.interestNow) })}
         ${trends.interestNow >= 8 ? (
-          trends.spike7d > 5 ? ` · <span style="color:#10B981">+${trends.spike7d}% vs semaine dernière 📈</span>` :
-          trends.spike7d < -5 ? ` · <span style="color:#EF4444">${trends.spike7d}% vs semaine dernière 📉</span>` :
-          ` · stable`
+          trends.spike7d > 5 ? ` · <span style="color:#10B981">${ssrT(lang, 'trends_spike_up', { spike: String(trends.spike7d) })}</span>` :
+          trends.spike7d < -5 ? ` · <span style="color:#EF4444">${ssrT(lang, 'trends_spike_down', { spike: String(trends.spike7d) })}</span>` :
+          ` · ${ssrT(lang, 'trends_spike_stable', { spike: String(trends.spike7d) })}`
         ) : ''}
-        ${trends.interestNow >= 8 ? ` · Tendance : <strong>${trends.trend === 'rising' ? '↗️ en hausse' : trends.trend === 'falling' ? '↘️ en baisse' : '→ stable'}</strong>` : ''}
+        ${trends.interestNow >= 8 ? ` · ${ssrT(lang, 'trends_trend_label')} <strong>${trends.trend === 'rising' ? ssrT(lang, 'trend_rising') : trends.trend === 'falling' ? ssrT(lang, 'trend_falling') : ssrT(lang, 'trend_stable')}</strong>` : ''}
       </p>
       <p style="font-size:12px;color:#6B7280;margin-top:8px">
-        Volume de recherche Google pour "${escHtmlSsr(ticker)}" sur 90 jours (échelle 0-100, 100 = pic de la période).
-        Moyenne 90j : ${trends.interestMean}/100, pic max : ${trends.interestMax}/100.
+        ${ssrT(lang, 'trends_helper', { ticker: escHtmlSsr(ticker) })}
+        ${ssrT(lang, 'trends_avg_max', { avg: String(trends.interestMean), max: String(trends.interestMax) })}
       </p>
     </div>
   ` : ''}
 
   <div class="paywall">
-    <h2>🔓 Débloquez l'analyse complète</h2>
-    <p>Cette page publique ne montre qu'un extrait. L'analyse complète de <strong>${escHtmlSsr(ticker)}</strong> sur le dashboard Kairos Insider inclut :</p>
+    <h2>${ssrT(lang, 'paywall_h2')}</h2>
+    <p>${ssrT(lang, 'paywall_p', { ticker: escHtmlSsr(ticker) })}</p>
     <div class="features">
-      <div class="feature">✅ Kairos Score complet (radar 8 axes + synthèse)</div>
-      <div class="feature">✅ Historique des ${totalInsiderTx} transactions insiders sur 90j</div>
-      <div class="feature">✅ Tous les ${totalFunds} hedge funds (sur 200+ suivis)</div>
-      <div class="feature">✅ 11 ETF thématiques (ARK, BUZZ, NANC, GOP, JEPI…)</div>
-      <div class="feature">✅ Hot Stocks Google Trends</div>
-      <div class="feature">✅ Historique 2 ans : AUM + rotations</div>
-      <div class="feature">✅ Fondamentaux (P/E, PEG, EV/EBITDA, ROE…)</div>
-      <div class="feature">✅ Santé financière (Altman Z, Piotroski F)</div>
-      <div class="feature">✅ Concurrents sectoriels + earnings 6 trim.</div>
+      <div class="feature">${ssrT(lang, 'paywall_f1')}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f2', { total: String(totalInsiderTx) })}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f3', { total: String(totalFunds) })}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f4')}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f5')}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f6')}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f7')}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f8')}</div>
+      <div class="feature">${ssrT(lang, 'paywall_f9')}</div>
     </div>
-    <a href="${dashboardUrl}" class="cta">Voir l'analyse complète →</a>
-    <p style="margin-top:14px;font-size:12px;color:#6B7280">Inscription gratuite · Premium 29€/mois sans engagement</p>
+    <a href="${dashboardUrl}?lang=${lang}" class="cta">${ssrT(lang, 'paywall_cta')}</a>
+    <p style="margin-top:14px;font-size:12px;color:#6B7280">${ssrT(lang, 'paywall_terms')}</p>
   </div>
 
   <footer>
-    <p><a href="https://kairosinsider.fr/">kairosinsider.fr</a> · La plateforme francophone du smart money</p>
-    <p style="margin-top:6px">Données SEC EDGAR, AMF, BaFin, Yahoo Finance — mises à jour quotidiennement</p>
+    <p><a href="https://kairosinsider.fr/?lang=${lang}">${ssrT(lang, 'footer_tagline')}</a></p>
+    <p style="margin-top:6px">${ssrT(lang, 'footer_sources')}</p>
   </footer>
 </div>
 </body>
