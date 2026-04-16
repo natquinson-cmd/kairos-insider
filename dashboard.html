@@ -1475,6 +1475,13 @@
           </div>
         </div>
 
+        <!-- Pagination HAUT (duplique pour eviter le scroll jusqu'en bas) -->
+        <div class="pagination" id="insiderPaginationTop" style="display:none;margin-bottom:16px">
+          <button onclick="changePage(-1,'top')" id="prevBtnTop">← Précédent</button>
+          <span class="page-info" id="pageInfoTop">Page 1</span>
+          <button onclick="changePage(1,'top')" id="nextBtnTop">Suivant →</button>
+        </div>
+
         <div id="insiderTableArea">
           <div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>
         </div>
@@ -1500,8 +1507,22 @@
           </div>
         </div>
 
+        <!-- Pagination HAUT pour les clusters -->
+        <div class="pagination" id="clusterPaginationTop" style="display:none;margin-bottom:16px">
+          <button onclick="changeClusterPage(-1,'top')" id="clusterPrevBtnTop">← Précédent</button>
+          <span class="page-info" id="clusterPageInfoTop">Page 1</span>
+          <button onclick="changeClusterPage(1,'top')" id="clusterNextBtnTop">Suivant →</button>
+        </div>
+
         <div id="clusteringArea">
           <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
+        </div>
+
+        <!-- Pagination BAS (miroir) -->
+        <div class="pagination" id="clusterPaginationBottom" style="display:none;margin-top:16px">
+          <button onclick="changeClusterPage(-1)" id="clusterPrevBtn">← Précédent</button>
+          <span class="page-info" id="clusterPageInfo">Page 1</span>
+          <button onclick="changeClusterPage(1)" id="clusterNextBtn">Suivant →</button>
         </div>
       </div>
 
@@ -1532,9 +1553,63 @@
 
       <!-- ===== SECTION: ETF LIVE ===== -->
       <div class="section-page" id="section-etf">
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
           Positions en temps réel des ETF qui répliquent les stratégies des grands investisseurs, politiciens, sentiment retail et thématiques.
         </p>
+
+        <!-- Encart "Comment lire cette page" (collapsible) -->
+        <details id="etfGuidePanel" style="margin-bottom:18px;background:linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.03));border:1px solid rgba(59,130,246,0.22);border-radius:12px;padding:14px 18px">
+          <summary style="cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">💡</span>
+            <span>Comment lire cette page ? — Guide des ETF et de la heatmap</span>
+            <span style="margin-left:auto;font-size:12px;opacity:0.6;font-weight:400">Clique pour déplier</span>
+          </summary>
+          <div style="margin-top:14px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+            <p style="margin:0 0 12px"><strong style="color:var(--text-primary)">Principe :</strong> chaque ETF est un panier d'actions qui suit une stratégie précise. En voyant ses positions actuelles (et comment elles évoluent), tu peux répliquer la stratégie ou t'en inspirer sans acheter l'ETF.</p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px">
+              <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;color:#60A5FA;margin-bottom:6px;font-size:13px">🏛️ Politique US — NANC / GOP</div>
+                <div style="font-size:12px;opacity:0.85">Réplique les trades déclarés par les élus du Congrès (obligation STOCK Act). <strong>NANC</strong> = Démocrates, <strong>GOP</strong> = Républicains. Signal d'information asymétrique : ces gens votent les lois qui bougent les marchés.</div>
+              </div>
+              <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;color:#A78BFA;margin-bottom:6px;font-size:13px">💼 Hedge Funds — GURU</div>
+                <div style="font-size:12px;opacity:0.85">Agrège les positions long des <strong>60 plus grands hedge funds</strong> déclarées via 13F (SEC). Consensus smart money : ce que tiennent en masse les pros.</div>
+              </div>
+              <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;color:#22D3EE;margin-bottom:6px;font-size:13px">🚀 Innovation — ARK (Cathie Wood)</div>
+                <div style="font-size:12px;opacity:0.85"><strong>ARKK</strong> (disruptive), <strong>ARKW</strong> (internet), <strong>ARKG</strong> (biotech/génomique), <strong>ARKF</strong> (fintech), <strong>ARKQ</strong> (robotique/IA). Gestion active, haute conviction, très volatils.</div>
+              </div>
+              <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;color:#F472B6;margin-bottom:6px;font-size:13px">📱 Sentiment retail — BUZZ / MEME</div>
+                <div style="font-size:12px;opacity:0.85"><strong>BUZZ</strong> track les 75 grandes caps avec le plus de sentiment positif sur les réseaux sociaux. <strong>MEME</strong> suit les actions les plus discutées sur Reddit/Twitter. Indicateur de l'humeur des particuliers — à contre-courant souvent utile.</div>
+              </div>
+              <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;color:#34D399;margin-bottom:6px;font-size:13px">💵 Income — JEPI / JEPQ</div>
+                <div style="font-size:12px;opacity:0.85">Stratégie <em>covered call</em> de JPMorgan : actions stables + vente d'options pour générer un rendement mensuel élevé (7-10% /an). <strong>JEPI</strong> = large cap, <strong>JEPQ</strong> = Nasdaq. Positions peu volatiles, profil défensif.</div>
+              </div>
+              <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;color:#FBBF24;margin-bottom:6px;font-size:13px">🎯 Thématiques — ITA / URA / UFO / MJ</div>
+                <div style="font-size:12px;opacity:0.85"><strong>ITA</strong> (défense & aérospatial), <strong>URA</strong> (uranium/nucléaire), <strong>UFO</strong> (espace), <strong>MJ</strong> (cannabis). Expositions sectorielles pures pour surfer une tendance macro ou réglementaire.</div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px;padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+              <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px;font-size:13px">📊 Comment lire la heatmap (carte des positions)</div>
+              <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.7;opacity:0.9">
+                <li><strong>Taille du rectangle</strong> = poids de la position dans l'ETF. Plus c'est gros, plus l'ETF y est exposé.</li>
+                <li><strong>Couleur pastel</strong> = code visuel neutre (bleu, violet, turquoise...). <em>Pas</em> un indicateur de performance, juste pour distinguer les positions.</li>
+                <li><strong>Pourcentage affiché</strong> = part du portefeuille de l'ETF allouée à cette action.</li>
+                <li><strong>Badges ▲ vert / ▼ rouge</strong> (si présents) = variation du poids depuis le dernier snapshot. Vert = l'ETF renforce, rouge = il allège.</li>
+                <li><strong>Badges NEW / EXIT</strong> dans le tableau en dessous = entrées et sorties fraîches du portefeuille.</li>
+              </ul>
+            </div>
+
+            <div style="margin-top:12px;padding:12px 14px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:10px;font-size:12px;opacity:0.9">
+              <strong style="color:#FBBF24">⚡ Astuce :</strong> l'encart <em>"Rotations récentes"</em> en haut (quand il y en a) résume en une lecture quels ETF viennent de faire bouger leur portefeuille sur les 7 derniers jours — parfait pour détecter les thèmes en train de gagner ou perdre du consensus.
+            </div>
+          </div>
+        </details>
 
         <!-- Encart rotations recentes (alimente par D1 si historique dispo) -->
         <div id="etfRotationsArea" style="margin-bottom:18px"></div>
@@ -1542,10 +1617,13 @@
         <!-- Sous-onglets ETF (groupes par categorie) -->
         <div id="etfTabs" class="etf-tabs-grouped"></div>
 
-        <div id="etfInfoBar" style="display:none;margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div id="etfInfoBar" style="display:none;margin-bottom:12px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <span id="etfInfoLabel"></span>
           <span id="etfInfoDate" class="last-update"></span>
         </div>
+
+        <!-- Fiche explicative de l'ETF selectionne -->
+        <div id="etfDescBox" style="display:none;margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg, rgba(59,130,246,0.05), transparent);border-left:3px solid var(--accent-blue);border-radius:8px;font-size:13px;line-height:1.6;color:var(--text-secondary)"></div>
 
         <div id="etfCharts"></div>
 
@@ -2666,24 +2744,37 @@
         </div>`;
 
       const pag = document.getElementById('insiderPagination');
+      const pagTop = document.getElementById('insiderPaginationTop');
       if (totalPages > 1) {
         pag.style.display = 'flex';
         document.getElementById('prevBtn').disabled = currentPage === 0;
         document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
         document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} / ${totalPages}`;
+        // Miroir en haut
+        if (pagTop) {
+          pagTop.style.display = 'flex';
+          document.getElementById('prevBtnTop').disabled = currentPage === 0;
+          document.getElementById('nextBtnTop').disabled = currentPage >= totalPages - 1;
+          document.getElementById('pageInfoTop').textContent = `Page ${currentPage + 1} / ${totalPages}`;
+        }
       } else {
         pag.style.display = 'none';
+        if (pagTop) pagTop.style.display = 'none';
       }
     }
 
-    function changePage(delta) {
+    function changePage(delta, from) {
       const filtered = getFilteredInsiderTx();
       const totalPages = Math.ceil(filtered.length / INSIDER_PAGE_SIZE);
       const newPage = currentPage + delta;
       if (newPage < 0 || newPage >= totalPages) return;
       currentPage = newPage;
       renderInsiderPage();
-      document.getElementById('insiderTableArea').scrollIntoView({ behavior: 'smooth' });
+      // Scroll : depuis la pagination du bas on remonte au tableau,
+      // depuis celle du haut on reste en haut (pas de scroll intempestif)
+      if (from !== 'top') {
+        document.getElementById('insiderTableArea').scrollIntoView({ behavior: 'smooth' });
+      }
     }
 
     // ============================================================
@@ -4700,7 +4791,7 @@
           // Récupérer les données du fonds depuis la dernière réponse API
           apiFetch('/api/13f-funds').then(funds => {
             if (funds && funds[idx] && funds[idx].topHoldings) {
-              setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName), 200);
+              setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName, { treemapOnly: true }), 200);
               // Charge l'historique D1 du fond (AUM + top holdings sur N trimestres)
               loadFundHistoryFor(idx, funds[idx].cik, funds[idx].label || funds[idx].fundName);
             }
@@ -4924,6 +5015,111 @@
         ]},
     ];
 
+    // Fiche detaillee par ETF (objectif, strategie, profil de risque, cas d'usage)
+    const ETF_INFO = {
+      NANC: { icon: '🏛️', color: '#60A5FA', title: 'Democrats Trading ETF',
+        purpose: 'Réplique les trades récents déclarés par les <strong>élus démocrates du Congrès US</strong> et leur famille (obligation STOCK Act).',
+        strategy: 'Pondération par fréquence et volume d\'achat. Renouvelé mensuellement quand de nouvelles déclarations arrivent.',
+        useCase: 'Indicateur d\'information asymétrique : les élus votent les lois qui bougent les marchés (défense, santé, tech, énergie). Utile pour détecter des rotations sectorielles précoces.',
+        risk: 'Concentré sur les large caps tech. Volatilité proche du S&P 500.' },
+      GOP:  { icon: '🏛️', color: '#EF4444', title: 'Republicans Trading ETF',
+        purpose: 'Réplique les trades récents déclarés par les <strong>élus républicains du Congrès US</strong> et leur famille.',
+        strategy: 'Même méthodologie que NANC côté construction, mais biais sectoriels différents (énergie fossile, défense, finance).',
+        useCase: 'Compare avec NANC pour voir les divergences de consensus entre les deux bords politiques — très instructif.',
+        risk: 'Biais énergie/industriel : sensibilité aux prix du pétrole et aux cycles macro.' },
+      GURU: { icon: '💼', color: '#A78BFA', title: 'Top Hedge Fund Holdings',
+        purpose: 'Agrège les positions <strong>long-only</strong> des 60 plus grands hedge funds mondiaux, déclarées via les 13F à la SEC.',
+        strategy: 'Chaque trimestre, sélectionne les titres qui reviennent le plus souvent dans les top holdings. Équipondéré top-N.',
+        useCase: 'Consensus smart money pur. Quand une action entre ou sort de GURU, c\'est un signal de conviction collective.',
+        risk: 'Lag inhérent : les 13F sont déclarés avec 45 jours de décalage. Ne pas utiliser pour du trading court terme.' },
+      ARKK: { icon: '🚀', color: '#22D3EE', title: 'ARK Innovation — Cathie Wood',
+        purpose: 'Portefeuille <strong>disruptive innovation</strong> à forte conviction (35-55 positions) : IA, séquençage ADN, blockchain, robotique, stockage d\'énergie.',
+        strategy: 'Gestion 100% active, transparente (mises à jour quotidiennes). Horizon 5+ ans, forte volatilité court terme.',
+        useCase: 'Exposition growth/tech pure-play. Suivre les achats/ventes d\'ARK = voir où Cathie Wood voit de la valeur en temps réel.',
+        risk: 'Beta élevé (~1.5-2). Drawdowns réguliers de 30-50%. Réservé au long terme et aux investisseurs tolérants au risque.' },
+      ARKW: { icon: '🌐', color: '#22D3EE', title: 'ARK Next Generation Internet',
+        purpose: 'Focus sur les acteurs de l\'<strong>internet next-gen</strong> : cloud, e-commerce, SaaS, DeFi, IA, social, gaming.',
+        strategy: 'Sous-ensemble d\'ARKK avec biais plus marqué sur les plateformes numériques et la blockchain.',
+        useCase: 'Jouer la thèse "internet eats the world" sans acheter 50 actions individuelles.',
+        risk: 'Très corrélé au NASDAQ et aux taux longs. Forte concentration top 10.' },
+      ARKG: { icon: '🧬', color: '#22D3EE', title: 'ARK Genomic Revolution',
+        purpose: 'Expose aux acteurs de la <strong>révolution génomique</strong> : thérapie génique, séquençage, CRISPR, diagnostic moléculaire.',
+        strategy: 'Small + mid caps biotech principalement. Horizon 5-10 ans, cycles cliniques longs.',
+        useCase: 'Thèse "décode du vivant" — paris sur une baisse drastique du coût du séquençage (déjà 100 000x en 20 ans).',
+        risk: 'Très volatil. Issue binaire par titre (FDA approval / échec phase 3). Diversifie le risque mais reste spéculatif.' },
+      ARKF: { icon: '💳', color: '#22D3EE', title: 'ARK Fintech Innovation',
+        purpose: 'Focus <strong>fintech</strong> : paiements digitaux, néobanques, DeFi, infra blockchain, investissement social.',
+        strategy: 'Concentrée sur les acteurs qui désintermédient les banques traditionnelles.',
+        useCase: 'Capter la migration massive vers la finance digitale (Square, PayPal, Coinbase, Shopify-like).',
+        risk: 'Sensible aux taux d\'intérêt et à la régulation crypto.' },
+      ARKQ: { icon: '🤖', color: '#22D3EE', title: 'ARK Autonomous Tech & Robotics',
+        purpose: 'Expose aux <strong>véhicules autonomes, drones, robotique industrielle, impression 3D, IA/ML appliqués</strong>.',
+        strategy: 'Mélange pure-players et incumbents en transformation (Tesla, Komatsu, Trimble...).',
+        useCase: 'Thèse productivité / substitution du travail manuel par l\'automation.',
+        risk: 'Cyclique industriel + exposition à l\'IA générative. Corrélation élevée avec capex tech.' },
+      BUZZ: { icon: '📱', color: '#F472B6', title: 'VanEck Social Sentiment ETF',
+        purpose: 'Track les <strong>75 grandes caps US</strong> avec le meilleur <strong>sentiment positif</strong> sur les réseaux sociaux, forums, news — mesuré par une IA de NLP.',
+        strategy: 'Rebalancement mensuel. Pondération tiltée vers les titres avec la plus forte positive buzz.',
+        useCase: 'Capter l\'humeur collective (retail + médias). Outil de momentum et contrarien à la fois selon le contexte.',
+        risk: 'Biais momentum : peut surperformer en marché haussier, sous-performer en correction rapide.' },
+      MEME: { icon: '🐸', color: '#F472B6', title: 'Roundhill MEME ETF',
+        purpose: 'Suit les <strong>25 actions les plus discutées sur Reddit (WallStreetBets), Twitter et forums</strong> avec un fort short interest.',
+        strategy: 'Rebalancement bi-mensuel. Pondération par niveau de conversation retail + short squeeze potential.',
+        useCase: 'Jouer les dynamiques meme-stock (GME, AMC, PLTR, BBBY-like). Très spéculatif mais instructif pour le sentiment.',
+        risk: 'Très volatil. Usage tactique uniquement — pas un véhicule buy-and-hold.' },
+      JEPI: { icon: '💵', color: '#34D399', title: 'JPMorgan Equity Premium Income',
+        purpose: 'Stratégie <strong>covered call defensive</strong> : panier d\'actions S&P 500 à faible volatilité + vente d\'options call mensuelles pour générer un income.',
+        strategy: '~80% actions large cap stables + ~20% ELN (equity-linked notes) qui simulent la vente d\'options.',
+        useCase: 'Rendement mensuel 7-9% /an, volatilité bien inférieure au S&P 500. Parfait pour un profil income ou retraite.',
+        risk: 'Plafonne les gains en marché très haussier (capped upside). En baisse, comportement proche du marché mais amorti.' },
+      JEPQ: { icon: '💵', color: '#34D399', title: 'JPMorgan Nasdaq Equity Premium',
+        purpose: 'Même stratégie que JEPI mais appliquée au <strong>NASDAQ 100</strong>. Rendement plus élevé car volatilité sous-jacente plus grande.',
+        strategy: 'Large cap tech + ELN sur index NASDAQ. Rebalancement mensuel.',
+        useCase: 'Exposer au NASDAQ tout en encaissant un rendement mensuel de 9-11% /an.',
+        risk: 'Plafond sur les fortes hausses tech. Comportement moins défensif que JEPI en cas de crash.' },
+      ITA: { icon: '🛡️', color: '#FBBF24', title: 'iShares US Aerospace & Defense',
+        purpose: 'Exposition pure aux <strong>industries de la défense et de l\'aérospatial US</strong> : Boeing, Lockheed, RTX, Northrop, General Dynamics...',
+        strategy: 'Cap-weighted sur les acteurs listés US. Biais large cap.',
+        useCase: 'Jouer la thèse "réarmement mondial" + commandes long terme (contrats 10-20 ans avec l\'armée US).',
+        risk: 'Sensible aux budgets fédéraux US et aux cycles géopolitiques. Faible volatilité en régime normal.' },
+      URA: { icon: '☢️', color: '#FBBF24', title: 'Global X Uranium ETF',
+        purpose: 'Expose à la <strong>chaîne de valeur de l\'uranium</strong> : miners (Cameco, Kazatomprom), enrichissement, utilities nucléaires.',
+        strategy: 'Concentré sur une poignée de producteurs mondiaux. Couverture physique du prix spot de l\'uranium.',
+        useCase: 'Jouer le renouveau du nucléaire (SMR, décarbonation, tensions géopolitiques sur le gaz).',
+        risk: 'Très volatil, cyclique matière première. Liquidité des miners parfois limitée.' },
+      UFO: { icon: '🛸', color: '#FBBF24', title: 'Procure Space ETF',
+        purpose: 'Premier ETF <strong>dédié à l\'économie spatiale</strong> : lanceurs, satellites, imagerie, télécoms spatiales, défense orbitale.',
+        strategy: 'Sélection globale (US, Europe, Asie). Mélange pure-players (Maxar, Iridium) et incumbents (Boeing, Lockheed).',
+        useCase: 'Thèse "space economy" à horizon 10-20 ans. Commercialisation de l\'orbite basse.',
+        risk: 'Thème émergent, peu de pure-players rentables. Volatilité élevée.' },
+      MJ:  { icon: '🌿', color: '#FBBF24', title: 'ETFMG Alternative Harvest',
+        purpose: 'Exposition à l\'<strong>industrie du cannabis</strong> (légal, médical, récréatif) : producteurs, distributeurs, biotech.',
+        strategy: 'Mix US + Canada. Rebalancement trimestriel.',
+        useCase: 'Pari sur la légalisation fédérale US et la normalisation réglementaire (thèse 3-5 ans).',
+        risk: 'Très volatil. Contingences réglementaires fortes. Nombreux faux départs depuis 2018.' },
+    };
+
+    function renderEtfDescBox(symbol) {
+      const box = document.getElementById('etfDescBox');
+      if (!box) return;
+      const info = ETF_INFO[symbol];
+      if (!info) { box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      box.style.borderLeftColor = info.color;
+      box.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="font-size:26px;line-height:1">${info.icon}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;color:var(--text-primary);font-size:14px;margin-bottom:8px">${symbol} — ${info.title}</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">🎯 Objectif :</strong> ${info.purpose}</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">⚙️ Stratégie :</strong> ${info.strategy}</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">💡 Cas d'usage :</strong> ${info.useCase}</div>
+            <div style="font-size:12px;opacity:0.75"><strong style="color:var(--text-primary);opacity:0.9">⚠️ Profil de risque :</strong> ${info.risk}</div>
+          </div>
+        </div>
+      `;
+    }
+
     // ============================================================
     // ETF rotations recentes (depuis D1 historique)
     // S'affiche uniquement si on a au moins 2 snapshots espaces.
@@ -5045,6 +5241,9 @@
           `<strong>${data.symbol}</strong> — ${data.label || ''} · ${data.holdingsCount} positions · AUM: ${fmtCurShort(data.totalValue)}`;
         document.getElementById('etfInfoDate').textContent = `Donnees au ${data.date || '—'}`;
 
+        // Fiche explicative de l'ETF (objectif, strategie, cas d'usage, risque)
+        renderEtfDescBox(data.symbol);
+
         // Tableau
         let rows = '';
         // Stocker toutes les positions pour la pagination
@@ -5150,6 +5349,7 @@
 
     function selectClusterType(type) {
       clusterTypeFilter = type;
+      clusterPage = 0; // reset pagination quand on change de filtre
       document.querySelectorAll('[data-cltype]').forEach(b =>
         b.classList.toggle('active', b.dataset.cltype === type)
       );
@@ -5169,6 +5369,29 @@
       }
     }
 
+    // Pagination des clusters : CLUSTER_PAGE_SIZE par page (15 = confortable, le detail des insiders deplie la table)
+    const CLUSTER_PAGE_SIZE = 15;
+    let clusterPage = 0;
+
+    function changeClusterPage(delta, from) {
+      // Recalcul filtered clusters (meme logique que dans renderClusters)
+      let filtered = allClusters;
+      if (clusterTypeFilter !== 'all') {
+        filtered = filtered.filter(c => {
+          const details = c.insiderDetails || [];
+          return details.some(d => d.txType === clusterTypeFilter);
+        });
+      }
+      const totalPages = Math.ceil(filtered.length / CLUSTER_PAGE_SIZE);
+      const newPage = clusterPage + delta;
+      if (newPage < 0 || newPage >= totalPages) return;
+      clusterPage = newPage;
+      renderClusters();
+      if (from !== 'top') {
+        document.getElementById('clusteringArea').scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
     function renderClusters() {
       const area = document.getElementById('clusteringArea');
       const data = clusterData;
@@ -5183,14 +5406,29 @@
         });
       }
 
+        // Cache les paginations haut/bas si rien a afficher
+        const pagTop    = document.getElementById('clusterPaginationTop');
+        const pagBottom = document.getElementById('clusterPaginationBottom');
+
         if (clusters.length === 0) {
           area.innerHTML = '<div class="empty-state"><p>Aucun cluster detecte sur les 90 derniers jours.</p></div>';
+          if (pagTop)    pagTop.style.display    = 'none';
+          if (pagBottom) pagBottom.style.display = 'none';
           return;
         }
 
+        // Pagination
+        const totalClusters = clusters.length;
+        const totalPages = Math.max(1, Math.ceil(totalClusters / CLUSTER_PAGE_SIZE));
+        if (clusterPage >= totalPages) clusterPage = totalPages - 1;
+        if (clusterPage < 0) clusterPage = 0;
+        const start = clusterPage * CLUSTER_PAGE_SIZE;
+        const pageClusters = clusters.slice(start, start + CLUSTER_PAGE_SIZE);
+
         let rows = '';
-        for (let i = 0; i < clusters.length; i++) {
-          const c = clusters[i];
+        for (let i = 0; i < pageClusters.length; i++) {
+          const c = pageClusters[i];
+          const absIdx = start + i; // index unique global sur la page paginee
           const strength = c.insiderCount >= 5 ? 'TRES FORT' : c.insiderCount >= 3 ? 'FORT' : 'MODERE';
           const strengthCls = c.insiderCount >= 5 ? 'buy' : c.insiderCount >= 3 ? 'buy' : 'other';
           const countBg = c.insiderCount >= 5 ? 'rgba(16,185,129,0.3)' : c.insiderCount >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)';
@@ -5199,7 +5437,7 @@
           // Les clusters actuels sont tous bases sur SEC (US). Quand on ajoutera des clusters
           // Europe via BaFin, c.market/c.region pilotera le drapeau.
           const clusterMarket = c.market || 'US';
-          rows += `<tr class="fund-row" onclick="toggleCluster(${i})" style="cursor:pointer">
+          rows += `<tr class="fund-row" onclick="toggleCluster(${absIdx})" style="cursor:pointer">
             <td style="white-space:nowrap;text-align:center" title="${clusterMarket}">${fmtMarket(clusterMarket)}</td>
             <td class="ticker">${c.ticker || '—'}</td>
             <td style="color:var(--text-primary)">${c.company} <span class="chevron">&#9654;</span></td>
@@ -5236,7 +5474,7 @@
             </tr>`;
           }
 
-          rows += `<tr class="fund-detail-row" id="cluster-detail-${i}">
+          rows += `<tr class="fund-detail-row" id="cluster-detail-${absIdx}">
             <td colspan="8" class="fund-detail-cell">
               <div class="fund-detail-inner">
                 <div class="sub-header">
@@ -5261,9 +5499,13 @@
           </tr>`;
         }
 
+        const pageHint = totalPages > 1
+          ? ` · <strong>Page ${clusterPage + 1} / ${totalPages}</strong> (affichage ${start + 1}-${Math.min(start + CLUSTER_PAGE_SIZE, totalClusters)})`
+          : '';
+
         area.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-            <span style="color:var(--text-muted);font-size:13px">${clusters.length} clusters detectes sur ${data.totalFilings?.toLocaleString('fr-FR') || '?'} declarations (90 jours)</span>
+            <span style="color:var(--text-muted);font-size:13px">${clusters.length} clusters detectes sur ${data.totalFilings?.toLocaleString('fr-FR') || '?'} declarations (90 jours)${pageHint}</span>
             <span class="last-update">Mis a jour le ${data.date || '—'}</span>
           </div>
           <div class="table-wrap">
@@ -5285,6 +5527,24 @@
             Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose une declaration insider (transaction sur leurs propres actions) dans les 90 derniers jours.
             Plus le nombre d'insiders est eleve, plus le signal est fort. Cliquez sur une ligne pour voir les noms des declarants.
           </p>`;
+
+        // Mise a jour des paginations haut + bas
+        const updatePag = (topEl, prevId, nextId, infoId) => {
+          if (!topEl) return;
+          if (totalPages > 1) {
+            topEl.style.display = 'flex';
+            const pb = document.getElementById(prevId);
+            const nb = document.getElementById(nextId);
+            const info = document.getElementById(infoId);
+            if (pb) pb.disabled = clusterPage === 0;
+            if (nb) nb.disabled = clusterPage >= totalPages - 1;
+            if (info) info.textContent = `Page ${clusterPage + 1} / ${totalPages}`;
+          } else {
+            topEl.style.display = 'none';
+          }
+        };
+        updatePag(pagTop,    'clusterPrevBtnTop', 'clusterNextBtnTop', 'clusterPageInfoTop');
+        updatePag(pagBottom, 'clusterPrevBtn',    'clusterNextBtn',    'clusterPageInfo');
     }
 
     function toggleCluster(idx) {
