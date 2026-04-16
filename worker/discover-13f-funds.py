@@ -168,21 +168,23 @@ def get_fund_metadata(cik):
 
 
 def get_aum_from_filing(filing):
-    """Extrait le tableValueTotal du primary_doc.xml du filing 13F-HR."""
+    """Extrait le tableValueTotal du primary_doc.xml du filing 13F-HR.
+    Depuis 2023 la SEC impose le format USD direct (pas en milliers).
+    Les filings modernes ont donc une valeur directe en $."""
     cik_clean = filing['cik'].lstrip('0')
     acc_clean = filing['accession'].replace('-', '')
     url = f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/primary_doc.xml'
     try:
         xml = http_get(url, timeout=15)
-        # Le tableValueTotal est en milliers de $ (mais avant 2022 etait en $ direct)
-        # Heuristique : format moderne = milliers
         m = re.search(r'<(?:\w+:)?tableValueTotal>([\d.]+)</(?:\w+:)?tableValueTotal>', xml)
         if m:
             v = float(m.group(1))
-            # Si v > 1e15, c'est en $ direct, sinon en milliers
-            if v > 1e15:
-                return v
-            return v * 1000
+            # Heuristique : format moderne = USD direct (depuis 2023)
+            # Si la valeur est tres petite (< 1e8 = 100M$), c'est probablement
+            # un format ancien en milliers -> multiplier par 1000.
+            if v > 0 and v < 1e8:
+                return v * 1000
+            return v
         return 0
     except Exception:
         return 0
