@@ -24,6 +24,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Module i18n FR/EN (window.KairosI18n) -->
+  <script src="assets/i18n.js"></script>
+
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
     (function() {
@@ -1150,14 +1154,22 @@
         <span class="logo-text">Kairos Insider</span>
       </a>
       <ul class="nav-links">
-        <li><a href="index.html">Accueil</a></li>
-        <li><a href="dashboard.html" class="active">Dashboard</a></li>
+        <li><a href="index.html" data-i18n="nav.home">Accueil</a></li>
+        <li><a href="dashboard.html" class="active" data-i18n="nav.dashboard">Dashboard</a></li>
         <li>
           <button class="theme-toggle" onclick="toggleTheme()" title="Basculer clair / sombre" aria-label="Basculer le thème">
             <span class="theme-toggle-icon" id="themeToggleIcon">🌙</span>
           </button>
         </li>
-        <li><a href="#" onclick="logout()" style="color:var(--accent-red)">Déconnexion</a></li>
+        <li>
+          <button id="navLangToggleDash" onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === 'fr' ? 'en' : 'fr')" data-i18n-title="nav.lang_switch_title" title="Switch to English"
+                  style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:6px 11px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:5px;transition:all 0.2s"
+                  onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'"
+                  onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'">
+            <span id="navLangFlagDash">🇬🇧</span><span data-i18n="nav.lang_switch">EN</span>
+          </button>
+        </li>
+        <li><a href="#" onclick="logout()" style="color:var(--accent-red)" data-i18n="nav.logout">Déconnexion</a></li>
       </ul>
     </div>
   </nav>
@@ -1170,74 +1182,74 @@
       <button class="sidebar-toggle" onclick="toggleSidebar()" title="Replier/Deplier">&#9776;</button>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Tableau de bord</div>
+        <div class="sidebar-title" data-i18n="dash.sidebar.dashboard">Tableau de bord</div>
         <button class="sidebar-item active" data-section="home" onclick="switchSection('home')">
           <span class="sidebar-icon icon-slate"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-          <span>Accueil</span>
+          <span data-i18n="dash.sidebar.home">Accueil</span>
         </button>
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Analyse</div>
+        <div class="sidebar-title" data-i18n="dash.sidebar.analyse">Analyse</div>
         <button class="sidebar-item" data-section="stockAnalysis" data-premium="true" onclick="switchSection('stockAnalysis')">
           <span class="sidebar-icon icon-blue"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
-          <span>Analyse action</span>
+          <span data-i18n="dash.sidebar.stock_analysis">Analyse action</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="hotStocks" onclick="switchSection('hotStocks')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>
-          <span>Hot Stocks</span>
+          <span data-i18n="dash.sidebar.hot_stocks">Hot Stocks</span>
           <span class="sidebar-badge new-badge">NEW</span>
         </button>
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Smart Money</div>
+        <div class="sidebar-title" data-i18n="dash.sidebar.smart_money">Smart Money</div>
         <button class="sidebar-item" data-section="insider" data-premium="true" onclick="switchSection('insider')">
           <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
-          <span>Transactions Insiders</span>
+          <span data-i18n="dash.sidebar.insiders">Transactions Insiders</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
           <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
-          <span>Signaux Insiders</span>
+          <span data-i18n="dash.sidebar.signals">Signaux Insiders</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')">
           <span class="sidebar-icon icon-teal"><svg viewBox="0 0 24 24"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span>
-          <span>Hedge Funds</span>
+          <span data-i18n="dash.sidebar.hedge_funds">Hedge Funds</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="consensus13f" data-premium="true" onclick="switchSection('consensus13f')">
           <span class="sidebar-icon icon-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
-          <span>Consensus Hedge Funds</span>
+          <span data-i18n="dash.sidebar.consensus">Consensus Hedge Funds</span>
           <span class="sidebar-badge new-badge">NEW</span>
         </button>
         <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
           <span class="sidebar-icon icon-cyan"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
-          <span>ETF Live</span>
+          <span data-i18n="dash.sidebar.etf_live">ETF Live</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Mon Trading</div>
+        <div class="sidebar-title" data-i18n="dash.sidebar.my_trading">Mon Trading</div>
         <button class="sidebar-item" data-section="portfolio" data-premium="true" onclick="switchSection('portfolio')">
           <span class="sidebar-icon icon-pink"><svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-          <span>Mon Portefeuille</span>
+          <span data-i18n="dash.sidebar.portfolio">Mon Portefeuille</span>
           <span class="sidebar-badge beta-badge" title="Module en bêta — synchronisation automatique à venir">BETA</span>
         </button>
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Indicateurs</div>
+        <div class="sidebar-title" data-i18n="dash.sidebar.indicators">Indicateurs</div>
         <button class="sidebar-item" data-section="feargreed" onclick="switchSection('feargreed')">
           <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></span>
-          <span>Fear & Greed</span>
+          <span data-i18n="dash.sidebar.fear_greed">Fear & Greed</span>
         </button>
         <button class="sidebar-item" data-section="shorts" onclick="switchSection('shorts')">
           <span class="sidebar-icon icon-indigo"><svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></span>
-          <span>Short Interest</span>
+          <span data-i18n="dash.sidebar.shorts">Short Interest</span>
         </button>
       </div>
     </aside>
@@ -2287,88 +2299,38 @@
     // Langue = localStorage.kairos-lang ou 'fr' par defaut.
     // Pour ajouter une langue : etoffer DICT[lang], puis exposer un toggle
     // dans la nav (similaire au theme dark/light deja en place).
-    const I18N_LANG_KEY = 'kairos-lang';
-    const I18N_DEFAULT = 'fr';
-    const I18N_DICT = {
-      fr: {
-        // Statuts transactions insiders (depuis SEC Form 4 type codes)
-        'tx.buy': 'Achat',
-        'tx.sell': 'Vente',
-        'tx.other': 'Autre',
-        'tx.A': 'Attribution',
-        'tx.D': 'Cession',
-        'tx.P': 'Achat',
-        'tx.S': 'Vente',
-        'tx.M': 'Exercice',
-        'tx.F': 'Retenue fiscale',
-        'tx.X': 'Exercice',
-        'tx.G': 'Don',
-        'tx.C': 'Conversion',
-        // Statuts holdings hedge funds (variation Q/Q)
-        'hf.new': 'Nouvelle position',
-        'hf.sold': 'Sortie complète',
-        'hf.closed': 'Position fermée',
-        'hf.increased': 'Renforcée',
-        'hf.decreased': 'Réduite',
-        'hf.unchanged': 'Inchangée',
-        // Generic
-        'unknown': '—',
-      },
-      en: {
-        'tx.buy': 'Buy',
-        'tx.sell': 'Sell',
-        'tx.other': 'Other',
-        'tx.A': 'Award',
-        'tx.D': 'Disposal',
-        'tx.P': 'Purchase',
-        'tx.S': 'Sale',
-        'tx.M': 'Exercise',
-        'tx.F': 'Tax withheld',
-        'tx.X': 'Exercise',
-        'tx.G': 'Gift',
-        'tx.C': 'Conversion',
-        'hf.new': 'New position',
-        'hf.sold': 'Fully sold',
-        'hf.closed': 'Closed position',
-        'hf.increased': 'Increased',
-        'hf.decreased': 'Decreased',
-        'hf.unchanged': 'Unchanged',
-        'unknown': '—',
-      },
-    };
-    function getLang() {
-      try { return localStorage.getItem(I18N_LANG_KEY) || I18N_DEFAULT; }
-      catch { return I18N_DEFAULT; }
-    }
+    // I18N : le module global est charge via assets/i18n.js (window.KairosI18n).
+    // On expose des aliases locaux 't' et 'getLang' pour compatibilite ascendante
+    // avec le code existant qui utilisait l'ancien I18N_DICT inline.
+    function getLang() { return (window.KairosI18n && window.KairosI18n.getLang()) || 'fr'; }
     function t(key, fallback) {
-      const lang = getLang();
-      return (I18N_DICT[lang] && I18N_DICT[lang][key]) || (I18N_DICT[I18N_DEFAULT][key]) || fallback || key;
+      return (window.KairosI18n && window.KairosI18n.t(key, fallback)) || fallback || key;
     }
     // Helpers traductions speciales avec emojis pour la lisibilite UX
     function txStatusLabel(type) {
       // type peut être 'buy' | 'sell' | code SEC ('P','S','A','D'...) | autre
-      if (!type) return t('unknown');
+      if (!type) return t('unknown', '—');
       const lc = String(type).toLowerCase();
-      if (lc === 'buy')  return '🟢 ' + t('tx.buy');
-      if (lc === 'sell') return '🔴 ' + t('tx.sell');
+      if (lc === 'buy')  return '🟢 ' + t('tx.buy', 'Achat');
+      if (lc === 'sell') return '🔴 ' + t('tx.sell', 'Vente');
       // Codes SEC bruts
       const code = String(type).toUpperCase();
-      if (I18N_DICT[I18N_DEFAULT]['tx.' + code]) {
+      if (['A','D','P','S','M','F','X','G','C'].includes(code)) {
         const isAcq = ['A','P','M','X','C'].includes(code);
         const dot = isAcq ? '🟢' : ['D','S','F'].includes(code) ? '🔴' : '⚪';
-        return `${dot} ${t('tx.' + code)}`;
+        return `${dot} ${t('tx.' + code, code)}`;
       }
-      return '⚪ ' + t('tx.other');
+      return '⚪ ' + t('tx.other', 'Autre');
     }
     function hfStatusLabel(status) {
       if (!status) return '—';
       const lc = String(status).toLowerCase();
-      if (lc === 'new')       return '🆕 ' + t('hf.new');
-      if (lc === 'sold')      return '❌ ' + t('hf.sold');
-      if (lc === 'closed')    return '❌ ' + t('hf.closed');
-      if (lc === 'increased') return '📈 ' + t('hf.increased');
-      if (lc === 'decreased') return '📉 ' + t('hf.decreased');
-      if (lc === 'unchanged') return '➖ ' + t('hf.unchanged');
+      if (lc === 'new')       return '🆕 ' + t('hf.new', 'Nouvelle position');
+      if (lc === 'sold')      return '❌ ' + t('hf.sold', 'Sortie complète');
+      if (lc === 'closed')    return '❌ ' + t('hf.closed', 'Position fermée');
+      if (lc === 'increased') return '📈 ' + t('hf.increased', 'Renforcée');
+      if (lc === 'decreased') return '📉 ' + t('hf.decreased', 'Réduite');
+      if (lc === 'unchanged') return '➖ ' + t('hf.unchanged', 'Inchangée');
       return status;
     }
 
@@ -2405,6 +2367,16 @@
       const theme = document.documentElement.getAttribute('data-theme');
       icon.textContent = theme === 'light' ? '☀️' : '🌙';
     }
+
+    // Synchronise le drapeau du toggle FR/EN selon la langue courante
+    function applyLangFlagIcon() {
+      const flag = document.getElementById('navLangFlagDash');
+      if (flag && window.KairosI18n) {
+        flag.textContent = window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', applyLangFlagIcon);
+    window.addEventListener('kairos:langchange', applyLangFlagIcon);
 
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme') || 'dark';
