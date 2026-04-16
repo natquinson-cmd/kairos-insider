@@ -2966,6 +2966,99 @@
     }
 
     // ============================================================
+    // KAIROS SCORE - genere une synthese textuelle dynamique en
+    // identifiant les points forts (>= 70%), faibles (<= 30%) et
+    // une conclusion adaptee au signal global.
+    // Retourne du HTML (a injecter directement).
+    // ============================================================
+    function generateScoreNarrative(score, ticker, axesOrder, palette) {
+      const total = score?.total || 0;
+      const breakdown = score?.breakdown || {};
+      const tk = ticker || 'cette action';
+
+      // Classer les 8 axes par % de remplissage (score / max)
+      const ranked = axesOrder
+        .map(axis => {
+          const b = breakdown[axis.key];
+          if (!b || !b.max) return null;
+          return {
+            key: axis.key,
+            label: b.label || axis.label,
+            short: axis.short,
+            pct: b.score / b.max,
+            score: b.score,
+            max: b.max,
+            detail: b.detail || '',
+          };
+        })
+        .filter(Boolean);
+
+      if (ranked.length === 0) return '';
+
+      // Points forts (>= 70%) et faibles (<= 30%)
+      const strong = ranked.filter(a => a.pct >= 0.7).sort((a, b) => b.pct - a.pct);
+      const weak = ranked.filter(a => a.pct <= 0.3).sort((a, b) => a.pct - b.pct);
+      const moderate = ranked.filter(a => a.pct > 0.3 && a.pct < 0.7);
+
+      // Helpers pour le ton (positif/negatif selon le contexte)
+      const phraseStrong = (axes) => {
+        if (!axes.length) return '';
+        const n = axes.length;
+        const list = axes.slice(0, 3).map(a => `<strong style="color:${palette.label}">${a.label.toLowerCase()}</strong>`).join(', ');
+        const intro = n >= 3 ? 'Les signaux les plus forts viennent de' :
+                      n === 2 ? 'Deux dimensions ressortent particulièrement :' :
+                                'Le signal le plus marqué vient de';
+        const more = axes.length > 3 ? ` et ${axes.length - 3} autre${axes.length - 3 > 1 ? 's' : ''}` : '';
+        return `${intro} ${list}${more}.`;
+      };
+      const phraseWeak = (axes) => {
+        if (!axes.length) return '';
+        const n = axes.length;
+        const list = axes.slice(0, 3).map(a => `<strong style="color:#FBBF24">${a.label.toLowerCase()}</strong>`).join(', ');
+        const intro = n >= 3 ? 'En revanche, plusieurs faiblesses sont à noter :' :
+                      n === 2 ? 'Deux points faibles à surveiller :' :
+                                'Un point faible à surveiller :';
+        return `${intro} ${list}.`;
+      };
+
+      // Conclusion selon le score
+      let conclusion = '';
+      if (total >= 75) {
+        conclusion = `Le consensus smart money est <strong style="color:${palette.main}">très favorable</strong> sur ${tk}. Plusieurs dimensions clés sont alignées dans le sens de l'achat.`;
+      } else if (total >= 60) {
+        conclusion = `Le profil global de ${tk} est <strong style="color:${palette.main}">positif</strong>, avec des signaux smart money majoritairement favorables.`;
+      } else if (total >= 40) {
+        conclusion = `Le signal sur ${tk} est <strong style="color:${palette.main}">mitigé</strong>. Aucune tendance institutionnelle nette ne se dégage.`;
+      } else if (total >= 25) {
+        conclusion = `Le profil global de ${tk} est <strong style="color:${palette.main}">défavorable</strong>. Plusieurs dimensions clés envoient des signaux négatifs.`;
+      } else {
+        conclusion = `Les signaux smart money sont <strong style="color:${palette.main}">très défavorables</strong> sur ${tk}. La majorité des dimensions sont dans le rouge.`;
+      }
+
+      // Cas particulier : tout neutre (ni fort ni faible)
+      if (strong.length === 0 && weak.length === 0) {
+        return `<p style="margin:0">${conclusion} Toutes les dimensions affichent des scores moyens (entre 30 et 70%) — pas de signal contrarié, mais pas de catalyseur fort non plus.</p>`;
+      }
+
+      // Construction de l'analyse en 2-3 phrases
+      const parts = [conclusion];
+      if (strong.length) parts.push(phraseStrong(strong));
+      if (weak.length) parts.push(phraseWeak(weak));
+
+      // Note conviction si insider OU smartMoney sont tres forts
+      const insiderAxis = ranked.find(a => a.key === 'insider');
+      const hfAxis = ranked.find(a => a.key === 'smartMoney');
+      let convictionNote = '';
+      if (insiderAxis && insiderAxis.pct >= 0.75 && hfAxis && hfAxis.pct >= 0.5) {
+        convictionNote = ` <em style="opacity:0.85">À noter : forte activité d'achat des dirigeants combinée à un soutien institutionnel — un alignement souvent observé sur les retournements haussiers.</em>`;
+      } else if (insiderAxis && insiderAxis.pct <= 0.2) {
+        convictionNote = ` <em style="opacity:0.85">À noter : les dirigeants vendent ou n'achètent pas, ce qui réduit la conviction interne.</em>`;
+      }
+
+      return `<p style="margin:0">${parts.join(' ')}${convictionNote}</p>`;
+    }
+
+    // ============================================================
     // KAIROS SCORE - composant brande avec radar SVG 8 dimensions
     // Genere la card complete (score global + radar + breakdown)
     // ============================================================
@@ -3115,12 +3208,16 @@
               <h2 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em;font-family:'Space Grotesk',sans-serif;font-weight:700">
                 Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:20px">/100</span>
               </h2>
-              <p style="font-size:13px;line-height:1.65;color:var(--text-secondary);margin-bottom:18px">
-                Score composite qui agrège <strong style="color:var(--text-primary)">8 dimensions du smart money</strong>${tk ? ' pour ' + tk : ''}. Plus le score est élevé, plus le consensus des signaux institutionnels est favorable à l'achat.
-              </p>
+              <!-- SYNTHESE DYNAMIQUE basee sur les 8 axes -->
+              <div style="background:linear-gradient(135deg, ${palette.main}10, transparent);border-left:3px solid ${palette.main};padding:14px 16px;border-radius:8px;margin-bottom:18px;font-size:13.5px;line-height:1.7;color:var(--text-primary)">
+                ${generateScoreNarrative(score, tk, axesOrder, palette)}
+              </div>
 
               <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px">Décomposition (8 axes)</div>
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                  <span>Décomposition (8 axes)</span>
+                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">Score sur 100 = somme des 8 sous-scores</span>
+                </div>
                 ${breakdownRows || '<div style="opacity:0.5;font-size:12px">Détails indisponibles</div>'}
               </div>
             </div>
