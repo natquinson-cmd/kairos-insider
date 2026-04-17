@@ -386,44 +386,66 @@ def normalize_company_name_py(name):
 
 
 print(f'\n=== Building inverted index (name -> funds) ===')
-ticker_index = {}  # normalized_name -> [{fund info}]
+# Limite le nombre de fonds par ticker pour rentrer dans la limite KV (25 MB/valeur).
+# Le top 50 fonds par valeur couvre 95% des cas d'usage de la page Analyse Action
+# (on ne remonte les petits fonds que si necessaire, ce qui est rare).
+MAX_FUNDS_PER_TICKER = 50
+# Seuil minimum pour filtrer les positions insignifiantes (< 10k$ = bruit de fond)
+MIN_POSITION_VALUE_USD = 10000
+
+ticker_index = {}  # normalized_name -> [{fund info}] (payload minimaliste)
 total_positions = 0
 for fund in all_funds:
     all_hold = fund.pop('_allHoldings', [])  # on retire la cle avant save
     total_positions += len(all_hold)
+    fund_name = fund.get('fundName')
+    fund_cik = fund.get('cik')
+    fund_label = fund.get('label')
+    fund_category = fund.get('category')
+    fund_report = fund.get('reportDate')
     for h in all_hold:
+        # Filtre les positions trop petites (< 10k$) = bruit institutionnel
+        if (h.get('value') or 0) < MIN_POSITION_VALUE_USD:
+            continue
         key = normalize_company_name_py(h.get('name'))
         if not key:
             continue
         if key not in ticker_index:
             ticker_index[key] = []
+        # Payload minimaliste : on retire cusip + companyName (deductible de la cle),
+        # ce qui divise la taille par 2-3 pour les tickers a beaucoup de fonds.
         ticker_index[key].append({
-            'fundName': fund.get('fundName'),
-            'cik': fund.get('cik'),
-            'label': fund.get('label'),
-            'category': fund.get('category'),
+            'fundName': fund_name,
+            'cik': fund_cik,
+            'label': fund_label,
+            'category': fund_category,
             'shares': h.get('shares'),
             'value': h.get('value'),
             'pct': h.get('pct'),
             'sharesChange': h.get('sharesChange'),
             'status': h.get('status'),
-            'reportDate': fund.get('reportDate'),
-            'companyName': h.get('name'),
-            'cusip': h.get('cusip'),
+            'reportDate': fund_report,
         })
 
-# Tri par value DESC par ticker (affichage coherent)
-for key in ticker_index:
+# Tri par value DESC + cap au top MAX_FUNDS_PER_TICKER fonds par ticker
+indexed_positions = 0
+for key in list(ticker_index.keys()):
     ticker_index[key].sort(key=lambda f: (f.get('value') or 0), reverse=True)
+    ticker_index[key] = ticker_index[key][:MAX_FUNDS_PER_TICKER]
+    indexed_positions += len(ticker_index[key])
 
-print(f'  Total positions indexees : {total_positions}')
+print(f'  Total positions brutes : {total_positions}')
 print(f'  Tickers uniques : {len(ticker_index)}')
+print(f'  Positions indexees (apres cap top {MAX_FUNDS_PER_TICKER} par ticker) : {indexed_positions}')
 
 # Sauvegarde de l'index dans un fichier separe
 index_file = '13f_ticker_index.json'
 with open(index_file, 'w') as f:
-    json.dump(ticker_index, f)
-print(f'  Sauvegarde : {index_file} ({os.path.getsize(index_file):,} bytes)')
+    json.dump(ticker_index, f, separators=(',', ':'))  # JSON compact
+size_mb = os.path.getsize(index_file) / 1e6
+print(f'  Sauvegarde : {index_file} ({size_mb:.2f} MB)')
+if size_mb > 23:
+    print(f'  WARN : taille proche de la limite KV (25 MB). Reduire MAX_FUNDS_PER_TICKER si besoin.')
 
 # ============================================================
 # SAUVEGARDE funds_data.json (sans _allHoldings)
