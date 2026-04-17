@@ -42,3 +42,12 @@ id = "aca7ff9d2a244b06ae92d6a7129b4cc4"
 binding = "HISTORY"
 database_name = "kairos-history"
 database_id = "e26b41bc-9a11-42b4-a33e-e369f2fd7602"
+
+# ============================================================
+# CRON TRIGGERS
+# ============================================================
+# Watchlist daily digest : 6h15 UTC = 8h15 Paris (heure d'ete) / 7h15 (hiver)
+# On tire apres le pipeline data (qui tourne a 5h UTC via GitHub Actions)
+# pour avoir les snapshots du jour deja en KV + D1.
+[triggers]
+crons = ["15 6 * * *"]

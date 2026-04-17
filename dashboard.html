@@ -442,12 +442,14 @@
       color: var(--accent-green);
     }
     .sidebar-item .premium-badge {
-      background: rgba(139,92,246,0.15);
-      color: var(--accent-purple);
+      background: rgba(239,68,68,0.15);
+      color: #F87171;
+      border: 1px solid rgba(239,68,68,0.25);
     }
     .sidebar-item .premium-badge.unlocked {
       background: rgba(16,185,129,0.15);
       color: var(--accent-green);
+      border: 1px solid rgba(16,185,129,0.25);
     }
     .sidebar-item .new-badge {
       background: linear-gradient(135deg, rgba(116,185,255,0.2), rgba(162,155,254,0.2));
@@ -1239,6 +1241,12 @@
           <span data-i18n="dash.sidebar.portfolio">Mon Portefeuille</span>
           <span class="sidebar-badge beta-badge" title="Module en bêta — synchronisation automatique à venir">BETA</span>
         </button>
+        <button class="sidebar-item" data-section="watchlist" data-premium="true" onclick="switchSection('watchlist')">
+          <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+          <span data-i18n="dash.sidebar.watchlist">Ma Watchlist</span>
+          <span class="sidebar-badge new-badge">NEW</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
       </div>
 
       <div class="sidebar-section">
@@ -1273,6 +1281,7 @@
           <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
             <button onclick="switchSection('stockAnalysis')" style="padding:10px 18px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;cursor:pointer">🔎 Analyser une action</button>
             <button onclick="switchSection('clustering')" style="padding:10px 18px;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:14px;cursor:pointer">🎯 Voir les signaux chauds</button>
+            <button onclick="switchSection('watchlist')" style="padding:10px 18px;background:var(--surface-3);border:1px solid rgba(251,191,36,0.4);border-radius:8px;color:#FBBF24;font-weight:600;font-size:14px;cursor:pointer">⭐ Ma Watchlist <span style="font-size:10px;padding:2px 6px;background:rgba(251,191,36,0.2);border-radius:4px;margin-left:4px">NEW</span></button>
           </div>
         </div>
 
@@ -1313,6 +1322,38 @@
             <h4 style="margin:0 0 6px;font-size:16px">Analyse action</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Deep-dive complet sur n'importe quel ticker : <strong>Kairos Score</strong> composite de 0 à 100, initiés, hedge funds, fondamentaux, santé financière, peers, earnings.</p>
             <div style="margin-top:12px;font-size:12px;color:#74b9ff">Rechercher une action →</div>
+          </div>
+
+          <div onclick="switchSection('watchlist')" class="home-card" style="padding:22px;background:linear-gradient(135deg,rgba(251,191,36,0.08),var(--surface-1));border:1px solid rgba(251,191,36,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(251,191,36,0.18);border:1px solid rgba(251,191,36,0.4);border-radius:4px;font-size:10px;color:#FBBF24;font-weight:700;letter-spacing:0.5px">NEW</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">⭐</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Ma Watchlist</h4>
+            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5">Suivez vos actions preferees et recevez un <strong>digest email quotidien</strong> a 8h avec les evenements smart-money detectes : clusters insiders, rotations ETF, variation Kairos Score.</p>
+            <div style="margin-top:12px;font-size:12px;color:#FBBF24">Configurer mes alertes →</div>
+          </div>
+
+          <div onclick="switchSection('hotStocks')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(116,185,255,0.2);border:1px solid rgba(116,185,255,0.4);border-radius:4px;font-size:10px;color:#74b9ff;font-weight:700;letter-spacing:0.5px">NEW</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🔥</div>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Hot Stocks</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Les actions <strong>les plus cherchees sur Google</strong> avec score de momentum. Detectez les small caps qui commencent a attirer l'attention retail avant le reste du marche.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Explorer les tendances →</div>
+          </div>
+
+          <div onclick="switchSection('consensus13f')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(116,185,255,0.2);border:1px solid rgba(116,185,255,0.4);border-radius:4px;font-size:10px;color:#74b9ff;font-weight:700;letter-spacing:0.5px">NEW</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🎓</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px">Consensus Hedge Funds</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Les actions ou <strong>le plus de hedge funds convergent</strong> (position ≥ 0,3% du portefeuille). Les ★ conviction = pari actif, pas de l'indexation passive BlackRock/Vanguard.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Voir le consensus →</div>
           </div>
 
           <div onclick="switchSection('insider')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
@@ -1905,6 +1946,95 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: MA WATCHLIST ===== -->
+      <div class="section-page" id="section-watchlist">
+        <h2>Ma Watchlist <span class="beta-tag" style="background:linear-gradient(135deg,#F59E0B,#EC4899)">NEW</span></h2>
+        <p class="section-desc">Suivez vos actions preferees et recevez chaque matin a 8h un digest email des evenements smart-money detectes : nouveaux clusters insiders, entrees/sorties d'ETF, variations du Kairos Score.</p>
+
+        <!-- KPIs + bouton d'ajout -->
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;margin:20px 0 24px">
+          <div style="flex:1;min-width:220px;padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Tickers surveilles</div>
+            <div style="font-size:26px;font-weight:700;color:var(--text-primary)">
+              <span id="wlCount">0</span>
+              <span id="wlLimit" style="font-size:14px;color:var(--text-muted);font-weight:400"></span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:220px;padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Alertes email</div>
+            <div id="wlStatus" style="font-size:15px;font-weight:600;color:var(--text-primary)">Non configure</div>
+          </div>
+          <div style="flex:2;min-width:300px;padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Dernier digest</div>
+            <div id="wlLastDigest" style="font-size:14px;color:var(--text-primary)">—</div>
+          </div>
+        </div>
+
+        <!-- Barre d'ajout d'un ticker -->
+        <div style="margin-bottom:24px;padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px">Ajouter un ticker</div>
+          <div style="display:flex;gap:10px;align-items:stretch;position:relative;flex-wrap:wrap">
+            <div style="position:relative;flex:1;min-width:240px">
+              <input id="wlAddInput" type="text" placeholder="Ex : AAPL, NVDA, MC.PA, SAP.DE..." autocomplete="off"
+                     style="width:100%;padding:12px 16px;font-size:14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+              <div id="wlAddSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 8px 8px;max-height:280px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
+            </div>
+            <button class="btn btn-primary" onclick="addTickerFromInput()" style="padding:12px 22px;font-size:14px">+ Ajouter</button>
+          </div>
+          <p id="wlAddMsg" style="font-size:12px;color:var(--text-muted);margin:8px 0 0;min-height:16px"></p>
+        </div>
+
+        <!-- Liste des tickers surveilles -->
+        <div id="wlTickersArea">
+          <div class="empty-state"><p style="color:var(--text-muted)">Chargement de votre watchlist...</p></div>
+        </div>
+
+        <!-- Preferences alertes -->
+        <div style="margin-top:32px;padding:20px 22px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px">
+          <h3 style="margin:0 0 14px;font-size:15px;color:var(--text-primary)">⚙️ Preferences d'alertes</h3>
+
+          <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:14px;padding:12px;background:rgba(59,130,246,0.05);border-radius:8px">
+            <input type="checkbox" id="wlEmailAlerts" onchange="saveWatchlistPrefs()" style="margin-top:2px;width:18px;height:18px;cursor:pointer;accent-color:var(--accent-blue)" />
+            <div>
+              <div style="font-weight:600;color:var(--text-primary);font-size:14px">Recevoir le digest email quotidien</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Chaque matin a 8h (Paris), si des evenements sont detectes sur vos tickers. Premiere activation = email de confirmation (double opt-in).</div>
+            </div>
+          </label>
+
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin:16px 0 10px">Types d'evenements a surveiller</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
+            <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
+              <input type="checkbox" id="wlTypeCluster" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
+              <span style="font-size:13px">🚨 Clusters insiders (3+ dirigeants)</span>
+            </label>
+            <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
+              <input type="checkbox" id="wlTypeEtf" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
+              <span style="font-size:13px">💼 Entrees / sorties d'ETF</span>
+            </label>
+            <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
+              <input type="checkbox" id="wlTypeScore" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
+              <span style="font-size:13px">📊 Variation Kairos Score (±10pt)</span>
+            </label>
+            <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
+              <input type="checkbox" id="wlTypeInsider" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
+              <span style="font-size:13px">🏛️ Transactions insiders individuelles</span>
+            </label>
+          </div>
+
+          <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="testWatchlistDigest()" class="btn" style="padding:10px 18px;font-size:13px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-primary)">
+              📧 Tester le digest maintenant
+            </button>
+            <button onclick="clearWatchlist()" class="btn" style="padding:10px 18px;font-size:13px;background:transparent;border:1px solid var(--accent-red);color:var(--accent-red)">
+              Tout supprimer
+            </button>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin:14px 0 0;line-height:1.6">
+            Vos donnees sont conservees dans Firebase et Cloudflare KV (Europe). Vous pouvez les supprimer a tout moment via le bouton ci-dessus ou en cliquant sur "se desabonner" dans un email.
+          </p>
+        </div>
+      </div>
+
     </div>
   </main>
   </div>
@@ -2084,7 +2214,10 @@
           // Pré-chargement insiders en arrière-plan SEULEMENT pour les premium
           if (isPremium) {
             setTimeout(() => { loadInsiderTrades(); loadedSections['insider'] = true; }, 400);
+            // Pre-chargement watchlist pour que le bouton ★ reflete le bon etat partout
+            loadWatchlist().catch(() => {});
           }
+          window.dispatchEvent(new CustomEvent('kairos:auth-ready'));
         } else {
           currentUser = null;
           isPremium = false;
@@ -2247,14 +2380,15 @@
     }
 
     function updatePremiumUI() {
-      // Mettre à jour les badges sidebar
+      // Badges sidebar : toujours "PRO" mais couleur verte si premium, rouge si free
       document.querySelectorAll('.premium-badge').forEach(badge => {
+        badge.textContent = 'PRO';
         if (isPremium) {
-          badge.textContent = '✓';
           badge.classList.add('unlocked');
+          badge.title = 'Abonnement actif';
         } else {
-          badge.textContent = 'PRO';
           badge.classList.remove('unlocked');
+          badge.title = 'Reserve aux abonnes Premium';
         }
       });
     }
@@ -2519,6 +2653,7 @@
           // Affiche les rotations recentes si l'historique D1 existe
           loadEtfRotations();
         }
+        if (section === 'watchlist') loadWatchlist();
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -3494,8 +3629,16 @@
               <h1 style="margin:0;font-size:32px">${d.ticker}</h1>
               ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
               ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
+              <button data-wl-star="${d.ticker}" onclick="toggleWatchlistStar('${d.ticker}')"
+                      title="Ajouter a ma watchlist"
+                      class="wl-star-btn ${isInWatchlist(d.ticker) ? 'active' : ''}"
+                      style="margin-left:auto;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
+                      onmouseover="this.style.borderColor='#FBBF24';this.style.background='rgba(251,191,36,0.08)'"
+                      onmouseout="if(!this.classList.contains('active')){this.style.borderColor='var(--border)';this.style.background='var(--surface-2)';}">
+                ${isInWatchlist(d.ticker) ? '★ Dans la watchlist' : '☆ Ajouter a ma watchlist'}
+              </button>
               <button onclick="shareStockAnalysis('${d.ticker}')" title="Copier le lien public de partage"
-                      style="margin-left:auto;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
+                      style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
                       onmouseover="this.style.borderColor='var(--accent-blue)';this.style.background='rgba(59,130,246,0.08)'"
                       onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-2)'">
                 <span>🔗</span><span id="shareBtnLabel-${d.ticker}">Partager</span>
@@ -6899,6 +7042,333 @@
       Object.values(portfolioCharts).forEach(c => c.destroy());
       portfolioCharts = {};
     }
+
+    // ============================================================
+    // WATCHLIST — Ma watchlist + digest email quotidien
+    // ============================================================
+    const WATCHLIST_FREE_LIMIT = 3;
+    let watchlistState = {
+      tickers: [],
+      emailAlerts: true,
+      optIn: false,
+      types: { insider: true, cluster: true, etf: true, score: true },
+      lastDigestAt: null,
+      loaded: false,
+    };
+
+    async function loadWatchlist() {
+      // 1) Charge depuis Firebase (source cote UI)
+      try {
+        if (currentUser) {
+          const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+          const db = getDatabase();
+          const snap = await get(ref(db, `users/${currentUser.uid}/watchlist`));
+          if (snap.exists()) {
+            const data = snap.val();
+            watchlistState.tickers = Array.isArray(data.tickers) ? data.tickers : [];
+            watchlistState.emailAlerts = data.emailAlerts !== false;
+            watchlistState.types = Object.assign({ insider: true, cluster: true, etf: true, score: true }, data.types || {});
+          }
+        }
+      } catch (e) {
+        console.warn('[watchlist] firebase read failed:', e);
+      }
+
+      // 2) Charge depuis le Worker (source de verite + statut opt-in)
+      try {
+        const data = await apiFetch('/api/watchlist/get');
+        if (data && data.ok) {
+          watchlistState.tickers = data.tickers || watchlistState.tickers;
+          watchlistState.emailAlerts = data.emailAlerts !== false;
+          watchlistState.optIn = data.optIn === true;
+          watchlistState.types = Object.assign(watchlistState.types, data.types || {});
+          watchlistState.lastDigestAt = data.lastDigestAt;
+        }
+      } catch (e) {
+        console.warn('[watchlist] worker read failed:', e);
+      }
+
+      watchlistState.loaded = true;
+      renderWatchlist();
+      // Cable l'autocomplete du champ d'ajout
+      const input = document.getElementById('wlAddInput');
+      const sugg  = document.getElementById('wlAddSuggest');
+      if (input && sugg) {
+        ensureTickerList().then(() => {
+          wireTickerAutocomplete(input, sugg, (ticker) => {
+            input.value = ticker;
+            sugg.style.display = 'none';
+            addTickerFromInput();
+          });
+        });
+      }
+    }
+
+    function renderWatchlist() {
+      // KPIs
+      const limit = isPremium ? '∞' : `/ ${WATCHLIST_FREE_LIMIT}`;
+      const cEl = document.getElementById('wlCount');
+      const lEl = document.getElementById('wlLimit');
+      if (cEl) cEl.textContent = watchlistState.tickers.length;
+      if (lEl) lEl.textContent = ` ${limit}`;
+
+      const sEl = document.getElementById('wlStatus');
+      if (sEl) {
+        if (!watchlistState.emailAlerts) {
+          sEl.textContent = 'Desactivees';
+          sEl.style.color = 'var(--text-muted)';
+        } else if (!watchlistState.optIn) {
+          sEl.innerHTML = '⏳ En attente de confirmation';
+          sEl.style.color = '#FBBF24';
+        } else {
+          sEl.innerHTML = '✅ Activees';
+          sEl.style.color = 'var(--accent-green)';
+        }
+      }
+
+      const dEl = document.getElementById('wlLastDigest');
+      if (dEl) {
+        if (!watchlistState.lastDigestAt) {
+          dEl.textContent = 'Jamais envoye encore';
+          dEl.style.color = 'var(--text-muted)';
+        } else {
+          const d = new Date(watchlistState.lastDigestAt);
+          dEl.textContent = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+          dEl.style.color = 'var(--text-primary)';
+        }
+      }
+
+      // Checkboxes preferences
+      const setCheck = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+      setCheck('wlEmailAlerts', watchlistState.emailAlerts);
+      setCheck('wlTypeCluster', watchlistState.types.cluster);
+      setCheck('wlTypeEtf',     watchlistState.types.etf);
+      setCheck('wlTypeScore',   watchlistState.types.score);
+      setCheck('wlTypeInsider', watchlistState.types.insider);
+
+      // Liste des tickers
+      const area = document.getElementById('wlTickersArea');
+      if (!area) return;
+      if (watchlistState.tickers.length === 0) {
+        area.innerHTML = `
+          <div style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center">
+            <div style="font-size:42px;margin-bottom:10px">⭐</div>
+            <p style="font-size:14px;color:var(--text-primary);margin:0 0 6px;font-weight:600">Aucun ticker surveille pour l'instant</p>
+            <p style="font-size:13px;color:var(--text-muted);margin:0">Ajoutez des tickers ci-dessus ou cliquez sur l'etoile ⭐ depuis l'Analyse action.</p>
+          </div>`;
+        return;
+      }
+
+      const rows = watchlistState.tickers.map(tk => {
+        const name = findTickerName(tk);
+        const actionUrl = `action.html?ticker=${encodeURIComponent(tk)}`;
+        return `
+          <tr>
+            <td style="padding:12px 14px"><span class="ticker" style="font-weight:700;color:var(--accent-blue)">${tk}</span></td>
+            <td style="padding:12px 14px;color:var(--text-secondary);font-size:13px">${escapeHtmlClient(name || '—')}</td>
+            <td style="padding:12px 14px;text-align:right">
+              <a href="${actionUrl}" class="btn-search" style="padding:6px 12px;font-size:12px;margin-right:6px">📊 Analyse</a>
+              <button onclick="removeFromWatchlist('${tk}')" class="btn-search" style="padding:6px 12px;font-size:12px;color:var(--accent-red);border-color:var(--accent-red)">✕ Retirer</button>
+            </td>
+          </tr>`;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="table-wrap">
+          <table style="width:100%">
+            <thead><tr>
+              <th style="text-align:left;padding:12px 14px;font-size:11px;text-transform:uppercase;opacity:0.7">Ticker</th>
+              <th style="text-align:left;padding:12px 14px;font-size:11px;text-transform:uppercase;opacity:0.7">Nom</th>
+              <th style="text-align:right;padding:12px 14px;font-size:11px;text-transform:uppercase;opacity:0.7">Actions</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function findTickerName(t) {
+      if (!stockTickerList) return '';
+      const hit = stockTickerList.find(x => (x.ticker || '').toUpperCase() === t.toUpperCase());
+      return hit ? (hit.name || '') : '';
+    }
+
+    function escapeHtmlClient(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+
+    async function addTickerFromInput() {
+      const input = document.getElementById('wlAddInput');
+      const msg = document.getElementById('wlAddMsg');
+      if (!input) return;
+      // Format ticker : si le user a tape "AAPL" ou "AAPL — Apple Inc" (autocomplete format)
+      let raw = (input.value || '').trim();
+      raw = raw.split(' — ')[0].split('—')[0].trim();
+      const ticker = raw.toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+      if (!ticker || ticker.length > 12) {
+        if (msg) { msg.textContent = '⚠️ Ticker invalide.'; msg.style.color = 'var(--accent-red)'; }
+        return;
+      }
+      await addToWatchlist(ticker);
+      input.value = '';
+      if (msg) { msg.textContent = ''; msg.style.color = 'var(--text-muted)'; }
+    }
+
+    async function addToWatchlist(ticker) {
+      const tk = (ticker || '').toUpperCase().trim();
+      if (!tk) return;
+      if (watchlistState.tickers.includes(tk)) {
+        const msg = document.getElementById('wlAddMsg');
+        if (msg) { msg.textContent = `${tk} est deja dans votre watchlist.`; msg.style.color = 'var(--text-muted)'; }
+        updateStarButtons();
+        return;
+      }
+      // Paywall free : bloque au 4e
+      if (!isPremium && watchlistState.tickers.length >= WATCHLIST_FREE_LIMIT) {
+        alert(`La watchlist gratuite est limitee a ${WATCHLIST_FREE_LIMIT} tickers. Passez en Premium pour un nombre illimite.`);
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      watchlistState.tickers = [...watchlistState.tickers, tk];
+      await persistWatchlist();
+      renderWatchlist();
+      updateStarButtons();
+      const msg = document.getElementById('wlAddMsg');
+      if (msg) {
+        msg.textContent = `✓ ${tk} ajoute a votre watchlist.`;
+        msg.style.color = 'var(--accent-green)';
+      }
+    }
+
+    async function removeFromWatchlist(ticker) {
+      const tk = (ticker || '').toUpperCase();
+      watchlistState.tickers = watchlistState.tickers.filter(t => t !== tk);
+      await persistWatchlist();
+      renderWatchlist();
+      updateStarButtons();
+    }
+
+    async function saveWatchlistPrefs() {
+      const get = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
+      watchlistState.emailAlerts = get('wlEmailAlerts');
+      watchlistState.types = {
+        insider: get('wlTypeInsider'),
+        cluster: get('wlTypeCluster'),
+        etf:     get('wlTypeEtf'),
+        score:   get('wlTypeScore'),
+      };
+      await persistWatchlist();
+      renderWatchlist();
+    }
+
+    async function persistWatchlist() {
+      if (!currentUser) return;
+      // 1) Firebase (UI mirror)
+      try {
+        const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        await set(ref(db, `users/${currentUser.uid}/watchlist`), {
+          tickers: watchlistState.tickers,
+          emailAlerts: watchlistState.emailAlerts,
+          types: watchlistState.types,
+          updatedAt: Date.now(),
+        });
+      } catch (e) { console.warn('[watchlist] firebase save failed:', e); }
+
+      // 2) Worker (source de verite + trigger email opt-in)
+      try {
+        const resp = await apiFetch('/api/watchlist/sync', {
+          method: 'POST',
+          body: JSON.stringify({
+            tickers: watchlistState.tickers,
+            emailAlerts: watchlistState.emailAlerts,
+            types: watchlistState.types,
+          }),
+        });
+        if (resp && resp.ok) {
+          watchlistState.optIn = resp.optIn === true;
+          if (resp.confirmationSent) {
+            const msg = document.getElementById('wlAddMsg');
+            if (msg) {
+              msg.innerHTML = '📧 Email de confirmation envoye — cliquez sur le lien pour activer vos alertes.';
+              msg.style.color = 'var(--accent-blue)';
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[watchlist] worker sync failed:', e);
+        if (e.message === 'PREMIUM_REQUIRED') {
+          document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        }
+      }
+    }
+
+    async function testWatchlistDigest() {
+      const msg = document.getElementById('wlAddMsg');
+      if (msg) { msg.textContent = 'Analyse en cours...'; msg.style.color = 'var(--text-muted)'; }
+      try {
+        const resp = await apiFetch('/api/watchlist/test-now', { method: 'POST' });
+        if (resp && resp.sent) {
+          alert(`✅ Email de test envoye (${resp.events} evenements detectes).`);
+        } else if (resp && resp.events === 0) {
+          alert('Aucun evenement detecte sur vos tickers aujourd\'hui. Tout est calme !');
+        }
+      } catch (e) {
+        alert('⚠️ Envoi impossible : ' + (e.message || e));
+      }
+      if (msg) msg.textContent = '';
+    }
+
+    async function clearWatchlist() {
+      if (!confirm('Supprimer toute votre watchlist et les alertes associees ?')) return;
+      watchlistState.tickers = [];
+      watchlistState.emailAlerts = false;
+      await persistWatchlist();
+      renderWatchlist();
+      updateStarButtons();
+    }
+
+    // ============================================================
+    // BOUTON ETOILE GLOBAL : toggle watchlist depuis Analyse action
+    // ============================================================
+    function isInWatchlist(ticker) {
+      return watchlistState.tickers.includes((ticker || '').toUpperCase());
+    }
+
+    async function toggleWatchlistStar(ticker) {
+      if (!ticker) return;
+      if (!isPremium) {
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      if (!watchlistState.loaded) {
+        await loadWatchlist();
+      }
+      const tk = ticker.toUpperCase();
+      if (isInWatchlist(tk)) {
+        await removeFromWatchlist(tk);
+      } else {
+        await addToWatchlist(tk);
+      }
+    }
+
+    function updateStarButtons() {
+      document.querySelectorAll('[data-wl-star]').forEach(el => {
+        const tk = (el.dataset.wlStar || '').toUpperCase();
+        const on = isInWatchlist(tk);
+        el.classList.toggle('active', on);
+        el.innerHTML = on ? '★ Dans la watchlist' : '☆ Ajouter a ma watchlist';
+        el.title = on ? 'Retirer de ma watchlist' : 'Ajouter a ma watchlist';
+      });
+    }
+
+    // Precharge la watchlist une fois que l'utilisateur est authentifie (pour que le bouton ★ reflete le bon etat)
+    window.addEventListener('kairos:auth-ready', () => {
+      if (currentUser) {
+        loadWatchlist().catch(() => {});
+      }
+    });
 
     // ============================================================
     // INIT — Firebase Auth gère tout via onAuthStateChanged

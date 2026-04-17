@@ -41,6 +41,18 @@ export default {
       return handleSendWelcome(request, env, origin);
     }
 
+    // Watchlist : confirmation double opt-in (via lien email, pas de Firebase token)
+    // Format : GET /watchlist/confirm?uid=...&token=...
+    if (request.method === 'GET' && path === '/watchlist/confirm') {
+      return handleWatchlistConfirmOptin(url, env, origin);
+    }
+
+    // Watchlist : desabonnement 1 clic (via lien email)
+    // Format : GET /watchlist/unsubscribe?uid=...&token=...
+    if (request.method === 'GET' && path === '/watchlist/unsubscribe') {
+      return handleWatchlistUnsubscribe(url, env, origin);
+    }
+
     // Stripe webhook (pas d'auth Firebase, vérifié par signature Stripe)
     if (request.method === 'POST' && path === '/stripe/webhook') {
       return handleStripeWebhook(request, env);
@@ -105,6 +117,27 @@ export default {
         return handleCustomerPortal(request, env, user, origin);
       }
 
+      // --- Routes Watchlist (auth requise, check premium integre dans la route) ---
+      if (path.startsWith('/api/watchlist/')) {
+        const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
+        const isPremium = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
+
+        if (request.method === 'POST' && path === '/api/watchlist/sync') {
+          return handleWatchlistSync(request, env, user, isPremium, origin);
+        }
+        if (request.method === 'GET' && path === '/api/watchlist/get') {
+          return handleWatchlistGet(env, user, origin);
+        }
+        if (request.method === 'POST' && path === '/api/watchlist/test-now') {
+          // Genere un email immediatement pour debug (utile pour premium uniquement)
+          if (!isPremium) {
+            return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
+          }
+          return handleWatchlistTestNow(env, user, origin);
+        }
+        return jsonResponse({ error: 'Not found' }, 404, origin);
+      }
+
       // --- Routes API ---
       if (request.method === 'GET' && path.startsWith('/api/')) {
         // Routes gratuites (pas besoin d'abonnement)
@@ -126,6 +159,15 @@ export default {
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN);
+  },
+
+  // ============================================================
+  // SCHEDULED : Cron trigger (digest watchlist quotidien)
+  // Tire chaque jour a 6h15 UTC (voir wrangler.toml [triggers])
+  // ============================================================
+  async scheduled(event, env, ctx) {
+    console.log('[cron] scheduled trigger fired at', new Date().toISOString());
+    ctx.waitUntil(runDailyWatchlistDigest(env));
   },
 };
 
@@ -1912,4 +1954,700 @@ function jsonResponse(data, status, origin) {
     status,
     headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
   });
+}
+
+// ============================================================
+// ============================================================
+// WATCHLIST + DAILY EMAIL DIGEST
+// ============================================================
+// Architecture :
+//   - Le client ecrit /users/{uid}/watchlist dans Firebase RTDB (UI).
+//   - Le client POST /api/watchlist/sync qui mirrored le tout en KV (cle wl:{uid}).
+//   - Le cron (scheduled) parcourt env.CACHE.list({ prefix: 'wl:' }),
+//     detecte les events sur chaque ticker (J vs J-1) et envoie un digest Brevo.
+//   - Double opt-in via /watchlist/confirm?uid=X&token=Y (HMAC signe).
+//   - Desabo 1 clic via /watchlist/unsubscribe?uid=X&token=Y.
+//
+// Donnees stockees (cle KV wl:{uid}) :
+// {
+//   email: "user@ex.com",
+//   tickers: ["NVDA","AAPL"],
+//   emailAlerts: true,
+//   optIn: true,           // passe a true apres clic sur confirmation
+//   optInSent: timestamp,  // pour ne pas renvoyer 10x
+//   isPremium: bool,
+//   updatedAt: timestamp,
+//   lastDigestAt: timestamp (null si jamais envoye),
+//   types: { insider:true, cluster:true, etf:true, score:true }
+// }
+// ============================================================
+
+const WATCHLIST_FREE_LIMIT = 3;
+const WATCHLIST_MAX_TICKERS = 100; // safety premium
+
+// Liste des ETF a surveiller pour les rotations
+const WATCHLIST_TRACKED_ETFS = [
+  'NANC', 'GOP', 'GURU',
+  'ARKK', 'ARKW', 'ARKG', 'ARKF', 'ARKQ',
+  'BUZZ', 'MEME', 'JEPI', 'JEPQ',
+  'ITA', 'URA', 'UFO', 'MJ',
+];
+
+// ============================================================
+// HMAC tokens (opt-in / unsubscribe) - Web Crypto API
+// ============================================================
+async function hmacSha256(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  // Base64url encoding (compatible URL sans padding)
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function generateWatchlistToken(uid, action, env) {
+  // action = 'confirm' ou 'unsub'
+  const secret = env.WATCHLIST_SECRET || 'fallback-dev-secret-change-me';
+  return hmacSha256(secret, `${action}:${uid}`);
+}
+
+async function verifyWatchlistToken(uid, action, token, env) {
+  if (!token || !uid) return false;
+  const expected = await generateWatchlistToken(uid, action, env);
+  // Comparaison en temps constant
+  if (expected.length !== token.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ token.charCodeAt(i);
+  return diff === 0;
+}
+
+// ============================================================
+// Validation d'un ticker (safe-list minimale)
+// ============================================================
+function normalizeWatchlistTicker(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const t = raw.trim().toUpperCase();
+  if (!/^[A-Z0-9.\-]{1,12}$/.test(t)) return null;
+  return t;
+}
+
+// ============================================================
+// POST /api/watchlist/sync
+// Body : { tickers: [...], emailAlerts: bool, types: {...} }
+// Reponse : { ok, tickers, requiresOptIn: bool }
+// ============================================================
+async function handleWatchlistSync(request, env, user, isPremium, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const rawTickers = Array.isArray(body.tickers) ? body.tickers : [];
+    const emailAlerts = body.emailAlerts !== false;
+
+    // Normalisation + dedupe
+    const seen = new Set();
+    const tickers = [];
+    for (const t of rawTickers) {
+      const n = normalizeWatchlistTicker(t);
+      if (n && !seen.has(n)) { seen.add(n); tickers.push(n); }
+    }
+
+    // Paywall : 3 tickers max en free
+    const limit = isPremium ? WATCHLIST_MAX_TICKERS : WATCHLIST_FREE_LIMIT;
+    if (tickers.length > limit) {
+      return jsonResponse({
+        error: isPremium ? 'Too many tickers' : 'Premium subscription required',
+        code: isPremium ? 'LIMIT_EXCEEDED' : 'PREMIUM_REQUIRED',
+        limit,
+      }, 403, origin);
+    }
+
+    // Types d'evenements : whitelist
+    const allowedTypes = ['insider', 'cluster', 'etf', 'score'];
+    const types = {};
+    const incomingTypes = (body.types && typeof body.types === 'object') ? body.types : {};
+    for (const k of allowedTypes) types[k] = incomingTypes[k] !== false; // default true
+
+    // Lire la config actuelle pour preserver optIn / lastDigestAt
+    const existing = await env.CACHE.get(`wl:${user.uid}`, 'json') || {};
+    const now = Date.now();
+
+    const record = {
+      email: user.email || existing.email || '',
+      tickers,
+      emailAlerts,
+      types,
+      isPremium,
+      optIn: existing.optIn === true,
+      optInSent: existing.optInSent || null,
+      lastDigestAt: existing.lastDigestAt || null,
+      updatedAt: now,
+      createdAt: existing.createdAt || now,
+    };
+
+    await env.CACHE.put(`wl:${user.uid}`, JSON.stringify(record));
+
+    // Si premiere inscription avec emailAlerts ON et pas de opt-in, envoyer le mail de confirmation
+    let confirmationSent = false;
+    if (emailAlerts && !record.optIn && tickers.length > 0 && record.email) {
+      // Cooldown : ne pas renvoyer dans les 10 min
+      const canSend = !record.optInSent || (now - record.optInSent > 10 * 60 * 1000);
+      if (canSend) {
+        try {
+          await sendWatchlistOptinEmail(record.email, user.uid, tickers, env);
+          record.optInSent = now;
+          await env.CACHE.put(`wl:${user.uid}`, JSON.stringify(record));
+          confirmationSent = true;
+        } catch (e) {
+          console.error('optin email failed:', e);
+        }
+      }
+    }
+
+    return jsonResponse({
+      ok: true,
+      tickers,
+      optIn: record.optIn,
+      emailAlerts,
+      requiresOptIn: emailAlerts && !record.optIn,
+      confirmationSent,
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleWatchlistSync:', err);
+    return jsonResponse({ error: 'Internal error' }, 500, origin);
+  }
+}
+
+// ============================================================
+// GET /api/watchlist/get
+// Retourne la watchlist + prefs du user courant
+// ============================================================
+async function handleWatchlistGet(env, user, origin) {
+  const record = await env.CACHE.get(`wl:${user.uid}`, 'json') || {
+    tickers: [], emailAlerts: true, optIn: false,
+    types: { insider: true, cluster: true, etf: true, score: true },
+  };
+  return jsonResponse({
+    ok: true,
+    tickers: record.tickers || [],
+    emailAlerts: record.emailAlerts !== false,
+    optIn: record.optIn === true,
+    types: record.types || { insider: true, cluster: true, etf: true, score: true },
+    lastDigestAt: record.lastDigestAt || null,
+  }, 200, origin);
+}
+
+// ============================================================
+// POST /api/watchlist/test-now
+// Genere un digest immediatement pour debug
+// ============================================================
+async function handleWatchlistTestNow(env, user, origin) {
+  const record = await env.CACHE.get(`wl:${user.uid}`, 'json');
+  if (!record || !record.tickers || record.tickers.length === 0) {
+    return jsonResponse({ error: 'No watchlist tickers' }, 400, origin);
+  }
+  if (!record.email) {
+    return jsonResponse({ error: 'No email on file' }, 400, origin);
+  }
+
+  const events = await detectEventsForWatchlist(record.tickers, record.types || {}, env);
+  if (events.length === 0) {
+    return jsonResponse({ ok: true, events: 0, sent: false, message: 'No events detected today' }, 200, origin);
+  }
+
+  try {
+    await sendWatchlistDigestEmail(record.email, user.uid, events, env);
+    record.lastDigestAt = Date.now();
+    await env.CACHE.put(`wl:${user.uid}`, JSON.stringify(record));
+    return jsonResponse({ ok: true, events: events.length, sent: true }, 200, origin);
+  } catch (e) {
+    console.error('test-now email failed:', e);
+    return jsonResponse({ error: 'Email send failed', detail: String(e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// GET /watchlist/confirm?uid=X&token=Y (public, depuis email)
+// ============================================================
+async function handleWatchlistConfirmOptin(url, env, origin) {
+  const uid = url.searchParams.get('uid');
+  const token = url.searchParams.get('token');
+  const ok = await verifyWatchlistToken(uid, 'confirm', token, env);
+  if (!ok) {
+    return htmlResponse(watchlistPageTemplate({
+      title: 'Lien invalide',
+      message: 'Ce lien de confirmation n\'est pas valide ou a expire. Retournez sur votre dashboard pour en generer un nouveau.',
+      cta: { href: 'https://kairosinsider.fr/dashboard.html', label: 'Retour au dashboard' },
+      icon: '⚠️',
+    }), 400);
+  }
+
+  const record = await env.CACHE.get(`wl:${uid}`, 'json');
+  if (!record) {
+    return htmlResponse(watchlistPageTemplate({
+      title: 'Watchlist introuvable',
+      message: 'Nous n\'avons pas trouve de watchlist associee a ce compte.',
+      cta: { href: 'https://kairosinsider.fr/dashboard.html', label: 'Retour au dashboard' },
+      icon: '❓',
+    }), 404);
+  }
+
+  record.optIn = true;
+  record.optInConfirmedAt = Date.now();
+  await env.CACHE.put(`wl:${uid}`, JSON.stringify(record));
+
+  return htmlResponse(watchlistPageTemplate({
+    title: 'Confirmation enregistree ✓',
+    message: `Parfait ! Vous recevrez desormais un digest quotidien a 8h si des evenements sont detectes sur vos ${(record.tickers || []).length} ticker(s) surveille(s).`,
+    cta: { href: 'https://kairosinsider.fr/dashboard.html#watchlist', label: 'Gerer ma watchlist' },
+    icon: '✅',
+  }), 200);
+}
+
+// ============================================================
+// GET /watchlist/unsubscribe?uid=X&token=Y (public, depuis email)
+// ============================================================
+async function handleWatchlistUnsubscribe(url, env, origin) {
+  const uid = url.searchParams.get('uid');
+  const token = url.searchParams.get('token');
+  const ok = await verifyWatchlistToken(uid, 'unsub', token, env);
+  if (!ok) {
+    return htmlResponse(watchlistPageTemplate({
+      title: 'Lien invalide',
+      message: 'Ce lien de desabonnement n\'est pas valide.',
+      cta: { href: 'https://kairosinsider.fr/dashboard.html', label: 'Retour au dashboard' },
+      icon: '⚠️',
+    }), 400);
+  }
+  const record = await env.CACHE.get(`wl:${uid}`, 'json');
+  if (record) {
+    record.emailAlerts = false;
+    record.unsubscribedAt = Date.now();
+    await env.CACHE.put(`wl:${uid}`, JSON.stringify(record));
+  }
+  return htmlResponse(watchlistPageTemplate({
+    title: 'Desabonnement confirme',
+    message: 'Vous ne recevrez plus de digest quotidien. Vous pouvez reactiver les alertes a tout moment depuis votre dashboard.',
+    cta: { href: 'https://kairosinsider.fr/dashboard.html#watchlist', label: 'Reactiver les alertes' },
+    icon: '👋',
+  }), 200);
+}
+
+function htmlResponse(html, status = 200) {
+  return new Response(html, {
+    status,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+function watchlistPageTemplate({ title, message, cta, icon }) {
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(title)} — Kairos Insider</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background:#0A0F1E; margin:0; padding:0; color:#F9FAFB; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+.card { max-width:480px; margin:20px; padding:40px 32px; background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:16px; text-align:center; }
+.icon { font-size:48px; margin-bottom:16px; }
+.logo { font-family:'Space Grotesk', Arial, sans-serif; font-size:18px; font-weight:700; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); -webkit-background-clip:text; color:transparent; margin-bottom:24px; }
+h1 { font-size:24px; margin:0 0 14px; font-weight:700; }
+p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 24px; }
+.btn { display:inline-block; background:linear-gradient(135deg,#3B82F6,#8B5CF6); color:#fff !important; padding:14px 28px; border-radius:10px; text-decoration:none; font-weight:600; font-size:15px; }
+</style></head><body><div class="card">
+<div class="logo">Kairos Insider</div>
+<div class="icon">${icon || ''}</div>
+<h1>${escapeHtml(title)}</h1>
+<p>${escapeHtml(message)}</p>
+${cta ? `<a href="${escapeHtml(cta.href)}" class="btn">${escapeHtml(cta.label)}</a>` : ''}
+</div></body></html>`;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ============================================================
+// DETECTION D'EVENEMENTS pour une watchlist
+// Retourne une liste d'events groupes par ticker :
+// [{ ticker, events: [{ type, severity, summary, url }] }]
+// ============================================================
+async function detectEventsForWatchlist(tickers, types, env) {
+  const tickerSet = new Set(tickers.map(t => t.toUpperCase()));
+  const results = new Map(); // ticker -> events[]
+  const pushEvt = (ticker, evt) => {
+    if (!results.has(ticker)) results.set(ticker, []);
+    results.get(ticker).push(evt);
+  };
+
+  // ----- 1) Clusters insiders (KV insider-clusters) -----
+  // On compare avec un snapshot precedent stocke en KV sous 'wl-prev:clusters'
+  if (types.cluster !== false) {
+    try {
+      const curr = await env.CACHE.get('insider-clusters', 'json');
+      const prev = await env.CACHE.get('wl-prev:clusters', 'json');
+      const prevMap = new Map();
+      (prev?.clusters || []).forEach(c => { if (c.ticker) prevMap.set(c.ticker.toUpperCase(), c); });
+
+      for (const c of (curr?.clusters || [])) {
+        const tk = (c.ticker || '').toUpperCase();
+        if (!tk || !tickerSet.has(tk)) continue;
+
+        const prevC = prevMap.get(tk);
+        const isNew = !prevC;
+        const insidersChanged = prevC && c.insiderCount !== prevC.insiderCount;
+
+        if (isNew && c.insiderCount >= 2) {
+          pushEvt(tk, {
+            type: 'cluster',
+            severity: c.insiderCount >= 3 ? 'high' : 'medium',
+            title: `🚨 Nouveau cluster insider detecte`,
+            summary: `${c.insiderCount} dirigeants de ${c.company || tk} ont depose une declaration recente${c.totalValue ? ' (total estime ~' + fmtUsdShort(c.totalValue) + ')' : ''}.`,
+          });
+        } else if (insidersChanged && c.insiderCount > prevC.insiderCount) {
+          pushEvt(tk, {
+            type: 'cluster',
+            severity: 'medium',
+            title: `📈 Cluster insider renforce`,
+            summary: `${prevC.insiderCount} → ${c.insiderCount} dirigeants actifs chez ${c.company || tk}.`,
+          });
+        }
+      }
+
+      // Stocke le snapshot courant pour le diff du lendemain
+      if (curr) await env.CACHE.put('wl-prev:clusters', JSON.stringify(curr));
+    } catch (e) {
+      console.error('cluster detect failed:', e);
+    }
+  }
+
+  // ----- 2) Rotations ETF (snapshots J-1 vs J en KV par ETF) -----
+  // Pour chaque ETF, on compare etf-{symbol} courant vs wl-prev:etf-{symbol}
+  if (types.etf !== false) {
+    for (const symbol of WATCHLIST_TRACKED_ETFS) {
+      try {
+        const kvKey = etfKvKeyFor(symbol);
+        const curr = await env.CACHE.get(kvKey, 'json');
+        if (!curr || !curr.holdings) continue;
+
+        const prevKey = `wl-prev:etf-${symbol.toLowerCase()}`;
+        const prev = await env.CACHE.get(prevKey, 'json');
+
+        if (prev && prev.holdings) {
+          const prevTickers = new Set((prev.holdings || []).map(h => (h.ticker || '').toUpperCase()));
+          const currTickers = new Set((curr.holdings || []).map(h => (h.ticker || '').toUpperCase()));
+
+          // Entrees
+          for (const tk of currTickers) {
+            if (!tk || !tickerSet.has(tk) || prevTickers.has(tk)) continue;
+            pushEvt(tk, {
+              type: 'etf',
+              severity: 'medium',
+              title: `💼 Entree dans l'ETF ${symbol}`,
+              summary: `${tk} vient d'entrer dans ${symbol} (${etfLabelFor(symbol)}).`,
+            });
+          }
+          // Sorties
+          for (const tk of prevTickers) {
+            if (!tk || !tickerSet.has(tk) || currTickers.has(tk)) continue;
+            pushEvt(tk, {
+              type: 'etf',
+              severity: 'medium',
+              title: `📤 Sortie de l'ETF ${symbol}`,
+              summary: `${tk} a ete retire de ${symbol} (${etfLabelFor(symbol)}).`,
+            });
+          }
+        }
+
+        // Snapshot pour demain
+        await env.CACHE.put(prevKey, JSON.stringify(curr));
+      } catch (e) {
+        console.error(`ETF ${symbol} detect failed:`, e);
+      }
+    }
+  }
+
+  // ----- 3) Variation du Kairos Score (D1 score_history sur 2 jours) -----
+  if (types.score !== false && env.HISTORY) {
+    for (const tk of tickers) {
+      try {
+        const stmt = env.HISTORY.prepare(
+          'SELECT date, total FROM score_history WHERE ticker = ? ORDER BY date DESC LIMIT 2'
+        );
+        const { results: rows } = await stmt.bind(tk).all();
+        if (rows && rows.length >= 2) {
+          const today = rows[0].total;
+          const prev = rows[1].total;
+          if (today != null && prev != null) {
+            const diff = today - prev;
+            if (Math.abs(diff) >= 10) {
+              pushEvt(tk, {
+                type: 'score',
+                severity: Math.abs(diff) >= 20 ? 'high' : 'medium',
+                title: diff > 0 ? `📊 Kairos Score en hausse` : `📉 Kairos Score en baisse`,
+                summary: `${prev} → ${today} (${diff > 0 ? '+' : ''}${diff} points).`,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`score detect ${tk} failed:`, e);
+      }
+    }
+  }
+
+  // Resultat : un tableau [{ ticker, events }] trie par severite descendante
+  const out = [];
+  for (const [ticker, events] of results.entries()) {
+    // Tri interne : high d'abord
+    events.sort((a, b) => (b.severity === 'high' ? 1 : 0) - (a.severity === 'high' ? 1 : 0));
+    out.push({ ticker, events });
+  }
+  // Priorise les tickers avec evenement 'high'
+  out.sort((a, b) => {
+    const aHigh = a.events.some(e => e.severity === 'high') ? 1 : 0;
+    const bHigh = b.events.some(e => e.severity === 'high') ? 1 : 0;
+    return bHigh - aHigh;
+  });
+  return out;
+}
+
+function etfKvKeyFor(symbol) {
+  const s = symbol.toUpperCase();
+  if (s === 'NANC' || s === 'GOP') return `etf-congress-${s.toLowerCase()}`;
+  if (s === 'GURU') return 'etf-guru';
+  if (s.startsWith('ARK')) return `etf-ark-${s.toLowerCase()}`;
+  return `etf-${s.toLowerCase()}`;
+}
+
+function etfLabelFor(symbol) {
+  const s = symbol.toUpperCase();
+  const labels = {
+    NANC: 'Democrates US', GOP: 'Republicains US',
+    GURU: 'Top 60 hedge funds',
+    ARKK: 'ARK Innovation', ARKW: 'ARK Internet', ARKG: 'ARK Biotech',
+    ARKF: 'ARK Fintech', ARKQ: 'ARK Robotique',
+    BUZZ: 'Social Sentiment', MEME: 'Reddit/WSB',
+    JEPI: 'JPM Equity Premium', JEPQ: 'JPM Nasdaq Premium',
+    ITA: 'Defense & Aerospace', URA: 'Uranium', UFO: 'Espace', MJ: 'Cannabis',
+  };
+  return labels[s] || s;
+}
+
+function fmtUsdShort(n) {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'Md';
+  if (abs >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (abs >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'k';
+  return '$' + Math.round(n);
+}
+
+// ============================================================
+// CRON : Daily digest (7h15 UTC = 8h15 Paris ete / 7h15 hiver)
+// ============================================================
+async function runDailyWatchlistDigest(env) {
+  const started = Date.now();
+  let scanned = 0, sent = 0, skipped = 0, errors = 0;
+
+  try {
+    // Iterer sur toutes les cles wl:*
+    let cursor = undefined;
+    do {
+      const listResp = await env.CACHE.list({ prefix: 'wl:', cursor });
+      for (const key of listResp.keys) {
+        scanned++;
+        try {
+          const record = await env.CACHE.get(key.name, 'json');
+          if (!record) { skipped++; continue; }
+          if (!record.emailAlerts) { skipped++; continue; }
+          if (!record.optIn) { skipped++; continue; }
+          if (!record.email) { skipped++; continue; }
+          if (!Array.isArray(record.tickers) || record.tickers.length === 0) { skipped++; continue; }
+
+          const events = await detectEventsForWatchlist(record.tickers, record.types || {}, env);
+          if (events.length === 0) { skipped++; continue; }
+
+          // Extrait uid depuis la cle (wl:{uid})
+          const uid = key.name.slice(3);
+          await sendWatchlistDigestEmail(record.email, uid, events, env);
+
+          record.lastDigestAt = Date.now();
+          await env.CACHE.put(key.name, JSON.stringify(record));
+          sent++;
+        } catch (e) {
+          console.error('cron error on', key.name, ':', e);
+          errors++;
+        }
+      }
+      cursor = listResp.list_complete ? undefined : listResp.cursor;
+    } while (cursor);
+  } catch (e) {
+    console.error('[cron] top-level failure:', e);
+  }
+
+  const duration = Date.now() - started;
+  console.log(`[cron] watchlist digest done: scanned=${scanned} sent=${sent} skipped=${skipped} errors=${errors} duration=${duration}ms`);
+  // Log dans KV pour observabilite (ecrase chaque jour)
+  await env.CACHE.put('wl-last-cron-run', JSON.stringify({
+    at: new Date().toISOString(), scanned, sent, skipped, errors, duration,
+  }));
+}
+
+// ============================================================
+// EMAIL : Digest watchlist (HTML inline via Brevo)
+// ============================================================
+async function sendWatchlistDigestEmail(email, uid, tickersEvents, env) {
+  if (!email || !uid || !Array.isArray(tickersEvents) || tickersEvents.length === 0) return;
+
+  const unsubToken = await generateWatchlistToken(uid, 'unsub', env);
+  const unsubUrl = `https://kairos-insider-api.natquinson.workers.dev/watchlist/unsubscribe?uid=${encodeURIComponent(uid)}&token=${unsubToken}`;
+  const dashUrl = 'https://kairosinsider.fr/dashboard.html#watchlist';
+
+  const totalEvents = tickersEvents.reduce((s, t) => s + t.events.length, 0);
+  const hasHigh = tickersEvents.some(t => t.events.some(e => e.severity === 'high'));
+
+  const subject = hasHigh
+    ? `🚨 ${totalEvents} evenements sur votre watchlist (dont signaux forts)`
+    : `Digest Kairos — ${totalEvents} evenement${totalEvents > 1 ? 's' : ''} sur vos ${tickersEvents.length} ticker${tickersEvents.length > 1 ? 's' : ''}`;
+
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const cards = tickersEvents.map(t => {
+    const actionUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(t.ticker)}`;
+    const evtRows = t.events.map(e => `
+      <div style="padding:10px 12px;background:rgba(59,130,246,0.04);border-left:3px solid ${severityColor(e.severity)};border-radius:6px;margin:8px 0">
+        <div style="font-weight:600;color:#F9FAFB;font-size:14px;margin-bottom:4px">${escapeHtml(e.title)}</div>
+        <div style="color:#9CA3AF;font-size:13px;line-height:1.5">${escapeHtml(e.summary)}</div>
+      </div>
+    `).join('');
+    return `
+      <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:18px;font-weight:700;color:#F9FAFB">${escapeHtml(t.ticker)}</div>
+          <a href="${actionUrl}" style="color:#3B82F6;font-size:12px;text-decoration:none;font-weight:600">Voir l'analyse →</a>
+        </div>
+        ${evtRows}
+      </div>
+    `;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background:#0A0F1E; margin:0; padding:0; color:#F9FAFB; }
+.wrap { max-width:620px; margin:0 auto; padding:32px 20px; }
+.logo { font-family:'Space Grotesk', Arial, sans-serif; font-size:22px; font-weight:700; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); -webkit-background-clip:text; color:transparent; margin-bottom:8px; }
+.date { color:#6B7280; font-size:12px; margin-bottom:24px; }
+h1 { font-size:22px; margin:0 0 10px; color:#F9FAFB; line-height:1.3; font-weight:700; }
+.intro { color:#9CA3AF; font-size:14px; margin-bottom:24px; }
+.btn { display:inline-block; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); color:#fff !important; padding:12px 24px; border-radius:10px; text-decoration:none; font-weight:600; font-size:14px; }
+.footer { text-align:center; color:#6B7280; font-size:11px; margin-top:32px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.05); line-height:1.8; }
+.footer a { color:#9CA3AF; text-decoration:none; margin:0 8px; }
+</style></head>
+<body><div class="wrap">
+<div class="logo">Kairos Insider</div>
+<div class="date">Digest du ${dateStr}</div>
+<h1>${totalEvents} evenement${totalEvents > 1 ? 's' : ''} detecte${totalEvents > 1 ? 's' : ''} sur votre watchlist</h1>
+<p class="intro">Voici les mouvements smart-money reperes ce matin sur vos ${tickersEvents.length} ticker${tickersEvents.length > 1 ? 's' : ''} surveille${tickersEvents.length > 1 ? 's' : ''} :</p>
+${cards}
+<div style="text-align:center;margin:24px 0"><a href="${dashUrl}" class="btn">Ouvrir mon dashboard →</a></div>
+<div class="footer">
+  <p style="margin:0">Kairos Insider — Voyez ce que les pros voient.</p>
+  <p style="margin:8px 0 0">
+    <a href="${dashUrl}">Gerer mes preferences</a> · <a href="${unsubUrl}">Me desabonner</a>
+  </p>
+  <p style="margin:8px 0 0">
+    <a href="https://kairosinsider.fr/cgv.html">CGV</a> · <a href="https://kairosinsider.fr/privacy.html">Confidentialite</a>
+  </p>
+</div>
+</div></body></html>`;
+
+  const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+      to: [{ email }],
+      subject,
+      htmlContent: html,
+      replyTo: { email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr', name: 'Kairos Insider' },
+      headers: {
+        'List-Unsubscribe': `<${unsubUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Brevo digest ${resp.status}: ${errText}`);
+  }
+  console.log(`[watchlist] digest sent to ${email} (${totalEvents} events)`);
+}
+
+function severityColor(s) {
+  if (s === 'high') return '#EF4444';
+  if (s === 'medium') return '#3B82F6';
+  return '#6B7280';
+}
+
+// ============================================================
+// EMAIL : Double opt-in (confirmation initiale)
+// ============================================================
+async function sendWatchlistOptinEmail(email, uid, tickers, env) {
+  const confirmToken = await generateWatchlistToken(uid, 'confirm', env);
+  const confirmUrl = `https://kairos-insider-api.natquinson.workers.dev/watchlist/confirm?uid=${encodeURIComponent(uid)}&token=${confirmToken}`;
+
+  const tickersHtml = tickers.slice(0, 10).map(t => `<code style="background:rgba(59,130,246,0.15);color:#60A5FA;padding:2px 8px;border-radius:4px;font-family:'SF Mono',Consolas,monospace;font-size:13px;margin:0 4px">${escapeHtml(t)}</code>`).join('');
+  const moreHint = tickers.length > 10 ? `<span style="color:#9CA3AF">et ${tickers.length - 10} autres</span>` : '';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background:#0A0F1E; margin:0; padding:0; color:#F9FAFB; }
+.wrap { max-width:560px; margin:0 auto; padding:32px 20px; }
+.card { background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:36px 28px; }
+.logo { font-family:'Space Grotesk', Arial, sans-serif; font-size:22px; font-weight:700; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); -webkit-background-clip:text; color:transparent; margin-bottom:24px; }
+h1 { font-size:24px; margin:0 0 14px; font-weight:700; }
+p { font-size:14px; line-height:1.65; color:#9CA3AF; margin:0 0 16px; }
+.btn { display:inline-block; background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%); color:#fff !important; padding:14px 28px; border-radius:10px; text-decoration:none; font-weight:600; font-size:15px; margin:8px 0; }
+.footer { text-align:center; color:#6B7280; font-size:11px; margin-top:24px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.05); }
+</style></head>
+<body><div class="wrap"><div class="card">
+<div class="logo">Kairos Insider</div>
+<h1>Confirmez votre watchlist ⭐</h1>
+<p>Vous venez d'ajouter ${tickers.length} ticker${tickers.length > 1 ? 's' : ''} a votre watchlist :</p>
+<p style="line-height:2.4">${tickersHtml} ${moreHint}</p>
+<p>Pour recevoir un digest quotidien a 8h avec les evenements smart-money detectes (insiders, hedge funds, rotations ETF, variation Kairos Score), confirmez simplement votre adresse en cliquant ci-dessous :</p>
+<p style="text-align:center"><a href="${confirmUrl}" class="btn">✓ Confirmer mes alertes quotidiennes</a></p>
+<p style="font-size:12px;color:#6B7280">Si vous n'avez pas ajoute ces tickers, vous pouvez ignorer cet email. Aucune alerte ne sera envoyee sans confirmation.</p>
+<div class="footer">
+  <p style="margin:0">Kairos Insider — Voyez ce que les pros voient.</p>
+</div>
+</div></div></body></html>`;
+
+  const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+      to: [{ email }],
+      subject: 'Confirmez votre watchlist Kairos Insider',
+      htmlContent: html,
+      replyTo: { email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr', name: 'Kairos Insider' },
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Brevo optin ${resp.status}: ${errText}`);
+  }
 }
