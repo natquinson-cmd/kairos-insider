@@ -86,7 +86,7 @@
       'features.badge': 'Fonctionnalités',
       'features.title_part1': 'Tout le smart money',
       'features.title_part2': 'en une seule interface.',
-      'features.subtitle': 'Huit modules connectés, mis à jour en continu avant l\'ouverture des marchés.',
+      'features.subtitle': 'Une suite complète de modules connectés, mise à jour en continu avant l\'ouverture des marchés.',
 
       'feat.score.title': 'Kairos Score 0-100',
       'feat.score.desc': 'Une note unique qui synthétise <strong>tout le signal smart money</strong> : initiés, hedge funds, politiciens, momentum, valorisation, santé financière, consensus analystes, earnings. Un seul chiffre pour trancher — pas besoin d\'être analyste pour comprendre.',
@@ -115,6 +115,10 @@
       'feat.deep.title': 'Analyse action complète',
       'feat.deep.desc': 'Une fiche exhaustive par action : <strong>Kairos Score</strong> visuel, ratios de valorisation, santé financière, historique earnings, concurrents sectoriels, objectifs analystes, chart avec les trades des initiés superposés. Tout ce qu\'il faut <strong>sans changer d\'onglet</strong>.',
       'feat.deep.chip': '● Des milliers de tickers',
+
+      'feat.watchlist.title': 'Watchlist &amp; Alertes Email',
+      'feat.watchlist.desc_html': 'Créez votre <strong>watchlist personnalisée</strong> et recevez chaque matin un <strong>digest email</strong> avec tous les événements smart money détectés sur VOS actions : nouveaux clusters d\'initiés, entrées/sorties d\'ETF, variations du Kairos Score, consensus hedge funds qui change. Plus jamais rater un signal.',
+      'feat.watchlist.chip': 'NEW · Alerte matinale 8h',
 
       'feat.portfolio.title': 'Mon Portefeuille',
       'feat.portfolio.desc_html': 'Importez votre historique depuis <strong>n\'importe quel broker</strong>. Suivez vos performances, win rate, drawdown — et comparez vos trades aux signaux smart money que vous auriez pu capter. <em>Synchronisation automatique à venir.</em>',
@@ -204,6 +208,7 @@
       'pricing.premium.f_consensus': 'Consensus Hedge Funds avec ★ conviction',
       'pricing.premium.f_etf': '11 ETF Live (politique, ARK, sentiment, income, thématiques)',
       'pricing.premium.f_history': 'Historique 2 ans (AUM, rotations, scores)',
+      'pricing.premium.f_watchlist': '<strong>Watchlist &amp; alertes email</strong> quotidiennes',
       'pricing.premium.f_portfolio': 'Import portefeuille multi-broker (CSV)',
 
       // ==== POPULAR STOCKS ====
@@ -444,7 +449,7 @@
       'features.badge': 'Features',
       'features.title_part1': 'All the smart money',
       'features.title_part2': 'in a single interface.',
-      'features.subtitle': 'Eight connected modules, continuously refreshed before markets open.',
+      'features.subtitle': 'A full suite of connected modules, continuously refreshed before markets open.',
 
       'feat.score.title': 'Kairos Score 0-100',
       'feat.score.desc': 'A single score that synthesizes <strong>the entire smart money signal</strong>: insiders, hedge funds, politicians, momentum, valuation, financial health, analyst consensus, earnings. One number to decide — no need to be an analyst to understand.',
@@ -473,6 +478,10 @@
       'feat.deep.title': 'Full stock analysis',
       'feat.deep.desc': 'A comprehensive profile for every stock: visual <strong>Kairos Score</strong>, valuation ratios, financial health, earnings history, sector peers, analyst targets, chart with insider trades overlaid. Everything you need <strong>without switching tabs</strong>.',
       'feat.deep.chip': '● Thousands of tickers',
+
+      'feat.watchlist.title': 'Watchlist &amp; Email Alerts',
+      'feat.watchlist.desc_html': 'Build your <strong>custom watchlist</strong> and receive a <strong>daily morning digest</strong> with all smart money events detected on YOUR stocks: new insider clusters, ETF entries/exits, Kairos Score changes, hedge fund consensus shifts. Never miss a signal.',
+      'feat.watchlist.chip': 'NEW · Morning alert 8am',
 
       'feat.portfolio.title': 'My Portfolio',
       'feat.portfolio.desc_html': 'Import your trade history from <strong>any broker</strong>. Track performance, win rate, drawdown — and compare your trades to the smart money signals you could have caught. <em>Auto-sync coming soon.</em>',
@@ -558,6 +567,7 @@
       'pricing.premium.f_consensus': 'Hedge Funds Consensus with ★ conviction',
       'pricing.premium.f_etf': '11 ETF Live (politics, ARK, sentiment, income, themes)',
       'pricing.premium.f_history': '2-year history (AUM, rotations, scores)',
+      'pricing.premium.f_watchlist': '<strong>Watchlist &amp; daily email alerts</strong>',
       'pricing.premium.f_portfolio': 'Multi-broker portfolio import (CSV)',
 
       'popular.badge': 'Popular analyses',
