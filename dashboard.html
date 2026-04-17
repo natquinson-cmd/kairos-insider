@@ -1218,6 +1218,12 @@
           <span class="sidebar-badge new-badge">NEW</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
+        <button class="sidebar-item" data-section="topInsiders" data-premium="true" onclick="switchSection('topInsiders')">
+          <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
+          <span data-i18n="dash.sidebar.top_insiders">Top Insiders</span>
+          <span class="sidebar-badge new-badge">NEW</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
         <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
           <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
           <span data-i18n="dash.sidebar.signals">Signaux Insiders</span>
@@ -1644,6 +1650,72 @@
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;opacity:0.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <p style="margin:0;font-size:15px">Selectionnez vos filtres et lancez la recherche.</p>
             <p style="margin:8px 0 0;font-size:13px;opacity:0.7">Les resultats s'afficheront ici.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: TOP INSIDERS ===== -->
+      <div class="section-page" id="section-topInsiders">
+        <h2>🏆 Top Insiders <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.15);color:#EAB308;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
+        <p class="section-desc">Classement des insiders les plus actifs sur la periode. Repere les executives dont les trades sont les plus massifs et les plus frequents — une premiere approximation du "qui vaut la peine d'etre suivi".</p>
+
+        <!-- FILTRES -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Periode</label>
+            <select id="tiPeriod" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:140px">
+              <option value="30d">30 jours</option>
+              <option value="90d">90 jours</option>
+              <option value="6m">6 mois</option>
+              <option value="1y" selected>1 an</option>
+              <option value="3y">3 ans</option>
+              <option value="5y">5 ans</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
+            <select id="tiType" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:120px">
+              <option value="buy" selected>Achats</option>
+              <option value="sell">Ventes</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
+            <select id="tiRole" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:140px">
+              <option value="">Tous</option>
+              <option value="CEO">CEO</option>
+              <option value="CFO">CFO</option>
+              <option value="Director">Director</option>
+              <option value="President">President</option>
+              <option value="Chairman">Chairman</option>
+              <option value="10%">10% Owner</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nb max</label>
+            <select id="tiLimit" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:100px">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </div>
+          <div style="margin-left:auto">
+            <button onclick="loadTopInsiders()" style="padding:10px 18px;background:linear-gradient(135deg,#EAB308,#F59E0B);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Rafraichir</button>
+          </div>
+        </div>
+
+        <!-- NOTE ROI -->
+        <div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#EAB308;display:flex;gap:10px;align-items:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <span><strong>V1 :</strong> classement par <em>volume</em> total ($). Le ROI reel par insider arrive apres l'integration des prix historiques (roadmap Phase 2.2).</span>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div id="topInsidersBody">
+          <div style="padding:60px 20px;text-align:center;color:var(--text-secondary)">
+            <div style="font-size:36px;margin-bottom:12px">🏆</div>
+            <p style="margin:0;font-size:15px">Choisissez vos filtres pour afficher le classement.</p>
           </div>
         </div>
       </div>
@@ -2768,6 +2840,7 @@
           loadEtfRotations();
         }
         if (section === 'watchlist') loadWatchlist();
+        if (section === 'topInsiders') loadTopInsiders();
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -7680,6 +7753,121 @@
         </div>
         ${hidden > 0 ? `<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;background:var(--surface);border-top:1px solid var(--border)">Affichage des ${pageSize} premiers resultats sur ${rows.length}. Exportez en CSV pour tout recuperer.</div>` : ''}
       `;
+    }
+
+    // ============================================================
+    // TOP INSIDERS (Phase 2 V1 : classement par volume)
+    // ============================================================
+    async function loadTopInsiders() {
+      if (!isPremium) {
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      if (!currentUser) return;
+      const body = document.getElementById('topInsidersBody');
+      if (!body) return;
+      body.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement du classement...</div>';
+
+      try {
+        const period = document.getElementById('tiPeriod').value || '1y';
+        const type = document.getElementById('tiType').value || 'buy';
+        const role = document.getElementById('tiRole').value || '';
+        const limit = document.getElementById('tiLimit').value || '50';
+
+        const params = new URLSearchParams({ period, type, limit });
+        if (role) params.set('role', role);
+
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/history/insider-top?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status})</div>`;
+          return;
+        }
+        const data = await res.json();
+        const insiders = Array.isArray(data.insiders) ? data.insiders : [];
+
+        if (!insiders.length) {
+          body.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text-secondary)">
+            <div style="font-size:36px;margin-bottom:12px">🏜️</div>
+            <p style="margin:0">Aucun insider ne correspond aux criteres.</p>
+            <p style="margin:8px 0 0;font-size:13px;opacity:0.7">L'historique se remplit au fur et a mesure — reessayez apres le backfill.</p>
+          </div>`;
+          return;
+        }
+
+        const fmtUsd = (v) => {
+          if (!v) return '—';
+          const abs = Math.abs(v);
+          if (abs >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+          if (abs >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+          if (abs >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+          return '$' + v.toFixed(0);
+        };
+        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
+
+        const rows = insiders.map((ins, idx) => {
+          const rank = idx + 1;
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span style="color:var(--text-secondary);font-weight:600">#${rank}</span>`;
+          return `
+            <tr onclick="openScreenerForInsider('${esc((ins.insider||'').replace(/'/g, ''))}')" style="cursor:pointer" onmouseenter="this.style.background='var(--surface-2)'" onmouseleave="this.style.background=''">
+              <td style="text-align:center;font-size:16px">${medal}</td>
+              <td><strong>${esc(ins.insider || '—')}</strong></td>
+              <td style="font-size:12px;color:var(--text-secondary)">${esc(ins.title || '—')}</td>
+              <td style="text-align:right;font-variant-numeric:tabular-nums">${ins.tickers || 0}</td>
+              <td style="text-align:right;font-variant-numeric:tabular-nums">${ins.tx_count || 0}</td>
+              <td style="text-align:right;font-weight:700;color:${type === 'buy' ? '#2ecc71' : '#ff7675'};font-variant-numeric:tabular-nums">${fmtUsd(ins.total_value)}</td>
+              <td style="text-align:right;font-size:11px;color:var(--text-secondary)">${fmtD(ins.last_activity)}</td>
+            </tr>
+          `;
+        }).join('');
+
+        body.innerHTML = `
+          <div style="overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+            <table class="data-table" style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th style="text-align:center;width:60px">Rang</th>
+                  <th>Insider</th>
+                  <th>Role</th>
+                  <th style="text-align:right">Tickers</th>
+                  <th style="text-align:right">Tx</th>
+                  <th style="text-align:right">Volume ${type === 'buy' ? 'Achats' : 'Ventes'}</th>
+                  <th style="text-align:right">Derniere</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div style="padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;font-size:12px;color:var(--text-secondary);text-align:center">
+            Cliquez sur un insider pour ouvrir ses transactions dans le Screener.
+          </div>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${e.message || e}</div>`;
+      }
+    }
+
+    // Ouvre le Screener filtre par nom d'insider (depuis la ligne Top Insiders).
+    function openScreenerForInsider(insiderName) {
+      if (!insiderName) return;
+      switchSection('screener');
+      setTimeout(() => {
+        const input = document.getElementById('scrInsider');
+        if (input) {
+          input.value = insiderName;
+          document.getElementById('scrTicker').value = '';
+          document.getElementById('scrDays').value = '365';
+          document.getElementById('scrType').value = '';
+          document.getElementById('scrRole').value = '';
+          document.getElementById('scrSource').value = '';
+          document.getElementById('scrMinValue').value = '';
+          document.getElementById('scrSort').value = 'date-desc';
+          runScreener();
+        }
+      }, 100);
     }
 
     // Rafraichit la card insider de l'onglet Analyse Action avec les filtres choisis
