@@ -3947,6 +3947,9 @@
             form: f.form,
             date: f.fileDate,
             isActivist: f.isActivist,
+            percentOfClass: f.percentOfClass,
+            sharesOwned: f.sharesOwned,
+            purchasePriceApprox: f.purchasePriceApprox,
             count: (meta[idx]?.count || 0) + 1,
           };
         } else if (meta[idx]) {
@@ -5390,6 +5393,20 @@
                         lines.push(`${icon}${meta.count > 1 ? ' (+' + (meta.count - 1) + ' autre' + (meta.count > 2 ? 's' : '') + ')' : ''}`);
                         if (meta.filerName) lines.push(meta.filerName);
                         if (meta.form) lines.push(meta.form.replace('SCHEDULE ', 'Schedule '));
+                        // Infos d'ownership enrichies si dispo
+                        if (meta.percentOfClass != null) {
+                          lines.push(`${meta.percentOfClass.toFixed(1)}% du capital`);
+                        }
+                        if (meta.sharesOwned != null) {
+                          const s = meta.sharesOwned;
+                          const sStr = s >= 1e9 ? (s/1e9).toFixed(1)+'B' : s >= 1e6 ? (s/1e6).toFixed(1)+'M' : s >= 1e3 ? (s/1e3).toFixed(0)+'K' : String(Math.round(s));
+                          lines.push(`${sStr} titres`);
+                        }
+                        if (meta.purchasePriceApprox != null) {
+                          const p = meta.purchasePriceApprox;
+                          const pStr = p >= 1e9 ? '$'+(p/1e9).toFixed(2)+'B' : p >= 1e6 ? '$'+(p/1e6).toFixed(1)+'M' : '$'+Math.round(p/1e3)+'K';
+                          lines.push(`~${pStr} investis`);
+                        }
                       } else {
                         const prefix = ds.label === 'Achats insiders' ? '🟢 ACHAT' : '🔴 VENTE';
                         lines.push(`${prefix}${meta.count > 1 ? ' (+' + (meta.count - 1) + ' autre' + (meta.count > 2 ? 's' : '') + ')' : ''}`);
