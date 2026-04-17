@@ -3646,9 +3646,89 @@
         renderStockAnalysis(data);
         // Charge l'historique D1 en parallele (non-bloquant pour le rendu principal)
         loadEtfHistoryFor(ticker).catch(() => {});
+        // Charge les filings 13D/G recents sur ce ticker
+        loadActivistsForTicker(ticker).catch(() => {});
       } catch (e) {
         clearStockLoader();
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+      }
+    }
+
+    // ============================================================
+    // Activists : "ce ticker a X filings 13D/G recents" (injecte en haut du hero)
+    // ============================================================
+    async function loadActivistsForTicker(ticker) {
+      if (!ticker) return;
+      try {
+        const res = await apiFetch(`/api/13dg/ticker?ticker=${encodeURIComponent(ticker)}`);
+        if (!res || !res.total || res.total === 0) return;
+        const body = document.getElementById('stockAnalysisBody');
+        if (!body) return;
+
+        // Cherche/cree le slot juste apres le hero (le premier div enfant)
+        let slot = document.getElementById('activistBannerSlot');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.id = 'activistBannerSlot';
+          slot.style.cssText = 'margin:18px 0';
+          // Insere apres le premier enfant (le hero)
+          const firstChild = body.firstElementChild;
+          if (firstChild && firstChild.nextSibling) {
+            body.insertBefore(slot, firstChild.nextSibling);
+          } else {
+            body.appendChild(slot);
+          }
+        }
+
+        const mostRecent = res.mostRecent || res.filings[0];
+        const isActivist = res.hasActivist;
+        const color = isActivist ? '#F59E0B' : '#10B981';
+        const bgGrad = isActivist
+          ? 'linear-gradient(135deg,rgba(245,158,11,0.15),rgba(236,72,153,0.08))'
+          : 'linear-gradient(135deg,rgba(16,185,129,0.1),rgba(59,130,246,0.05))';
+        const borderColor = isActivist ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.25)';
+        const icon = isActivist ? '⚡' : '📋';
+        const title = isActivist
+          ? `Signal activist sur ${escapeHtmlClient(ticker)}`
+          : `Large shareholders sur ${escapeHtmlClient(ticker)}`;
+        const subtitle = isActivist
+          ? `${res.total} filing${res.total > 1 ? 's' : ''} dont ${res.activistsCount} activist${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}`
+          : `${res.total} filing${res.total > 1 ? 's' : ''} > 5% du capital`;
+
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+        const formShort = (f) => (f || '').replace('SCHEDULE ', '').substring(0, 8);
+        const top3 = res.filings.slice(0, 3).map(f => `
+          <div style="padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <span style="font-weight:600;color:#F9FAFB">${escapeHtmlClient(f.filerName || '—')}</span>
+            <span style="color:var(--text-muted);white-space:nowrap">${formShort(f.form)} · ${fmtD(f.fileDate)}</span>
+            ${f.isActivist ? '<span style="padding:2px 6px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:4px;font-size:9px;font-weight:700">ACTIVIST</span>' : ''}
+          </div>
+        `).join('');
+
+        slot.innerHTML = `
+          <div style="padding:18px 20px;background:${bgGrad};border:1px solid ${borderColor};border-radius:12px">
+            <div style="display:flex;gap:14px;align-items:flex-start">
+              <div style="font-size:24px;flex-shrink:0">${icon}</div>
+              <div style="flex:1">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+                  <strong style="color:${color};font-size:14px">${title}</strong>
+                  <span style="font-size:11px;color:var(--text-muted)">${subtitle}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
+                  ${isActivist
+                    ? 'Un investisseur activiste a declare detenir >5% du capital. Souvent, ceci precede une restructuration, un changement de CEO ou une cession.'
+                    : 'Des investisseurs institutionnels ont declare detenir >5% du capital via 13D/G.'}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  ${top3}
+                </div>
+                ${res.total > 3 ? `<div style="margin-top:10px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;text-decoration:none">Voir les ${res.total} filings →</a></div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (e) {
+        // silent fail - donnee 13dg peut ne pas etre encore loaded en KV
       }
     }
 
