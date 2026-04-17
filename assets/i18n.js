@@ -116,8 +116,8 @@
       'feat.deep.desc': 'Une fiche exhaustive par action : <strong>Kairos Score</strong> visuel, ratios de valorisation, santé financière, historique earnings, concurrents sectoriels, objectifs analystes, chart avec les trades des initiés superposés. Tout ce qu\'il faut <strong>sans changer d\'onglet</strong>.',
       'feat.deep.chip': '● Des milliers de tickers',
 
-      'feat.activists.title': 'Signaux Activists 13D/G',
-      'feat.activists.desc_html': 'Quand un <strong>investisseur activiste</strong> accumule plus de <strong>5 % du capital</strong> d\'une société (Elliott, Ackman, Icahn, Third Point…), il doit le déclarer à la SEC. Kairos détecte ces filings en <strong>10 jours</strong> — 35 jours plus rapide que les 13F — et vous alerte dès qu\'un signal activiste apparaît sur un ticker de votre watchlist.',
+      'feat.activists.title': 'Fonds Offensifs <span style="font-size:13px;color:var(--text-muted);font-weight:400">(Activistes)</span>',
+      'feat.activists.desc_html': 'Quand un <strong>fonds offensif</strong> comme Elliott, Ackman ou Icahn achète plus de <strong>5 % d\'une entreprise</strong>, c\'est pour <strong>forcer un changement</strong> (vente d\'une division, CEO remplacé, rachats d\'actions). Carl Icahn chez Apple 2013 → +30 %. Kairos détecte ces filings en <strong>10 jours</strong> — 35 jours plus rapide que les 13F.',
       'feat.activists.chip': 'NEW · Signal 10 jours',
 
       'feat.watchlist.title': 'Watchlist &amp; Alertes Email',
@@ -208,7 +208,7 @@
       'pricing.premium.f_score': 'Kairos Score composite 0-100 (radar 8 axes + synthèse)',
       'pricing.premium.f_insiders': 'Transactions insiders SEC + AMF + BaFin en détail',
       'pricing.premium.f_clusters': 'Signaux Insiders (clusters 90j)',
-      'pricing.premium.f_activists': '<strong>Signaux Activists 13D/G</strong> (Elliott, Ackman, Icahn…)',
+      'pricing.premium.f_activists': '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)',
       'pricing.premium.f_funds': '200+ hedge funds 13F consolidés',
       'pricing.premium.f_consensus': 'Consensus Hedge Funds avec ★ conviction',
       'pricing.premium.f_etf': '11 ETF Live (politique, ARK, sentiment, income, thématiques)',
@@ -293,7 +293,7 @@
       'dash.sidebar.watchlist': 'Ma Watchlist',
       'dash.sidebar.screener': 'Screener Avance',
       'dash.sidebar.top_insiders': 'Top Insiders',
-      'dash.sidebar.activists': 'Signaux Activists',
+      'dash.sidebar.activists': 'Fonds Offensifs',
       'dash.sidebar.admin': 'Tableau de bord',
 
       // ==== Home cards ====
@@ -485,8 +485,8 @@
       'feat.deep.desc': 'A comprehensive profile for every stock: visual <strong>Kairos Score</strong>, valuation ratios, financial health, earnings history, sector peers, analyst targets, chart with insider trades overlaid. Everything you need <strong>without switching tabs</strong>.',
       'feat.deep.chip': '● Thousands of tickers',
 
-      'feat.activists.title': 'Activist Signals 13D/G',
-      'feat.activists.desc_html': 'When an <strong>activist investor</strong> accumulates more than <strong>5% of a company</strong> (Elliott, Ackman, Icahn, Third Point…), they must disclose it to the SEC. Kairos detects these filings within <strong>10 days</strong> — 35 days faster than 13F — and alerts you as soon as an activist signal appears on your watchlist tickers.',
+      'feat.activists.title': 'Activist Investors',
+      'feat.activists.desc_html': 'When an <strong>activist fund</strong> like Elliott, Ackman, or Icahn buys more than <strong>5% of a company</strong>, it\'s to <strong>force change</strong> (divestiture, CEO replacement, stock buybacks). Carl Icahn at Apple 2013 → +30%. Kairos detects these filings within <strong>10 days</strong> — 35 days faster than 13F.',
       'feat.activists.chip': 'NEW · 10-day signal',
 
       'feat.watchlist.title': 'Watchlist &amp; Email Alerts',
@@ -573,7 +573,7 @@
       'pricing.premium.f_score': 'Composite Kairos Score 0-100 (8-axis radar + synthesis)',
       'pricing.premium.f_insiders': 'SEC + AMF + BaFin insider transactions in detail',
       'pricing.premium.f_clusters': 'Insider Signals (90-day clusters)',
-      'pricing.premium.f_activists': '<strong>Activist Signals 13D/G</strong> (Elliott, Ackman, Icahn…)',
+      'pricing.premium.f_activists': '<strong>Activist Investors</strong> (Elliott, Ackman, Icahn…)',
       'pricing.premium.f_funds': '200+ hedge funds 13F consolidated',
       'pricing.premium.f_consensus': 'Hedge Funds Consensus with ★ conviction',
       'pricing.premium.f_etf': '11 ETF Live (politics, ARK, sentiment, income, themes)',
@@ -653,7 +653,7 @@
       'dash.sidebar.watchlist': 'My Watchlist',
       'dash.sidebar.screener': 'Advanced Screener',
       'dash.sidebar.top_insiders': 'Top Insiders',
-      'dash.sidebar.activists': 'Activist Signals',
+      'dash.sidebar.activists': 'Activist Investors',
       'dash.sidebar.admin': 'Dashboard',
 
       // ==== Home cards ====

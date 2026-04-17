@@ -1245,7 +1245,7 @@
         </button>
         <button class="sidebar-item" data-section="activists" data-premium="true" onclick="switchSection('activists')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
-          <span data-i18n="dash.sidebar.activists">Signaux Activists</span>
+          <span data-i18n="dash.sidebar.activists">Fonds Offensifs</span>
           <span class="sidebar-badge new-badge">NEW</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
@@ -1783,19 +1783,39 @@
         </div>
       </div>
 
-      <!-- ===== SECTION: SIGNAUX ACTIVISTS (13D/G) ===== -->
+      <!-- ===== SECTION: FONDS OFFENSIFS (ACTIVIST INVESTORS / 13D/G) ===== -->
       <div class="section-page" id="section-activists">
-        <h2>⚡ Signaux Activists <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
-        <p class="section-desc">Les investisseurs qui acquierent <strong>plus de 5% du capital</strong> d'une action — souvent avant une restructuration, une prise de controle ou une forte hausse. Signal precoce, 35 jours plus rapide que les 13F.</p>
+        <h2>⚡ Fonds Offensifs <span style="font-size:16px;color:var(--text-muted);font-weight:400">(Activistes)</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
+        <p class="section-desc">Les fonds qui achetent <strong>>5% du capital d'une entreprise pour forcer un changement</strong> (vente d'une division, changement de CEO, rachats d'actions…). Signal quasi-imminent, detecte 35 jours avant les 13F.</p>
 
         <!-- EXPLAINER PEDAGOGIQUE -->
+        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:20px 22px;margin-bottom:20px">
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div style="font-size:24px;flex-shrink:0">🎯</div>
+            <div style="flex:1;font-size:13px;line-height:1.7;color:var(--text-primary)">
+              <div style="font-weight:700;color:#F59E0B;margin-bottom:10px;font-size:14px">Qu'est-ce qu'un fonds offensif ?</div>
+              <p style="margin:0 0 10px;color:var(--text-secondary)">
+                Un <strong>fonds offensif</strong> (<em>"activist investor"</em> en finance anglo-saxonne — rien a voir avec l'activisme politique ou le lobbying) est un hedge fund qui achete une grosse participation dans une societe cotee pour <strong>forcer la direction a faire des changements</strong> : vendre une division, remplacer le CEO, distribuer du cash, proceder a une fusion…
+              </p>
+              <p style="margin:0 0 10px;color:var(--text-secondary)">
+                <strong style="color:#F9FAFB">Pourquoi c'est interessant pour un investisseur ?</strong> Les fonds offensifs ciblent des entreprises <strong>sous-valorisees ou mal gerees</strong>. Quand Carl Icahn a pris une position dans Apple en 2013, Apple a lance $100B de rachats d'actions et le titre a gagne 30%. Idem pour <strong>Bill Ackman</strong> (Pershing Square) chez Chipotle, <strong>Paul Singer</strong> (Elliott) chez SoftBank, <strong>Nelson Peltz</strong> (Trian) chez Disney…
+              </p>
+              <p style="margin:0;color:var(--text-secondary)">
+                Le marche anticipe souvent ces catalyseurs : <strong>detecter un fonds offensif tot = souvent capter une partie de la hausse</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- EXPLAINER TECHNIQUE (formes SEC) -->
         <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:18px 22px;margin-bottom:20px">
           <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="font-size:22px;flex-shrink:0">💡</div>
+            <div style="font-size:22px;flex-shrink:0">📋</div>
             <div style="flex:1;font-size:13px;line-height:1.7;color:var(--text-primary)">
-              <div style="margin-bottom:8px"><strong style="color:#F59E0B">Schedule 13D</strong> : investisseur qui accumule <strong>>5% du capital</strong> avec <strong>intention active</strong> (influencer la direction, restructurer, vendre la societe…). <span style="color:var(--text-muted)">→ le signal le plus fort.</span></div>
-              <div style="margin-bottom:8px"><strong style="color:#10B981">Schedule 13G</strong> : meme seuil >5% mais <strong>passif</strong> (typique : Vanguard, BlackRock detenant un large portefeuille d'indices). <span style="color:var(--text-muted)">→ plus neutre mais a suivre.</span></div>
-              <div><strong style="color:var(--text-secondary)">Amendement (/A)</strong> : mise a jour quand la position evolue de >1% (rachat, cession, franchissement de seuil). <span style="color:var(--text-muted)">→ indique un changement de conviction.</span></div>
+              <div style="font-weight:700;color:#74b9ff;margin-bottom:10px;font-size:14px">Les 3 formes de filings SEC</div>
+              <div style="margin-bottom:8px"><strong style="color:#F59E0B">Schedule 13D</strong> : position <strong>>5% avec intention active</strong> (fonds offensifs, activistes). <span style="color:var(--text-muted)">→ le signal le plus fort.</span></div>
+              <div style="margin-bottom:8px"><strong style="color:#10B981">Schedule 13G</strong> : meme seuil >5% mais <strong>passif</strong> (Vanguard, BlackRock). <span style="color:var(--text-muted)">→ plus neutre.</span></div>
+              <div><strong style="color:var(--text-secondary)">/A (Amendement)</strong> : mise a jour quand la position change de >1%. <span style="color:var(--text-muted)">→ changement de conviction.</span></div>
             </div>
           </div>
         </div>
@@ -1812,10 +1832,10 @@
           </div>
           <div>
             <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Filtre</label>
-            <select id="actFilter" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:160px">
-              <option value="activists">⚡ Activists connus uniquement</option>
+            <select id="actFilter" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:180px">
+              <option value="activists">⚡ Fonds offensifs connus</option>
               <option value="all">Tous les filings (13D + 13G)</option>
-              <option value="13D">Schedule 13D (actifs)</option>
+              <option value="13D">Schedule 13D (offensifs)</option>
               <option value="13G">Schedule 13G (passifs)</option>
             </select>
           </div>
@@ -3689,10 +3709,10 @@
         const borderColor = isActivist ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.25)';
         const icon = isActivist ? '⚡' : '📋';
         const title = isActivist
-          ? `Signal activist sur ${escapeHtmlClient(ticker)}`
-          : `Large shareholders sur ${escapeHtmlClient(ticker)}`;
+          ? `⚡ Fonds offensif detecte sur ${escapeHtmlClient(ticker)}`
+          : `Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
         const subtitle = isActivist
-          ? `${res.total} filing${res.total > 1 ? 's' : ''} dont ${res.activistsCount} activist${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}`
+          ? `${res.total} filing${res.total > 1 ? 's' : ''} · ${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}`
           : `${res.total} filing${res.total > 1 ? 's' : ''} > 5% du capital`;
 
         const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
@@ -3716,8 +3736,8 @@
                 </div>
                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
                   ${isActivist
-                    ? 'Un investisseur activiste a declare detenir >5% du capital. Souvent, ceci precede une restructuration, un changement de CEO ou une cession.'
-                    : 'Des investisseurs institutionnels ont declare detenir >5% du capital via 13D/G.'}
+                    ? 'Un <strong>fonds offensif</strong> (activist investor) detient >5% du capital et va pousser pour des changements : vente de division, remplacement du CEO, rachats d\'actions... Ces catalyseurs font souvent monter le cours.'
+                    : 'Des gros investisseurs institutionnels (type Vanguard, BlackRock) detiennent >5% du capital en declaration passive (13G).'}
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px">
                   ${top3}
@@ -8793,7 +8813,7 @@
           const topActivists = activistsAggregated.byFiler.slice(0, 8);
           topCard.innerHTML = `
             <div style="background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(236,72,153,0.06));border:1px solid rgba(245,158,11,0.25);border-radius:14px;padding:20px;margin-bottom:20px">
-              <div style="font-size:13px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">🔥 Activists les plus actifs (${days}j)</div>
+              <div style="font-size:13px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">🔥 Fonds offensifs les plus actifs (${days}j)</div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
                 ${topActivists.map(a => `
                   <div style="padding:12px 14px;background:var(--surface-2);border-radius:10px">
@@ -8829,7 +8849,7 @@
 
         const rows = filings.map(f => {
           const activistBadge = f.isActivist
-            ? `<span style="padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px">⚡ ACTIVIST</span>`
+            ? `<span style="padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Fonds offensif connu (activist investor)">⚡ OFFENSIF</span>`
             : '';
           return `
             <tr ${f.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${f.ticker}'), 150)" style="cursor:pointer"` : ''}>
