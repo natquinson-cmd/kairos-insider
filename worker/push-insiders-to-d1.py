@@ -188,6 +188,13 @@ def main():
     run_sql(sql)
     print('\nDone!')
 
+    # Log last-run vers KV pour le tableau de bord admin (best-effort)
+    try:
+        from kv_lastrun import log_last_run
+        log_last_run('push-insiders-to-d1', summary=f'{len(sql)} INSERT OR IGNORE statements prepared')
+    except Exception as e:
+        print(f'[lastRun] {e}')
+
 
 if __name__ == '__main__':
     main()

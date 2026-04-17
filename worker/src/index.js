@@ -164,7 +164,7 @@ export default {
           return handleAdminDbStats(env, origin);
         }
         if (path === '/api/admin/jobs') {
-          return jsonResponse({ todo: 'Phase E', jobs: [] }, 200, origin);
+          return handleAdminJobs(env, origin);
         }
         return jsonResponse({ error: 'Unknown admin route' }, 404, origin);
       }
@@ -2316,6 +2316,62 @@ async function handleAdminUsers(env, origin) {
   }
 }
 
+// GET /api/admin/jobs
+// Liste toutes les cles KV lastRun:* et retourne leur payload pour afficher
+// le statut des jobs du pipeline (derniere exec + statut + duree).
+async function handleAdminJobs(env, origin) {
+  try {
+    const keys = await listAllKvKeys(env, 'lastRun:', 200);
+    const jobs = [];
+    // Fetch en parallele
+    const values = await Promise.all(
+      keys.map(async (k) => {
+        const data = await env.CACHE.get(k, 'json').catch(() => null);
+        return { key: k, name: k.slice('lastRun:'.length), data };
+      })
+    );
+    for (const { name, data } of values) {
+      if (!data) continue;
+      jobs.push({
+        name,
+        ts: data.ts || null,
+        iso: data.iso || null,
+        status: data.status || 'unknown',
+        durationSec: data.durationSec || null,
+        summary: data.summary || '',
+        error: data.error || '',
+      });
+    }
+    // Ajoute aussi le cron watchlist (on a deja la cle `wl-last-cron-run`)
+    const cronData = await env.CACHE.get('wl-last-cron-run', 'json').catch(() => null);
+    if (cronData) {
+      jobs.push({
+        name: 'cron-watchlist-digest',
+        ts: cronData.ts || null,
+        iso: cronData.iso || null,
+        status: cronData.status || 'ok',
+        durationSec: cronData.durationSec || null,
+        summary: cronData.summary || (cronData.emailsSent != null ? `${cronData.emailsSent} emails envoyes` : ''),
+        error: cronData.error || '',
+      });
+    }
+    // Tri : plus recent en haut
+    jobs.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+    // Compte global pour KPI
+    const okCount = jobs.filter(j => j.status === 'ok').length;
+    return jsonResponse({
+      timestamp: new Date().toISOString(),
+      total: jobs.length,
+      ok: okCount,
+      failed: jobs.filter(j => j.status === 'failed').length,
+      jobs,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to list jobs', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
 // GET /api/admin/db-stats
 // Compte les lignes par table D1 + les cles KV par prefixe.
 // Retourne les min/max dates pour comprendre la fraicheur des donnees.
@@ -3050,9 +3106,17 @@ async function runDailyWatchlistDigest(env) {
 
   const duration = Date.now() - started;
   console.log(`[cron] watchlist digest done: scanned=${scanned} sent=${sent} skipped=${skipped} errors=${errors} duration=${duration}ms`);
-  // Log dans KV pour observabilite (ecrase chaque jour)
+  // Log dans KV pour observabilite (format unifie lastRun:*)
+  const now = new Date();
   await env.CACHE.put('wl-last-cron-run', JSON.stringify({
-    at: new Date().toISOString(), scanned, sent, skipped, errors, duration,
+    ts: Math.floor(now.getTime() / 1000),
+    iso: now.toISOString(),
+    status: errors > 0 ? 'partial' : 'ok',
+    durationSec: Math.round(duration / 100) / 10,
+    summary: `scanned=${scanned} sent=${sent} skipped=${skipped} errors=${errors}`,
+    emailsSent: sent,
+    // Ancien format conserve pour backcompat
+    at: now.toISOString(), scanned, sent, skipped, errors, duration,
   }));
 }
 

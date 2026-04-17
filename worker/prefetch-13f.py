@@ -368,3 +368,10 @@ print(f'Top 5 by AUM:')
 for i, fund in enumerate(all_funds[:5]):
     perf = f'{fund["performance"]:+.1f}%' if fund['performance'] is not None else 'N/A'
     print(f'  {i+1}. {fund["label"]:25s} ${fund["totalValue"]:>15,.0f}  Perf: {perf}  ({fund["holdingsCount"]} pos)')
+
+# Log last-run vers KV pour le tableau de bord admin (best-effort)
+try:
+    from kv_lastrun import log_last_run
+    log_last_run('prefetch-13f', summary=f'{len(all_funds)} hedge funds')
+except Exception as _e:
+    print(f'[lastRun] {_e}')

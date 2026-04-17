@@ -431,3 +431,10 @@ print(f'Files: transactions_data.json ({len(json.dumps(tx_result))//1024} KB), c
 if enriched:
     for c in enriched[:5]:
         print(f'  {c["ticker"]:6s} | {c["company"]:30s} | {c["insiderCount"]} sig. insiders | ${c["totalValue"]:>12,.0f}')
+
+# Log last-run vers KV pour le tableau de bord admin (best-effort)
+try:
+    from kv_lastrun import log_last_run
+    log_last_run('prefetch-all', summary=f'{len(all_transactions)} tx ({buys} buys, {sells} sells) · {len(enriched)} clusters')
+except Exception as _e:
+    print(f'[lastRun] {_e}')

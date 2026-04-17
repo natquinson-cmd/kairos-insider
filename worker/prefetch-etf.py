@@ -254,3 +254,10 @@ for symbol, label, category in ZACKS_ETFS:
     print(f'  {symbol}: {parsed["holdingsCount"]} pos | Top: {top}')
 
 print('\nDone!')
+
+# Log last-run vers KV pour le tableau de bord admin (best-effort)
+try:
+    from kv_lastrun import log_last_run
+    log_last_run('prefetch-etf', summary=f'{len(ZACKS_ETFS)} ETFs fetched')
+except Exception as _e:
+    print(f'[lastRun] {_e}')

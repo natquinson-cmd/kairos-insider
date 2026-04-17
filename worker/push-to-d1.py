@@ -160,6 +160,13 @@ def main():
 
     print('\nDone!')
 
+    # Log last-run vers KV pour le tableau de bord admin (best-effort)
+    try:
+        from kv_lastrun import log_last_run
+        log_last_run('push-to-d1', summary=f'ETF:{len(etf_sql)} + Funds:{len(fund_sql)} inserts')
+    except Exception as e:
+        print(f'[lastRun] {e}')
+
 
 if __name__ == '__main__':
     main()

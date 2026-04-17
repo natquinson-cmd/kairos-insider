@@ -7891,13 +7891,14 @@
         const token = await currentUser.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Fetch en parallele : subs-stats + users + traffic + db-stats
+        // Fetch en parallele : subs-stats + users + traffic + db-stats + jobs
         const trafficDays = document.getElementById('adTrafficDays')?.value || '7';
-        const [subsRes, usersRes, trafficRes, dbRes] = await Promise.all([
+        const [subsRes, usersRes, trafficRes, dbRes, jobsRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/traffic?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/db-stats`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/jobs`, { headers }).then(r => r.json()).catch(() => null),
         ]);
 
         // KPI cards
@@ -7921,10 +7922,23 @@
           }
         }
 
+        // KPI Jobs
+        if (jobsRes) {
+          const kpiEl = document.getElementById('adKpiJobs');
+          if (kpiEl) kpiEl.textContent = `${jobsRes.ok || 0} / ${jobsRes.total || 0}`;
+          const lastEl = document.getElementById('adKpiJobsLast');
+          if (lastEl && jobsRes.jobs?.length) {
+            const mostRecent = jobsRes.jobs[0];
+            const when = mostRecent.iso ? new Date(mostRecent.iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+            lastEl.textContent = `Dernier : ${mostRecent.name} · ${when}`;
+          }
+        }
+
         // Panels
         renderAdminUsersPanel(usersRes, subsRes);
         renderAdminTrafficPanel(trafficRes);
         renderAdminDbPanel(dbRes);
+        renderAdminJobsPanel(jobsRes);
 
         // Status
         if (statusEl) {
@@ -8222,6 +8236,90 @@
         </table>
 
         <div style="margin-top:12px;font-size:10px;color:var(--text-muted);text-align:right">MAJ : ${dbRes.timestamp ? new Date(dbRes.timestamp).toLocaleTimeString('fr-FR') : '—'}</div>
+      `;
+    }
+
+    function renderAdminJobsPanel(jobsRes) {
+      const body = document.getElementById('adJobsBody');
+      if (!body) return;
+      if (!jobsRes) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Pas de donnees.</div>';
+        return;
+      }
+
+      const jobs = jobsRes.jobs || [];
+      if (!jobs.length) {
+        body.innerHTML = `
+          <div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">
+            <div style="margin-bottom:10px">Aucun job logge pour le moment.</div>
+            <div style="font-size:11px;opacity:0.8">Les scripts du pipeline ecrivent leur lastRun lors du prochain run (cron quotidien 5h UTC).</div>
+          </div>
+        `;
+        return;
+      }
+
+      const now = Date.now() / 1000;
+      const fmtAge = (ts) => {
+        if (!ts) return '—';
+        const ageMin = (now - ts) / 60;
+        if (ageMin < 2) return 'a l\'instant';
+        if (ageMin < 60) return `il y a ${Math.round(ageMin)} min`;
+        if (ageMin < 1440) return `il y a ${Math.round(ageMin / 60)} h`;
+        return `il y a ${Math.round(ageMin / 1440)} j`;
+      };
+      const badgeStatus = (s, ts) => {
+        // Si le job date de > 48h, le montrer en warning meme si status=ok
+        const stale = ts && (now - ts) > 48 * 3600;
+        if (s === 'ok' && stale) return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">STALE</span>';
+        if (s === 'ok') return '<span style="padding:2px 8px;background:rgba(16,185,129,0.15);color:#10B981;border-radius:10px;font-size:10px;font-weight:600">OK</span>';
+        if (s === 'failed') return '<span style="padding:2px 8px;background:rgba(239,68,68,0.15);color:#EF4444;border-radius:10px;font-size:10px;font-weight:600">FAILED</span>';
+        if (s === 'partial') return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">PARTIAL</span>';
+        return `<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px">${(s || '?').toUpperCase()}</span>`;
+      };
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+
+      const rows = jobs.map(j => `
+        <tr style="border-bottom:1px solid var(--divider)" title="${esc(j.summary || '')}${j.error ? ' · Erreur : ' + esc(j.error) : ''}">
+          <td style="padding:8px 10px;font-size:12px;font-weight:500">${esc(j.name)}</td>
+          <td style="padding:8px 10px;text-align:center">${badgeStatus(j.status, j.ts)}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${fmtAge(j.ts)}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${j.durationSec != null ? j.durationSec + 's' : '—'}</td>
+          <td style="padding:8px 10px;font-size:11px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(j.summary || '—')}</td>
+        </tr>
+      `).join('');
+
+      const kpiBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700;color:#10B981">${jobsRes.ok || 0}</div>
+            <div style="color:var(--text-muted)">OK</div>
+          </div>
+          <div style="padding:8px;background:rgba(239,68,68,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700;color:#EF4444">${jobsRes.failed || 0}</div>
+            <div style="color:var(--text-muted)">Failed</div>
+          </div>
+          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700">${jobsRes.total || 0}</div>
+            <div style="color:var(--text-muted)">Total</div>
+          </div>
+        </div>
+      `;
+
+      body.innerHTML = kpiBar + `
+        <div style="overflow-x:auto;max-height:360px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
+              <tr style="border-bottom:2px solid var(--border)">
+                <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Job</th>
+                <th style="padding:6px 10px;text-align:center;color:var(--text-muted);font-weight:500">Status</th>
+                <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Age</th>
+                <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Duree</th>
+                <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Resume</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       `;
     }
 

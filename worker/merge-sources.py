@@ -105,6 +105,13 @@ def main():
 
     print(f'\nWritten: transactions_data.json ({len(combined)} total, {os.path.getsize("transactions_data.json"):,} bytes)')
 
+    # Log last-run vers KV pour le tableau de bord admin (best-effort)
+    try:
+        from kv_lastrun import log_last_run
+        log_last_run('merge-sources', summary=f'{len(combined)} tx merged (SEC {len(sec_txs)}, BaFin {len(bafin_txs)}, AMF {len(amf_txs)})')
+    except Exception as e:
+        print(f'[lastRun] {e}')
+
 
 if __name__ == '__main__':
     main()
