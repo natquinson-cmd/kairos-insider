@@ -930,22 +930,32 @@ async function aggregate13F(ticker, env, companyName) {
         }
       }
       if (entries && entries.length) {
-        // L'index inverse utilise des noms de champs compacts (n, k, l, v, p, s, c, t, d)
-        // pour economiser ~60% de taille KV. On expand en format complet ici.
-        // Mapping : n=fundName, k=cik, l=label, v=value, p=pct, s=shares,
-        // c=sharesChange, t=status, d=reportDate
-        matches = entries.map(h => ({
-          fundName: h.n || h.fundName || h.name || h.companyName || '',
-          cik: h.k || h.cik || '',
-          label: h.l || h.label,
-          category: h.category,  // not stored in compact index
-          shares: Number(h.s ?? h.shares) || 0,
-          value: Number(h.v ?? h.value) || 0,
-          pctOfPortfolio: Number(h.p ?? h.pct ?? h.pctOfPortfolio ?? h.percentage) || 0,
-          deltaPct: Number(h.c ?? h.sharesChange ?? h.deltaPct ?? h.change) || 0,
-          status: h.t || h.status || null,
-          reportDate: h.d || h.reportDate,
-        }));
+        // Index inverse ultra-compact (5 champs n/v/p/c/d) pour fit KV 25MB.
+        // Mapping : n=fundName, v=value, p=pct, c=sharesChange, d=reportDate
+        // shares + status sont computables cote client. Retrocompat ancien format.
+        matches = entries.map(h => {
+          const deltaPct = Number(h.c ?? h.sharesChange ?? h.deltaPct ?? h.change) || 0;
+          // Derive status depuis deltaPct (coherent avec prefetch-13f.py)
+          let status = h.t || h.status || null;
+          if (!status) {
+            if (deltaPct > 1) status = 'increased';
+            else if (deltaPct < -1) status = 'decreased';
+            else if (deltaPct === 0 && h.p > 0) status = 'unchanged';
+            else status = 'new';
+          }
+          return {
+            fundName: h.n || h.fundName || h.name || h.companyName || '',
+            cik: h.k || h.cik || '',
+            label: h.l || h.label,
+            category: h.category,
+            shares: Number(h.s ?? h.shares) || 0,
+            value: Number(h.v ?? h.value) || 0,
+            pctOfPortfolio: Number(h.p ?? h.pct ?? h.pctOfPortfolio ?? h.percentage) || 0,
+            deltaPct,
+            status,
+            reportDate: h.d || h.reportDate,
+          };
+        });
       }
     }
 

@@ -58,3 +58,11 @@ worker/response.json
 # Backups locaux
 *.bak
 
+
+# Fichiers de donnees generes (gros, ne pas committer)
+worker/13dg_data.json
+worker/13dg_existing.json
+worker/funds_data.json
+worker/13f_ticker_index.json
+worker/transactions_data.json
+worker/trends_data.json

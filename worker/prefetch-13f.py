@@ -389,8 +389,8 @@ print(f'\n=== Building inverted index (name -> funds) ===')
 # Compression aggressive pour rentrer dans la limite KV (25 MB/valeur).
 # A top 50 fonds/ticker + payload verbeux, on explose a 51 MB.
 # Strategie : cap 20 fonds max + noms de champs single-char + seuil 50k$.
-MAX_FUNDS_PER_TICKER = 20  # etait 50
-MIN_POSITION_VALUE_USD = 50000  # etait 10000 : filtre bruit institutionnel
+MAX_FUNDS_PER_TICKER = 15  # etait 20. KV limite 25MB force cette reduction.
+MIN_POSITION_VALUE_USD = 100000  # etait 50000. Filtre plus strict : pro investors only.
 
 ticker_index = {}  # normalized_name -> [{compact fund}]
 total_positions = 0
@@ -409,19 +409,15 @@ for fund in all_funds:
             continue
         if key not in ticker_index:
             ticker_index[key] = []
-        # Payload ultra-compact : noms de champs single-char (economie de bytes
-        # x3 sur des milliers d'entrees). Mapping cote client (stock-api.js) :
-        #  n=fundName, k=cik, l=label, v=value, p=pct, s=shares, c=sharesChange,
-        #  t=status, d=reportDate
+        # Payload ultra-compact (5 champs seulement pour fit 25 MB) :
+        # n=fundName, v=value, p=pct, c=sharesChange, d=reportDate
+        # Omis (computables cote client): k=cik, l=label, s=shares, t=status
+        # -> status peut etre derive de sharesChange (>1%=increased, <-1%=decreased...)
         ticker_index[key].append({
             'n': fund_name,
-            'k': fund_cik,
-            'l': fund_label,
             'v': h.get('value'),
             'p': h.get('pct'),
-            's': h.get('shares'),
             'c': h.get('sharesChange'),
-            't': h.get('status'),
             'd': fund_report,
         })
 
