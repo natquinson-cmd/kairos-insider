@@ -106,8 +106,20 @@ jobs:
 
       # 13D/G SCHEDULE filings : activists + large shareholders (>5% capital)
       # Plus rapide que 13F (10 jours vs 45) et signal activiste fort.
-      - name: Fetch 13D/G Schedule filings (30 derniers jours)
-        run: cd worker && python fetch-13dg.py
+      # Strategie incremental : on download l'existant, on fetch les 10 derniers
+      # jours, on merge + dedup, on push. Cap 2 ans d'historique.
+      - name: Download existing 13D/G data from KV
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13dg-recent" > 13dg_existing.json 2>/dev/null || echo '{}' > 13dg_existing.json
+          echo "Existing 13D/G: $(wc -c < 13dg_existing.json) bytes"
+        continue-on-error: true
+
+      - name: Fetch 13D/G Schedule filings (incremental + merge)
+        run: cd worker && python fetch-13dg.py --days 10 --merge-with 13dg_existing.json
         timeout-minutes: 15
         continue-on-error: true
 

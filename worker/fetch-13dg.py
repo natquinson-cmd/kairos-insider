@@ -14,13 +14,22 @@ activistes (restructuration, changement CEO, vente de la societe...).
 Rate limit SEC : 10 req/s, on prend ~7 req/s.
 """
 import json
+import os
 import re
+import sys
 import time
 import urllib.request
+import argparse
 from datetime import datetime, timedelta
 
 UA = 'KairosInsider contact@kairosinsider.fr'
-LOOKBACK_DAYS = 30
+# Defaut : 10 jours pour le run quotidien. Le backfill initial (2 ans) passe
+# via --days 730 en one-shot.
+DEFAULT_LOOKBACK_DAYS = 10
+# Cap sur l'historique KV : on ne garde que les 2 dernieres annees
+# (apres merge avec l'existant). Au-dela = perdus, mais 2 ans suffisent
+# pour l'analyse des signaux activists.
+MAX_HISTORY_DAYS = 730
 
 # Liste des activists institutionnels reconnus (pour le flag "isActivist")
 # Chaque entree est une sous-chaine recherche case-insensitive dans le nom du filer.
@@ -154,29 +163,57 @@ def fetch_day_filings(day_date):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--days', type=int, default=DEFAULT_LOOKBACK_DAYS,
+                        help=f'Nombre de jours a fetch (default: {DEFAULT_LOOKBACK_DAYS}). Utiliser 730 pour le backfill initial 2 ans.')
+    parser.add_argument('--merge-with', type=str, default=None,
+                        help='Chemin vers un 13dg_data.json existant a merger avec le nouveau fetch (dedup par accession).')
+    args = parser.parse_args()
+
+    lookback = args.days
     now = datetime.now()
-    print(f'=== Fetch 13D/G filings ({LOOKBACK_DAYS} derniers jours) ===')
+    print(f'=== Fetch 13D/G filings ({lookback} derniers jours) ===')
     all_filings = []
-    for day_offset in range(LOOKBACK_DAYS):
+    for day_offset in range(lookback):
         day = (now - timedelta(days=day_offset)).strftime('%Y-%m-%d')
         day_filings = fetch_day_filings(day)
         all_filings.extend(day_filings)
-        # Progress log tous les 5 jours
-        if (day_offset + 1) % 5 == 0:
-            print(f'  {day_offset + 1}/{LOOKBACK_DAYS} jours : {len(all_filings)} filings cumules')
+        # Progress log plus frequent sur gros backfills
+        progress_every = 5 if lookback < 60 else 30
+        if (day_offset + 1) % progress_every == 0:
+            print(f'  {day_offset + 1}/{lookback} jours : {len(all_filings)} filings cumules')
 
-    # Dedup (meme accession peut apparaitre 2x si on l'a vu 2 jours)
+    # Merge avec le fichier existant (si present) pour l'incremental
+    existing_filings = []
+    if args.merge_with and os.path.exists(args.merge_with):
+        try:
+            with open(args.merge_with, 'r', encoding='utf-8') as fh:
+                existing_data = json.load(fh)
+            existing_filings = existing_data.get('filings', [])
+            print(f'\nMerge avec existant : {len(existing_filings)} filings charges de {args.merge_with}')
+        except Exception as e:
+            print(f'  WARN : impossible de charger {args.merge_with} : {e}')
+
+    # Combine new + existing, dedup par accession
     seen = set()
     deduped = []
-    for f in all_filings:
-        key = f['accession']
-        if key in seen:
+    for f in all_filings + existing_filings:
+        key = f.get('accession') or ''
+        if not key or key in seen:
             continue
         seen.add(key)
         deduped.append(f)
+    print(f'Apres merge + dedup : {len(deduped)} filings')
+
+    # Filtre : on garde uniquement les MAX_HISTORY_DAYS derniers (cap 2 ans)
+    cutoff = (now - timedelta(days=MAX_HISTORY_DAYS)).strftime('%Y-%m-%d')
+    before_cap = len(deduped)
+    deduped = [f for f in deduped if (f.get('fileDate') or '') >= cutoff]
+    if before_cap != len(deduped):
+        print(f'Cap {MAX_HISTORY_DAYS}j applique : {before_cap} -> {len(deduped)} (retire {before_cap - len(deduped)})')
 
     # Tri : plus recent en haut, puis activists en premier a date egale
-    deduped.sort(key=lambda f: (f['fileDate'], 1 if f['isActivist'] else 0), reverse=True)
+    deduped.sort(key=lambda f: (f.get('fileDate', ''), 1 if f.get('isActivist') else 0), reverse=True)
 
     # Statistiques
     total = len(deduped)
@@ -203,16 +240,19 @@ def main():
     # Write output
     output = {
         'updatedAt': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'lookbackDays': LOOKBACK_DAYS,
+        'lookbackDays': lookback,
+        'historyCapDays': MAX_HISTORY_DAYS,
         'total': total,
         'activistsCount': activists,
         'formsCount': forms_count,
         'filings': deduped,
     }
     with open('13dg_data.json', 'w', encoding='utf-8') as fh:
-        json.dump(output, fh, ensure_ascii=False)
-    import os
-    print(f'\nWritten : 13dg_data.json ({os.path.getsize("13dg_data.json"):,} bytes)')
+        json.dump(output, fh, ensure_ascii=False, separators=(',', ':'))
+    size_mb = os.path.getsize('13dg_data.json') / 1e6
+    print(f'\nWritten : 13dg_data.json ({size_mb:.2f} MB, {total} filings)')
+    if size_mb > 23:
+        print(f'  WARN : taille proche de la limite KV (25 MB). Reduire MAX_HISTORY_DAYS si besoin.')
 
     # Log last-run vers KV pour le tableau de bord admin (best-effort)
     try:
