@@ -2066,18 +2066,42 @@ async function handleRobotsTxt(env) {
 // ============================================================
 async function handleCreateCheckout(request, env, user, origin) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
+
+    // Choix du prix Stripe selon la periodicite demandee.
+    // billing='yearly' -> STRIPE_PRICE_YEARLY_ID (si configure, sinon fallback monthly)
+    // billing='monthly' (defaut) -> STRIPE_PRICE_ID
+    const billing = (body.billing === 'yearly') ? 'yearly' : 'monthly';
+    let priceId = env.STRIPE_PRICE_ID;
+    let effectiveBilling = 'monthly';
+    if (billing === 'yearly') {
+      if (env.STRIPE_PRICE_YEARLY_ID) {
+        priceId = env.STRIPE_PRICE_YEARLY_ID;
+        effectiveBilling = 'yearly';
+      } else {
+        // Pas de prix annuel configure : on retourne 200 OK avec error field pour
+        // que le client puisse afficher un message user-friendly sans throw.
+        // (facturer discretement le prix mensuel serait pire.)
+        console.warn('[stripe] Yearly billing requested but STRIPE_PRICE_YEARLY_ID not set.');
+        return jsonResponse({
+          error: 'Yearly plan not yet available',
+          detail: 'Le plan annuel n\'est pas encore disponible. Essayez avec le plan mensuel.',
+          code: 'YEARLY_NOT_CONFIGURED',
+        }, 200, origin);
+      }
+    }
 
     const params = new URLSearchParams({
       'payment_method_types[]': 'card',
       'mode': 'subscription',
       'client_reference_id': user.uid,
       'customer_email': user.email,
-      'line_items[0][price]': env.STRIPE_PRICE_ID,
+      'line_items[0][price]': priceId,
       'line_items[0][quantity]': '1',
       'success_url': body.successUrl || `${env.ALLOWED_ORIGIN}/merci.html?session_id={CHECKOUT_SESSION_ID}`,
       'cancel_url': body.cancelUrl || `${env.ALLOWED_ORIGIN}/dashboard.html?checkout=cancelled`,
       'subscription_data[metadata][firebase_uid]': user.uid,
+      'subscription_data[metadata][billing]': effectiveBilling,
     });
 
     const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -2122,14 +2146,17 @@ async function handleStripeWebhook(request, env) {
         });
         const sub = await subResp.json();
 
+        const priceId = sub.items?.data?.[0]?.price?.id || env.STRIPE_PRICE_ID;
+        const billing = sub.metadata?.billing || (priceId === env.STRIPE_PRICE_YEARLY_ID ? 'yearly' : 'monthly');
         await env.CACHE.put(`sub:${uid}`, JSON.stringify({
           status: sub.status,
           subscriptionId: sub.id,
           customerId: sub.customer,
           currentPeriodEnd: sub.current_period_end,
-          priceId: env.STRIPE_PRICE_ID,
+          priceId,
+          billing,
         }));
-        console.log(`Subscription created for uid: ${uid}, status: ${sub.status}`);
+        console.log(`Subscription created for uid: ${uid}, status: ${sub.status}, billing: ${billing}`);
 
         // Email de bienvenue Premium via Brevo (one-shot, best-effort)
         const recipientEmail = session.customer_details?.email || session.customer_email;
@@ -2145,14 +2172,17 @@ async function handleStripeWebhook(request, env) {
       const sub = event.data.object;
       const uid = sub.metadata?.firebase_uid;
       if (uid) {
+        const priceId = sub.items?.data?.[0]?.price?.id || env.STRIPE_PRICE_ID;
+        const billing = sub.metadata?.billing || (priceId === env.STRIPE_PRICE_YEARLY_ID ? 'yearly' : 'monthly');
         await env.CACHE.put(`sub:${uid}`, JSON.stringify({
           status: sub.status,
           subscriptionId: sub.id,
           customerId: sub.customer,
           currentPeriodEnd: sub.current_period_end,
-          priceId: env.STRIPE_PRICE_ID,
+          priceId,
+          billing,
         }));
-        console.log(`Subscription updated for uid: ${uid}, status: ${sub.status}`);
+        console.log(`Subscription updated for uid: ${uid}, status: ${sub.status}, billing: ${billing}`);
       }
     }
 
@@ -2439,8 +2469,9 @@ function jsonResponse(data, status, origin) {
 // Toutes les routes /api/admin/* sont gardees par isAdmin() en amont.
 // ============================================================
 
-// Prix mensuel Stripe (en EUR) - hardcode pour l'instant, a terme: recuperer via Stripe API
-const STRIPE_MONTHLY_PRICE_EUR = 19.99;
+// Prix Stripe (en EUR) - hardcode pour l'instant, a terme: recuperer via Stripe API
+const STRIPE_MONTHLY_PRICE_EUR = 29.00;   // 29€/mois
+const STRIPE_YEARLY_PRICE_EUR = 290.00;   // 290€/an = 24.17€/mois effectif
 
 // Liste toutes les cles KV avec un prefixe donne, gere la pagination.
 async function listAllKvKeys(env, prefix, limit = 10000) {
@@ -2462,6 +2493,8 @@ async function handleAdminSubsStats(env, origin) {
   try {
     const subKeys = await listAllKvKeys(env, 'sub:', 5000);
     const counts = { active: 0, past_due: 0, canceled: 0, trialing: 0, incomplete: 0, unknown: 0 };
+    const byBilling = { monthly: 0, yearly: 0, unknown: 0 };
+    let mrr = 0; // MRR effectif en EUR (yearly divise par 12)
     // Fetch en parallele pour accelerer (max 50 en parallele)
     const batchSize = 50;
     for (let i = 0; i < subKeys.length; i += batchSize) {
@@ -2471,6 +2504,19 @@ async function handleAdminSubsStats(env, origin) {
         if (!v || !v.status) { counts.unknown++; continue; }
         if (counts[v.status] !== undefined) counts[v.status]++;
         else counts.unknown++;
+        // MRR = uniquement subs 'active', 'past_due' ou 'trialing'
+        if (['active', 'past_due', 'trialing'].includes(v.status)) {
+          if (v.billing === 'yearly') {
+            byBilling.yearly++;
+            mrr += STRIPE_YEARLY_PRICE_EUR / 12;
+          } else if (v.billing === 'monthly') {
+            byBilling.monthly++;
+            mrr += STRIPE_MONTHLY_PRICE_EUR;
+          } else {
+            byBilling.unknown++;
+            mrr += STRIPE_MONTHLY_PRICE_EUR; // defaut : monthly
+          }
+        }
       }
     }
     return jsonResponse({
@@ -2481,8 +2527,10 @@ async function handleAdminSubsStats(env, origin) {
       trialing: counts.trialing,
       incomplete: counts.incomplete,
       unknown: counts.unknown,
-      mrr_eur: Math.round((counts.active + counts.past_due + counts.trialing) * STRIPE_MONTHLY_PRICE_EUR * 100) / 100,
+      mrr_eur: Math.round(mrr * 100) / 100,
       price_per_month_eur: STRIPE_MONTHLY_PRICE_EUR,
+      price_per_year_eur: STRIPE_YEARLY_PRICE_EUR,
+      billing_mix: byBilling,
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'Failed to aggregate subs', detail: String(e && e.message || e) }, 500, origin);

@@ -1653,6 +1653,7 @@
         period.textContent = t('pricing.premium.period_annual', '/an');
         subline.textContent = t('pricing.premium.subline_annual', 'Soit 24,17€/mois · Économisez 58€/an (17%)');
         cta.textContent = t('pricing.premium.cta_annual', "S'abonner — 290€/an");
+        cta.href = 'dashboard.html?billing=yearly';
         tabA.classList.add('active');
         tabM.classList.remove('active');
       } else {
@@ -1660,6 +1661,7 @@
         period.textContent = t('pricing.premium.period_monthly', '/mois');
         subline.textContent = t('pricing.premium.subline_monthly', 'Sans engagement, annulable à tout moment');
         cta.textContent = t('pricing.premium.cta_monthly', "S'abonner — 29€/mois");
+        cta.href = 'dashboard.html?billing=monthly';
         tabM.classList.add('active');
         tabA.classList.remove('active');
       }

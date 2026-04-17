@@ -2724,18 +2724,62 @@
       });
     }
 
+    // Billing preference (monthly | yearly) — peut etre set via ?billing= dans l'URL depuis la landing
+    function getBillingPreference() {
+      try {
+        const url = new URL(window.location.href);
+        const fromUrl = url.searchParams.get('billing');
+        if (fromUrl === 'yearly' || fromUrl === 'monthly') {
+          localStorage.setItem('kairos_billing', fromUrl);
+          return fromUrl;
+        }
+        const stored = localStorage.getItem('kairos_billing');
+        if (stored === 'yearly' || stored === 'monthly') return stored;
+      } catch (e) {}
+      return 'monthly';
+    }
+
+    // Au chargement : si ?billing= est dans l'URL, on l'enregistre et on met a jour
+    // le wording du bouton paywall pour refleter le plan choisi.
+    (function initBillingFromUrl() {
+      try {
+        const url = new URL(window.location.href);
+        const fromUrl = url.searchParams.get('billing');
+        if (fromUrl === 'yearly' || fromUrl === 'monthly') {
+          localStorage.setItem('kairos_billing', fromUrl);
+          // Nettoie l'URL pour eviter une persistance indesirable
+          url.searchParams.delete('billing');
+          window.history.replaceState({}, '', url.toString());
+        }
+      } catch (e) {}
+    })();
+
     // Stripe Checkout
     async function startCheckout() {
       const btn = document.getElementById('checkoutBtn');
+      const originalText = btn.textContent;
       btn.textContent = 'Redirection vers Stripe...';
       btn.disabled = true;
       try {
-        const data = await apiFetch('/stripe/create-checkout', {}, 'POST');
+        const billing = getBillingPreference();
+        const data = await apiFetch('/stripe/create-checkout', { billing }, 'POST');
+        if (data && data.error) {
+          // Cas : plan annuel demande mais pas encore configure cote Stripe
+          if (data.code === 'YEARLY_NOT_CONFIGURED') {
+            alert(data.detail || 'Le plan annuel n\'est pas encore disponible. Essayez avec le plan mensuel.');
+            try { localStorage.setItem('kairos_billing', 'monthly'); } catch (e) {}
+          } else {
+            alert('Erreur : ' + (data.detail || data.error));
+          }
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
+        }
         const stripe = Stripe(STRIPE_PK);
         await stripe.redirectToCheckout({ sessionId: data.sessionId });
       } catch (err) {
         alert('Erreur lors de la creation du paiement. Reessayez.');
-        btn.textContent = "S'abonner maintenant";
+        btn.textContent = originalText;
         btn.disabled = false;
       }
     }
