@@ -1212,6 +1212,12 @@
           <span data-i18n="dash.sidebar.insiders">Transactions Insiders</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
+        <button class="sidebar-item" data-section="screener" data-premium="true" onclick="switchSection('screener')">
+          <span class="sidebar-icon icon-blue"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg></span>
+          <span data-i18n="dash.sidebar.screener">Screener Avance</span>
+          <span class="sidebar-badge new-badge">NEW</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
         <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
           <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
           <span data-i18n="dash.sidebar.signals">Signaux Insiders</span>
@@ -1531,6 +1537,114 @@
           <button onclick="changePage(-1)" id="prevBtn">← Précédent</button>
           <span class="page-info" id="pageInfo">Page 1</span>
           <button onclick="changePage(1)" id="nextBtn">Suivant →</button>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: SCREENER AVANCE ===== -->
+      <div class="section-page" id="section-screener">
+        <h2>Screener Avance <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(116,185,255,0.15);color:#74b9ff;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
+        <p class="section-desc">Filtres combinables sur l'historique complet des transactions insiders (jusqu'a 5 ans). Filtre par role, montant, periode, ticker, source — exporte les resultats en CSV.</p>
+
+        <!-- GRILLE DE FILTRES -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px">
+            <!-- Ticker -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
+              <input id="scrTicker" type="text" placeholder="ex: AAPL" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+            </div>
+            <!-- Period -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Periode</label>
+              <select id="scrDays" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                <option value="30">30 jours</option>
+                <option value="90" selected>90 jours</option>
+                <option value="180">6 mois</option>
+                <option value="365">1 an</option>
+                <option value="1095">3 ans</option>
+                <option value="1825">5 ans</option>
+              </select>
+            </div>
+            <!-- Type -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
+              <select id="scrType" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                <option value="">Tous</option>
+                <option value="buy">Achat</option>
+                <option value="sell">Vente</option>
+                <option value="option-exercise">Exercice option</option>
+              </select>
+            </div>
+            <!-- Role -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
+              <select id="scrRole" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                <option value="">Tous</option>
+                <option value="CEO">CEO</option>
+                <option value="CFO">CFO</option>
+                <option value="Director">Director</option>
+                <option value="President">President</option>
+                <option value="Chairman">Chairman</option>
+                <option value="10%">10% Owner</option>
+                <option value="Officer">Officer</option>
+              </select>
+            </div>
+            <!-- Source -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Source</label>
+              <select id="scrSource" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                <option value="">Toutes</option>
+                <option value="SEC">SEC (US)</option>
+                <option value="AMF">AMF (FR)</option>
+                <option value="BAFIN">BaFin (DE)</option>
+                <option value="FCA">FCA (UK)</option>
+                <option value="SEDI">SEDI (CA)</option>
+              </select>
+            </div>
+            <!-- Insider name -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nom insider</label>
+              <input id="scrInsider" type="text" placeholder="ex: Musk" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+            </div>
+            <!-- Min value -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Montant min (USD)</label>
+              <input id="scrMinValue" type="number" placeholder="ex: 100000" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+            </div>
+            <!-- Sort -->
+            <div>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Tri</label>
+              <select id="scrSort" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                <option value="date-desc">Date ↓ (recent)</option>
+                <option value="date-asc">Date ↑ (ancien)</option>
+                <option value="value-desc">Montant ↓ (gros)</option>
+                <option value="value-asc">Montant ↑ (petit)</option>
+                <option value="ticker-asc">Ticker A→Z</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button onclick="runScreener()" style="padding:10px 20px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Lancer la recherche
+            </button>
+            <button onclick="resetScreener()" style="padding:10px 20px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:8px;font-weight:500;cursor:pointer">Reset filtres</button>
+            <button id="scrExportBtn" onclick="exportScreenerCsv()" disabled style="padding:10px 20px;background:rgba(16,185,129,0.15);color:var(--accent-green);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5">
+              📥 Export CSV
+            </button>
+            <span id="scrCount" style="margin-left:auto;font-size:13px;color:var(--text-secondary)"></span>
+          </div>
+        </div>
+
+        <!-- TABLE RESULTATS -->
+        <div id="scrTableArea">
+          <div style="padding:60px 20px;text-align:center;color:var(--text-secondary)">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;opacity:0.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <p style="margin:0;font-size:15px">Selectionnez vos filtres et lancez la recherche.</p>
+            <p style="margin:8px 0 0;font-size:13px;opacity:0.7">Les resultats s'afficheront ici.</p>
+          </div>
         </div>
       </div>
 
@@ -7369,6 +7483,197 @@
         loadWatchlist().catch(() => {});
       }
     });
+
+    // ============================================================
+    // SCREENER AVANCE (Phase 1)
+    // Appelle /api/history/insider avec filtres combinables
+    // ============================================================
+    let screenerResults = [];  // dernier resultset (pour export CSV)
+
+    function resetScreener() {
+      document.getElementById('scrTicker').value = '';
+      document.getElementById('scrDays').value = '90';
+      document.getElementById('scrType').value = '';
+      document.getElementById('scrRole').value = '';
+      document.getElementById('scrSource').value = '';
+      document.getElementById('scrInsider').value = '';
+      document.getElementById('scrMinValue').value = '';
+      document.getElementById('scrSort').value = 'date-desc';
+      document.getElementById('scrCount').textContent = '';
+      document.getElementById('scrTableArea').innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--text-secondary)"><p style="margin:0;font-size:15px">Filtres reset. Relancez la recherche.</p></div>';
+      document.getElementById('scrExportBtn').disabled = true;
+      document.getElementById('scrExportBtn').style.opacity = '0.5';
+      screenerResults = [];
+    }
+
+    async function runScreener() {
+      if (!isPremium) {
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      if (!currentUser) {
+        alert('Veuillez vous connecter.');
+        return;
+      }
+      const tableArea = document.getElementById('scrTableArea');
+      tableArea.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche en cours...</div>';
+      document.getElementById('scrCount').textContent = '';
+
+      try {
+        const ticker = (document.getElementById('scrTicker').value || '').trim().toUpperCase();
+        const days = document.getElementById('scrDays').value || '90';
+        const type = document.getElementById('scrType').value || '';
+        const role = document.getElementById('scrRole').value || '';
+        const source = document.getElementById('scrSource').value || '';
+        const insider = (document.getElementById('scrInsider').value || '').trim();
+        const minValue = parseFloat(document.getElementById('scrMinValue').value || '0') || 0;
+        const sortKey = document.getElementById('scrSort').value || 'date-desc';
+
+        // Client-side guard : exige au moins un filtre (comme le backend)
+        if (!ticker && !insider && !type && !role && !source) {
+          tableArea.innerHTML = '<div style="padding:40px;text-align:center;color:var(--accent-red)">Precisez au moins un filtre : ticker, insider, type, role ou source.</div>';
+          document.getElementById('scrCount').textContent = '';
+          return;
+        }
+
+        const params = new URLSearchParams();
+        if (ticker) params.set('ticker', ticker);
+        params.set('days', days);
+        if (type) params.set('type', type);
+        if (role) params.set('role', role);
+        if (source) params.set('source', source);
+        if (insider) params.set('insider', insider);
+        params.set('limit', '2000');
+
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/history/insider?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status}).</div>`;
+          return;
+        }
+        const data = await res.json();
+        let rows = Array.isArray(data.transactions) ? data.transactions : [];
+
+        // Filtre min value cote client
+        if (minValue > 0) {
+          rows = rows.filter(r => (r.value || 0) >= minValue);
+        }
+
+        // Sort cote client
+        rows.sort((a, b) => {
+          switch (sortKey) {
+            case 'date-asc':  return (a.filing_date || '').localeCompare(b.filing_date || '');
+            case 'date-desc': return (b.filing_date || '').localeCompare(a.filing_date || '');
+            case 'value-desc': return (b.value || 0) - (a.value || 0);
+            case 'value-asc':  return (a.value || 0) - (b.value || 0);
+            case 'ticker-asc': return (a.ticker || '').localeCompare(b.ticker || '');
+            default: return 0;
+          }
+        });
+
+        screenerResults = rows;
+        document.getElementById('scrCount').textContent = `${rows.length} transactions trouvees`;
+        renderScreenerTable(rows);
+        const btn = document.getElementById('scrExportBtn');
+        btn.disabled = rows.length === 0;
+        btn.style.opacity = rows.length === 0 ? '0.5' : '1';
+      } catch (e) {
+        tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${e.message || e}</div>`;
+      }
+    }
+
+    function renderScreenerTable(rows) {
+      const tableArea = document.getElementById('scrTableArea');
+      if (!rows.length) {
+        tableArea.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-secondary)">Aucune transaction ne correspond a ces filtres.<br><span style="font-size:13px;opacity:0.7">Essayez d\'elargir la periode ou de retirer certains filtres.</span></div>';
+        return;
+      }
+      const fmtUsd = (v) => {
+        if (!v || v === 0) return '—';
+        const abs = Math.abs(v);
+        if (abs >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+        if (abs >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+        return '$' + v.toFixed(0);
+      };
+      const fmtType = (t) => {
+        if (t === 'buy') return '<span style="color:var(--accent-green);font-weight:600">● Achat</span>';
+        if (t === 'sell') return '<span style="color:var(--accent-red);font-weight:600">● Vente</span>';
+        if (t === 'option-exercise') return '<span style="color:#a29bfe">● Option</span>';
+        return '<span style="color:var(--text-secondary)">● ' + (t || '—') + '</span>';
+      };
+      const fmtSource = (s) => {
+        const flag = { 'SEC': '🇺🇸', 'AMF': '🇫🇷', 'BAFIN': '🇩🇪', 'FCA': '🇬🇧', 'SEDI': '🇨🇦' }[s] || '🌐';
+        return `<span title="${s}">${flag}</span>`;
+      };
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      const pageSize = 100;
+      const shown = rows.slice(0, pageSize);
+      const hidden = rows.length - shown.length;
+
+      const headers = `
+        <tr>
+          <th style="text-align:center">Src</th>
+          <th>Date</th>
+          <th>Ticker</th>
+          <th>Entreprise</th>
+          <th>Insider</th>
+          <th>Role</th>
+          <th style="text-align:center">Type</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Prix</th>
+          <th style="text-align:right">Valeur</th>
+        </tr>`;
+      const body = shown.map(r => `
+        <tr>
+          <td style="text-align:center">${fmtSource(r.source)}</td>
+          <td style="white-space:nowrap;font-size:12px;color:var(--text-secondary)">${esc(r.filing_date || r.trans_date || '')}</td>
+          <td><strong>${esc(r.ticker || '—')}</strong></td>
+          <td style="font-size:13px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.company)}">${esc(r.company || '—')}</td>
+          <td>${esc(r.insider || '—')}</td>
+          <td style="font-size:12px;color:var(--text-secondary)">${esc(r.title || '—')}</td>
+          <td style="text-align:center">${fmtType(r.trans_type)}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${r.shares ? r.shares.toLocaleString('fr-FR') : '—'}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${r.price ? '$' + r.price.toFixed(2) : '—'}</td>
+          <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${fmtUsd(r.value)}</td>
+        </tr>`).join('');
+
+      tableArea.innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="data-table" style="width:100%;border-collapse:collapse">
+            <thead>${headers}</thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+        ${hidden > 0 ? `<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;background:var(--surface);border-top:1px solid var(--border)">Affichage des ${pageSize} premiers resultats sur ${rows.length}. Exportez en CSV pour tout recuperer.</div>` : ''}
+      `;
+    }
+
+    function exportScreenerCsv() {
+      if (!screenerResults || !screenerResults.length) return;
+      const headers = ['filing_date','trans_date','source','ticker','company','insider','title','trans_type','shares','price','value','shares_after'];
+      const csv = [
+        headers.join(','),
+        ...screenerResults.map(r => headers.map(h => {
+          const v = r[h];
+          if (v == null) return '';
+          const s = String(v).replace(/"/g, '""');
+          return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) ? `"${s}"` : s;
+        }).join(','))
+      ].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `kairos-screener-${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
 
     // ============================================================
     // INIT — Firebase Auth gère tout via onAuthStateChanged

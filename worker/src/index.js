@@ -822,7 +822,10 @@ async function handleEtfRotations(url, env, origin) {
 // Retourne : { ticker, days, count, transactions: [...] }
 // ============================================================
 async function handleHistoryInsider(url, env, origin) {
-  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  const tickerRaw = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  // Le client peut envoyer ticker=ANY comme sentinelle pour "pas de filtre ticker" ;
+  // on le traite comme absent.
+  const ticker = (tickerRaw === 'ANY' || tickerRaw === 'ALL') ? '' : tickerRaw;
   const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '365', 10), 7), 3650);
   const typeFilter = (url.searchParams.get('type') || '').toLowerCase();
   const insiderFilter = (url.searchParams.get('insider') || '').trim();
@@ -830,8 +833,9 @@ async function handleHistoryInsider(url, env, origin) {
   const source = (url.searchParams.get('source') || '').toUpperCase();
   const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '500', 10), 1), 5000);
   if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
-  if (!ticker && !insiderFilter) {
-    return jsonResponse({ error: 'Missing ticker or insider param' }, 400, origin);
+  // Exige au moins UN filtre pour eviter les requetes "return everything"
+  if (!ticker && !insiderFilter && !typeFilter && !roleFilter && !source) {
+    return jsonResponse({ error: 'Au moins un filtre requis (ticker, insider, type, role, ou source)' }, 400, origin);
   }
 
   try {

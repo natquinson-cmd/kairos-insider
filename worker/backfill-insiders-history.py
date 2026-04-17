@@ -33,30 +33,40 @@ Duree typique :
 
 Rate limit SEC : 10 req/s max -> on prend 6.6/s pour etre safe.
 """
-import json, re, time, urllib.request, subprocess, sys, os, argparse
+import json, re, time, urllib.request, subprocess, sys, os, argparse, threading
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 DB_NAME = 'kairos-history'
-RATE_LIMIT_SLEEP = 0.15  # sleep entre XML fetches
+# Parallelisme : 6 workers * ~1.5 req/s/worker = ~9 req/s global (sous la limite SEC 10/s)
+MAX_WORKERS = 6
+# Throttle inter-requetes au sein d'un meme worker (0 = pas de sleep dans le worker)
+RATE_LIMIT_SLEEP = 0.0
+# Global token bucket : espace minimum entre requetes toutes workers confondues
+_rate_lock = threading.Lock()
+_last_req = [0.0]
+GLOBAL_MIN_INTERVAL = 0.11  # ~9 req/s global
 
 # ============================================================
 # Fetch helpers (reprise de prefetch-all.py)
 # ============================================================
+def _throttle():
+    """Token bucket global : garantit au moins GLOBAL_MIN_INTERVAL entre chaque requete."""
+    with _rate_lock:
+        now = time.time()
+        wait = GLOBAL_MIN_INTERVAL - (now - _last_req[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_req[0] = time.time()
+
+
 def fetch(url):
+    _throttle()
     req = urllib.request.Request(url, headers={'User-Agent': UA})
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.read().decode('utf-8', errors='replace')
-    except Exception:
-        return None
-
-
-def curl_fetch(url):
-    try:
-        result = subprocess.run(['curl', '-s', '-H', f'User-Agent: {UA}', url],
-                                capture_output=True, timeout=20)
-        return result.stdout.decode('utf-8', errors='replace') if result.returncode == 0 else None
     except Exception:
         return None
 
@@ -196,17 +206,69 @@ def push_chunk(sql_lines, label):
 # ============================================================
 # Main backfill loop
 # ============================================================
+def _process_filing(hit, day_date, now_str):
+    """Worker thread : fetch 1 XML + parse + retourne la liste de tuples (group_key, tx_data)."""
+    src = hit.get('_source', {})
+    file_id = hit.get('_id', '')
+    id_parts = file_id.split(':')
+    if len(id_parts) < 2:
+        return []
+    adsh = id_parts[0]
+    filename = id_parts[1]
+    ciks = src.get('ciks', [])
+    file_date = src.get('file_date', day_date)
+    if len(ciks) < 2:
+        return []
+    company_cik = ciks[1]
+    company_cik_clean = company_cik.lstrip('0')
+    insider_name = re.sub(r'\s*\(CIK \d+\)', '', (src.get('display_names', [''])[0])).strip()
+    company_name_meta = re.sub(r'\s*\(CIK \d+\)', '', (src.get('display_names', ['', ''])[1])).strip()
+    adsh_clean = adsh.replace('-', '')
+
+    xml_url = f'https://www.sec.gov/Archives/edgar/data/{company_cik_clean}/{adsh_clean}/{filename}'
+    xml = fetch(xml_url)  # fetch() est thread-safe via _throttle()
+    if not xml:
+        return []
+
+    parsed = parse_form4(xml, now_str)
+    out = []
+    for tx in parsed['transactions']:
+        trans_date = tx.get('date') or file_date
+        trans_type = tx.get('type') or 'other'
+        insider = parsed['owner'] or insider_name
+        cik_clean = str(company_cik or '').lstrip('0')
+        group_key = ('SEC', adsh, cik_clean, insider, trans_date, trans_type)
+        out.append({
+            'group_key': group_key,
+            'file_date': file_date,
+            'trans_date': trans_date,
+            'adsh': adsh,
+            'cik_clean': cik_clean,
+            'ticker': parsed['ticker'],
+            'company': parsed['company'] or company_name_meta,
+            'insider': insider,
+            'title': parsed['title'],
+            'trans_type': trans_type,
+            'shares': tx['shares'],
+            'price': tx['price'],
+            'value': tx['value'],
+            'shares_after': tx['sharesAfter'],
+        })
+    return out
+
+
 def fetch_day_transactions(day_date, now_str):
-    """Fetch + parse toutes les transactions Form 4 pour un jour donne.
+    """Fetch + parse toutes les transactions Form 4 pour un jour donne (parallelise).
     Retourne une liste de SQL INSERT."""
     sql_lines = []
-    # Dedup local : regroupement par (accession, cik, insider, trans_date, trans_type)
     group_counter = {}
     page_from = 0
     MAX_PAGES = 10
     total_hits = 0
     total_tx = 0
+    all_hits = []
 
+    # Etape 1 : collecter TOUS les hits via pagination (rapide, peu de requetes)
     for page_idx in range(MAX_PAGES):
         url = (f'https://efts.sec.gov/LATEST/search-index?q=&forms=4'
                f'&dateRange=custom&startdt={day_date}&enddt={day_date}'
@@ -218,64 +280,39 @@ def fetch_day_transactions(day_date, now_str):
             data = json.loads(raw)
         except Exception:
             break
-
         hits = data.get('hits', {}).get('hits', [])
         if not hits:
             break
+        all_hits.extend(hits)
         total_hits += len(hits)
-
-        for hit in hits:
-            src = hit.get('_source', {})
-            file_id = hit.get('_id', '')
-            id_parts = file_id.split(':')
-            if len(id_parts) < 2:
-                continue
-            adsh = id_parts[0]
-            filename = id_parts[1]
-            ciks = src.get('ciks', [])
-            file_date = src.get('file_date', day_date)
-            if len(ciks) < 2:
-                continue
-            company_cik = ciks[1]
-            company_cik_clean = company_cik.lstrip('0')
-            insider_name = re.sub(r'\s*\(CIK \d+\)', '', (src.get('display_names', [''])[0])).strip()
-            company_name_meta = re.sub(r'\s*\(CIK \d+\)', '', (src.get('display_names', ['', ''])[1])).strip()
-            adsh_clean = adsh.replace('-', '')
-
-            xml_url = f'https://www.sec.gov/Archives/edgar/data/{company_cik_clean}/{adsh_clean}/{filename}'
-            xml = curl_fetch(xml_url)
-            if not xml:
-                time.sleep(RATE_LIMIT_SLEEP)
-                continue
-
-            parsed = parse_form4(xml, now_str)
-            for tx in parsed['transactions']:
-                trans_date = tx.get('date') or file_date
-                trans_type = tx.get('type') or 'other'
-                insider = parsed['owner'] or insider_name
-                cik_clean = str(company_cik or '').lstrip('0')
-                group_key = ('SEC', adsh, cik_clean, insider, trans_date, trans_type)
-                line_num = group_counter.get(group_key, 0)
-                group_counter[group_key] = line_num + 1
-
-                sql_lines.append(
-                    f"INSERT OR IGNORE INTO insider_transactions_history "
-                    f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                    f"insider, title, trans_type, shares, price, value, shares_after, line_num) "
-                    f"VALUES ({esc(file_date)}, {esc(trans_date)}, 'SEC', "
-                    f"{esc(adsh)}, {esc(cik_clean)}, {esc(parsed['ticker'])}, "
-                    f"{esc(parsed['company'] or company_name_meta)}, "
-                    f"{esc(insider)}, {esc(parsed['title'])}, {esc(trans_type)}, "
-                    f"{integer(tx['shares'])}, {num(tx['price'])}, {num(tx['value'])}, "
-                    f"{integer(tx['sharesAfter'])}, {integer(line_num)});"
-                )
-                total_tx += 1
-            time.sleep(RATE_LIMIT_SLEEP)
-
         if len(hits) < 100:
             break
         page_from += 100
-        time.sleep(0.3)
+
+    # Etape 2 : fetch + parse XML en parallele (c'est ici le bottleneck 90%+ du temps)
+    if all_hits:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futures = [pool.submit(_process_filing, hit, day_date, now_str) for hit in all_hits]
+            for fut in as_completed(futures):
+                try:
+                    results = fut.result()
+                except Exception:
+                    continue
+                for r in results:
+                    group_key = r['group_key']
+                    line_num = group_counter.get(group_key, 0)
+                    group_counter[group_key] = line_num + 1
+                    sql_lines.append(
+                        f"INSERT OR IGNORE INTO insider_transactions_history "
+                        f"(filing_date, trans_date, source, accession, cik, ticker, company, "
+                        f"insider, title, trans_type, shares, price, value, shares_after, line_num) "
+                        f"VALUES ({esc(r['file_date'])}, {esc(r['trans_date'])}, 'SEC', "
+                        f"{esc(r['adsh'])}, {esc(r['cik_clean'])}, {esc(r['ticker'])}, "
+                        f"{esc(r['company'])}, {esc(r['insider'])}, {esc(r['title'])}, "
+                        f"{esc(r['trans_type'])}, {integer(r['shares'])}, {num(r['price'])}, "
+                        f"{num(r['value'])}, {integer(r['shares_after'])}, {integer(line_num)});"
+                    )
+                    total_tx += 1
 
     return sql_lines, total_hits, total_tx
 
