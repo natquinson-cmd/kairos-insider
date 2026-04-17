@@ -323,6 +323,7 @@
       font-size: 11px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.4);
       backdrop-filter: blur(10px);
+      z-index: 2;
     }
     .mockup-float.left {
       left: -40px; top: 40%;
@@ -334,6 +335,96 @@
     }
     .mockup-float-title { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
     .mockup-float-value { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; }
+
+    /* === Richer floating cards (cluster / watchlist / top insiders) === */
+    .mockup-float.cluster {
+      left: -80px; top: -20px;
+      transform: rotate(-5deg);
+      padding: 12px 16px;
+      min-width: 200px;
+      border-color: rgba(16, 185, 129, 0.4);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(20, 25, 45, 0.92));
+    }
+    .mockup-float.cluster .mockup-float-title { color: #34D399; font-weight: 700; }
+    .mockup-float.cluster .cluster-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34D399;
+      border-radius: 10px;
+      font-size: 9px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.06em;
+    }
+    .mockup-float.cluster .cluster-insiders {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+      align-items: center;
+    }
+    .mockup-float.cluster .cluster-dot {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: linear-gradient(135deg, #10B981, #059669);
+      border: 2px solid rgba(10, 15, 30, 0.9);
+      margin-left: -8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .mockup-float.cluster .cluster-dot:first-child { margin-left: 0; }
+    .mockup-float.watchlist {
+      right: -60px; bottom: 60px;
+      transform: rotate(3deg);
+      padding: 12px 14px;
+      min-width: 210px;
+      border-color: rgba(251, 191, 36, 0.4);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(20, 25, 45, 0.92));
+    }
+    .mockup-float.watchlist .mockup-float-title { color: #FBBF24; font-weight: 700; }
+    .mockup-float.watchlist .wl-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .mockup-float.watchlist .wl-line:last-child { border-bottom: none; }
+    .mockup-float.watchlist .wl-tk { font-weight: 700; color: #F9FAFB; }
+    .mockup-float.watchlist .wl-ev { font-size: 10px; color: #34D399; }
+    .mockup-float.topinsiders {
+      left: -70px; bottom: -30px;
+      transform: rotate(-2deg);
+      padding: 12px 14px;
+      min-width: 220px;
+      border-color: rgba(234, 179, 8, 0.4);
+      background: linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(20, 25, 45, 0.92));
+    }
+    .mockup-float.topinsiders .mockup-float-title { color: #EAB308; font-weight: 700; }
+    .mockup-float.topinsiders .ti-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .mockup-float.topinsiders .ti-row:last-child { border-bottom: none; }
+    .mockup-float.topinsiders .ti-medal { font-size: 14px; width: 18px; text-align: center; }
+    .mockup-float.topinsiders .ti-name { flex: 1; color: #F9FAFB; font-weight: 600; font-size: 11px; }
+    .mockup-float.topinsiders .ti-value { color: #34D399; font-size: 10px; font-weight: 600; }
+
+    /* Hide extra floats on mobile pour ne pas surcharger */
+    @media (max-width: 860px) {
+      .mockup-float.cluster,
+      .mockup-float.watchlist,
+      .mockup-float.topinsiders { display: none; }
+    }
 
     /* ===== STATS BAR ===== */
     .stats-bar {
@@ -926,6 +1017,63 @@
           <div class="mockup-float right">
             <div class="mockup-float-title">Consensus</div>
             <div class="mockup-float-value">★ 5 conviction</div>
+          </div>
+
+          <!-- Card Cluster : signal fort quand 3+ insiders achetent -->
+          <div class="mockup-float cluster">
+            <span class="cluster-badge">🎯 SIGNAL FORT</span>
+            <div class="mockup-float-title">Cluster insiders NVDA</div>
+            <div style="font-size:13px;font-weight:700;color:#F9FAFB;margin:4px 0 6px">
+              5 dirigeants · 12,4M $
+            </div>
+            <div class="cluster-insiders">
+              <span class="cluster-dot">J</span>
+              <span class="cluster-dot">S</span>
+              <span class="cluster-dot">C</span>
+              <span class="cluster-dot">M</span>
+              <span class="cluster-dot" style="background:linear-gradient(135deg,#6B7280,#374151)">+1</span>
+            </div>
+          </div>
+
+          <!-- Card Watchlist : digest email quotidien -->
+          <div class="mockup-float watchlist">
+            <div class="mockup-float-title">📧 Digest · 8h ce matin</div>
+            <div style="margin-top:6px">
+              <div class="wl-line">
+                <span class="wl-tk">TSLA</span>
+                <span class="wl-ev">+3 insiders achat</span>
+              </div>
+              <div class="wl-line">
+                <span class="wl-tk">NVDA</span>
+                <span class="wl-ev">Kairos +12pt</span>
+              </div>
+              <div class="wl-line">
+                <span class="wl-tk">META</span>
+                <span class="wl-ev" style="color:#F59E0B">Entrée NANC</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Top Insiders : leaderboard medailles -->
+          <div class="mockup-float topinsiders">
+            <div class="mockup-float-title">🏆 Top Insiders · 1 an</div>
+            <div style="margin-top:6px">
+              <div class="ti-row">
+                <span class="ti-medal">🥇</span>
+                <span class="ti-name">J. Bezos</span>
+                <span class="ti-value">+$1,2B</span>
+              </div>
+              <div class="ti-row">
+                <span class="ti-medal">🥈</span>
+                <span class="ti-name">M. Zuckerberg</span>
+                <span class="ti-value">+$890M</span>
+              </div>
+              <div class="ti-row">
+                <span class="ti-medal">🥉</span>
+                <span class="ti-name">S. Nadella</span>
+                <span class="ti-value">+$420M</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
