@@ -117,7 +117,7 @@
       'feat.deep.chip': '● Des milliers de tickers',
 
       'feat.activists.title': 'Fonds Offensifs <span style="font-size:13px;color:var(--text-muted);font-weight:400">(Activistes)</span>',
-      'feat.activists.desc_html': 'Quand un <strong>fonds offensif</strong> comme Elliott, Ackman ou Icahn achète plus de <strong>5 % d\'une entreprise</strong>, c\'est pour <strong>forcer un changement</strong> (vente d\'une division, CEO remplacé, rachats d\'actions). Carl Icahn chez Apple 2013 → +30 %. Kairos détecte ces filings en <strong>10 jours</strong> — 35 jours plus rapide que les 13F.',
+      'feat.activists.desc_html': 'Quand un <strong>fonds offensif</strong> comme Elliott, Ackman ou Icahn achète plus de <strong>5 % d\'une entreprise</strong>, c\'est pour <strong>forcer un changement</strong> (vente d\'une division, CEO remplacé, rachats d\'actions). Carl Icahn chez Apple 2013 → +30 %. Kairos détecte ces déclarations en <strong>10 jours</strong> — 35 jours plus rapide que les 13F.',
       'feat.activists.chip': 'NEW · Signal 10 jours',
 
       'feat.watchlist.title': 'Watchlist &amp; Alertes Email',
@@ -234,7 +234,7 @@
       'faq.q_try': 'Puis-je essayer avant de payer ?',
       'faq.a_try': 'Oui. Créez un compte gratuit en 30 secondes — sans carte bancaire. Vous aurez accès à : l\'analyse publique de 1000+ tickers (vue tronquée), l\'indicateur Fear & Greed, le Short Interest, et les Hot Stocks Google Trends. Si vous aimez, vous pouvez passer Premium à 29€/mois pour débloquer le Kairos Score complet, les hedge funds et le consensus.',
       'faq.q_freq': 'À quelle fréquence les données sont-elles mises à jour ?',
-      'faq.a_freq': 'Les données sont <strong>rafraîchies en continu</strong> : nos pipelines surveillent en permanence les sources officielles (SEC, AMF, BaFin) et remontent les nouveaux filings <em>avant l\'ouverture des marchés</em>. Prix, hedge funds, trends retail, indicateurs sectoriels — tout est à jour quand vous vous connectez le matin.',
+      'faq.a_freq': 'Les données sont <strong>rafraîchies en continu</strong> : nos pipelines surveillent en permanence les sources officielles (SEC, AMF, BaFin) et remontent les nouvelles déclarations <em>avant l\'ouverture des marchés</em>. Prix, hedge funds, trends retail, indicateurs sectoriels — tout est à jour quand vous vous connectez le matin.',
       'faq.q_cancel': 'Puis-je annuler à tout moment ?',
       'faq.a_cancel': 'Oui, aucun engagement. Votre abonnement Premium est résiliable en 1 clic dans votre espace personnel. Vous gardez l\'accès jusqu\'à la fin du cycle de facturation payé. Le paiement est géré par Stripe (sécurisé, conforme PCI-DSS).',
       'faq.q_markets': 'Sur quels marchés Kairos Insider fonctionne-t-il ?',

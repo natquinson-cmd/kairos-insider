@@ -671,7 +671,7 @@
     .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
     /* Variante pour la table principale Hedge Funds : scrollbar horizontale
        toujours visible (max-height + sticky header) au lieu d'etre tout
-       en bas apres tous les fonds. */
+       en bas après tous les fonds. */
     .funds-table-wrap {
       max-height: calc(100vh - 200px);
       overflow-y: auto;
@@ -1384,7 +1384,7 @@
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.watchlist_title">Ma Watchlist</h4>
-            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions preferees et recevez un <strong>digest email quotidien</strong> a 8h avec les evenements smart-money detectes : clusters insiders, rotations ETF, variation Kairos Score.</p>
+            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions preferees et recevez un <strong>digest email quotidien</strong> a 8h avec les événements smart-money détectés : clusters insiders, rotations ETF, variation Kairos Score.</p>
             <div style="margin-top:12px;font-size:12px;color:#FBBF24" data-i18n="dash.home.watchlist_cta">Configurer mes alertes →</div>
           </div>
 
@@ -1553,7 +1553,7 @@
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page" id="section-insider">
         <h2 data-i18n="dash.section.insider.title">Transactions Insiders</h2>
-        <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — declarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement.</p>
+        <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — déclarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement.</p>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
           <div style="position:relative;flex:1">
@@ -1566,7 +1566,7 @@
 
         <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">
           <div class="period-selector" style="margin-bottom:0">
-            <span class="period-label">Periode :</span>
+            <span class="period-label">Période :</span>
             <div class="period-buttons">
               <button class="period-btn" data-days="7" onclick="selectPeriod(7)">7 jours</button>
               <button class="period-btn active" data-days="30" onclick="selectPeriod(30)">30 jours</button>
@@ -1612,7 +1612,7 @@
       <!-- ===== SECTION: SCREENER AVANCE ===== -->
       <div class="section-page" id="section-screener">
         <h2><span data-i18n="dash.section.screener.title">Screener Avance</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(116,185,255,0.15);color:#74b9ff;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
-        <p class="section-desc" data-i18n="dash.section.screener.desc">Filtres combinables sur l'historique complet des transactions insiders (jusqu'a 5 ans). Filtre par role, montant, periode, ticker, source — exporte les resultats en CSV.</p>
+        <p class="section-desc" data-i18n="dash.section.screener.desc">Filtres combinables sur l'historique complet des transactions insiders (jusqu'a 5 ans). Filtre par role, montant, période, ticker, source — exporte les resultats en CSV.</p>
 
         <!-- GRILLE DE FILTRES -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
@@ -1624,7 +1624,7 @@
             </div>
             <!-- Period -->
             <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Periode</label>
+              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
               <select id="scrDays" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
                 <option value="30">30 jours</option>
                 <option value="90" selected>90 jours</option>
@@ -1720,12 +1720,12 @@
       <!-- ===== SECTION: TOP INSIDERS ===== -->
       <div class="section-page" id="section-topInsiders">
         <h2><span data-i18n="dash.section.topInsiders.title">🏆 Top Insiders</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.15);color:#EAB308;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
-        <p class="section-desc" data-i18n="dash.section.topInsiders.desc">Classement des insiders les plus actifs sur la periode. Repere les executives dont les trades sont les plus massifs et les plus frequents — une premiere approximation du "qui vaut la peine d'etre suivi".</p>
+        <p class="section-desc" data-i18n="dash.section.topInsiders.desc">Classement des insiders les plus actifs sur la période. Repere les executives dont les trades sont les plus massifs et les plus frequents — une premiere approximation du "qui vaut la peine d'etre suivi".</p>
 
         <!-- FILTRES -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
           <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Periode</label>
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
             <select id="tiPeriod" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:140px">
               <option value="30d">30 jours</option>
               <option value="90d">90 jours</option>
@@ -1771,7 +1771,7 @@
         <!-- NOTE ROI -->
         <div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#EAB308;display:flex;gap:10px;align-items:center">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <span><strong>V1 :</strong> classement par <em>volume</em> total ($). Le ROI reel par insider arrive apres l'integration des prix historiques (roadmap Phase 2.2).</span>
+          <span><strong>V1 :</strong> classement par <em>volume</em> total ($). Le ROI reel par insider arrive après l'integration des prix historiques (roadmap Phase 2.2).</span>
         </div>
 
         <!-- LEADERBOARD -->
@@ -1812,7 +1812,7 @@
           <div style="display:flex;gap:12px;align-items:flex-start">
             <div style="font-size:22px;flex-shrink:0">📋</div>
             <div style="flex:1;font-size:13px;line-height:1.7;color:var(--text-primary)">
-              <div style="font-weight:700;color:#74b9ff;margin-bottom:10px;font-size:14px">Les 3 formes de filings SEC</div>
+              <div style="font-weight:700;color:#74b9ff;margin-bottom:10px;font-size:14px">Les 3 types de déclarations SEC</div>
               <div style="margin-bottom:8px"><strong style="color:#F59E0B">Schedule 13D</strong> : position <strong>>5% avec intention active</strong> (fonds offensifs, activistes). <span style="color:var(--text-muted)">→ le signal le plus fort.</span></div>
               <div style="margin-bottom:8px"><strong style="color:#10B981">Schedule 13G</strong> : meme seuil >5% mais <strong>passif</strong> (Vanguard, BlackRock). <span style="color:var(--text-muted)">→ plus neutre.</span></div>
               <div><strong style="color:var(--text-secondary)">/A (Amendement)</strong> : mise a jour quand la position change de >1%. <span style="color:var(--text-muted)">→ changement de conviction.</span></div>
@@ -1823,7 +1823,7 @@
         <!-- FILTRES -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
           <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Periode</label>
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
             <select id="actDays" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:130px">
               <option value="7">7 jours</option>
               <option value="30" selected>30 jours</option>
@@ -1834,7 +1834,7 @@
             <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Filtre</label>
             <select id="actFilter" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:180px">
               <option value="activists">⚡ Fonds offensifs connus</option>
-              <option value="all">Tous les filings (13D + 13G)</option>
+              <option value="all">Toutes les déclarations (13D + 13G)</option>
               <option value="13D">Schedule 13D (offensifs)</option>
               <option value="13G">Schedule 13G (passifs)</option>
             </select>
@@ -1855,7 +1855,7 @@
         <div id="activistsBody">
           <div style="padding:60px 20px;text-align:center;color:var(--text-muted)">
             <div style="font-size:36px;margin-bottom:12px">⚡</div>
-            <p style="margin:0;font-size:15px">Chargement des filings activists...</p>
+            <p style="margin:0;font-size:15px">Chargement des déclarations...</p>
           </div>
         </div>
       </div>
@@ -2238,7 +2238,7 @@
 
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-              <div class="stat-label">📊 P&L par periode</div>
+              <div class="stat-label">📊 P&L par période</div>
               <div class="chart-period-btns">
                 <button data-pnlperiod="day" class="active" onclick="setPnlPeriod('day')">Jour</button>
                 <button data-pnlperiod="week" onclick="setPnlPeriod('week')">Semaine</button>
@@ -2275,7 +2275,7 @@
       <!-- ===== SECTION: MA WATCHLIST ===== -->
       <div class="section-page" id="section-watchlist">
         <h2><span data-i18n="dash.section.watchlist.title">Ma Watchlist</span> <span class="beta-tag" style="background:linear-gradient(135deg,#F59E0B,#EC4899)">NEW</span></h2>
-        <p class="section-desc" data-i18n="dash.section.watchlist.desc">Suivez vos actions preferees et recevez chaque matin a 8h un digest email des evenements smart-money detectes : nouveaux clusters insiders, entrees/sorties d'ETF, variations du Kairos Score.</p>
+        <p class="section-desc" data-i18n="dash.section.watchlist.desc">Suivez vos actions preferees et recevez chaque matin a 8h un digest email des événements smart-money détectés : nouveaux clusters insiders, entrees/sorties d'ETF, variations du Kairos Score.</p>
 
         <!-- KPIs + bouton d'ajout -->
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;margin:20px 0 24px">
@@ -2323,11 +2323,11 @@
             <input type="checkbox" id="wlEmailAlerts" onchange="saveWatchlistPrefs()" style="margin-top:2px;width:18px;height:18px;cursor:pointer;accent-color:var(--accent-blue)" />
             <div>
               <div style="font-weight:600;color:var(--text-primary);font-size:14px">Recevoir le digest email quotidien</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Chaque matin a 8h (Paris), si des evenements sont detectes sur vos tickers. Premiere activation = email de confirmation (double opt-in).</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Chaque matin a 8h (Paris), si des événements sont détectés sur vos tickers. Premiere activation = email de confirmation (double opt-in).</div>
             </div>
           </label>
 
-          <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin:16px 0 10px">Types d'evenements a surveiller</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin:16px 0 10px">Types d'événements a surveiller</div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeCluster" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
@@ -3305,7 +3305,7 @@
         }
         if (!tickerDisplay) tickerDisplay = '—';
 
-        // Date : la fileDate (declaration officielle) pilote le tri ; on l'affiche en principal,
+        // Date : la fileDate (déclaration officielle) pilote le tri ; on l'affiche en principal,
         // la date de transaction en sous-ligne si elle differe.
         const primaryDate = t.fileDate || t.date;
         const showTxDate = t.date && t.date !== t.fileDate;
@@ -3685,13 +3685,13 @@
         const body = document.getElementById('stockAnalysisBody');
         if (!body) return;
 
-        // Cherche/cree le slot juste apres le hero (le premier div enfant)
+        // Cherche/cree le slot juste après le hero (le premier div enfant)
         let slot = document.getElementById('activistBannerSlot');
         if (!slot) {
           slot = document.createElement('div');
           slot.id = 'activistBannerSlot';
           slot.style.cssText = 'margin:18px 0';
-          // Insere apres le premier enfant (le hero)
+          // Insere après le premier enfant (le hero)
           const firstChild = body.firstElementChild;
           if (firstChild && firstChild.nextSibling) {
             body.insertBefore(slot, firstChild.nextSibling);
@@ -3712,8 +3712,8 @@
           ? `⚡ Fonds offensif detecte sur ${escapeHtmlClient(ticker)}`
           : `Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
         const subtitle = isActivist
-          ? `${res.total} filing${res.total > 1 ? 's' : ''} · ${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}`
-          : `${res.total} filing${res.total > 1 ? 's' : ''} > 5% du capital`;
+          ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · ${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}`
+          : `${res.total} déclaration${res.total > 1 ? 's' : ''} > 5% du capital`;
 
         const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
         const formShort = (f) => (f || '').replace('SCHEDULE ', '').substring(0, 8);
@@ -3737,12 +3737,12 @@
                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
                   ${isActivist
                     ? 'Un <strong>fonds offensif</strong> (activist investor) detient >5% du capital et va pousser pour des changements : vente de division, remplacement du CEO, rachats d\'actions... Ces catalyseurs font souvent monter le cours.'
-                    : 'Des gros investisseurs institutionnels (type Vanguard, BlackRock) detiennent >5% du capital en declaration passive (13G).'}
+                    : 'Des gros investisseurs institutionnels (type Vanguard, BlackRock) detiennent >5% du capital en déclaration passive (13G).'}
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px">
                   ${top3}
                 </div>
-                ${res.total > 3 ? `<div style="margin-top:10px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;text-decoration:none">Voir les ${res.total} filings →</a></div>` : ''}
+                ${res.total > 3 ? `<div style="margin-top:10px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;text-decoration:none">Voir les ${res.total} déclarations →</a></div>` : ''}
               </div>
             </div>
           </div>
@@ -3761,7 +3761,7 @@
         const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=180`);
         if (!res || !res.etfs || res.etfs.length === 0) return;
 
-        // Cherche/cree le slot d'affichage juste apres le hero ticker
+        // Cherche/cree le slot d'affichage juste après le hero ticker
         const body = document.getElementById('stockAnalysisBody');
         if (!body) return;
         let slot = document.getElementById('etfHistorySlot');
@@ -4117,7 +4117,7 @@
       `;
     }
 
-    // Injection unique de l'animation CSS du radar (appele apres render)
+    // Injection unique de l'animation CSS du radar (appele après render)
     function _ensureKairosRadarAnim() {
       if (document.getElementById('kairosRadarAnim')) return;
       const s = document.createElement('style');
@@ -5631,7 +5631,7 @@
         const aumChange = ((aumValues[aumValues.length - 1] - aumValues[0]) / aumValues[0]) * 100;
         const aumColor = aumChange > 0 ? '#10B981' : '#EF4444';
 
-        // 4. Top 5 holdings actuels avec leur evolution sur la periode
+        // 4. Top 5 holdings actuels avec leur evolution sur la période
         const lastQ = quarters[quarters.length - 1];
         const firstQ = quarters[0];
         const lastByName = new Map(lastQ.holdings.map(h => [h.name, h]));
@@ -6231,7 +6231,7 @@
             <td style="text-align:center">
               <span style="background:${countBg};color:${countColor};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">${c.insiderCount}</span>
             </td>
-            <td>${c.totalFilings} declarations</td>
+            <td>${c.totalFilings} déclarations</td>
             <td style="text-align:right;font-weight:600">${c.totalValue && c.totalValue > 0 ? fmtCurShort(c.totalValue) : '—'}</td>
             <td class="last-update">${fmtDate(c.firstDate)} — ${fmtDate(c.lastDate)}</td>
             <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
@@ -6266,7 +6266,7 @@
               <div class="fund-detail-inner">
                 <div class="sub-header">
                   <span>${details.length > 0 ? details.length : c.insiderCount} dirigeants avec transactions significatives pour ${c.ticker || c.company}</span>
-                  <span class="last-update">Periode: ${fmtDate(c.firstDate)} au ${fmtDate(c.lastDate)}</span>
+                  <span class="last-update">Période: ${fmtDate(c.firstDate)} au ${fmtDate(c.lastDate)}</span>
                 </div>
                 <div class="table-wrap" style="border:none">
                   <table>
@@ -6292,7 +6292,7 @@
 
         area.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-            <span style="color:var(--text-muted);font-size:13px">${clusters.length} clusters detectes sur ${data.totalFilings?.toLocaleString('fr-FR') || '?'} declarations (90 jours)${pageHint}</span>
+            <span style="color:var(--text-muted);font-size:13px">${clusters.length} clusters détectés sur ${data.totalFilings?.toLocaleString('fr-FR') || '?'} déclarations (90 jours)${pageHint}</span>
             <span class="last-update">Mis a jour le ${data.date || '—'}</span>
           </div>
           <div class="table-wrap">
@@ -6304,14 +6304,14 @@
                 <th style="text-align:center">Insiders</th>
                 <th>Declarations</th>
                 <th style="text-align:right">Valeur totale</th>
-                <th>Periode</th>
+                <th>Période</th>
                 <th style="text-align:center">Signal</th>
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>
           <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
-            Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose une declaration insider (transaction sur leurs propres actions) dans les 90 derniers jours.
+            Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose une déclaration insider (transaction sur leurs propres actions) dans les 90 derniers jours.
             Plus le nombre d'insiders est eleve, plus le signal est fort. Cliquez sur une ligne pour voir les noms des declarants.
           </p>`;
 
@@ -6831,7 +6831,7 @@
           status.textContent = 'Aucun trade detecte. Verifiez le format du fichier.';
           return;
         }
-        // Detection de doublons
+        // Détection de doublons
         const existingKeys = new Set(portfolioTrades.map(t => t.ref || `${t.date}|${t.symbol}|${t.pnl}`));
         const newTrades = trades.filter(t => {
           const key = t.ref || `${t.date}|${t.symbol}|${t.pnl}`;
@@ -6841,7 +6841,7 @@
 
         if (newTrades.length === 0 && dupes > 0) {
           status.style.color = 'var(--accent-red)';
-          status.textContent = `${dupes} doublons detectes — aucun nouveau trade importe.`;
+          status.textContent = `${dupes} doublons détectés — aucun nouveau trade importe.`;
           return;
         }
 
@@ -6859,7 +6859,7 @@
     }
 
     // ============================================================
-    // CSV PARSER — Detection automatique multi-plateforme
+    // CSV PARSER — Détection automatique multi-plateforme
     // ============================================================
     function parseCsvAuto(text) {
       // Detecter le separateur
@@ -7954,7 +7954,7 @@
       try {
         const resp = await apiFetch('/api/watchlist/test-now', { method: 'POST' });
         if (resp && resp.sent) {
-          alert(`✅ Email de test envoye (${resp.events} evenements detectes).`);
+          alert(`✅ Email de test envoye (${resp.events} événements détectés).`);
         } else if (resp && resp.events === 0) {
           alert('Aucun evenement detecte sur vos tickers aujourd\'hui. Tout est calme !');
         }
@@ -8117,7 +8117,7 @@
     function renderScreenerTable(rows) {
       const tableArea = document.getElementById('scrTableArea');
       if (!rows.length) {
-        tableArea.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-secondary)">Aucune transaction ne correspond a ces filtres.<br><span style="font-size:13px;opacity:0.7">Essayez d\'elargir la periode ou de retirer certains filtres.</span></div>';
+        tableArea.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-secondary)">Aucune transaction ne correspond a ces filtres.<br><span style="font-size:13px;opacity:0.7">Essayez d\'elargir la période ou de retirer certains filtres.</span></div>';
         return;
       }
       const fmtUsd = (v) => {
@@ -8587,7 +8587,7 @@
             <tr style="border-bottom:2px solid var(--border)">
               <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Table</th>
               <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Rows</th>
-              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Periode</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Période</th>
             </tr>
           </thead>
           <tbody>${d1Rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted)">Aucune table disponible.</td></tr>'}</tbody>
@@ -8808,7 +8808,7 @@
           }
         }
 
-        // Render top card (activists agreges sur la periode)
+        // Render top card (activists agreges sur la période)
         if (topCard && activistsAggregated && activistsAggregated.byFiler?.length && !ticker) {
           const topActivists = activistsAggregated.byFiler.slice(0, 8);
           topCard.innerHTML = `
@@ -8818,7 +8818,7 @@
                 ${topActivists.map(a => `
                   <div style="padding:12px 14px;background:var(--surface-2);border-radius:10px">
                     <div style="font-weight:700;font-size:14px;color:#F9FAFB;margin-bottom:4px">${escapeHtmlClient(a.label)}</div>
-                    <div style="font-size:11px;color:var(--text-muted)">${a.count} filing${a.count > 1 ? 's' : ''} · ${(a.tickers || []).slice(0, 4).join(', ')}${a.tickers && a.tickers.length > 4 ? ` +${a.tickers.length - 4}` : ''}</div>
+                    <div style="font-size:11px;color:var(--text-muted)">${a.count} déclaration${a.count > 1 ? 's' : ''} · ${(a.tickers || []).slice(0, 4).join(', ')}${a.tickers && a.tickers.length > 4 ? ` +${a.tickers.length - 4}` : ''}</div>
                   </div>
                 `).join('')}
               </div>
@@ -8832,7 +8832,7 @@
         if (!filings.length) {
           body.innerHTML = `<div style="padding:60px 20px;text-align:center;color:var(--text-muted)">
             <div style="font-size:36px;margin-bottom:12px">🤷</div>
-            <p style="margin:0">Aucun filing correspondant aux criteres.</p>
+            <p style="margin:0">Aucune déclaration correspondant aux critères.</p>
           </div>`;
           return;
         }
@@ -8878,7 +8878,7 @@
             </table>
           </div>
           <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px">
-            ${filings.length} filing${filings.length > 1 ? 's' : ''} affiches. Cliquez sur une ligne pour ouvrir l'analyse action.
+            ${filings.length} déclaration${filings.length > 1 ? 's' : ''} affichées. Cliquez sur une ligne pour ouvrir l'analyse action.
           </div>
         `;
       } catch (e) {
@@ -8923,7 +8923,7 @@
           body.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text-secondary)">
             <div style="font-size:36px;margin-bottom:12px">🏜️</div>
             <p style="margin:0">Aucun insider ne correspond aux criteres.</p>
-            <p style="margin:8px 0 0;font-size:13px;opacity:0.7">L'historique se remplit au fur et a mesure — reessayez apres le backfill.</p>
+            <p style="margin:8px 0 0;font-size:13px;opacity:0.7">L'historique se remplit au fur et a mesure — reessayez après le backfill.</p>
           </div>`;
           return;
         }
