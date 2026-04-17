@@ -380,10 +380,11 @@ async function handleApiRoute(path, url, env, origin) {
   }
 
   // Analyse action — premium (donnees completes)
-  // Format : GET /api/stock/:ticker
+  // Format : GET /api/stock/:ticker[?range=1y|5y|max...]
   if (path.startsWith('/api/stock/')) {
     const ticker = decodeURIComponent(path.slice('/api/stock/'.length));
-    const data = await handleStockAnalysis(ticker, env, { publicView: false });
+    const chartRange = url.searchParams.get('range') || '1y';
+    const data = await handleStockAnalysis(ticker, env, { publicView: false, chartRange });
     return jsonResponse(data, data.error ? 400 : 200, origin);
   }
 

@@ -31,14 +31,18 @@ const CACHE_TTL = 900; // 15 min
 // ENTREE PRINCIPALE
 // ============================================================
 export async function handleStockAnalysis(ticker, env, options = {}) {
-  const { publicView = false } = options;
+  const { publicView = false, chartRange = '1y' } = options;
   ticker = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker || ticker.length > 12) {
     return { error: 'Invalid ticker', code: 'INVALID_TICKER' };
   }
 
-  // Cache : 2 variantes (public tronque / premium complet)
-  const cacheKey = `stock-analysis:${ticker}:${publicView ? 'pub' : 'full'}`;
+  // Valide le range (Yahoo supporte : 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
+  const ALLOWED_RANGES = ['1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'max'];
+  const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
+
+  // Cache : 2 variantes (public tronque / premium complet) x range
+  const cacheKey = `stock-analysis:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
@@ -51,7 +55,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
   // Sources stockanalysis.com en parallele : overview + statistics + earnings + employees (peers)
   const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends] = await Promise.all([
-    fetchYahooQuote(ticker),
+    fetchYahooQuote(ticker, effectiveRange),
     fetchStockAnalysisOverview(ticker),
     fetchStockAnalysisStatistics(ticker),
     fetchStockAnalysisEarnings(ticker),
@@ -150,11 +154,12 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
 // ============================================================
 // YAHOO FINANCE : prix + chart
 // ============================================================
-async function fetchYahooQuote(ticker) {
+async function fetchYahooQuote(ticker, range = '1y') {
   const empty = { price: null, chart: null, company: { name: ticker } };
   try {
-    // chart v8 : prix courant + historique 1 an (daily)
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y&includePrePost=false`;
+    // chart v8 : prix courant + historique daily (range configurable : 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, max)
+    // Pour > 1y, Yahoo renvoie interval=1d avec un nombre de points proportionnel.
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${encodeURIComponent(range)}&includePrePost=false`;
     const resp = await fetch(url, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
     if (!resp.ok) return empty;
     const json = await resp.json();
@@ -221,7 +226,7 @@ async function fetchYahooQuote(ticker) {
         regularMarketTime: meta.regularMarketTime || null,
       },
       chart: {
-        range: '1y',
+        range,
         points: chartPoints,
       },
       company: {
