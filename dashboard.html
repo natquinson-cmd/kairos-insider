@@ -2416,6 +2416,10 @@
               <input type="checkbox" id="wlTypeInsider" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
               <span style="font-size:13px">🏛️ Transactions insiders individuelles</span>
             </label>
+            <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-2));border:1px solid rgba(245,158,11,0.28);border-radius:8px">
+              <input type="checkbox" id="wlTypeActivist" onchange="saveWatchlistPrefs()" style="accent-color:#F59E0B" />
+              <span style="font-size:13px">⚡ Fonds offensifs (13D/G, signal activiste)</span>
+            </label>
           </div>
 
           <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
@@ -7977,7 +7981,7 @@
       tickers: [],
       emailAlerts: true,
       optIn: false,
-      types: { insider: true, cluster: true, etf: true, score: true },
+      types: { insider: true, cluster: true, etf: true, score: true, activist: true },
       lastDigestAt: null,
       loaded: false,
     };
@@ -7993,7 +7997,7 @@
             const data = snap.val();
             watchlistState.tickers = Array.isArray(data.tickers) ? data.tickers : [];
             watchlistState.emailAlerts = data.emailAlerts !== false;
-            watchlistState.types = Object.assign({ insider: true, cluster: true, etf: true, score: true }, data.types || {});
+            watchlistState.types = Object.assign({ insider: true, cluster: true, etf: true, score: true, activist: true }, data.types || {});
           }
         }
       } catch (e) {
@@ -8071,6 +8075,7 @@
       setCheck('wlTypeEtf',     watchlistState.types.etf);
       setCheck('wlTypeScore',   watchlistState.types.score);
       setCheck('wlTypeInsider', watchlistState.types.insider);
+      setCheck('wlTypeActivist', watchlistState.types.activist);
 
       // Liste des tickers
       const area = document.getElementById('wlTickersArea');
@@ -8183,6 +8188,7 @@
         cluster: get('wlTypeCluster'),
         etf:     get('wlTypeEtf'),
         score:   get('wlTypeScore'),
+        activist: get('wlTypeActivist'),
       };
       await persistWatchlist();
       renderWatchlist();

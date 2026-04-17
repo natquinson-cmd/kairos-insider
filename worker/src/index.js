@@ -3414,6 +3414,51 @@ async function detectEventsForWatchlist(tickers, types, env) {
     }
   }
 
+  // ----- 4) Fonds offensifs (13D/G) — nouvelles déclarations dans les 7 derniers jours
+  if (types.activist !== false) {
+    try {
+      const data = await env.CACHE.get('13dg-recent', 'json');
+      if (data && Array.isArray(data.filings)) {
+        const cutoff = new Date(Date.now() - 7 * 86400 * 1000).toISOString().slice(0, 10);
+        for (const f of data.filings) {
+          const tk = (f.ticker || '').toUpperCase();
+          if (!tk || !tickerSet.has(tk)) continue;
+          if ((f.fileDate || '') < cutoff) continue; // trop vieux (snapshot J-1 pour dedup fait par KV 'wl-prev:13dg')
+
+          // Severity : high si activist connu ou %>=5, medium sinon
+          const isActivist = !!f.isActivist;
+          const pct = f.percentOfClass;
+          const shares = f.sharesOwned;
+          const priceApprox = f.purchasePriceApprox;
+
+          // Construction du titre + summary enrichis
+          const formShort = (f.form || '').replace('SCHEDULE ', '').trim();
+          const stats = [];
+          if (pct != null) stats.push(`${pct.toFixed(1)}% du capital`);
+          if (shares != null) {
+            const s = shares >= 1e9 ? (shares/1e9).toFixed(1)+'B' : shares >= 1e6 ? (shares/1e6).toFixed(1)+'M' : shares >= 1e3 ? (shares/1e3).toFixed(0)+'K' : String(Math.round(shares));
+            stats.push(`${s} titres`);
+          }
+          if (priceApprox != null) {
+            const p = priceApprox >= 1e9 ? '$'+(priceApprox/1e9).toFixed(2)+'B' : priceApprox >= 1e6 ? '$'+(priceApprox/1e6).toFixed(1)+'M' : '$'+Math.round(priceApprox/1e3)+'K';
+            stats.push(`~${p} investis`);
+          }
+
+          pushEvt(tk, {
+            type: 'activist',
+            severity: isActivist ? 'high' : 'medium',
+            title: isActivist
+              ? `⚡ Fonds offensif détecté (${formShort})`
+              : `📋 Nouveau gros actionnaire (${formShort})`,
+            summary: `${f.filerName || 'Investisseur'} vient de déclarer${stats.length ? ' · ' + stats.join(' · ') : ' >5% du capital'}.`,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('activist detect failed:', e);
+    }
+  }
+
   // Resultat : un tableau [{ ticker, events }] trie par severite descendante
   const out = [];
   for (const [ticker, events] of results.entries()) {
