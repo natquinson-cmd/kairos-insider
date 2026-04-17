@@ -4539,13 +4539,12 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:12px">
             <h3 style="margin:0;font-size:16px;opacity:0.9">Cours &amp; signaux smart money</h3>
             <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:8px" id="chartPeriodSelector">
-              <button onclick="changeChartRange('1mo')" data-range="1mo" class="chart-range-btn">1M</button>
-              <button onclick="changeChartRange('3mo')" data-range="3mo" class="chart-range-btn">3M</button>
-              <button onclick="changeChartRange('6mo')" data-range="6mo" class="chart-range-btn">6M</button>
-              <button onclick="changeChartRange('1y')" data-range="1y" class="chart-range-btn active">1A</button>
-              <button onclick="changeChartRange('2y')" data-range="2y" class="chart-range-btn">2A</button>
-              <button onclick="changeChartRange('5y')" data-range="5y" class="chart-range-btn">5A</button>
-              <button onclick="changeChartRange('max')" data-range="max" class="chart-range-btn">MAX</button>
+              ${[
+                ['1mo','1M'], ['3mo','3M'], ['6mo','6M'], ['1y','1A'],
+                ['2y','2A'], ['5y','5A'], ['max','MAX']
+              ].map(([range, label]) => `
+                <button type="button" onclick="changeChartRange('${range}')" data-range="${range}" class="chart-range-btn${currentChartRange === range ? ' active' : ''}">${label}</button>
+              `).join('')}
             </div>
           </div>
           <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.65;flex-wrap:wrap">
