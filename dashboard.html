@@ -1278,7 +1278,7 @@
         <div class="sidebar-title">Admin</div>
         <button class="sidebar-item" data-section="admin" onclick="switchSection('admin')">
           <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/><path d="M9 12l2 2 4-4"/></svg></span>
-          <span>Tableau de bord</span>
+          <span data-i18n="dash.sidebar.admin">Tableau de bord</span>
           <span class="sidebar-badge" style="background:rgba(239,68,68,0.18);color:#F87171;border:1px solid rgba(239,68,68,0.28)">ADMIN</span>
         </button>
       </div>
@@ -1373,9 +1373,31 @@
               <div style="font-size:32px">🎓</div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
             </div>
-            <h4 style="margin:0 0 6px;font-size:16px">Consensus Hedge Funds</h4>
-            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5">Les actions ou <strong>le plus de hedge funds convergent</strong> (position ≥ 0,3% du portefeuille). Les ★ conviction = pari actif, pas de l'indexation passive BlackRock/Vanguard.</p>
-            <div style="margin-top:12px;font-size:12px;color:#74b9ff">Voir le consensus →</div>
+            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.consensus_title">Consensus Hedge Funds</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.consensus_desc">Les actions ou <strong>le plus de hedge funds convergent</strong> (position ≥ 0,3% du portefeuille). Les ★ conviction = pari actif, pas de l'indexation passive BlackRock/Vanguard.</p>
+            <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.consensus_cta">Voir le consensus →</div>
+          </div>
+
+          <div onclick="switchSection('screener')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:4px;font-size:10px;color:#3B82F6;font-weight:700;letter-spacing:0.5px">NEW</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🔍</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.screener_title">Screener Avancé</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.screener_desc">Filtres combinables sur l'historique complet des transactions insider : ticker, période (jusqu'à 5 ans), rôle (CEO/CFO), montant min, source. <strong>Export CSV</strong> des résultats.</p>
+            <div style="margin-top:12px;font-size:12px;color:#3B82F6" data-i18n="dash.home.screener_cta">Lancer une recherche →</div>
+          </div>
+
+          <div onclick="switchSection('topInsiders')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(234,179,8,0.2);border:1px solid rgba(234,179,8,0.4);border-radius:4px;font-size:10px;color:#EAB308;font-weight:700;letter-spacing:0.5px">NEW</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="font-size:32px">🏆</div>
+              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+            </div>
+            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.top_insiders_title">Top Insiders</h4>
+            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.top_insiders_desc">Classement des insiders les plus actifs sur la période. <strong>Medailles 🥇🥈🥉</strong> sur le top 3 par volume d'achats ou ventes. Click pour voir leurs transactions détaillées.</p>
+            <div style="margin-top:12px;font-size:12px;color:#EAB308" data-i18n="dash.home.top_insiders_cta">Voir le classement →</div>
           </div>
 
           <div onclick="switchSection('insider')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">

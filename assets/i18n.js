@@ -282,6 +282,21 @@
       'dash.sidebar.indicators': 'Indicateurs',
       'dash.sidebar.fear_greed': 'Fear & Greed',
       'dash.sidebar.shorts': 'Short Interest',
+      'dash.sidebar.watchlist': 'Ma Watchlist',
+      'dash.sidebar.screener': 'Screener Avance',
+      'dash.sidebar.top_insiders': 'Top Insiders',
+      'dash.sidebar.admin': 'Tableau de bord',
+
+      // ==== Home cards ====
+      'dash.home.consensus_title': 'Consensus Hedge Funds',
+      'dash.home.consensus_desc': 'Les actions ou <strong>le plus de hedge funds convergent</strong> (position >= 0,3% du portefeuille). Les etoiles conviction = pari actif, pas de l\'indexation passive BlackRock/Vanguard.',
+      'dash.home.consensus_cta': 'Voir le consensus →',
+      'dash.home.screener_title': 'Screener Avance',
+      'dash.home.screener_desc': 'Filtres combinables sur l\'historique complet des transactions insider : ticker, periode (jusqu\'a 5 ans), role (CEO/CFO), montant min, source. <strong>Export CSV</strong> des resultats.',
+      'dash.home.screener_cta': 'Lancer une recherche →',
+      'dash.home.top_insiders_title': 'Top Insiders',
+      'dash.home.top_insiders_desc': 'Classement des insiders les plus actifs sur la periode. <strong>Medailles 🥇🥈🥉</strong> sur le top 3 par volume d\'achats ou ventes. Click pour voir leurs transactions detaillees.',
+      'dash.home.top_insiders_cta': 'Voir le classement →',
 
       // ==== TX TYPES (legacy compat avec dashboard.html) ====
       'tx.buy': 'Achat',
@@ -543,6 +558,21 @@
       'dash.sidebar.indicators': 'Indicators',
       'dash.sidebar.fear_greed': 'Fear & Greed',
       'dash.sidebar.shorts': 'Short Interest',
+      'dash.sidebar.watchlist': 'My Watchlist',
+      'dash.sidebar.screener': 'Advanced Screener',
+      'dash.sidebar.top_insiders': 'Top Insiders',
+      'dash.sidebar.admin': 'Dashboard',
+
+      // ==== Home cards ====
+      'dash.home.consensus_title': 'Hedge Funds Consensus',
+      'dash.home.consensus_desc': 'Stocks where <strong>the most hedge funds converge</strong> (position >= 0.3% of portfolio). Conviction stars = active bets, not passive BlackRock/Vanguard indexing.',
+      'dash.home.consensus_cta': 'See the consensus →',
+      'dash.home.screener_title': 'Advanced Screener',
+      'dash.home.screener_desc': 'Combinable filters on the full insider transactions history: ticker, period (up to 5 years), role (CEO/CFO), min amount, source. <strong>CSV export</strong> of results.',
+      'dash.home.screener_cta': 'Run a search →',
+      'dash.home.top_insiders_title': 'Top Insiders',
+      'dash.home.top_insiders_desc': 'Ranking of most active insiders over the period. <strong>Medals 🥇🥈🥉</strong> on the top 3 by buy or sell volume. Click to see their detailed transactions.',
+      'dash.home.top_insiders_cta': 'See the ranking →',
 
       'tx.buy': 'Buy',
       'tx.sell': 'Sell',
