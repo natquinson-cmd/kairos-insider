@@ -78,6 +78,10 @@ jobs:
             wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-all-funds" --path=funds_data.json
             echo "13F data uploaded"
           fi
+          if [ -f 13f_ticker_index.json ]; then
+            wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-ticker-index" --path=13f_ticker_index.json
+            echo "13F ticker index uploaded"
+          fi
         continue-on-error: true
 
       # ===== TRANSACTIONS + CLUSTERS (unifie, tous les jours) =====

@@ -5,7 +5,7 @@ Compare le trimestre actuel vs le precedent pour calculer :
   - Variation de chaque position (en % de shares)
 Resultat : un fichier funds_data.json a uploader dans Cloudflare KV.
 """
-import json, re, time, urllib.request
+import json, re, time, urllib.request, os
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 
@@ -295,9 +295,12 @@ for cik, name, label, category in FUNDS:
                 'value': holding_value(h, prev_raw_sum),
             }
 
-    # Top 50 positions avec variation (etoffe pour Smart Money Consensus + activite)
-    top_holdings = []
-    for h in holdings_current[:50]:
+    # Calcule les metadonnees pour TOUTES les positions (pas seulement top 50).
+    # - top_holdings (top 50) : utilise pour l'affichage dans les sections 13F / Consensus
+    # - all_holdings_meta : utilise pour construire l'index inverse (Analyse Action : "quels
+    #   hedge funds detiennent ce titre ?") — necessaire pour les positions hors top 50.
+    all_holdings_meta = []
+    for h in holdings_current:
         h_val = holding_value(h, raw_sum)
         pct = round((h_val / total_value) * 1000) / 10 if total_value > 0 else 0
 
@@ -320,7 +323,7 @@ for cik, name, label, category in FUNDS:
         else:
             status = 'new'
 
-        top_holdings.append({
+        all_holdings_meta.append({
             'name': h['name'],
             'cusip': h['cusip'],
             'shares': h['shares'],
@@ -329,6 +332,9 @@ for cik, name, label, category in FUNDS:
             'sharesChange': shares_change,
             'status': status,
         })
+
+    # Top 50 pour l'affichage (Smart Money Consensus + activite)
+    top_holdings = all_holdings_meta[:50]
 
     fund_data = {
         'fundName': fund_name,
@@ -346,6 +352,9 @@ for cik, name, label, category in FUNDS:
         'perfAnnual': perf_annual,
         'holdingsCount': len(holdings_current),
         'topHoldings': top_holdings,
+        # _allHoldings : utilise uniquement pour construire l'index inverse (pas expose dans le KV funds).
+        # Stocke dans le fund_data temporairement, puis retire avant sauvegarde de funds_data.json.
+        '_allHoldings': all_holdings_meta,
     }
 
     all_funds.append(fund_data)
@@ -358,6 +367,67 @@ for cik, name, label, category in FUNDS:
 
 all_funds.sort(key=lambda f: f['totalValue'], reverse=True)
 
+# ============================================================
+# INDEX INVERSE : {normalized_company_name: [{fund, holding info}]}
+# Construit a partir de toutes les positions (pas seulement le top 50).
+# Utilise par /api/stock/{ticker} pour l'onglet Analyse Action afin de
+# savoir QUELS fonds detiennent ce titre — y compris les petites positions
+# (hors top 50 du portefeuille du fonds).
+# ============================================================
+def normalize_company_name_py(name):
+    """Doit matcher normalizeCompanyName() cote Worker (stock-api.js)."""
+    if not name:
+        return ''
+    s = str(name).upper()
+    s = re.sub(r'[.,]', ' ', s)
+    s = re.sub(r'\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A)\b', '', s)
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip()
+
+
+print(f'\n=== Building inverted index (name -> funds) ===')
+ticker_index = {}  # normalized_name -> [{fund info}]
+total_positions = 0
+for fund in all_funds:
+    all_hold = fund.pop('_allHoldings', [])  # on retire la cle avant save
+    total_positions += len(all_hold)
+    for h in all_hold:
+        key = normalize_company_name_py(h.get('name'))
+        if not key:
+            continue
+        if key not in ticker_index:
+            ticker_index[key] = []
+        ticker_index[key].append({
+            'fundName': fund.get('fundName'),
+            'cik': fund.get('cik'),
+            'label': fund.get('label'),
+            'category': fund.get('category'),
+            'shares': h.get('shares'),
+            'value': h.get('value'),
+            'pct': h.get('pct'),
+            'sharesChange': h.get('sharesChange'),
+            'status': h.get('status'),
+            'reportDate': fund.get('reportDate'),
+            'companyName': h.get('name'),
+            'cusip': h.get('cusip'),
+        })
+
+# Tri par value DESC par ticker (affichage coherent)
+for key in ticker_index:
+    ticker_index[key].sort(key=lambda f: (f.get('value') or 0), reverse=True)
+
+print(f'  Total positions indexees : {total_positions}')
+print(f'  Tickers uniques : {len(ticker_index)}')
+
+# Sauvegarde de l'index dans un fichier separe
+index_file = '13f_ticker_index.json'
+with open(index_file, 'w') as f:
+    json.dump(ticker_index, f)
+print(f'  Sauvegarde : {index_file} ({os.path.getsize(index_file):,} bytes)')
+
+# ============================================================
+# SAUVEGARDE funds_data.json (sans _allHoldings)
+# ============================================================
 output_file = 'funds_data.json'
 with open(output_file, 'w') as f:
     json.dump(all_funds, f)
@@ -372,6 +442,6 @@ for i, fund in enumerate(all_funds[:5]):
 # Log last-run vers KV pour le tableau de bord admin (best-effort)
 try:
     from kv_lastrun import log_last_run
-    log_last_run('prefetch-13f', summary=f'{len(all_funds)} hedge funds')
+    log_last_run('prefetch-13f', summary=f'{len(all_funds)} hedge funds, {total_positions} positions, {len(ticker_index)} tickers indexes')
 except Exception as _e:
     print(f'[lastRun] {_e}')

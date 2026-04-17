@@ -899,37 +899,83 @@ function normalizeCompanyName(name) {
 async function aggregate13F(ticker, env, companyName) {
   const result = { topFunds: [], fundCount: 0, totalShares: 0, totalValue: 0, avgDeltaPct: 0 };
   try {
-    const data = await env.CACHE.get('13f-all-funds', 'json');
-    if (!data) return result;
-
-    // Format attendu : array de funds avec fund.topHoldings = [{ name, cusip, shares, value, pct, sharesChange, status }]
-    const funds = Array.isArray(data) ? data : (data.funds || Object.entries(data).map(([name, f]) => ({ fundName: name, ...f })));
     const normalizedTarget = normalizeCompanyName(companyName);
     if (!normalizedTarget) return result;
 
-    const matches = [];
-    for (const fund of funds) {
-      const holdings = fund.topHoldings || fund.holdings || fund.positions || [];
-      for (const h of holdings) {
-        const hName = normalizeCompanyName(h.name || h.company || '');
-        if (!hName) continue;
-        // Match exact OU l'un commence par l'autre (ex. "APPLE" vs "APPLE")
-        const isMatch = hName === normalizedTarget
-          || hName.startsWith(normalizedTarget + ' ')
-          || normalizedTarget.startsWith(hName + ' ');
-        if (isMatch) {
-          matches.push({
-            fundName: fund.fundName || fund.name || fund.manager || fund.label,
-            label: fund.label,
-            category: fund.category,
-            shares: Number(h.shares) || 0,
-            value: Number(h.value) || 0,
-            pctOfPortfolio: Number(h.pct || h.pctOfPortfolio || h.percentage) || 0,
-            deltaPct: Number(h.sharesChange || h.deltaPct || h.change) || 0,
-            status: h.status || null,
-            reportDate: fund.reportDate,
-          });
-          break;
+    // ============================================================
+    // STRATEGIE 1 : index inverse construit au pipeline time (TOUTES les positions)
+    // Permet de trouver meme les small positions (hors top 50 d'un fonds).
+    // Build du index : prefetch-13f.py -> KV '13f-ticker-index'
+    // ============================================================
+    const index = await env.CACHE.get('13f-ticker-index', 'json');
+    let matches = [];
+    let indexUsed = false;
+
+    if (index && typeof index === 'object') {
+      indexUsed = true;
+      // Match exact d'abord
+      let entries = index[normalizedTarget] || null;
+      // Fallback : match par prefixe (ex. "APPLE" cherche "APPLE" dans les cles)
+      if (!entries) {
+        const candidateKeys = Object.keys(index).filter(k =>
+          k === normalizedTarget ||
+          k.startsWith(normalizedTarget + ' ') ||
+          normalizedTarget.startsWith(k + ' ')
+        );
+        if (candidateKeys.length) {
+          entries = [];
+          for (const k of candidateKeys) {
+            entries = entries.concat(index[k] || []);
+          }
+        }
+      }
+      if (entries && entries.length) {
+        matches = entries.map(h => ({
+          fundName: h.fundName || h.name || h.companyName || '',
+          label: h.label,
+          category: h.category,
+          shares: Number(h.shares) || 0,
+          value: Number(h.value) || 0,
+          pctOfPortfolio: Number(h.pct || h.pctOfPortfolio || h.percentage) || 0,
+          deltaPct: Number(h.sharesChange || h.deltaPct || h.change) || 0,
+          status: h.status || null,
+          reportDate: h.reportDate,
+        }));
+      }
+    }
+
+    // ============================================================
+    // STRATEGIE 2 (fallback) : si l'index n'est pas encore construit
+    // (ex. avant le premier run du pipeline apres deploy), on retombe
+    // sur le scan des topHoldings top 50 (comportement historique).
+    // ============================================================
+    if (!indexUsed || matches.length === 0) {
+      const data = await env.CACHE.get('13f-all-funds', 'json');
+      if (data) {
+        const funds = Array.isArray(data) ? data : (data.funds || Object.entries(data).map(([name, f]) => ({ fundName: name, ...f })));
+        for (const fund of funds) {
+          const holdings = fund.topHoldings || fund.holdings || fund.positions || [];
+          for (const h of holdings) {
+            const hName = normalizeCompanyName(h.name || h.company || '');
+            if (!hName) continue;
+            const isMatch = hName === normalizedTarget
+              || hName.startsWith(normalizedTarget + ' ')
+              || normalizedTarget.startsWith(hName + ' ');
+            if (isMatch) {
+              matches.push({
+                fundName: fund.fundName || fund.name || fund.manager || fund.label,
+                label: fund.label,
+                category: fund.category,
+                shares: Number(h.shares) || 0,
+                value: Number(h.value) || 0,
+                pctOfPortfolio: Number(h.pct || h.pctOfPortfolio || h.percentage) || 0,
+                deltaPct: Number(h.sharesChange || h.deltaPct || h.change) || 0,
+                status: h.status || null,
+                reportDate: fund.reportDate,
+              });
+              break;
+            }
+          }
         }
       }
     }
@@ -941,6 +987,7 @@ async function aggregate13F(ticker, env, companyName) {
     result.totalValue = matches.reduce((s, m) => s + (m.value || 0), 0);
     const deltas = matches.map(m => m.deltaPct).filter(d => Number.isFinite(d) && d !== 0);
     result.avgDeltaPct = deltas.length > 0 ? (deltas.reduce((s, d) => s + d, 0) / deltas.length) : 0;
+    result._source = indexUsed ? 'ticker-index' : 'top-holdings-scan';
   } catch (e) {
     console.error('aggregate13F error:', e.message || e);
   }
