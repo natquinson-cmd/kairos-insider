@@ -358,6 +358,20 @@ async function handleApiRoute(path, url, env, origin) {
     return handleHistoryInsiderTop(url, env, origin);
   }
 
+  // 13D/G Schedule filings (activists + large shareholders >5%)
+  // - /api/13dg/recent          -> tous les filings recents (30j)
+  // - /api/13dg/ticker?ticker=X -> filings sur un ticker specifique
+  // - /api/13dg/activists       -> filings activists uniquement (filtres)
+  if (path === '/api/13dg/recent') {
+    return handleScheduleDGRecent(url, env, origin);
+  }
+  if (path === '/api/13dg/ticker') {
+    return handleScheduleDGTicker(url, env, origin);
+  }
+  if (path === '/api/13dg/activists') {
+    return handleScheduleDGActivists(url, env, origin);
+  }
+
   // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
   if (path === '/api/trends-hot') {
     const data = await env.CACHE.get('google-trends-hot', 'json');
@@ -2654,6 +2668,89 @@ async function handleAdminJobs(env, origin) {
   } catch (e) {
     return jsonResponse({ error: 'Failed to list jobs', detail: String(e && e.message || e) }, 500, origin);
   }
+}
+
+// ============================================================
+// 13D / 13G Schedule filings (>5% stakes & activist signals)
+// ============================================================
+// GET /api/13dg/recent?days=30&activistOnly=0
+// Retourne les filings recents (max 300 items). Filtrable par periode + activists-only.
+async function handleScheduleDGRecent(url, env, origin) {
+  const data = await env.CACHE.get('13dg-recent', 'json');
+  if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
+
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
+  const activistOnly = url.searchParams.get('activistOnly') === '1';
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100', 10), 1), 500);
+
+  const cutoff = new Date(Date.now() - days * 86400 * 1000).toISOString().slice(0, 10);
+  let filings = (data.filings || []).filter(f => (f.fileDate || '') >= cutoff);
+  if (activistOnly) filings = filings.filter(f => f.isActivist);
+  const total = filings.length;
+  filings = filings.slice(0, limit);
+
+  return jsonResponse({
+    updatedAt: data.updatedAt,
+    lookbackDays: days,
+    activistOnly,
+    total,
+    activistsCount: filings.filter(f => f.isActivist).length,
+    filings,
+  }, 200, origin);
+}
+
+// GET /api/13dg/ticker?ticker=AAPL
+// Retourne tous les filings recents sur un ticker precis.
+async function handleScheduleDGTicker(url, env, origin) {
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
+  const data = await env.CACHE.get('13dg-recent', 'json');
+  if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
+
+  const filings = (data.filings || []).filter(f => (f.ticker || '').toUpperCase() === ticker);
+  return jsonResponse({
+    ticker,
+    updatedAt: data.updatedAt,
+    total: filings.length,
+    activistsCount: filings.filter(f => f.isActivist).length,
+    hasActivist: filings.some(f => f.isActivist),
+    mostRecent: filings[0] || null,
+    filings,
+  }, 200, origin);
+}
+
+// GET /api/13dg/activists?days=30
+// Retourne uniquement les filings activists sur la periode, agrege par filer.
+async function handleScheduleDGActivists(url, env, origin) {
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
+  const data = await env.CACHE.get('13dg-recent', 'json');
+  if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
+
+  const cutoff = new Date(Date.now() - days * 86400 * 1000).toISOString().slice(0, 10);
+  const activistFilings = (data.filings || []).filter(f =>
+    f.isActivist && (f.fileDate || '') >= cutoff
+  );
+
+  // Agrege par filer pour afficher "Elliott x5, Ackman x2..."
+  const byFiler = {};
+  for (const f of activistFilings) {
+    const key = f.activistLabel || f.filerName || 'Unknown';
+    if (!byFiler[key]) byFiler[key] = { label: key, count: 0, tickers: [], filings: [] };
+    byFiler[key].count++;
+    if (f.ticker && !byFiler[key].tickers.includes(f.ticker)) {
+      byFiler[key].tickers.push(f.ticker);
+    }
+    byFiler[key].filings.push(f);
+  }
+  const aggregated = Object.values(byFiler).sort((a, b) => b.count - a.count);
+
+  return jsonResponse({
+    updatedAt: data.updatedAt,
+    lookbackDays: days,
+    total: activistFilings.length,
+    byFiler: aggregated,
+    filings: activistFilings.slice(0, 100),
+  }, 200, origin);
 }
 
 // GET /api/admin/db-stats
