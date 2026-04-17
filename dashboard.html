@@ -3927,6 +3927,53 @@
       const sc = score.total || 0;
       const scoreColor = sc >= 75 ? '#2ecc71' : sc >= 60 ? '#52b788' : sc >= 40 ? '#f39c12' : sc >= 25 ? '#e67e22' : '#e74c3c';
 
+      // ============================================================
+      // DETECTION DE COUVERTURE LIMITEE
+      // Certains tickers (small caps EU regionales, ADRs obscurs) ne sont pas
+      // couverts par Alpha Vantage / SEC 13F / Google Trends.
+      // On construit un rapport de couverture pour l'utilisateur.
+      // ============================================================
+      const coverage = {
+        price: !!(price.current || price.last || price.close),
+        fundamentals: !!(fund.marketCap || fund.peRatio || fund.eps),
+        insider: (insiders.transactions && insiders.transactions.length > 0) || (insiders.buyCount || 0) + (insiders.sellCount || 0) > 0,
+        hedgeFunds: (sm.fundCount || 0) > 0,
+        etf: (gov.inEtfs && gov.inEtfs.length > 0),
+        trends: !!trends,
+        news: news.length > 0,
+        consensus: !!(consensus && consensus.targetMean),
+      };
+      const coverageCount = Object.values(coverage).filter(Boolean).length;
+      const isSparse = coverageCount <= 2 && !coverage.price && !coverage.fundamentals;
+
+      const coverageBanner = isSparse ? `
+        <div style="padding:16px 20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1px solid rgba(245,158,11,0.25);border-radius:12px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
+          <div style="font-size:22px;flex-shrink:0">ℹ️</div>
+          <div style="flex:1">
+            <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">Couverture de donnees limitee pour ce ticker</div>
+            <div style="font-size:13px;opacity:0.85;line-height:1.5;margin-bottom:8px">
+              Ce titre est probablement une <strong>small cap europeenne regionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases de donnees gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.
+            </div>
+            <div style="font-size:12px;opacity:0.8">
+              <strong>Disponible :</strong>
+              ${coverage.insider ? '<span style="color:#10B981;margin-right:10px">✅ Transactions insider (BaFin/AMF)</span>' : ''}
+              ${coverage.price ? '<span style="color:#10B981;margin-right:10px">✅ Prix</span>' : ''}
+              ${coverage.fundamentals ? '<span style="color:#10B981;margin-right:10px">✅ Fondamentaux</span>' : ''}
+              ${coverage.hedgeFunds ? '<span style="color:#10B981;margin-right:10px">✅ Hedge funds</span>' : ''}
+              ${coverage.news ? '<span style="color:#10B981;margin-right:10px">✅ News</span>' : ''}
+              <br>
+              <strong>Non disponible :</strong>
+              ${!coverage.price ? '<span style="color:var(--text-muted);margin-right:10px">❌ Prix temps reel</span>' : ''}
+              ${!coverage.fundamentals ? '<span style="color:var(--text-muted);margin-right:10px">❌ Fondamentaux / ratios</span>' : ''}
+              ${!coverage.hedgeFunds ? '<span style="color:var(--text-muted);margin-right:10px">❌ Hedge funds 13F (US only)</span>' : ''}
+              ${!coverage.etf ? '<span style="color:var(--text-muted);margin-right:10px">❌ ETF politiciens (US only)</span>' : ''}
+              ${!coverage.news ? '<span style="color:var(--text-muted);margin-right:10px">❌ News / analystes</span>' : ''}
+              ${!coverage.trends ? '<span style="color:var(--text-muted);margin-right:10px">❌ Google Trends</span>' : ''}
+            </div>
+          </div>
+        </div>
+      ` : '';
+
       // Helpers pour les variations (jour / YTD / 1 an)
       const ytdPct = price.changeYtdPct;
       const y1Pct = price.change1yPct;
@@ -3938,6 +3985,7 @@
       const infoRow = (label, value) => value ? `<div style="font-size:12px"><span style="opacity:0.55">${label} :</span> <strong style="opacity:0.95">${value}</strong></div>` : '';
 
       body.innerHTML = `
+        ${coverageBanner}
         <!-- HERO -->
         <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:24px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:14px;margin-bottom:24px">
           <div style="flex:1;min-width:280px">
