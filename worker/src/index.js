@@ -1701,10 +1701,51 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;ba
 .section ul{list-style:none;margin-top:12px}
 .section li{padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:14px;color:#D1D5DB}
 .section li:last-child{border-bottom:none}
-.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px}
-.info-item{padding:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);border-radius:10px}
-.info-label{font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px}
-.info-value{font-size:15px;font-weight:600;margin-top:4px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px}
+.info-item{padding:16px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);border-radius:12px;position:relative;overflow:hidden;transition:transform 0.15s,border-color 0.15s}
+.info-item:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.12)}
+.info-icon{width:32px;height:32px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:10px}
+.info-label{font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.08em;font-weight:600}
+.info-value{font-size:16px;font-weight:700;margin-top:4px;letter-spacing:-0.2px}
+/* Color variants pour les info cards */
+.info-item.c-blue .info-icon{background:rgba(59,130,246,0.18);color:#60A5FA}
+.info-item.c-blue .info-value{color:#DBEAFE}
+.info-item.c-green .info-icon{background:rgba(16,185,129,0.18);color:#34D399}
+.info-item.c-green .info-value{color:#D1FAE5}
+.info-item.c-purple .info-icon{background:rgba(139,92,246,0.18);color:#A78BFA}
+.info-item.c-purple .info-value{color:#EDE9FE}
+.info-item.c-orange .info-icon{background:rgba(245,158,11,0.18);color:#FBBF24}
+.info-item.c-orange .info-value{color:#FEF3C7}
+.info-item.c-pink .info-icon{background:rgba(236,72,153,0.18);color:#F472B6}
+.info-item.c-pink .info-value{color:#FCE7F3}
+.info-item.c-cyan .info-icon{background:rgba(6,182,212,0.18);color:#22D3EE}
+.info-item.c-cyan .info-value{color:#CFFAFE}
+.info-item.c-teal .info-icon{background:rgba(20,184,166,0.18);color:#2DD4BF}
+.info-item.c-teal .info-value{color:#CCFBF1}
+.info-item.c-indigo .info-icon{background:rgba(99,102,241,0.18);color:#818CF8}
+.info-item.c-indigo .info-value{color:#E0E7FF}
+
+/* Insider transactions list — plus visuel, avec badges colores */
+.insider-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.insider-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:linear-gradient(90deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);border-radius:10px;transition:border-color 0.15s}
+.insider-row:hover{border-color:rgba(255,255,255,0.14)}
+.insider-avatar{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;letter-spacing:-0.3px}
+.insider-avatar.buy{background:linear-gradient(135deg,#10B981,#059669);box-shadow:0 0 12px rgba(16,185,129,0.35)}
+.insider-avatar.sell{background:linear-gradient(135deg,#EF4444,#DC2626);box-shadow:0 0 12px rgba(239,68,68,0.35)}
+.insider-avatar.other{background:linear-gradient(135deg,#6B7280,#4B5563)}
+.insider-info{flex:1;min-width:0}
+.insider-name{font-size:14px;font-weight:700;color:#F9FAFB;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insider-meta{font-size:11px;color:#9CA3AF}
+.insider-badge{padding:5px 11px;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.03em;flex-shrink:0}
+.insider-badge.buy{background:rgba(16,185,129,0.15);color:#34D399;border:1px solid rgba(16,185,129,0.35)}
+.insider-badge.sell{background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.35)}
+.insider-badge.other{background:rgba(107,114,128,0.15);color:#9CA3AF;border:1px solid rgba(107,114,128,0.35)}
+
+/* Funds list — style similar but teal tone */
+.funds-list{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.fund-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(20,184,166,0.05);border:1px solid rgba(20,184,166,0.15);border-radius:10px;font-size:13px;color:#D1D5DB}
+.fund-row::before{content:"🏦";font-size:14px}
+.fund-row strong{color:#2DD4BF;font-weight:600}
 /* Feature grid : 6 cards "teaser" suggerant la richesse de la plateforme */
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:20px}
 .feature-card{padding:22px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.08);border-radius:14px;position:relative;overflow:hidden;transition:transform 0.18s,border-color 0.18s}
@@ -1807,27 +1848,57 @@ footer a{color:#9CA3AF;text-decoration:none}
   <div class="section">
     <h2>${ssrT(lang, 'key_info')}</h2>
     <div class="info-grid">
-      ${data.company?.ceo ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_ceo')}</div><div class="info-value">${escHtmlSsr(data.company.ceo)}</div></div>` : ''}
-      ${data.company?.founded ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_founded')}</div><div class="info-value">${escHtmlSsr(data.company.founded)}</div></div>` : ''}
-      ${data.company?.headquarters ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_hq')}</div><div class="info-value">${escHtmlSsr(data.company.headquarters)}</div></div>` : ''}
-      ${data.company?.employees ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_employees')}</div><div class="info-value">${fmtIntSsr(data.company.employees)}</div></div>` : ''}
-      ${marketCap ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_marketcap')}</div><div class="info-value">${fmtCurrSsr(marketCap, currency)}</div></div>` : ''}
-      ${pe ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_pe')}</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : escHtmlSsr(pe)}</div></div>` : ''}
-      ${dividendYield ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_div')}</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : escHtmlSsr(dividendYield)}</div></div>` : ''}
-      ${data.company?.ipoDate ? `<div class="info-item"><div class="info-label">${ssrT(lang, 'info_ipo')}</div><div class="info-value">${escHtmlSsr(data.company.ipoDate)}</div></div>` : ''}
+      ${data.company?.ceo ? `<div class="info-item c-purple"><div class="info-icon">👔</div><div class="info-label">${ssrT(lang, 'info_ceo')}</div><div class="info-value">${escHtmlSsr(data.company.ceo)}</div></div>` : ''}
+      ${data.company?.founded ? `<div class="info-item c-cyan"><div class="info-icon">🎂</div><div class="info-label">${ssrT(lang, 'info_founded')}</div><div class="info-value">${escHtmlSsr(data.company.founded)}</div></div>` : ''}
+      ${data.company?.headquarters ? `<div class="info-item c-indigo"><div class="info-icon">📍</div><div class="info-label">${ssrT(lang, 'info_hq')}</div><div class="info-value">${escHtmlSsr(data.company.headquarters)}</div></div>` : ''}
+      ${data.company?.employees ? `<div class="info-item c-teal"><div class="info-icon">👥</div><div class="info-label">${ssrT(lang, 'info_employees')}</div><div class="info-value">${fmtIntSsr(data.company.employees)}</div></div>` : ''}
+      ${marketCap ? `<div class="info-item c-blue"><div class="info-icon">💰</div><div class="info-label">${ssrT(lang, 'info_marketcap')}</div><div class="info-value">${fmtCurrSsr(marketCap, currency)}</div></div>` : ''}
+      ${pe ? `<div class="info-item c-orange"><div class="info-icon">📊</div><div class="info-label">${ssrT(lang, 'info_pe')}</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : escHtmlSsr(pe)}</div></div>` : ''}
+      ${dividendYield ? `<div class="info-item c-green"><div class="info-icon">💸</div><div class="info-label">${ssrT(lang, 'info_div')}</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : escHtmlSsr(dividendYield)}</div></div>` : ''}
+      ${data.company?.ipoDate ? `<div class="info-item c-pink"><div class="info-icon">🚀</div><div class="info-label">${ssrT(lang, 'info_ipo')}</div><div class="info-value">${escHtmlSsr(data.company.ipoDate)}</div></div>` : ''}
     </div>
   </div>
 
   <div class="section">
     <h2>${ssrT(lang, 'insiders_h2')}</h2>
     <p>${ssrT(lang, 'insiders_p', { total: String(totalInsiderTx), buys: String(insiderBuyCount), name: escHtmlSsr(name) })}</p>
-    ${insiderTeaser ? `<ul>${insiderTeaser}</ul>` : ''}
+    ${(() => {
+      const txs = (data.insiders?.transactions || []).slice(0, 5);
+      if (!txs.length) return '';
+      const rows = txs.map(t => {
+        const isBuy = (t.type === 'P' || t.adType === 'A');
+        const isSell = (t.type === 'S' || t.adType === 'D');
+        const kind = isBuy ? 'buy' : isSell ? 'sell' : 'other';
+        const label = isBuy ? (lang === 'en' ? 'Buy' : 'Achat') : isSell ? (lang === 'en' ? 'Sell' : 'Vente') : (lang === 'en' ? 'Other' : 'Autre');
+        const name = escHtmlSsr(t.insider || '—');
+        const initials = (t.insider || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('') || '?';
+        const date = t.date ? escHtmlSsr(t.date) : '';
+        const role = t.title ? escHtmlSsr(t.title) : '';
+        const meta = [role, date].filter(Boolean).join(' · ');
+        return `
+          <div class="insider-row">
+            <div class="insider-avatar ${kind}">${escHtmlSsr(initials)}</div>
+            <div class="insider-info">
+              <div class="insider-name">${name}</div>
+              ${meta ? `<div class="insider-meta">${meta}</div>` : ''}
+            </div>
+            <span class="insider-badge ${kind}">${label}</span>
+          </div>
+        `;
+      }).join('');
+      return `<div class="insider-list">${rows}</div>`;
+    })()}
   </div>
 
   <div class="section">
     <h2>${ssrT(lang, 'funds_h2')}</h2>
     <p>${ssrT(lang, 'funds_p', { total: String(totalFunds), ticker: escHtmlSsr(ticker) })}</p>
-    ${fundsTeaser ? `<ul>${fundsTeaser}</ul>` : ''}
+    ${(() => {
+      const funds = (data.smartMoney?.topFunds || []).slice(0, 5);
+      if (!funds.length) return '';
+      const rows = funds.map(f => `<div class="fund-row"><strong>${escHtmlSsr(f.fundName || f.cik || 'Hedge fund')}</strong></div>`).join('');
+      return `<div class="funds-list">${rows}</div>`;
+    })()}
   </div>
 
   ${totalNews > 0 ? `
