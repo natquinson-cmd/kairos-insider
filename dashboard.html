@@ -3726,70 +3726,98 @@
         const body = document.getElementById('stockAnalysisBody');
         if (!body) return;
 
-        // Cherche/cree le slot juste après le hero (le premier div enfant)
+        // Cherche/cree le slot JUSTE APRES le Kairos Score card (pas apres le hero).
         let slot = document.getElementById('activistBannerSlot');
         if (!slot) {
           slot = document.createElement('div');
           slot.id = 'activistBannerSlot';
-          slot.style.cssText = 'margin:18px 0';
-          // Insere après le premier enfant (le hero)
-          const firstChild = body.firstElementChild;
-          if (firstChild && firstChild.nextSibling) {
-            body.insertBefore(slot, firstChild.nextSibling);
+          slot.style.cssText = 'margin:0 0 24px';
+          const scoreCard = body.querySelector('.kairos-score-card');
+          if (scoreCard) {
+            if (scoreCard.nextSibling) scoreCard.parentNode.insertBefore(slot, scoreCard.nextSibling);
+            else scoreCard.parentNode.appendChild(slot);
           } else {
-            body.appendChild(slot);
+            // Fallback : apres le hero si pas de score card
+            const firstChild = body.firstElementChild;
+            if (firstChild && firstChild.nextSibling) body.insertBefore(slot, firstChild.nextSibling);
+            else body.appendChild(slot);
           }
         }
 
-        const mostRecent = res.mostRecent || res.filings[0];
         const isActivist = res.hasActivist;
         const color = isActivist ? '#F59E0B' : '#10B981';
         const bgGrad = isActivist
-          ? 'linear-gradient(135deg,rgba(245,158,11,0.15),rgba(236,72,153,0.08))'
-          : 'linear-gradient(135deg,rgba(16,185,129,0.1),rgba(59,130,246,0.05))';
-        const borderColor = isActivist ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.25)';
-        const icon = isActivist ? '⚡' : '📋';
+          ? 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(236,72,153,0.06))'
+          : 'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.04))';
+        const borderColor = isActivist ? 'rgba(245,158,11,0.32)' : 'rgba(16,185,129,0.25)';
         const title = isActivist
           ? `⚡ Fonds offensif détecté sur ${escapeHtmlClient(ticker)}`
           : `Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
         const subtitle = isActivist
-          ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · ${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}`
+          ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · <strong style="color:#F59E0B">${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}</strong>`
           : `${res.total} déclaration${res.total > 1 ? 's' : ''} > 5% du capital`;
 
-        const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
-        const formShort = (f) => (f || '').replace('SCHEDULE ', '').substring(0, 8);
-        const top3 = res.filings.slice(0, 3).map(f => `
-          <div style="padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:10px">
-            <span style="font-weight:600;color:#F9FAFB">${escapeHtmlClient(f.filerName || '—')}</span>
-            <span style="color:var(--text-muted);white-space:nowrap">${formShort(f.form)} · ${fmtD(f.fileDate)}</span>
-            ${f.isActivist ? '<span style="padding:2px 6px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:4px;font-size:9px;font-weight:700">ACTIVIST</span>' : ''}
-          </div>
-        `).join('');
+        const fmtLongD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+
+        // Badge de forme en pill colorée (13D/13D-A offensif / 13G/13G-A passif)
+        const formBadgeHtml = (form) => {
+          if (!form) return '';
+          if (/13D\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D/A</span>';
+          if (/13D/.test(form))   return '<span style="padding:3px 10px;background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.35);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D</span>';
+          if (/13G\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(107,114,128,0.15);color:#9CA3AF;border:1px solid rgba(107,114,128,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13G/A</span>';
+          if (/13G/.test(form))   return '<span style="padding:3px 10px;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13G</span>';
+          return `<span style="padding:3px 10px;background:var(--surface-2);color:var(--text-muted);border-radius:100px;font-size:10px">${escapeHtmlClient(form)}</span>`;
+        };
+        // Description lisible de la forme (pour enrichir la ligne)
+        const formDesc = (form) => {
+          if (!form) return '';
+          if (/13D\/A/.test(form)) return 'Mise à jour position offensive';
+          if (/13D/.test(form))   return 'Nouvelle prise offensive >5%';
+          if (/13G\/A/.test(form)) return 'Mise à jour position passive';
+          if (/13G/.test(form))   return 'Nouvelle prise passive >5%';
+          return '';
+        };
+
+        const top3 = res.filings.slice(0, 3).map(f => {
+          const filerName = f.filerName || 'Investisseur non résolu';
+          const initials = (f.filerName || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('') || '?';
+          const avatarBg = f.isActivist
+            ? 'linear-gradient(135deg,#EF4444,#F59E0B)'
+            : 'linear-gradient(135deg,#10B981,#059669)';
+          const activistTag = f.isActivist
+            ? `<span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:100px;font-size:9px;font-weight:700;letter-spacing:0.05em;margin-left:8px;vertical-align:middle">OFFENSIF</span>`
+            : '';
+          return `
+            <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:12px">
+              <div style="width:34px;height:34px;border-radius:50%;background:${avatarBg};color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.3px;box-shadow:0 0 12px ${f.isActivist ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}">${escapeHtmlClient(initials)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;color:#F9FAFB;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtmlClient(filerName)}">${escapeHtmlClient(filerName)}${activistTag}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${formDesc(f.form)} · ${fmtLongD(f.fileDate)}</div>
+              </div>
+              <div style="flex-shrink:0">${formBadgeHtml(f.form)}</div>
+            </div>
+          `;
+        }).join('');
 
         slot.innerHTML = `
           <div style="padding:18px 20px;background:${bgGrad};border:1px solid ${borderColor};border-radius:12px">
-            <div style="display:flex;gap:14px;align-items:flex-start">
-              <div style="font-size:24px;flex-shrink:0">${icon}</div>
-              <div style="flex:1">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">
-                  <strong style="color:${color};font-size:14px">${title}</strong>
-                  <span style="font-size:11px;color:var(--text-muted)">${subtitle}</span>
-                </div>
-                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
-                  ${isActivist
-                    ? 'Un <strong>fonds offensif</strong> (activist investor) detient >5% du capital et va pousser pour des changements : vente de division, remplacement du CEO, rachats d\'actions... Ces catalyseurs font souvent monter le cours.'
-                    : 'Des gros investisseurs institutionnels (type Vanguard, BlackRock) detiennent >5% du capital en déclaration passive (13G).'}
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px">
-                  ${top3}
-                </div>
-                ${res.total > 3 ? `<div style="margin-top:10px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;text-decoration:none">Voir les ${res.total} déclarations →</a></div>` : ''}
-              </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+              <strong style="color:${color};font-size:15px">${title}</strong>
+              <span style="font-size:12px;color:var(--text-muted)">${subtitle}</span>
             </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+              ${isActivist
+                ? 'Un <strong>fonds offensif</strong> (activist investor) détient >5% du capital et va pousser pour des changements stratégiques. Ces catalyseurs font souvent monter le cours à court-moyen terme.'
+                : 'Gros investisseurs institutionnels détenant >5% du capital en déclaration passive (type Vanguard, BlackRock).'}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${top3}
+            </div>
+            ${res.total > 3 ? `<div style="margin-top:12px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;font-weight:600;text-decoration:none">Voir les ${res.total} déclarations →</a></div>` : ''}
           </div>
         `;
       } catch (e) {
-        // silent fail - donnee 13dg peut ne pas etre encore loaded en KV
+        // silent fail - donnees 13dg peuvent ne pas etre encore loaded en KV
       }
     }
 
