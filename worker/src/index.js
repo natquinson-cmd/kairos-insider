@@ -2470,7 +2470,7 @@ async function handleAdminTraffic(url, env, origin) {
     // Derniere 24h au granularity 1h
     const startDatetime = new Date(today.getTime() - 24 * 3600 * 1000).toISOString();
     query = {
-      query: `query Traffic($zoneTag: string!, $startDatetime: Time!) {
+      query: `query Traffic($zoneTag: String!, $startDatetime: Time!) {
         viewer {
           zones(filter: { zoneTag: $zoneTag }) {
             httpRequests1hGroups(
@@ -2489,7 +2489,7 @@ async function handleAdminTraffic(url, env, origin) {
     };
   } else {
     query = {
-      query: `query Traffic($zoneTag: string!, $start: Date!, $end: Date!) {
+      query: `query Traffic($zoneTag: String!, $start: Date!, $end: Date!) {
         viewer {
           zones(filter: { zoneTag: $zoneTag }) {
             httpRequests1dGroups(

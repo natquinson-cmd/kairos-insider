@@ -8059,7 +8059,15 @@
       }
 
       if (!trafficRes || trafficRes.error) {
-        body.innerHTML = `<div style="padding:30px;text-align:center;color:var(--accent-red);font-size:13px">Erreur : ${trafficRes?.error || 'pas de donnees'}</div>`;
+        let detail = '';
+        if (trafficRes?.errors && Array.isArray(trafficRes.errors)) {
+          detail = '<div style="margin-top:10px;padding:10px;background:var(--surface-2);border-radius:6px;font-family:monospace;font-size:11px;text-align:left;max-height:160px;overflow-y:auto">' +
+            trafficRes.errors.map(e => `• ${(e.message || JSON.stringify(e)).slice(0, 300)}`).join('<br>') +
+            '</div>';
+        } else if (trafficRes?.detail) {
+          detail = `<div style="margin-top:10px;font-size:11px;color:var(--text-muted);font-family:monospace">${trafficRes.detail.slice(0, 300)}</div>`;
+        }
+        body.innerHTML = `<div style="padding:30px;text-align:center;color:var(--accent-red);font-size:13px">Erreur : ${trafficRes?.error || 'pas de donnees'}${detail}</div>`;
         return;
       }
 
