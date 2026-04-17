@@ -197,6 +197,36 @@
     }
 
     /* ============================================================
+       <details class="explainer-collapsible"> : blocs pedagogiques pliables.
+       Remplace le marker natif par une chevron rotating pour un look propre.
+       ============================================================ */
+    .explainer-collapsible {
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    .explainer-collapsible > summary {
+      position: relative;
+      padding-right: 28px;
+    }
+    .explainer-collapsible > summary::-webkit-details-marker { display: none; }
+    .explainer-collapsible > summary::marker { content: ''; }
+    .explainer-collapsible > summary::after {
+      content: '▸';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%) rotate(0deg);
+      transition: transform 0.2s ease;
+      opacity: 0.5;
+      font-size: 14px;
+    }
+    .explainer-collapsible[open] > summary::after {
+      transform: translateY(-50%) rotate(90deg);
+    }
+    .explainer-collapsible:hover {
+      background-color: color-mix(in srgb, var(--surface-2) 50%, transparent) !important;
+    }
+
+    /* ============================================================
        Form controls : force dark scheme sur les <select> natifs sinon
        le dropdown affiche un popup clair illisible en dark mode.
        color-scheme : indique au navigateur d'utiliser les widgets natifs
@@ -1498,9 +1528,13 @@
         </div>
 
         <!-- GUIDE RAPIDE -->
-        <div style="padding:24px 28px;background:rgba(116,185,255,0.05);border:1px solid rgba(116,185,255,0.15);border-radius:12px">
-          <h3 style="margin:0 0 14px;font-size:16px">💡 Comment lire un signal smart money ?</h3>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-size:13px;line-height:1.6">
+        <details class="explainer-collapsible" style="padding:14px 22px;background:rgba(116,185,255,0.05);border:1px solid rgba(116,185,255,0.15);border-radius:12px;cursor:pointer">
+          <summary style="display:flex;gap:10px;align-items:center;font-size:15px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
+            <span>💡</span>
+            <span>Comment lire un signal smart money ?</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+          </summary>
+          <div style="padding:18px 4px 4px 28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-size:13px;line-height:1.6">
             <div>
               <strong style="color:#74b9ff">1. Cherchez les clusters</strong><br>
               <span style="opacity:0.75">Quand plusieurs dirigeants achètent en même temps, c'est rarement du hasard. Historiquement, les clusters battent le marché de 6-10% / an.</span>
@@ -1514,7 +1548,7 @@
               <span style="opacity:0.75">Notre score composite agrège 8 dimensions (initiés, hedge funds, ETF, momentum, valo, consensus, santé, earnings). Au-delà de 75, c'est un ACHAT FORT.</span>
             </div>
           </div>
-        </div>
+        </details>
       </div>
 
       <!-- ===== SECTION: ANALYSE ACTION (ticker deep-dive) ===== -->
@@ -1788,37 +1822,38 @@
         <h2>⚡ Fonds Offensifs <span style="font-size:16px;color:var(--text-muted);font-weight:400">(Activistes)</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
         <p class="section-desc">Les fonds qui achetent <strong>>5% du capital d'une entreprise pour forcer un changement</strong> (vente d'une division, changement de CEO, rachats d'actions…). Signal quasi-imminent, detecte 35 jours avant les 13F.</p>
 
-        <!-- EXPLAINER PEDAGOGIQUE -->
-        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:20px 22px;margin-bottom:20px">
-          <div style="display:flex;gap:14px;align-items:flex-start">
-            <div style="font-size:24px;flex-shrink:0">🎯</div>
-            <div style="flex:1;font-size:13px;line-height:1.7;color:var(--text-primary)">
-              <div style="font-weight:700;color:#F59E0B;margin-bottom:10px;font-size:14px">Qu'est-ce qu'un fonds offensif ?</div>
-              <p style="margin:0 0 10px;color:var(--text-secondary)">
-                Un <strong>fonds offensif</strong> (<em>"activist investor"</em> en finance anglo-saxonne — rien a voir avec l'activisme politique ou le lobbying) est un hedge fund qui achete une grosse participation dans une societe cotee pour <strong>forcer la direction a faire des changements</strong> : vendre une division, remplacer le CEO, distribuer du cash, proceder a une fusion…
-              </p>
-              <p style="margin:0 0 10px;color:var(--text-secondary)">
-                <strong style="color:#F9FAFB">Pourquoi c'est interessant pour un investisseur ?</strong> Les fonds offensifs ciblent des entreprises <strong>sous-valorisees ou mal gerees</strong>. Quand Carl Icahn a pris une position dans Apple en 2013, Apple a lance $100B de rachats d'actions et le titre a gagne 30%. Idem pour <strong>Bill Ackman</strong> (Pershing Square) chez Chipotle, <strong>Paul Singer</strong> (Elliott) chez SoftBank, <strong>Nelson Peltz</strong> (Trian) chez Disney…
-              </p>
-              <p style="margin:0;color:var(--text-secondary)">
-                Le marche anticipe souvent ces catalyseurs : <strong>detecter un fonds offensif tot = souvent capter une partie de la hausse</strong>.
-              </p>
-            </div>
+        <!-- EXPLAINERS PLIABLES (collapsed par defaut pour ne pas surcharger) -->
+        <details class="explainer-collapsible" style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.04));border:1px solid rgba(245,158,11,0.22);border-radius:12px;padding:12px 20px;margin-bottom:12px;cursor:pointer">
+          <summary style="display:flex;gap:12px;align-items:center;font-weight:600;color:#F59E0B;font-size:14px;list-style:none;outline:none">
+            <span style="font-size:18px">🎯</span>
+            <span>Qu'est-ce qu'un fonds offensif ?</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+          </summary>
+          <div style="padding:14px 4px 4px 32px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+            <p style="margin:0 0 10px">
+              Un <strong>fonds offensif</strong> (<em>"activist investor"</em> en finance anglo-saxonne — rien à voir avec l'activisme politique ou le lobbying) est un hedge fund qui achète une grosse participation dans une société cotée pour <strong>forcer la direction à faire des changements</strong> : vendre une division, remplacer le CEO, distribuer du cash, procéder à une fusion…
+            </p>
+            <p style="margin:0 0 10px">
+              <strong style="color:#F9FAFB">Pourquoi c'est intéressant pour un investisseur ?</strong> Les fonds offensifs ciblent des entreprises <strong>sous-valorisées ou mal gérées</strong>. Quand Carl Icahn a pris une position dans Apple en 2013, Apple a lancé $100B de rachats d'actions et le titre a gagné 30%. Idem pour <strong>Bill Ackman</strong> (Pershing Square) chez Chipotle, <strong>Paul Singer</strong> (Elliott) chez SoftBank, <strong>Nelson Peltz</strong> (Trian) chez Disney…
+            </p>
+            <p style="margin:0">
+              Le marché anticipe souvent ces catalyseurs : <strong>détecter un fonds offensif tôt = souvent capter une partie de la hausse</strong>.
+            </p>
           </div>
-        </div>
+        </details>
 
-        <!-- EXPLAINER TECHNIQUE (formes SEC) -->
-        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:18px 22px;margin-bottom:20px">
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="font-size:22px;flex-shrink:0">📋</div>
-            <div style="flex:1;font-size:13px;line-height:1.7;color:var(--text-primary)">
-              <div style="font-weight:700;color:#74b9ff;margin-bottom:10px;font-size:14px">Les 3 types de déclarations SEC</div>
-              <div style="margin-bottom:8px"><strong style="color:#F59E0B">Schedule 13D</strong> : position <strong>>5% avec intention active</strong> (fonds offensifs, activistes). <span style="color:var(--text-muted)">→ le signal le plus fort.</span></div>
-              <div style="margin-bottom:8px"><strong style="color:#10B981">Schedule 13G</strong> : meme seuil >5% mais <strong>passif</strong> (Vanguard, BlackRock). <span style="color:var(--text-muted)">→ plus neutre.</span></div>
-              <div><strong style="color:var(--text-secondary)">/A (Amendement)</strong> : mise a jour quand la position change de >1%. <span style="color:var(--text-muted)">→ changement de conviction.</span></div>
-            </div>
+        <details class="explainer-collapsible" style="background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.03));border:1px solid rgba(59,130,246,0.18);border-radius:12px;padding:12px 20px;margin-bottom:20px;cursor:pointer">
+          <summary style="display:flex;gap:12px;align-items:center;font-weight:600;color:#74b9ff;font-size:14px;list-style:none;outline:none">
+            <span style="font-size:18px">📋</span>
+            <span>Les 3 types de déclarations SEC (13D, 13G, /A)</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+          </summary>
+          <div style="padding:14px 4px 4px 32px;font-size:13px;line-height:1.7;color:var(--text-primary)">
+            <div style="margin-bottom:8px"><strong style="color:#F59E0B">Schedule 13D</strong> : position <strong>>5% avec intention active</strong> (fonds offensifs, activistes). <span style="color:var(--text-muted)">→ le signal le plus fort.</span></div>
+            <div style="margin-bottom:8px"><strong style="color:#10B981">Schedule 13G</strong> : même seuil >5% mais <strong>passif</strong> (Vanguard, BlackRock). <span style="color:var(--text-muted)">→ plus neutre.</span></div>
+            <div><strong style="color:var(--text-secondary)">/A (Amendement)</strong> : mise à jour quand la position change de >1%. <span style="color:var(--text-muted)">→ changement de conviction.</span></div>
           </div>
-        </div>
+        </details>
 
         <!-- FILTRES -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
@@ -3636,10 +3671,16 @@
             </div>
           ` : ''}
 
-          <div style="margin-top:36px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.7;opacity:0.8">
-            <strong style="color:var(--text-primary)">💡 Comment interpréter ces données ?</strong><br>
-            Google Trends mesure l'intérêt de recherche relatif sur une échelle de 0 à 100 (100 = pic de la période). Un pic soudain d'intérêt précède souvent un mouvement de prix, surtout sur les small caps. Attention : l'intérêt peut aussi résulter d'une news négative — vérifie toujours le contexte avec l'analyse complète.
-          </div>
+          <details class="explainer-collapsible" style="margin-top:24px;padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+            <summary style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
+              <span>💡</span>
+              <span>Comment interpréter ces données ?</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+            </summary>
+            <div style="padding:14px 4px 4px 28px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+              Google Trends mesure l'intérêt de recherche relatif sur une échelle de 0 à 100 (100 = pic de la période). Un pic soudain d'intérêt précède souvent un mouvement de prix, surtout sur les small caps. Attention : l'intérêt peut aussi résulter d'une news négative — vérifie toujours le contexte avec l'analyse complète.
+            </div>
+          </details>
         `;
       } catch (e) {
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
@@ -5416,13 +5457,19 @@
             </div>
           ` : ''}
 
-          <div style="margin-top:32px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;line-height:1.7;opacity:0.8">
-            <strong style="color:var(--text-primary)">💡 Comment lire ces données ?</strong><br>
-            • <strong>Nombre de fonds</strong> (${total} suivis) : combien détiennent la position, même infime. Rassurant car montre que les institutionnels valident le titre.<br>
-            • <span style="color:#2ecc71">★ <strong>Conviction</strong></span> : fonds dont la position représente <strong>≥ 0.3% du portefeuille</strong> (signal fort : ils l'ont choisie activement, ce n'est pas juste de l'indexation passive type BlackRock/Vanguard).<br>
-            • Le tri privilégie les <strong>actions avec plusieurs fonds en conviction simultanément</strong> — c'est le vrai smart money consensus.
-            ${updatedAt ? `<br><span style="opacity:0.5;font-size:11px">Mis à jour : ${updatedAt}</span>` : ''}
-          </div>
+          <details class="explainer-collapsible" style="margin-top:24px;padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+            <summary style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
+              <span>💡</span>
+              <span>Comment lire ces données ?</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+            </summary>
+            <div style="padding:14px 4px 4px 28px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+              • <strong style="color:var(--text-primary)">Nombre de fonds</strong> (${total} suivis) : combien détiennent la position, même infime. Rassurant car montre que les institutionnels valident le titre.<br>
+              • <span style="color:#2ecc71">★ <strong>Conviction</strong></span> : fonds dont la position représente <strong>≥ 0.3% du portefeuille</strong> (signal fort : ils l'ont choisie activement, ce n'est pas juste de l'indexation passive type BlackRock/Vanguard).<br>
+              • Le tri privilégie les <strong>actions avec plusieurs fonds en conviction simultanément</strong> — c'est le vrai smart money consensus.
+              ${updatedAt ? `<br><span style="opacity:0.5;font-size:11px">Mis à jour : ${updatedAt}</span>` : ''}
+            </div>
+          </details>
         `;
       } catch (e) {
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
