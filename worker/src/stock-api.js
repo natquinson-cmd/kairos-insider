@@ -930,16 +930,21 @@ async function aggregate13F(ticker, env, companyName) {
         }
       }
       if (entries && entries.length) {
+        // L'index inverse utilise des noms de champs compacts (n, k, l, v, p, s, c, t, d)
+        // pour economiser ~60% de taille KV. On expand en format complet ici.
+        // Mapping : n=fundName, k=cik, l=label, v=value, p=pct, s=shares,
+        // c=sharesChange, t=status, d=reportDate
         matches = entries.map(h => ({
-          fundName: h.fundName || h.name || h.companyName || '',
-          label: h.label,
-          category: h.category,
-          shares: Number(h.shares) || 0,
-          value: Number(h.value) || 0,
-          pctOfPortfolio: Number(h.pct || h.pctOfPortfolio || h.percentage) || 0,
-          deltaPct: Number(h.sharesChange || h.deltaPct || h.change) || 0,
-          status: h.status || null,
-          reportDate: h.reportDate,
+          fundName: h.n || h.fundName || h.name || h.companyName || '',
+          cik: h.k || h.cik || '',
+          label: h.l || h.label,
+          category: h.category,  // not stored in compact index
+          shares: Number(h.s ?? h.shares) || 0,
+          value: Number(h.v ?? h.value) || 0,
+          pctOfPortfolio: Number(h.p ?? h.pct ?? h.pctOfPortfolio ?? h.percentage) || 0,
+          deltaPct: Number(h.c ?? h.sharesChange ?? h.deltaPct ?? h.change) || 0,
+          status: h.t || h.status || null,
+          reportDate: h.d || h.reportDate,
         }));
       }
     }
