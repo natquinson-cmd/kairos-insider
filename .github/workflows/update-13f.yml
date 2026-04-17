@@ -204,6 +204,20 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
 
+      # Pousse les transactions insiders (SEC Form 4 + BaFin + AMF) vers la DB
+      # historique. Le KV garde un cache rolling 90j pour l'UI rapide,
+      # mais D1 garde TOUT pour Top Insiders ROI, screener avance, etc.
+      # INSERT OR IGNORE evite les doublons : on peut refaire un push sans risque.
+      - name: Push Insider Transactions history to D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python push-insiders-to-d1.py
+        timeout-minutes: 15
+        continue-on-error: true
+
       - name: Summary
         run: |
           cd worker

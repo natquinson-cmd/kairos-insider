@@ -55,3 +55,37 @@ CREATE TABLE IF NOT EXISTS score_history (
   PRIMARY KEY (date, ticker)
 );
 CREATE INDEX IF NOT EXISTS idx_score_ticker_date ON score_history(ticker, date);
+
+-- ============================================================
+-- INSIDER TRANSACTIONS HISTORY (long-terme)
+-- ============================================================
+-- Historique complet des transactions insider (SEC Form 4, BaFin, AMF, FCA).
+-- Le KV `insider-transactions` garde un cache rolling 90j pour l'UI rapide ;
+-- cette table garde tout depuis le backfill pour :
+--   - calcul ROI des insiders (Top Insiders ranking)
+--   - screener avance avec filtres long historique
+--   - analyses long-terme par ticker / secteur
+CREATE TABLE IF NOT EXISTS insider_transactions_history (
+  filing_date TEXT NOT NULL,      -- 'YYYY-MM-DD' date de filing SEC/BaFin/AMF
+  trans_date TEXT,                -- 'YYYY-MM-DD' date de la transaction (peut differer)
+  source TEXT NOT NULL,           -- 'SEC', 'BAFIN', 'AMF', 'FCA'
+  accession TEXT,                 -- ID de filing (ADSH pour SEC, unique)
+  cik TEXT,                       -- CIK entreprise (SEC)
+  ticker TEXT,                    -- ticker (peut etre NULL pour EU non-resolus)
+  company TEXT,
+  insider TEXT NOT NULL,          -- nom du declarant
+  title TEXT,                     -- role (CEO, CFO, Director, 10% owner...)
+  trans_type TEXT NOT NULL,       -- 'buy' | 'sell' | 'other' | 'option-exercise'
+  shares INTEGER,
+  price REAL,
+  value REAL,                     -- shares * price en devise d'origine
+  shares_after INTEGER,           -- holdings post-transaction
+  line_num INTEGER DEFAULT 0,     -- index dans le filing (plusieurs tx possibles)
+  PRIMARY KEY (source, accession, cik, insider, trans_date, trans_type, line_num)
+);
+CREATE INDEX IF NOT EXISTS idx_insider_ticker_date ON insider_transactions_history(ticker, filing_date);
+CREATE INDEX IF NOT EXISTS idx_insider_insider_date ON insider_transactions_history(insider, filing_date);
+CREATE INDEX IF NOT EXISTS idx_insider_source_date ON insider_transactions_history(source, filing_date);
+CREATE INDEX IF NOT EXISTS idx_insider_filing_date ON insider_transactions_history(filing_date);
+CREATE INDEX IF NOT EXISTS idx_insider_trans_type ON insider_transactions_history(trans_type, filing_date);
+CREATE INDEX IF NOT EXISTS idx_insider_cik_date ON insider_transactions_history(cik, filing_date);

@@ -289,6 +289,9 @@ async function handleApiRoute(path, url, env, origin) {
   // - /api/history/score?ticker=AAPL  -> evolution Kairos Score 90j
   // - /api/history/etf?ticker=NVDA    -> evolution dans les ETF (qui detient quand)
   // - /api/history/fund?cik=0001067983&ticker=AAPL -> evolution position d'un fonds
+  // - /api/history/insider?ticker=AAPL&days=365  -> transactions insider long-terme
+  // - /api/history/insider-top?period=1y&role=CEO -> classement insiders par ROI (Phase 2)
+  // - /api/history/insider-stats?ticker=AAPL -> stats agregees (nb tx, volume buy/sell)
   // ============================================================
   if (path === '/api/history/score') {
     return handleHistoryScore(url, env, origin);
@@ -301,6 +304,15 @@ async function handleApiRoute(path, url, env, origin) {
   }
   if (path === '/api/history/etf-rotations') {
     return handleEtfRotations(url, env, origin);
+  }
+  if (path === '/api/history/insider') {
+    return handleHistoryInsider(url, env, origin);
+  }
+  if (path === '/api/history/insider-stats') {
+    return handleHistoryInsiderStats(url, env, origin);
+  }
+  if (path === '/api/history/insider-top') {
+    return handleHistoryInsiderTop(url, env, origin);
   }
 
   // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
@@ -801,6 +813,187 @@ async function handleEtfRotations(url, env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'D1 rotations query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : transactions insider long-terme (depasse la fenetre 90j du KV)
+// GET /api/history/insider?ticker=AAPL[&days=365][&type=buy|sell][&insider=nom][&role=CEO][&limit=500]
+// Retourne : { ticker, days, count, transactions: [...] }
+// ============================================================
+async function handleHistoryInsider(url, env, origin) {
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '365', 10), 7), 3650);
+  const typeFilter = (url.searchParams.get('type') || '').toLowerCase();
+  const insiderFilter = (url.searchParams.get('insider') || '').trim();
+  const roleFilter = (url.searchParams.get('role') || '').trim();
+  const source = (url.searchParams.get('source') || '').toUpperCase();
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '500', 10), 1), 5000);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+  if (!ticker && !insiderFilter) {
+    return jsonResponse({ error: 'Missing ticker or insider param' }, 400, origin);
+  }
+
+  try {
+    const conditions = ["filing_date >= date('now', ?)"];
+    const args = [`-${days} days`];
+    if (ticker) { conditions.push('ticker = ?'); args.push(ticker); }
+    if (typeFilter && ['buy', 'sell', 'other', 'option-exercise'].includes(typeFilter)) {
+      conditions.push('trans_type = ?'); args.push(typeFilter);
+    }
+    if (insiderFilter) {
+      conditions.push('insider LIKE ?');
+      args.push(`%${insiderFilter}%`);
+    }
+    if (roleFilter) {
+      conditions.push('title LIKE ?');
+      args.push(`%${roleFilter}%`);
+    }
+    if (source && ['SEC', 'BAFIN', 'AMF', 'FCA', 'SEDI'].includes(source)) {
+      conditions.push('source = ?'); args.push(source);
+    }
+    args.push(limit);
+
+    const sql = `SELECT filing_date, trans_date, source, ticker, company, insider, title,
+                        trans_type, shares, price, value, shares_after
+                 FROM insider_transactions_history
+                 WHERE ${conditions.join(' AND ')}
+                 ORDER BY filing_date DESC, trans_date DESC
+                 LIMIT ?`;
+    const result = await env.HISTORY.prepare(sql).bind(...args).all();
+    const rows = result.results || [];
+
+    return jsonResponse({
+      ticker: ticker || null,
+      days,
+      filters: {
+        type: typeFilter || null,
+        insider: insiderFilter || null,
+        role: roleFilter || null,
+        source: source || null,
+      },
+      count: rows.length,
+      limit,
+      transactions: rows,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 insider history query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : stats agregees pour un ticker
+// GET /api/history/insider-stats?ticker=AAPL[&days=365]
+// Retourne : nb tx, volume buy/sell, nb insiders uniques, top 10 insiders par volume
+// ============================================================
+async function handleHistoryInsiderStats(url, env, origin) {
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '365', 10), 7), 3650);
+  if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  try {
+    // Stats globales par type
+    const statsRes = await env.HISTORY.prepare(
+      `SELECT trans_type, COUNT(*) as cnt, SUM(value) as total_value, SUM(shares) as total_shares
+       FROM insider_transactions_history
+       WHERE ticker = ? AND filing_date >= date('now', ?)
+       GROUP BY trans_type`
+    ).bind(ticker, `-${days} days`).all();
+
+    const byType = {};
+    for (const r of (statsRes.results || [])) {
+      byType[r.trans_type] = {
+        count: r.cnt,
+        totalValue: r.total_value || 0,
+        totalShares: r.total_shares || 0,
+      };
+    }
+
+    // Insiders uniques
+    const uniqueRes = await env.HISTORY.prepare(
+      `SELECT COUNT(DISTINCT insider) as cnt
+       FROM insider_transactions_history
+       WHERE ticker = ? AND filing_date >= date('now', ?)`
+    ).bind(ticker, `-${days} days`).first();
+
+    // Top 10 insiders par volume (buy + sell)
+    const topRes = await env.HISTORY.prepare(
+      `SELECT insider, title,
+              SUM(CASE WHEN trans_type='buy' THEN value ELSE 0 END) as buy_value,
+              SUM(CASE WHEN trans_type='sell' THEN value ELSE 0 END) as sell_value,
+              COUNT(*) as tx_count
+       FROM insider_transactions_history
+       WHERE ticker = ? AND filing_date >= date('now', ?)
+         AND trans_type IN ('buy','sell')
+       GROUP BY insider
+       ORDER BY (buy_value + sell_value) DESC
+       LIMIT 10`
+    ).bind(ticker, `-${days} days`).all();
+
+    return jsonResponse({
+      ticker,
+      days,
+      buy: byType.buy || { count: 0, totalValue: 0, totalShares: 0 },
+      sell: byType.sell || { count: 0, totalValue: 0, totalShares: 0 },
+      other: byType.other || { count: 0, totalValue: 0, totalShares: 0 },
+      optionExercise: byType['option-exercise'] || { count: 0, totalValue: 0, totalShares: 0 },
+      uniqueInsiders: uniqueRes?.cnt || 0,
+      topInsiders: topRes.results || [],
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 insider stats query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// HISTORIQUE D1 : classement insiders par activite (embryon du Top Insiders Phase 2)
+// GET /api/history/insider-top[&period=1y|3y|5y][&role=CEO][&type=buy][&limit=50]
+// Note : pour un ROI reel il faudra joindre sur les prix historiques (Phase 2).
+// Ici on expose deja le ranking par volume total + nombre de transactions.
+// ============================================================
+async function handleHistoryInsiderTop(url, env, origin) {
+  const period = (url.searchParams.get('period') || '1y').toLowerCase();
+  const roleFilter = (url.searchParams.get('role') || '').trim();
+  const typeFilter = (url.searchParams.get('type') || 'buy').toLowerCase();
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10), 1), 200);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  const periodDays = { '30d': 30, '90d': 90, '6m': 180, '1y': 365, '3y': 1095, '5y': 1825 }[period] || 365;
+
+  try {
+    const conditions = ["filing_date >= date('now', ?)", "trans_type = ?", "value IS NOT NULL", "value > 0"];
+    const args = [`-${periodDays} days`, typeFilter];
+    if (roleFilter) {
+      conditions.push('title LIKE ?');
+      args.push(`%${roleFilter}%`);
+    }
+    args.push(limit);
+
+    const sql = `SELECT insider, title,
+                        COUNT(DISTINCT ticker) as tickers,
+                        COUNT(*) as tx_count,
+                        SUM(value) as total_value,
+                        MAX(filing_date) as last_activity
+                 FROM insider_transactions_history
+                 WHERE ${conditions.join(' AND ')}
+                 GROUP BY insider
+                 HAVING tx_count >= 2
+                 ORDER BY total_value DESC
+                 LIMIT ?`;
+    const result = await env.HISTORY.prepare(sql).bind(...args).all();
+
+    return jsonResponse({
+      period,
+      periodDays,
+      type: typeFilter,
+      role: roleFilter || null,
+      count: (result.results || []).length,
+      insiders: result.results || [],
+      note: 'ROI-based ranking requires historical prices (Phase 2). Here: total value ranking.',
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'D1 insider top query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
