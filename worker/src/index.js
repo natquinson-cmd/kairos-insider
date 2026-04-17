@@ -1394,6 +1394,36 @@ const SSR_I18N = {
     paywall_terms: 'Inscription gratuite · Premium 29€/mois sans engagement',
     footer_tagline: 'kairosinsider.fr · La plateforme francophone du smart money',
     footer_sources: 'Données SEC EDGAR, AMF, BaFin, Yahoo Finance — mises à jour quotidiennement',
+    // NEW visual pack
+    stats_h2: '📊 La donnée derrière cette analyse',
+    stats_insiders: 'Transactions insiders',
+    stats_insiders_sub: 'SEC Form 4 · AMF · BaFin — 90 jours glissants',
+    stats_funds: 'Hedge funds suivis',
+    stats_funds_sub: '200+ fonds 13F SEC, mis a jour trimestriellement',
+    stats_etfs: 'ETF thematiques',
+    stats_etfs_sub: 'ARK, NANC, GOP, GURU, BUZZ, JEPI, ITA…',
+    stats_fresh: 'Frequence',
+    stats_fresh_sub: 'Pipeline quotidien 5h UTC · Historique 2 ans en base',
+    features_h2: '🧠 Ce qui fait Kairos Insider',
+    features_p: 'Au-dela des donnees brutes, nous agregeons et scoring tout le signal smart money pour vous donner une vue unique.',
+    feat1_title: 'Kairos Score 0-100',
+    feat1_desc: 'Score composite sur 8 dimensions : insiders · hedge funds · politiciens · momentum · valorisation · sante · analystes · earnings.',
+    feat2_title: 'Clusters Insiders',
+    feat2_desc: 'Detection automatique quand 3+ dirigeants achetent la meme action simultanement — le signal le plus fiable historiquement.',
+    feat3_title: 'Hedge funds 13F',
+    feat3_desc: 'Berkshire (Buffett), Pershing Square (Ackman), Tiger Global, Bridgewater + 200 autres. Qui achete quoi, chaque trimestre.',
+    feat4_title: 'Rotations ETF',
+    feat4_desc: 'NANC & GOP (Pelosi & republicains), GURU (top hedge funds), ARK (Cathie Wood). Voyez qui entre et sort chaque semaine.',
+    feat5_title: 'Google Trends',
+    feat5_desc: 'Detectez les small caps dont l\'interet retail explose avant le reste du marche. 100+ tickers surveilles.',
+    feat6_title: 'Alertes email',
+    feat6_desc: 'Creez votre watchlist et recevez chaque matin a 8h le digest des evenements sur VOS tickers.',
+    trust_h2: 'Sources officielles · Donnees publiques',
+    trust_sec: 'SEC EDGAR — Form 4 & 13F',
+    trust_amf: 'AMF — Declarations dirigeants',
+    trust_bafin: 'BaFin — Directors\' Dealings',
+    trust_quote: 'Yahoo Finance · Alpha Vantage',
+    cta_secondary_label: 'Analyser d\'autres tickers gratuitement',
     sig_strong_buy: 'ACHAT FORT', sig_buy: 'ACHAT', sig_neutral: 'NEUTRE', sig_sell: 'VENTE', sig_strong_sell: 'VENTE FORTE',
     session_change: 'sur la séance', ytd_label: 'depuis le 1er janvier', y1_label: 'sur 1 an',
     aperçu: 'Aperçu', top_funds: 'Top détenteurs',
@@ -1441,6 +1471,36 @@ const SSR_I18N = {
     paywall_terms: 'Free signup · Premium €29/month no commitment',
     footer_tagline: 'kairosinsider.fr · The smart money platform',
     footer_sources: 'Data from SEC EDGAR, AMF, BaFin, Yahoo Finance — updated daily',
+    // NEW visual pack
+    stats_h2: '📊 The data behind this analysis',
+    stats_insiders: 'Insider transactions',
+    stats_insiders_sub: 'SEC Form 4 · AMF · BaFin — rolling 90 days',
+    stats_funds: 'Hedge funds tracked',
+    stats_funds_sub: '200+ 13F SEC funds, updated quarterly',
+    stats_etfs: 'Thematic ETFs',
+    stats_etfs_sub: 'ARK, NANC, GOP, GURU, BUZZ, JEPI, ITA…',
+    stats_fresh: 'Frequency',
+    stats_fresh_sub: 'Daily 5AM UTC pipeline · 2-year historical DB',
+    features_h2: '🧠 What makes Kairos Insider',
+    features_p: 'Beyond raw data, we aggregate and score every smart money signal to give you a unique view.',
+    feat1_title: 'Kairos Score 0-100',
+    feat1_desc: '8-dimension composite score: insiders · hedge funds · politicians · momentum · valuation · health · analysts · earnings.',
+    feat2_title: 'Insider Clusters',
+    feat2_desc: 'Automatic detection when 3+ executives buy the same stock simultaneously — historically the most reliable signal.',
+    feat3_title: '13F Hedge Funds',
+    feat3_desc: 'Berkshire (Buffett), Pershing Square (Ackman), Tiger Global, Bridgewater + 200 more. Who buys what, each quarter.',
+    feat4_title: 'ETF Rotations',
+    feat4_desc: 'NANC & GOP (Pelosi & Republicans), GURU (top hedge funds), ARK (Cathie Wood). See who enters and exits each week.',
+    feat5_title: 'Google Trends',
+    feat5_desc: 'Spot small caps whose retail interest explodes before the rest of the market. 100+ tickers monitored.',
+    feat6_title: 'Email alerts',
+    feat6_desc: 'Create your watchlist and receive every morning at 8am the digest of events on YOUR tickers.',
+    trust_h2: 'Official sources · Public data',
+    trust_sec: 'SEC EDGAR — Form 4 & 13F',
+    trust_amf: 'AMF — Executive filings',
+    trust_bafin: 'BaFin — Directors\' Dealings',
+    trust_quote: 'Yahoo Finance · Alpha Vantage',
+    cta_secondary_label: 'Analyze other tickers for free',
     sig_strong_buy: 'STRONG BUY', sig_buy: 'BUY', sig_neutral: 'NEUTRAL', sig_sell: 'SELL', sig_strong_sell: 'STRONG SELL',
     session_change: 'today', ytd_label: 'YTD', y1_label: '1Y',
     aperçu: 'Preview', top_funds: 'Top holders',
@@ -1607,47 +1667,79 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:#0A0F1E;color:#F9FAFB;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
-.container{max-width:880px;margin:0 auto;padding:40px 24px}
-.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px}
-.logo{font-weight:700;font-size:20px;background:linear-gradient(135deg,#F9FAFB,#9CA3AF);-webkit-background-clip:text;color:transparent}
-.cta{padding:10px 20px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border-radius:8px;color:#fff;text-decoration:none;font-weight:600;font-size:14px}
-.ticker-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(139,92,246,0.05));border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:24px}
-.ticker-symbol{font-size:42px;font-weight:700;letter-spacing:-1px}
-.ticker-name{font-size:18px;color:#9CA3AF;margin-top:4px}
-.badges{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
-.badge{font-size:12px;padding:4px 10px;background:rgba(255,255,255,0.06);border-radius:6px;color:#9CA3AF}
-.price-box{text-align:right}
-.price{font-size:32px;font-weight:600}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:#0A0F1E;color:#F9FAFB;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased;background-image:radial-gradient(circle at 20% 10%,rgba(59,130,246,0.08),transparent 50%),radial-gradient(circle at 80% 40%,rgba(139,92,246,0.05),transparent 50%);background-attachment:fixed}
+.container{max-width:960px;margin:0 auto;padding:40px 24px}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px;position:sticky;top:0;padding:16px 0;background:rgba(10,15,30,0.85);backdrop-filter:blur(12px);z-index:50;border-bottom:1px solid rgba(255,255,255,0.04)}
+.logo{font-weight:700;font-size:20px;background:linear-gradient(135deg,#F9FAFB,#9CA3AF);-webkit-background-clip:text;color:transparent;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.logo svg{width:28px;height:28px}
+.cta{padding:11px 22px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border-radius:10px;color:#fff;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 4px 20px rgba(59,130,246,0.3);transition:transform 0.15s}
+.cta:hover{transform:translateY(-1px)}
+.ticker-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:20px;padding:36px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.06));border:1px solid rgba(255,255,255,0.1);border-radius:18px;margin-bottom:24px;position:relative;overflow:hidden}
+.ticker-header::before{content:"";position:absolute;top:-50%;right:-20%;width:400px;height:400px;background:radial-gradient(circle,rgba(59,130,246,0.15) 0%,transparent 60%);pointer-events:none}
+.ticker-symbol{font-size:46px;font-weight:700;letter-spacing:-1.5px;position:relative}
+.ticker-name{font-size:18px;color:#9CA3AF;margin-top:4px;position:relative}
+.badges{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;position:relative}
+.badge{font-size:12px;padding:5px 12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#9CA3AF;font-weight:500}
+.price-box{text-align:right;position:relative}
+.price{font-size:34px;font-weight:600}
 .change-up{color:#10B981}.change-down{color:#EF4444}
+/* Stats bar : les 4 chiffres cles montrent la richesse de la donnee */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{padding:18px 20px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.08);border-radius:14px;transition:border-color 0.2s}
+.stat-card:hover{border-color:rgba(59,130,246,0.3)}
+.stat-value{font-size:26px;font-weight:700;letter-spacing:-0.5px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;color:transparent;margin-bottom:4px}
+.stat-label{font-size:12px;color:#D1D5DB;font-weight:600;margin-bottom:2px}
+.stat-sub{font-size:11px;color:#6B7280;line-height:1.4}
+/* Score card */
 .score-card{display:flex;gap:24px;align-items:center;flex-wrap:wrap;padding:32px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:16px;margin-bottom:24px}
-.score-gauge{width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;flex-shrink:0}
 .score-info h1{font-size:26px;margin-bottom:10px}
 .signal{display:inline-block;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:10px}
-.section{padding:24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:14px;margin-bottom:20px}
-.section h2{font-size:18px;margin-bottom:12px}
-.section p{color:#9CA3AF;font-size:14px}
+/* Sections */
+.section{padding:26px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:14px;margin-bottom:20px}
+.section h2{font-size:19px;margin-bottom:12px;letter-spacing:-0.2px}
+.section > p{color:#9CA3AF;font-size:14px}
 .section ul{list-style:none;margin-top:12px}
-.section li{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:14px;color:#D1D5DB}
+.section li{padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:14px;color:#D1D5DB}
+.section li:last-child{border-bottom:none}
 .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px}
-.info-item{padding:12px;background:rgba(255,255,255,0.03);border-radius:8px}
+.info-item{padding:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);border-radius:10px}
 .info-label{font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px}
 .info-value{font-size:15px;font-weight:600;margin-top:4px}
-.paywall{padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.1));border:1px solid rgba(59,130,246,0.3);border-radius:16px;text-align:center;margin-top:32px}
-.paywall h2{font-size:22px;margin-bottom:12px}
-.paywall p{color:#D1D5DB;margin-bottom:20px}
-.paywall .cta{display:inline-block;padding:14px 28px;font-size:15px}
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:24px 0;text-align:left}
-.feature{padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:13px;color:#D1D5DB}
+/* Feature grid : 6 cards "teaser" suggerant la richesse de la plateforme */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:20px}
+.feature-card{padding:22px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.08);border-radius:14px;position:relative;overflow:hidden;transition:transform 0.18s,border-color 0.18s}
+.feature-card:hover{transform:translateY(-3px);border-color:rgba(59,130,246,0.35)}
+.feature-card .icon-wrap{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:22px}
+.feature-card h3{font-size:16px;margin-bottom:8px;letter-spacing:-0.2px}
+.feature-card p{color:#9CA3AF;font-size:13px;line-height:1.55}
+.feature-card.locked::after{content:"🔒 Premium";position:absolute;top:14px;right:14px;font-size:10px;padding:3px 8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:100px;color:#D1D5DB;font-weight:600}
+/* Trust bar */
+.trust-bar{padding:20px 24px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;font-size:13px;color:#9CA3AF}
+.trust-bar strong{color:#D1D5DB;font-weight:600}
+.trust-bar .dot{color:#4B5563}
+/* Paywall */
+.paywall{padding:40px 32px;background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(139,92,246,0.12));border:1px solid rgba(59,130,246,0.35);border-radius:18px;text-align:center;margin-top:32px;position:relative;overflow:hidden}
+.paywall::before{content:"";position:absolute;top:-50%;left:-10%;width:120%;height:200%;background:radial-gradient(ellipse,rgba(59,130,246,0.15),transparent 60%);pointer-events:none}
+.paywall h2{font-size:24px;margin-bottom:12px;letter-spacing:-0.3px;position:relative}
+.paywall > p{color:#D1D5DB;margin-bottom:20px;position:relative}
+.paywall .cta{display:inline-block;padding:14px 30px;font-size:15px;position:relative}
+.paywall-secondary{display:inline-block;margin-top:12px;font-size:13px;color:#9CA3AF;text-decoration:none;position:relative}
+.paywall-secondary:hover{color:#D1D5DB}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:24px 0;text-align:left;position:relative}
+.feature{padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-size:13px;color:#D1D5DB}
 footer{margin-top:60px;padding-top:30px;border-top:1px solid rgba(255,255,255,0.05);font-size:12px;color:#6B7280;text-align:center}
 footer a{color:#9CA3AF;text-decoration:none}
+@media (max-width:640px){.container{padding:24px 16px}.ticker-symbol{font-size:36px}.price{font-size:26px}.stat-value{font-size:22px}}
 </style>
 </head>
 <body>
 <div class="container">
   <nav class="nav">
-    <a href="https://kairosinsider.fr/" class="logo">Kairos Insider</a>
-    <a href="https://kairosinsider.fr/dashboard.html" class="cta">Ouvrir l'analyse complète →</a>
+    <a href="https://kairosinsider.fr/" class="logo">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="20" stroke="url(#lg1)" stroke-width="2" fill="none"/><path d="M10 30 L18 20 L26 26 L38 14" stroke="url(#lg1)" fill="none"/><defs><linearGradient id="lg1" x1="0" y1="0" x2="48" y2="48"><stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs></svg>
+      Kairos Insider
+    </a>
+    <a href="${dashboardUrl}?lang=${lang}" class="cta">${ssrT(lang, 'open_full')}</a>
   </nav>
 
   <div class="ticker-header">
@@ -1662,8 +1754,32 @@ footer a{color:#9CA3AF;text-decoration:none}
     </div>
     <div class="price-box">
       <div class="price">${fmtCurrSsr(price, currency)}</div>
-      ${changePct != null ? `<div class="${changePct >= 0 ? 'change-up' : 'change-down'}" style="margin-top:4px">${fmtPctSsr(changePct)} sur la séance</div>` : ''}
-      ${changeYtd != null ? `<div style="font-size:12px;color:#6B7280;margin-top:6px">${fmtPctSsr(changeYtd)} depuis le 1er janvier · ${fmtPctSsr(change1y)} sur 1 an</div>` : ''}
+      ${changePct != null ? `<div class="${changePct >= 0 ? 'change-up' : 'change-down'}" style="margin-top:4px">${fmtPctSsr(changePct)} ${ssrT(lang, 'session_change')}</div>` : ''}
+      ${changeYtd != null ? `<div style="font-size:12px;color:#6B7280;margin-top:6px">${fmtPctSsr(changeYtd)} ${ssrT(lang, 'ytd_label')} · ${fmtPctSsr(change1y)} ${ssrT(lang, 'y1_label')}</div>` : ''}
+    </div>
+  </div>
+
+  <!-- Stats bar : 4 chiffres cles qui montrent la richesse des donnees -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-value">${totalInsiderTx}</div>
+      <div class="stat-label">${ssrT(lang, 'stats_insiders')}</div>
+      <div class="stat-sub">${ssrT(lang, 'stats_insiders_sub')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${totalFunds}${totalFunds > 0 ? '' : ' / 200+'}</div>
+      <div class="stat-label">${ssrT(lang, 'stats_funds')}</div>
+      <div class="stat-sub">${ssrT(lang, 'stats_funds_sub')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">16</div>
+      <div class="stat-label">${ssrT(lang, 'stats_etfs')}</div>
+      <div class="stat-sub">${ssrT(lang, 'stats_etfs_sub')}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">24h</div>
+      <div class="stat-label">${ssrT(lang, 'stats_fresh')}</div>
+      <div class="stat-sub">${ssrT(lang, 'stats_fresh_sub')}</div>
     </div>
   </div>
 
@@ -1741,6 +1857,53 @@ footer a{color:#9CA3AF;text-decoration:none}
     </div>
   ` : ''}
 
+  <!-- Features grid : 6 cards qui montrent la richesse de la plateforme au-dela de cette page -->
+  <div class="section" style="background:transparent;border:none;padding:0;margin-top:40px">
+    <h2 style="font-size:22px;margin-bottom:8px">${ssrT(lang, 'features_h2')}</h2>
+    <p style="color:#9CA3AF;font-size:14px;margin-bottom:4px">${ssrT(lang, 'features_p')}</p>
+    <div class="features-grid">
+      <div class="feature-card locked">
+        <div class="icon-wrap" style="background:rgba(59,130,246,0.15);color:#3B82F6">🧠</div>
+        <h3>${ssrT(lang, 'feat1_title')}</h3>
+        <p>${ssrT(lang, 'feat1_desc')}</p>
+      </div>
+      <div class="feature-card locked">
+        <div class="icon-wrap" style="background:rgba(239,68,68,0.15);color:#EF4444">🎯</div>
+        <h3>${ssrT(lang, 'feat2_title')}</h3>
+        <p>${ssrT(lang, 'feat2_desc')}</p>
+      </div>
+      <div class="feature-card locked">
+        <div class="icon-wrap" style="background:rgba(20,184,166,0.15);color:#14B8A6">🏦</div>
+        <h3>${ssrT(lang, 'feat3_title')}</h3>
+        <p>${ssrT(lang, 'feat3_desc')}</p>
+      </div>
+      <div class="feature-card locked">
+        <div class="icon-wrap" style="background:rgba(6,182,212,0.15);color:#06B6D4">📈</div>
+        <h3>${ssrT(lang, 'feat4_title')}</h3>
+        <p>${ssrT(lang, 'feat4_desc')}</p>
+      </div>
+      <div class="feature-card locked">
+        <div class="icon-wrap" style="background:rgba(245,158,11,0.15);color:#F59E0B">🔥</div>
+        <h3>${ssrT(lang, 'feat5_title')}</h3>
+        <p>${ssrT(lang, 'feat5_desc')}</p>
+      </div>
+      <div class="feature-card locked">
+        <div class="icon-wrap" style="background:rgba(251,191,36,0.15);color:#FBBF24">📧</div>
+        <h3>${ssrT(lang, 'feat6_title')}</h3>
+        <p>${ssrT(lang, 'feat6_desc')}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust bar : rassurer sur la provenance officielle des donnees -->
+  <div class="trust-bar">
+    <strong>${ssrT(lang, 'trust_h2')}</strong>
+    <span class="dot">·</span> ${ssrT(lang, 'trust_sec')}
+    <span class="dot">·</span> ${ssrT(lang, 'trust_amf')}
+    <span class="dot">·</span> ${ssrT(lang, 'trust_bafin')}
+    <span class="dot">·</span> ${ssrT(lang, 'trust_quote')}
+  </div>
+
   <div class="paywall">
     <h2>${ssrT(lang, 'paywall_h2')}</h2>
     <p>${ssrT(lang, 'paywall_p', { ticker: escHtmlSsr(ticker) })}</p>
@@ -1756,7 +1919,9 @@ footer a{color:#9CA3AF;text-decoration:none}
       <div class="feature">${ssrT(lang, 'paywall_f9')}</div>
     </div>
     <a href="${dashboardUrl}?lang=${lang}" class="cta">${ssrT(lang, 'paywall_cta')}</a>
-    <p style="margin-top:14px;font-size:12px;color:#6B7280">${ssrT(lang, 'paywall_terms')}</p>
+    <br>
+    <a href="https://kairosinsider.fr/?lang=${lang}" class="paywall-secondary">${ssrT(lang, 'cta_secondary_label')} →</a>
+    <p style="margin-top:14px;font-size:12px;color:#6B7280;position:relative">${ssrT(lang, 'paywall_terms')}</p>
   </div>
 
   <footer>
