@@ -196,6 +196,31 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* ============================================================
+       Form controls : force dark scheme sur les <select> natifs sinon
+       le dropdown affiche un popup clair illisible en dark mode.
+       color-scheme : indique au navigateur d'utiliser les widgets natifs
+       en dark mode (fonctionne sur Chrome/Edge/Safari/Firefox modernes).
+       Fallback explicite : on style aussi les <option> avec bg fonce.
+       Theme applique sur <html data-theme="..."> donc pas de prefixe body.
+       ============================================================ */
+    :root[data-theme="dark"] select,
+    :root:not([data-theme]) select {
+      color-scheme: dark;
+    }
+    :root[data-theme="dark"] select option,
+    :root:not([data-theme]) select option {
+      background-color: #0F172A;
+      color: #F9FAFB;
+    }
+    :root[data-theme="light"] select {
+      color-scheme: light;
+    }
+    :root[data-theme="light"] select option {
+      background-color: #FFFFFF;
+      color: #111827;
+    }
+
     body::before {
       content: '';
       position: fixed;
