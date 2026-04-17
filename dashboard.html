@@ -3903,7 +3903,23 @@
       const gov = d.govEtf || {};
       const news = d.news || [];
       const trends = d.googleTrends || null;
-      const company = d.company || {};
+
+      // Fallback : si company.name est absent mais qu'on connait le ticker dans
+      // stockTickerList (la liste publique alimentee par les filings SEC/BaFin/AMF),
+      // on recupere au moins name + region/market pour ne pas afficher des '—' partout.
+      const companyRaw = d.company || {};
+      let tickerInfo = null;
+      if (stockTickerList && Array.isArray(stockTickerList)) {
+        tickerInfo = stockTickerList.find(t => t.ticker && d.ticker && t.ticker.toUpperCase() === String(d.ticker).toUpperCase());
+      }
+      const company = {
+        ...companyRaw,
+        name: companyRaw.name || tickerInfo?.name || null,
+        country: companyRaw.country || tickerInfo?.region || tickerInfo?.market || null,
+        // Les autres champs restent tels quels (pas de fallback dispo)
+      };
+      // Enrichit aussi price.exchange si absent (pour le badge a cote du ticker dans le hero)
+      if (!price.exchange && tickerInfo?.market) price.exchange = tickerInfo.market;
       const consensus = d.consensus;
       const extRatios = d.extendedRatios || {};
       const margins = d.margins || {};
