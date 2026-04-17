@@ -20,9 +20,18 @@ import sys
 import time
 import urllib.request
 import argparse
+import threading
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 UA = 'KairosInsider contact@kairosinsider.fr'
+
+# Parallelisation pour l'enrichissement XML (fetch primary_doc.xml de chaque filing)
+# 6 workers + throttle global ~9 req/s pour respecter SEC 10 req/s.
+MAX_WORKERS_ENRICH = 6
+_rate_lock = threading.Lock()
+_last_req = [0.0]
+GLOBAL_MIN_INTERVAL = 0.11  # ~9 req/s global
 # Defaut : 10 jours pour le run quotidien. Le backfill initial (2 ans) passe
 # via --days 730 en one-shot.
 DEFAULT_LOOKBACK_DAYS = 10
@@ -66,14 +75,114 @@ KNOWN_ACTIVISTS = [
 ]
 
 
-def fetch(url, timeout=20):
+def _throttle():
+    """Token bucket global pour respecter la rate limit SEC (10 req/s) multi-threadee."""
+    with _rate_lock:
+        now = time.time()
+        wait = GLOBAL_MIN_INTERVAL - (now - _last_req[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_req[0] = time.time()
+
+
+def fetch(url, timeout=20, throttled=True):
+    if throttled:
+        _throttle()
     req = urllib.request.Request(url, headers={'User-Agent': UA})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read().decode('utf-8', errors='replace')
     except Exception as e:
-        print(f'  fetch error: {e}')
+        # silent pour ne pas polluer les logs sur les failures ponctuelles
         return None
+
+
+# ============================================================
+# Parse primary_doc.xml pour extraire les infos d'ownership
+# (shares owned, % du capital, prix d'achat approximatif, fundType)
+# ============================================================
+def parse_13dg_primary_doc(xml_content):
+    """Parse un primary_doc.xml 13D/G et retourne les infos d'ownership.
+    Retourne un dict {sharesOwned, percentOfClass, purchasePriceApprox,
+    fundType, reportingPersonsCount} ou {} si parse impossible."""
+    if not xml_content:
+        return {}
+
+    result = {}
+    persons = []
+    # Extract toutes les reportingPersonInfo
+    for match in re.finditer(r'<reportingPersonInfo>(.*?)</reportingPersonInfo>', xml_content, re.DOTALL):
+        block = match.group(1)
+        def get_field(tag):
+            m = re.search(rf'<{tag}>([^<]+)</{tag}>', block)
+            return m.group(1).strip() if m else None
+        name = get_field('reportingPersonName')
+        amount_raw = get_field('aggregateAmountOwned')
+        pct_raw = get_field('percentOfClass')
+        fund_type = get_field('fundType')
+        try:
+            amount = float(amount_raw) if amount_raw else None
+        except (ValueError, TypeError):
+            amount = None
+        try:
+            pct = float(pct_raw) if pct_raw else None
+        except (ValueError, TypeError):
+            pct = None
+        persons.append({'name': name, 'shares': amount, 'pct': pct, 'fundType': fund_type})
+
+    if not persons:
+        return {}
+
+    # Aggregate : prendre MAX du % (= group aggregate) et MAX shares.
+    # Pour les filings 'group', le total est typiquement sur la derniere ligne
+    # mais on prend le MAX pour etre safe.
+    max_pct = max((p['pct'] for p in persons if p['pct'] is not None), default=None)
+    max_shares = max((p['shares'] for p in persons if p['shares'] is not None), default=None)
+
+    # Source du capital dominante (take from first with fundType)
+    fund_type = next((p['fundType'] for p in persons if p['fundType']), None)
+
+    # Extract prix d'achat approximatif depuis <fundsSource> (item3)
+    # Pattern typique : "aggregate purchase price ... approximately $XX,XXX,XXX"
+    purchase_price = None
+    item3_match = re.search(r'<fundsSource>(.*?)</fundsSource>', xml_content, re.DOTALL)
+    if item3_match:
+        item3_text = item3_match.group(1)
+        # Cherche tous les montants $ dans le narratif (peut y avoir plusieurs)
+        # Pattern : $XX,XXX,XXX(.XX) - accepte virgules + decimales optionnelles
+        price_matches = re.findall(r'\$\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?)', item3_text)
+        if price_matches:
+            try:
+                amounts = [float(p.replace(',', '')) for p in price_matches[:5]]
+                total = sum(amounts)
+                # Sanity : doit etre >100K$ pour etre un purchase price credible
+                if total > 100000:
+                    purchase_price = total
+            except (ValueError, TypeError):
+                pass
+
+    result['sharesOwned'] = int(max_shares) if max_shares is not None else None
+    result['percentOfClass'] = max_pct
+    result['purchasePriceApprox'] = purchase_price
+    result['fundType'] = fund_type
+    result['reportingPersonsCount'] = len(persons)
+    return result
+
+
+def enrich_filing(filing):
+    """Fetch primary_doc.xml d'un filing et ajoute les infos d'ownership."""
+    cik = (filing.get('targetCik') or '').lstrip('0')
+    accession = (filing.get('accession') or '').replace('-', '')
+    if not cik or not accession:
+        return filing
+    xml_url = f'https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/primary_doc.xml'
+    xml = fetch(xml_url)
+    parsed = parse_13dg_primary_doc(xml)
+    # Merge (sans ecraser les champs existants)
+    for k, v in parsed.items():
+        if v is not None:
+            filing[k] = v
+    return filing
 
 
 def extract_ticker_from_display(display_name):
@@ -204,6 +313,37 @@ def main():
         seen.add(key)
         deduped.append(f)
     print(f'Apres merge + dedup : {len(deduped)} filings')
+
+    # ============================================================
+    # ENRICHISSEMENT : fetch primary_doc.xml pour extraire shares + %
+    # On ne ré-enrichit que les filings qui n'ont pas encore ces champs
+    # (les anciens fetchés via l'index seul).
+    # ============================================================
+    to_enrich = [f for f in deduped if f.get('percentOfClass') is None and f.get('sharesOwned') is None]
+    if to_enrich:
+        print(f'\n=== Enrichissement XML ({len(to_enrich)} filings a fetcher) ===')
+        enriched_count = 0
+        start_enrich = time.time()
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS_ENRICH) as pool:
+            futures = {pool.submit(enrich_filing, f): f for f in to_enrich}
+            done_count = 0
+            progress_every = max(1, len(to_enrich) // 20)
+            for fut in as_completed(futures):
+                try:
+                    updated = fut.result()
+                    if updated.get('percentOfClass') is not None or updated.get('sharesOwned') is not None:
+                        enriched_count += 1
+                except Exception:
+                    pass
+                done_count += 1
+                if done_count % progress_every == 0:
+                    elapsed = time.time() - start_enrich
+                    rate = done_count / elapsed if elapsed > 0 else 0
+                    eta = (len(to_enrich) - done_count) / rate if rate > 0 else 0
+                    print(f'  [{done_count}/{len(to_enrich)}] enrichis: {enriched_count} · {rate:.1f}/s · ETA {eta/60:.1f} min')
+        print(f'  Total enrichis : {enriched_count}/{len(to_enrich)} ({enriched_count*100//max(1,len(to_enrich))}%)')
+    else:
+        print('Aucun filing a enrichir (tous deja parsés)')
 
     # Filtre : on garde uniquement les MAX_HISTORY_DAYS derniers (cap 2 ans)
     cutoff = (now - timedelta(days=MAX_HISTORY_DAYS)).strftime('%Y-%m-%d')
