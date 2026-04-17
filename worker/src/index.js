@@ -161,7 +161,7 @@ export default {
           return handleAdminTraffic(url, env, origin);
         }
         if (path === '/api/admin/db-stats') {
-          return jsonResponse({ todo: 'Phase D', tables: {} }, 200, origin);
+          return handleAdminDbStats(env, origin);
         }
         if (path === '/api/admin/jobs') {
           return jsonResponse({ todo: 'Phase E', jobs: [] }, 200, origin);
@@ -2314,6 +2314,69 @@ async function handleAdminUsers(env, origin) {
   } catch (e) {
     return jsonResponse({ error: 'Failed to list users', detail: String(e && e.message || e) }, 500, origin);
   }
+}
+
+// GET /api/admin/db-stats
+// Compte les lignes par table D1 + les cles KV par prefixe.
+// Retourne les min/max dates pour comprendre la fraicheur des donnees.
+async function handleAdminDbStats(env, origin) {
+  const result = { d1: {}, kv: {} };
+
+  // --- D1 : count + date range par table
+  if (env.HISTORY) {
+    try {
+      const queries = [
+        { name: 'insider_transactions_history', sql: 'SELECT COUNT(*) as cnt, MIN(filing_date) as min_d, MAX(filing_date) as max_d FROM insider_transactions_history', dateField: 'filing_date' },
+        { name: 'etf_snapshots', sql: 'SELECT COUNT(*) as cnt, MIN(date) as min_d, MAX(date) as max_d FROM etf_snapshots', dateField: 'date' },
+        { name: 'fund_holdings_history', sql: 'SELECT COUNT(*) as cnt, MIN(report_date) as min_d, MAX(report_date) as max_d FROM fund_holdings_history', dateField: 'report_date' },
+        { name: 'score_history', sql: 'SELECT COUNT(*) as cnt, MIN(date) as min_d, MAX(date) as max_d FROM score_history', dateField: 'date' },
+      ];
+      for (const q of queries) {
+        try {
+          const r = await env.HISTORY.prepare(q.sql).first();
+          result.d1[q.name] = {
+            rows: r?.cnt || 0,
+            minDate: r?.min_d || null,
+            maxDate: r?.max_d || null,
+            dateField: q.dateField,
+          };
+        } catch (err) {
+          result.d1[q.name] = { error: String(err && err.message || err) };
+        }
+      }
+      // Bonus : nb de tickers uniques en insider_transactions_history (pour couverture)
+      try {
+        const r = await env.HISTORY.prepare(
+          'SELECT COUNT(DISTINCT ticker) as tickers, COUNT(DISTINCT insider) as insiders, COUNT(DISTINCT cik) as companies FROM insider_transactions_history WHERE source = ?'
+        ).bind('SEC').first();
+        if (r) {
+          result.d1.insider_transactions_history.uniqueTickers = r.tickers || 0;
+          result.d1.insider_transactions_history.uniqueInsiders = r.insiders || 0;
+          result.d1.insider_transactions_history.uniqueCompanies = r.companies || 0;
+        }
+      } catch {}
+    } catch (e) {
+      result.d1._error = String(e && e.message || e);
+    }
+  } else {
+    result.d1._error = 'HISTORY binding not configured';
+  }
+
+  // --- KV : count par prefixe connu
+  const prefixes = ['sub:', 'wl:', 'wl-prev:', 'wl-last-cron-run', 'insider-', 'clusters-', 'etf-', '13f-', 'google-', 'sitemap', 'lastRun:'];
+  for (const prefix of prefixes) {
+    try {
+      const keys = await listAllKvKeys(env, prefix, 3000);
+      result.kv[prefix] = keys.length;
+    } catch (err) {
+      result.kv[prefix] = -1;
+    }
+  }
+
+  return jsonResponse({
+    timestamp: new Date().toISOString(),
+    ...result,
+  }, 200, origin);
 }
 
 // GET /api/admin/traffic?days=7

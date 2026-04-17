@@ -7891,12 +7891,13 @@
         const token = await currentUser.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Fetch en parallele : subs-stats + users + traffic
+        // Fetch en parallele : subs-stats + users + traffic + db-stats
         const trafficDays = document.getElementById('adTrafficDays')?.value || '7';
-        const [subsRes, usersRes, trafficRes] = await Promise.all([
+        const [subsRes, usersRes, trafficRes, dbRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/traffic?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/db-stats`, { headers }).then(r => r.json()).catch(() => null),
         ]);
 
         // KPI cards
@@ -7923,6 +7924,7 @@
         // Panels
         renderAdminUsersPanel(usersRes, subsRes);
         renderAdminTrafficPanel(trafficRes);
+        renderAdminDbPanel(dbRes);
 
         // Status
         if (statusEl) {
@@ -8130,6 +8132,97 @@
           },
         },
       });
+    }
+
+    function renderAdminDbPanel(dbRes) {
+      const body = document.getElementById('adDbBody');
+      if (!body) return;
+      if (!dbRes) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Pas de donnees.</div>';
+        return;
+      }
+
+      const fmtN = (n) => (n || 0).toLocaleString('fr-FR');
+      const d1 = dbRes.d1 || {};
+      const kv = dbRes.kv || {};
+
+      // D1 tables table
+      const d1Tables = [
+        { key: 'insider_transactions_history', label: '🕴️ Insider Transactions', icon: '🕴️' },
+        { key: 'etf_snapshots', label: '💼 ETF Snapshots', icon: '💼' },
+        { key: 'fund_holdings_history', label: '🏛️ Hedge Funds 13F', icon: '🏛️' },
+        { key: 'score_history', label: '📊 Kairos Scores', icon: '📊' },
+      ];
+      const d1Rows = d1Tables.map(t => {
+        const data = d1[t.key] || {};
+        if (data.error) {
+          return `<tr><td style="padding:6px 10px">${t.label}</td><td colspan="3" style="padding:6px 10px;color:var(--accent-red);font-size:11px">${data.error}</td></tr>`;
+        }
+        const dateRange = data.minDate && data.maxDate
+          ? `${data.minDate.slice(5)} → ${data.maxDate.slice(5)}`
+          : '—';
+        const extra = data.uniqueTickers != null
+          ? `<div style="font-size:10px;color:var(--text-muted)">${fmtN(data.uniqueTickers)} tickers · ${fmtN(data.uniqueInsiders)} insiders</div>`
+          : '';
+        return `
+          <tr style="border-bottom:1px solid var(--divider)">
+            <td style="padding:8px 10px;font-size:12px">${t.label}${extra}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${fmtN(data.rows)}</td>
+            <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${dateRange}</td>
+          </tr>`;
+      }).join('');
+
+      // KV prefix counts
+      const kvPrefixes = [
+        { prefix: 'sub:', label: '💳 Abonnements' },
+        { prefix: 'wl:', label: '⭐ Watchlists' },
+        { prefix: 'wl-prev:', label: '📸 Snapshots J-1' },
+        { prefix: 'wl-last-cron-run', label: '⏰ Cron run log' },
+        { prefix: 'insider-', label: '🕴️ Cache insider' },
+        { prefix: 'etf-', label: '💼 Cache ETF' },
+        { prefix: '13f-', label: '🏛️ Cache 13F' },
+        { prefix: 'google-', label: '🔎 Cache trends' },
+        { prefix: 'lastRun:', label: '📋 Jobs lastRun' },
+      ];
+      const kvRows = kvPrefixes.map(k => {
+        const count = kv[k.prefix];
+        if (count === undefined || count === null) return '';
+        const color = count > 0 ? 'var(--text-primary)' : 'var(--text-muted)';
+        return `
+          <tr style="border-bottom:1px solid var(--divider)">
+            <td style="padding:8px 10px;font-size:12px">${k.label}</td>
+            <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)">${k.prefix}*</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:600;color:${color};font-variant-numeric:tabular-nums">${count < 0 ? 'erreur' : fmtN(count)}</td>
+          </tr>`;
+      }).filter(Boolean).join('');
+
+      body.innerHTML = `
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare D1 (kairos-history)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Table</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Rows</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Periode</th>
+            </tr>
+          </thead>
+          <tbody>${d1Rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted)">Aucune table disponible.</td></tr>'}</tbody>
+        </table>
+
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare KV (CACHE)</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Type</th>
+              <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Prefix</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Cles</th>
+            </tr>
+          </thead>
+          <tbody>${kvRows}</tbody>
+        </table>
+
+        <div style="margin-top:12px;font-size:10px;color:var(--text-muted);text-align:right">MAJ : ${dbRes.timestamp ? new Date(dbRes.timestamp).toLocaleTimeString('fr-FR') : '—'}</div>
+      `;
     }
 
     // Verifie le statut admin au auth-ready pour afficher/cacher le sidebar button
