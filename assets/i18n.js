@@ -307,6 +307,10 @@
       'dash.home.top_insiders_desc': 'Classement des insiders les plus actifs sur la période. <strong>Medailles 🥇🥈🥉</strong> sur le top 3 par volume d\'achats ou ventes. Click pour voir leurs transactions detaillees.',
       'dash.home.top_insiders_cta': 'Voir le classement →',
 
+      'dash.home.activists_title': 'Fonds Offensifs <span style="font-size:11px;color:var(--text-muted);font-weight:400">(Activistes)</span>',
+      'dash.home.activists_desc': 'Quand <strong>Elliott, Ackman ou Icahn</strong> achètent plus de 5 % d\'une société pour forcer un changement. Signal <strong>10 jours</strong> avant les 13F — souvent avant une forte hausse du cours.',
+      'dash.home.activists_cta': 'Voir les déclarations →',
+
       // ==== Home hero + stats ====
       'dash.home.hello': 'Bonjour',
       'dash.home.welcome': 'Bienvenue sur <strong>Kairos Insider</strong>, votre cockpit Smart Money. Suivez en temps réel ce que font les <strong>initiés</strong>, les <strong>hedge funds</strong> et les <strong>politiciens</strong> — les investisseurs qui ont une longueur d\'avance sur le marché.',
@@ -666,6 +670,10 @@
       'dash.home.top_insiders_title': 'Top Insiders',
       'dash.home.top_insiders_desc': 'Ranking of most active insiders over the period. <strong>Medals 🥇🥈🥉</strong> on the top 3 by buy or sell volume. Click to see their detailed transactions.',
       'dash.home.top_insiders_cta': 'See the ranking →',
+
+      'dash.home.activists_title': 'Activist Investors',
+      'dash.home.activists_desc': 'When <strong>Elliott, Ackman or Icahn</strong> buy more than 5% of a company to force change. Signal <strong>10 days</strong> before 13F filings — often before a strong price rally.',
+      'dash.home.activists_cta': 'See filings →',
 
       // ==== Home hero + stats ====
       'dash.home.hello': 'Hello',

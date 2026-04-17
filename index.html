@@ -419,11 +419,44 @@
     .mockup-float.topinsiders .ti-name { flex: 1; color: #F9FAFB; font-weight: 600; font-size: 11px; }
     .mockup-float.topinsiders .ti-value { color: #34D399; font-size: 10px; font-weight: 600; }
 
+    /* === Fonds Offensifs floating card (activists 13D/G) === */
+    .mockup-float.activists {
+      right: -70px; top: 48%;
+      transform: rotate(2deg);
+      padding: 12px 14px;
+      min-width: 230px;
+      border-color: rgba(245, 158, 11, 0.4);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(20, 25, 45, 0.92));
+    }
+    .mockup-float.activists .mockup-float-title { color: #F59E0B; font-weight: 700; }
+    .mockup-float.activists .act-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      background: linear-gradient(135deg, #EF4444, #F59E0B);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 9px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: 0.06em;
+    }
+    .mockup-float.activists .act-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 0;
+      font-size: 11px;
+      gap: 6px;
+    }
+    .mockup-float.activists .act-fund { font-weight: 700; color: #F9FAFB; font-size: 11px; }
+    .mockup-float.activists .act-pct { color: #FBBF24; font-weight: 700; font-size: 10px; }
+
     /* Hide extra floats on mobile pour ne pas surcharger */
     @media (max-width: 860px) {
       .mockup-float.cluster,
       .mockup-float.watchlist,
-      .mockup-float.topinsiders { display: none; }
+      .mockup-float.topinsiders,
+      .mockup-float.activists { display: none; }
     }
 
     /* ===== STATS BAR ===== */
@@ -1073,6 +1106,26 @@
                 <span class="ti-medal">🥉</span>
                 <span class="ti-name">S. Nadella</span>
                 <span class="ti-value">+$420M</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Fonds Offensifs : Elliott, Ackman, Icahn en pression actionnariale -->
+          <div class="mockup-float activists">
+            <span class="act-badge">⚡ OFFENSIF</span>
+            <div class="mockup-float-title">Fonds Offensifs · 30j</div>
+            <div style="margin-top:6px">
+              <div class="act-row">
+                <span class="act-fund">Elliott Mgmt</span>
+                <span class="act-pct">7.2% · $2.3B</span>
+              </div>
+              <div class="act-row">
+                <span class="act-fund">Ackman (Pershing)</span>
+                <span class="act-pct">5.8% · $870M</span>
+              </div>
+              <div class="act-row">
+                <span class="act-fund">Starboard Value</span>
+                <span class="act-pct">6.4% · $420M</span>
               </div>
             </div>
           </div>
