@@ -8231,7 +8231,37 @@
           </tr>`;
       }).filter(Boolean).join('');
 
-      body.innerHTML = `
+      // Taille D1 banner
+      const fmtBytes = (b) => {
+        if (!b || b === 0) return '0';
+        if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+        if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+        if (b >= 1e3) return (b / 1e3).toFixed(0) + ' KB';
+        return b + ' B';
+      };
+      const sizeBanner = dbRes.d1Size ? (() => {
+        const used = dbRes.d1Size.bytes;
+        const limit = dbRes.d1Size.limitBytes || (10 * 1024 * 1024 * 1024);
+        const pct = limit ? (used / limit) * 100 : 0;
+        const color = pct < 50 ? '#10B981' : pct < 80 ? '#F59E0B' : '#EF4444';
+        return `
+          <div style="padding:12px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(162,155,254,0.04));border:1px solid var(--border);border-radius:10px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Taille DB (D1)</div>
+              <div style="font-size:18px;font-weight:700;color:${color}">${fmtBytes(used)}</div>
+            </div>
+            <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100, pct).toFixed(2)}%;background:${color};transition:width 0.3s"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-muted)">
+              <span>${pct.toFixed(3)} % du plan gratuit (${fmtBytes(limit)})</span>
+              <span>${(dbRes.d1Size.pages || 0).toLocaleString('fr-FR')} pages x ${dbRes.d1Size.pageSize || 0} B</span>
+            </div>
+          </div>
+        `;
+      })() : '';
+
+      body.innerHTML = sizeBanner + `
         <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare D1 (kairos-history)</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
           <thead>

@@ -2376,7 +2376,25 @@ async function handleAdminJobs(env, origin) {
 // Compte les lignes par table D1 + les cles KV par prefixe.
 // Retourne les min/max dates pour comprendre la fraicheur des donnees.
 async function handleAdminDbStats(env, origin) {
-  const result = { d1: {}, kv: {} };
+  const result = { d1: {}, kv: {}, d1Size: null, kvSizeEstimate: null };
+
+  // --- D1 : taille totale via PRAGMA (SQLite native)
+  if (env.HISTORY) {
+    try {
+      const pageCountRes = await env.HISTORY.prepare('PRAGMA page_count').first();
+      const pageSizeRes = await env.HISTORY.prepare('PRAGMA page_size').first();
+      const pc = pageCountRes?.page_count || 0;
+      const ps = pageSizeRes?.page_size || 0;
+      if (pc && ps) {
+        result.d1Size = {
+          bytes: pc * ps,
+          pages: pc,
+          pageSize: ps,
+          limitBytes: 10 * 1024 * 1024 * 1024, // Free plan : 10 GB
+        };
+      }
+    } catch {}
+  }
 
   // --- D1 : count + date range par table
   if (env.HISTORY) {
