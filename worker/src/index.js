@@ -143,7 +143,6 @@ export default {
         if (!isAdmin(user)) {
           return jsonResponse({ error: 'Forbidden — admin access required', code: 'ADMIN_ONLY' }, 403, origin);
         }
-        // Endpoint whoami : confirme que le user est bien admin (Phase A)
         if (path === '/api/admin/whoami') {
           return jsonResponse({
             isAdmin: true,
@@ -152,12 +151,11 @@ export default {
             emailVerified: user.emailVerified,
           }, 200, origin);
         }
-        // Stubs pour les phases suivantes
         if (path === '/api/admin/users') {
-          return jsonResponse({ todo: 'Phase B', users: [], total: 0 }, 200, origin);
+          return handleAdminUsers(env, origin);
         }
         if (path === '/api/admin/subs-stats') {
-          return jsonResponse({ todo: 'Phase B', active: 0, past_due: 0, canceled: 0, total_users: 0 }, 200, origin);
+          return handleAdminSubsStats(env, origin);
         }
         if (path === '/api/admin/traffic') {
           return jsonResponse({ todo: 'Phase C', series: [] }, 200, origin);
@@ -2196,6 +2194,126 @@ function jsonResponse(data, status, origin) {
     status,
     headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
   });
+}
+
+// ============================================================
+// ============================================================
+// ADMIN HANDLERS (Phase B+ : Users, Subs, Traffic, DB, Jobs)
+// ============================================================
+// Toutes les routes /api/admin/* sont gardees par isAdmin() en amont.
+// ============================================================
+
+// Prix mensuel Stripe (en EUR) - hardcode pour l'instant, a terme: recuperer via Stripe API
+const STRIPE_MONTHLY_PRICE_EUR = 19.99;
+
+// Liste toutes les cles KV avec un prefixe donne, gere la pagination.
+async function listAllKvKeys(env, prefix, limit = 10000) {
+  const keys = [];
+  let cursor = undefined;
+  while (keys.length < limit) {
+    const res = await env.CACHE.list({ prefix, cursor, limit: Math.min(1000, limit - keys.length) });
+    for (const k of res.keys) keys.push(k.name);
+    if (res.list_complete) break;
+    cursor = res.cursor;
+    if (!cursor) break;
+  }
+  return keys;
+}
+
+// GET /api/admin/subs-stats : agrege les abonnements depuis KV sub:*
+// Retourne : { active, past_due, canceled, trialing, unknown, mrr_eur, total_subs }
+async function handleAdminSubsStats(env, origin) {
+  try {
+    const subKeys = await listAllKvKeys(env, 'sub:', 5000);
+    const counts = { active: 0, past_due: 0, canceled: 0, trialing: 0, incomplete: 0, unknown: 0 };
+    // Fetch en parallele pour accelerer (max 50 en parallele)
+    const batchSize = 50;
+    for (let i = 0; i < subKeys.length; i += batchSize) {
+      const batch = subKeys.slice(i, i + batchSize);
+      const values = await Promise.all(batch.map(k => env.CACHE.get(k, 'json').catch(() => null)));
+      for (const v of values) {
+        if (!v || !v.status) { counts.unknown++; continue; }
+        if (counts[v.status] !== undefined) counts[v.status]++;
+        else counts.unknown++;
+      }
+    }
+    return jsonResponse({
+      total_subs: subKeys.length,
+      active: counts.active,
+      past_due: counts.past_due,
+      canceled: counts.canceled,
+      trialing: counts.trialing,
+      incomplete: counts.incomplete,
+      unknown: counts.unknown,
+      mrr_eur: Math.round((counts.active + counts.past_due + counts.trialing) * STRIPE_MONTHLY_PRICE_EUR * 100) / 100,
+      price_per_month_eur: STRIPE_MONTHLY_PRICE_EUR,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to aggregate subs', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// GET /api/admin/users : liste tous les utilisateurs connus via KV (sub:* + wl:*)
+// Ne retourne PAS les users free qui n'ont ni watchlist ni paiement
+// (pour ca il faudrait un service account Firebase Admin, a faire plus tard).
+// Retourne : { total, users: [{ uid, hasSubscription, subStatus, hasWatchlist, watchlistCount, lastActivity }] }
+async function handleAdminUsers(env, origin) {
+  try {
+    const [subKeys, wlKeys] = await Promise.all([
+      listAllKvKeys(env, 'sub:', 5000),
+      listAllKvKeys(env, 'wl:', 5000),
+    ]);
+    const subUids = new Set(subKeys.map(k => k.slice(4)));  // "sub:XXX" -> "XXX"
+    const wlUids = new Set(wlKeys.map(k => k.slice(3)));    // "wl:XXX"  -> "XXX"
+    const allUids = new Set([...subUids, ...wlUids]);
+
+    // Fetch les donnees en parallele (batch 40 pour eviter de saturer)
+    const users = [];
+    const uidsArr = Array.from(allUids);
+    const batchSize = 40;
+    for (let i = 0; i < uidsArr.length; i += batchSize) {
+      const batch = uidsArr.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(async (uid) => {
+        const hasSub = subUids.has(uid);
+        const hasWl = wlUids.has(uid);
+        let subData = null;
+        let wlData = null;
+        if (hasSub) subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
+        if (hasWl) wlData = await env.CACHE.get(`wl:${uid}`, 'json').catch(() => null);
+        return {
+          uid,
+          hasSubscription: hasSub,
+          subStatus: subData?.status || null,
+          currentPeriodEnd: subData?.currentPeriodEnd || null,
+          customerId: subData?.customerId || null,
+          hasWatchlist: hasWl,
+          watchlistCount: Array.isArray(wlData?.tickers) ? wlData.tickers.length : 0,
+          watchlistEmail: wlData?.email || null,
+          watchlistOptIn: !!wlData?.optin,
+          lastWatchlistUpdate: wlData?.updatedAt || null,
+        };
+      }));
+      users.push(...results);
+    }
+
+    // Tri : premium active en premier, puis watchlist, puis le reste
+    users.sort((a, b) => {
+      const ap = a.subStatus === 'active' ? 0 : (a.hasSubscription ? 1 : (a.hasWatchlist ? 2 : 3));
+      const bp = b.subStatus === 'active' ? 0 : (b.hasSubscription ? 1 : (b.hasWatchlist ? 2 : 3));
+      if (ap !== bp) return ap - bp;
+      return (b.lastWatchlistUpdate || '').localeCompare(a.lastWatchlistUpdate || '');
+    });
+
+    return jsonResponse({
+      total: users.length,
+      withSubscription: subKeys.length,
+      withWatchlist: wlKeys.length,
+      note: 'Ne liste que les users avec subscription ou watchlist. Les free sans activite ne sont pas en KV.',
+      users,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'Failed to list users', detail: String(e && e.message || e) }, 500, origin);
+  }
 }
 
 // ============================================================

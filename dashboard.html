@@ -7874,12 +7874,11 @@
       }
     }
 
-    // Charge les 5 panels de l'admin dashboard (stub en Phase A, complete aux phases suivantes)
+    // Charge les panels de l'admin dashboard (Phase B : users + subs)
     async function loadAdminDashboard(force) {
       if (!isAdminUser) {
         await checkAdminStatus();
         if (!isAdminUser) {
-          document.getElementById('section-admin').querySelectorAll('[id^="adKpi"], [id^="ad"]').forEach(el => {});
           alert('Acces admin refuse.');
           switchSection('home');
           return;
@@ -7892,18 +7891,111 @@
         const token = await currentUser.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Phase A : on appelle whoami et on affiche juste "connecte en tant qu'admin"
-        const who = await fetch(`${API_BASE}/api/admin/whoami`, { headers }).then(r => r.json()).catch(() => null);
-        if (who && who.email && statusEl) {
-          const now = new Date().toLocaleTimeString('fr-FR');
-          statusEl.textContent = `Connecte : ${who.email} · MAJ ${now}`;
+        // Fetch en parallele : subs-stats + users
+        const [subsRes, usersRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
+        ]);
+
+        // KPI cards
+        if (subsRes) {
+          document.getElementById('adKpiPremium').textContent = subsRes.active || 0;
+          const mrrEl = document.getElementById('adKpiMrr');
+          if (mrrEl) mrrEl.textContent = `MRR est. ${subsRes.mrr_eur || 0} €`;
+        }
+        if (usersRes) {
+          document.getElementById('adKpiUsers').textContent = usersRes.total || 0;
+          const deltaEl = document.getElementById('adKpiUsersDelta');
+          if (deltaEl) deltaEl.textContent = `${usersRes.withSubscription || 0} subs · ${usersRes.withWatchlist || 0} watchlists`;
         }
 
-        // Phase B/C/D/E seront branches sur leurs endpoints dedies
-        // Pour l'instant on affiche "Deploy en attente" dans les panels.
+        // Panel Users
+        renderAdminUsersPanel(usersRes, subsRes);
+
+        // Status
+        if (statusEl) {
+          const now = new Date().toLocaleTimeString('fr-FR');
+          statusEl.textContent = `MAJ ${now}`;
+        }
       } catch (e) {
         if (statusEl) statusEl.textContent = 'Erreur : ' + (e.message || e);
       }
+    }
+
+    function renderAdminUsersPanel(usersRes, subsRes) {
+      const body = document.getElementById('adUsersBody');
+      const countEl = document.getElementById('adUsersCount');
+      if (!body) return;
+      if (!usersRes || !Array.isArray(usersRes.users)) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Aucune donnee.</div>';
+        return;
+      }
+      if (countEl) countEl.textContent = `${usersRes.users.length} users · ${usersRes.withSubscription || 0} subs`;
+
+      // Petite stat bar : subs par status
+      const stats = subsRes || {};
+      const statusBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#10B981">${stats.active || 0}</div>
+            <div style="color:var(--text-muted)">Actifs</div>
+          </div>
+          <div style="padding:8px;background:rgba(245,158,11,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#F59E0B">${stats.past_due || 0}</div>
+            <div style="color:var(--text-muted)">Past due</div>
+          </div>
+          <div style="padding:8px;background:rgba(107,114,128,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--text-muted)">${stats.canceled || 0}</div>
+            <div style="color:var(--text-muted)">Canceled</div>
+          </div>
+          <div style="padding:8px;background:rgba(116,185,255,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#74b9ff">${stats.trialing || 0}</div>
+            <div style="color:var(--text-muted)">Trialing</div>
+          </div>
+        </div>
+      `;
+
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+      const fmtDTs = (ts) => ts ? new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+      const badgeStatus = (s) => {
+        if (s === 'active') return '<span style="padding:2px 8px;background:rgba(16,185,129,0.15);color:#10B981;border-radius:10px;font-size:10px;font-weight:600">ACTIVE</span>';
+        if (s === 'past_due') return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">PAST DUE</span>';
+        if (s === 'canceled') return '<span style="padding:2px 8px;background:rgba(107,114,128,0.15);color:var(--text-muted);border-radius:10px;font-size:10px;font-weight:600">CANCELED</span>';
+        if (s === 'trialing') return '<span style="padding:2px 8px;background:rgba(116,185,255,0.15);color:#74b9ff;border-radius:10px;font-size:10px;font-weight:600">TRIAL</span>';
+        if (s) return `<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px;font-weight:600">${esc(s.toUpperCase())}</span>`;
+        return '<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px">FREE</span>';
+      };
+
+      const rows = usersRes.users.slice(0, 100).map(u => `
+        <tr style="border-bottom:1px solid var(--divider)">
+          <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)" title="${esc(u.uid)}">${esc(u.uid.slice(0, 10))}...</td>
+          <td style="padding:8px 10px;font-size:12px">${esc(u.watchlistEmail || '—')}</td>
+          <td style="padding:8px 10px;text-align:center">${badgeStatus(u.subStatus)}</td>
+          <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${fmtDTs(u.currentPeriodEnd)}</td>
+        </tr>
+      `).join('');
+
+      body.innerHTML = statusBar + `
+        <div style="overflow-x:auto;max-height:340px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
+              <tr style="border-bottom:2px solid var(--border)">
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Sub</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
+                <th style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Fin period.</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
+          </table>
+        </div>
+        ${usersRes.users.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${usersRes.users.length}</div>` : ''}
+      `;
     }
 
     // Verifie le statut admin au auth-ready pour afficher/cacher le sidebar button
