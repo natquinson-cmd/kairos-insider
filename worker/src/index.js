@@ -158,7 +158,7 @@ export default {
           return handleAdminSubsStats(env, origin);
         }
         if (path === '/api/admin/traffic') {
-          return jsonResponse({ todo: 'Phase C', series: [] }, 200, origin);
+          return handleAdminTraffic(url, env, origin);
         }
         if (path === '/api/admin/db-stats') {
           return jsonResponse({ todo: 'Phase D', tables: {} }, 200, origin);
@@ -2313,6 +2313,142 @@ async function handleAdminUsers(env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'Failed to list users', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// GET /api/admin/traffic?days=7
+// Interroge Cloudflare GraphQL Analytics API pour les stats de trafic de la zone.
+// Requis en env : CF_ANALYTICS_TOKEN (API token avec Analytics:Read) + CF_ZONE_ID.
+// Retourne : { series: [{ date, requests, pageViews, uniques }], total: {...}, granularity: 'day'|'hour' }
+async function handleAdminTraffic(url, env, origin) {
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '7', 10), 1), 90);
+
+  if (!env.CF_ANALYTICS_TOKEN || !env.CF_ZONE_ID) {
+    return jsonResponse({
+      error: 'Cloudflare Analytics non configure',
+      code: 'MISSING_CF_SECRETS',
+      setup: [
+        '1. Cree un API token sur https://dash.cloudflare.com/profile/api-tokens',
+        '   Permissions requises : Zone > Analytics > Read',
+        '2. Recupere le Zone ID de kairosinsider.fr (dashboard overview)',
+        '3. Dans le dossier worker/ lance :',
+        '   wrangler secret put CF_ANALYTICS_TOKEN',
+        '   wrangler secret put CF_ZONE_ID',
+        '4. Redeploy : wrangler deploy',
+      ],
+    }, 503, origin);
+  }
+
+  const today = new Date();
+  const endDate = today.toISOString().slice(0, 10);
+  const startDate = new Date(today.getTime() - (days - 1) * 86400 * 1000).toISOString().slice(0, 10);
+
+  // Pour 1 jour, on utilise l'agregation horaire ; pour plus, agregation journaliere
+  const granularity = days <= 1 ? 'hour' : 'day';
+
+  let query;
+  if (granularity === 'hour') {
+    // Derniere 24h au granularity 1h
+    const startDatetime = new Date(today.getTime() - 24 * 3600 * 1000).toISOString();
+    query = {
+      query: `query Traffic($zoneTag: string!, $startDatetime: Time!) {
+        viewer {
+          zones(filter: { zoneTag: $zoneTag }) {
+            httpRequests1hGroups(
+              limit: 48
+              filter: { datetime_geq: $startDatetime }
+              orderBy: [datetime_ASC]
+            ) {
+              dimensions { datetime }
+              sum { requests bytes pageViews cachedRequests }
+              uniq { uniques }
+            }
+          }
+        }
+      }`,
+      variables: { zoneTag: env.CF_ZONE_ID, startDatetime },
+    };
+  } else {
+    query = {
+      query: `query Traffic($zoneTag: string!, $start: Date!, $end: Date!) {
+        viewer {
+          zones(filter: { zoneTag: $zoneTag }) {
+            httpRequests1dGroups(
+              limit: 100
+              filter: { date_geq: $start, date_leq: $end }
+              orderBy: [date_ASC]
+            ) {
+              dimensions { date }
+              sum { requests bytes pageViews cachedRequests }
+              uniq { uniques }
+            }
+          }
+        }
+      }`,
+      variables: { zoneTag: env.CF_ZONE_ID, start: startDate, end: endDate },
+    };
+  }
+
+  try {
+    const resp = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CF_ANALYTICS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(query),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return jsonResponse({
+        error: 'Cloudflare GraphQL HTTP error',
+        httpStatus: resp.status,
+        detail: text.slice(0, 500),
+      }, 502, origin);
+    }
+    const data = await resp.json();
+    if (data.errors && data.errors.length) {
+      return jsonResponse({
+        error: 'Cloudflare GraphQL returned errors',
+        errors: data.errors.map(e => ({ message: e.message, path: e.path })),
+      }, 502, origin);
+    }
+    const zones = data.data?.viewer?.zones || [];
+    const groups = zones[0]?.httpRequests1dGroups || zones[0]?.httpRequests1hGroups || [];
+
+    const series = groups.map(g => ({
+      key: g.dimensions.date || g.dimensions.datetime,
+      requests: g.sum?.requests || 0,
+      pageViews: g.sum?.pageViews || 0,
+      bytes: g.sum?.bytes || 0,
+      cached: g.sum?.cachedRequests || 0,
+      uniques: g.uniq?.uniques || 0,
+    }));
+
+    // Totaux pour les KPIs
+    const total = series.reduce((acc, p) => {
+      acc.requests += p.requests;
+      acc.pageViews += p.pageViews;
+      acc.bytes += p.bytes;
+      acc.cached += p.cached;
+      acc.uniques += p.uniques; // Note: uniques d'une periode totale != somme des periodes (mais bonne approx pour affichage)
+      return acc;
+    }, { requests: 0, pageViews: 0, bytes: 0, cached: 0, uniques: 0 });
+
+    return jsonResponse({
+      days,
+      granularity,
+      start: granularity === 'hour' ? new Date(today.getTime() - 24 * 3600 * 1000).toISOString() : startDate,
+      end: granularity === 'hour' ? today.toISOString() : endDate,
+      series,
+      total,
+      cacheHitRate: total.requests ? Math.round((total.cached / total.requests) * 1000) / 10 : 0,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({
+      error: 'Cloudflare Analytics call failed',
+      detail: String(e && e.message || e),
+    }, 500, origin);
   }
 }
 

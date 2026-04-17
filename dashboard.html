@@ -7891,10 +7891,12 @@
         const token = await currentUser.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Fetch en parallele : subs-stats + users
-        const [subsRes, usersRes] = await Promise.all([
+        // Fetch en parallele : subs-stats + users + traffic
+        const trafficDays = document.getElementById('adTrafficDays')?.value || '7';
+        const [subsRes, usersRes, trafficRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/traffic?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
         ]);
 
         // KPI cards
@@ -7908,9 +7910,19 @@
           const deltaEl = document.getElementById('adKpiUsersDelta');
           if (deltaEl) deltaEl.textContent = `${usersRes.withSubscription || 0} subs · ${usersRes.withWatchlist || 0} watchlists`;
         }
+        if (trafficRes && !trafficRes.error) {
+          const pv = trafficRes.total?.pageViews || trafficRes.total?.requests || 0;
+          document.getElementById('adKpiVisits').textContent = pv.toLocaleString('fr-FR');
+          const todayEl = document.getElementById('adKpiVisitsToday');
+          if (todayEl && trafficRes.series?.length) {
+            const last = trafficRes.series[trafficRes.series.length - 1];
+            todayEl.textContent = `Hier : ${(last.pageViews || last.requests || 0).toLocaleString('fr-FR')} · ${trafficRes.cacheHitRate || 0}% cache`;
+          }
+        }
 
-        // Panel Users
+        // Panels
         renderAdminUsersPanel(usersRes, subsRes);
+        renderAdminTrafficPanel(trafficRes);
 
         // Status
         if (statusEl) {
@@ -7996,6 +8008,128 @@
         </div>
         ${usersRes.users.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${usersRes.users.length}</div>` : ''}
       `;
+    }
+
+    let adminTrafficChart = null;
+    function renderAdminTrafficPanel(trafficRes) {
+      const body = document.getElementById('adTrafficBody');
+      if (!body) return;
+
+      // Cas : secrets CF manquants → afficher les instructions de setup
+      if (trafficRes && trafficRes.code === 'MISSING_CF_SECRETS') {
+        body.innerHTML = `
+          <div style="padding:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;color:var(--text-primary)">
+            <div style="font-weight:600;margin-bottom:10px;color:#F59E0B">⚠️ Cloudflare Analytics non configure</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px;line-height:1.5">Pour afficher le trafic, il faut setter 2 secrets Worker :</p>
+            <ol style="font-size:12px;color:var(--text-primary);margin:0;padding-left:20px;line-height:1.8">
+              ${(trafficRes.setup || []).map(l => `<li>${l.replace('wrangler secret', '<code style="background:var(--surface-2);padding:2px 5px;border-radius:4px">wrangler secret</code>')}</li>`).join('')}
+            </ol>
+          </div>
+        `;
+        return;
+      }
+
+      if (!trafficRes || trafficRes.error) {
+        body.innerHTML = `<div style="padding:30px;text-align:center;color:var(--accent-red);font-size:13px">Erreur : ${trafficRes?.error || 'pas de donnees'}</div>`;
+        return;
+      }
+
+      const series = trafficRes.series || [];
+      if (!series.length) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Aucune donnee de trafic disponible.</div>';
+        return;
+      }
+
+      // KPIs
+      const total = trafficRes.total || {};
+      const fmtN = (n) => (n || 0).toLocaleString('fr-FR');
+      const fmtGB = (b) => {
+        if (!b) return '0';
+        if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+        if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+        if (b >= 1e3) return (b / 1e3).toFixed(0) + ' KB';
+        return b + ' B';
+      };
+      const kpis = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700">${fmtN(total.requests)}</div>
+            <div style="color:var(--text-muted)">Requests</div>
+          </div>
+          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700;color:#74b9ff">${fmtN(total.pageViews)}</div>
+            <div style="color:var(--text-muted)">Page views</div>
+          </div>
+          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700;color:#10B981">${fmtN(total.uniques)}</div>
+            <div style="color:var(--text-muted)">Uniques</div>
+          </div>
+          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:16px;font-weight:700;color:#F59E0B">${trafficRes.cacheHitRate || 0}%</div>
+            <div style="color:var(--text-muted)">Cache hit</div>
+          </div>
+          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:13px;font-weight:700">${fmtGB(total.bytes)}</div>
+            <div style="color:var(--text-muted)">Bandwidth</div>
+          </div>
+        </div>
+      `;
+
+      body.innerHTML = kpis + '<div style="height:220px;position:relative"><canvas id="adTrafficChart"></canvas></div>';
+
+      // Destroy previous chart if any
+      if (adminTrafficChart) {
+        try { adminTrafficChart.destroy(); } catch {}
+        adminTrafficChart = null;
+      }
+
+      const ctx = document.getElementById('adTrafficChart')?.getContext('2d');
+      if (!ctx) return;
+      const labels = series.map(p => {
+        if (trafficRes.granularity === 'hour') {
+          return new Date(p.key).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        }
+        return new Date(p.key).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+      });
+
+      adminTrafficChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Page views',
+              data: series.map(p => p.pageViews || 0),
+              borderColor: '#74b9ff',
+              backgroundColor: 'rgba(116,185,255,0.1)',
+              tension: 0.3,
+              fill: true,
+              pointRadius: 2,
+            },
+            {
+              label: 'Uniques',
+              data: series.map(p => p.uniques || 0),
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16,185,129,0.06)',
+              tension: 0.3,
+              fill: false,
+              pointRadius: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: { mode: 'index', intersect: false },
+          },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0 }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.1)' } },
+          },
+        },
+      });
     }
 
     // Verifie le statut admin au auth-ready pour afficher/cacher le sidebar button
