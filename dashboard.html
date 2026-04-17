@@ -3964,17 +3964,19 @@
         label: 'Fonds offensifs',
         data: overlay,
         _meta: meta,
-        borderColor: '#0A0F1E',
-        backgroundColor: '#F59E0B',
-        pointBorderColor: '#0A0F1E',
-        pointBorderWidth: 1.5,
-        pointBackgroundColor: '#F59E0B',
-        pointStyle: 'star',              // etoile pour distinguer des insider buy/sell
+        // pointStyle 'star' est dessine en ligne (borderColor fait la couleur).
+        // On utilise jaune vibrant pour matcher la legende et bien ressortir.
+        borderColor: '#FACC15',          // yellow-400
+        backgroundColor: '#FACC15',
+        pointBorderColor: '#FACC15',
+        pointBorderWidth: 2.5,            // plus epais pour visibilite
+        pointBackgroundColor: '#FACC15',
+        pointStyle: 'star',              // etoile 5 branches
         pointRadius: radii,
         pointHoverRadius: radii.map(r => r ? r + 3 : 0),
-        pointHoverBackgroundColor: '#FBBF24',
-        pointHoverBorderColor: '#fff',
-        pointHoverBorderWidth: 2,
+        pointHoverBackgroundColor: '#FEF08A',   // yellow-200 lighter on hover
+        pointHoverBorderColor: '#FDE047',       // yellow-300 halo
+        pointHoverBorderWidth: 3.5,
         showLine: false,
         order: -1,  // au-dessus des autres markers
       });
@@ -4547,10 +4549,10 @@
               `).join('')}
             </div>
           </div>
-          <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.65;flex-wrap:wrap">
+          <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.75;flex-wrap:wrap">
             <span><span style="color:#10B981">◆</span> achat insider</span>
             <span><span style="color:#EF4444">▼</span> vente insider</span>
-            <span><span style="color:#F59E0B">★</span> fonds offensif (13D/G)</span>
+            <span><span style="color:#FACC15;font-size:13px">★</span> fonds offensif (13D/G)</span>
             <span style="opacity:0.6">· taille ∝ montant</span>
           </div>
           <div style="height:280px;position:relative"><canvas id="stockPriceChart"></canvas></div>
