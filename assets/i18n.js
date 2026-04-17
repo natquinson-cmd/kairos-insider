@@ -57,7 +57,7 @@
       'hero.cta_try': 'Essayer gratuitement →',
       'hero.cta_example': 'Voir un exemple d\'analyse',
       'hero.meta_legal': '100% légal',
-      'hero.meta_update': 'MàJ chaque matin à 7h',
+      'hero.meta_update': 'Données fraîches en continu',
       'hero.meta_french': '100% en français',
       'hero.meta_english': '100% in French',
 
@@ -433,7 +433,7 @@
       'hero.cta_try': 'Try for free →',
       'hero.cta_example': 'See an analysis example',
       'hero.meta_legal': '100% legal',
-      'hero.meta_update': 'Daily refresh at 7am Paris',
+      'hero.meta_update': 'Continuously refreshed data',
       'hero.meta_french': 'French & English',
       'hero.meta_english': '🇫🇷 / 🇬🇧',
 
