@@ -138,6 +138,39 @@ export default {
         return jsonResponse({ error: 'Not found' }, 404, origin);
       }
 
+      // --- Routes Admin (reserve aux emails de ADMIN_EMAILS) ---
+      if (path.startsWith('/api/admin/')) {
+        if (!isAdmin(user)) {
+          return jsonResponse({ error: 'Forbidden — admin access required', code: 'ADMIN_ONLY' }, 403, origin);
+        }
+        // Endpoint whoami : confirme que le user est bien admin (Phase A)
+        if (path === '/api/admin/whoami') {
+          return jsonResponse({
+            isAdmin: true,
+            uid: user.uid,
+            email: user.email,
+            emailVerified: user.emailVerified,
+          }, 200, origin);
+        }
+        // Stubs pour les phases suivantes
+        if (path === '/api/admin/users') {
+          return jsonResponse({ todo: 'Phase B', users: [], total: 0 }, 200, origin);
+        }
+        if (path === '/api/admin/subs-stats') {
+          return jsonResponse({ todo: 'Phase B', active: 0, past_due: 0, canceled: 0, total_users: 0 }, 200, origin);
+        }
+        if (path === '/api/admin/traffic') {
+          return jsonResponse({ todo: 'Phase C', series: [] }, 200, origin);
+        }
+        if (path === '/api/admin/db-stats') {
+          return jsonResponse({ todo: 'Phase D', tables: {} }, 200, origin);
+        }
+        if (path === '/api/admin/jobs') {
+          return jsonResponse({ todo: 'Phase E', jobs: [] }, 200, origin);
+        }
+        return jsonResponse({ error: 'Unknown admin route' }, 404, origin);
+      }
+
       // --- Routes API ---
       if (request.method === 'GET' && path.startsWith('/api/')) {
         // Routes gratuites (pas besoin d'abonnement)
@@ -174,6 +207,18 @@ export default {
 // ============================================================
 // AUTH : Vérification Firebase ID Token (via REST API)
 // ============================================================
+// ============================================================
+// ADMIN : allowlist d'emails autorises a acceder a /api/admin/*
+// Le check est fait via le JWT Firebase (email verifie), pas de password supplementaire.
+// Pour ajouter un admin, mettre son email ici (lowercase).
+// ============================================================
+const ADMIN_EMAILS = ['natquinson@gmail.com'];
+
+function isAdmin(user) {
+  if (!user || !user.email) return false;
+  return ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
 async function verifyFirebaseToken(idToken, env) {
   try {
     const resp = await fetch(

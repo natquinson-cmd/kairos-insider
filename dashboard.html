@@ -1272,6 +1272,16 @@
           <span data-i18n="dash.sidebar.shorts">Short Interest</span>
         </button>
       </div>
+
+      <!-- ===== SECTION ADMIN : affichee seulement si l'email du user est dans ADMIN_EMAILS cote Worker -->
+      <div class="sidebar-section" id="sidebarAdminSection" style="display:none">
+        <div class="sidebar-title">Admin</div>
+        <button class="sidebar-item" data-section="admin" onclick="switchSection('admin')">
+          <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          <span>Tableau de bord</span>
+          <span class="sidebar-badge" style="background:rgba(239,68,68,0.18);color:#F87171;border:1px solid rgba(239,68,68,0.28)">ADMIN</span>
+        </button>
+      </div>
     </aside>
 
     <!-- MAIN CONTENT -->
@@ -2221,6 +2231,89 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS) ===== -->
+      <div class="section-page" id="section-admin">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+          <h2 style="margin:0">🛡️ Tableau de bord Admin</h2>
+          <span id="adminAutoRefreshStatus" style="font-size:11px;color:var(--text-muted)">—</span>
+          <button onclick="loadAdminDashboard(true)" style="margin-left:auto;padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+        </div>
+        <p class="section-desc">Monitoring interne de la plateforme. Acces limite a ton email.</p>
+
+        <!-- KPI TOP ROW -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Utilisateurs</div>
+            <div id="adKpiUsers" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
+            <div id="adKpiUsersDelta" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
+          </div>
+          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Premium actifs</div>
+            <div id="adKpiPremium" style="font-size:28px;font-weight:700;color:#10B981">—</div>
+            <div id="adKpiMrr" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
+          </div>
+          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Visites (7j)</div>
+            <div id="adKpiVisits" style="font-size:28px;font-weight:700;color:#74b9ff">—</div>
+            <div id="adKpiVisitsToday" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase C</div>
+          </div>
+          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Jobs OK / Total</div>
+            <div id="adKpiJobs" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
+            <div id="adKpiJobsLast" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase E</div>
+          </div>
+        </div>
+
+        <!-- 2 COLONNES : USERS + SUBS / TRAFFIC -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;margin-bottom:24px">
+          <!-- PANEL USERS & SUBS -->
+          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <h3 style="margin:0;font-size:16px">👥 Utilisateurs &amp; Abonnements</h3>
+              <span id="adUsersCount" style="font-size:12px;color:var(--text-muted)">—</span>
+            </div>
+            <div id="adUsersBody" style="min-height:240px">
+              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase B — en attente de deploy.</div>
+            </div>
+          </div>
+
+          <!-- PANEL TRAFFIC -->
+          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <h3 style="margin:0;font-size:16px">📈 Trafic</h3>
+              <select id="adTrafficDays" onchange="loadAdminDashboard(true)" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);outline:none">
+                <option value="1">24h</option>
+                <option value="7" selected>7j</option>
+                <option value="30">30j</option>
+                <option value="90">90j</option>
+              </select>
+            </div>
+            <div id="adTrafficBody" style="min-height:240px">
+              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase C — en attente.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2 COLONNES : DB STATUS / JOBS STATUS -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;margin-bottom:24px">
+          <!-- PANEL DB STATUS -->
+          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <h3 style="margin:0 0 14px;font-size:16px">💾 Base de donnees</h3>
+            <div id="adDbBody" style="min-height:200px">
+              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase D — en attente.</div>
+            </div>
+          </div>
+
+          <!-- PANEL JOBS STATUS -->
+          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <h3 style="margin:0 0 14px;font-size:16px">⚙️ Jobs &amp; Cron</h3>
+            <div id="adJobsBody" style="min-height:200px">
+              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase E — en attente.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
   </div>
@@ -2841,6 +2934,7 @@
         }
         if (section === 'watchlist') loadWatchlist();
         if (section === 'topInsiders') loadTopInsiders();
+        if (section === 'admin') loadAdminDashboard();
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -7754,6 +7848,70 @@
         ${hidden > 0 ? `<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;background:var(--surface);border-top:1px solid var(--border)">Affichage des ${pageSize} premiers resultats sur ${rows.length}. Exportez en CSV pour tout recuperer.</div>` : ''}
       `;
     }
+
+    // ============================================================
+    // ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS cote Worker)
+    // ============================================================
+    let isAdminUser = false;
+
+    async function checkAdminStatus() {
+      if (!currentUser) { isAdminUser = false; return false; }
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/admin/whoami`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) { isAdminUser = false; return false; }
+        const data = await res.json();
+        isAdminUser = !!data.isAdmin;
+        // Affiche la section sidebar "Admin" si admin
+        const el = document.getElementById('sidebarAdminSection');
+        if (el) el.style.display = isAdminUser ? '' : 'none';
+        return isAdminUser;
+      } catch (e) {
+        isAdminUser = false;
+        return false;
+      }
+    }
+
+    // Charge les 5 panels de l'admin dashboard (stub en Phase A, complete aux phases suivantes)
+    async function loadAdminDashboard(force) {
+      if (!isAdminUser) {
+        await checkAdminStatus();
+        if (!isAdminUser) {
+          document.getElementById('section-admin').querySelectorAll('[id^="adKpi"], [id^="ad"]').forEach(el => {});
+          alert('Acces admin refuse.');
+          switchSection('home');
+          return;
+        }
+      }
+      const statusEl = document.getElementById('adminAutoRefreshStatus');
+      if (statusEl) statusEl.textContent = 'Chargement...';
+
+      try {
+        const token = await currentUser.getIdToken();
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        // Phase A : on appelle whoami et on affiche juste "connecte en tant qu'admin"
+        const who = await fetch(`${API_BASE}/api/admin/whoami`, { headers }).then(r => r.json()).catch(() => null);
+        if (who && who.email && statusEl) {
+          const now = new Date().toLocaleTimeString('fr-FR');
+          statusEl.textContent = `Connecte : ${who.email} · MAJ ${now}`;
+        }
+
+        // Phase B/C/D/E seront branches sur leurs endpoints dedies
+        // Pour l'instant on affiche "Deploy en attente" dans les panels.
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Erreur : ' + (e.message || e);
+      }
+    }
+
+    // Verifie le statut admin au auth-ready pour afficher/cacher le sidebar button
+    window.addEventListener('kairos:auth-ready', () => {
+      if (currentUser) {
+        checkAdminStatus().catch(() => {});
+      }
+    });
 
     // ============================================================
     // TOP INSIDERS (Phase 2 V1 : classement par volume)
