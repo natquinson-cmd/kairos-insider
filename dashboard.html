@@ -3731,15 +3731,35 @@
     let currentStockTicker = null;
     let currentChartRange = '1y';
 
-    // Change la periode du chart (rappelle loadStockAnalysis avec le nouveau range)
-    function changeChartRange(range) {
+    // Change la periode du chart SANS re-rendre toute la page Analyse Action.
+    // Fetch uniquement /api/stock avec nouveau range, rebuild le chart via
+    // window._rebuildStockPriceChart (closure defini dans renderStockAnalysis),
+    // puis re-injecte les markers fonds offensifs.
+    async function changeChartRange(range) {
       if (!currentStockTicker) return;
       currentChartRange = range;
       // Update visual state des boutons
       document.querySelectorAll('.chart-range-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.range === range);
       });
-      loadStockAnalysis(currentStockTicker, range);
+      // Fade subtil du canvas chart le temps du fetch
+      const canvas = document.getElementById('stockPriceChart');
+      if (canvas) {
+        canvas.style.transition = 'opacity 0.15s';
+        canvas.style.opacity = '0.4';
+      }
+      try {
+        const data = await apiFetch(`/api/stock/${encodeURIComponent(currentStockTicker)}?range=${encodeURIComponent(range)}`);
+        if (data && data.chart && typeof window._rebuildStockPriceChart === 'function') {
+          window._rebuildStockPriceChart(data);
+          // Re-ajoute les markers fonds offensifs (le rebuild reset les datasets)
+          loadActivistsForTicker(currentStockTicker).catch(() => {});
+        }
+      } catch (e) {
+        console.error('changeChartRange error:', e);
+      } finally {
+        if (canvas) canvas.style.opacity = '1';
+      }
     }
 
     async function loadStockAnalysis(ticker, chartRange) {
@@ -5220,6 +5240,19 @@
         ` : ''}
       `;
 
+      // ============================================================
+      // Chart prix + superposition insiders — ENCAPSULÉ dans un closure
+      // reutilisable par changeChartRange() pour rebuilder le chart sans
+      // re-rendre tout le body.innerHTML de stockAnalysis.
+      // Save sur window pour acces cross-scope.
+      // ============================================================
+      window._rebuildStockPriceChart = function(newD) {
+        const d = newD;
+        const insiders = d.insiders || {};
+        const cur = d.price?.currency || 'USD';
+        const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat('fr-FR', { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
+        const fmtDate = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }); } catch { return s; } };
+
       // Render chart prix + superposition insiders
       if (d.chart && d.chart.points && d.chart.points.length > 0) {
         const ctx = document.getElementById('stockPriceChart')?.getContext('2d');
@@ -5443,6 +5476,9 @@
           });
         }
       }
+      }; // end window._rebuildStockPriceChart
+      // Initial build (render complet)
+      window._rebuildStockPriceChart(d);
 
       // Render Google Trends chart
       if (trends && Array.isArray(trends.series) && trends.series.length > 0) {
