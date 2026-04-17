@@ -2233,10 +2233,15 @@
 
       <!-- ===== SECTION: ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS) ===== -->
       <div class="section-page" id="section-admin">
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap">
           <h2 style="margin:0">🛡️ Tableau de bord Admin</h2>
           <span id="adminAutoRefreshStatus" style="font-size:11px;color:var(--text-muted)">—</span>
-          <button onclick="loadAdminDashboard(true)" style="margin-left:auto;padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+          <label style="margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px">
+            <input type="checkbox" id="adminAutoRefresh" onchange="toggleAdminAutoRefresh()" style="accent-color:#10B981" />
+            <span>Auto-refresh</span>
+            <span id="adminCountdown" style="font-size:10px;color:var(--text-muted)"></span>
+          </label>
+          <button onclick="loadAdminDashboard(true)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
         </div>
         <p class="section-desc">Monitoring interne de la plateforme. Acces limite a ton email.</p>
 
@@ -2935,6 +2940,14 @@
         if (section === 'watchlist') loadWatchlist();
         if (section === 'topInsiders') loadTopInsiders();
         if (section === 'admin') loadAdminDashboard();
+      }
+      // Auto-refresh admin : start/stop selon la section active + la preference
+      if (typeof startAdminAutoRefresh === 'function') {
+        if (section === 'admin' && document.getElementById('adminAutoRefresh')?.checked) {
+          startAdminAutoRefresh();
+        } else {
+          stopAdminAutoRefresh();
+        }
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -8323,10 +8336,64 @@
       `;
     }
 
+    // ===== Auto-refresh admin =====
+    let adminRefreshTimer = null;
+    let adminCountdownTimer = null;
+    const ADMIN_REFRESH_INTERVAL_SEC = 30;
+    let adminRefreshSecondsLeft = 0;
+
+    function toggleAdminAutoRefresh() {
+      const enabled = document.getElementById('adminAutoRefresh')?.checked;
+      if (enabled) {
+        startAdminAutoRefresh();
+        // Persist preference
+        try { localStorage.setItem('kairos_admin_auto_refresh', '1'); } catch {}
+      } else {
+        stopAdminAutoRefresh();
+        try { localStorage.setItem('kairos_admin_auto_refresh', '0'); } catch {}
+      }
+    }
+
+    function startAdminAutoRefresh() {
+      stopAdminAutoRefresh();
+      adminRefreshSecondsLeft = ADMIN_REFRESH_INTERVAL_SEC;
+      const updateCountdown = () => {
+        const el = document.getElementById('adminCountdown');
+        if (el) el.textContent = `(${adminRefreshSecondsLeft}s)`;
+        adminRefreshSecondsLeft--;
+        if (adminRefreshSecondsLeft < 0) {
+          adminRefreshSecondsLeft = ADMIN_REFRESH_INTERVAL_SEC;
+          // Reload seulement si la section admin est active
+          if (document.getElementById('section-admin')?.classList.contains('active')) {
+            loadAdminDashboard(true);
+          }
+        }
+      };
+      updateCountdown();
+      adminCountdownTimer = setInterval(updateCountdown, 1000);
+    }
+
+    function stopAdminAutoRefresh() {
+      if (adminRefreshTimer) { clearInterval(adminRefreshTimer); adminRefreshTimer = null; }
+      if (adminCountdownTimer) { clearInterval(adminCountdownTimer); adminCountdownTimer = null; }
+      const el = document.getElementById('adminCountdown');
+      if (el) el.textContent = '';
+    }
+
     // Verifie le statut admin au auth-ready pour afficher/cacher le sidebar button
     window.addEventListener('kairos:auth-ready', () => {
       if (currentUser) {
-        checkAdminStatus().catch(() => {});
+        checkAdminStatus().then(() => {
+          // Restore auto-refresh preference si admin
+          if (isAdminUser) {
+            try {
+              if (localStorage.getItem('kairos_admin_auto_refresh') === '1') {
+                const cb = document.getElementById('adminAutoRefresh');
+                if (cb) { cb.checked = true; }
+              }
+            } catch {}
+          }
+        }).catch(() => {});
       }
     });
 
