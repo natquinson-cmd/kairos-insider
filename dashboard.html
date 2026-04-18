@@ -312,6 +312,13 @@
 
     /* Toggle clair/sombre */
     /* Menu déroulant profil (style Google) */
+    #navProfileMenu {
+      /* Fond solide opaque pour éviter la transparence en mode sombre */
+      background: #111827 !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    :root[data-theme="light"] #navProfileMenu { background: #FFFFFF !important; }
     .profile-menu-item {
       display: flex;
       align-items: center;
@@ -328,6 +335,8 @@
       border-radius: 8px;
       transition: background 0.15s;
     }
+    .profile-menu-item::before,
+    .profile-menu-item::after { content: none !important; }
     .profile-menu-item:hover { background: var(--surface-2); }
 
     .theme-toggle {
