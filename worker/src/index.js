@@ -92,7 +92,7 @@ export default {
     // ==========================================
     // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
     // ==========================================
-    if (path.startsWith('/api/') || path.startsWith('/stripe/')) {
+    if (path.startsWith('/api/') || path.startsWith('/stripe/') || path.startsWith('/account/') || path.startsWith('/support/')) {
       // Vérifier le token Firebase
       const authHeader = request.headers.get('Authorization') || '';
       const idToken = authHeader.replace('Bearer ', '');
