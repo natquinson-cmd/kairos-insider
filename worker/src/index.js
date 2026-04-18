@@ -2467,7 +2467,7 @@ async function handleSupportContact(request, env, user, origin) {
       },
       body: JSON.stringify({
         sender: { name: 'Kairos Insider Support', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
-        to: [{ email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr', name: 'Support Kairos' }],
+        to: [{ email: env.SUPPORT_INBOX_EMAIL || 'natquinson@gmail.com', name: 'Support Kairos' }],
         replyTo: { email: userEmail, name: userName },
         subject: `[Support] ${subjectLabel} — ${userName}`,
         htmlContent: html,
