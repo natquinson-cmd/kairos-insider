@@ -1266,19 +1266,6 @@
       <ul class="nav-links">
         <li><a href="index.html" data-i18n="nav.home">Accueil</a></li>
         <li><a href="dashboard.html" class="active" data-i18n="nav.dashboard">Dashboard</a></li>
-        <li>
-          <button class="theme-toggle" onclick="toggleTheme()" title="Basculer clair / sombre" aria-label="Basculer le thème">
-            <span class="theme-toggle-icon" id="themeToggleIcon">🌙</span>
-          </button>
-        </li>
-        <li>
-          <button id="navLangToggleDash" onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === 'fr' ? 'en' : 'fr')" data-i18n-title="nav.lang_switch_title" title="Switch to English"
-                  style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:6px 11px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:5px;transition:all 0.2s"
-                  onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'"
-                  onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'">
-            <span id="navLangFlagDash" style="display:inline-flex;align-items:center"></span><span data-i18n="nav.lang_switch">EN</span>
-          </button>
-        </li>
         <li style="position:relative">
           <button id="navProfileBtn" onclick="toggleProfileMenu(event)" title="Mon compte" aria-label="Mon compte" aria-haspopup="true" aria-expanded="false"
                   style="background:transparent;border:1px solid var(--border-strong);padding:3px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;transition:all 0.2s"
