@@ -117,6 +117,11 @@ export default {
         return handleCustomerPortal(request, env, user, origin);
       }
 
+      // --- Suppression de compte (RGPD) : purge KV + watchlist (Firebase Auth géré côté client) ---
+      if (request.method === 'POST' && path === '/account/delete') {
+        return handleAccountDelete(env, user, origin);
+      }
+
       // --- Routes Watchlist (auth requise, check premium integre dans la route) ---
       if (path.startsWith('/api/watchlist/')) {
         const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
@@ -2142,14 +2147,83 @@ async function handleCreateCheckout(request, env, user, origin) {
 }
 
 // ============================================================
+// STRIPE : Vérification de signature du webhook
+// ============================================================
+// Format du header Stripe-Signature: "t=TIMESTAMP,v1=SIGNATURE[,v1=...]"
+// On recompute HMAC_SHA256(secret, timestamp + "." + rawBody) et on compare.
+async function verifyStripeSignature(rawBody, sigHeader, secret, toleranceSec = 300) {
+  if (!sigHeader || !secret) return false;
+  const parts = sigHeader.split(',').map(s => s.trim());
+  let ts = null;
+  const v1Sigs = [];
+  for (const p of parts) {
+    const [k, v] = p.split('=');
+    if (k === 't') ts = v;
+    else if (k === 'v1') v1Sigs.push(v);
+  }
+  if (!ts || v1Sigs.length === 0) return false;
+
+  // Replay protection : rejeter si timestamp trop vieux
+  const tsNum = parseInt(ts, 10);
+  if (!Number.isFinite(tsNum)) return false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - tsNum) > toleranceSec) return false;
+
+  // Recomputer HMAC
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const payload = `${ts}.${rawBody}`;
+  const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  const expectedHex = Array.from(new Uint8Array(sigBuf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  // Comparaison constant-time
+  for (const sig of v1Sigs) {
+    if (sig.length !== expectedHex.length) continue;
+    let diff = 0;
+    for (let i = 0; i < sig.length; i++) {
+      diff |= sig.charCodeAt(i) ^ expectedHex.charCodeAt(i);
+    }
+    if (diff === 0) return true;
+  }
+  return false;
+}
+
+// ============================================================
 // STRIPE : Webhook (events de subscription)
 // ============================================================
 async function handleStripeWebhook(request, env) {
   try {
     const body = await request.text();
-    // Note: Pour le MVP on ne vérifie pas la signature du webhook
-    // En production, il faudrait vérifier avec STRIPE_WEBHOOK_SECRET
+
+    // Vérification de la signature Stripe (anti-forgerie)
+    const sigHeader = request.headers.get('Stripe-Signature') || request.headers.get('stripe-signature');
+    const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET not configured — rejecting webhook');
+      return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), { status: 500 });
+    }
+    const valid = await verifyStripeSignature(body, sigHeader, webhookSecret);
+    if (!valid) {
+      console.warn('Stripe webhook: invalid signature, rejected');
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 });
+    }
+
     const event = JSON.parse(body);
+
+    // Rejet des events test en production (évite que des paiements test accordent un Premium réel).
+    // STRIPE_ALLOW_TEST_MODE=1 pour autoriser (dev/staging).
+    if (event.livemode === false && env.STRIPE_ALLOW_TEST_MODE !== '1') {
+      console.warn(`Stripe webhook: test-mode event ignored (type=${event.type}, id=${event.id})`);
+      return new Response(JSON.stringify({ received: true, ignored: 'test-mode' }), { status: 200 });
+    }
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
@@ -2268,6 +2342,39 @@ async function handleCustomerPortal(request, env, user, origin) {
 
     return jsonResponse({ url: session.url }, 200, origin);
   } catch (err) {
+    return jsonResponse({ error: 'Internal error' }, 500, origin);
+  }
+}
+
+// ============================================================
+// ACCOUNT : Suppression (RGPD)
+// Purge côté serveur : KV (sub + watchlist). Firebase Auth + RTDB sont supprimés côté client.
+// Si abonnement Stripe actif, on tente l'annulation automatique.
+// ============================================================
+async function handleAccountDelete(env, user, origin) {
+  try {
+    const uid = user.uid;
+    // 1) Annuler l'abonnement Stripe si présent (best-effort)
+    try {
+      const subData = await env.CACHE.get(`sub:${uid}`, 'json');
+      if (subData?.subscriptionId && env.STRIPE_SECRET_KEY) {
+        await fetch(`https://api.stripe.com/v1/subscriptions/${subData.subscriptionId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+        }).catch(e => console.warn('Stripe cancel failed:', e));
+      }
+    } catch (e) { console.warn('sub cancel pre-delete:', e); }
+
+    // 2) Purge KV
+    await Promise.all([
+      env.CACHE.delete(`sub:${uid}`).catch(() => {}),
+      env.CACHE.delete(`wl:${uid}`).catch(() => {}),
+    ]);
+
+    console.log(`[account/delete] purged KV for uid=${uid} (email=${user.email})`);
+    return jsonResponse({ ok: true, purged: ['sub', 'wl'] }, 200, origin);
+  } catch (err) {
+    console.error('handleAccountDelete error:', err);
     return jsonResponse({ error: 'Internal error' }, 500, origin);
   }
 }
