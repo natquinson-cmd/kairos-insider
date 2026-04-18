@@ -122,6 +122,11 @@ export default {
         return handleAccountDelete(env, user, origin);
       }
 
+      // --- Support : formulaire de contact (envoie un email au support via Brevo) ---
+      if (request.method === 'POST' && path === '/support/contact') {
+        return handleSupportContact(request, env, user, origin);
+      }
+
       // --- Routes Watchlist (auth requise, check premium integre dans la route) ---
       if (path.startsWith('/api/watchlist/')) {
         const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
@@ -2375,6 +2380,110 @@ async function handleAccountDelete(env, user, origin) {
     return jsonResponse({ ok: true, purged: ['sub', 'wl'] }, 200, origin);
   } catch (err) {
     console.error('handleAccountDelete error:', err);
+    return jsonResponse({ error: 'Internal error' }, 500, origin);
+  }
+}
+
+// ============================================================
+// SUPPORT : envoi email de contact via Brevo
+// → destinataire : contact@kairosinsider.fr
+// → replyTo : email du user (pour réponse directe)
+// Rate-limit : 5 msg / heure / user via KV
+// ============================================================
+const SUPPORT_RATE_LIMIT = 5;   // max msgs / fenêtre
+const SUPPORT_RATE_WINDOW = 3600; // en secondes (1h)
+const SUPPORT_SUBJECTS = {
+  question: '❓ Question générale',
+  bug: '🐛 Bug',
+  billing: '💳 Facturation / Abonnement',
+  feature: '💡 Suggestion',
+  data: '📊 Problème de données',
+  other: '✉️ Autre',
+};
+
+async function handleSupportContact(request, env, user, origin) {
+  try {
+    const body = await request.json();
+    const subject = (body.subject || 'other').toLowerCase();
+    const message = (body.message || '').trim();
+
+    // Validation
+    if (!SUPPORT_SUBJECTS[subject]) {
+      return jsonResponse({ error: 'Sujet invalide' }, 400, origin);
+    }
+    if (message.length < 10) {
+      return jsonResponse({ error: 'Message trop court (10 caractères min)' }, 400, origin);
+    }
+    if (message.length > 4000) {
+      return jsonResponse({ error: 'Message trop long (4000 caractères max)' }, 400, origin);
+    }
+
+    // Rate-limit anti-spam (5 messages / heure / user)
+    const rlKey = `support_rl:${user.uid}`;
+    const current = parseInt(await env.CACHE.get(rlKey) || '0', 10);
+    if (current >= SUPPORT_RATE_LIMIT) {
+      return jsonResponse({ error: 'Trop de messages envoyés. Réessayez dans 1 heure.' }, 429, origin);
+    }
+    await env.CACHE.put(rlKey, String(current + 1), { expirationTtl: SUPPORT_RATE_WINDOW });
+
+    // Récup infos abonnement (utile pour le support)
+    const subData = await env.CACHE.get(`sub:${user.uid}`, 'json').catch(() => null);
+    const planLabel = subData?.status === 'active'
+      ? (subData.billing === 'yearly' ? 'Premium Annuel' : 'Premium Mensuel')
+      : 'Free';
+
+    const subjectLabel = SUPPORT_SUBJECTS[subject];
+    const userEmail = user.email || 'inconnu';
+    const userName = user.name || user.displayName || userEmail.split('@')[0];
+
+    // HTML email
+    const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const html = `
+      <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#1F2937">
+        <h2 style="color:#3B82F6;border-bottom:2px solid #3B82F6;padding-bottom:8px">🎧 Nouveau message support</h2>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <tr><td style="padding:6px 0;color:#6B7280;width:140px">Sujet</td><td style="padding:6px 0;font-weight:600">${esc(subjectLabel)}</td></tr>
+          <tr><td style="padding:6px 0;color:#6B7280">Utilisateur</td><td style="padding:6px 0;font-weight:600">${esc(userName)}</td></tr>
+          <tr><td style="padding:6px 0;color:#6B7280">Email</td><td style="padding:6px 0"><a href="mailto:${esc(userEmail)}" style="color:#3B82F6">${esc(userEmail)}</a></td></tr>
+          <tr><td style="padding:6px 0;color:#6B7280">UID</td><td style="padding:6px 0;font-family:monospace;font-size:12px;color:#6B7280">${esc(user.uid)}</td></tr>
+          <tr><td style="padding:6px 0;color:#6B7280">Plan</td><td style="padding:6px 0">${esc(planLabel)}</td></tr>
+          <tr><td style="padding:6px 0;color:#6B7280">Date</td><td style="padding:6px 0">${new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' })}</td></tr>
+        </table>
+        <div style="background:#F9FAFB;border-left:4px solid #3B82F6;padding:16px;border-radius:4px;margin:16px 0">
+          <div style="white-space:pre-wrap;line-height:1.6;color:#1F2937">${esc(message)}</div>
+        </div>
+        <div style="font-size:12px;color:#6B7280;margin-top:20px;padding-top:14px;border-top:1px solid #E5E7EB">
+          💡 Pour répondre, cliquez simplement sur « Répondre » : l'email ira directement à <strong>${esc(userEmail)}</strong>.
+        </div>
+      </div>`;
+
+    // Envoi via Brevo SMTP API
+    const brevoResp = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: 'Kairos Insider Support', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+        to: [{ email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr', name: 'Support Kairos' }],
+        replyTo: { email: userEmail, name: userName },
+        subject: `[Support] ${subjectLabel} — ${userName}`,
+        htmlContent: html,
+      }),
+    });
+
+    if (!brevoResp.ok) {
+      const errText = await brevoResp.text().catch(() => '');
+      console.error('Brevo support send failed:', brevoResp.status, errText);
+      return jsonResponse({ error: 'Envoi de l\'email échoué' }, 502, origin);
+    }
+
+    console.log(`[support] message sent from uid=${user.uid} email=${userEmail} subject=${subject}`);
+    return jsonResponse({ ok: true }, 200, origin);
+  } catch (err) {
+    console.error('handleSupportContact error:', err);
     return jsonResponse({ error: 'Internal error' }, 500, origin);
   }
 }

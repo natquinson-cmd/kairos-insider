@@ -326,6 +326,26 @@
       'profile.delete_desc': 'Suppression définitive du compte, watchlist et abonnement. Action irréversible.',
       'profile.delete_btn': '🗑️ Supprimer',
 
+      // ==== Support ====
+      'support.title': '🎧 Aide & Support',
+      'support.subtitle': 'Une question, un bug ou une suggestion ? Nous répondons sous 24h ouvrées.',
+      'support.faq': 'FAQ',
+      'support.cgv': 'CGV',
+      'support.privacy': 'Confidentialité',
+      'support.subject': 'Sujet',
+      'support.subj_question': '❓ Question générale',
+      'support.subj_bug': '🐛 Signaler un bug',
+      'support.subj_billing': '💳 Facturation / Abonnement',
+      'support.subj_feature': '💡 Suggestion d\'amélioration',
+      'support.subj_data': '📊 Problème de données',
+      'support.subj_other': '✉️ Autre',
+      'support.message': 'Votre message',
+      'support.placeholder': 'Décrivez votre question ou problème avec le plus de détails possible (ticker concerné, étapes pour reproduire le bug…)',
+      'support.response_hint': 'Réponse par email sous 24h ouvrées',
+      'support.reply_info': 'Votre email de connexion sera utilisé pour la réponse. Vous pouvez joindre des captures en répondant à l\'email que nous vous enverrons.',
+      'support.cancel': 'Annuler',
+      'support.send': '📤 Envoyer',
+
       // ==== Home cards ====
       'dash.home.consensus_title': 'Consensus Hedge Funds',
       'dash.home.consensus_desc': 'Les actions ou <strong>le plus de hedge funds convergent</strong> (position >= 0,3% du portefeuille). Les etoiles conviction = pari actif, pas de l\'indexation passive BlackRock/Vanguard.',
@@ -719,6 +739,26 @@
       'profile.delete_title': 'Delete my account',
       'profile.delete_desc': 'Permanently delete account, watchlist and subscription. This action cannot be undone.',
       'profile.delete_btn': '🗑️ Delete',
+
+      // ==== Support ====
+      'support.title': '🎧 Help & Support',
+      'support.subtitle': 'A question, a bug or a suggestion? We reply within 24 business hours.',
+      'support.faq': 'FAQ',
+      'support.cgv': 'Terms',
+      'support.privacy': 'Privacy',
+      'support.subject': 'Subject',
+      'support.subj_question': '❓ General question',
+      'support.subj_bug': '🐛 Report a bug',
+      'support.subj_billing': '💳 Billing / Subscription',
+      'support.subj_feature': '💡 Feature request',
+      'support.subj_data': '📊 Data issue',
+      'support.subj_other': '✉️ Other',
+      'support.message': 'Your message',
+      'support.placeholder': 'Describe your question or problem in detail (ticker, steps to reproduce the bug…)',
+      'support.response_hint': 'Email reply within 24 business hours',
+      'support.reply_info': 'Your login email will be used for the reply. You can attach screenshots by replying to the email we send you.',
+      'support.cancel': 'Cancel',
+      'support.send': '📤 Send',
 
       // ==== Home cards ====
       'dash.home.consensus_title': 'Hedge Funds Consensus',
