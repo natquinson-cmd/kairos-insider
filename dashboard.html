@@ -1073,30 +1073,47 @@
     }
     .sidebar-toggle:hover { color: var(--text-primary); }
 
-    /* Mobile: sidebar becomes top bar */
+    /* Mobile/Tablette: sidebar devient drawer coulissant (toggle via .sidebar-toggle) */
     @media (max-width: 900px) {
       .sidebar {
         position: fixed;
-        top: 65px;
-        left: 0;
-        right: 0;
-        bottom: auto;
-        width: 100%;
-        min-width: 0;
-        height: auto;
-        display: flex;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 8px 12px;
-        gap: 4px;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-        background: rgba(10,15,30,0.95);
+        top: 65px; left: 0; bottom: 0;
+        width: 260px;
+        z-index: 900;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        background: var(--surface-1);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+        overflow-y: auto;
       }
-      .sidebar-section { display: contents; }
-      .sidebar-title { display: none; }
-      .sidebar-item { white-space: nowrap; padding: 8px 12px; font-size: 12px; }
-      .main { margin-left: 0; padding-top: 60px; padding-left: 16px; padding-right: 16px; }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; padding-top: 20px; padding-left: 16px; padding-right: 16px; }
+      /* Le bouton toggle interne (≡) de la sidebar est caché, on utilise le FAB externe ci-dessous */
+      .sidebar > .sidebar-toggle { display: none; }
+      /* FAB toggle externe (visible sur mobile uniquement) */
+      .mobile-sidebar-fab {
+        position: fixed; top: 14px; left: 14px; z-index: 1000;
+        width: 40px; height: 40px; border-radius: 10px;
+        background: var(--surface-1); border: 1px solid var(--border-strong);
+        color: var(--text-primary); cursor: pointer;
+        display: flex !important; align-items: center; justify-content: center;
+        font-size: 20px; padding: 0;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      }
+      .mobile-sidebar-fab:hover { background: var(--surface-2); }
+      /* Overlay semi-transparent derrière le drawer quand il est ouvert */
+      .sidebar.open ~ .sidebar-backdrop,
+      body:has(.sidebar.open) .sidebar-backdrop {
+        display: block !important;
+      }
+    }
+    .mobile-sidebar-fab { display: none; }
+    .sidebar-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 899;
+      backdrop-filter: blur(2px);
     }
 
     /* ===== SEARCH ===== */
@@ -1790,6 +1807,10 @@
   </div>
 
   <!-- ===== LAYOUT ===== -->
+  <!-- FAB bouton toggle sidebar mobile (visible < 900px) -->
+  <button class="mobile-sidebar-fab" onclick="toggleSidebar()" aria-label="Ouvrir le menu" title="Menu">&#9776;</button>
+  <div class="sidebar-backdrop" onclick="document.getElementById('sidebar').classList.remove('open');this.style.display='none'"></div>
+
   <div class="dashboard-layout">
 
     <!-- SIDEBAR -->
@@ -3784,27 +3805,24 @@
     // ============================================================
     function toggleSidebar() {
       const sb = document.getElementById('sidebar');
-      // Mobile : open/close ; Desktop : collapse/expand
-      if (window.matchMedia('(max-width: 768px)').matches) {
-        sb.classList.toggle('open');
+      const backdrop = document.querySelector('.sidebar-backdrop');
+      // Mobile/tablette (<=900px) : open/close ; Desktop : collapse/expand
+      if (window.matchMedia('(max-width: 900px)').matches) {
+        const willOpen = !sb.classList.contains('open');
+        sb.classList.toggle('open', willOpen);
+        if (backdrop) backdrop.style.display = willOpen ? 'block' : 'none';
       } else {
         sb.classList.toggle('collapsed');
       }
     }
-    // Ferme la sidebar mobile en cliquant hors d'elle
+    // Ferme la sidebar mobile après clic sur un item de nav
     document.addEventListener('click', (e) => {
-      if (!window.matchMedia('(max-width: 768px)').matches) return;
-      const sb = document.getElementById('sidebar');
-      if (!sb || !sb.classList.contains('open')) return;
-      const toggle = document.querySelector('.sidebar-toggle');
-      if (sb.contains(e.target) || toggle?.contains(e.target)) return;
-      sb.classList.remove('open');
-    });
-    // Ferme la sidebar mobile après clic sur un lien (switchSection)
-    document.addEventListener('click', (e) => {
-      if (!window.matchMedia('(max-width: 768px)').matches) return;
+      if (!window.matchMedia('(max-width: 900px)').matches) return;
       if (e.target.closest?.('.sidebar-item')) {
-        document.getElementById('sidebar')?.classList.remove('open');
+        const sb = document.getElementById('sidebar');
+        const backdrop = document.querySelector('.sidebar-backdrop');
+        sb?.classList.remove('open');
+        if (backdrop) backdrop.style.display = 'none';
       }
     });
 
