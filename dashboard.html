@@ -3245,17 +3245,17 @@
         <!-- 2 COLONNES : DB STATUS / JOBS STATUS -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;margin-bottom:24px">
           <!-- PANEL DB STATUS -->
-          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden">
             <h3 style="margin:0 0 14px;font-size:16px">💾 Base de données</h3>
-            <div id="adDbBody" style="min-height:200px">
+            <div id="adDbBody" style="min-height:200px;min-width:0">
               <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase D — en attente.</div>
             </div>
           </div>
 
           <!-- PANEL JOBS STATUS -->
-          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden">
             <h3 style="margin:0 0 14px;font-size:16px">⚙️ Jobs &amp; Cron</h3>
-            <div id="adJobsBody" style="min-height:200px">
+            <div id="adJobsBody" style="min-height:200px;min-width:0">
               <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase E — en attente.</div>
             </div>
           </div>
@@ -10289,7 +10289,13 @@
 
       body.innerHTML = sizeBanner + `
         <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare D1 (kairos-history)</div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
+        <div style="overflow-x:auto;max-width:100%;margin-bottom:20px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;word-wrap:break-word">
+          <colgroup>
+            <col style="width:45%">
+            <col style="width:18%">
+            <col style="width:37%">
+          </colgroup>
           <thead>
             <tr style="border-bottom:2px solid var(--border)">
               <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Table</th>
@@ -10299,9 +10305,16 @@
           </thead>
           <tbody>${d1Rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted)">Aucune table disponible.</td></tr>'}</tbody>
         </table>
+        </div>
 
         <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare KV (CACHE)</div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <div style="overflow-x:auto;max-width:100%">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;word-wrap:break-word">
+          <colgroup>
+            <col style="width:60%">
+            <col style="width:25%">
+            <col style="width:15%">
+          </colgroup>
           <thead>
             <tr style="border-bottom:2px solid var(--border)">
               <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Type</th>
@@ -10311,6 +10324,7 @@
           </thead>
           <tbody>${kvRows}</tbody>
         </table>
+        </div>
 
         <div style="margin-top:12px;font-size:10px;color:var(--text-muted);text-align:right">MAJ : ${dbRes.timestamp ? new Date(dbRes.timestamp).toLocaleTimeString('fr-FR') : '—'}</div>
       `;
