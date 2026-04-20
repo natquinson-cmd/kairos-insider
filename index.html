@@ -920,6 +920,13 @@
     .footer-links { list-style: none; display: flex; gap: 22px; flex-wrap: wrap; }
     .footer-links a { color: var(--text-muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
     .footer-links a:hover { color: var(--text-primary); }
+    .footer-legal {
+      margin-top: 18px; padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.6;
+    }
+    .footer-legal a { color: var(--text-muted); text-decoration: underline; }
+    .footer-legal a:hover { color: var(--text-primary); }
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 900px) {
@@ -1685,6 +1692,10 @@
           <li><a href="mailto:contact@kairosinsider.fr" data-i18n="footer.contact">Contact</a></li>
           <li><a href="#" onclick="event.preventDefault();window.KairosCookieConsent&&window.KairosCookieConsent.open()" data-i18n="footer.cookies">Gérer mes cookies</a></li>
         </ul>
+      </div>
+      <div class="footer-legal" data-i18n="footer.legal_line">
+        Kairos Insider — Nathanaël Quinson · SIRET 938 381 928 00010 · Annecy, France ·
+        <a href="legal.html">Mentions légales</a>
       </div>
     </div>
   </footer>
