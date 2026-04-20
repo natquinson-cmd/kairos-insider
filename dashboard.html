@@ -3057,7 +3057,7 @@
           <!-- PANEL TRAFFIC -->
           <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <h3 style="margin:0;font-size:16px">📈 Trafic</h3>
+              <h3 style="margin:0;font-size:16px">📈 Trafic <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">via Google Analytics</span></h3>
               <select id="adTrafficDays" onchange="loadAdminDashboard(true)" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);outline:none">
                 <option value="1">24h</option>
                 <option value="7" selected>7j</option>
@@ -9663,7 +9663,7 @@
         const [subsRes, usersRes, trafficRes, dbRes, jobsRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
-          fetch(`${API_BASE}/api/admin/traffic?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/ga4-stats?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/db-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/jobs`, { headers }).then(r => r.json()).catch(() => null),
         ]);
@@ -9680,12 +9680,13 @@
           if (deltaEl) deltaEl.textContent = `${usersRes.withSubscription || 0} subs · ${usersRes.withWatchlist || 0} watchlists`;
         }
         if (trafficRes && !trafficRes.error) {
-          const pv = trafficRes.total?.pageViews || trafficRes.total?.requests || 0;
+          const pv = trafficRes.kpis?.pageViews || 0;
           document.getElementById('adKpiVisits').textContent = pv.toLocaleString('fr-FR');
           const todayEl = document.getElementById('adKpiVisitsToday');
           if (todayEl && trafficRes.series?.length) {
             const last = trafficRes.series[trafficRes.series.length - 1];
-            todayEl.textContent = `Hier : ${(last.pageViews || last.requests || 0).toLocaleString('fr-FR')} · ${trafficRes.cacheHitRate || 0}% cache`;
+            const users = trafficRes.kpis?.totalUsers || 0;
+            todayEl.textContent = `${users.toLocaleString('fr-FR')} users · ${(trafficRes.kpis?.sessions || 0).toLocaleString('fr-FR')} sessions`;
           }
         }
 
@@ -9798,75 +9799,94 @@
       const body = document.getElementById('adTrafficBody');
       if (!body) return;
 
-      // Cas : secrets CF manquants → afficher les instructions de setup
-      if (trafficRes && trafficRes.code === 'MISSING_CF_SECRETS') {
-        body.innerHTML = `
-          <div style="padding:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;color:var(--text-primary)">
-            <div style="font-weight:600;margin-bottom:10px;color:#F59E0B">⚠️ Cloudflare Analytics non configure</div>
-            <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px;line-height:1.5">Pour afficher le trafic, il faut setter 2 secrets Worker :</p>
-            <ol style="font-size:12px;color:var(--text-primary);margin:0;padding-left:20px;line-height:1.8">
-              ${(trafficRes.setup || []).map(l => `<li>${l.replace('wrangler secret', '<code style="background:var(--surface-2);padding:2px 5px;border-radius:4px">wrangler secret</code>')}</li>`).join('')}
-            </ol>
-          </div>
-        `;
-        return;
-      }
-
       if (!trafficRes || trafficRes.error) {
-        let detail = '';
-        if (trafficRes?.errors && Array.isArray(trafficRes.errors)) {
-          detail = '<div style="margin-top:10px;padding:10px;background:var(--surface-2);border-radius:6px;font-family:monospace;font-size:11px;text-align:left;max-height:160px;overflow-y:auto">' +
-            trafficRes.errors.map(e => `• ${(e.message || JSON.stringify(e)).slice(0, 300)}`).join('<br>') +
-            '</div>';
-        } else if (trafficRes?.detail) {
-          detail = `<div style="margin-top:10px;font-size:11px;color:var(--text-muted);font-family:monospace">${trafficRes.detail.slice(0, 300)}</div>`;
-        }
-        body.innerHTML = `<div style="padding:30px;text-align:center;color:var(--accent-red);font-size:13px">Erreur : ${trafficRes?.error || 'pas de données'}${detail}</div>`;
+        const errMsg = trafficRes?.error || 'pas de données';
+        body.innerHTML = `
+          <div style="padding:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px">
+            <div style="font-weight:600;margin-bottom:8px;color:#F59E0B">⚠️ GA4 indisponible</div>
+            <div style="font-size:12px;color:var(--text-muted);font-family:monospace">${errMsg}</div>
+          </div>`;
         return;
       }
 
       const series = trafficRes.series || [];
       if (!series.length) {
-        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Aucune donnee de trafic disponible.</div>';
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Aucune donnée GA4 sur cette période.</div>';
         return;
       }
 
-      // KPIs
-      const total = trafficRes.total || {};
+      const k = trafficRes.kpis || {};
       const fmtN = (n) => (n || 0).toLocaleString('fr-FR');
-      const fmtGB = (b) => {
-        if (!b) return '0';
-        if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
-        if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
-        if (b >= 1e3) return (b / 1e3).toFixed(0) + ' KB';
-        return b + ' B';
+      const fmtPct = (n) => (n * 100).toFixed(1) + '%';
+      const fmtDur = (s) => {
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
       };
+
+      // KPIs
       const kpis = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
-          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700">${fmtN(total.requests)}</div>
-            <div style="color:var(--text-muted)">Requests</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#74b9ff">${fmtN(k.totalUsers)}</div>
+            <div style="color:var(--text-muted)">Utilisateurs</div>
           </div>
-          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:#74b9ff">${fmtN(total.pageViews)}</div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#10B981">${fmtN(k.activeUsers)}</div>
+            <div style="color:var(--text-muted)">Actifs</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#A78BFA">${fmtN(k.sessions)}</div>
+            <div style="color:var(--text-muted)">Sessions</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700">${fmtN(k.pageViews)}</div>
             <div style="color:var(--text-muted)">Page views</div>
           </div>
-          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:#10B981">${fmtN(total.uniques)}</div>
-            <div style="color:var(--text-muted)">Uniques</div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:#F59E0B">${fmtPct(k.bounceRate || 0)}</div>
+            <div style="color:var(--text-muted)">Bounce</div>
           </div>
-          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:#F59E0B">${trafficRes.cacheHitRate || 0}%</div>
-            <div style="color:var(--text-muted)">Cache hit</div>
-          </div>
-          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
-            <div style="font-size:13px;font-weight:700">${fmtGB(total.bytes)}</div>
-            <div style="color:var(--text-muted)">Bandwidth</div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:14px;font-weight:700">${fmtDur(k.avgSessionDuration || 0)}</div>
+            <div style="color:var(--text-muted)">Durée moy.</div>
           </div>
         </div>
       `;
 
-      body.innerHTML = kpis + '<div style="height:220px;position:relative"><canvas id="adTrafficChart"></canvas></div>';
+      // Tableaux Top Pages + Sources
+      const topPages = trafficRes.topPages || [];
+      const channels = trafficRes.channels || [];
+      const pagesHtml = topPages.length ? `
+        <div style="margin-top:14px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:6px">📄 Top pages</div>
+          <div style="background:var(--surface-2);border-radius:6px;overflow:hidden">
+            ${topPages.slice(0, 5).map(p => `
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border-strong);font-size:11px">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)" title="${p.title || ''}">${(p.path || '/').slice(0, 40)}</div>
+                <div style="color:var(--text-muted);flex-shrink:0;margin-left:10px">${fmtN(p.pageViews)} vues</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : '';
+
+      const channelsHtml = channels.length ? `
+        <div style="margin-top:14px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:6px">🎯 Sources</div>
+          <div style="background:var(--surface-2);border-radius:6px;overflow:hidden">
+            ${channels.slice(0, 5).map(c => `
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border-strong);font-size:11px">
+                <div style="color:var(--text-primary)">${c.channel || '(non défini)'}</div>
+                <div style="color:var(--text-muted)">${fmtN(c.users)} users · ${fmtN(c.sessions)} sess.</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : '';
+
+      body.innerHTML = kpis +
+        '<div style="height:200px;position:relative"><canvas id="adTrafficChart"></canvas></div>' +
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px">${pagesHtml}${channelsHtml}</div>` +
+        `<div style="margin-top:10px;font-size:10px;color:var(--text-muted);text-align:right">Source: <a href="https://analytics.google.com" target="_blank" style="color:var(--accent-blue);text-decoration:none">Google Analytics ↗</a></div>`;
 
       // Destroy previous chart if any
       if (adminTrafficChart) {
@@ -9876,11 +9896,13 @@
 
       const ctx = document.getElementById('adTrafficChart')?.getContext('2d');
       if (!ctx) return;
+      // Format YYYYMMDD → DD/MM
       const labels = series.map(p => {
-        if (trafficRes.granularity === 'hour') {
-          return new Date(p.key).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const d = p.date;
+        if (d && d.length === 8) {
+          return `${d.slice(6, 8)}/${d.slice(4, 6)}`;
         }
-        return new Date(p.key).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+        return d || '';
       });
 
       adminTrafficChart = new Chart(ctx, {
@@ -9888,29 +9910,12 @@
         data: {
           labels,
           datasets: [
-            {
-              label: 'Page views',
-              data: series.map(p => p.pageViews || 0),
-              borderColor: '#74b9ff',
-              backgroundColor: 'rgba(116,185,255,0.1)',
-              tension: 0.3,
-              fill: true,
-              pointRadius: 2,
-            },
-            {
-              label: 'Uniques',
-              data: series.map(p => p.uniques || 0),
-              borderColor: '#10B981',
-              backgroundColor: 'rgba(16,185,129,0.06)',
-              tension: 0.3,
-              fill: false,
-              pointRadius: 2,
-            },
+            { label: 'Page views', data: series.map(p => p.pageViews || 0), borderColor: '#74b9ff', backgroundColor: 'rgba(116,185,255,0.12)', tension: 0.3, fill: true, pointRadius: 2 },
+            { label: 'Utilisateurs', data: series.map(p => p.users || 0), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.06)', tension: 0.3, fill: false, pointRadius: 2 },
           ],
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
+          responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } },
             tooltip: { mode: 'index', intersect: false },

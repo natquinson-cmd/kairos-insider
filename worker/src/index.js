@@ -170,6 +170,9 @@ export default {
         if (path === '/api/admin/traffic') {
           return handleAdminTraffic(url, env, origin);
         }
+        if (path === '/api/admin/ga4-stats') {
+          return handleAdminGA4Stats(url, env, origin);
+        }
         if (path === '/api/admin/db-stats') {
           return handleAdminDbStats(env, origin);
         }
@@ -3049,6 +3052,217 @@ async function handleAdminDbStats(env, origin) {
     timestamp: new Date().toISOString(),
     ...result,
   }, 200, origin);
+}
+
+// ============================================================
+// GOOGLE ANALYTICS 4 — Data API (intégration native dans admin)
+// ============================================================
+// On utilise un compte de service Google :
+// - GA4_SERVICE_ACCOUNT_JSON : JSON complet de la clé du service account
+// - GA4_PROPERTY_ID : ID numérique de la propriété GA4 (ex: 532249211)
+// Stratégie : signer un JWT RS256 → exchange contre un access token OAuth → query Data API
+// Token caché 50 min dans KV (validité Google = 1h)
+// ============================================================
+
+// Convert PEM (private key) → ArrayBuffer
+function pemToArrayBuffer(pem) {
+  const b64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s+/g, '');
+  const binary = atob(b64);
+  const buf = new ArrayBuffer(binary.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+  return buf;
+}
+
+function base64UrlEncode(input) {
+  let str;
+  if (input instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(input);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    str = btoa(bin);
+  } else {
+    str = btoa(input);
+  }
+  return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Génère un access token OAuth Google (depuis JWT signé)
+async function getGoogleAccessToken(env) {
+  // Cache token en KV pour éviter de re-signer à chaque requête
+  const cached = await env.CACHE.get('ga4:access_token', 'json').catch(() => null);
+  if (cached && cached.expiresAt > Math.floor(Date.now() / 1000) + 60) {
+    return cached.token;
+  }
+
+  const sa = JSON.parse(env.GA4_SERVICE_ACCOUNT_JSON);
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = { alg: 'RS256', typ: 'JWT', kid: sa.private_key_id };
+  const claims = {
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/analytics.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  };
+
+  const headerB64 = base64UrlEncode(JSON.stringify(header));
+  const claimsB64 = base64UrlEncode(JSON.stringify(claims));
+  const message = `${headerB64}.${claimsB64}`;
+
+  const keyBuf = pemToArrayBuffer(sa.private_key);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyBuf,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sigBuf = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(message));
+  const sigB64 = base64UrlEncode(sigBuf);
+  const jwt = `${message}.${sigB64}`;
+
+  // Échange JWT → access token
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+  const data = await resp.json();
+  if (!data.access_token) {
+    console.error('GA4 token exchange failed:', data);
+    throw new Error('GA4 token exchange failed: ' + (data.error_description || data.error || 'unknown'));
+  }
+
+  // Cache 50 min (validité réelle 60 min)
+  await env.CACHE.put(
+    'ga4:access_token',
+    JSON.stringify({ token: data.access_token, expiresAt: now + 3000 }),
+    { expirationTtl: 3000 }
+  );
+  return data.access_token;
+}
+
+// Appelle GA Data API : runReport
+async function ga4RunReport(env, body) {
+  const token = await getGoogleAccessToken(env);
+  const propertyId = env.GA4_PROPERTY_ID;
+  const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error('GA4 runReport failed:', resp.status, errText);
+    throw new Error(`GA4 API ${resp.status}: ${errText.slice(0, 200)}`);
+  }
+  return await resp.json();
+}
+
+// GET /api/admin/ga4-stats?days=7 → KPI + courbe + top pages + sources + pays
+async function handleAdminGA4Stats(url, env, origin) {
+  try {
+    if (!env.GA4_SERVICE_ACCOUNT_JSON || !env.GA4_PROPERTY_ID) {
+      return jsonResponse({ error: 'GA4 not configured (missing secrets)' }, 503, origin);
+    }
+    const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10)));
+    const startDate = `${days}daysAgo`;
+    const endDate = 'today';
+
+    // Lance les 4 requêtes en parallèle
+    const [summary, daily, topPages, sources] = await Promise.all([
+      // Résumé : utilisateurs, sessions, pageviews, bounce
+      ga4RunReport(env, {
+        dateRanges: [{ startDate, endDate }],
+        metrics: [
+          { name: 'totalUsers' },
+          { name: 'activeUsers' },
+          { name: 'sessions' },
+          { name: 'screenPageViews' },
+          { name: 'bounceRate' },
+          { name: 'averageSessionDuration' },
+        ],
+      }),
+      // Courbe par jour
+      ga4RunReport(env, {
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'date' }],
+        metrics: [{ name: 'totalUsers' }, { name: 'screenPageViews' }],
+        orderBys: [{ dimension: { dimensionName: 'date' } }],
+      }),
+      // Top pages (par pageviews)
+      ga4RunReport(env, {
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
+        metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit: 10,
+      }),
+      // Sources de trafic
+      ga4RunReport(env, {
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+        metrics: [{ name: 'totalUsers' }, { name: 'sessions' }],
+        orderBys: [{ metric: { metricName: 'totalUsers' }, desc: true }],
+        limit: 10,
+      }),
+    ]);
+
+    // Parse summary
+    const sumRow = summary.rows?.[0]?.metricValues || [];
+    const kpis = {
+      totalUsers: parseInt(sumRow[0]?.value || '0', 10),
+      activeUsers: parseInt(sumRow[1]?.value || '0', 10),
+      sessions: parseInt(sumRow[2]?.value || '0', 10),
+      pageViews: parseInt(sumRow[3]?.value || '0', 10),
+      bounceRate: parseFloat(sumRow[4]?.value || '0'),
+      avgSessionDuration: parseFloat(sumRow[5]?.value || '0'),
+    };
+
+    // Parse daily
+    const series = (daily.rows || []).map(r => ({
+      date: r.dimensionValues[0].value, // YYYYMMDD
+      users: parseInt(r.metricValues[0].value, 10),
+      pageViews: parseInt(r.metricValues[1].value, 10),
+    }));
+
+    // Parse top pages
+    const pages = (topPages.rows || []).map(r => ({
+      path: r.dimensionValues[0].value,
+      title: r.dimensionValues[1].value,
+      pageViews: parseInt(r.metricValues[0].value, 10),
+      users: parseInt(r.metricValues[1].value, 10),
+    }));
+
+    // Parse sources
+    const channels = (sources.rows || []).map(r => ({
+      channel: r.dimensionValues[0].value,
+      users: parseInt(r.metricValues[0].value, 10),
+      sessions: parseInt(r.metricValues[1].value, 10),
+    }));
+
+    return jsonResponse({
+      ok: true,
+      days,
+      kpis,
+      series,
+      topPages: pages,
+      channels,
+      generatedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminGA4Stats error:', err);
+    return jsonResponse({ error: err.message || 'Internal error' }, 500, origin);
+  }
 }
 
 // GET /api/admin/traffic?days=7
