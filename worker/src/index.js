@@ -2195,7 +2195,6 @@ async function handleCreateCheckout(request, env, user, origin) {
     }
 
     const params = new URLSearchParams({
-      'payment_method_types[]': 'card',
       'mode': 'subscription',
       'client_reference_id': user.uid,
       'customer_email': user.email,
@@ -2206,6 +2205,12 @@ async function handleCreateCheckout(request, env, user, origin) {
       'subscription_data[metadata][firebase_uid]': user.uid,
       'subscription_data[metadata][billing]': effectiveBilling,
     });
+    // Méthodes de paiement : carte en 1er, PayPal si activé sur Stripe Dashboard.
+    // Ordre explicite évite que Link soit auto-injecté en premier écran.
+    params.append('payment_method_types[]', 'card');
+    params.append('payment_method_types[]', 'paypal');
+    // Collecte billing address pour PCI compliance + fraud prevention
+    params.append('billing_address_collection', 'auto');
 
     const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
