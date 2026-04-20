@@ -169,7 +169,7 @@
   <main>
     <div class="container">
       <h1 class="page-title">Politique de confidentialité</h1>
-      <p class="page-subtitle">En vigueur depuis le 14 avril 2026 — Conforme au RGPD</p>
+      <p class="page-subtitle">En vigueur depuis le 14 avril 2026 · Mise à jour le 20 avril 2026 — Conforme au RGPD</p>
 
       <p>
         Kairos Insider attache une importance particulière à la protection de vos données personnelles. Cette
@@ -225,9 +225,29 @@
             <td>Formulaire d'inscription à la liste d'attente</td>
           </tr>
           <tr>
+            <td><strong>Profil enrichi</strong></td>
+            <td>Nom affiché, photo de profil (image redimensionnée 128×128 px stockée en base64)</td>
+            <td>Modifiables volontairement depuis l'écran « Mon Profil »</td>
+          </tr>
+          <tr>
+            <td><strong>Watchlist</strong></td>
+            <td>Tickers suivis, types d'événements souhaités, fréquence des emails</td>
+            <td>Configurées par vous depuis l'onglet « Ma Watchlist »</td>
+          </tr>
+          <tr>
+            <td><strong>Support</strong></td>
+            <td>Sujet et contenu de vos messages au support, email de réponse</td>
+            <td>Formulaire « Aide & Support »</td>
+          </tr>
+          <tr>
+            <td><strong>Audience (avec consentement)</strong></td>
+            <td>Pages visitées, durée de session, source du trafic, type d'appareil — IP anonymisée</td>
+            <td>Google Analytics 4 — uniquement si vous avez accepté les cookies analytiques</td>
+          </tr>
+          <tr>
             <td><strong>Techniques</strong></td>
-            <td>Adresse IP (anonymisée), user-agent, logs serveur</td>
-            <td>Automatique (fonctionnement technique du Service)</td>
+            <td>Adresse IP (anonymisée pour les logs), user-agent, logs serveur (6 mois max)</td>
+            <td>Automatique (sécurité, prévention abus, rate limiting)</td>
           </tr>
         </tbody>
       </table>
@@ -262,8 +282,16 @@
             <td>Consentement (art. 6.1.a)</td>
           </tr>
           <tr>
-            <td>Envoi d'emails de service (confirmations, notifications)</td>
+            <td>Envoi d'emails de service (confirmations, notifications, watchlist)</td>
             <td>Exécution du contrat (art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Mesure d'audience (Google Analytics)</td>
+            <td>Consentement (art. 6.1.a) — révocable à tout moment via le bandeau cookies</td>
+          </tr>
+          <tr>
+            <td>Réponse à vos demandes au support</td>
+            <td>Exécution du contrat + intérêt légitime (art. 6.1.b et f)</td>
           </tr>
         </tbody>
       </table>
@@ -304,8 +332,13 @@
           </tr>
           <tr>
             <td>Brevo (ex-Sendinblue)</td>
-            <td>Envoi d'emails transactionnels</td>
+            <td>Envoi d'emails transactionnels (bienvenue, watchlist, support)</td>
             <td>France, UE</td>
+          </tr>
+          <tr>
+            <td>Google Analytics 4</td>
+            <td>Mesure d'audience anonymisée (sous réserve de votre consentement)</td>
+            <td>USA (clauses contractuelles types + Data Privacy Framework)</td>
           </tr>
         </tbody>
       </table>
@@ -354,6 +387,26 @@
             <td>Email waitlist</td>
             <td>Jusqu'à désinscription ou 3 ans sans interaction</td>
           </tr>
+          <tr>
+            <td>Watchlist (tickers suivis + préférences alertes)</td>
+            <td>Jusqu'à suppression depuis l'interface ou désinscription via email</td>
+          </tr>
+          <tr>
+            <td>Photo de profil et nom affiché</td>
+            <td>Jusqu'à suppression depuis l'interface « Mon Profil » ou suppression du compte</td>
+          </tr>
+          <tr>
+            <td>Données Google Analytics 4 (sous consentement)</td>
+            <td>14 mois (paramétrage par défaut Google)</td>
+          </tr>
+          <tr>
+            <td>Préférence cookies (localStorage)</td>
+            <td>Persistant jusqu'à effacement du cache navigateur ou clic « Tout refuser »</td>
+          </tr>
+          <tr>
+            <td>Messages support reçus via le formulaire</td>
+            <td>3 ans (suivi qualité) puis suppression de l'archive email</td>
+          </tr>
         </tbody>
       </table>
 
@@ -378,9 +431,15 @@
 
       <div class="callout">
         <p>
-          <strong>Action immédiate :</strong> vous pouvez supprimer vos trades à tout moment depuis l'onglet
-          « Mon Portefeuille » → bouton « Supprimer mes données ». La suppression est définitive et irréversible.
+          <strong>Actions immédiates depuis votre dashboard :</strong>
         </p>
+        <ul style="margin-top:8px">
+          <li>📥 <strong>Exporter mes données</strong> : depuis « Mon Profil » → Zone de danger →
+            téléchargement immédiat d'un fichier JSON contenant votre profil, watchlist et abonnement.</li>
+          <li>🗑️ <strong>Supprimer mon compte</strong> : depuis « Mon Profil » → Zone de danger → suppression
+            définitive du compte, annulation de l'abonnement Stripe et purge des données. Action irréversible.</li>
+          <li>🔑 <strong>Réinitialiser mon mot de passe</strong> : depuis « Mon Profil » → Sécurité.</li>
+        </ul>
       </div>
 
       <h2>8. Sécurité des données</h2>
@@ -388,27 +447,83 @@
         Nous mettons en œuvre des mesures techniques et organisationnelles pour protéger vos données :
       </p>
       <ul>
-        <li>Chiffrement HTTPS/TLS de bout en bout</li>
-        <li>Authentification sécurisée via Firebase Auth (tokens JWT)</li>
-        <li>Stockage chiffré au repos sur Firebase (AES-256)</li>
-        <li>Isolation des données par utilisateur (règles RTDB : chaque utilisateur ne peut lire que ses propres trades)</li>
+        <li><strong>Chiffrement HTTPS/TLS</strong> de bout en bout, avec en-tête <strong>HSTS</strong>
+          (force HTTPS strict, anti-SSL-stripping)</li>
+        <li><strong>Authentification</strong> sécurisée via Firebase Auth (jetons JWT signés cryptographiquement)</li>
+        <li><strong>Stockage chiffré au repos</strong> sur Firebase Realtime Database (AES-256)</li>
+        <li><strong>Isolation des données</strong> par utilisateur (règles RTDB : chaque utilisateur ne peut lire que
+          ses propres données)</li>
+        <li><strong>Content Security Policy (CSP)</strong> restrictive sur toutes les pages (bloque les scripts
+          externes non autorisés, anti-XSS)</li>
+        <li><strong>Subresource Integrity (SRI)</strong> sur les bibliothèques externes (anti-CDN compromise)</li>
+        <li><strong>Rate limiting</strong> côté serveur (anti-scraping, anti-abus)</li>
+        <li><strong>Vérification de signature</strong> sur les webhooks Stripe (HMAC SHA-256)</li>
         <li>Aucune donnée bancaire stockée sur nos serveurs (PCI-DSS délégué à Stripe)</li>
         <li>Mises à jour de sécurité régulières</li>
       </ul>
 
-      <h2>9. Cookies et traceurs</h2>
+      <h2 id="cookies">9. Cookies et traceurs</h2>
       <p>
-        Le site <strong>kairosinsider.fr</strong> utilise uniquement les cookies strictement nécessaires à son
-        fonctionnement, qui ne requièrent pas votre consentement préalable :
+        Le site <strong>kairosinsider.fr</strong> utilise différentes catégories de cookies. Lors de votre
+        première visite, un <strong>bandeau de consentement</strong> s'affiche pour vous permettre d'accepter
+        ou de refuser les catégories non strictement nécessaires. Vous pouvez modifier votre choix à tout
+        moment via le lien <em>« Gérer mes cookies »</em> en pied de page.
+      </p>
+
+      <h3>9.1 Cookies strictement nécessaires (toujours actifs)</h3>
+      <p>
+        Indispensables au fonctionnement du site, ils ne requièrent pas votre consentement (article 82 de la
+        loi Informatique et Libertés) :
       </p>
       <ul>
-        <li><strong>Cookies de session</strong> : maintien de votre connexion (Firebase Auth)</li>
-        <li><strong>Cookies de préférences</strong> : mémorisation du dernier onglet ouvert</li>
+        <li><strong>Authentification</strong> : maintien de votre session de connexion (Firebase Auth, jeton JWT)</li>
+        <li><strong>Préférences d'affichage</strong> : langue (FR/EN), thème (clair/sombre), photo de profil — stockés en <code>localStorage</code></li>
+        <li><strong>Mémorisation du choix cookies</strong> : conservation de vos préférences pour ne pas
+          ré-afficher le bandeau (clé <code>kairos_cookie_consent_v1</code> en <code>localStorage</code>)</li>
+        <li><strong>Sécurité</strong> : protection anti-CSRF et rate limiting (jeton interne au navigateur)</li>
+      </ul>
+
+      <h3>9.2 Cookies de mesure d'audience (consentement requis)</h3>
+      <p>
+        Si vous les acceptez, nous utilisons <strong>Google Analytics 4</strong> en mode renforcé pour la
+        confidentialité :
+      </p>
+      <ul>
+        <li>IP <strong>anonymisée</strong> (<code>anonymize_ip: true</code>)</li>
+        <li>Signaux Google <strong>désactivés</strong> (pas de remarketing, pas de croisement publicitaire)</li>
+        <li>Personnalisation publicitaire <strong>désactivée</strong></li>
+        <li><strong>Google Consent Mode v2</strong> : tant que vous n'avez pas donné votre accord, GA4 reçoit
+          uniquement des signaux anonymes (pas de cookie créé sur votre appareil)</li>
+        <li>Mesure ID : <code>G-7YPCWL035M</code></li>
       </ul>
       <p>
-        Nous <strong>n'utilisons pas de cookies publicitaires ni de traceurs analytiques tiers</strong> (pas de
-        Google Analytics, pas de Facebook Pixel, pas de régie publicitaire).
+        <strong>Finalité</strong> : comprendre quelles pages sont les plus consultées, mesurer l'origine du
+        trafic (recherche, lien direct, réseaux sociaux), identifier les bugs UX. Aucune donnée personnelle
+        identifiante n'est collectée par GA4.
       </p>
+
+      <h3>9.3 Cookies marketing</h3>
+      <p>
+        <strong>Aucun cookie marketing n'est actuellement utilisé</strong> sur le site. Si cela évoluait, vous
+        seriez prévenu(e) et un nouveau consentement vous serait demandé.
+      </p>
+
+      <h3>9.4 Cookies tiers liés aux paiements</h3>
+      <p>
+        Lorsque vous effectuez un paiement, vous êtes redirigé(e) vers la page sécurisée de
+        <strong>Stripe</strong>. Stripe peut déposer ses propres cookies sur sa page (analyse antifraude,
+        prévention de l'usurpation). Ces cookies sont régis par la
+        <a href="https://stripe.com/fr/privacy" target="_blank" rel="noopener">politique de confidentialité de
+        Stripe</a>.
+      </p>
+
+      <h3>9.5 Comment refuser ou supprimer les cookies</h3>
+      <ul>
+        <li>Via notre bandeau : « <strong>Tout refuser</strong> » ou « <strong>Personnaliser</strong> »</li>
+        <li>À tout moment via le lien <strong>« Gérer mes cookies »</strong> dans le pied de page</li>
+        <li>Via les paramètres de votre navigateur (Chrome, Firefox, Safari, Edge…) — guides détaillés sur
+          <a href="https://www.cnil.fr/fr/cookies-et-traceurs-comment-mettre-en-place-des-cookies-tiers-conformes" target="_blank" rel="noopener">cnil.fr</a></li>
+      </ul>
 
       <h2>10. Droit de réclamation auprès de la CNIL</h2>
       <p>

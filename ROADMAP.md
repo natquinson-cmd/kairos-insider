@@ -22,10 +22,10 @@
 ### RGPD / Conformité
 ✅ **Suppression de compte** (endpoint `/account/delete` : Stripe cancel + KV purge + Firebase Auth delete)  
 ✅ **Export RGPD des données utilisateur** (JSON download depuis Mon Profil)  
-- [ ] **Privacy Policy** dédiée (page `legal.html` à enrichir : durée de rétention, sous-traitants, droits)
+✅ **Privacy Policy enrichie** (`privacy.html`) : ajout GA4 dans sous-traitants, données du profil/watchlist/support, durées de rétention complétées, finalités étendues (mesure d'audience), droits actualisés (export JSON + suppression compte depuis Mon Profil), section sécurité avec CSP/SRI/HSTS/rate-limit/Stripe sig  
 - [ ] **Terms of Service** complets (CGV existantes mais à valider juridiquement)
 ✅ **Bandeau cookie** RGPD avec **Google Consent Mode v2** (par défaut tout DENIED) + 3 boutons (Tout accepter / Refuser / Personnaliser) + lien "Gérer mes cookies" dans footer + stockage localStorage versionné  
-- [ ] **Politique de cookies** détaillée
+✅ **Politique de cookies** détaillée (section 9 de privacy.html : 5 sous-sections — strictement nécessaires, mesure d'audience, marketing, paiements tiers, comment refuser)  
 - [ ] **Mention légale RCS** + numéro SIREN sur le footer si entreprise
 
 ---
