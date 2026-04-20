@@ -265,6 +265,7 @@
       'footer.privacy': 'Confidentialité',
       'footer.contact': 'Contact',
       'footer.faq': 'FAQ',
+      'footer.cookies': 'Gérer mes cookies',
 
       // ==== SIGNALS / SCORES (utilises dans dashboard + SSR) ====
       'signal.strong_buy': 'ACHAT FORT',
@@ -697,6 +698,7 @@
       'footer.privacy': 'Privacy',
       'footer.contact': 'Contact',
       'footer.faq': 'FAQ',
+      'footer.cookies': 'Manage my cookies',
 
       'signal.strong_buy': 'STRONG BUY',
       'signal.buy': 'BUY',

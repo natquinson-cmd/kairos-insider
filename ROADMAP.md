@@ -24,7 +24,7 @@
 ✅ **Export RGPD des données utilisateur** (JSON download depuis Mon Profil)  
 - [ ] **Privacy Policy** dédiée (page `legal.html` à enrichir : durée de rétention, sous-traitants, droits)
 - [ ] **Terms of Service** complets (CGV existantes mais à valider juridiquement)
-- [ ] **Bandeau cookie** RGPD (consent analytics) — actuellement GA4 anonymisé sans consentement explicite
+✅ **Bandeau cookie** RGPD avec **Google Consent Mode v2** (par défaut tout DENIED) + 3 boutons (Tout accepter / Refuser / Personnaliser) + lien "Gérer mes cookies" dans footer + stockage localStorage versionné  
 - [ ] **Politique de cookies** détaillée
 - [ ] **Mention légale RCS** + numéro SIREN sur le footer si entreprise
 

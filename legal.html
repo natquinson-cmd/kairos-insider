@@ -11,6 +11,16 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
+    // Consent Mode v2 — par défaut DENIED jusqu'à choix utilisateur (RGPD/CNIL)
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      analytics_storage: 'denied',
+      functionality_storage: 'granted',
+      security_storage: 'granted',
+      wait_for_update: 500,
+    });
     gtag('config', 'G-7YPCWL035M', { anonymize_ip: true, allow_google_signals: false, allow_ad_personalization_signals: false });
   </script>
 
@@ -272,5 +282,6 @@
     </div>
   </footer>
 
+  <script src="assets/cookie-consent.js?v=20260420" defer></script>
 </body>
 </html>

@@ -11,6 +11,16 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
+    // Consent Mode v2 — par défaut DENIED jusqu'à choix utilisateur (RGPD/CNIL)
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      analytics_storage: 'denied',
+      functionality_storage: 'granted',
+      security_storage: 'granted',
+      wait_for_update: 500,
+    });
     gtag('config', 'G-7YPCWL035M', {
       anonymize_ip: true,
       allow_google_signals: false,
@@ -3101,7 +3111,7 @@
     <div class="container">
       <div class="footer-content">
         <span class="footer-text">© 2026 Kairos Insider — Données SEC publiques, usage informatif uniquement.</span>
-        <span class="footer-text">Pas un conseil en investissement.</span>
+        <span class="footer-text">Pas un conseil en investissement. · <a href="#" onclick="event.preventDefault();window.KairosCookieConsent&&window.KairosCookieConsent.open()" style="color:inherit;opacity:0.8;text-decoration:underline">Gérer mes cookies</a></span>
       </div>
     </div>
   </footer>
@@ -10595,5 +10605,6 @@
       window.history.replaceState({}, '', window.location.pathname);
     }
   </script>
+  <script src="assets/cookie-consent.js?v=20260420" defer></script>
 </body>
 </html>
