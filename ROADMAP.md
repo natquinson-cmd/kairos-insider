@@ -46,10 +46,7 @@
 
 ## 📊 Priorité 3 — Analytics & Observabilité (DONE ✅)
 
-✅ **Intégration native Google Analytics 4** dans l'admin Kairos (Data API)  
-  - JWT signing RS256 + token caché en KV
-  - KPIs (utilisateurs, sessions, page views, bounce, durée)
-  - Top pages + sources de trafic
+✅ **Intégration native Google Analytics 4** dans l'admin Kairos (Data API : JWT signing RS256 + token caché en KV, KPIs utilisateurs/sessions/page views/bounce/durée, top pages + sources de trafic)  
 ✅ **Tableau de bord admin complet** (Phase A-F : users, subs, traffic, DB, jobs)  
 - [ ] **Alerting interne** : si 0 jobs OK pendant > 24h → email admin
 - [ ] **Sentry / monitoring d'erreurs** côté Worker (catcher les exceptions silencieuses)
