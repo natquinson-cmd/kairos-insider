@@ -1704,6 +1704,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw",
@@ -1718,7 +1719,20 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const auth = getAuth(app);
     window.__kairos = { db, ref, push, serverTimestamp };
+
+    // Adapte les CTAs selon l'état de connexion
+    onAuthStateChanged(auth, (user) => {
+      const navBtn = document.querySelector('[data-i18n="nav.try_free"]');
+      const heroBtns = document.querySelectorAll('[data-i18n="hero.cta_try"]');
+      if (user) {
+        // Connecté : "Mon Dashboard"
+        if (navBtn) { navBtn.textContent = 'Mon Dashboard'; navBtn.removeAttribute('data-i18n'); }
+        heroBtns.forEach(b => { b.textContent = 'Accéder à mon Dashboard →'; b.removeAttribute('data-i18n'); });
+      }
+      // Sinon on laisse les textes par défaut (gérés par i18n)
+    });
   </script>
 
   <script>
