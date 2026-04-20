@@ -113,14 +113,21 @@ def main():
     with open(tmp, 'w', encoding='utf-8') as f:
         f.write('\n'.join(sql_lines))
     print(f'\nPushing {len(sql_lines)} rows to D1...')
+    # IMPORTANT : shell=False pour que l'array soit bien pass\u00e9 (shell=True ignorait les args)
     result = subprocess.run(
         ['npx', 'wrangler', 'd1', 'execute', DB_NAME, '--remote', '--file', tmp],
-        capture_output=True, timeout=120, shell=True
+        capture_output=True, timeout=120, shell=False
     )
+    stdout = result.stdout.decode("utf-8", errors="replace")[:500]
+    stderr = result.stderr.decode("utf-8", errors="replace")[:500]
     if result.returncode != 0:
-        print('  ERROR:', result.stderr.decode("utf-8", errors="replace")[:500])
+        print(f'  ERROR (exit {result.returncode}):')
+        print(f'  stderr: {stderr}')
+        print(f'  stdout: {stdout}')
     else:
         print(f'  OK : {success} scores pushed, {fail} failed')
+        if stdout:
+            print(f'  wrangler: {stdout[:200]}')
     os.remove(tmp)
 
 if __name__ == '__main__':

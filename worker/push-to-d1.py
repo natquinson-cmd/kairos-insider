@@ -136,12 +136,16 @@ def run_sql(sql_lines, label):
         with open(tmp_file, 'w', encoding='utf-8') as f:
             f.write('\n'.join(chunk))
         print(f'  {label}: pushing chunk {i // chunk_size + 1} ({len(chunk)} rows)...')
+        # shell=False : sinon l'array n'est pas pass\u00e9 correctement \u00e0 sh -c (bug silencieux)
         result = subprocess.run(
             ['npx', 'wrangler', 'd1', 'execute', DB_NAME, '--remote', '--file', tmp_file],
-            capture_output=True, timeout=120, shell=True
+            capture_output=True, timeout=120, shell=False
         )
         if result.returncode != 0:
-            print(f'    ERROR: {result.stderr.decode("utf-8", errors="replace")[:500]}')
+            err = result.stderr.decode("utf-8", errors="replace")[:500]
+            out = result.stdout.decode("utf-8", errors="replace")[:300]
+            print(f'    ERROR (exit {result.returncode}): {err}')
+            if out: print(f'    stdout: {out}')
         else:
             print(f'    OK ({len(chunk)} rows)')
         os.remove(tmp_file)
