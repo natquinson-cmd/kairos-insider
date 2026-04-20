@@ -14,7 +14,7 @@
 ✅ **Vérification signature webhook Stripe** (HMAC SHA-256 via Web Crypto API)  
 ✅ **Rejet des webhooks Stripe en mode test** en production (anti-faux Premium)  
 ✅ **Rate limiting** Worker (KV-based : 60 req/min/IP pour public, 180 req/min/uid pour authentifié, admins exemptés, retourne 429 + `Retry-After`)  
-- [ ] **CSP header** (Content Security Policy) sur toutes les pages HTML
+✅ **CSP** (Content Security Policy) sur toutes les pages HTML via `<meta http-equiv>` — bloque scripts/connexions/iframes externes non autorisés (mode enforce, pas report-only)  
 - [ ] **SRI** (Subresource Integrity) sur les CDN externes (Chart.js, Firebase, etc.)
 - [ ] **Audit des `eval()` / `innerHTML`** avec contenu user (XSS prevention)
 - [ ] **HSTS header** strict-transport-security côté Worker
