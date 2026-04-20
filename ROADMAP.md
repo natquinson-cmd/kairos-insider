@@ -2,7 +2,7 @@
 
 > Document de suivi des améliorations du site.
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
-> Quand une tâche est terminée, remplacer `- [ ] ` par `- ✅ ` pour la passer en vert.
+> Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
 **Dernière mise à jour** : 20 avril 2026
 
@@ -11,8 +11,8 @@
 ## 🚨 Priorité 1 — Sécurité & Conformité
 
 ### Sécurité
-- ✅ **Vérification signature webhook Stripe** (HMAC SHA-256 via Web Crypto API)
-- ✅ **Rejet des webhooks Stripe en mode test** en production (anti-faux Premium)
+✅ **Vérification signature webhook Stripe** (HMAC SHA-256 via Web Crypto API)
+✅ **Rejet des webhooks Stripe en mode test** en production (anti-faux Premium)
 - [ ] **Rate limiting** sur les endpoints Worker publics (anti-scraping/abus) — KV-based, ex: 60 req/min/IP
 - [ ] **CSP header** (Content Security Policy) sur toutes les pages HTML
 - [ ] **SRI** (Subresource Integrity) sur les CDN externes (Chart.js, Firebase, etc.)
@@ -20,8 +20,8 @@
 - [ ] **HSTS header** strict-transport-security côté Worker
 
 ### RGPD / Conformité
-- ✅ **Suppression de compte** (endpoint `/account/delete` : Stripe cancel + KV purge + Firebase Auth delete)
-- ✅ **Export RGPD des données utilisateur** (JSON download depuis Mon Profil)
+✅ **Suppression de compte** (endpoint `/account/delete` : Stripe cancel + KV purge + Firebase Auth delete)
+✅ **Export RGPD des données utilisateur** (JSON download depuis Mon Profil)
 - [ ] **Privacy Policy** dédiée (page `legal.html` à enrichir : durée de rétention, sous-traitants, droits)
 - [ ] **Terms of Service** complets (CGV existantes mais à valider juridiquement)
 - [ ] **Bandeau cookie** RGPD (consent analytics) — actuellement GA4 anonymisé sans consentement explicite
@@ -32,25 +32,25 @@
 
 ## 👤 Priorité 2 — Espace utilisateur (DONE ✅)
 
-- ✅ **Page "Mon Profil"** complète avec hero header + 5 cards
-- ✅ **Avatar utilisateur** uploadable (resize 128×128, stockage Firebase RTDB)
-- ✅ **Menu déroulant navbar** style Google (avatar + sous-menu + déconnexion)
-- ✅ **Bouton Support** (?) dans navbar avec modal + formulaire de contact
-- ✅ **Email support** envoyé à `natquinson@gmail.com` via Brevo (rate-limited 5/h)
-- ✅ **Customer Portal Stripe** (gestion abonnement, factures, annulation)
-- ✅ **Reset password** depuis Mon Profil
-- ✅ **Affichage statut abonnement** (Free / Premium mensuel / annuel + date renouvellement)
-- ✅ **Suppression boutons théme/langue** du topbar (maintenant dans menu profil)
+✅ **Page "Mon Profil"** complète avec hero header + 5 cards
+✅ **Avatar utilisateur** uploadable (resize 128×128, stockage Firebase RTDB)
+✅ **Menu déroulant navbar** style Google (avatar + sous-menu + déconnexion)
+✅ **Bouton Support** (?) dans navbar avec modal + formulaire de contact
+✅ **Email support** envoyé à `natquinson@gmail.com` via Brevo (rate-limited 5/h)
+✅ **Customer Portal Stripe** (gestion abonnement, factures, annulation)
+✅ **Reset password** depuis Mon Profil
+✅ **Affichage statut abonnement** (Free / Premium mensuel / annuel + date renouvellement)
+✅ **Suppression boutons théme/langue** du topbar (maintenant dans menu profil)
 
 ---
 
 ## 📊 Priorité 3 — Analytics & Observabilité (DONE ✅)
 
-- ✅ **Intégration native Google Analytics 4** dans l'admin Kairos (Data API)
+✅ **Intégration native Google Analytics 4** dans l'admin Kairos (Data API)
   - JWT signing RS256 + token caché en KV
   - KPIs (utilisateurs, sessions, page views, bounce, durée)
   - Top pages + sources de trafic
-- ✅ **Tableau de bord admin complet** (Phase A-F : users, subs, traffic, DB, jobs)
+✅ **Tableau de bord admin complet** (Phase A-F : users, subs, traffic, DB, jobs)
 - [ ] **Alerting interne** : si 0 jobs OK pendant > 24h → email admin
 - [ ] **Sentry / monitoring d'erreurs** côté Worker (catcher les exceptions silencieuses)
 - [ ] **Logs structurés** (passage à JSON logs pour future ingestion BigQuery/Loki)
