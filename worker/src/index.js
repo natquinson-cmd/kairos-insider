@@ -244,6 +244,10 @@ export default {
         if (path === '/api/admin/ga4-stats') {
           return handleAdminGA4Stats(url, env, origin);
         }
+        // Trigger manuel du cron watchlist-digest
+        if (request.method === 'POST' && path === '/api/admin/run-watchlist-cron') {
+          return handleAdminRunWatchlistCron(env, origin);
+        }
         if (path === '/api/admin/db-stats') {
           return handleAdminDbStats(env, origin);
         }
@@ -3123,6 +3127,30 @@ async function handleAdminDbStats(env, origin) {
     timestamp: new Date().toISOString(),
     ...result,
   }, 200, origin);
+}
+
+// ============================================================
+// ADMIN : déclenchement manuel du cron watchlist-digest
+// ============================================================
+async function handleAdminRunWatchlistCron(env, origin) {
+  try {
+    const started = Date.now();
+    // runDailyWatchlistDigest est défini plus bas dans le fichier
+    const result = await runDailyWatchlistDigest(env);
+    const durationSec = Math.round((Date.now() - started) / 1000);
+    return jsonResponse({
+      ok: true,
+      durationSec,
+      result: result || { message: 'Cron exécuté' },
+      timestamp: new Date().toISOString(),
+    }, 200, origin);
+  } catch (err) {
+    console.error('Manual cron trigger failed:', err);
+    return jsonResponse({
+      ok: false,
+      error: err.message || String(err),
+    }, 500, origin);
+  }
 }
 
 // ============================================================

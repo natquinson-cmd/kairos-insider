@@ -10169,53 +10169,82 @@
       const d1 = dbRes.d1 || {};
       const kv = dbRes.kv || {};
 
+      // Formate une plage de dates YYYY-MM-DD → "12 sep 2025 → 16 avr 2026 (7 mois)"
+      const MONTHS_FR = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+      const formatDate = (s) => {
+        if (!s || typeof s !== 'string' || s.length < 10) return s || '';
+        const [y, m, d] = s.split('-');
+        return `${parseInt(d, 10)} ${MONTHS_FR[parseInt(m, 10) - 1] || m} ${y}`;
+      };
+      const formatDuration = (minDate, maxDate) => {
+        if (!minDate || !maxDate) return '';
+        const diff = (new Date(maxDate) - new Date(minDate)) / 86400000;
+        if (diff < 1) return '1 jour';
+        if (diff < 31) return `${Math.round(diff)} jours`;
+        if (diff < 365) return `${Math.round(diff / 30)} mois`;
+        const y = Math.floor(diff / 365);
+        const m = Math.round((diff % 365) / 30);
+        return m > 0 ? `${y} an${y > 1 ? 's' : ''} ${m} mois` : `${y} an${y > 1 ? 's' : ''}`;
+      };
+
       // D1 tables table
       const d1Tables = [
-        { key: 'insider_transactions_history', label: '🕴️ Insider Transactions', icon: '🕴️' },
-        { key: 'etf_snapshots', label: '💼 ETF Snapshots', icon: '💼' },
-        { key: 'fund_holdings_history', label: '🏛️ Hedge Funds 13F', icon: '🏛️' },
-        { key: 'score_history', label: '📊 Kairos Scores', icon: '📊' },
+        { key: 'insider_transactions_history', label: '🕴️ Insider Transactions' },
+        { key: 'etf_snapshots', label: '💼 ETF Snapshots' },
+        { key: 'fund_holdings_history', label: '🏛️ Hedge Funds 13F' },
+        { key: 'score_history', label: '📊 Kairos Scores' },
       ];
       const d1Rows = d1Tables.map(t => {
         const data = d1[t.key] || {};
         if (data.error) {
-          return `<tr><td style="padding:6px 10px">${t.label}</td><td colspan="3" style="padding:6px 10px;color:var(--accent-red);font-size:11px">${data.error}</td></tr>`;
+          return `<tr><td style="padding:10px">${t.label}</td><td colspan="3" style="padding:10px;color:#EF4444;font-size:11px">${escapeHtml(data.error)}</td></tr>`;
         }
-        const dateRange = data.minDate && data.maxDate
-          ? `${data.minDate.slice(5)} → ${data.maxDate.slice(5)}`
-          : '—';
-        const extra = data.uniqueTickers != null
-          ? `<div style="font-size:10px;color:var(--text-muted)">${fmtN(data.uniqueTickers)} tickers · ${fmtN(data.uniqueInsiders)} insiders</div>`
+        const isEmpty = !data.rows || data.rows === 0;
+        const rangeStr = data.minDate && data.maxDate
+          ? `${formatDate(data.minDate)} → ${formatDate(data.maxDate)}`
+          : '<span style="opacity:0.4">—</span>';
+        const durationStr = data.minDate && data.maxDate
+          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${formatDuration(data.minDate, data.maxDate)}</div>`
           : '';
+        const extra = data.uniqueTickers != null
+          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtN(data.uniqueTickers)} tickers · ${fmtN(data.uniqueInsiders)} insiders</div>`
+          : '';
+        const rowColor = isEmpty ? 'color:var(--text-muted)' : '';
         return `
-          <tr style="border-bottom:1px solid var(--divider)">
-            <td style="padding:8px 10px;font-size:12px">${t.label}${extra}</td>
-            <td style="padding:8px 10px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${fmtN(data.rows)}</td>
-            <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${dateRange}</td>
+          <tr style="border-bottom:1px solid var(--divider);${rowColor}">
+            <td style="padding:10px 12px;font-size:13px;font-weight:500">${t.label}${extra}</td>
+            <td style="padding:10px 12px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px">${fmtN(data.rows)}</td>
+            <td style="padding:10px 12px;text-align:right;font-size:12px">${rangeStr}${durationStr}</td>
           </tr>`;
       }).join('');
 
-      // KV prefix counts
+      // KV prefix counts (avec tooltips explicatifs)
       const kvPrefixes = [
-        { prefix: 'sub:', label: '💳 Abonnements' },
-        { prefix: 'wl:', label: '⭐ Watchlists' },
-        { prefix: 'wl-prev:', label: '📸 Snapshots J-1' },
-        { prefix: 'wl-last-cron-run', label: '⏰ Cron run log' },
-        { prefix: 'insider-', label: '🕴️ Cache insider' },
-        { prefix: 'etf-', label: '💼 Cache ETF' },
-        { prefix: '13f-', label: '🏛️ Cache 13F' },
-        { prefix: 'google-', label: '🔎 Cache trends' },
-        { prefix: 'lastRun:', label: '📋 Jobs lastRun' },
+        { prefix: 'sub:', label: '💳 Abonnements', desc: 'Utilisateurs avec abonnement Stripe actif', expect: 'users Premium' },
+        { prefix: 'wl:', label: '⭐ Watchlists', desc: 'Utilisateurs ayant activé la watchlist', expect: 'users avec watchlist' },
+        { prefix: 'wl-prev:', label: '📸 Snapshots J-1', desc: 'Snapshots quotidiens créés par le cron watchlist-digest. À 0 si le cron n\'a pas tourné ou n\'a détecté aucun événement.', expect: 'généré par le cron', warnIfZero: true },
+        { prefix: 'wl-last-cron-run', label: '⏰ Cron run log', desc: 'Trace du dernier run du cron watchlist-digest.', expect: 'toujours 1' },
+        { prefix: 'insider-', label: '🕴️ Cache insider', desc: 'Cache des analyses insider par ticker (TTL 1h).', expect: 'grandit avec le trafic' },
+        { prefix: 'etf-', label: '💼 Cache ETF', desc: 'Cache des données ETF (NANC, GOP, GURU, etc.)', expect: '5-15' },
+        { prefix: '13f-', label: '🏛️ Cache 13F', desc: 'Cache des portefeuilles hedge funds par ticker.', expect: 'grandit avec le trafic' },
+        { prefix: 'google-', label: '🔎 Cache trends', desc: 'Cache des tendances Google Trends / Hot Stocks.', expect: '1-5' },
+        { prefix: 'lastRun:', label: '📋 Jobs lastRun', desc: 'Traces du dernier run des jobs Python (pipeline).', expect: 'toujours >= 1' },
       ];
       const kvRows = kvPrefixes.map(k => {
         const count = kv[k.prefix];
         if (count === undefined || count === null) return '';
-        const color = count > 0 ? 'var(--text-primary)' : 'var(--text-muted)';
+        const isWarning = k.warnIfZero && count === 0;
+        const color = isWarning ? '#F59E0B' : (count > 0 ? 'var(--text-primary)' : 'var(--text-muted)');
+        const icon = isWarning ? ' ⚠️' : '';
+        const titleAttr = `${k.desc}${k.expect ? ' Attendu : ' + k.expect + '.' : ''}`;
         return `
-          <tr style="border-bottom:1px solid var(--divider)">
-            <td style="padding:8px 10px;font-size:12px">${k.label}</td>
-            <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)">${k.prefix}*</td>
-            <td style="padding:8px 10px;text-align:right;font-weight:600;color:${color};font-variant-numeric:tabular-nums">${count < 0 ? 'erreur' : fmtN(count)}</td>
+          <tr style="border-bottom:1px solid var(--divider)" title="${escapeHtml(titleAttr)}">
+            <td style="padding:10px 12px;font-size:13px">
+              <div style="font-weight:500">${k.label}${icon}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;line-height:1.3">${escapeHtml(k.desc)}</div>
+            </td>
+            <td style="padding:10px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);vertical-align:top">${k.prefix}*</td>
+            <td style="padding:10px 12px;text-align:right;font-weight:700;color:${color};font-variant-numeric:tabular-nums;font-size:16px;vertical-align:top">${count < 0 ? 'erreur' : fmtN(count)}</td>
           </tr>`;
       }).filter(Boolean).join('');
 
@@ -10301,66 +10330,135 @@
       const fmtAge = (ts) => {
         if (!ts) return '—';
         const ageMin = (now - ts) / 60;
-        if (ageMin < 2) return 'a l\'instant';
+        if (ageMin < 2) return 'à l\'instant';
         if (ageMin < 60) return `il y a ${Math.round(ageMin)} min`;
         if (ageMin < 1440) return `il y a ${Math.round(ageMin / 60)} h`;
         return `il y a ${Math.round(ageMin / 1440)} j`;
       };
+      // Badge status gros + color-coded
       const badgeStatus = (s, ts) => {
-        // Si le job date de > 48h, le montrer en warning meme si status=ok
         const stale = ts && (now - ts) > 48 * 3600;
-        if (s === 'ok' && stale) return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">STALE</span>';
-        if (s === 'ok') return '<span style="padding:2px 8px;background:rgba(16,185,129,0.15);color:#10B981;border-radius:10px;font-size:10px;font-weight:600">OK</span>';
-        if (s === 'failed') return '<span style="padding:2px 8px;background:rgba(239,68,68,0.15);color:#EF4444;border-radius:10px;font-size:10px;font-weight:600">FAILED</span>';
-        if (s === 'partial') return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">PARTIAL</span>';
-        return `<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px">${(s || '?').toUpperCase()}</span>`;
+        const base = 'display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:14px;font-size:11px;font-weight:700;letter-spacing:0.03em;white-space:nowrap';
+        if (s === 'ok' && stale) return `<span style="${base};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">⚠ STALE</span>`;
+        if (s === 'ok') return `<span style="${base};background:rgba(16,185,129,0.18);color:#10B981;border:1px solid rgba(16,185,129,0.3)">✓ OK</span>`;
+        if (s === 'failed') return `<span style="${base};background:rgba(239,68,68,0.18);color:#EF4444;border:1px solid rgba(239,68,68,0.35)">✕ FAILED</span>`;
+        if (s === 'partial') return `<span style="${base};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">◐ PARTIAL</span>`;
+        return `<span style="${base};background:var(--surface-2);color:var(--text-muted)">${(s || '?').toUpperCase()}</span>`;
       };
-      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      // Bouton "lancer" selon le type de job
+      const GITHUB_REPO = 'natquinson-cmd/kairos-insider';
+      const actionButton = (jobName) => {
+        // Le cron-watchlist-digest est déclenchable via le Worker
+        if (jobName === 'cron-watchlist-digest') {
+          return `<button type="button" onclick="runWatchlistCron(this)" class="admin-run-btn" title="Lancer le cron maintenant">▶ Lancer</button>`;
+        }
+        // Les autres jobs sont dans GitHub Actions : lien workflow_dispatch
+        const workflowMap = {
+          'fetch-13dg': 'update-13f.yml', // ou workflow dédié si existe
+          'fetch-insider': 'update-insiders.yml',
+          'fetch-13f': 'update-13f.yml',
+          'fetch-etf': 'update-etfs.yml',
+          'fetch-kairos-score': 'update-scores.yml',
+        };
+        const wf = workflowMap[jobName];
+        if (wf) {
+          return `<a href="https://github.com/${GITHUB_REPO}/actions/workflows/${wf}" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir dans GitHub Actions">🔗 GitHub</a>`;
+        }
+        return `<a href="https://github.com/${GITHUB_REPO}/actions" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir Actions">🔗 Actions</a>`;
+      };
 
       const rows = jobs.map(j => `
-        <tr style="border-bottom:1px solid var(--divider)" title="${esc(j.summary || '')}${j.error ? ' · Erreur : ' + esc(j.error) : ''}">
-          <td style="padding:8px 10px;font-size:12px;font-weight:500">${esc(j.name)}</td>
-          <td style="padding:8px 10px;text-align:center">${badgeStatus(j.status, j.ts)}</td>
-          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${fmtAge(j.ts)}</td>
-          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${j.durationSec != null ? j.durationSec + 's' : '—'}</td>
-          <td style="padding:8px 10px;font-size:11px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(j.summary || '—')}</td>
+        <tr style="border-bottom:1px solid var(--divider)">
+          <td style="padding:12px 10px;font-size:13px;font-weight:600">
+            <div>${escapeHtml(j.name)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtAge(j.ts)}${j.durationSec != null ? ' · ' + j.durationSec + 's' : ''}</div>
+          </td>
+          <td style="padding:12px 10px;text-align:center">${badgeStatus(j.status, j.ts)}</td>
+          <td style="padding:12px 10px;font-size:11px;color:var(--text-muted);max-width:220px;line-height:1.4" title="${escapeHtml(j.summary || '')}${j.error ? ' — Erreur : ' + escapeHtml(j.error) : ''}">
+            ${escapeHtml((j.summary || '').slice(0, 80))}${j.summary && j.summary.length > 80 ? '…' : (j.summary ? '' : '—')}
+            ${j.error ? `<div style="color:#EF4444;font-size:10px;margin-top:3px">Erreur : ${escapeHtml(j.error.slice(0, 60))}</div>` : ''}
+          </td>
+          <td style="padding:12px 10px;text-align:right">${actionButton(j.name)}</td>
         </tr>
       `).join('');
 
       const kpiBar = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
-          <div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:#10B981">${jobsRes.ok || 0}</div>
-            <div style="color:var(--text-muted)">OK</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:16px">
+          <div style="padding:14px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:#10B981">${jobsRes.ok || 0}</div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">OK</div>
           </div>
-          <div style="padding:8px;background:rgba(239,68,68,0.08);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700;color:#EF4444">${jobsRes.failed || 0}</div>
-            <div style="color:var(--text-muted)">Failed</div>
+          <div style="padding:14px;background:rgba(239,68,68,${(jobsRes.failed || 0) > 0 ? '0.1' : '0.04'});border:1px solid rgba(239,68,68,${(jobsRes.failed || 0) > 0 ? '0.3' : '0.15'});border-radius:10px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:${(jobsRes.failed || 0) > 0 ? '#EF4444' : 'var(--text-muted)'}">${jobsRes.failed || 0}</div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Failed</div>
           </div>
-          <div style="padding:8px;background:var(--surface-2);border-radius:6px;text-align:center">
-            <div style="font-size:16px;font-weight:700">${jobsRes.total || 0}</div>
-            <div style="color:var(--text-muted)">Total</div>
+          <div style="padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:28px;font-weight:800">${jobsRes.total || 0}</div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Total</div>
           </div>
         </div>
       `;
 
       body.innerHTML = kpiBar + `
-        <div style="overflow-x:auto;max-height:360px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <style>
+          .admin-run-btn {
+            display:inline-flex;align-items:center;gap:4px;
+            padding:7px 13px;border-radius:8px;
+            background:linear-gradient(135deg,#3B82F6,#8B5CF6);
+            color:#fff !important;border:none;cursor:pointer;
+            font-family:inherit;font-size:12px;font-weight:600;
+            text-decoration:none;white-space:nowrap;
+            transition:all 0.2s;
+          }
+          .admin-run-btn:hover { transform:translateY(-1px);box-shadow:0 4px 14px rgba(59,130,246,0.35); }
+          .admin-run-btn[disabled] { opacity:0.6;cursor:wait;transform:none; }
+        </style>
+        <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse">
             <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
               <tr style="border-bottom:2px solid var(--border)">
-                <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Job</th>
-                <th style="padding:6px 10px;text-align:center;color:var(--text-muted);font-weight:500">Status</th>
-                <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Age</th>
-                <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Duree</th>
-                <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Resume</th>
+                <th style="padding:10px;text-align:left;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Job</th>
+                <th style="padding:10px;text-align:center;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Statut</th>
+                <th style="padding:10px;text-align:left;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Résumé</th>
+                <th style="padding:10px;text-align:right;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Action</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
+        <div style="margin-top:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.5">
+          💡 <strong>Info</strong> : Les jobs Python (fetch-13dg, fetch-insider, etc.) tournent via GitHub Actions cron quotidien. Le bouton 🔗 GitHub ouvre la page pour déclencher manuellement via « Run workflow ». Le cron-watchlist-digest est interne au Worker Cloudflare et peut être lancé directement.
+        </div>
       `;
     }
+
+    // Déclencheur manuel du cron watchlist-digest (via Worker)
+    async function runWatchlistCron(btn) {
+      if (!currentUser || !btn) return;
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ En cours…';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + '/api/admin/run-watchlist-cron', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          Toast.success(`Cron exécuté (${data.durationSec || 0}s). Actualisation…`);
+          setTimeout(() => loadAdminDashboard(true), 1000);
+        } else {
+          Toast.error('Erreur : ' + (data.error || 'inconnue'));
+        }
+      } catch (e) {
+        Toast.error('Erreur réseau : ' + (e.message || e));
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+    window.runWatchlistCron = runWatchlistCron;
 
     // ===== Auto-refresh admin =====
     let adminRefreshTimer = null;
