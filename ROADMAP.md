@@ -17,7 +17,7 @@
 ✅ **CSP** (Content Security Policy) sur toutes les pages HTML via `<meta http-equiv>` — bloque scripts/connexions/iframes externes non autorisés (mode enforce, pas report-only)  
 - [ ] **SRI** (Subresource Integrity) sur les CDN externes (Chart.js, Firebase, etc.)
 - [ ] **Audit des `eval()` / `innerHTML`** avec contenu user (XSS prevention)
-- [ ] **HSTS header** strict-transport-security côté Worker
+✅ **HSTS** activé via Cloudflare (max-age 12 mois, includeSubDomains, preload, no-sniff) — force HTTPS strict, anti-SSL-stripping  
 
 ### RGPD / Conformité
 ✅ **Suppression de compte** (endpoint `/account/delete` : Stripe cancel + KV purge + Firebase Auth delete)  
