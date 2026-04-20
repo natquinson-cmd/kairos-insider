@@ -333,6 +333,251 @@
       transition: all 0.15s;
     }
     .support-chip:hover { border-color: var(--accent-blue); transform: translateY(-1px); }
+
+    /* ============================================================
+       MON PROFIL — design pro
+       ============================================================ */
+    /* Hero header */
+    .profile-hero {
+      position: relative;
+      border-radius: 16px;
+      padding: 32px 28px;
+      margin-bottom: 22px;
+      overflow: hidden;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-1);
+    }
+    .profile-hero-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(59,130,246,0.18), transparent 60%),
+        radial-gradient(circle at 80% 70%, rgba(139,92,246,0.18), transparent 55%),
+        linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08));
+      pointer-events: none;
+    }
+    .profile-hero-content {
+      position: relative;
+      display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    }
+    .profile-avatar-wrap { position: relative; flex-shrink: 0; }
+    .profile-avatar-xl {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 38px; overflow: hidden;
+      border: 4px solid var(--surface-1);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+    }
+    .profile-avatar-edit {
+      position: absolute; bottom: 2px; right: 2px;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--surface-1); border: 2px solid var(--border-strong);
+      color: var(--text-primary); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .profile-avatar-edit:hover { background: var(--accent-blue); color: #fff; transform: scale(1.08); }
+    .profile-hero-info { flex: 1; min-width: 200px; }
+    .profile-hero-name {
+      font-size: 24px; font-weight: 700; color: var(--text-primary);
+      line-height: 1.2; margin-bottom: 4px;
+    }
+    .profile-hero-email { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; }
+    .profile-hero-meta {
+      display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .profile-meta-item { display: inline-flex; align-items: center; gap: 6px; }
+    .profile-meta-icon { font-size: 13px; }
+    .profile-meta-item strong { color: var(--text-primary); font-weight: 600; }
+    .profile-pill {
+      display: inline-block;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    }
+    .profile-pill-free { background: rgba(148,163,184,0.18); color: #94A3B8; }
+    .profile-pill-premium {
+      background: linear-gradient(135deg, rgba(245,158,11,0.22), rgba(249,115,22,0.22));
+      color: #F59E0B;
+      border: 1px solid rgba(245,158,11,0.35);
+    }
+    .profile-hero-action {
+      background: transparent; border: 1px solid var(--border-strong);
+      color: var(--text-secondary); cursor: pointer;
+      padding: 7px 14px; border-radius: 8px; font-size: 12px;
+      font-family: inherit; transition: all 0.2s;
+    }
+    .profile-hero-action:hover { border-color: #F87171; color: #F87171; }
+
+    /* Cards */
+    .profile-grid-2 {
+      display: grid; gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    }
+    .profile-card {
+      background: var(--surface-1);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      padding: 22px 24px;
+      transition: border-color 0.2s;
+    }
+    .profile-card:hover { border-color: var(--border); }
+    .profile-card-danger { border-color: rgba(239,68,68,0.28); }
+    .profile-card-danger:hover { border-color: rgba(239,68,68,0.45); }
+    .profile-card-header {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 18px;
+    }
+    .profile-card-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #fff; flex-shrink: 0;
+    }
+    .profile-card-title {
+      margin: 0; font-size: 15px; font-weight: 700;
+      color: var(--text-primary); letter-spacing: -0.01em;
+    }
+    .profile-card-sub {
+      font-size: 12px; color: var(--text-muted); margin-top: 2px;
+    }
+
+    /* Fields & inputs */
+    .profile-field { margin-bottom: 16px; }
+    .profile-field:last-child { margin-bottom: 0; }
+    .profile-label {
+      display: block; font-size: 11px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      font-weight: 600; margin-bottom: 6px;
+    }
+    .profile-input {
+      width: 100%; padding: 9px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong); border-radius: 8px;
+      color: var(--text-primary); font-family: inherit; font-size: 13px;
+      transition: border-color 0.2s;
+    }
+    .profile-input:focus { outline: none; border-color: var(--accent-blue); }
+    .profile-input-readonly { opacity: 0.65; cursor: not-allowed; }
+    .profile-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+    /* Buttons */
+    .profile-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 18px; border-radius: 8px;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; border: 1px solid transparent;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .profile-btn-primary {
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      color: #fff !important;
+      box-shadow: 0 2px 12px rgba(59,130,246,0.3);
+    }
+    .profile-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 18px rgba(59,130,246,0.4); }
+    .profile-btn-secondary {
+      background: var(--surface-2);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+    .profile-btn-secondary:hover { border-color: var(--accent-blue); }
+    .profile-btn-danger {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.4);
+      color: #F87171;
+    }
+    .profile-btn-danger:hover { background: rgba(239,68,68,0.22); }
+
+    /* Préférences — segmented controls + items */
+    .profile-prefs-grid { display: flex; flex-direction: column; gap: 4px; }
+    .profile-pref-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 4px; gap: 16px; flex-wrap: wrap;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    .profile-pref-item:last-child { border-bottom: none; }
+    .profile-pref-label { display: flex; align-items: center; gap: 12px; }
+    .profile-pref-emoji {
+      font-size: 22px; width: 38px; height: 38px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--surface-2); border-radius: 10px;
+    }
+    .profile-pref-name { color: var(--text-primary); font-weight: 600; font-size: 13px; }
+    .profile-pref-desc { color: var(--text-muted); font-size: 11px; margin-top: 1px; }
+    .profile-segmented {
+      display: inline-flex; background: var(--surface-2);
+      border: 1px solid var(--border-strong); border-radius: 9px; padding: 3px;
+    }
+    .profile-seg-btn {
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer;
+      padding: 6px 14px; border-radius: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      transition: all 0.15s;
+    }
+    .profile-seg-btn:hover { color: var(--text-primary); }
+    .profile-seg-btn.active {
+      background: var(--surface-1);
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    /* Sécurité — stats */
+    .profile-stats-grid {
+      display: grid; gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .profile-stat {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border-radius: 10px;
+    }
+    .profile-stat-icon {
+      font-size: 18px; width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--surface-1); border-radius: 8px; flex-shrink: 0;
+    }
+    .profile-stat-label {
+      font-size: 11px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+    }
+    .profile-stat-value { color: var(--text-primary); font-weight: 600; font-size: 13px; margin-top: 2px; }
+    .profile-divider {
+      height: 1px; background: var(--border-strong); margin: 16px 0;
+    }
+    .profile-success-msg {
+      margin-top: 12px; padding: 10px 12px;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 8px;
+      color: #22C55E; font-size: 12px;
+    }
+    .profile-danger-row {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; flex-wrap: wrap;
+    }
+
+    /* Skeleton loader */
+    .profile-skeleton {
+      background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-1) 50%, var(--surface-2) 100%);
+      background-size: 200% 100%;
+      border-radius: 8px;
+      animation: profile-skeleton-shimmer 1.4s infinite;
+    }
+    @keyframes profile-skeleton-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .profile-hero { padding: 24px 18px; }
+      .profile-hero-content { flex-direction: column; align-items: center; text-align: center; }
+      .profile-hero-meta { justify-content: center; }
+      .profile-card { padding: 18px 16px; }
+      .profile-pref-item { flex-direction: column; align-items: stretch; }
+    }
     .profile-menu-item {
       display: flex;
       align-items: center;
@@ -2575,101 +2820,185 @@
 
       <!-- ===== SECTION: MON PROFIL ===== -->
       <div class="section-page" id="section-profile">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap">
-          <h2 style="margin:0" data-i18n="profile.title">👤 Mon Profil</h2>
-          <span style="font-size:11px;color:var(--text-muted)" data-i18n="profile.subtitle">Gérez votre compte, votre abonnement et vos préférences</span>
+        <!-- Hero header avec gradient + avatar XL -->
+        <div class="profile-hero">
+          <div class="profile-hero-bg"></div>
+          <div class="profile-hero-content">
+            <div class="profile-avatar-wrap">
+              <div id="profileAvatarBig" class="profile-avatar-xl">?</div>
+              <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)" />
+              <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Changer la photo" aria-label="Changer la photo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </button>
+            </div>
+            <div class="profile-hero-info">
+              <div id="profileHeroName" class="profile-hero-name">—</div>
+              <div id="profileHeroEmail" class="profile-hero-email">—</div>
+              <div class="profile-hero-meta">
+                <span id="profileHeroBadge" class="profile-pill profile-pill-free">FREE</span>
+                <span class="profile-meta-item"><span class="profile-meta-icon">📅</span><span data-i18n="profile.member_since">Membre depuis</span> <strong id="profileHeroMember">—</strong></span>
+              </div>
+            </div>
+            <button id="profilePhotoRemoveBtn" class="profile-hero-action" onclick="removeProfilePhoto()" style="display:none" data-i18n="profile.remove_photo">Supprimer la photo</button>
+          </div>
         </div>
 
-        <!-- Carte 1 : Identité -->
-        <div class="card" style="margin-bottom:18px">
-          <h3 style="margin:0 0 16px;font-size:15px;color:var(--text-primary)" data-i18n="profile.identity">👤 Identité</h3>
-          <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
-              <div id="profileAvatarBig" style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:42px;overflow:hidden;border:3px solid var(--border-strong)">?</div>
-              <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)" />
-              <button class="btn btn-secondary" onclick="document.getElementById('profilePhotoInput').click()" style="font-size:12px;padding:6px 12px" data-i18n="profile.change_photo">📷 Changer la photo</button>
-              <button id="profilePhotoRemoveBtn" class="btn btn-secondary" onclick="removeProfilePhoto()" style="font-size:11px;padding:4px 10px;opacity:0.7;display:none" data-i18n="profile.remove_photo">Supprimer</button>
-            </div>
-            <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:14px">
+        <!-- Grille 2 colonnes pour Identité + Abonnement -->
+        <div class="profile-grid-2">
+          <!-- Carte Identité -->
+          <div class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
               <div>
-                <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px" data-i18n="profile.display_name">Nom affiché</label>
-                <div style="display:flex;gap:8px;align-items:center">
-                  <input type="text" id="profileDisplayName" class="form-input" style="flex:1;max-width:320px" placeholder="Votre prénom ou pseudo" />
-                  <button class="btn btn-primary" onclick="saveProfileDisplayName()" style="padding:8px 18px;flex-shrink:0;width:auto" data-i18n="profile.save">Enregistrer</button>
+                <h3 class="profile-card-title" data-i18n="profile.identity_title">Identité</h3>
+                <div class="profile-card-sub" data-i18n="profile.identity_sub">Votre nom et email de connexion</div>
+              </div>
+            </div>
+            <div class="profile-field">
+              <label class="profile-label" data-i18n="profile.display_name">Nom affiché</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="text" id="profileDisplayName" class="profile-input" placeholder="Votre prénom ou pseudo" />
+                <button class="profile-btn profile-btn-primary" onclick="saveProfileDisplayName()" data-i18n="profile.save">Enregistrer</button>
+              </div>
+            </div>
+            <div class="profile-field">
+              <label class="profile-label" data-i18n="profile.email">Email</label>
+              <input type="email" id="profileEmail" class="profile-input profile-input-readonly" readonly />
+              <div class="profile-hint" data-i18n="profile.email_hint">L'email de connexion ne peut pas être modifié. Contactez le support si besoin.</div>
+            </div>
+          </div>
+
+          <!-- Carte Abonnement -->
+          <div class="profile-card">
+            <div class="profile-card-header">
+              <div class="profile-card-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </div>
+              <div>
+                <h3 class="profile-card-title" data-i18n="profile.subscription_title">Abonnement</h3>
+                <div class="profile-card-sub" data-i18n="profile.subscription_sub">Plan et facturation</div>
+              </div>
+            </div>
+            <div id="profileSubBody"><div class="profile-skeleton" style="height:80px"></div></div>
+          </div>
+        </div>
+
+        <!-- Carte Préférences (full width) -->
+        <div class="profile-card" style="margin-top:18px">
+          <div class="profile-card-header">
+            <div class="profile-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <div>
+              <h3 class="profile-card-title" data-i18n="profile.preferences_title">Préférences</h3>
+              <div class="profile-card-sub" data-i18n="profile.preferences_sub">Personnalisez votre expérience</div>
+            </div>
+          </div>
+          <div class="profile-prefs-grid">
+            <div class="profile-pref-item">
+              <div class="profile-pref-label">
+                <span class="profile-pref-emoji">🌐</span>
+                <div>
+                  <div class="profile-pref-name" data-i18n="profile.language">Langue</div>
+                  <div class="profile-pref-desc" data-i18n="profile.language_desc">Interface du dashboard</div>
                 </div>
               </div>
-              <div>
-                <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px" data-i18n="profile.email">Email</label>
-                <input type="email" id="profileEmail" class="form-input" readonly style="opacity:0.7;cursor:not-allowed" />
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px" data-i18n="profile.email_hint">L'email de connexion ne peut pas être modifié. Contactez le support si besoin.</div>
+              <div class="profile-segmented">
+                <button id="profileLangFr" onclick="window.KairosI18n.setLang('fr');refreshProfilePrefsActive()" class="profile-seg-btn">🇫🇷 FR</button>
+                <button id="profileLangEn" onclick="window.KairosI18n.setLang('en');refreshProfilePrefsActive()" class="profile-seg-btn">🇬🇧 EN</button>
               </div>
+            </div>
+            <div class="profile-pref-item">
+              <div class="profile-pref-label">
+                <span class="profile-pref-emoji">🌓</span>
+                <div>
+                  <div class="profile-pref-name" data-i18n="profile.theme">Thème</div>
+                  <div class="profile-pref-desc" data-i18n="profile.theme_desc">Clair ou sombre</div>
+                </div>
+              </div>
+              <div class="profile-segmented">
+                <button id="profileThemeLight" onclick="setThemeProfile('light')" class="profile-seg-btn">☀️ Clair</button>
+                <button id="profileThemeDark" onclick="setThemeProfile('dark')" class="profile-seg-btn">🌙 Sombre</button>
+              </div>
+            </div>
+            <div class="profile-pref-item">
+              <div class="profile-pref-label">
+                <span class="profile-pref-emoji">🔔</span>
+                <div>
+                  <div class="profile-pref-name" data-i18n="profile.alerts">Alertes email</div>
+                  <div class="profile-pref-desc" data-i18n="profile.alerts_desc">Watchlist et événements smart money</div>
+                </div>
+              </div>
+              <button class="profile-btn profile-btn-secondary" onclick="switchSection('watchlist')" data-i18n="profile.configure">Configurer</button>
             </div>
           </div>
         </div>
 
-        <!-- Carte 2 : Abonnement -->
-        <div class="card" style="margin-bottom:18px">
-          <h3 style="margin:0 0 16px;font-size:15px;color:var(--text-primary)" data-i18n="profile.subscription">💳 Abonnement</h3>
-          <div id="profileSubBody" style="color:var(--text-muted);font-size:13px">Chargement…</div>
-        </div>
-
-        <!-- Carte 3 : Préférences -->
-        <div class="card" style="margin-bottom:18px">
-          <h3 style="margin:0 0 16px;font-size:15px;color:var(--text-primary)" data-i18n="profile.preferences">⚙️ Préférences</h3>
-          <div style="display:flex;flex-wrap:wrap;gap:28px">
-            <div>
-              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px" data-i18n="profile.language">Langue</label>
-              <div style="display:inline-flex;gap:6px">
-                <button class="btn btn-secondary" onclick="window.KairosI18n.setLang('fr')" style="padding:8px 14px;width:auto">🇫🇷 Français</button>
-                <button class="btn btn-secondary" onclick="window.KairosI18n.setLang('en')" style="padding:8px 14px;width:auto">🇬🇧 English</button>
-              </div>
+        <!-- Carte Sécurité -->
+        <div class="profile-card" style="margin-top:18px">
+          <div class="profile-card-header">
+            <div class="profile-card-icon" style="background:linear-gradient(135deg,#06B6D4,#0891B2)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </div>
             <div>
-              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px" data-i18n="profile.theme">Thème</label>
-              <button class="btn btn-secondary" onclick="toggleTheme()" style="padding:8px 14px;width:auto"><span id="profileThemeLabel">🌙 Basculer le thème</span></button>
-            </div>
-            <div>
-              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px" data-i18n="profile.alerts">Alertes email</label>
-              <button class="btn btn-secondary" onclick="switchSection('watchlist')" style="padding:8px 14px;width:auto" data-i18n="profile.manage_alerts">🔔 Gérer les alertes watchlist</button>
+              <h3 class="profile-card-title" data-i18n="profile.security_title">Sécurité</h3>
+              <div class="profile-card-sub" data-i18n="profile.security_sub">Mot de passe et historique</div>
             </div>
           </div>
-        </div>
-
-        <!-- Carte 4 : Sécurité -->
-        <div class="card" style="margin-bottom:18px">
-          <h3 style="margin:0 0 16px;font-size:15px;color:var(--text-primary)" data-i18n="profile.security">🔒 Sécurité</h3>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:14px">
-            <div>
-              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px" data-i18n="profile.created">Compte créé le</div>
-              <div id="profileCreatedAt" style="color:var(--text-primary);font-weight:600">—</div>
+          <div class="profile-stats-grid">
+            <div class="profile-stat">
+              <div class="profile-stat-icon">📅</div>
+              <div>
+                <div class="profile-stat-label" data-i18n="profile.created">Compte créé le</div>
+                <div id="profileCreatedAt" class="profile-stat-value">—</div>
+              </div>
             </div>
-            <div>
-              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px" data-i18n="profile.last_login">Dernière connexion</div>
-              <div id="profileLastLogin" style="color:var(--text-primary);font-weight:600">—</div>
+            <div class="profile-stat">
+              <div class="profile-stat-icon">🕐</div>
+              <div>
+                <div class="profile-stat-label" data-i18n="profile.last_login">Dernière connexion</div>
+                <div id="profileLastLogin" class="profile-stat-value">—</div>
+              </div>
             </div>
           </div>
-          <button class="btn btn-secondary" onclick="sendPasswordResetFromProfile()" style="width:auto" data-i18n="profile.reset_password">🔑 Recevoir un email de réinitialisation du mot de passe</button>
-          <div id="profilePasswordMsg" style="margin-top:10px;font-size:12px;color:var(--accent-green);display:none"></div>
+          <div class="profile-divider"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="color:var(--text-primary);font-weight:600;font-size:13px" data-i18n="profile.password_title">Mot de passe</div>
+              <div class="profile-hint" style="margin-top:2px" data-i18n="profile.password_desc">Recevez un lien sécurisé par email pour le réinitialiser.</div>
+            </div>
+            <button class="profile-btn profile-btn-secondary" onclick="sendPasswordResetFromProfile()" data-i18n="profile.reset_password_short">🔑 Réinitialiser</button>
+          </div>
+          <div id="profilePasswordMsg" class="profile-success-msg" style="display:none"></div>
         </div>
 
-        <!-- Carte 5 : Zone de danger -->
-        <div class="card" style="margin-bottom:18px;border-color:rgba(239,68,68,0.35)">
-          <h3 style="margin:0 0 16px;font-size:15px;color:#F87171" data-i18n="profile.danger">⚠️ Zone de danger</h3>
-          <div style="display:flex;flex-direction:column;gap:14px">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-              <div>
-                <div style="color:var(--text-primary);font-weight:600;margin-bottom:3px" data-i18n="profile.export_title">Exporter mes données</div>
-                <div style="font-size:12px;color:var(--text-muted)" data-i18n="profile.export_desc">Télécharger un fichier JSON avec votre profil, watchlist et abonnement (RGPD).</div>
-              </div>
-              <button class="btn btn-secondary" onclick="exportMyData()" data-i18n="profile.export_btn">📥 Télécharger</button>
+        <!-- Carte Zone de danger -->
+        <div class="profile-card profile-card-danger" style="margin-top:18px">
+          <div class="profile-card-header">
+            <div class="profile-card-icon" style="background:linear-gradient(135deg,#EF4444,#DC2626)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
-            <div style="border-top:1px solid var(--border-strong);padding-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-              <div>
-                <div style="color:#F87171;font-weight:600;margin-bottom:3px" data-i18n="profile.delete_title">Supprimer mon compte</div>
-                <div style="font-size:12px;color:var(--text-muted)" data-i18n="profile.delete_desc">Suppression définitive du compte, watchlist et abonnement. Action irréversible.</div>
-              </div>
-              <button class="btn" onclick="deleteMyAccount()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#F87171" data-i18n="profile.delete_btn">🗑️ Supprimer</button>
+            <div>
+              <h3 class="profile-card-title" style="color:#F87171" data-i18n="profile.danger">Zone de danger</h3>
+              <div class="profile-card-sub" data-i18n="profile.danger_sub">Actions irréversibles</div>
             </div>
+          </div>
+          <div class="profile-danger-row">
+            <div>
+              <div style="color:var(--text-primary);font-weight:600;font-size:13px" data-i18n="profile.export_title">Exporter mes données</div>
+              <div class="profile-hint" style="margin-top:2px" data-i18n="profile.export_desc">Télécharger un fichier JSON avec votre profil, watchlist et abonnement (RGPD).</div>
+            </div>
+            <button class="profile-btn profile-btn-secondary" onclick="exportMyData()" data-i18n="profile.export_btn">📥 Télécharger</button>
+          </div>
+          <div class="profile-divider"></div>
+          <div class="profile-danger-row">
+            <div>
+              <div style="color:#F87171;font-weight:600;font-size:13px" data-i18n="profile.delete_title">Supprimer mon compte</div>
+              <div class="profile-hint" style="margin-top:2px" data-i18n="profile.delete_desc">Suppression définitive du compte, watchlist et abonnement.</div>
+            </div>
+            <button class="profile-btn profile-btn-danger" onclick="deleteMyAccount()" data-i18n="profile.delete_btn">🗑️ Supprimer</button>
           </div>
         </div>
       </div>
@@ -3805,6 +4134,31 @@
     // Populate la section Profil à chaque visite
     async function loadProfileSection() {
       if (!currentUser) return;
+      // Hero
+      let displayName = currentUser.displayName;
+      if (!displayName && currentUser.email) {
+        const local = currentUser.email.split('@')[0];
+        displayName = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      const heroName = document.getElementById('profileHeroName');
+      const heroEmail = document.getElementById('profileHeroEmail');
+      const heroBadge = document.getElementById('profileHeroBadge');
+      const heroMember = document.getElementById('profileHeroMember');
+      if (heroName) heroName.textContent = displayName || 'Utilisateur';
+      if (heroEmail) heroEmail.textContent = currentUser.email || '';
+      if (heroBadge) {
+        if (typeof isPremium !== 'undefined' && isPremium) {
+          heroBadge.textContent = '⭐ PREMIUM';
+          heroBadge.className = 'profile-pill profile-pill-premium';
+        } else {
+          heroBadge.textContent = 'FREE';
+          heroBadge.className = 'profile-pill profile-pill-free';
+        }
+      }
+      if (heroMember && currentUser.metadata?.creationTime) {
+        const d = new Date(currentUser.metadata.creationTime);
+        heroMember.textContent = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      }
       // Identité
       const nameInput = document.getElementById('profileDisplayName');
       const emailInput = document.getElementById('profileEmail');
@@ -3819,6 +4173,30 @@
       if (lEl && currentUser.metadata) lEl.textContent = fmtProfileDate(currentUser.metadata.lastSignInTime);
       // Abonnement
       await loadProfileSubscription();
+      // Préférences : highlight l'option active
+      refreshProfilePrefsActive();
+    }
+
+    // Active visuellement le bon segment (langue + thème)
+    function refreshProfilePrefsActive() {
+      const lang = window.KairosI18n ? window.KairosI18n.getLang() : 'fr';
+      const fr = document.getElementById('profileLangFr');
+      const en = document.getElementById('profileLangEn');
+      if (fr) fr.classList.toggle('active', lang === 'fr');
+      if (en) en.classList.toggle('active', lang === 'en');
+      const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const tl = document.getElementById('profileThemeLight');
+      const td = document.getElementById('profileThemeDark');
+      if (tl) tl.classList.toggle('active', theme === 'light');
+      if (td) td.classList.toggle('active', theme === 'dark');
+    }
+
+    // Force un thème spécifique (utilisé par les boutons segmentés)
+    function setThemeProfile(theme) {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      if (current === theme) return;
+      toggleTheme();
+      refreshProfilePrefsActive();
     }
 
     async function loadProfileSubscription() {
