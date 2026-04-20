@@ -965,7 +965,8 @@
   }
 
   function applyTranslations(root) {
-    const scope = root || document;
+    // Protection : si appelé comme listener (DOMContentLoaded), root est un Event, pas un Node
+    const scope = (root && typeof root.querySelectorAll === 'function') ? root : document;
     // Texte simple
     const els = scope.querySelectorAll('[data-i18n]');
     els.forEach(function(el) {
