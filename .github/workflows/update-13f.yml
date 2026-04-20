@@ -234,10 +234,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
         run: |
           cd worker
           python push-scores-to-d1.py
-        timeout-minutes: 5
+        timeout-minutes: 30
         continue-on-error: true
 
       # Pousse les transactions insiders (SEC Form 4 + BaFin + AMF) vers la DB

@@ -81,11 +81,12 @@ export default {
     }
 
     // --- Rate limit par IP pour les routes publiques uniquement (60 req/min) ---
-    // On limite SEULEMENT les routes publiques pour \u00e9conomiser les writes KV.
-    // Les routes authentifi\u00e9es sont prot\u00e9g\u00e9es par Firebase JWT (co\u00fbt de verif qui limite le spam).
+    // Bypass si header X-Internal-Secret correspond (pour GitHub Actions / pipeline batch)
+    const internalSecret = request.headers.get('X-Internal-Secret');
+    const isTrustedInternal = internalSecret && env.INTERNAL_SECRET && internalSecret === env.INTERNAL_SECRET;
     const isPublicRoute = !path.startsWith('/api/') && !path.startsWith('/stripe/')
       && !path.startsWith('/account/') && !path.startsWith('/support/');
-    if (isPublicRoute && !RATE_LIMIT_EXEMPT_PATHS.has(path)) {
+    if (isPublicRoute && !RATE_LIMIT_EXEMPT_PATHS.has(path) && !isTrustedInternal) {
       const ip = getClientIP(request);
       const limitAnon = parseInt(env.RATE_LIMIT_ANON || '60', 10);
       const rl = await checkRateLimit(env, `ip:${ip}`, limitAnon, 60);
