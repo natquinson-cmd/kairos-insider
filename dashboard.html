@@ -1664,13 +1664,20 @@
       <div class="logo-mark">
         <img src="assets/logo.svg" alt="Kairos Insider" />
       </div>
-      <h2 style="margin-bottom:16px">Passez a Kairos Insider Premium</h2>
-      <p style="margin-bottom:24px">Debloquez l'acces complet au Smart Money Dashboard : transactions insiders, signaux de clusters, portefeuilles hedge funds, ETF en temps réel.</p>
-      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:36px;font-weight:800;color:var(--accent-blue)">29&#8364;<span style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
-        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable a tout moment</div>
+      <h2 style="margin-bottom:16px">Passez à Kairos Insider Premium</h2>
+      <p style="margin-bottom:20px">Débloquez l'accès complet au Smart Money Dashboard : transactions insiders, signaux de clusters, portefeuilles hedge funds, ETF en temps réel.</p>
+
+      <!-- Toggle Mensuel / Annuel -->
+      <div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;padding:3px;margin-bottom:16px;width:100%">
+        <button type="button" id="pwTabMonthly" onclick="setPaywallBilling('monthly')" style="flex:1;background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:8px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;transition:all 0.15s">Mensuel</button>
+        <button type="button" id="pwTabYearly" onclick="setPaywallBilling('yearly')" style="flex:1;background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:8px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;transition:all 0.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px">Annuel <span style="background:#10B981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700">-17%</span></button>
       </div>
-      <button class="btn btn-primary" onclick="startCheckout()" id="checkoutBtn" style="width:100%;padding:16px">S'abonner maintenant</button>
+
+      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:20px;margin-bottom:20px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:36px;font-weight:800;color:var(--accent-blue)"><span id="pwAmount">29€</span><span id="pwPeriod" style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
+        <div id="pwSubline" style="font-size:13px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable à tout moment</div>
+      </div>
+      <button class="btn btn-primary" onclick="startCheckout()" id="checkoutBtn" style="width:100%;padding:16px"><span id="pwCta">S'abonner maintenant</span></button>
       <p style="margin-top:12px;font-size:12px;color:var(--text-muted)">Paiement securise par Stripe. Vous pouvez annuler a tout moment.</p>
       <p style="margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.5">
         En vous abonnant, vous acceptez nos
@@ -3675,6 +3682,37 @@
       } catch (e) {}
       return 'monthly';
     }
+
+    // Met à jour l'UI du paywall selon le choix mensuel/annuel
+    function setPaywallBilling(mode) {
+      try { localStorage.setItem('kairos_billing', mode); } catch (e) {}
+      const amount = document.getElementById('pwAmount');
+      const period = document.getElementById('pwPeriod');
+      const subline = document.getElementById('pwSubline');
+      const cta = document.getElementById('pwCta');
+      const tabM = document.getElementById('pwTabMonthly');
+      const tabY = document.getElementById('pwTabYearly');
+      if (mode === 'yearly') {
+        if (amount) amount.textContent = '290€';
+        if (period) period.textContent = '/an';
+        if (subline) subline.textContent = 'Soit 24,17€/mois · Économisez 58€ par an';
+        if (cta) cta.textContent = "S'abonner — 290€/an";
+      } else {
+        if (amount) amount.textContent = '29€';
+        if (period) period.textContent = '/mois';
+        if (subline) subline.textContent = 'Sans engagement — Annulable à tout moment';
+        if (cta) cta.textContent = "S'abonner — 29€/mois";
+      }
+      // Toggle active visually
+      const activeStyle = 'background:var(--surface-1);color:var(--text-primary);box-shadow:0 1px 3px rgba(0,0,0,0.2)';
+      const inactiveStyle = 'background:transparent;color:var(--text-muted)';
+      if (tabM) tabM.setAttribute('style', tabM.getAttribute('style').replace(/background:[^;]*;color:[^;]*(?:;box-shadow:[^;]*)?/, '') + ';' + (mode === 'monthly' ? activeStyle : inactiveStyle));
+      if (tabY) tabY.setAttribute('style', tabY.getAttribute('style').replace(/background:[^;]*;color:[^;]*(?:;box-shadow:[^;]*)?/, '') + ';' + (mode === 'yearly' ? activeStyle : inactiveStyle));
+    }
+    // Au chargement, synchronise l'UI avec la préférence stockée
+    window.addEventListener('DOMContentLoaded', () => {
+      setPaywallBilling(getBillingPreference());
+    });
 
     // Au chargement : si ?billing= est dans l'URL, on l'enregistre et on met a jour
     // le wording du bouton paywall pour refleter le plan choisi.
