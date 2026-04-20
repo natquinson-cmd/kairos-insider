@@ -266,7 +266,7 @@
       'footer.contact': 'Contact',
       'footer.faq': 'FAQ',
       'footer.cookies': 'Gérer mes cookies',
-      'footer.legal_line': 'Kairos Insider — Nathanaël Quinson · SIRET 938 381 928 00010 · Annecy, France · <a href="legal.html">Mentions légales</a>',
+      'footer.legal_line': 'Kairos Insider · SIRET 938 381 928 00010 · Annecy, France · <a href="legal.html">Mentions légales</a>',
 
       // ==== SIGNALS / SCORES (utilises dans dashboard + SSR) ====
       'signal.strong_buy': 'ACHAT FORT',
@@ -700,7 +700,7 @@
       'footer.contact': 'Contact',
       'footer.faq': 'FAQ',
       'footer.cookies': 'Manage my cookies',
-      'footer.legal_line': 'Kairos Insider — Nathanaël Quinson · SIRET 938 381 928 00010 · Annecy, France · <a href="legal.html">Legal notice</a>',
+      'footer.legal_line': 'Kairos Insider · SIRET 938 381 928 00010 · Annecy, France · <a href="legal.html">Legal notice</a>',
 
       'signal.strong_buy': 'STRONG BUY',
       'signal.buy': 'BUY',
