@@ -3112,6 +3112,23 @@
     // ============================================================
     const API_BASE = 'https://kairos-insider-api.natquinson.workers.dev';
 
+    // ============================================================
+    // SÉCURITÉ — Helper anti-XSS
+    // ============================================================
+    // Échappe les caractères HTML dangereux. À utiliser sur tout contenu
+    // d'origine externe (API, user input, error messages) avant injection
+    // dans .innerHTML / template literals HTML.
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    window.escapeHtml = escapeHtml;
+
     // Traductions
     const TX_TYPES = {
       'P': 'Achat', 'S': 'Vente', 'A': 'Attribution', 'D': 'Cession',
@@ -4835,7 +4852,7 @@
           </details>
         `;
       } catch (e) {
-        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -4901,7 +4918,7 @@
         loadActivistsForTicker(ticker).catch(() => {});
       } catch (e) {
         clearStockLoader();
-        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -6859,7 +6876,7 @@
           </details>
         `;
       } catch (e) {
-        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${e.message || e}</div>`;
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -9546,7 +9563,7 @@
         btn.disabled = rows.length === 0;
         btn.style.opacity = rows.length === 0 ? '0.5' : '1';
       } catch (e) {
-        tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${e.message || e}</div>`;
+        tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -10323,7 +10340,7 @@
           </div>
         `;
       } catch (e) {
-        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${e.message || e}</div>`;
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -10418,7 +10435,7 @@
           </div>
         `;
       } catch (e) {
-        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${e.message || e}</div>`;
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -10513,7 +10530,7 @@
           </div>
         `).join('') + (rows.length > 30 ? `<div style="padding:10px 0;text-align:center;font-size:11px;opacity:0.6">+ ${rows.length - 30} autres — <a href="#" onclick="openScreenerForTicker('${ticker}');return false" style="color:#74b9ff">voir dans le Screener</a></div>` : '');
       } catch (e) {
-        if (listEl) listEl.innerHTML = `<div style="opacity:0.5;padding:12px 0">Erreur : ${e.message || e}</div>`;
+        if (listEl) listEl.innerHTML = `<div style="opacity:0.5;padding:12px 0">Erreur : ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
