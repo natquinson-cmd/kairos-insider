@@ -80,8 +80,12 @@ export default {
       return jsonResponse({ error: 'Origin not allowed' }, 403, env.ALLOWED_ORIGIN);
     }
 
-    // --- Rate limit par IP pour les routes publiques (60 req/min) ---
-    if (!RATE_LIMIT_EXEMPT_PATHS.has(path)) {
+    // --- Rate limit par IP pour les routes publiques uniquement (60 req/min) ---
+    // On limite SEULEMENT les routes publiques pour \u00e9conomiser les writes KV.
+    // Les routes authentifi\u00e9es sont prot\u00e9g\u00e9es par Firebase JWT (co\u00fbt de verif qui limite le spam).
+    const isPublicRoute = !path.startsWith('/api/') && !path.startsWith('/stripe/')
+      && !path.startsWith('/account/') && !path.startsWith('/support/');
+    if (isPublicRoute && !RATE_LIMIT_EXEMPT_PATHS.has(path)) {
       const ip = getClientIP(request);
       const limitAnon = parseInt(env.RATE_LIMIT_ANON || '60', 10);
       const rl = await checkRateLimit(env, `ip:${ip}`, limitAnon, 60);
@@ -162,8 +166,10 @@ export default {
         return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
       }
 
-      // --- Rate limit par uid (180 req/min, exempté pour admins) ---
-      if (!isAdmin(user)) {
+      // --- Rate limit par uid DÉSACTIVÉ pour économiser les writes KV free tier ---
+      // Les users authentifiés sont déjà limités par le coût de verif JWT Firebase.
+      // Si abus (bot avec 1000 comptes), réactivable via RATE_LIMIT_AUTH_ENABLE=1.
+      if (env.RATE_LIMIT_AUTH_ENABLE === '1' && !isAdmin(user)) {
         const limitAuth = parseInt(env.RATE_LIMIT_AUTH || '180', 10);
         const rl = await checkRateLimit(env, `uid:${user.uid}`, limitAuth, 60);
         if (!rl.allowed) {
