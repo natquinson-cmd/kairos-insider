@@ -57,16 +57,16 @@
 ## 🎨 Priorité 4 — UX / UI
 
 ### Notifications
-- [ ] **Remplacer tous les `alert()`** par des toasts non-bloquants (style Sonner/Radix)
-- [ ] **Loading states** uniformes (skeletons partout au lieu de spinners textuels)
+✅ **Toasts non-bloquants** (`assets/toast.js`) : 27 `alert()` remplacés par Toast.success/error/warning/info, animation slide+fade, close btn, XSS-safe, a11y (role=alert/status, aria-live), dark/light/mobile responsive  
+✅ **Skeletons** uniformes (shimmer) : classes `.skeleton .skeleton-line/title/block/avatar/card/grid` + helper `window.Skeleton.{lines, title, card, grid, block, table}` + 6 spinners remplacés par des skeletons  
 
 ### Mobile
-- [ ] **Pass responsive complet** sur mobile (sidebar, charts, tableaux scrollables)
+✅ **Pass responsive mobile** : anti-overflow global, sidebar drawer coulissante (tap toggle + clic extérieur pour fermer), typo réduite, tables scroll-x, modals plein écran, breakpoints 768px + 380px  
 - [ ] **Test sur iOS Safari + Chrome Android** (touch events, viewport)
 - [ ] **Mode "lite mobile"** : sections lourdes (clustering, top insiders) désactivables
 
 ### Accessibilité
-- [ ] **Audit a11y** (Lighthouse + axe DevTools)
+✅ **A11y** : focus-visible global WCAG 2.4.7, skip-to-content link WCAG 2.4.1, prefers-reduced-motion WCAG 2.3.3, 0 img sans alt, 0 button icon-only sans aria-label, inputs labelisés  
 - [ ] **Contrastes WCAG AA** vérifiés en mode clair ET sombre
 - [ ] **Navigation clavier** complète (Tab/Esc/Enter sur tous les modals)
 - [ ] **`aria-label`** sur tous les boutons icône-only

@@ -589,6 +589,113 @@
       .profile-card { padding: 18px 16px; }
       .profile-pref-item { flex-direction: column; align-items: stretch; }
     }
+
+    /* ===== ACCESSIBILITÉ ===== */
+    /* Focus visible pour navigation clavier (WCAG 2.4.7) */
+    *:focus { outline: none; }
+    *:focus-visible {
+      outline: 2px solid var(--accent-blue);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    button:focus-visible, a:focus-visible, input:focus-visible,
+    select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent-blue);
+      outline-offset: 2px;
+    }
+    /* Skip-to-content link (apparaît au Tab, WCAG 2.4.1) */
+    .skip-link {
+      position: absolute; top: -40px; left: 0;
+      background: var(--accent-blue); color: #fff;
+      padding: 8px 14px; z-index: 10000;
+      text-decoration: none; font-size: 13px; font-weight: 600;
+      border-radius: 0 0 8px 0;
+    }
+    .skip-link:focus { top: 0; }
+    /* Réduit les animations pour les users qui l'ont demandé (WCAG 2.3.3) */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ===== RESPONSIVE MOBILE GLOBAL ===== */
+    /* Anti-overflow horizontal (cause #1 des bugs mobiles) */
+    html, body { overflow-x: hidden; max-width: 100%; }
+    img, video, iframe, canvas { max-width: 100%; height: auto; }
+    /* Tableaux : wrap scroll horizontal pour éviter le débordement */
+    .table-wrap, .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { max-width: 100%; }
+
+    @media (max-width: 768px) {
+      /* Conteneur principal + padding réduit */
+      .container { padding-left: 14px; padding-right: 14px; }
+
+      /* Sidebar : cachée par défaut, affichable via .sidebar.open */
+      .sidebar {
+        position: fixed; left: 0; top: 60px;
+        height: calc(100vh - 60px); z-index: 900;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        background: var(--surface-1);
+        box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+        width: 260px;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; width: 100%; }
+      .sidebar-toggle {
+        position: fixed; top: 14px; left: 14px; z-index: 1000;
+        background: var(--surface-1); border: 1px solid var(--border-strong);
+        border-radius: 8px; padding: 8px 12px; cursor: pointer;
+        color: var(--text-primary); font-size: 18px;
+      }
+
+      /* Typo réduite */
+      h1 { font-size: 24px; }
+      h2 { font-size: 18px; }
+      h3 { font-size: 15px; }
+
+      /* Tables : plus compactes + scroll horizontal */
+      table { font-size: 12px; }
+      th, td { padding: 8px 10px; }
+
+      /* Cards : padding réduit */
+      .card { padding: 14px; }
+
+      /* Touch targets : min 44x44 sur tous les boutons (recommandation Apple/Google) */
+      button, a.btn, .btn {
+        min-height: 40px;
+      }
+
+      /* Grilles qui étaient en auto-fit : force 1 col si écran étroit */
+      .charts-row,
+      .section-page > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+
+      /* Modals plein écran */
+      #supportModal > div,
+      .modal-content { max-width: 100% !important; max-height: 100vh !important; border-radius: 0 !important; }
+
+      /* Chart containers : hauteur réduite */
+      canvas { max-height: 260px; }
+
+      /* Navbar : plus compact */
+      .nav-links { gap: 10px; }
+      .nav-links li { display: flex; }
+      .nav-links > li:first-child a { font-size: 13px; }
+
+      /* Support modal padding */
+      #supportModal { padding: 0 !important; }
+    }
+
+    /* Très petits écrans (< 380px iPhone SE) */
+    @media (max-width: 380px) {
+      h1 { font-size: 20px; }
+      .page-title { font-size: 22px !important; }
+      #navProfileBtn, #navSupportBtn { width: 30px; height: 30px; }
+      .nav-links { gap: 6px; }
+    }
     .profile-menu-item {
       display: flex;
       align-items: center;
@@ -1389,12 +1496,43 @@
     .last-update { font-size: 11px; color: var(--text-muted); font-style: italic; }
 
     /* ===== LOADING & EMPTY ===== */
-    .loading { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .loading { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 13px; }
     .spinner {
-      width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent-blue);
-      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+      width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--accent-blue);
+      border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 14px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* ===== SKELETON utilitaires globaux =====
+       Usage : <div class="skeleton skeleton-line"></div>
+       Variants : .skeleton-line (16px), .skeleton-title (28px, 60% width),
+                  .skeleton-block (80px), .skeleton-avatar (40x40 rond),
+                  .skeleton-card (card complète avec title + 3 lignes) */
+    .skeleton {
+      background: linear-gradient(90deg,
+        rgba(148,163,184,0.08) 0%,
+        rgba(148,163,184,0.16) 50%,
+        rgba(148,163,184,0.08) 100%);
+      background-size: 200% 100%;
+      border-radius: 6px;
+      animation: kairos-shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes kairos-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton-line { height: 14px; margin-bottom: 8px; }
+    .skeleton-line:last-child { width: 70%; }
+    .skeleton-title { height: 26px; width: 50%; margin-bottom: 14px; border-radius: 8px; }
+    .skeleton-block { height: 80px; border-radius: 10px; margin-bottom: 10px; }
+    .skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; }
+    .skeleton-card {
+      padding: 18px; border: 1px solid var(--border);
+      border-radius: 12px; background: var(--bg-card);
+    }
+    .skeleton-grid {
+      display: grid; gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .empty-state p { margin-bottom: 16px; }
     .chip-list { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
@@ -1423,6 +1561,8 @@
   </style>
 </head>
 <body>
+
+  <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
   <!-- ===== AUTH OVERLAY ===== -->
   <div class="auth-overlay" id="authOverlay">
@@ -1764,7 +1904,7 @@
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="main">
+    <main class="main" id="main-content">
       <div class="container">
 
       <!-- ===== SECTION: ACCUEIL ===== -->
@@ -2876,7 +3016,7 @@
             </div>
             <div class="profile-field">
               <label class="profile-label" data-i18n="profile.email">Email</label>
-              <input type="email" id="profileEmail" class="profile-input profile-input-readonly" readonly />
+              <input type="email" id="profileEmail" class="profile-input profile-input-readonly" readonly aria-label="Votre email de connexion" />
               <div class="profile-hint" data-i18n="profile.email_hint">L'email de connexion ne peut pas être modifié. Contactez le support si besoin.</div>
             </div>
           </div>
@@ -3139,6 +3279,27 @@
         .replace(/'/g, '&#39;');
     }
     window.escapeHtml = escapeHtml;
+
+    // ============================================================
+    // Helper Skeleton — générateurs HTML pour loading states
+    // ============================================================
+    window.Skeleton = {
+      // N lignes type paragraphe
+      lines: (n = 3) => Array.from({length: n}, () => '<div class="skeleton skeleton-line"></div>').join(''),
+      // Un titre
+      title: () => '<div class="skeleton skeleton-title"></div>',
+      // Une card complète (titre + N lignes)
+      card: (lines = 3) => `<div class="skeleton-card">${this.title ? '' : ''}<div class="skeleton skeleton-title"></div>${Array.from({length: lines}, () => '<div class="skeleton skeleton-line"></div>').join('')}</div>`,
+      // Grille de N cards
+      grid: (n = 4, lines = 2) => `<div class="skeleton-grid">${Array.from({length: n}, () => `<div class="skeleton-card"><div class="skeleton skeleton-title"></div>${Array.from({length: lines}, () => '<div class="skeleton skeleton-line"></div>').join('')}</div>`).join('')}</div>`,
+      // Un bloc simple
+      block: (height = 80) => `<div class="skeleton skeleton-block" style="height:${height}px"></div>`,
+      // Tableau skeleton (N rows, M cols)
+      table: (rows = 5, cols = 4) => {
+        const rowHTML = `<tr>${Array.from({length: cols}, () => '<td style="padding:10px"><div class="skeleton skeleton-line" style="margin:0"></div></td>').join('')}</tr>`;
+        return `<table style="width:100%;border-collapse:collapse">${Array.from({length: rows}, () => rowHTML).join('')}</table>`;
+      },
+    };
 
     // Traductions
     const TX_TYPES = {
@@ -3622,8 +3783,30 @@
     // SIDEBAR & NAVIGATION
     // ============================================================
     function toggleSidebar() {
-      document.getElementById('sidebar').classList.toggle('collapsed');
+      const sb = document.getElementById('sidebar');
+      // Mobile : open/close ; Desktop : collapse/expand
+      if (window.matchMedia('(max-width: 768px)').matches) {
+        sb.classList.toggle('open');
+      } else {
+        sb.classList.toggle('collapsed');
+      }
     }
+    // Ferme la sidebar mobile en cliquant hors d'elle
+    document.addEventListener('click', (e) => {
+      if (!window.matchMedia('(max-width: 768px)').matches) return;
+      const sb = document.getElementById('sidebar');
+      if (!sb || !sb.classList.contains('open')) return;
+      const toggle = document.querySelector('.sidebar-toggle');
+      if (sb.contains(e.target) || toggle?.contains(e.target)) return;
+      sb.classList.remove('open');
+    });
+    // Ferme la sidebar mobile après clic sur un lien (switchSection)
+    document.addEventListener('click', (e) => {
+      if (!window.matchMedia('(max-width: 768px)').matches) return;
+      if (e.target.closest?.('.sidebar-item')) {
+        document.getElementById('sidebar')?.classList.remove('open');
+      }
+    });
 
     // ============================================================
     // THÈME clair / sombre
@@ -4231,7 +4414,7 @@
     async function loadProfileSubscription() {
       const body = document.getElementById('profileSubBody');
       if (!body || !currentUser) return;
-      body.innerHTML = 'Chargement…';
+      body.innerHTML = window.Skeleton.lines(3);
       try {
         const idToken = await currentUser.getIdToken();
         const resp = await fetch(API_BASE + '/stripe/status', {
@@ -4438,7 +4621,7 @@
     async function loadInsiderTrades() {
       currentPage = 0;
       const area = document.getElementById('insiderTableArea');
-      area.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des transactions insiders...</div>';
+      area.innerHTML = window.Skeleton.grid(4, 2);
 
       try {
         const data = await apiFetch('/api/all-transactions');
@@ -7464,7 +7647,7 @@
       currentEtf = symbol;
 
       const area = document.getElementById('etfTableArea');
-      area.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement des positions...</div>';
+      area.innerHTML = window.Skeleton.table(6, 5);
 
       try {
         let data;
@@ -10240,7 +10423,7 @@
       if (!currentUser) return;
       const body = document.getElementById('activistsBody');
       const topCard = document.getElementById('activistsTopCard');
-      if (body) body.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+      if (body) body.innerHTML = window.Skeleton.grid(3, 2);
 
       try {
         const days = document.getElementById('actDays')?.value || '30';
@@ -10366,7 +10549,7 @@
       if (!currentUser) return;
       const body = document.getElementById('topInsidersBody');
       if (!body) return;
-      body.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement du classement...</div>';
+      body.innerHTML = window.Skeleton.table(10, 4);
 
       try {
         const period = document.getElementById('tiPeriod').value || '1y';
@@ -10484,7 +10667,7 @@
       const role = document.getElementById('saInsiderRole')?.value || '';
 
       const listEl = document.getElementById('saInsiderList');
-      if (listEl) listEl.innerHTML = '<div style="opacity:0.6;padding:12px 0;text-align:center">Chargement...</div>';
+      if (listEl) listEl.innerHTML = window.Skeleton.lines(5);
 
       try {
         const params = new URLSearchParams({ ticker, days, limit: '500' });
