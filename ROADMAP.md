@@ -4,7 +4,7 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 20 avril 2026
+**Dernière mise à jour** : 20 avril 2026 (rate limiting déployé)
 
 ---
 
@@ -13,7 +13,7 @@
 ### Sécurité
 ✅ **Vérification signature webhook Stripe** (HMAC SHA-256 via Web Crypto API)  
 ✅ **Rejet des webhooks Stripe en mode test** en production (anti-faux Premium)  
-- [ ] **Rate limiting** sur les endpoints Worker publics (anti-scraping/abus) — KV-based, ex: 60 req/min/IP
+✅ **Rate limiting** Worker (KV-based : 60 req/min/IP pour public, 180 req/min/uid pour authentifié, admins exemptés, retourne 429 + `Retry-After`)  
 - [ ] **CSP header** (Content Security Policy) sur toutes les pages HTML
 - [ ] **SRI** (Subresource Integrity) sur les CDN externes (Chart.js, Firebase, etc.)
 - [ ] **Audit des `eval()` / `innerHTML`** avec contenu user (XSS prevention)

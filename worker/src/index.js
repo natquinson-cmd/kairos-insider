@@ -18,6 +18,52 @@ const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 // Routes gratuites (auth requise mais pas d'abonnement)
 const FREE_ROUTES = ['/api/feargreed', '/api/shorts', '/api/trends-hot'];
 
+// ============================================================
+// RATE LIMITING — KV-based, sliding window approximation par buckets
+// ============================================================
+// Limites par défaut (override via env vars si besoin) :
+//  - Public anon (par IP) : 60 req/min
+//  - Authentifié (par uid) : 180 req/min
+// Le bucket est par minute calendaire → max possible ~ 2x la limite si requête en bordure de minute (acceptable).
+// Coût KV : 1 read + 1 write par requête. À 10k req/jour = 10k writes (gratuit jusqu'à 100k/j).
+async function checkRateLimit(env, key, limit, windowSec = 60) {
+  const bucket = Math.floor(Date.now() / 1000 / windowSec);
+  const fullKey = `rl:${key}:${bucket}`;
+  try {
+    const current = parseInt(await env.CACHE.get(fullKey) || '0', 10);
+    if (current >= limit) {
+      return { allowed: false, remaining: 0, retryAfter: windowSec - (Math.floor(Date.now() / 1000) % windowSec) };
+    }
+    // Awaited write : KV est éventuellement cohérent mais l'await garantit la propagation locale
+    await env.CACHE.put(fullKey, String(current + 1), { expirationTtl: Math.max(60, windowSec * 2) });
+    return { allowed: true, remaining: limit - current - 1, retryAfter: 0 };
+  } catch (e) {
+    // Si KV down, on laisse passer (ouvert) — préfère disponibilité à la stricte limite
+    console.warn('Rate limit check failed:', e);
+    return { allowed: true, remaining: limit, retryAfter: 0 };
+  }
+}
+
+function rateLimitResponse(retryAfter, origin) {
+  const headers = corsHeaders(origin);
+  headers['Content-Type'] = 'application/json';
+  headers['Retry-After'] = String(retryAfter);
+  return new Response(
+    JSON.stringify({ error: 'Trop de requêtes. Patientez quelques secondes.', code: 'RATE_LIMITED', retryAfter }),
+    { status: 429, headers }
+  );
+}
+
+// Récupère l'IP du client (Cloudflare la fournit dans CF-Connecting-IP)
+function getClientIP(request) {
+  return request.headers.get('CF-Connecting-IP')
+    || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+    || 'unknown';
+}
+
+// Routes exemptées du rate-limit IP (Stripe envoie depuis ses propres IPs)
+const RATE_LIMIT_EXEMPT_PATHS = new Set(['/stripe/webhook']);
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -32,6 +78,16 @@ export default {
     const path = url.pathname;
     if (path !== '/stripe/webhook' && !isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) {
       return jsonResponse({ error: 'Origin not allowed' }, 403, env.ALLOWED_ORIGIN);
+    }
+
+    // --- Rate limit par IP pour les routes publiques (60 req/min) ---
+    if (!RATE_LIMIT_EXEMPT_PATHS.has(path)) {
+      const ip = getClientIP(request);
+      const limitAnon = parseInt(env.RATE_LIMIT_ANON || '60', 10);
+      const rl = await checkRateLimit(env, `ip:${ip}`, limitAnon, 60);
+      if (!rl.allowed) {
+        return rateLimitResponse(rl.retryAfter, origin || env.ALLOWED_ORIGIN);
+      }
     }
 
     // ==========================================
@@ -104,6 +160,15 @@ export default {
       const user = await verifyFirebaseToken(idToken, env);
       if (!user) {
         return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
+      }
+
+      // --- Rate limit par uid (180 req/min, exempté pour admins) ---
+      if (!isAdmin(user)) {
+        const limitAuth = parseInt(env.RATE_LIMIT_AUTH || '180', 10);
+        const rl = await checkRateLimit(env, `uid:${user.uid}`, limitAuth, 60);
+        if (!rl.allowed) {
+          return rateLimitResponse(rl.retryAfter, origin);
+        }
       }
 
       // --- Routes Stripe (auth requise) ---
