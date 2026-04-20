@@ -10172,13 +10172,22 @@
       // Formate une plage de dates YYYY-MM-DD → "12 sep 2025 → 16 avr 2026 (7 mois)"
       const MONTHS_FR = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
       const formatDate = (s) => {
-        if (!s || typeof s !== 'string' || s.length < 10) return s || '';
-        const [y, m, d] = s.split('-');
-        return `${parseInt(d, 10)} ${MONTHS_FR[parseInt(m, 10) - 1] || m} ${y}`;
+        if (!s || typeof s !== 'string') return '';
+        // YYYY-MM-DD strict requis
+        const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) return s; // fallback : affiche tel quel si format inattendu
+        const y = match[1];
+        const m = parseInt(match[2], 10);
+        const d = parseInt(match[3], 10);
+        if (isNaN(m) || isNaN(d) || m < 1 || m > 12) return s;
+        return `${d} ${MONTHS_FR[m - 1]} ${y}`;
       };
       const formatDuration = (minDate, maxDate) => {
         if (!minDate || !maxDate) return '';
-        const diff = (new Date(maxDate) - new Date(minDate)) / 86400000;
+        const a = new Date(minDate);
+        const b = new Date(maxDate);
+        if (isNaN(a) || isNaN(b)) return '';
+        const diff = (b - a) / 86400000;
         if (diff < 1) return '1 jour';
         if (diff < 31) return `${Math.round(diff)} jours`;
         if (diff < 365) return `${Math.round(diff / 30)} mois`;
@@ -10413,21 +10422,42 @@
           .admin-run-btn:hover { transform:translateY(-1px);box-shadow:0 4px 14px rgba(59,130,246,0.35); }
           .admin-run-btn[disabled] { opacity:0.6;cursor:wait;transform:none; }
         </style>
-        <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse">
-            <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
-              <tr style="border-bottom:2px solid var(--border)">
-                <th style="padding:10px;text-align:left;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Job</th>
-                <th style="padding:10px;text-align:center;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Statut</th>
-                <th style="padding:10px;text-align:left;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Résumé</th>
-                <th style="padding:10px;text-align:right;color:var(--text-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Action</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
+        <div style="max-height:420px;overflow-y:auto">
+          ${jobs.map(j => {
+            const stale = j.ts && (now - j.ts) > 48 * 3600;
+            const isGitHub = j.name !== 'cron-watchlist-digest';
+            const GITHUB_REPO_L = 'natquinson-cmd/kairos-insider';
+            const workflowMap = {
+              'fetch-13dg': 'update-13dg.yml',
+              'fetch-insider': 'update-insiders.yml',
+              'fetch-13f': 'update-13f.yml',
+              'fetch-etf': 'update-etfs.yml',
+              'fetch-kairos-score': 'update-scores.yml',
+            };
+            const wf = workflowMap[j.name];
+            const btnHTML = isGitHub
+              ? `<a href="https://github.com/${GITHUB_REPO_L}/actions${wf ? '/workflows/' + wf : ''}" target="_blank" rel="noopener" class="admin-run-btn">🔗 GitHub</a>`
+              : `<button type="button" onclick="runWatchlistCron(this)" class="admin-run-btn">▶ Lancer</button>`;
+            return `
+              <div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface-1)">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+                  <div style="font-weight:700;font-size:13px;color:var(--text-primary)">${escapeHtml(j.name)}</div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+                    ${badgeStatus(j.status, j.ts)}
+                    ${btnHTML}
+                  </div>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);line-height:1.5">
+                  <span>${fmtAge(j.ts)}</span>
+                  ${j.durationSec != null ? ' · <span>' + j.durationSec + 's</span>' : ''}
+                  ${j.summary ? ' · <span>' + escapeHtml(j.summary.slice(0, 90)) + (j.summary.length > 90 ? '…' : '') + '</span>' : ''}
+                </div>
+                ${j.error ? `<div style="font-size:11px;color:#EF4444;margin-top:4px">⚠️ ${escapeHtml(j.error.slice(0, 120))}</div>` : ''}
+              </div>`;
+          }).join('')}
         </div>
-        <div style="margin-top:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.5">
-          💡 <strong>Info</strong> : Les jobs Python (fetch-13dg, fetch-insider, etc.) tournent via GitHub Actions cron quotidien. Le bouton 🔗 GitHub ouvre la page pour déclencher manuellement via « Run workflow ». Le cron-watchlist-digest est interne au Worker Cloudflare et peut être lancé directement.
+        <div style="margin-top:14px;padding:12px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.6">
+          💡 <strong style="color:var(--text-primary)">Info</strong> — Les jobs <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">fetch-*</code> tournent via GitHub Actions (cron quotidien). Cliquer 🔗 GitHub ouvre le workflow pour trigger manuel. Le cron-watchlist-digest est interne au Worker et peut être lancé directement.
         </div>
       `;
     }
