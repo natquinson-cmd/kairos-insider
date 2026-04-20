@@ -336,14 +336,13 @@
       backdrop-filter: blur(10px);
       z-index: 2;
     }
-    .mockup-float.left {
-      left: -40px; top: 40%;
-      transform: rotate(-4deg);
-    }
-    .mockup-float.right {
-      right: -30px; top: 10%;
-      transform: rotate(4deg);
-    }
+    /* Cards basiques (Hedge funds, Consensus) cachées : trop de bruit visuel.
+       Les vraies infos sont dans la stats-bar juste en dessous. */
+    .mockup-float.left,
+    .mockup-float.right { display: none; }
+
+    /* Top Insiders caché aussi, déjà représenté par le digest watchlist */
+    .mockup-float.topinsiders { display: none; }
     .mockup-float-title { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
     .mockup-float-value { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; }
 
@@ -434,8 +433,8 @@
        Positionne à gauche, entre cluster (top-left) et topinsiders (bottom-left)
        pour eviter le conflit visuel avec la card watchlist (bottom-right). */
     .mockup-float.activists {
-      left: -95px; top: 45%;
-      transform: rotate(-3deg);
+      left: -70px; bottom: -20px;
+      transform: rotate(-2deg);
       padding: 12px 14px;
       min-width: 220px;
       border-color: rgba(245, 158, 11, 0.4);
