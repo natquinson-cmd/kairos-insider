@@ -437,6 +437,10 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/history/etf-rotations') {
     return handleEtfRotations(url, env, origin);
   }
+  // Widget "Activité récente" : agrège les événements des N derniers jours pour un ticker
+  if (path === '/api/history/ticker-activity') {
+    return handleTickerActivity(url, env, origin);
+  }
   if (path === '/api/history/insider') {
     return handleHistoryInsider(url, env, origin);
   }
@@ -960,6 +964,149 @@ async function handleEtfRotations(url, env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'D1 rotations query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// WIDGET "Activité récente" — agrège les événements des N derniers jours pour un ticker
+// GET /api/history/ticker-activity?ticker=AAPL[&days=7]
+// Retourne :
+//   {
+//     ticker, days,
+//     score: { now, previous, delta, dateNow, datePrevious },
+//     etfChanges: [{etf, prevWeight, currWeight, delta, status: 'new'|'exit'|'increased'|'decreased'}],
+//     insiderTrades: [{date, filer, role, type, shares, value}]
+//   }
+// ============================================================
+async function handleTickerActivity(url, env, origin) {
+  const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '7', 10), 1), 90);
+  if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  try {
+    // 1) Kairos Score : valeur la plus récente + valeur au +/- days avant
+    let scoreInfo = null;
+    try {
+      const scoreRes = await env.HISTORY.prepare(
+        `SELECT date, total FROM score_history WHERE ticker = ? ORDER BY date DESC LIMIT 20`
+      ).bind(ticker).all();
+      const rows = scoreRes.results || [];
+      if (rows.length >= 1) {
+        const now = rows[0];
+        // Cherche la valeur la plus proche de "il y a N jours" (basé sur date, pas index)
+        const cutoff = new Date(now.date);
+        cutoff.setDate(cutoff.getDate() - days);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const prev = rows.find(r => r.date <= cutoffStr) || rows[rows.length - 1];
+        scoreInfo = {
+          now: now.total,
+          previous: prev && prev.date !== now.date ? prev.total : null,
+          delta: prev && prev.date !== now.date ? (now.total - prev.total) : null,
+          dateNow: now.date,
+          datePrevious: prev && prev.date !== now.date ? prev.date : null,
+        };
+      }
+    } catch (e) { console.warn('score lookup failed:', e); }
+
+    // 2) ETF changes : comparer les poids actuels vs N jours avant
+    const etfChanges = [];
+    try {
+      // Dernière date disponible en etf_snapshots
+      const latestRes = await env.HISTORY.prepare(
+        `SELECT MAX(date) as max_d FROM etf_snapshots`
+      ).all();
+      const latestDate = latestRes.results?.[0]?.max_d;
+      if (latestDate) {
+        const cutoff = new Date(latestDate);
+        cutoff.setDate(cutoff.getDate() - days);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+        // Poids du ticker aujourd'hui, pour chaque ETF
+        const todayRes = await env.HISTORY.prepare(
+          `SELECT etf_symbol, weight, rank FROM etf_snapshots WHERE ticker = ? AND date = ?`
+        ).bind(ticker, latestDate).all();
+        const todayByEtf = {};
+        (todayRes.results || []).forEach(r => { todayByEtf[r.etf_symbol] = { weight: r.weight, rank: r.rank }; });
+
+        // Poids du ticker il y a N jours, pour chaque ETF (snapshot le plus proche)
+        const prevRes = await env.HISTORY.prepare(
+          `SELECT e.etf_symbol, e.weight, e.rank
+           FROM etf_snapshots e
+           INNER JOIN (
+             SELECT etf_symbol, MAX(date) as d
+             FROM etf_snapshots WHERE ticker = ? AND date <= ?
+             GROUP BY etf_symbol
+           ) p ON e.etf_symbol = p.etf_symbol AND e.date = p.d
+           WHERE e.ticker = ?`
+        ).bind(ticker, cutoffStr, ticker).all();
+        const prevByEtf = {};
+        (prevRes.results || []).forEach(r => { prevByEtf[r.etf_symbol] = { weight: r.weight, rank: r.rank }; });
+
+        // Union des ETFs (pour détecter entrées et sorties)
+        const allEtfs = new Set([...Object.keys(todayByEtf), ...Object.keys(prevByEtf)]);
+        for (const etf of allEtfs) {
+          const cur = todayByEtf[etf];
+          const prev = prevByEtf[etf];
+          if (cur && !prev) {
+            etfChanges.push({ etf, prevWeight: null, currWeight: cur.weight, delta: cur.weight, status: 'new' });
+          } else if (!cur && prev) {
+            etfChanges.push({ etf, prevWeight: prev.weight, currWeight: null, delta: -prev.weight, status: 'exit' });
+          } else if (cur && prev) {
+            const delta = (cur.weight || 0) - (prev.weight || 0);
+            if (Math.abs(delta) >= 0.01) { // seuil 0.01% pour filtrer le bruit
+              etfChanges.push({
+                etf, prevWeight: prev.weight, currWeight: cur.weight, delta,
+                status: delta > 0 ? 'increased' : 'decreased',
+              });
+            }
+          }
+        }
+        // Tri par magnitude du delta
+        etfChanges.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+      }
+    } catch (e) { console.warn('etf changes failed:', e); }
+
+    // 3) Insider trades récents sur ce ticker
+    const insiderTrades = [];
+    try {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const insRes = await env.HISTORY.prepare(
+        `SELECT trans_date, insider, title, trans_type, shares, value, ticker
+         FROM insider_transactions_history
+         WHERE ticker = ? AND trans_date >= ?
+         ORDER BY trans_date DESC, value DESC
+         LIMIT 25`
+      ).bind(ticker, cutoffStr).all();
+      for (const r of (insRes.results || [])) {
+        insiderTrades.push({
+          date: r.trans_date,
+          filer: r.insider,
+          role: r.title,
+          type: r.trans_type, // 'buy' | 'sell' | 'other' | 'option-exercise'
+          shares: r.shares,
+          value: r.value,
+        });
+      }
+    } catch (e) { console.warn('insider trades failed:', e); }
+
+    return jsonResponse({
+      ticker,
+      days,
+      score: scoreInfo,
+      etfChanges: etfChanges.slice(0, 10), // top 10 mouvements
+      insiderTrades,
+      summary: {
+        scoreChanged: !!(scoreInfo && scoreInfo.delta !== null && Math.abs(scoreInfo.delta) >= 1),
+        etfChangesCount: etfChanges.length,
+        insiderTradesCount: insiderTrades.length,
+      },
+      generatedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'ticker-activity query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

@@ -5165,6 +5165,8 @@
         loadEtfHistoryFor(ticker).catch(() => {});
         // Charge les filings 13D/G recents sur ce ticker (banner + markers chart)
         loadActivistsForTicker(ticker).catch(() => {});
+        // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta score
+        loadTickerActivity(ticker).catch(() => {});
       } catch (e) {
         clearStockLoader();
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
@@ -5312,6 +5314,175 @@
         addActivistMarkersToChart(res.filings);
       } catch (e) {
         // silent fail - donnees 13dg peuvent ne pas etre encore loaded en KV
+      }
+    }
+
+    // ============================================================
+    // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta Kairos Score
+    // ============================================================
+    async function loadTickerActivity(ticker, days = 7) {
+      if (!ticker) return;
+      try {
+        const data = await apiFetch(`/api/history/ticker-activity?ticker=${encodeURIComponent(ticker)}&days=${days}`);
+        if (!data || data.error) return;
+        const hasScore = data.score && data.score.delta !== null;
+        const hasEtf = data.etfChanges && data.etfChanges.length > 0;
+        const hasInsider = data.insiderTrades && data.insiderTrades.length > 0;
+        if (!hasScore && !hasEtf && !hasInsider) return; // rien à afficher
+
+        const body = document.getElementById('stockAnalysisBody');
+        if (!body) return;
+
+        let slot = document.getElementById('recentActivitySlot');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.id = 'recentActivitySlot';
+          slot.style.cssText = 'margin:0 0 24px';
+          // Insère APRÈS le slot activist (ou la kairos-score-card si pas d'activist)
+          const activistSlot = document.getElementById('activistBannerSlot');
+          const scoreCard = body.querySelector('.kairos-score-card');
+          const anchor = activistSlot || scoreCard;
+          if (anchor) {
+            if (anchor.nextSibling) anchor.parentNode.insertBefore(slot, anchor.nextSibling);
+            else anchor.parentNode.appendChild(slot);
+          } else {
+            body.appendChild(slot);
+          }
+        }
+
+        // Helpers
+        const fmtShares = (n) => {
+          if (n == null) return '—';
+          if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+          if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+          if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+          return String(Math.round(n));
+        };
+        const fmtUsd = (n) => {
+          if (n == null) return '';
+          if (Math.abs(n) >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+          if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+          if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+          return '$' + Math.round(n);
+        };
+        const fmtD = (d) => {
+          if (!d) return '';
+          try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+        };
+
+        // Score delta card
+        let scoreHTML = '';
+        if (hasScore) {
+          const delta = data.score.delta;
+          const deltaColor = delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : '#9CA3AF';
+          const deltaArrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+          const deltaSign = delta > 0 ? '+' : '';
+          scoreHTML = `
+            <div class="activity-card">
+              <div class="activity-card-label">📊 Kairos Score</div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
+                <div style="font-size:28px;font-weight:800;color:var(--text-primary)">${data.score.now}</div>
+                <div style="font-size:12px;color:var(--text-muted)">/100</div>
+                <div style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:${deltaColor}22;color:${deltaColor};border-radius:100px;font-size:12px;font-weight:700">
+                  ${deltaArrow} ${deltaSign}${delta}pt
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">vs ${fmtD(data.score.datePrevious)} (${data.score.previous}/100)</div>
+            </div>`;
+        }
+
+        // ETF changes card
+        let etfHTML = '';
+        if (hasEtf) {
+          const top = data.etfChanges.slice(0, 5);
+          const rows = top.map(e => {
+            const statusIcon = e.status === 'new' ? '🆕' : e.status === 'exit' ? '❌' : e.status === 'increased' ? '📈' : '📉';
+            const statusColor = e.status === 'new' || e.status === 'increased' ? '#10B981' : '#EF4444';
+            const deltaText = e.status === 'new'
+              ? `entrée ${e.currWeight.toFixed(2)}%`
+              : e.status === 'exit'
+              ? `sorti (était ${e.prevWeight.toFixed(2)}%)`
+              : `${e.delta > 0 ? '+' : ''}${e.delta.toFixed(2)}pt (${e.prevWeight.toFixed(2)}% → ${e.currWeight.toFixed(2)}%)`;
+            return `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px">
+                <div><span style="margin-right:6px">${statusIcon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient(e.etf)}</strong></div>
+                <div style="color:${statusColor};font-weight:600">${deltaText}</div>
+              </div>`;
+          }).join('');
+          etfHTML = `
+            <div class="activity-card" style="flex:1.4">
+              <div class="activity-card-label">💼 ETF (${data.etfChanges.length} mouvement${data.etfChanges.length > 1 ? 's' : ''})</div>
+              <div style="margin-top:6px">${rows}</div>
+            </div>`;
+        }
+
+        // Insider trades card
+        let insiderHTML = '';
+        if (hasInsider) {
+          const buys = data.insiderTrades.filter(t => t.type === 'buy').length;
+          const sells = data.insiderTrades.filter(t => t.type === 'sell').length;
+          const top = data.insiderTrades.slice(0, 4);
+          const rows = top.map(t => {
+            const isBuy = t.type === 'buy';
+            const color = isBuy ? '#10B981' : t.type === 'sell' ? '#EF4444' : '#9CA3AF';
+            const icon = isBuy ? '🟢' : t.type === 'sell' ? '🔴' : '⚪';
+            return `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">
+                  <span style="margin-right:5px">${icon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient((t.filer || '').slice(0, 24))}</strong>
+                  ${t.role ? `<span style="color:var(--text-muted);font-size:10px;margin-left:4px">${escapeHtmlClient(t.role.slice(0, 12))}</span>` : ''}
+                </div>
+                <div style="color:${color};font-weight:600;flex-shrink:0;text-align:right">
+                  <div>${fmtShares(t.shares)} sh${t.value ? ' · ' + fmtUsd(t.value) : ''}</div>
+                  <div style="font-size:10px;opacity:0.7">${fmtD(t.date)}</div>
+                </div>
+              </div>`;
+          }).join('');
+          insiderHTML = `
+            <div class="activity-card" style="flex:1.4">
+              <div class="activity-card-label">🕴️ Insiders (${buys ? buys + ' 🟢' : ''}${buys && sells ? ' / ' : ''}${sells ? sells + ' 🔴' : ''}${!buys && !sells ? data.insiderTrades.length : ''})</div>
+              <div style="margin-top:6px">${rows}</div>
+            </div>`;
+        }
+
+        slot.innerHTML = `
+          <style>
+            .activity-widget-wrap {
+              background: linear-gradient(135deg, rgba(139,92,246,0.06), rgba(59,130,246,0.03));
+              border: 1px solid rgba(139,92,246,0.22);
+              border-radius: 14px;
+              padding: 18px 20px;
+            }
+            .activity-widget-title {
+              display:flex; align-items:center; gap:8px;
+              font-size:14px; color: var(--text-primary); font-weight:700;
+              margin-bottom:14px;
+            }
+            .activity-widget-title .pill {
+              font-size:10px; padding:2px 8px; border-radius:10px;
+              background: rgba(139,92,246,0.18); color: #A78BFA; font-weight:600;
+            }
+            .activity-cards { display:flex; gap:12px; flex-wrap:wrap; }
+            .activity-card {
+              flex: 1; min-width: 220px;
+              background: var(--surface-1);
+              border: 1px solid var(--border);
+              border-radius: 10px; padding: 12px 14px;
+            }
+            .activity-card-label {
+              font-size: 11px; color: var(--text-muted);
+              text-transform: uppercase; letter-spacing: 0.04em; font-weight:600;
+            }
+          </style>
+          <div class="activity-widget-wrap">
+            <div class="activity-widget-title">
+              📍 Activité récente <span class="pill">${data.days} derniers jours</span>
+            </div>
+            <div class="activity-cards">${scoreHTML}${etfHTML}${insiderHTML}</div>
+          </div>`;
+      } catch (e) {
+        // silent fail — widget non bloquant
+        console.warn('[ticker-activity]', e);
       }
     }
 
