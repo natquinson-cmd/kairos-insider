@@ -2569,6 +2569,15 @@
           </div>
         </details>
 
+        <!-- PRÉFILTRES 1-clic (Lot 4) -->
+        <div class="sig-quickfilters" id="actQuickFilters" style="margin-bottom:14px">
+          <button class="sig-qf-btn active" data-preset="default">Défaut (offensifs 30j)</button>
+          <button class="sig-qf-btn" data-preset="week">Cette semaine</button>
+          <button class="sig-qf-btn" data-preset="13donly">13D uniquement</button>
+          <button class="sig-qf-btn" data-preset="bigOnes">Méga positions</button>
+          <button class="sig-qf-btn" data-preset="all90">Tout 90j</button>
+        </div>
+
         <!-- FILTRES -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
           <div>
@@ -3383,7 +3392,7 @@
         </div>
       </div>
 
-      <!-- ===== SECTION: SIGNAL DETAIL — Score Movers (Lot 2 - placeholder) ===== -->
+      <!-- ===== SECTION: SIGNAL DETAIL — Score Movers (Lot 2) ===== -->
       <div class="section-page" id="section-signals-score">
         <div class="sig-page">
           <div class="sig-page-header">
@@ -3392,15 +3401,58 @@
               <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊</span>
               Kairos Score — Variations
             </h2>
-            <span class="sig-page-count">Lot 2 — à venir</span>
+            <span class="sig-page-count" id="sigScoreCount">—</span>
           </div>
-          <div style="padding:40px;text-align:center;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;color:var(--text-muted)">
-            Cet écran détaillé arrive bientôt (Lot 2).
+
+          <div class="sig-quickfilters" id="sigScoreQuickFilters">
+            <button class="sig-qf-btn active" data-preset="default">Défaut</button>
+            <button class="sig-qf-btn" data-preset="winners24">Top gagnants 24h</button>
+            <button class="sig-qf-btn" data-preset="losers24">Top perdants 24h</button>
+            <button class="sig-qf-btn" data-preset="breakouts">Breakouts (≥ 15pt)</button>
+            <button class="sig-qf-btn" data-preset="movers30">Biggest movers 30j</button>
           </div>
+
+          <div class="sig-filters">
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Période</label>
+              <select class="sig-filter-select" id="sigScoreDays" onchange="loadSignalsScore()">
+                <option value="1">24 heures</option>
+                <option value="7" selected>7 jours</option>
+                <option value="30">30 jours</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Direction</label>
+              <select class="sig-filter-select" id="sigScoreDirection" onchange="loadSignalsScore()">
+                <option value="all" selected>Toutes</option>
+                <option value="up">↑ Hausses</option>
+                <option value="down">↓ Baisses</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Amplitude min</label>
+              <select class="sig-filter-select" id="sigScoreMinDelta" onchange="loadSignalsScore()">
+                <option value="3" selected>≥ 3 pt</option>
+                <option value="5">≥ 5 pt</option>
+                <option value="10">≥ 10 pt</option>
+                <option value="15">≥ 15 pt</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Tri</label>
+              <select class="sig-filter-select" id="sigScoreSort" onchange="loadSignalsScore()">
+                <option value="delta" selected>Delta (signé)</option>
+                <option value="abs">|Delta| (absolu)</option>
+                <option value="score">Score actuel</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="sigScoreBody"><div class="sig-empty">Chargement…</div></div>
         </div>
       </div>
 
-      <!-- ===== SECTION: SIGNAL DETAIL — ETF Rotations (Lot 3 - placeholder) ===== -->
+      <!-- ===== SECTION: SIGNAL DETAIL — ETF Rotations (Lot 3) ===== -->
       <div class="section-page" id="section-signals-etf">
         <div class="sig-page">
           <div class="sig-page-header">
@@ -3409,11 +3461,61 @@
               <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">💼</span>
               Rotations ETF
             </h2>
-            <span class="sig-page-count">Lot 3 — à venir</span>
+            <span class="sig-page-count" id="sigEtfCount">—</span>
           </div>
-          <div style="padding:40px;text-align:center;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;color:var(--text-muted)">
-            Cet écran détaillé arrive bientôt (Lot 3).
+
+          <div class="sig-quickfilters" id="sigEtfQuickFilters">
+            <button class="sig-qf-btn active" data-preset="default">Défaut</button>
+            <button class="sig-qf-btn" data-preset="newEntries">Nouvelles entrées</button>
+            <button class="sig-qf-btn" data-preset="exits">Sorties massives</button>
+            <button class="sig-qf-btn" data-preset="politicsUs">Politique US (NANC + GOP)</button>
+            <button class="sig-qf-btn" data-preset="heavy">Rebalancing lourd (≥ 3pt)</button>
           </div>
+
+          <div class="sig-filters">
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">ETF</label>
+              <select class="sig-filter-select" id="sigEtfFilter" onchange="loadSignalsEtf()">
+                <option value="" selected>Tous</option>
+                <option value="NANC">NANC (Démocrates)</option>
+                <option value="GOP">GOP (Républicains)</option>
+                <option value="GURU">GURU</option>
+                <option value="BUZZ">BUZZ</option>
+                <option value="ARKK">ARKK</option>
+                <option value="MEME">MEME</option>
+                <option value="JEPI">JEPI</option>
+                <option value="JEPQ">JEPQ</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Type</label>
+              <select class="sig-filter-select" id="sigEtfType" onchange="loadSignalsEtf()">
+                <option value="all" selected>Tous</option>
+                <option value="new">🆕 Nouvelles entrées</option>
+                <option value="exit">❌ Sorties</option>
+                <option value="increased">📈 Augmentations</option>
+                <option value="decreased">📉 Diminutions</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Amplitude min</label>
+              <select class="sig-filter-select" id="sigEtfMinDelta" onchange="loadSignalsEtf()">
+                <option value="0.3" selected>≥ 0.3 pt</option>
+                <option value="1">≥ 1 pt</option>
+                <option value="3">≥ 3 pt</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Période</label>
+              <select class="sig-filter-select" id="sigEtfDays" onchange="loadSignalsEtf()">
+                <option value="1">24h</option>
+                <option value="7" selected>7 jours</option>
+                <option value="30">30 jours</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="sigEtfBody"><div class="sig-empty">Chargement…</div></div>
         </div>
       </div>
 
@@ -4286,7 +4388,6 @@
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
         if (section === 'signals-clusters') {
-          // Restaure les filtres depuis l'URL si présents, sinon défaut
           const urlFilters = readSignalUrl('signals-clusters');
           if (Object.keys(urlFilters).length > 0) {
             ['days','minTx','direction','minValue','roles','sort'].forEach(k => {
@@ -4295,6 +4396,27 @@
             });
           }
           loadSignalsClusters();
+        }
+        if (section === 'signals-score') {
+          const urlFilters = readSignalUrl('signals-score');
+          if (Object.keys(urlFilters).length > 0) {
+            ['days','direction','minDelta','sort'].forEach(k => {
+              const el = document.getElementById('sigScore' + k.charAt(0).toUpperCase() + k.slice(1));
+              if (el && urlFilters[k] != null) el.value = urlFilters[k];
+            });
+          }
+          loadSignalsScore();
+        }
+        if (section === 'signals-etf') {
+          const urlFilters = readSignalUrl('signals-etf');
+          if (Object.keys(urlFilters).length > 0) {
+            const map = { days: 'sigEtfDays', etf: 'sigEtfFilter', type: 'sigEtfType', minDelta: 'sigEtfMinDelta' };
+            Object.entries(map).forEach(([k, id]) => {
+              const el = document.getElementById(id);
+              if (el && urlFilters[k] != null) el.value = urlFilters[k];
+            });
+          }
+          loadSignalsEtf();
         }
       }
       // Auto-refresh admin : start/stop selon la section active + la preference
@@ -5316,6 +5438,284 @@
     document.addEventListener('click', (e) => {
       const btn = e.target.closest?.('#sigClustersQuickFilters .sig-qf-btn');
       if (btn && btn.dataset.preset) applyClustersPreset(btn.dataset.preset);
+    });
+
+    // ============================================================
+    // SIGNAL DETAIL — Score Movers (Lot 2)
+    // ============================================================
+    const SCORE_PRESETS = {
+      default: { days: '7', direction: 'all', minDelta: '3', sort: 'delta' },
+      winners24: { days: '1', direction: 'up', minDelta: '3', sort: 'delta' },
+      losers24: { days: '1', direction: 'down', minDelta: '3', sort: 'delta' },
+      breakouts: { days: '7', direction: 'all', minDelta: '15', sort: 'abs' },
+      movers30: { days: '30', direction: 'all', minDelta: '10', sort: 'abs' },
+    };
+
+    function applyScorePreset(preset) {
+      const f = SCORE_PRESETS[preset];
+      if (!f) return;
+      document.getElementById('sigScoreDays').value = f.days;
+      document.getElementById('sigScoreDirection').value = f.direction;
+      document.getElementById('sigScoreMinDelta').value = f.minDelta;
+      document.getElementById('sigScoreSort').value = f.sort;
+      document.querySelectorAll('#sigScoreQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadSignalsScore();
+    }
+    window.applyScorePreset = applyScorePreset;
+
+    async function loadSignalsScore() {
+      if (!currentUser) return;
+      const body = document.getElementById('sigScoreBody');
+      const countEl = document.getElementById('sigScoreCount');
+      if (!body) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.table(8, 5) : '<div class="sig-empty">Chargement…</div>';
+      const filters = {
+        days: document.getElementById('sigScoreDays').value,
+        direction: document.getElementById('sigScoreDirection').value,
+        minDelta: document.getElementById('sigScoreMinDelta').value,
+        sort: document.getElementById('sigScoreSort').value,
+      };
+      updateSignalUrl('signals-score', filters);
+      try {
+        const token = await currentUser.getIdToken();
+        const qs = new URLSearchParams(filters).toString();
+        const res = await fetch(`${API_BASE}/api/signals/score-movers?${qs}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          if (countEl) countEl.textContent = '—';
+          return;
+        }
+        renderSignalsScore(data);
+      } catch (e) {
+        body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+    window.loadSignalsScore = loadSignalsScore;
+
+    function renderSignalsScore(data) {
+      const body = document.getElementById('sigScoreBody');
+      const countEl = document.getElementById('sigScoreCount');
+      if (!body) return;
+      const items = data.items || [];
+      if (countEl) countEl.textContent = `${data.total || 0} mouvement${data.total > 1 ? 's' : ''}`;
+
+      if (items.length === 0) {
+        body.innerHTML = `
+          <div class="sig-empty">
+            <div style="font-size:40px;margin-bottom:10px">📉</div>
+            <div style="font-size:14px">Aucune variation significative détectée.</div>
+            <div style="font-size:12px;margin-top:6px;opacity:0.7">Les scores commenceront à bouger quand plusieurs jours de données seront accumulés.</div>
+          </div>`;
+        return;
+      }
+
+      const fmtD = (d) => {
+        if (!d) return '—';
+        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+      };
+
+      const rows = items.map(s => {
+        const positive = s.delta > 0;
+        const color = positive ? '#10B981' : '#EF4444';
+        const arrow = positive ? '▲' : '▼';
+        const sign = positive ? '+' : '';
+        const onclick = `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(s.ticker).replace(/'/g,'\\\'')}'),150)"`;
+        return `
+          <tr ${onclick}>
+            <td><span class="sig-ticker-cell">${escapeHtmlClient(s.ticker)}</span></td>
+            <td style="text-align:right;color:${color};font-weight:700;font-size:15px">${arrow} ${sign}${s.delta}pt</td>
+            <td style="text-align:right;font-weight:600">${s.scoreNow}<span style="color:var(--text-muted);font-size:11px">/100</span></td>
+            <td style="text-align:right;color:var(--text-muted)">${s.scorePrev}</td>
+            <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtD(s.datePrev)} → ${fmtD(s.dateNow)}</td>
+          </tr>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="sig-table-wrap">
+          <table class="sig-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th style="text-align:right">Delta</th>
+                <th style="text-align:right">Score actuel</th>
+                <th style="text-align:right">Score avant</th>
+                <th>Dates</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text-muted);text-align:right">
+          Cliquez sur un ticker pour ouvrir son analyse · Recalculé chaque jour à 7h UTC
+        </div>`;
+    }
+
+    // Préfiltres Score listener
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#sigScoreQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyScorePreset(btn.dataset.preset);
+    });
+
+    // ============================================================
+    // SIGNAL DETAIL — ETF Rotations (Lot 3)
+    // ============================================================
+    const ETF_PRESETS = {
+      default: { days: '7', etf: '', type: 'all', minDelta: '0.3' },
+      newEntries: { days: '7', etf: '', type: 'new', minDelta: '0.3' },
+      exits: { days: '7', etf: '', type: 'exit', minDelta: '0.3' },
+      politicsUs: { days: '30', etf: 'NANC', type: 'all', minDelta: '0.3' },
+      heavy: { days: '30', etf: '', type: 'all', minDelta: '3' },
+    };
+
+    function applyEtfPreset(preset) {
+      const f = ETF_PRESETS[preset];
+      if (!f) return;
+      document.getElementById('sigEtfDays').value = f.days;
+      document.getElementById('sigEtfFilter').value = f.etf;
+      document.getElementById('sigEtfType').value = f.type;
+      document.getElementById('sigEtfMinDelta').value = f.minDelta;
+      document.querySelectorAll('#sigEtfQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadSignalsEtf();
+    }
+    window.applyEtfPreset = applyEtfPreset;
+
+    async function loadSignalsEtf() {
+      if (!currentUser) return;
+      const body = document.getElementById('sigEtfBody');
+      const countEl = document.getElementById('sigEtfCount');
+      if (!body) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.table(8, 6) : '<div class="sig-empty">Chargement…</div>';
+      const filters = {
+        days: document.getElementById('sigEtfDays').value,
+        etf: document.getElementById('sigEtfFilter').value,
+        type: document.getElementById('sigEtfType').value,
+        minDelta: document.getElementById('sigEtfMinDelta').value,
+      };
+      updateSignalUrl('signals-etf', filters);
+      try {
+        const token = await currentUser.getIdToken();
+        const qs = new URLSearchParams(filters).toString();
+        const res = await fetch(`${API_BASE}/api/signals/etf-rotations?${qs}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          if (countEl) countEl.textContent = '—';
+          return;
+        }
+        renderSignalsEtf(data);
+      } catch (e) {
+        body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+    window.loadSignalsEtf = loadSignalsEtf;
+
+    function renderSignalsEtf(data) {
+      const body = document.getElementById('sigEtfBody');
+      const countEl = document.getElementById('sigEtfCount');
+      if (!body) return;
+      const items = data.items || [];
+      if (countEl) countEl.textContent = `${data.total || 0} mouvement${data.total > 1 ? 's' : ''}`;
+
+      if (items.length === 0) {
+        body.innerHTML = `
+          <div class="sig-empty">
+            <div style="font-size:40px;margin-bottom:10px">📊</div>
+            <div style="font-size:14px">Aucune rotation détectée avec ces filtres.</div>
+            <div style="font-size:12px;margin-top:6px;opacity:0.7">Essayez une amplitude plus faible ou une période plus longue.</div>
+          </div>`;
+        return;
+      }
+
+      const fmtD = (d) => {
+        if (!d) return '—';
+        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+      };
+      const statusIcon = (s) => ({ new: '🆕', exit: '❌', increased: '📈', decreased: '📉' }[s] || '•');
+      const statusLabel = (s) => ({ new: 'Entrée', exit: 'Sortie', increased: 'Augment.', decreased: 'Diminut.' }[s] || s);
+      const statusColor = (s) => ({ new: '#10B981', exit: '#EF4444', increased: '#10B981', decreased: '#EF4444' }[s] || '#94A3B8');
+
+      const rows = items.map(r => {
+        const color = statusColor(r.status);
+        const prev = r.prevWeight != null ? r.prevWeight.toFixed(2) + '%' : '—';
+        const curr = r.currWeight != null ? r.currWeight.toFixed(2) + '%' : '—';
+        const deltaSign = r.delta > 0 ? '+' : '';
+        const onclick = `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(r.ticker).replace(/'/g,'\\\'')}'),150)"`;
+        return `
+          <tr ${onclick}>
+            <td><span class="sig-ticker-cell">${escapeHtmlClient(r.ticker)}</span></td>
+            <td><strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(r.etf)}</strong></td>
+            <td><span class="sig-pill" style="background:${color}22;color:${color}">${statusIcon(r.status)} ${statusLabel(r.status)}</span></td>
+            <td style="text-align:right;color:var(--text-muted)">${prev}</td>
+            <td style="text-align:right;font-weight:600">${curr}</td>
+            <td style="text-align:right;color:${color};font-weight:700">${deltaSign}${r.delta.toFixed(2)}pt</td>
+            <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtD(r.datePrev)} → ${fmtD(r.dateNow)}</td>
+          </tr>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="sig-table-wrap">
+          <table class="sig-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>ETF</th>
+                <th>Type</th>
+                <th style="text-align:right">Poids avant</th>
+                <th style="text-align:right">Poids actuel</th>
+                <th style="text-align:right">Delta</th>
+                <th>Dates</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text-muted);text-align:right">
+          Cliquez sur un ticker pour ouvrir son analyse · Snapshots quotidiens
+        </div>`;
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#sigEtfQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyEtfPreset(btn.dataset.preset);
+    });
+
+    // ============================================================
+    // SIGNAL DETAIL — Activists (Lot 4, enrichissement section existante)
+    // ============================================================
+    const ACTIVISTS_PRESETS = {
+      default: { days: '30', filter: 'activists', ticker: '' },
+      week: { days: '7', filter: 'all', ticker: '' },
+      '13donly': { days: '30', filter: '13D', ticker: '' },
+      bigOnes: { days: '90', filter: 'activists', ticker: '' }, // le filtre "méga" se fait via le tri côté table
+      all90: { days: '90', filter: 'all', ticker: '' },
+    };
+
+    function applyActivistsPreset(preset) {
+      const f = ACTIVISTS_PRESETS[preset];
+      if (!f) return;
+      document.getElementById('actDays').value = f.days;
+      document.getElementById('actFilter').value = f.filter;
+      const tkInput = document.getElementById('actTicker');
+      if (tkInput) tkInput.value = f.ticker;
+      document.querySelectorAll('#actQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadActivists();
+    }
+    window.applyActivistsPreset = applyActivistsPreset;
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#actQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyActivistsPreset(btn.dataset.preset);
     });
 
     // ============================================================
