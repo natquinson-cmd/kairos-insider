@@ -58,9 +58,9 @@
 
 ✅ **Intégration native Google Analytics 4** dans l'admin Kairos (Data API : JWT signing RS256 + token caché en KV, KPIs utilisateurs/sessions/page views/bounce/durée, top pages + sources de trafic)  
 ✅ **Tableau de bord admin complet** (Phase A-F : users, subs, traffic, DB, jobs)  
-- [ ] **Alerting interne** : si 0 jobs OK pendant > 24h → email admin
-- [ ] **Sentry / monitoring d'erreurs** côté Worker (catcher les exceptions silencieuses)
-- [ ] **Logs structurés** (passage à JSON logs pour future ingestion BigQuery/Loki)
+✅ **Alerting interne** : health check quotidien 6h15 UTC détecte 0 OK/24h, failed récents, stale >48h → email admin via Brevo, cooldown 20h · endpoints admin pour trigger/status  
+✅ **Sentry-like error tracking** : `logError(env, err, ctx)` → KV rotatif 100 dernières + compteur quotidien + UI admin (KPI cards, sparkline 7j, stack traces dépliables)  
+✅ **Logs structurés JSON** : helper `log.info/warn/error({evt, ...ctx})` → format uniforme compatible Cloudflare Logpush (prêt pour R2/BigQuery)
 
 ---
 
