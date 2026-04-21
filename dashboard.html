@@ -1978,6 +1978,9 @@
           </div>
         </div>
 
+        <!-- TOP SIGNAUX DU JOUR (Phase C) -->
+        <div id="homeTopSignalsWrap" style="margin-bottom:32px;display:none"></div>
+
         <!-- CARTES FONCTIONNALITES -->
         <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px" data-i18n="dash.home.explore_features">Explorez les fonctionnalités</h3>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px">
@@ -4665,6 +4668,205 @@
         const funds = Array.isArray(d) ? d : (d && d.funds) || [];
         setText('homeStatFunds', fmtHomeStat(funds.length));
       });
+
+      // Top signaux du jour (Phase C) — premium only
+      loadHomeTopSignals().catch(() => {});
+    }
+
+    // ============================================================
+    // Home : Top signaux du jour
+    // ============================================================
+    async function loadHomeTopSignals() {
+      const wrap = document.getElementById('homeTopSignalsWrap');
+      if (!wrap) return;
+      try {
+        const data = await silentFetch('/api/home/top-signals');
+        if (!data || data.error) return;
+        const hasScores = (data.scoreMovers || []).length > 0;
+        const hasClusters = (data.insiderClusters || []).length > 0;
+        const hasEtf = (data.etfMovers || []).length > 0;
+        const hasActivists = (data.activistsFresh || []).length > 0;
+        if (!hasScores && !hasClusters && !hasEtf && !hasActivists) return;
+
+        const fmtUsd = (n) => {
+          if (n == null || !isFinite(n)) return '';
+          const abs = Math.abs(n);
+          if (abs >= 1e9) return (n < 0 ? '-' : '') + '$' + (abs / 1e9).toFixed(1) + 'B';
+          if (abs >= 1e6) return (n < 0 ? '-' : '') + '$' + (abs / 1e6).toFixed(1) + 'M';
+          if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
+          return (n < 0 ? '-' : '') + '$' + Math.round(abs);
+        };
+        const fmtD = (d) => {
+          if (!d) return '';
+          try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+        };
+        const goTicker = (t) => `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(t).replace(/'/g,'\\\'')}'),150)"`;
+
+        // Card 1 : Score Movers
+        const scoreItems = (data.scoreMovers || []).slice(0, 6).map(s => {
+          const color = s.delta > 0 ? '#10B981' : '#EF4444';
+          const arrow = s.delta > 0 ? '▲' : '▼';
+          const sign = s.delta > 0 ? '+' : '';
+          return `
+            <div class="signal-row" ${goTicker(s.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(s.ticker)}</strong>
+                <span style="color:var(--text-muted);font-size:11px">${s.scorePrev}→${s.scoreNow}</span>
+              </div>
+              <div style="color:${color};font-weight:700;font-size:13px;flex-shrink:0">${arrow} ${sign}${s.delta}pt</div>
+            </div>`;
+        }).join('');
+        const scoreCard = hasScores ? `
+          <div class="signal-card">
+            <div class="signal-card-head" style="border-color:rgba(59,130,246,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊</div>
+              <div>
+                <div class="signal-card-title">Kairos Score — gros deltas</div>
+                <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
+              </div>
+            </div>
+            <div class="signal-card-body">${scoreItems || '<div class="signal-empty">Aucun gros mouvement aujourd\\'hui</div>'}</div>
+          </div>` : '';
+
+        // Card 2 : Insider Clusters
+        const clusterItems = (data.insiderClusters || []).slice(0, 5).map(c => {
+          const isBullish = (c.buyCount || 0) > (c.sellCount || 0);
+          const icon = isBullish ? '🟢' : '🔴';
+          const color = isBullish ? '#10B981' : '#EF4444';
+          return `
+            <div class="signal-row" ${goTicker(c.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(c.ticker)}</strong>
+                <span style="color:var(--text-muted);font-size:11px">${c.buyCount}🟢 / ${c.sellCount}🔴</span>
+              </div>
+              <div style="color:${color};font-weight:600;font-size:12px;flex-shrink:0">${icon} ${fmtUsd(c.totalValue)}</div>
+            </div>`;
+        }).join('');
+        const clusterCard = hasClusters ? `
+          <div class="signal-card">
+            <div class="signal-card-head" style="border-color:rgba(16,185,129,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
+              <div>
+                <div class="signal-card-title">Clusters insiders</div>
+                <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
+              </div>
+            </div>
+            <div class="signal-card-body">${clusterItems || '<div class="signal-empty">Aucun cluster</div>'}</div>
+          </div>` : '';
+
+        // Card 3 : ETF Movers
+        const etfItems = (data.etfMovers || []).slice(0, 6).map(e => {
+          const color = e.delta > 0 ? '#10B981' : '#EF4444';
+          const arrow = e.delta > 0 ? '↑' : '↓';
+          return `
+            <div class="signal-row" ${goTicker(e.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(e.ticker)}</strong>
+                <span style="color:var(--text-muted);font-size:11px">${escapeHtmlClient(e.etf)}</span>
+              </div>
+              <div style="color:${color};font-weight:600;font-size:12px;flex-shrink:0">${arrow} ${e.delta > 0 ? '+' : ''}${e.delta.toFixed(2)}pt</div>
+            </div>`;
+        }).join('');
+        const etfCard = hasEtf ? `
+          <div class="signal-card">
+            <div class="signal-card-head" style="border-color:rgba(245,158,11,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">💼</div>
+              <div>
+                <div class="signal-card-title">Rotations ETF</div>
+                <div class="signal-card-sub">Plus gros changements de poids</div>
+              </div>
+            </div>
+            <div class="signal-card-body">${etfItems || '<div class="signal-empty">Aucune rotation</div>'}</div>
+          </div>` : '';
+
+        // Card 4 : Activists Fresh
+        const activistItems = (data.activistsFresh || []).slice(0, 5).map(a => {
+          const formColor = /13D/.test(a.form || '') ? '#F59E0B' : '#10B981';
+          return `
+            <div class="signal-row" ${goTicker(a.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
+                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient(a.ticker)}</strong>
+                <span style="color:var(--text-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient((a.filer || '').slice(0, 24))}</span>
+              </div>
+              <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0">${escapeHtmlClient(a.form || '')} · ${fmtD(a.date)}</div>
+            </div>`;
+        }).join('');
+        const activistCard = hasActivists ? `
+          <div class="signal-card">
+            <div class="signal-card-head" style="border-color:rgba(236,72,153,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#EC4899,#F43F5E)">⚡</div>
+              <div>
+                <div class="signal-card-title">Fonds offensifs frais</div>
+                <div class="signal-card-sub">Derniers dépôts 13D/G</div>
+              </div>
+            </div>
+            <div class="signal-card-body">${activistItems || '<div class="signal-empty">Aucun récent</div>'}</div>
+          </div>` : '';
+
+        wrap.innerHTML = `
+          <style>
+            .top-signals-header {
+              display:flex;align-items:center;justify-content:space-between;
+              margin:0 0 14px;
+            }
+            .top-signals-header h3 {
+              font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0;
+            }
+            .top-signals-date {
+              font-size:12px;color:var(--text-muted);
+              padding:4px 10px;background:var(--surface-2);border-radius:100px;
+            }
+            .signals-grid {
+              display:grid;gap:14px;
+              grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+            }
+            .signal-card {
+              background:var(--surface-1);
+              border:1px solid var(--border);
+              border-radius:12px;
+              overflow:hidden;
+            }
+            .signal-card-head {
+              display:flex;align-items:center;gap:10px;
+              padding:12px 14px;
+              border-bottom:1px solid;
+            }
+            .signal-card-icon {
+              width:32px;height:32px;border-radius:8px;
+              display:flex;align-items:center;justify-content:center;
+              font-size:16px;flex-shrink:0;
+            }
+            .signal-card-title {
+              font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.2;
+            }
+            .signal-card-sub {
+              font-size:11px;color:var(--text-muted);margin-top:2px;
+            }
+            .signal-card-body { padding:6px 14px 12px; }
+            .signal-row {
+              display:flex;justify-content:space-between;align-items:center;gap:10px;
+              padding:8px 0;
+              border-bottom:1px solid var(--divider);
+              cursor:pointer;transition:background 0.15s;
+              border-radius:4px;
+              margin:0 -6px;padding-left:6px;padding-right:6px;
+            }
+            .signal-row:last-child { border-bottom:none; }
+            .signal-row:hover { background:var(--surface-2); }
+            .signal-empty {
+              padding:16px 0;text-align:center;color:var(--text-muted);font-size:12px;
+            }
+          </style>
+          <div class="top-signals-header">
+            <h3>🔔 Top signaux du jour</h3>
+            <span class="top-signals-date">${fmtD(data.date)}</span>
+          </div>
+          <div class="signals-grid">${scoreCard}${clusterCard}${etfCard}${activistCard}</div>
+        `;
+        wrap.style.display = 'block';
+      } catch (e) {
+        console.warn('[home top-signals]', e);
+      }
     }
 
     // ============================================================
