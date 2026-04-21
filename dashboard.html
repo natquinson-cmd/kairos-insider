@@ -2551,7 +2551,7 @@
               Un <strong>fonds offensif</strong> (<em>"activist investor"</em> en finance anglo-saxonne — rien à voir avec l'activisme politique ou le lobbying) est un hedge fund qui achète une grosse participation dans une société cotée pour <strong>forcer la direction à faire des changements</strong> : vendre une division, remplacer le CEO, distribuer du cash, procéder à une fusion…
             </p>
             <p style="margin:0 0 10px">
-              <strong style="color:#F9FAFB">Pourquoi c'est intéressant pour un investisseur ?</strong> Les fonds offensifs ciblent des entreprises <strong>sous-valorisées ou mal gérées</strong>. Quand Carl Icahn a pris une position dans Apple en 2013, Apple a lancé $100B de rachats d'actions et le titre a gagné 30%. Idem pour <strong>Bill Ackman</strong> (Pershing Square) chez Chipotle, <strong>Paul Singer</strong> (Elliott) chez SoftBank, <strong>Nelson Peltz</strong> (Trian) chez Disney…
+              <strong style="color:var(--text-primary)">Pourquoi c'est intéressant pour un investisseur ?</strong> Les fonds offensifs ciblent des entreprises <strong>sous-valorisées ou mal gérées</strong>. Quand Carl Icahn a pris une position dans Apple en 2013, Apple a lancé $100B de rachats d'actions et le titre a gagné 30%. Idem pour <strong>Bill Ackman</strong> (Pershing Square) chez Chipotle, <strong>Paul Singer</strong> (Elliott) chez SoftBank, <strong>Nelson Peltz</strong> (Trian) chez Disney…
             </p>
             <p style="margin:0">
               Le marché anticipe souvent ces catalyseurs : <strong>détecter un fonds offensif tôt = souvent capter une partie de la hausse</strong>.
@@ -6333,7 +6333,7 @@
             <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:12px">
               <div style="width:34px;height:34px;border-radius:50%;background:${avatarBg};color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.3px;box-shadow:0 0 12px ${f.isActivist ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}">${escapeHtmlClient(initials)}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-weight:700;color:#F9FAFB;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <div style="font-weight:700;color:var(--text-primary);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   <span style="word-break:break-word">${escapeHtmlClient(filerName)}</span>
                   ${activistTag}
                   <span style="flex-shrink:0;margin-left:auto">${formBadgeHtml(f.form)}</span>
@@ -12015,7 +12015,7 @@
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
                 ${topActivists.map(a => `
                   <div style="padding:12px 14px;background:var(--surface-2);border-radius:10px">
-                    <div style="font-weight:700;font-size:14px;color:#F9FAFB;margin-bottom:4px">${escapeHtmlClient(a.label)}</div>
+                    <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">${escapeHtmlClient(a.label)}</div>
                     <div style="font-size:11px;color:var(--text-muted)">${a.count} déclaration${a.count > 1 ? 's' : ''} · ${(a.tickers || []).slice(0, 4).join(', ')}${a.tickers && a.tickers.length > 4 ? ` +${a.tickers.length - 4}` : ''}</div>
                   </div>
                 `).join('')}
