@@ -249,6 +249,13 @@ export default {
         if (request.method === 'POST' && path === '/api/admin/run-watchlist-cron') {
           return handleAdminRunWatchlistCron(env, origin);
         }
+        // Health check : lance + retourne le statut
+        if (request.method === 'POST' && path === '/api/admin/run-health-check') {
+          return handleAdminRunHealthCheck(env, origin);
+        }
+        if (path === '/api/admin/health-status') {
+          return handleAdminHealthStatus(env, origin);
+        }
         if (path === '/api/admin/db-stats') {
           return handleAdminDbStats(env, origin);
         }
@@ -282,12 +289,13 @@ export default {
   },
 
   // ============================================================
-  // SCHEDULED : Cron trigger (digest watchlist quotidien)
+  // SCHEDULED : Cron trigger (digest watchlist quotidien + health check)
   // Tire chaque jour a 6h15 UTC (voir wrangler.toml [triggers])
   // ============================================================
   async scheduled(event, env, ctx) {
     console.log('[cron] scheduled trigger fired at', new Date().toISOString());
     ctx.waitUntil(runDailyWatchlistDigest(env));
+    ctx.waitUntil(runHealthCheck(env));
   },
 };
 
@@ -3464,6 +3472,35 @@ async function handleAdminDbStats(env, origin) {
 }
 
 // ============================================================
+// ADMIN : health check (trigger manuel + dernier statut)
+// ============================================================
+async function handleAdminRunHealthCheck(env, origin) {
+  try {
+    // Force un nouveau check en retirant le cooldown
+    await env.CACHE.delete('health:last-alert').catch(() => {});
+    await runHealthCheck(env);
+    const result = await env.CACHE.get('health:last-check', 'json').catch(() => null);
+    return jsonResponse({ ok: true, result }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err.message || String(err) }, 500, origin);
+  }
+}
+
+async function handleAdminHealthStatus(env, origin) {
+  try {
+    const check = await env.CACHE.get('health:last-check', 'json').catch(() => null);
+    const alert = await env.CACHE.get('health:last-alert', 'json').catch(() => null);
+    return jsonResponse({
+      check,
+      alert,
+      now: Math.floor(Date.now() / 1000),
+    }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: err.message || String(err) }, 500, origin);
+  }
+}
+
+// ============================================================
 // ADMIN : déclenchement manuel du cron watchlist-digest
 // ============================================================
 async function handleAdminRunWatchlistCron(env, origin) {
@@ -4372,6 +4409,135 @@ function fmtUsdShort(n) {
 // ============================================================
 // CRON : Daily digest (7h15 UTC = 8h15 Paris ete / 7h15 hiver)
 // ============================================================
+// ============================================================
+// HEALTH CHECK : alerte admin si 0 jobs OK dans les 24h
+// Tourne dans scheduled() chaque jour à 6h15 UTC
+// Cooldown 20h pour éviter de spammer
+// ============================================================
+async function runHealthCheck(env) {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const HOURS_STALE = 24 * 3600;
+
+    // Cooldown : skip si déjà alerté dans les 20 dernières heures
+    const lastAlert = await env.CACHE.get('health:last-alert', 'json').catch(() => null);
+    if (lastAlert && lastAlert.ts && (now - lastAlert.ts) < 20 * 3600) {
+      console.log('[health] alert cooldown active, skipping');
+      return;
+    }
+
+    // Collecte tous les lastRun
+    const keys = await listAllKvKeys(env, 'lastRun:', 200).catch(() => []);
+    const jobs = [];
+    for (const k of keys) {
+      const data = await env.CACHE.get(k, 'json').catch(() => null);
+      if (!data) continue;
+      jobs.push({
+        name: k.slice('lastRun:'.length),
+        ts: data.ts || 0,
+        status: data.status || 'unknown',
+        error: data.error || '',
+      });
+    }
+    // Ajoute le cron watchlist
+    const cronData = await env.CACHE.get('wl-last-cron-run', 'json').catch(() => null);
+    if (cronData) {
+      jobs.push({
+        name: 'cron-watchlist-digest',
+        ts: cronData.ts || 0,
+        status: cronData.status || 'ok',
+        error: cronData.error || '',
+      });
+    }
+
+    const anomalies = [];
+    const recentOk = jobs.filter(j => j.status === 'ok' && (now - j.ts) < HOURS_STALE);
+    const recentFail = jobs.filter(j => j.status === 'failed' && (now - j.ts) < HOURS_STALE);
+    const stale = jobs.filter(j => j.ts > 0 && (now - j.ts) > 2 * HOURS_STALE); // > 48h
+
+    if (jobs.length === 0) {
+      anomalies.push('Aucun job enregistré dans KV (pipeline totalement silencieux)');
+    } else if (recentOk.length === 0) {
+      anomalies.push(`0 jobs OK dans les 24h sur ${jobs.length} enregistrés`);
+    }
+    if (recentFail.length > 0) {
+      anomalies.push(`${recentFail.length} job(s) en erreur dans les 24h : ${recentFail.map(j => j.name).join(', ')}`);
+    }
+    if (stale.length > 0) {
+      anomalies.push(`${stale.length} job(s) stale (>48h) : ${stale.map(j => j.name).join(', ')}`);
+    }
+
+    if (anomalies.length === 0) {
+      console.log('[health] all green:', jobs.length, 'jobs,', recentOk.length, 'OK');
+      // Log le health OK pour le dashboard
+      await env.CACHE.put('health:last-check', JSON.stringify({
+        ts: now, status: 'ok', jobs: jobs.length, recentOk: recentOk.length,
+      }), { expirationTtl: 7 * 86400 });
+      return;
+    }
+
+    console.warn('[health] ANOMALIES:', anomalies);
+    await env.CACHE.put('health:last-check', JSON.stringify({
+      ts: now, status: 'anomaly', jobs: jobs.length, recentOk: recentOk.length,
+      anomalies,
+    }), { expirationTtl: 7 * 86400 });
+
+    // Envoi email admin via Brevo
+    const adminEmail = env.SUPPORT_INBOX_EMAIL || 'natquinson@gmail.com';
+    const html = `
+      <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1F2937">
+        <h2 style="color:#EF4444;border-bottom:2px solid #EF4444;padding-bottom:8px">🚨 Health check alerte</h2>
+        <p>Le health check quotidien du pipeline Kairos Insider a détecté des anomalies :</p>
+        <ul style="line-height:1.8">
+          ${anomalies.map(a => `<li style="color:#1F2937">${a.replace(/</g, '&lt;')}</li>`).join('')}
+        </ul>
+        <h3 style="margin-top:24px;font-size:14px;color:#6B7280">État des jobs</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#F3F4F6"><th style="padding:8px;text-align:left">Job</th><th style="padding:8px">Status</th><th style="padding:8px">Âge</th></tr>
+          </thead>
+          <tbody>
+            ${jobs.sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0, 15).map(j => {
+              const age = j.ts ? Math.round((now - j.ts) / 3600) + 'h' : '—';
+              const color = j.status === 'ok' ? '#10B981' : j.status === 'failed' ? '#EF4444' : '#F59E0B';
+              return `<tr style="border-bottom:1px solid #E5E7EB">
+                <td style="padding:8px">${j.name.replace(/</g, '&lt;')}</td>
+                <td style="padding:8px;color:${color};font-weight:600">${j.status.toUpperCase()}</td>
+                <td style="padding:8px;color:#6B7280">${age}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top:20px;padding:12px;background:#FEF3C7;border-radius:6px;font-size:12px">
+          💡 Accède au dashboard admin : <a href="https://kairosinsider.fr/dashboard.html#admin" style="color:#3B82F6">kairosinsider.fr/dashboard.html</a>
+        </div>
+      </div>`;
+
+    try {
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'Kairos Health Check', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+          to: [{ email: adminEmail, name: 'Admin' }],
+          subject: `🚨 [Kairos Alert] ${anomalies.length} anomalie${anomalies.length > 1 ? 's' : ''} détectée${anomalies.length > 1 ? 's' : ''}`,
+          htmlContent: html,
+        }),
+      });
+      await env.CACHE.put('health:last-alert', JSON.stringify({ ts: now, anomalies }), { expirationTtl: 7 * 86400 });
+      console.log('[health] admin alert email sent');
+    } catch (e) {
+      console.error('[health] Brevo send failed:', e);
+    }
+  } catch (err) {
+    console.error('[health] runHealthCheck exception:', err);
+  }
+}
+
 async function runDailyWatchlistDigest(env) {
   const started = Date.now();
   let scanned = 0, sent = 0, skipped = 0, errors = 0;
