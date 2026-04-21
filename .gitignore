@@ -66,3 +66,9 @@ worker/funds_data.json
 worker/13f_ticker_index.json
 worker/transactions_data.json
 worker/trends_data.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example

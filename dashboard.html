@@ -1005,6 +1005,121 @@
 
     /* Section pages */
     .section-page { display: none; }
+
+    /* ============================================================
+       SIGNAL DETAIL PAGES — Architecture partagée (Lot 1+)
+       Toutes les pages de détail des signaux (clusters, score movers, ETF
+       rotations, activists) partagent ces classes pour être identiques.
+       ============================================================ */
+    .sig-page { padding: 0 4px; }
+    .sig-page-header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .sig-page-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 8px;
+      background: var(--surface-2); border: 1px solid var(--border-strong);
+      color: var(--text-secondary); cursor: pointer;
+      font-family: inherit; font-size: 13px; text-decoration: none;
+      transition: all 0.15s;
+    }
+    .sig-page-back:hover { color: var(--text-primary); border-color: var(--border); }
+    .sig-page-title {
+      font-size: 22px; font-weight: 700; margin: 0;
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .sig-page-title-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 18px; flex-shrink: 0;
+    }
+    .sig-page-count {
+      margin-left: auto;
+      padding: 6px 14px; border-radius: 20px;
+      background: var(--surface-2); border: 1px solid var(--border-strong);
+      font-size: 13px; color: var(--text-secondary); font-weight: 600;
+    }
+    .sig-quickfilters {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .sig-qf-btn {
+      padding: 9px 16px; border-radius: 100px;
+      background: var(--surface-2); border: 1px solid var(--border-strong);
+      color: var(--text-secondary); cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .sig-qf-btn:hover { color: var(--text-primary); border-color: var(--border); }
+    .sig-qf-btn.active {
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      color: #fff !important; border-color: transparent;
+      box-shadow: 0 2px 12px rgba(59,130,246,0.35);
+    }
+    .sig-filters {
+      display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;
+      padding: 14px 16px; margin-bottom: 18px;
+      background: var(--surface-1); border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .sig-filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .sig-filter-label {
+      font-size: 10px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+    }
+    .sig-filter-select {
+      padding: 7px 12px; border-radius: 8px;
+      background: var(--surface-2); border: 1px solid var(--border-strong);
+      color: var(--text-primary); font-family: inherit; font-size: 13px;
+      cursor: pointer; min-width: 130px;
+    }
+    .sig-filter-select:focus { outline: none; border-color: var(--accent-blue); }
+    .sig-table-wrap {
+      background: var(--surface-1); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .sig-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .sig-table thead tr { border-bottom: 2px solid var(--border-strong); }
+    .sig-table th {
+      padding: 12px 14px; text-align: left;
+      font-size: 11px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      cursor: pointer; user-select: none;
+      white-space: nowrap;
+    }
+    .sig-table th:hover { color: var(--text-primary); }
+    .sig-table th.sorted { color: var(--accent-blue); }
+    .sig-table td {
+      padding: 11px 14px; border-bottom: 1px solid var(--divider);
+      vertical-align: middle;
+    }
+    .sig-table tbody tr { transition: background 0.15s; cursor: pointer; }
+    .sig-table tbody tr:hover { background: var(--surface-2); }
+    .sig-ticker-cell {
+      font-weight: 700; color: #74b9ff; font-size: 14px;
+      font-family: 'Space Grotesk', monospace;
+    }
+    .sig-pill {
+      display: inline-block; padding: 3px 9px; border-radius: 100px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
+    }
+    .sig-pill-buy { background: rgba(16,185,129,0.15); color: #10B981; }
+    .sig-pill-sell { background: rgba(239,68,68,0.15); color: #EF4444; }
+    .sig-pill-mixed { background: rgba(148,163,184,0.15); color: #94A3B8; }
+    .sig-empty {
+      padding: 60px 20px; text-align: center; color: var(--text-muted);
+    }
+    @media (max-width: 640px) {
+      .sig-page-header { flex-direction: column; align-items: flex-start; }
+      .sig-page-count { margin-left: 0; }
+      .sig-filters { gap: 10px; padding: 12px; }
+      .sig-filter-select { min-width: 110px; font-size: 12px; }
+      .sig-table { font-size: 11px; }
+      .sig-table th, .sig-table td { padding: 8px 10px; }
+    }
     .section-page.active { display: block; }
     .section-page h2 {
       font-family: 'Space Grotesk', sans-serif;
@@ -3184,6 +3299,124 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: SIGNAL DETAIL — Clusters insiders (Lot 1) ===== -->
+      <div class="section-page" id="section-signals-clusters">
+        <div class="sig-page">
+          <div class="sig-page-header">
+            <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
+            <h2 class="sig-page-title">
+              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</span>
+              Clusters insiders
+            </h2>
+            <span class="sig-page-count" id="sigClustersCount">—</span>
+          </div>
+
+          <!-- Préfiltres 1-clic -->
+          <div class="sig-quickfilters" id="sigClustersQuickFilters">
+            <button class="sig-qf-btn active" data-preset="default">Défaut</button>
+            <button class="sig-qf-btn" data-preset="bullish7">Bullish 7j</button>
+            <button class="sig-qf-btn" data-preset="bearish7">Bearish 7j</button>
+            <button class="sig-qf-btn" data-preset="mega">Méga clusters ≥ $100M</button>
+            <button class="sig-qf-btn" data-preset="csuite">C-suite only</button>
+            <button class="sig-qf-btn" data-preset="today">Aujourd'hui</button>
+          </div>
+
+          <!-- Filtres avancés -->
+          <div class="sig-filters">
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Période</label>
+              <select class="sig-filter-select" id="sigClustersDays" onchange="loadSignalsClusters()">
+                <option value="1">Aujourd'hui</option>
+                <option value="7" selected>7 jours</option>
+                <option value="14">14 jours</option>
+                <option value="30">30 jours</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Min transactions</label>
+              <select class="sig-filter-select" id="sigClustersMinTx" onchange="loadSignalsClusters()">
+                <option value="3" selected>≥ 3</option>
+                <option value="5">≥ 5</option>
+                <option value="10">≥ 10</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Direction</label>
+              <select class="sig-filter-select" id="sigClustersDirection" onchange="loadSignalsClusters()">
+                <option value="all" selected>Toutes</option>
+                <option value="bullish">Bullish (net achat)</option>
+                <option value="bearish">Bearish (net vente)</option>
+                <option value="mixed">Mixte (achat + vente)</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Valeur min ($)</label>
+              <select class="sig-filter-select" id="sigClustersMinValue" onchange="loadSignalsClusters()">
+                <option value="0" selected>Aucun</option>
+                <option value="1000000">≥ $1M</option>
+                <option value="10000000">≥ $10M</option>
+                <option value="100000000">≥ $100M</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Rôle</label>
+              <select class="sig-filter-select" id="sigClustersRoles" onchange="loadSignalsClusters()">
+                <option value="all" selected>Tous</option>
+                <option value="csuite">C-suite (CEO/CFO…)</option>
+                <option value="directors">Directors</option>
+                <option value="owners">10% owners</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Tri</label>
+              <select class="sig-filter-select" id="sigClustersSort" onchange="loadSignalsClusters()">
+                <option value="value" selected>Valeur totale</option>
+                <option value="count"># Transactions</option>
+                <option value="net">|Net achat/vente|</option>
+                <option value="recent">Plus récent</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div id="sigClustersBody"><div class="sig-empty">Chargement…</div></div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: SIGNAL DETAIL — Score Movers (Lot 2 - placeholder) ===== -->
+      <div class="section-page" id="section-signals-score">
+        <div class="sig-page">
+          <div class="sig-page-header">
+            <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
+            <h2 class="sig-page-title">
+              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊</span>
+              Kairos Score — Variations
+            </h2>
+            <span class="sig-page-count">Lot 2 — à venir</span>
+          </div>
+          <div style="padding:40px;text-align:center;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;color:var(--text-muted)">
+            Cet écran détaillé arrive bientôt (Lot 2).
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION: SIGNAL DETAIL — ETF Rotations (Lot 3 - placeholder) ===== -->
+      <div class="section-page" id="section-signals-etf">
+        <div class="sig-page">
+          <div class="sig-page-header">
+            <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
+            <h2 class="sig-page-title">
+              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">💼</span>
+              Rotations ETF
+            </h2>
+            <span class="sig-page-count">Lot 3 — à venir</span>
+          </div>
+          <div style="padding:40px;text-align:center;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;color:var(--text-muted)">
+            Cet écran détaillé arrive bientôt (Lot 3).
+          </div>
+        </div>
+      </div>
+
       <!-- ===== SECTION: ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS) ===== -->
       <div class="section-page" id="section-admin">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap">
@@ -3498,9 +3731,17 @@
           currentUser = user;
           document.getElementById('authOverlay').classList.add('hidden');
           await checkSubscription();
-          // Accueil : affichage immédiat (nom + stats)
-          loadHome();
-          loadedSections['home'] = true;
+          // Deep link : si l'URL contient #signals-clusters (par exemple), on va direct dessus
+          const hash = (window.location.hash || '').slice(1);
+          const deepLinkSection = hash.split('&')[0];
+          const validDeepLinks = ['signals-clusters', 'signals-score', 'signals-etf'];
+          if (validDeepLinks.includes(deepLinkSection)) {
+            switchSection(deepLinkSection);
+          } else {
+            // Accueil : affichage immédiat (nom + stats)
+            loadHome();
+            loadedSections['home'] = true;
+          }
           // Charge l'avatar de la navbar (Firebase RTDB)
           loadProfileAvatar().catch(() => {});
           // Pré-chargement insiders en arrière-plan SEULEMENT pour les premium
@@ -4044,6 +4285,17 @@
         if (section === 'activists') loadActivists();
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
+        if (section === 'signals-clusters') {
+          // Restaure les filtres depuis l'URL si présents, sinon défaut
+          const urlFilters = readSignalUrl('signals-clusters');
+          if (Object.keys(urlFilters).length > 0) {
+            ['days','minTx','direction','minValue','roles','sort'].forEach(k => {
+              const el = document.getElementById('sigClusters' + k.charAt(0).toUpperCase() + k.slice(1));
+              if (el && urlFilters[k] != null) el.value = urlFilters[k];
+            });
+          }
+          loadSignalsClusters();
+        }
       }
       // Auto-refresh admin : start/stop selon la section active + la preference
       if (typeof startAdminAutoRefresh === 'function') {
@@ -4732,12 +4984,13 @@
         }).join('');
         const scoreCard = hasScores ? `
           <div class="signal-card">
-            <div class="signal-card-head" style="border-color:rgba(59,130,246,0.3)">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)" onclick="switchSection('signals-score')" title="Ouvrir l'analyse détaillée">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊</div>
-              <div>
+              <div style="flex:1">
                 <div class="signal-card-title">Kairos Score — gros deltas</div>
                 <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
               </div>
+              <span class="signal-card-chevron">→</span>
             </div>
             <div class="signal-card-body">${scoreItems || '<div class="signal-empty">Aucun gros mouvement aujourd&rsquo;hui</div>'}</div>
           </div>` : '';
@@ -4758,12 +5011,13 @@
         }).join('');
         const clusterCard = hasClusters ? `
           <div class="signal-card">
-            <div class="signal-card-head" style="border-color:rgba(16,185,129,0.3)">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('signals-clusters')" title="Ouvrir l'analyse détaillée">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
-              <div>
+              <div style="flex:1">
                 <div class="signal-card-title">Clusters insiders</div>
                 <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
               </div>
+              <span class="signal-card-chevron">→</span>
             </div>
             <div class="signal-card-body">${clusterItems || '<div class="signal-empty">Aucun cluster</div>'}</div>
           </div>` : '';
@@ -4783,12 +5037,13 @@
         }).join('');
         const etfCard = hasEtf ? `
           <div class="signal-card">
-            <div class="signal-card-head" style="border-color:rgba(245,158,11,0.3)">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)" onclick="switchSection('signals-etf')" title="Ouvrir l'analyse détaillée">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">💼</div>
-              <div>
+              <div style="flex:1">
                 <div class="signal-card-title">Rotations ETF</div>
                 <div class="signal-card-sub">Plus gros changements de poids</div>
               </div>
+              <span class="signal-card-chevron">→</span>
             </div>
             <div class="signal-card-body">${etfItems || '<div class="signal-empty">Aucune rotation</div>'}</div>
           </div>` : '';
@@ -4807,12 +5062,13 @@
         }).join('');
         const activistCard = hasActivists ? `
           <div class="signal-card">
-            <div class="signal-card-head" style="border-color:rgba(236,72,153,0.3)">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)" onclick="switchSection('activists')" title="Ouvrir l'analyse détaillée">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#EC4899,#F43F5E)">⚡</div>
-              <div>
+              <div style="flex:1">
                 <div class="signal-card-title">Fonds offensifs frais</div>
                 <div class="signal-card-sub">Derniers dépôts 13D/G</div>
               </div>
+              <span class="signal-card-chevron">→</span>
             </div>
             <div class="signal-card-body">${activistItems || '<div class="signal-empty">Aucun récent</div>'}</div>
           </div>` : '';
@@ -4844,6 +5100,14 @@
               display:flex;align-items:center;gap:10px;
               padding:12px 14px;
               border-bottom:1px solid;
+            }
+            .signal-card-head-clickable { cursor: pointer; transition: background 0.15s; }
+            .signal-card-head-clickable:hover { background: var(--surface-2); }
+            .signal-card-head-clickable:hover .signal-card-chevron { transform: translateX(4px); color: var(--text-primary); }
+            .signal-card-chevron {
+              color: var(--text-muted); font-size: 18px; font-weight: 600;
+              transition: all 0.2s; flex-shrink: 0;
+              opacity: 0.7;
             }
             .signal-card-icon {
               width:32px;height:32px;border-radius:8px;
@@ -4882,6 +5146,177 @@
         console.warn('[home top-signals]', e);
       }
     }
+
+    // ============================================================
+    // SIGNAL DETAIL PAGES — helpers partagés pour les 4 écrans
+    // ============================================================
+    // Gère la sync URL ↔ filtres pour partager un lien (ex: /#signals-clusters&direction=bullish)
+    function updateSignalUrl(section, filters) {
+      try {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+          if (v != null && v !== '' && v !== 'all' && v !== 0 && v !== '0') params.set(k, v);
+        });
+        const hash = `#${section}${params.toString() ? '&' + params.toString() : ''}`;
+        if (window.location.hash !== hash) history.replaceState(null, '', hash);
+      } catch (e) {}
+    }
+    // Lit l'URL hash et restaure les filtres à l'ouverture d'une section signal
+    function readSignalUrl(section) {
+      const raw = (window.location.hash || '').slice(1); // retire #
+      if (!raw.startsWith(section)) return {};
+      const after = raw.slice(section.length);
+      if (!after.startsWith('&')) return {};
+      return Object.fromEntries(new URLSearchParams(after.slice(1)));
+    }
+
+    // ============================================================
+    // SIGNAL DETAIL — Clusters insiders (Lot 1)
+    // ============================================================
+    const CLUSTERS_PRESETS = {
+      default: { days: '7', minTx: '3', direction: 'all', minValue: '0', roles: 'all', sort: 'value' },
+      bullish7: { days: '7', minTx: '3', direction: 'bullish', minValue: '0', roles: 'all', sort: 'net' },
+      bearish7: { days: '7', minTx: '3', direction: 'bearish', minValue: '0', roles: 'all', sort: 'net' },
+      mega: { days: '30', minTx: '3', direction: 'all', minValue: '100000000', roles: 'all', sort: 'value' },
+      csuite: { days: '7', minTx: '3', direction: 'all', minValue: '0', roles: 'csuite', sort: 'value' },
+      today: { days: '1', minTx: '3', direction: 'all', minValue: '0', roles: 'all', sort: 'value' },
+    };
+
+    function applyClustersPreset(preset) {
+      const f = CLUSTERS_PRESETS[preset];
+      if (!f) return;
+      document.getElementById('sigClustersDays').value = f.days;
+      document.getElementById('sigClustersMinTx').value = f.minTx;
+      document.getElementById('sigClustersDirection').value = f.direction;
+      document.getElementById('sigClustersMinValue').value = f.minValue;
+      document.getElementById('sigClustersRoles').value = f.roles;
+      document.getElementById('sigClustersSort').value = f.sort;
+      // Active le bon bouton visuel
+      document.querySelectorAll('#sigClustersQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadSignalsClusters();
+    }
+    window.applyClustersPreset = applyClustersPreset;
+
+    async function loadSignalsClusters() {
+      if (!currentUser) return;
+      const body = document.getElementById('sigClustersBody');
+      const countEl = document.getElementById('sigClustersCount');
+      if (!body) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.table(8, 7) : '<div class="sig-empty">Chargement…</div>';
+
+      const filters = {
+        days: document.getElementById('sigClustersDays').value,
+        minTx: document.getElementById('sigClustersMinTx').value,
+        direction: document.getElementById('sigClustersDirection').value,
+        minValue: document.getElementById('sigClustersMinValue').value,
+        roles: document.getElementById('sigClustersRoles').value,
+        sort: document.getElementById('sigClustersSort').value,
+      };
+      updateSignalUrl('signals-clusters', filters);
+
+      try {
+        const token = await currentUser.getIdToken();
+        const qs = new URLSearchParams(filters).toString();
+        const res = await fetch(`${API_BASE}/api/signals/insider-clusters?${qs}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          if (countEl) countEl.textContent = '—';
+          return;
+        }
+        renderSignalsClusters(data);
+      } catch (e) {
+        body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+    window.loadSignalsClusters = loadSignalsClusters;
+
+    function renderSignalsClusters(data) {
+      const body = document.getElementById('sigClustersBody');
+      const countEl = document.getElementById('sigClustersCount');
+      if (!body) return;
+      const items = data.items || [];
+      if (countEl) countEl.textContent = `${data.total || 0} signal${data.total > 1 ? 'aux' : ''}`;
+
+      if (items.length === 0) {
+        body.innerHTML = `
+          <div class="sig-empty">
+            <div style="font-size:40px;margin-bottom:10px">🤷</div>
+            <div style="font-size:14px">Aucun cluster correspondant à vos filtres.</div>
+            <div style="font-size:12px;margin-top:6px;opacity:0.7">Essayez de relâcher les critères (période plus longue, moins de transactions min…).</div>
+          </div>`;
+        return;
+      }
+
+      const fmtUsd = (n) => {
+        if (n == null || !isFinite(n) || n === 0) return '—';
+        const abs = Math.abs(n);
+        if (abs >= 1e9) return (n < 0 ? '-' : '') + '$' + (abs / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return (n < 0 ? '-' : '') + '$' + (abs / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
+        return (n < 0 ? '-' : '') + '$' + Math.round(abs);
+      };
+      const fmtD = (d) => {
+        if (!d) return '—';
+        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+      };
+
+      const rows = items.map(c => {
+        const pill = c.direction === 'bullish'
+          ? '<span class="sig-pill sig-pill-buy">BULLISH</span>'
+          : c.direction === 'bearish'
+          ? '<span class="sig-pill sig-pill-sell">BEARISH</span>'
+          : '<span class="sig-pill sig-pill-mixed">MIXTE</span>';
+        const netColor = c.netValue > 0 ? '#10B981' : c.netValue < 0 ? '#EF4444' : '#94A3B8';
+        const insidersPreview = (c.insiders || []).slice(0, 3).join(', ');
+        const rolesPreview = (c.roles || []).slice(0, 2).join(', ');
+        const onclick = `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(c.ticker).replace(/'/g,'\\\'')}'),150)"`;
+        return `
+          <tr ${onclick}>
+            <td><span class="sig-ticker-cell">${escapeHtmlClient(c.ticker)}</span>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px" title="${escapeHtmlClient(c.company || '')}">${escapeHtmlClient((c.company || '').slice(0, 30))}</div></td>
+            <td>${pill}</td>
+            <td style="text-align:center"><strong>${c.count}</strong>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${c.buyCount}🟢 / ${c.sellCount}🔴</div></td>
+            <td style="text-align:right;font-weight:600">${fmtUsd(c.totalValue)}</td>
+            <td style="text-align:right;color:${netColor};font-weight:600">${fmtUsd(c.netValue)}</td>
+            <td style="font-size:11px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(insidersPreview)}">${escapeHtmlClient(insidersPreview)}${c.insiders && c.insiders.length > 3 ? ` +${c.insiders.length - 3}` : ''}
+                <div style="font-size:10px;opacity:0.6;margin-top:2px">${escapeHtmlClient(rolesPreview)}</div></td>
+            <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtD(c.lastDate)}</td>
+          </tr>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="sig-table-wrap">
+          <table class="sig-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Direction</th>
+                <th style="text-align:center"># Tx</th>
+                <th style="text-align:right">Valeur totale</th>
+                <th style="text-align:right">Net</th>
+                <th>Insiders (top 3)</th>
+                <th>Dernière</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text-muted);text-align:right">
+          Cliquez sur un ticker pour ouvrir son analyse · Données rafraîchies quotidiennement
+        </div>`;
+    }
+
+    // Init préfiltres au chargement de la section
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#sigClustersQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyClustersPreset(btn.dataset.preset);
+    });
 
     // ============================================================
     // INSIDER TRADES — données pré-calculées depuis KV

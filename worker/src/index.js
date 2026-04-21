@@ -581,6 +581,16 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/home/top-signals') {
     return handleHomeTopSignals(url, env, origin);
   }
+  // Écrans détaillés des signaux (accessibles depuis la home)
+  if (path === '/api/signals/insider-clusters') {
+    return handleSignalsInsiderClusters(url, env, origin);
+  }
+  if (path === '/api/signals/score-movers') {
+    return handleSignalsScoreMovers(url, env, origin);
+  }
+  if (path === '/api/signals/etf-rotations') {
+    return handleSignalsEtfRotations(url, env, origin);
+  }
   if (path === '/api/history/insider') {
     return handleHistoryInsider(url, env, origin);
   }
@@ -1424,6 +1434,219 @@ async function handleHomeTopSignals(url, env, origin) {
     return jsonResponse(result, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'top-signals query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SIGNAL DETAIL : Clusters insiders (écran d'analyse dédié, Lot 1)
+// GET /api/signals/insider-clusters?days=7&minTx=3&direction=all&minValue=0&roles=all&sort=value
+// Retourne : { total, items: [{ticker, buyCount, sellCount, buyValue, sellValue, netValue, totalValue, insiders, topRoles, lastDate, company}] }
+// ============================================================
+async function handleSignalsInsiderClusters(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  try {
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '7', 10), 1), 90);
+    const minTx = Math.max(parseInt(url.searchParams.get('minTx') || '3', 10), 1);
+    const direction = (url.searchParams.get('direction') || 'all').toLowerCase(); // all|bullish|bearish|mixed
+    const minValue = Math.max(parseInt(url.searchParams.get('minValue') || '0', 10), 0);
+    const roles = (url.searchParams.get('roles') || 'all').toLowerCase(); // all|csuite|directors|owners
+    const sort = (url.searchParams.get('sort') || 'value').toLowerCase();   // value|count|net|recent
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = since.toISOString().slice(0, 10);
+
+    // Filtre roles via LIKE SQL
+    let roleFilter = '';
+    if (roles === 'csuite') roleFilter = `AND (title LIKE '%CEO%' OR title LIKE '%CFO%' OR title LIKE '%COO%' OR title LIKE '%President%' OR title LIKE '%Chief%')`;
+    else if (roles === 'directors') roleFilter = `AND (title LIKE '%Director%')`;
+    else if (roles === 'owners') roleFilter = `AND (title LIKE '%10%%' OR title LIKE '%owner%')`;
+
+    const query = `
+      SELECT
+        ticker,
+        company,
+        COUNT(*) AS cnt,
+        SUM(CASE WHEN trans_type = 'buy' THEN 1 ELSE 0 END) AS buyCount,
+        SUM(CASE WHEN trans_type = 'sell' THEN 1 ELSE 0 END) AS sellCount,
+        SUM(CASE WHEN trans_type = 'buy' THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
+        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
+        GROUP_CONCAT(DISTINCT insider) AS insiders,
+        GROUP_CONCAT(DISTINCT title) AS roles,
+        MAX(trans_date) AS lastDate
+      FROM insider_transactions_history
+      WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
+      ${roleFilter}
+      GROUP BY ticker
+      HAVING cnt >= ?
+      LIMIT 500
+    `;
+    const rows = (await env.HISTORY.prepare(query).bind(sinceStr, minTx).all()).results || [];
+
+    // Post-filtre direction + minValue + tri (SQL + JS hybride)
+    let items = rows.map(r => {
+      const totalValue = (r.buyValue || 0) + (r.sellValue || 0);
+      const netValue = (r.buyValue || 0) - (r.sellValue || 0);
+      return {
+        ticker: r.ticker,
+        company: r.company,
+        count: r.cnt,
+        buyCount: r.buyCount || 0,
+        sellCount: r.sellCount || 0,
+        buyValue: r.buyValue || 0,
+        sellValue: r.sellValue || 0,
+        totalValue,
+        netValue,
+        insiders: (r.insiders || '').split(',').filter(Boolean).slice(0, 10),
+        roles: (r.roles || '').split(',').filter(Boolean).slice(0, 6),
+        lastDate: r.lastDate,
+        direction: netValue > 0 ? 'bullish' : netValue < 0 ? 'bearish' : 'mixed',
+      };
+    });
+
+    if (direction === 'bullish') items = items.filter(i => i.direction === 'bullish' && i.buyCount > 0);
+    else if (direction === 'bearish') items = items.filter(i => i.direction === 'bearish' && i.sellCount > 0);
+    else if (direction === 'mixed') items = items.filter(i => i.buyCount > 0 && i.sellCount > 0);
+
+    if (minValue > 0) items = items.filter(i => i.totalValue >= minValue);
+
+    // Tri
+    if (sort === 'count') items.sort((a, b) => b.count - a.count);
+    else if (sort === 'net') items.sort((a, b) => Math.abs(b.netValue) - Math.abs(a.netValue));
+    else if (sort === 'recent') items.sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
+    else items.sort((a, b) => b.totalValue - a.totalValue); // défaut : value
+
+    return jsonResponse({
+      total: items.length,
+      items: items.slice(0, 200),
+      filters: { days, minTx, direction, minValue, roles, sort },
+      generatedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'insider-clusters query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SIGNAL DETAIL : Score movers (Lot 2 — stub pour route, implémenté plus tard)
+// ============================================================
+async function handleSignalsScoreMovers(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  try {
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '7', 10), 1), 90);
+    const direction = (url.searchParams.get('direction') || 'all').toLowerCase(); // all|up|down
+    const minDelta = Math.max(parseInt(url.searchParams.get('minDelta') || '3', 10), 1);
+    const sort = (url.searchParams.get('sort') || 'delta').toLowerCase();
+
+    // Prend les 2 plus récentes entrées de chaque ticker dans la fenêtre days
+    const query = `
+      WITH ranked AS (
+        SELECT ticker, date, total,
+               ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+        FROM score_history
+        WHERE date >= date('now', ?)
+      )
+      SELECT
+        a.ticker,
+        a.total AS scoreNow,
+        b.total AS scorePrev,
+        a.date AS dateNow,
+        b.date AS datePrev,
+        (a.total - b.total) AS delta
+      FROM ranked a
+      LEFT JOIN ranked b ON a.ticker = b.ticker AND b.rn = 2
+      WHERE a.rn = 1 AND b.total IS NOT NULL
+        AND ABS(a.total - b.total) >= ?
+      LIMIT 500
+    `;
+    const rows = (await env.HISTORY.prepare(query).bind(`-${days + 1} days`, minDelta).all()).results || [];
+
+    let items = rows.map(r => ({
+      ticker: r.ticker,
+      scoreNow: r.scoreNow,
+      scorePrev: r.scorePrev,
+      delta: r.delta,
+      dateNow: r.dateNow,
+      datePrev: r.datePrev,
+    }));
+
+    if (direction === 'up') items = items.filter(i => i.delta > 0);
+    else if (direction === 'down') items = items.filter(i => i.delta < 0);
+
+    if (sort === 'abs') items.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+    else if (sort === 'score') items.sort((a, b) => b.scoreNow - a.scoreNow);
+    else items.sort((a, b) => (b.delta || 0) - (a.delta || 0)); // defaut : delta desc
+
+    return jsonResponse({
+      total: items.length,
+      items: items.slice(0, 200),
+      filters: { days, direction, minDelta, sort },
+      generatedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'score-movers query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SIGNAL DETAIL : ETF rotations (Lot 3 — stub pour route, implémenté plus tard)
+// ============================================================
+async function handleSignalsEtfRotations(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  try {
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '7', 10), 1), 90);
+    const etfFilter = (url.searchParams.get('etf') || '').toUpperCase();
+    const typeFilter = (url.searchParams.get('type') || 'all').toLowerCase();
+    const minDelta = parseFloat(url.searchParams.get('minDelta') || '0.3');
+
+    const query = `
+      WITH latest_two AS (
+        SELECT etf_symbol, ticker, date, weight,
+               ROW_NUMBER() OVER (PARTITION BY etf_symbol, ticker ORDER BY date DESC) AS rn
+        FROM etf_snapshots
+      )
+      SELECT
+        a.etf_symbol AS etf,
+        a.ticker,
+        a.weight AS currWeight,
+        b.weight AS prevWeight,
+        a.date AS dateNow,
+        b.date AS datePrev,
+        (a.weight - COALESCE(b.weight, 0)) AS delta
+      FROM latest_two a
+      LEFT JOIN latest_two b ON a.etf_symbol = b.etf_symbol AND a.ticker = b.ticker AND b.rn = 2
+      WHERE a.rn = 1 AND b.weight IS NOT NULL
+        AND ABS(a.weight - b.weight) >= ?
+        ${etfFilter ? "AND a.etf_symbol = ?" : ""}
+      LIMIT 500
+    `;
+    const prep = etfFilter
+      ? env.HISTORY.prepare(query).bind(minDelta, etfFilter)
+      : env.HISTORY.prepare(query).bind(minDelta);
+    const rows = (await prep.all()).results || [];
+
+    let items = rows.map(r => ({
+      etf: r.etf,
+      ticker: r.ticker,
+      currWeight: r.currWeight,
+      prevWeight: r.prevWeight,
+      delta: r.delta,
+      dateNow: r.dateNow,
+      datePrev: r.datePrev,
+      status: r.prevWeight === 0 ? 'new' : r.currWeight === 0 ? 'exit' : r.delta > 0 ? 'increased' : 'decreased',
+    }));
+
+    if (typeFilter !== 'all') items = items.filter(i => i.status === typeFilter);
+    items.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    return jsonResponse({
+      total: items.length,
+      items: items.slice(0, 200),
+      filters: { days, etf: etfFilter || 'all', type: typeFilter, minDelta },
+      generatedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'etf-rotations query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
