@@ -19,6 +19,39 @@ const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 const FREE_ROUTES = ['/api/feargreed', '/api/shorts', '/api/trends-hot'];
 
 // ============================================================
+// STRUCTURED LOGGING (Priorité 3.3)
+// ============================================================
+// Schéma JSON unifié pour tous les logs. Cloudflare ingère les console.log
+// tels quels ; en JSON ils deviennent facilement parsable par Logpush →
+// R2/BigQuery/Datadog sans refonte ultérieure.
+//
+// Usage :
+//   log.info('cron.watchlist.start', { uidCount: 42 });
+//   log.warn('stripe.signature.invalid', { ip });
+//   log.error('ga4.token.failed', { detail: err.message });
+//
+// Format émis : {"lvl":"info","evt":"cron.watchlist.start","ts":"2026-04-21T…","uidCount":42}
+const log = {
+  _emit(level, event, context) {
+    const entry = { lvl: level, evt: event, ts: new Date().toISOString() };
+    if (context && typeof context === 'object') {
+      // Serialise les Error en {message, stack}
+      for (const [k, v] of Object.entries(context)) {
+        if (v instanceof Error) entry[k] = { message: v.message, stack: (v.stack || '').split('\n').slice(0, 4).join('\n') };
+        else entry[k] = v;
+      }
+    }
+    const line = JSON.stringify(entry);
+    if (level === 'error') console.error(line);
+    else if (level === 'warn') console.warn(line);
+    else console.log(line);
+  },
+  info(event, context) { this._emit('info', event, context); },
+  warn(event, context) { this._emit('warn', event, context); },
+  error(event, context) { this._emit('error', event, context); },
+};
+
+// ============================================================
 // ERROR TRACKING — Sentry-like minimaliste stocké dans KV
 // ============================================================
 // Format KV :
@@ -148,9 +181,15 @@ export default {
   // Tire chaque jour a 6h15 UTC (voir wrangler.toml [triggers])
   // ============================================================
   async scheduled(event, env, ctx) {
-    console.log('[cron] scheduled trigger fired at', new Date().toISOString());
-    ctx.waitUntil(runDailyWatchlistDigest(env).catch(err => logError(env, err, { path: 'cron:watchlist-digest' })));
-    ctx.waitUntil(runHealthCheck(env).catch(err => logError(env, err, { path: 'cron:health-check' })));
+    log.info('cron.scheduled.fired', { cronTime: event.cron });
+    ctx.waitUntil(runDailyWatchlistDigest(env).catch(err => {
+      log.error('cron.watchlist.failed', { err });
+      return logError(env, err, { path: 'cron:watchlist-digest' });
+    }));
+    ctx.waitUntil(runHealthCheck(env).catch(err => {
+      log.error('cron.health.failed', { err });
+      return logError(env, err, { path: 'cron:health-check' });
+    }));
   },
 };
 
@@ -2721,12 +2760,12 @@ async function handleStripeWebhook(request, env) {
     const sigHeader = request.headers.get('Stripe-Signature') || request.headers.get('stripe-signature');
     const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error('STRIPE_WEBHOOK_SECRET not configured — rejecting webhook');
+      log.error('stripe.webhook.secret_missing');
       return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), { status: 500 });
     }
     const valid = await verifyStripeSignature(body, sigHeader, webhookSecret);
     if (!valid) {
-      console.warn('Stripe webhook: invalid signature, rejected');
+      log.warn('stripe.webhook.signature_invalid');
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 });
     }
 
@@ -4551,7 +4590,7 @@ async function runHealthCheck(env) {
     // Cooldown : skip si déjà alerté dans les 20 dernières heures
     const lastAlert = await env.CACHE.get('health:last-alert', 'json').catch(() => null);
     if (lastAlert && lastAlert.ts && (now - lastAlert.ts) < 20 * 3600) {
-      console.log('[health] alert cooldown active, skipping');
+      log.info('health.alert.cooldown_active');
       return;
     }
 
@@ -4597,7 +4636,7 @@ async function runHealthCheck(env) {
     }
 
     if (anomalies.length === 0) {
-      console.log('[health] all green:', jobs.length, 'jobs,', recentOk.length, 'OK');
+      log.info('health.ok', { totalJobs: jobs.length, recentOk: recentOk.length });
       // Log le health OK pour le dashboard
       await env.CACHE.put('health:last-check', JSON.stringify({
         ts: now, status: 'ok', jobs: jobs.length, recentOk: recentOk.length,
@@ -4605,7 +4644,7 @@ async function runHealthCheck(env) {
       return;
     }
 
-    console.warn('[health] ANOMALIES:', anomalies);
+    log.warn('health.anomalies_detected', { anomalies, totalJobs: jobs.length });
     await env.CACHE.put('health:last-check', JSON.stringify({
       ts: now, status: 'anomaly', jobs: jobs.length, recentOk: recentOk.length,
       anomalies,
@@ -4658,7 +4697,7 @@ async function runHealthCheck(env) {
         }),
       });
       await env.CACHE.put('health:last-alert', JSON.stringify({ ts: now, anomalies }), { expirationTtl: 7 * 86400 });
-      console.log('[health] admin alert email sent');
+      log.info('health.alert_email_sent', { to: adminEmail });
     } catch (e) {
       console.error('[health] Brevo send failed:', e);
     }
