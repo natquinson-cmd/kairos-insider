@@ -316,10 +316,20 @@ def main():
 
     # ============================================================
     # ENRICHISSEMENT : fetch primary_doc.xml pour extraire shares + %
-    # On ne ré-enrichit que les filings qui n'ont pas encore ces champs
-    # (les anciens fetchés via l'index seul).
+    # On ne ré-enrichit que les filings qui n'ont pas encore ces champs.
+    # Limite MAX_ENRICH_PER_RUN (4000) pour tenir dans le timeout GitHub Actions.
+    # Priorité : (1) fonds offensifs connus, (2) dates récentes.
     # ============================================================
-    to_enrich = [f for f in deduped if f.get('percentOfClass') is None and f.get('sharesOwned') is None]
+    MAX_ENRICH_PER_RUN = 4000
+    candidates = [f for f in deduped if f.get('percentOfClass') is None and f.get('sharesOwned') is None]
+    # Tri par priorité : activists d'abord, puis par date décroissante
+    candidates.sort(key=lambda f: (
+        0 if f.get('isActivist') else 1,       # activists d'abord
+        -(int((f.get('fileDate') or '0000-00-00').replace('-', '')) or 0)  # date récente en priorité
+    ))
+    to_enrich = candidates[:MAX_ENRICH_PER_RUN]
+    if len(candidates) > MAX_ENRICH_PER_RUN:
+        print(f'\n{len(candidates)} filings à enrichir au total — on en traite {MAX_ENRICH_PER_RUN} ce run (priorité activists + récents).')
     if to_enrich:
         print(f'\n=== Enrichissement XML ({len(to_enrich)} filings a fetcher) ===')
         enriched_count = 0
