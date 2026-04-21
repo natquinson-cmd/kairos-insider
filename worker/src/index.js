@@ -585,6 +585,12 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/signals/insider-clusters') {
     return handleSignalsInsiderClusters(url, env, origin);
   }
+  if (path === '/api/signals/insider-netflow') {
+    return handleSignalsInsiderNetFlow(url, env, origin);
+  }
+  if (path === '/api/signals/insider-crossticker') {
+    return handleSignalsInsiderCrossTicker(url, env, origin);
+  }
   if (path === '/api/signals/score-movers') {
     return handleSignalsScoreMovers(url, env, origin);
   }
@@ -1524,6 +1530,176 @@ async function handleSignalsInsiderClusters(url, env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'insider-clusters query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SIGNAL DETAIL : Flux net insider par ticker (Signaux Insiders / onglet "Flux net")
+// GET /api/signals/insider-netflow?days=30&direction=all&minValue=0&limit=20
+// Retourne les tickers ordonnes par net (sum buy $ − sum sell $) sur la fenetre.
+// ============================================================
+async function handleSignalsInsiderNetFlow(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  try {
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 365);
+    const direction = (url.searchParams.get('direction') || 'all').toLowerCase(); // all|bullish|bearish
+    const minValue = Math.max(parseInt(url.searchParams.get('minValue') || '0', 10), 0);
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '20', 10), 1), 200);
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = since.toISOString().slice(0, 10);
+
+    const cacheKey = `netflow:${days}:${direction}:${minValue}:${limit}`;
+    try {
+      const cached = await env.CACHE?.get(cacheKey, 'json');
+      if (cached) return jsonResponse(cached, 200, origin);
+    } catch {}
+
+    // SQL : groupe par ticker, calcule buys $ / sells $ / net $ / tx count / insiders uniques / derniere date.
+    const query = `
+      SELECT
+        ticker,
+        MAX(company) AS company,
+        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
+        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
+        COUNT(*) AS txCount,
+        COUNT(DISTINCT insider) AS insiderCount,
+        MAX(trans_date) AS lastDate
+      FROM insider_transactions_history
+      WHERE trans_date >= ?
+        AND ticker IS NOT NULL AND ticker != ''
+        AND trans_type IN ('buy', 'sell')
+      GROUP BY ticker
+      HAVING (buyValue + sellValue) > 0
+      LIMIT 2000
+    `;
+    const rows = (await env.HISTORY.prepare(query).bind(sinceStr).all()).results || [];
+
+    let items = rows.map(r => {
+      const buyValue = r.buyValue || 0;
+      const sellValue = r.sellValue || 0;
+      const netValue = buyValue - sellValue;
+      return {
+        ticker: r.ticker,
+        company: r.company || '',
+        buyValue,
+        sellValue,
+        netValue,
+        txCount: r.txCount || 0,
+        insiderCount: r.insiderCount || 0,
+        lastDate: r.lastDate,
+      };
+    });
+
+    if (direction === 'bullish') items = items.filter(i => i.netValue > 0);
+    else if (direction === 'bearish') items = items.filter(i => i.netValue < 0);
+
+    if (minValue > 0) items = items.filter(i => Math.abs(i.netValue) >= minValue);
+
+    items.sort((a, b) => {
+      if (direction === 'bearish') return a.netValue - b.netValue; // plus negatif d'abord
+      if (direction === 'bullish') return b.netValue - a.netValue; // plus positif d'abord
+      return Math.abs(b.netValue) - Math.abs(a.netValue);          // magnitude decroissante
+    });
+
+    const result = {
+      total: items.length,
+      items: items.slice(0, limit),
+      filters: { days, direction, minValue, limit },
+      generatedAt: new Date().toISOString(),
+    };
+
+    try { await env.CACHE?.put(cacheKey, JSON.stringify(result), { expirationTtl: 900 }); } catch {}
+    return jsonResponse(result, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'insider-netflow query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SIGNAL DETAIL : Insiders transversaux (multi-tickers)
+// GET /api/signals/insider-crossticker?days=90&minTickers=3&role=all&limit=30
+// Retourne les insiders actifs sur ≥ N tickers differents sur la fenetre — vision transversale.
+// ============================================================
+async function handleSignalsInsiderCrossTicker(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  try {
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '90', 10), 1), 730);
+    const minTickers = Math.min(Math.max(parseInt(url.searchParams.get('minTickers') || '3', 10), 2), 50);
+    const role = (url.searchParams.get('role') || 'all').toLowerCase(); // all|csuite|directors|owners
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '30', 10), 1), 200);
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = since.toISOString().slice(0, 10);
+
+    let roleFilter = '';
+    if (role === 'csuite') roleFilter = `AND (title LIKE '%CEO%' OR title LIKE '%CFO%' OR title LIKE '%COO%' OR title LIKE '%President%' OR title LIKE '%Chief%')`;
+    else if (role === 'directors') roleFilter = `AND (title LIKE '%Director%')`;
+    else if (role === 'owners') roleFilter = `AND (title LIKE '%10%%' OR title LIKE '%owner%')`;
+
+    const cacheKey = `crossticker:${days}:${minTickers}:${role}:${limit}`;
+    try {
+      const cached = await env.CACHE?.get(cacheKey, 'json');
+      if (cached) return jsonResponse(cached, 200, origin);
+    } catch {}
+
+    const query = `
+      SELECT
+        insider,
+        MAX(title) AS title,
+        COUNT(DISTINCT ticker) AS tickerCount,
+        GROUP_CONCAT(DISTINCT ticker) AS tickersCsv,
+        COUNT(*) AS txCount,
+        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
+        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
+        MAX(trans_date) AS lastDate
+      FROM insider_transactions_history
+      WHERE trans_date >= ?
+        AND insider IS NOT NULL AND insider != ''
+        AND ticker IS NOT NULL AND ticker != ''
+        AND trans_type IN ('buy', 'sell')
+        ${roleFilter}
+      GROUP BY insider
+      HAVING tickerCount >= ?
+      LIMIT 500
+    `;
+    const rows = (await env.HISTORY.prepare(query).bind(sinceStr, minTickers).all()).results || [];
+
+    const items = rows.map(r => {
+      const buyValue = r.buyValue || 0;
+      const sellValue = r.sellValue || 0;
+      return {
+        insider: r.insider,
+        title: r.title || '',
+        tickerCount: r.tickerCount || 0,
+        tickers: (r.tickersCsv || '').split(',').filter(Boolean),
+        txCount: r.txCount || 0,
+        buyValue,
+        sellValue,
+        netValue: buyValue - sellValue,
+        lastDate: r.lastDate,
+      };
+    });
+
+    // Tri : nb tickers DESC puis volume total DESC
+    items.sort((a, b) => {
+      if (b.tickerCount !== a.tickerCount) return b.tickerCount - a.tickerCount;
+      return (Math.abs(b.buyValue) + Math.abs(b.sellValue)) - (Math.abs(a.buyValue) + Math.abs(a.sellValue));
+    });
+
+    const result = {
+      total: items.length,
+      items: items.slice(0, limit),
+      filters: { days, minTickers, role, limit },
+      generatedAt: new Date().toISOString(),
+    };
+
+    try { await env.CACHE?.put(cacheKey, JSON.stringify(result), { expirationTtl: 900 }); } catch {}
+    return jsonResponse(result, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'insider-crossticker query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

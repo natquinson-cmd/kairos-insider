@@ -4,7 +4,20 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 20 avril 2026 (Phase A + B activité ticker déployées)
+**Dernière mise à jour** : 21 avril 2026 (Signaux Insiders refondus en 4 sous-onglets)
+
+---
+
+## 🎯 Refonte Signaux Insiders (21 avr 2026)
+
+✅ **Section "Top Insiders" retirée** (peu actionnable : classement par volume dominé par Musk/Zuckerberg/Bezos qui tradent mécaniquement)
+✅ **Onglet "Signaux Insiders" restructuré en 4 sous-onglets** :
+- 🎯 **Clusters** (existant) : ≥3 insiders même ticker sur fenêtre courte
+- 💰 **Flux net 30j** (nouveau) : tickers ordonnés par `SUM(buy_value) − SUM(sell_value)` — endpoint `/api/signals/insider-netflow`
+- 🔄 **Transversaux** (nouveau) : insiders actifs sur ≥3 tickers différents — `/api/signals/insider-crossticker`
+- ⚡ **Contrarian** (placeholder) : achats insiders après chute du cours — attend l'historique OHLCV
+
+`[ ]` **Historique de prix OHLCV** (prérequis Contrarian + backtests) : nouvelle table D1 `price_history`, backfill Yahoo chart API sur ~8000 US tickers × 2 ans, cron quotidien de refresh, puis activation de l'onglet Contrarian avec JOIN sur baisses ≥15% 90j
 
 ---
 

@@ -1979,12 +1979,6 @@
           <span class="sidebar-badge new-badge">NEW</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="topInsiders" data-premium="true" onclick="switchSection('topInsiders')">
-          <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
-          <span data-i18n="dash.sidebar.top_insiders">Top Insiders</span>
-          <span class="sidebar-badge new-badge">NEW</span>
-          <span class="sidebar-badge premium-badge">PRO</span>
-        </button>
         <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
           <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
           <span data-i18n="dash.sidebar.signals">Signaux Insiders</span>
@@ -2151,17 +2145,6 @@
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.screener_title">Screener Avancé</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.screener_desc">Filtres combinables sur l'historique complet des transactions insider : ticker, période (jusqu'à 5 ans), rôle (CEO/CFO), montant min, source. <strong>Export CSV</strong> des résultats.</p>
             <div style="margin-top:12px;font-size:12px;color:#3B82F6" data-i18n="dash.home.screener_cta">Lancer une recherche →</div>
-          </div>
-
-          <div onclick="switchSection('topInsiders')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
-            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(234,179,8,0.2);border:1px solid rgba(234,179,8,0.4);border-radius:4px;font-size:10px;color:#EAB308;font-weight:700;letter-spacing:0.5px">NEW</div>
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-              <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(234,179,8,0.16);color:#EAB308;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
-            </div>
-            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.top_insiders_title">Top Insiders</h4>
-            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.top_insiders_desc">Classement des insiders les plus actifs sur la période. <strong>Medailles 🥇🥈🥉</strong> sur le top 3 par volume d'achats ou ventes. Click pour voir leurs transactions détaillées.</p>
-            <div style="margin-top:12px;font-size:12px;color:#EAB308" data-i18n="dash.home.top_insiders_cta">Voir le classement →</div>
           </div>
 
           <div onclick="switchSection('activists')" class="home-card" style="padding:22px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-1));border:1px solid rgba(245,158,11,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
@@ -2465,72 +2448,6 @@
         </div>
       </div>
 
-      <!-- ===== SECTION: TOP INSIDERS ===== -->
-      <div class="section-page" id="section-topInsiders">
-        <h2><span data-i18n="dash.section.topInsiders.title">🏆 Top Insiders</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.15);color:#EAB308;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
-        <p class="section-desc" data-i18n="dash.section.topInsiders.desc">Classement des insiders les plus actifs sur la période. Repere les executives dont les trades sont les plus massifs et les plus frequents — une premiere approximation du "qui vaut la peine d'etre suivi".</p>
-
-        <!-- FILTRES -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
-            <select id="tiPeriod" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:140px">
-              <option value="30d">30 jours</option>
-              <option value="90d">90 jours</option>
-              <option value="6m">6 mois</option>
-              <option value="1y" selected>1 an</option>
-              <option value="3y">3 ans</option>
-              <option value="5y">5 ans</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
-            <select id="tiType" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:120px">
-              <option value="buy" selected>Achats</option>
-              <option value="sell">Ventes</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
-            <select id="tiRole" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:140px">
-              <option value="">Tous</option>
-              <option value="CEO">CEO</option>
-              <option value="CFO">CFO</option>
-              <option value="Director">Director</option>
-              <option value="President">President</option>
-              <option value="Chairman">Chairman</option>
-              <option value="10%">10% Owner</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nb max</label>
-            <select id="tiLimit" onchange="loadTopInsiders()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:100px">
-              <option value="25">25</option>
-              <option value="50" selected>50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
-          </div>
-          <div style="margin-left:auto">
-            <button onclick="loadTopInsiders()" style="padding:10px 18px;background:linear-gradient(135deg,#EAB308,#F59E0B);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Rafraichir</button>
-          </div>
-        </div>
-
-        <!-- NOTE ROI -->
-        <div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.2);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#EAB308;display:flex;gap:10px;align-items:center">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <span><strong>V1 :</strong> classement par <em>volume</em> total ($). Le ROI réel par insider arrive après l'integration des prix historiques (roadmap Phase 2.2).</span>
-        </div>
-
-        <!-- LEADERBOARD -->
-        <div id="topInsidersBody">
-          <div style="padding:60px 20px;text-align:center;color:var(--text-secondary)">
-            <div style="font-size:36px;margin-bottom:12px">🏆</div>
-            <p style="margin:0;font-size:15px">Choisissez vos filtres pour afficher le classement.</p>
-          </div>
-        </div>
-      </div>
-
       <!-- ===== SECTION: FONDS OFFENSIFS (ACTIVIST INVESTORS / 13D/G) ===== -->
       <div class="section-page" id="section-activists">
         <div style="margin-bottom:16px">
@@ -2621,36 +2538,150 @@
         </div>
       </div>
 
-      <!-- ===== SECTION: INSIDER CLUSTERING ===== -->
+      <!-- ===== SECTION: SIGNAUX INSIDERS (4 sous-onglets) ===== -->
       <div class="section-page" id="section-clustering">
         <h2 data-i18n="dash.section.clustering.title">Signaux Insiders</h2>
-        <p class="section-desc" data-i18n="dash.section.clustering.desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — un signal fort quand les insiders agissent ensemble.</p>
+        <p class="section-desc" data-i18n="dash.section.clustering.desc">Quatre angles de lecture des transactions insiders — clusters, flux net, insiders transversaux et achats contrarians. Chaque vue repond a une question differente : "qui achete ensemble ?", "ou accumulent-ils ?", "qui a la vision transversale ?", "qui a la plus forte conviction ?".</p>
 
-        <div class="period-selector" style="margin-bottom:24px">
-          <span class="period-label">Type :</span>
-          <div class="period-buttons">
-            <button class="period-btn active" data-cltype="all" onclick="selectClusterType('all')">Tous</button>
-            <button class="period-btn" data-cltype="buy" onclick="selectClusterType('buy')" style="color:var(--accent-green)">Achats</button>
-            <button class="period-btn" data-cltype="sell" onclick="selectClusterType('sell')" style="color:var(--accent-red)">Ventes</button>
+        <!-- BARRE DE SOUS-ONGLETS -->
+        <div class="cl-tabs" role="tablist" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--divider)">
+          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')" style="padding:10px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">🎯 <span data-i18n="dash.clustering.tab.clusters">Clusters</span></button>
+          <button class="cl-tab" role="tab" data-cltab="netflow" onclick="switchClusterTab('netflow')" style="padding:10px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">💰 <span data-i18n="dash.clustering.tab.netflow">Flux net 30j</span></button>
+          <button class="cl-tab" role="tab" data-cltab="crossticker" onclick="switchClusterTab('crossticker')" style="padding:10px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">🔄 <span data-i18n="dash.clustering.tab.crossticker">Transversaux</span></button>
+          <button class="cl-tab" role="tab" data-cltab="contrarian" onclick="switchClusterTab('contrarian')" style="padding:10px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">⚡ <span data-i18n="dash.clustering.tab.contrarian">Contrarian</span></button>
+        </div>
+
+        <!-- ===== ONGLET 1 : CLUSTERS ===== -->
+        <div class="cl-panel" id="cl-panel-clusters" role="tabpanel">
+          <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.clusters.desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — signal fort quand ≥3 insiders agissent ensemble.</p>
+
+          <div class="period-selector" style="margin-bottom:24px">
+            <span class="period-label">Type :</span>
+            <div class="period-buttons">
+              <button class="period-btn active" data-cltype="all" onclick="selectClusterType('all')">Tous</button>
+              <button class="period-btn" data-cltype="buy" onclick="selectClusterType('buy')" style="color:var(--accent-green)">Achats</button>
+              <button class="period-btn" data-cltype="sell" onclick="selectClusterType('sell')" style="color:var(--accent-red)">Ventes</button>
+            </div>
+          </div>
+
+          <div class="pagination" id="clusterPaginationTop" style="display:none;margin-bottom:16px">
+            <button onclick="changeClusterPage(-1,'top')" id="clusterPrevBtnTop">← Précédent</button>
+            <span class="page-info" id="clusterPageInfoTop">Page 1</span>
+            <button onclick="changeClusterPage(1,'top')" id="clusterNextBtnTop">Suivant →</button>
+          </div>
+
+          <div id="clusteringArea">
+            <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
+          </div>
+
+          <div class="pagination" id="clusterPaginationBottom" style="display:none;margin-top:16px">
+            <button onclick="changeClusterPage(-1)" id="clusterPrevBtn">← Précédent</button>
+            <span class="page-info" id="clusterPageInfo">Page 1</span>
+            <button onclick="changeClusterPage(1)" id="clusterNextBtn">Suivant →</button>
           </div>
         </div>
 
-        <!-- Pagination HAUT pour les clusters -->
-        <div class="pagination" id="clusterPaginationTop" style="display:none;margin-bottom:16px">
-          <button onclick="changeClusterPage(-1,'top')" id="clusterPrevBtnTop">← Précédent</button>
-          <span class="page-info" id="clusterPageInfoTop">Page 1</span>
-          <button onclick="changeClusterPage(1,'top')" id="clusterNextBtnTop">Suivant →</button>
+        <!-- ===== ONGLET 2 : FLUX NET ===== -->
+        <div class="cl-panel" id="cl-panel-netflow" role="tabpanel" hidden>
+          <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.netflow.desc">Tickers ou les insiders <strong>accumulent le plus en net</strong> sur la periode : achats $ moins ventes $. Plus actionnable qu'un simple "top volume", car on voit si la pression est acheteuse ou vendeuse.</p>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:20px">
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.period">Période</label>
+              <select id="nfDays" onchange="loadNetFlow()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="7">7 jours</option>
+                <option value="30" selected>30 jours</option>
+                <option value="90">90 jours</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.direction">Direction</label>
+              <select id="nfDirection" onchange="loadNetFlow()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="all">Tous</option>
+                <option value="bullish" selected>Accumulation (net +)</option>
+                <option value="bearish">Distribution (net −)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.min_value">Valeur min</label>
+              <select id="nfMinValue" onchange="loadNetFlow()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="0" selected>Aucune</option>
+                <option value="100000">≥ $100k</option>
+                <option value="1000000">≥ $1M</option>
+                <option value="10000000">≥ $10M</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.limit">Limite</label>
+              <select id="nfLimit" onchange="loadNetFlow()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="20" selected>Top 20</option>
+                <option value="50">Top 50</option>
+                <option value="100">Top 100</option>
+              </select>
+            </div>
+            <button onclick="loadNetFlow()" style="margin-left:auto;padding:9px 18px;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" data-i18n="dash.clustering.refresh">Rafraichir</button>
+          </div>
+
+          <div id="nfArea">
+            <div class="loading"><div class="spinner"></div><span data-i18n="dash.clustering.netflow.loading">Calcul du flux net insiders…</span></div>
+          </div>
         </div>
 
-        <div id="clusteringArea">
-          <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
+        <!-- ===== ONGLET 3 : INSIDERS TRANSVERSAUX ===== -->
+        <div class="cl-panel" id="cl-panel-crossticker" role="tabpanel" hidden>
+          <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.crossticker.desc">Directors, 10% owners et executives actifs sur <strong>plusieurs societes simultanement</strong>. Eux ont une vraie vision transversale — leurs choix d'allocation entre tickers sont plus informatifs qu'un CEO qui achete "sa" boite.</p>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:20px">
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.period">Période</label>
+              <select id="ctDays" onchange="loadCrossTicker()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="30">30 jours</option>
+                <option value="90" selected>90 jours</option>
+                <option value="180">180 jours</option>
+                <option value="365">1 an</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.min_tickers">Min tickers</label>
+              <select id="ctMinTickers" onchange="loadCrossTicker()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="2">≥ 2</option>
+                <option value="3" selected>≥ 3</option>
+                <option value="5">≥ 5</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.role">Role</label>
+              <select id="ctRole" onchange="loadCrossTicker()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="all" selected>Tous</option>
+                <option value="directors">Directors</option>
+                <option value="owners">10% owners</option>
+                <option value="csuite">C-suite (CEO/CFO/…)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px" data-i18n="dash.clustering.filter.limit">Limite</label>
+              <select id="ctLimit" onchange="loadCrossTicker()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px">
+                <option value="30" selected>30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <button onclick="loadCrossTicker()" style="margin-left:auto;padding:9px 18px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" data-i18n="dash.clustering.refresh">Rafraichir</button>
+          </div>
+
+          <div id="ctArea">
+            <div class="loading"><div class="spinner"></div><span data-i18n="dash.clustering.crossticker.loading">Recherche des insiders transversaux…</span></div>
+          </div>
         </div>
 
-        <!-- Pagination BAS (miroir) -->
-        <div class="pagination" id="clusterPaginationBottom" style="display:none;margin-top:16px">
-          <button onclick="changeClusterPage(-1)" id="clusterPrevBtn">← Précédent</button>
-          <span class="page-info" id="clusterPageInfo">Page 1</span>
-          <button onclick="changeClusterPage(1)" id="clusterNextBtn">Suivant →</button>
+        <!-- ===== ONGLET 4 : CONTRARIAN BUYS (placeholder etape 2) ===== -->
+        <div class="cl-panel" id="cl-panel-contrarian" role="tabpanel" hidden>
+          <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-1));border:1px solid rgba(245,158,11,0.24);border-radius:14px;padding:32px 28px;text-align:center">
+            <div style="font-size:42px;margin-bottom:10px">⚡</div>
+            <h3 style="margin:0 0 8px;font-size:19px;color:var(--text-primary)" data-i18n="dash.clustering.contrarian.title">Achats Contrarian · Bientôt</h3>
+            <p style="margin:0 auto 14px;max-width:620px;font-size:14px;color:var(--text-secondary);line-height:1.65" data-i18n="dash.clustering.contrarian.desc">Insiders qui achetent quand le cours <strong>chute fortement</strong> — signal de vraie conviction (vs Musk qui achete en routine). Exemple : un CEO qui met sa prime annuelle sur sa boite apres une baisse de 30% est bien plus informatif qu'un achat automatique mensuel.</p>
+            <div style="display:inline-block;padding:8px 14px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);border-radius:8px;font-size:12px;color:#F59E0B;font-weight:600" data-i18n="dash.clustering.contrarian.coming">En cours : integration de l'historique de prix (OHLCV) pour detecter les chutes ≥15% sur 90j.</div>
+          </div>
         </div>
       </div>
 
@@ -4386,7 +4417,6 @@
           loadEtfRotations();
         }
         if (section === 'watchlist') loadWatchlist();
-        if (section === 'topInsiders') loadTopInsiders();
         if (section === 'activists') loadActivists();
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
@@ -9059,6 +9089,38 @@
     let clusterData = null;
     let clusterTypeFilter = 'all';
 
+    // ============================================================
+    // SIGNAUX INSIDERS — Switch 4 sous-onglets + lazy loading
+    // ============================================================
+    let currentClusterTab = 'clusters';
+    const clusterTabLoaded = { clusters: false, netflow: false, crossticker: false, contrarian: true }; // contrarian = placeholder, rien a charger
+
+    function switchClusterTab(tab) {
+      if (!['clusters','netflow','crossticker','contrarian'].includes(tab)) return;
+      currentClusterTab = tab;
+
+      // Bascule visuelle des boutons
+      document.querySelectorAll('.cl-tab').forEach(b => {
+        const active = b.dataset.cltab === tab;
+        b.classList.toggle('active', active);
+        b.style.background = active ? 'var(--surface-2)' : 'var(--surface-1)';
+        b.style.borderColor = active ? 'var(--border-strong)' : 'var(--border)';
+        b.style.color = active ? 'var(--text-primary)' : 'var(--text-secondary)';
+      });
+
+      // Bascule panels
+      document.querySelectorAll('.cl-panel').forEach(p => {
+        p.hidden = (p.id !== `cl-panel-${tab}`);
+      });
+
+      // Lazy load
+      if (!clusterTabLoaded[tab]) {
+        clusterTabLoaded[tab] = true;
+        if (tab === 'netflow') loadNetFlow();
+        else if (tab === 'crossticker') loadCrossTicker();
+      }
+    }
+
     function selectClusterType(type) {
       clusterTypeFilter = type;
       clusterPage = 0; // reset pagination quand on change de filtre
@@ -9273,6 +9335,183 @@
         detailRow.classList.add('open');
         mainRow.classList.add('expanded');
       }
+    }
+
+    // ============================================================
+    // SIGNAUX INSIDERS — Onglet FLUX NET
+    // ============================================================
+    const fmtUsdCompact = (v) => {
+      if (v == null || isNaN(v)) return '—';
+      const abs = Math.abs(v);
+      const sign = v < 0 ? '−' : '';
+      if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+      if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+      if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+      return `${sign}$${abs.toFixed(0)}`;
+    };
+    const fmtDateShort = (d) => {
+      if (!d) return '';
+      try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); }
+      catch { return d; }
+    };
+    const clTickerClick = (ticker) => ticker
+      ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(ticker).replace(/'/g, "\\'")}'), 150)" style="cursor:pointer"`
+      : '';
+
+    async function loadNetFlow() {
+      const area = document.getElementById('nfArea');
+      if (!area) return;
+      area.innerHTML = `<div class="loading"><div class="spinner"></div>Calcul du flux net insiders…</div>`;
+
+      const days = document.getElementById('nfDays')?.value || '30';
+      const direction = document.getElementById('nfDirection')?.value || 'all';
+      const minValue = document.getElementById('nfMinValue')?.value || '0';
+      const limit = document.getElementById('nfLimit')?.value || '20';
+
+      try {
+        const data = await apiFetch('/api/signals/insider-netflow', { days, direction, minValue, limit });
+        renderNetFlow(data);
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = `<div class="empty-state"><p>Erreur : ${escapeHtml(err.message || String(err))}</p></div>`;
+        }
+      }
+    }
+
+    function renderNetFlow(data) {
+      const area = document.getElementById('nfArea');
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      if (!items.length) {
+        area.innerHTML = `<div class="empty-state"><p>Aucun ticker ne correspond aux filtres. Essaye d'elargir la periode ou la direction.</p></div>`;
+        return;
+      }
+
+      const maxAbs = Math.max(1, ...items.map(i => Math.abs(i.netValue || 0)));
+      const rows = items.map((it, idx) => {
+        const net = it.netValue || 0;
+        const netColor = net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        const barPct = Math.min(100, (Math.abs(net) / maxAbs) * 100);
+        const barColor = net >= 0 ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)';
+        return `
+          <tr ${clTickerClick(it.ticker)}>
+            <td style="text-align:center;color:var(--text-muted);width:36px">${idx + 1}</td>
+            <td class="sig-ticker-cell">${escapeHtml(it.ticker || '—')}</td>
+            <td style="color:var(--text-primary)">${escapeHtml(it.company || '')}</td>
+            <td style="text-align:right;color:var(--accent-green);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.buyValue)}</td>
+            <td style="text-align:right;color:var(--accent-red);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.sellValue)}</td>
+            <td style="text-align:right;font-weight:700;color:${netColor};font-variant-numeric:tabular-nums">
+              <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                <div style="flex:1;max-width:110px;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${barPct}%;background:${barColor};${net < 0 ? 'margin-left:auto' : ''}"></div></div>
+                <span>${fmtUsdCompact(net)}</span>
+              </div>
+            </td>
+            <td style="text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums">${it.txCount || 0}</td>
+            <td style="text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums">${it.insiderCount || 0}</td>
+            <td style="text-align:right;font-size:11px;color:var(--text-muted)">${fmtDateShort(it.lastDate)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow-x:auto">
+          <table class="sig-table" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr>
+                <th style="text-align:center">#</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.ticker">Ticker</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.company">Société</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.buys">Achats</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.sells">Ventes</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.net">Net</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.tx">Tx</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.insiders">Insiders</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.last">Dernière</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:right">${items.length} ticker${items.length > 1 ? 's' : ''} · periode ${data.filters?.days || '?'}j · genere ${fmtDateShort(data.generatedAt)}</div>
+      `;
+    }
+
+    // ============================================================
+    // SIGNAUX INSIDERS — Onglet INSIDERS TRANSVERSAUX (cross-ticker)
+    // ============================================================
+    async function loadCrossTicker() {
+      const area = document.getElementById('ctArea');
+      if (!area) return;
+      area.innerHTML = `<div class="loading"><div class="spinner"></div>Recherche des insiders transversaux…</div>`;
+
+      const days = document.getElementById('ctDays')?.value || '90';
+      const minTickers = document.getElementById('ctMinTickers')?.value || '3';
+      const role = document.getElementById('ctRole')?.value || 'all';
+      const limit = document.getElementById('ctLimit')?.value || '30';
+
+      try {
+        const data = await apiFetch('/api/signals/insider-crossticker', { days, minTickers, role, limit });
+        renderCrossTicker(data);
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = `<div class="empty-state"><p>Erreur : ${escapeHtml(err.message || String(err))}</p></div>`;
+        }
+      }
+    }
+
+    function renderCrossTicker(data) {
+      const area = document.getElementById('ctArea');
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      if (!items.length) {
+        area.innerHTML = `<div class="empty-state"><p>Aucun insider multi-tickers trouve. Essaye d'elargir la periode ou de reduire le seuil min tickers.</p></div>`;
+        return;
+      }
+
+      const rows = items.map((it, idx) => {
+        const net = it.netValue || 0;
+        const netColor = net >= 0 ? 'var(--accent-green)' : net < 0 ? 'var(--accent-red)' : 'var(--text-secondary)';
+        const tickersList = (it.tickers || []).slice(0, 8).map(t =>
+          `<span ${clTickerClick(t)} style="display:inline-block;padding:2px 8px;margin:2px 3px 2px 0;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:11px;font-weight:600;color:#74b9ff;cursor:pointer">${escapeHtml(t)}</span>`
+        ).join('');
+        const moreCount = Math.max(0, (it.tickerCount || 0) - 8);
+        const insiderEsc = escapeHtml((it.insider || '').replace(/'/g, ''));
+        return `
+          <tr>
+            <td style="text-align:center;color:var(--text-muted);width:36px">${idx + 1}</td>
+            <td><strong style="color:var(--text-primary);cursor:pointer" onclick="openScreenerForInsider('${insiderEsc}')" title="Voir toutes ses transactions dans le Screener">${escapeHtml(it.insider || '—')}</strong></td>
+            <td style="font-size:12px;color:var(--text-secondary)">${escapeHtml(it.title || '—')}</td>
+            <td style="text-align:center"><span style="display:inline-block;padding:3px 10px;background:rgba(99,102,241,0.2);color:#818CF8;border-radius:100px;font-weight:700;font-variant-numeric:tabular-nums">${it.tickerCount || 0}</span></td>
+            <td>${tickersList}${moreCount ? `<span style="font-size:11px;color:var(--text-muted);margin-left:4px">+${moreCount}</span>` : ''}</td>
+            <td style="text-align:right;color:var(--accent-green);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.buyValue)}</td>
+            <td style="text-align:right;color:var(--accent-red);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.sellValue)}</td>
+            <td style="text-align:right;font-weight:700;color:${netColor};font-variant-numeric:tabular-nums">${fmtUsdCompact(net)}</td>
+            <td style="text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums">${it.txCount || 0}</td>
+            <td style="text-align:right;font-size:11px;color:var(--text-muted)">${fmtDateShort(it.lastDate)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow-x:auto">
+          <table class="sig-table" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr>
+                <th style="text-align:center">#</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.insider">Insider</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.role">Rôle</th>
+                <th style="text-align:center" data-i18n="dash.clustering.col.nb_tickers">Nb tickers</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.tickers">Tickers</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.buys">Achats</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.sells">Ventes</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.net">Net</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.tx">Tx</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.last">Dernière</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:right">${items.length} insider${items.length > 1 ? 's' : ''} transversaux · periode ${data.filters?.days || '?'}j · clic sur le nom pour ouvrir le Screener</div>
+      `;
     }
 
     // ============================================================
@@ -12122,102 +12361,7 @@
       }
     }
 
-    // ============================================================
-    // TOP INSIDERS (Phase 2 V1 : classement par volume)
-    // ============================================================
-    async function loadTopInsiders() {
-      if (!isPremium) {
-        document.getElementById('paywallOverlay')?.classList.remove('hidden');
-        return;
-      }
-      if (!currentUser) return;
-      const body = document.getElementById('topInsidersBody');
-      if (!body) return;
-      body.innerHTML = window.Skeleton.table(10, 4);
-
-      try {
-        const period = document.getElementById('tiPeriod').value || '1y';
-        const type = document.getElementById('tiType').value || 'buy';
-        const role = document.getElementById('tiRole').value || '';
-        const limit = document.getElementById('tiLimit').value || '50';
-
-        const params = new URLSearchParams({ period, type, limit });
-        if (role) params.set('role', role);
-
-        const token = await currentUser.getIdToken();
-        const res = await fetch(`${API_BASE}/api/history/insider-top?${params.toString()}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status})</div>`;
-          return;
-        }
-        const data = await res.json();
-        const insiders = Array.isArray(data.insiders) ? data.insiders : [];
-
-        if (!insiders.length) {
-          body.innerHTML = `<div style="padding:60px;text-align:center;color:var(--text-secondary)">
-            <div style="font-size:36px;margin-bottom:12px">🏜️</div>
-            <p style="margin:0">Aucun insider ne correspond aux criteres.</p>
-            <p style="margin:8px 0 0;font-size:13px;opacity:0.7">L'historique se remplit au fur et a mesure — reessayez après le backfill.</p>
-          </div>`;
-          return;
-        }
-
-        const fmtUsd = (v) => {
-          if (!v) return '—';
-          const abs = Math.abs(v);
-          if (abs >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
-          if (abs >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
-          if (abs >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
-          return '$' + v.toFixed(0);
-        };
-        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-        const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
-
-        const rows = insiders.map((ins, idx) => {
-          const rank = idx + 1;
-          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span style="color:var(--text-secondary);font-weight:600">#${rank}</span>`;
-          return `
-            <tr onclick="openScreenerForInsider('${esc((ins.insider||'').replace(/'/g, ''))}')" style="cursor:pointer" onmouseenter="this.style.background='var(--surface-2)'" onmouseleave="this.style.background=''">
-              <td style="text-align:center;font-size:16px">${medal}</td>
-              <td><strong>${esc(ins.insider || '—')}</strong></td>
-              <td style="font-size:12px;color:var(--text-secondary)">${esc(ins.title || '—')}</td>
-              <td style="text-align:right;font-variant-numeric:tabular-nums">${ins.tickers || 0}</td>
-              <td style="text-align:right;font-variant-numeric:tabular-nums">${ins.tx_count || 0}</td>
-              <td style="text-align:right;font-weight:700;color:${type === 'buy' ? '#2ecc71' : '#ff7675'};font-variant-numeric:tabular-nums">${fmtUsd(ins.total_value)}</td>
-              <td style="text-align:right;font-size:11px;color:var(--text-secondary)">${fmtD(ins.last_activity)}</td>
-            </tr>
-          `;
-        }).join('');
-
-        body.innerHTML = `
-          <div style="overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
-            <table class="data-table" style="width:100%;border-collapse:collapse">
-              <thead>
-                <tr>
-                  <th style="text-align:center;width:60px">Rang</th>
-                  <th>Insider</th>
-                  <th>Role</th>
-                  <th style="text-align:right">Tickers</th>
-                  <th style="text-align:right">Tx</th>
-                  <th style="text-align:right">Volume ${type === 'buy' ? 'Achats' : 'Ventes'}</th>
-                  <th style="text-align:right">Derniere</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-          <div style="padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;font-size:12px;color:var(--text-secondary);text-align:center">
-            Cliquez sur un insider pour ouvrir ses transactions dans le Screener.
-          </div>
-        `;
-      } catch (e) {
-        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
-      }
-    }
-
-    // Ouvre le Screener filtre par nom d'insider (depuis la ligne Top Insiders).
+    // Ouvre le Screener filtre par nom d'insider (reutilise par l'onglet Transversaux de Signaux Insiders).
     function openScreenerForInsider(insiderName) {
       if (!insiderName) return;
       switchSection('screener');

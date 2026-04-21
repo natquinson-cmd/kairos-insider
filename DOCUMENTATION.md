@@ -280,6 +280,8 @@ Le KV contient les données "chaudes" consultées à chaque requête. Namespace 
 | `insider-{ticker}` | Cache par ticker des insider trades | 1 h | Stock analysis |
 | `insider-transactions` | Données agrégées de tous les insiders | 24 h | Écrit par le pipeline |
 | `insider-clusters` | Clusters détectés (≥3 insiders même ticker même période) | 24 h | Écrit par le pipeline |
+| `netflow:{days}:{direction}:{minValue}:{limit}` | Flux net insider par ticker (onglet "Flux net 30j") | 15 min | D1 query cache |
+| `crossticker:{days}:{minTickers}:{role}:{limit}` | Insiders transversaux ≥N tickers (onglet "Transversaux") | 15 min | D1 query cache |
 | `etf-{symbol}` | Composition d'un ETF (NANC, GOP, GURU, etc.) | 24 h | Écrit par le pipeline |
 | `13f-all-funds` | Tous les portefeuilles hedge funds (200 top) | 24 h | Écrit par le pipeline |
 | `13f-ticker-index` | Index inverse ticker → [fonds qui le détiennent] | 24 h | Pour la page "stock analysis" |
