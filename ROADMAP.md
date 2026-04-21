@@ -4,7 +4,17 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 20 avril 2026 (rate limiting déployé)
+**Dernière mise à jour** : 20 avril 2026 (Phase A + B activité ticker déployées)
+
+---
+
+## 📊 Features données J/J-1 (en cours)
+
+✅ **Phase A — score_history peuplé quotidiennement** : 3349 tickers, parallèle x20, dedup si inchangé, storage ~5× plus léger  
+✅ **Phase B — Widget "Activité récente 7j"** sur fiches action : Kairos Score delta + ETF changes + insider trades (endpoint `/api/history/ticker-activity`)  
+- [ ] **Phase C — Home dashboard "Top signaux du jour"** : feed global des mouvements les plus marquants (3-5 cards)
+
+---
 
 ---
 
