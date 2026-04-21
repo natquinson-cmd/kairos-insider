@@ -3270,6 +3270,20 @@
             </div>
           </div>
         </div>
+
+        <!-- PANEL ERROR TRACKING (Priorité 3.2) -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+            <h3 style="margin:0;font-size:16px">🐛 Suivi d'erreurs</h3>
+            <div style="display:flex;gap:8px">
+              <button onclick="loadAdminErrors()" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+              <button onclick="clearAdminErrors()" style="padding:6px 12px;font-size:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;color:#F87171;cursor:pointer">🗑️ Vider</button>
+            </div>
+          </div>
+          <div id="adErrorsBody" style="min-height:120px;min-width:0">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -10347,6 +10361,8 @@
         renderAdminTrafficPanel(trafficRes);
         renderAdminDbPanel(dbRes);
         renderAdminJobsPanel(jobsRes);
+        // Load error tracking (non-blocking)
+        loadAdminErrors().catch(() => {});
 
         // Status
         if (statusEl) {
@@ -10914,6 +10930,128 @@
       }
     }
     window.runWatchlistCron = runWatchlistCron;
+
+    // ============================================================
+    // ADMIN : Error tracking (Priorité 3.2)
+    // ============================================================
+    async function loadAdminErrors() {
+      const body = document.getElementById('adErrorsBody');
+      if (!body || !currentUser) return;
+      body.innerHTML = window.Skeleton.lines(3);
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(API_BASE + '/api/admin/errors', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div style="padding:20px;color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          return;
+        }
+        renderAdminErrorsPanel(data);
+      } catch (e) {
+        body.innerHTML = `<div style="padding:20px;color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    function renderAdminErrorsPanel(data) {
+      const body = document.getElementById('adErrorsBody');
+      if (!body) return;
+      const errors = data.errors || [];
+      const daily = data.dailyCounts || [];
+
+      // KPI bar
+      const totalWeek = daily.reduce((s, d) => s + (d.count || 0), 0);
+      const todayCount = daily[daily.length - 1]?.count || 0;
+      const kpi = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">
+          <div style="padding:12px 14px;background:rgba(239,68,68,${todayCount > 0 ? '0.12' : '0.05'});border:1px solid rgba(239,68,68,${todayCount > 0 ? '0.3' : '0.15'});border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:800;color:${todayCount > 0 ? '#EF4444' : 'var(--text-muted)'}">${todayCount}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Aujourd'hui</div>
+          </div>
+          <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:800">${totalWeek}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">7 derniers jours</div>
+          </div>
+          <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:800">${data.total}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Log total</div>
+          </div>
+        </div>`;
+
+      // Mini sparkline 7 jours
+      const maxDaily = Math.max(1, ...daily.map(d => d.count || 0));
+      const sparkline = `
+        <div style="display:flex;align-items:flex-end;gap:4px;height:40px;margin-bottom:14px;padding:0 10px">
+          ${daily.map(d => {
+            const h = Math.max(3, ((d.count || 0) / maxDaily) * 100);
+            const color = d.count === 0 ? 'var(--surface-2)' : d.count > 5 ? '#EF4444' : '#F59E0B';
+            return `<div style="flex:1;height:${h}%;background:${color};border-radius:3px 3px 0 0;min-height:3px" title="${d.date}: ${d.count} erreur${d.count > 1 ? 's' : ''}"></div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:14px;padding:0 10px">
+          <span>${daily[0]?.date.slice(5) || ''}</span>
+          <span>${daily[daily.length - 1]?.date.slice(5) || ''}</span>
+        </div>`;
+
+      // Liste des dernières erreurs
+      if (errors.length === 0) {
+        body.innerHTML = kpi + sparkline + `
+          <div style="padding:30px;text-align:center;color:#10B981">
+            <div style="font-size:32px;margin-bottom:8px">✅</div>
+            <div style="font-size:13px">Aucune erreur enregistrée — tout roule !</div>
+          </div>`;
+        return;
+      }
+
+      const fmtAge = (ts) => {
+        const now = Date.now();
+        const ageMin = (now - ts) / 60000;
+        if (ageMin < 1) return 'à l\'instant';
+        if (ageMin < 60) return `il y a ${Math.round(ageMin)} min`;
+        if (ageMin < 1440) return `il y a ${Math.round(ageMin / 60)} h`;
+        return `il y a ${Math.round(ageMin / 1440)} j`;
+      };
+
+      const rows = errors.slice(0, 20).map(e => {
+        const path = e.path || 'unknown';
+        const method = e.method ? e.method + ' ' : '';
+        return `
+          <div style="padding:10px 12px;border-bottom:1px solid var(--divider);font-size:12px">
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:4px">
+              <div style="font-family:monospace;font-size:11px;color:var(--text-muted)">${escapeHtml(method)}${escapeHtml(path)}</div>
+              <div style="color:var(--text-muted);font-size:10px;flex-shrink:0">${fmtAge(e.ts)}</div>
+            </div>
+            <div style="color:#F87171;font-weight:600;margin-bottom:4px">${escapeHtml(e.message || 'unknown')}</div>
+            ${e.stack ? `<details style="font-size:10px;color:var(--text-muted)"><summary style="cursor:pointer">Stack trace</summary><pre style="margin:4px 0 0;padding:8px;background:var(--surface-2);border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-size:10px">${escapeHtml(e.stack)}</pre></details>` : ''}
+          </div>`;
+      }).join('');
+
+      body.innerHTML = kpi + sparkline + `
+        <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">${rows}</div>
+        ${errors.length > 20 ? `<div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">${errors.length - 20} erreurs plus anciennes masquées</div>` : ''}
+      `;
+    }
+
+    async function clearAdminErrors() {
+      if (!currentUser || !confirm('Vider complètement le log d\'erreurs ?')) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(API_BASE + '/api/admin/errors-clear', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Toast.success('Log d\'erreurs vidé');
+          loadAdminErrors();
+        } else {
+          Toast.error('Erreur : ' + (data.error || 'inconnue'));
+        }
+      } catch (e) {
+        Toast.error('Erreur réseau : ' + (e.message || e));
+      }
+    }
 
     // ===== Auto-refresh admin =====
     let adminRefreshTimer = null;

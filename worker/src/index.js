@@ -19,6 +19,65 @@ const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 const FREE_ROUTES = ['/api/feargreed', '/api/shorts', '/api/trends-hot'];
 
 // ============================================================
+// ERROR TRACKING — Sentry-like minimaliste stocké dans KV
+// ============================================================
+// Format KV :
+//   err:list → JSON array des 100 dernières erreurs (rotation FIFO)
+//   err:count:{YYYY-MM-DD} → compteur par jour (incrémenté atomiquement)
+// Chaque entrée : { ts, iso, path, method, user, level, message, stack, ctx }
+const ERROR_LOG_MAX = 100;
+
+async function logError(env, err, context = {}) {
+  try {
+    const now = Date.now();
+    const entry = {
+      ts: now,
+      iso: new Date(now).toISOString(),
+      message: err?.message || String(err),
+      stack: (err?.stack || '').split('\n').slice(0, 6).join('\n'), // 6 lignes max
+      level: context.level || 'error',
+      path: context.path || '',
+      method: context.method || '',
+      user: context.user || '',
+      ctx: context.extra || null,
+    };
+    // Lit la liste actuelle, ajoute en tête, trim à ERROR_LOG_MAX
+    let list = await env.CACHE.get('err:list', 'json').catch(() => []);
+    if (!Array.isArray(list)) list = [];
+    list.unshift(entry);
+    list = list.slice(0, ERROR_LOG_MAX);
+    await env.CACHE.put('err:list', JSON.stringify(list), { expirationTtl: 30 * 86400 });
+
+    // Compteur quotidien pour le dashboard
+    const day = entry.iso.slice(0, 10);
+    const countKey = `err:count:${day}`;
+    const current = parseInt(await env.CACHE.get(countKey) || '0', 10);
+    await env.CACHE.put(countKey, String(current + 1), { expirationTtl: 90 * 86400 });
+  } catch (e) {
+    // Si le log échoue, on ne peut rien faire — on écrit dans la console standard
+    console.error('[logError] failed:', e, 'original error:', err);
+  }
+}
+
+// Wrapper pour handlers async : catch + log + rethrow (ou return erreur)
+function wrapHandler(handler, name) {
+  return async function(request, env, ...args) {
+    try {
+      return await handler(request, env, ...args);
+    } catch (err) {
+      // Extract contexte de la requête si dispo
+      const url = request && request.url ? new URL(request.url) : null;
+      await logError(env, err, {
+        path: url?.pathname || name,
+        method: request?.method,
+        extra: { handler: name },
+      });
+      throw err; // propagate pour que le caller puisse retourner 500
+    }
+  };
+}
+
+// ============================================================
 // RATE LIMITING — KV-based, sliding window approximation par buckets
 // ============================================================
 // Limites par défaut (override via env vars si besoin) :
@@ -66,13 +125,47 @@ const RATE_LIMIT_EXEMPT_PATHS = new Set(['/stripe/webhook']);
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    const origin = request.headers.get('Origin') || '';
-
-    // --- CORS Preflight ---
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders(origin || env.ALLOWED_ORIGIN) });
+    try {
+      return await handleRequest(request, env);
+    } catch (err) {
+      // Global catch : toute exception non-catchée finit ici + est loggée pour observabilité
+      const url = request && request.url ? new URL(request.url) : null;
+      await logError(env, err, {
+        path: url?.pathname || 'unknown',
+        method: request?.method,
+        extra: { source: 'global-catch' },
+      }).catch(() => {}); // best-effort
+      console.error('[global]', err);
+      return jsonResponse({
+        error: 'Internal server error',
+        requestId: request.headers.get('cf-ray') || '—',
+      }, 500, env.ALLOWED_ORIGIN);
     }
+  },
+
+  // ============================================================
+  // SCHEDULED : Cron trigger (digest watchlist quotidien + health check)
+  // Tire chaque jour a 6h15 UTC (voir wrangler.toml [triggers])
+  // ============================================================
+  async scheduled(event, env, ctx) {
+    console.log('[cron] scheduled trigger fired at', new Date().toISOString());
+    ctx.waitUntil(runDailyWatchlistDigest(env).catch(err => logError(env, err, { path: 'cron:watchlist-digest' })));
+    ctx.waitUntil(runHealthCheck(env).catch(err => logError(env, err, { path: 'cron:health-check' })));
+  },
+};
+
+// ============================================================
+// Handler principal : toute la logique de routing
+// (Extrait de fetch() pour permettre le wrap try/catch + logError global)
+// ============================================================
+async function handleRequest(request, env) {
+  const url = new URL(request.url);
+  const origin = request.headers.get('Origin') || '';
+
+  // --- CORS Preflight ---
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders(origin || env.ALLOWED_ORIGIN) });
+  }
 
     // --- Vérification de l'origine (sauf webhook Stripe) ---
     const path = url.pathname;
@@ -256,6 +349,13 @@ export default {
         if (path === '/api/admin/health-status') {
           return handleAdminHealthStatus(env, origin);
         }
+        // Error log : liste + clear
+        if (path === '/api/admin/errors') {
+          return handleAdminErrors(env, origin);
+        }
+        if (request.method === 'POST' && path === '/api/admin/errors-clear') {
+          return handleAdminErrorsClear(env, origin);
+        }
         if (path === '/api/admin/db-stats') {
           return handleAdminDbStats(env, origin);
         }
@@ -285,19 +385,8 @@ export default {
       }
     }
 
-    return jsonResponse({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN);
-  },
-
-  // ============================================================
-  // SCHEDULED : Cron trigger (digest watchlist quotidien + health check)
-  // Tire chaque jour a 6h15 UTC (voir wrangler.toml [triggers])
-  // ============================================================
-  async scheduled(event, env, ctx) {
-    console.log('[cron] scheduled trigger fired at', new Date().toISOString());
-    ctx.waitUntil(runDailyWatchlistDigest(env));
-    ctx.waitUntil(runHealthCheck(env));
-  },
-};
+  return jsonResponse({ error: 'Not found' }, 404, env.ALLOWED_ORIGIN);
+}
 
 // ============================================================
 // AUTH : Vérification Firebase ID Token (via REST API)
@@ -3469,6 +3558,46 @@ async function handleAdminDbStats(env, origin) {
     timestamp: new Date().toISOString(),
     ...result,
   }, 200, origin);
+}
+
+// ============================================================
+// ADMIN : error log (liste + clear + compteur quotidien)
+// ============================================================
+async function handleAdminErrors(env, origin) {
+  try {
+    const list = await env.CACHE.get('err:list', 'json').catch(() => []);
+    const errors = Array.isArray(list) ? list : [];
+
+    // Compteurs des 7 derniers jours
+    const now = new Date();
+    const dailyCounts = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      const n = parseInt(await env.CACHE.get(`err:count:${iso}`).catch(() => '0') || '0', 10);
+      dailyCounts.push({ date: iso, count: n });
+    }
+
+    return jsonResponse({
+      total: errors.length,
+      errors,
+      dailyCounts,
+      lastError: errors[0] || null,
+      generatedAt: new Date().toISOString(),
+    }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: 'Failed to list errors', detail: err.message || String(err) }, 500, origin);
+  }
+}
+
+async function handleAdminErrorsClear(env, origin) {
+  try {
+    await env.CACHE.delete('err:list').catch(() => {});
+    return jsonResponse({ ok: true, cleared: true }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: 'Clear failed' }, 500, origin);
+  }
 }
 
 // ============================================================
