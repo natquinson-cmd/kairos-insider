@@ -12,7 +12,7 @@
 
 ✅ **Phase A — score_history peuplé quotidiennement** : 3349 tickers, parallèle x20, dedup si inchangé, storage ~5× plus léger  
 ✅ **Phase B — Widget "Activité récente 7j"** sur fiches action : Kairos Score delta + ETF changes + insider trades (endpoint `/api/history/ticker-activity`)  
-- [ ] **Phase C — Home dashboard "Top signaux du jour"** : feed global des mouvements les plus marquants (3-5 cards)
+✅ **Phase C — Home "Top signaux du jour"** : 4 cards color-codées (Score Movers / Clusters insiders / Rotations ETF / Fonds offensifs frais) · endpoint `/api/home/top-signals` avec cache KV 10 min · click ticker → analyse
 
 ---
 
