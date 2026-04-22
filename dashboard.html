@@ -1427,6 +1427,86 @@
       border-color: #2563EB;
     }
 
+    /* ===== TOOLTIP CUSTOM (console admin) ===== */
+    /* Marche sur tout element avec class="tip" + attribut data-tip="texte".
+       S'adapte au theme clair/sombre via variables CSS existantes. */
+    .tip {
+      position: relative;
+      cursor: help;
+    }
+    .tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 220px;
+      max-width: 320px;
+      padding: 10px 13px;
+      background: var(--bg-primary, #0A0F1E);
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+      letter-spacing: normal;
+      text-transform: none;
+      text-align: left;
+      white-space: normal;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s, visibility 0.15s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .tip::before {
+      content: '';
+      position: absolute;
+      bottom: calc(100% + 3px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--border-strong);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s, visibility 0.15s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .tip:hover::after,
+    .tip:hover::before {
+      opacity: 1;
+      visibility: visible;
+    }
+    [data-theme="light"] .tip::after {
+      background: #1F2937;
+      color: #F9FAFB;
+      border-color: #374151;
+    }
+    [data-theme="light"] .tip::before {
+      border-top-color: #374151;
+    }
+    /* Variante : tooltip a droite (pour elements en bord gauche) */
+    .tip.tip-right::after {
+      bottom: auto;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .tip.tip-right::before {
+      bottom: auto;
+      left: calc(100% + 2px);
+      top: 50%;
+      transform: translateY(-50%);
+      border-top-color: transparent;
+      border-right-color: var(--border-strong);
+    }
+    [data-theme="light"] .tip.tip-right::before {
+      border-right-color: #374151;
+    }
+
     /* ===== CHARTS ===== */
     .charts-row {
       display: grid;
@@ -2033,7 +2113,6 @@
         <button class="sidebar-item" data-section="hotStocks" onclick="switchSection('hotStocks')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>
           <span data-i18n="dash.sidebar.hot_stocks">Hot Stocks</span>
-          <span class="sidebar-badge new-badge">NEW</span>
         </button>
       </div>
 
@@ -2047,13 +2126,11 @@
         <button class="sidebar-item" data-section="screener" data-premium="true" onclick="switchSection('screener')">
           <span class="sidebar-icon icon-blue"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg></span>
           <span data-i18n="dash.sidebar.screener">Screener Avancé</span>
-          <span class="sidebar-badge new-badge">NEW</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="activists" data-premium="true" onclick="switchSection('activists')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
           <span data-i18n="dash.sidebar.activists">Fonds Offensifs</span>
-          <span class="sidebar-badge new-badge">NEW</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
@@ -2069,7 +2146,6 @@
         <button class="sidebar-item" data-section="consensus13f" data-premium="true" onclick="switchSection('consensus13f')">
           <span class="sidebar-icon icon-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
           <span data-i18n="dash.sidebar.consensus">Consensus Hedge Funds</span>
-          <span class="sidebar-badge new-badge">NEW</span>
         </button>
         <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
           <span class="sidebar-icon icon-cyan"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
@@ -2088,7 +2164,6 @@
         <button class="sidebar-item" data-section="watchlist" data-premium="true" onclick="switchSection('watchlist')">
           <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
           <span data-i18n="dash.sidebar.watchlist">Ma Watchlist</span>
-          <span class="sidebar-badge new-badge">NEW</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
       </div>
@@ -3646,27 +3721,27 @@
 
         <!-- KPI TOP ROW -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
-          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip" data-tip="Nombre total d'utilisateurs connus de la plateforme (somme unique des clés sub:* et wl:* en KV). Les comptes Firebase sans abonnement ni watchlist ne sont pas comptés — il faudrait un service account Firebase Admin pour les voir." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Utilisateurs</div>
             <div id="adKpiUsers" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiUsersDelta" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
           </div>
-          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip" data-tip="Abonnements Stripe au statut 'active' (paiement réussi, accès Premium actif). MRR = Monthly Recurring Revenue estimé à partir du prix du plan × nombre d'actifs. Ne compte pas les past_due ni trialing." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Premium actifs</div>
             <div id="adKpiPremium" style="font-size:28px;font-weight:700;color:#10B981">—</div>
             <div id="adKpiMrr" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
           </div>
-          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip" data-tip="Page views sur la période sélectionnée via Google Analytics 4 (events filtrés RGPD Consent Mode v2 — seuls les users ayant accepté les cookies comptent). Les sessions incluent aussi les visiteurs anonymes via GA4 metric totalUsers." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Visites (7j)</div>
             <div id="adKpiVisits" style="font-size:28px;font-weight:700;color:#74b9ff">—</div>
             <div id="adKpiVisitsToday" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase C</div>
           </div>
-          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip" data-tip="Jobs du pipeline data avec statut 'ok' dans les 24 dernières heures (fetch-13dg, fetch-amf, prefetch-etf, push-to-d1, etc.). Un job stale >48h déclenche une alerte email admin." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Jobs OK / Total</div>
             <div id="adKpiJobs" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiJobsLast" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase E</div>
           </div>
-          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip" data-tip="Âge du dernier backup D1 + KV vers R2. Vert si <25h (cron quotidien OK), orange entre 25h et 48h (retard possible), rouge >48h (cron en panne — alerte à investiguer). Le workflow .github/workflows/backup.yml tourne chaque jour à 7h UTC. Rétention 30 jours. Voir BACKUP_RECOVERY.md pour le plan de reprise." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Backup R2</div>
             <div id="adKpiBackup" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiBackupMeta" style="font-size:11px;color:var(--text-muted);margin-top:4px">D1 + KV → R2</div>
@@ -11611,19 +11686,19 @@
       const stats = subsRes || {};
       const statusBar = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
-          <div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:6px;text-align:center">
+          <div class="tip" data-tip="Abonnements Stripe actifs : paiement à jour, accès Premium effectif. C'est la métrique de référence pour le MRR." style="padding:8px;background:rgba(16,185,129,0.08);border-radius:6px;text-align:center">
             <div style="font-size:18px;font-weight:700;color:#10B981">${stats.active || 0}</div>
             <div style="color:var(--text-muted)">Actifs</div>
           </div>
-          <div style="padding:8px;background:rgba(245,158,11,0.08);border-radius:6px;text-align:center">
+          <div class="tip" data-tip="Abonnements dont le dernier paiement a échoué (carte expirée, fonds insuffisants…). Stripe retente automatiquement 3 fois sur 3 semaines avant de basculer en 'canceled'. L'user a toujours accès Premium pendant cette période de grâce." style="padding:8px;background:rgba(245,158,11,0.08);border-radius:6px;text-align:center">
             <div style="font-size:18px;font-weight:700;color:#F59E0B">${stats.past_due || 0}</div>
             <div style="color:var(--text-muted)">Past due</div>
           </div>
-          <div style="padding:8px;background:rgba(107,114,128,0.08);border-radius:6px;text-align:center">
+          <div class="tip" data-tip="Abonnements annulés (fin de période passée ou cancel immédiat par l'user via le portail Stripe). L'accès Premium est coupé. La clé sub:{uid} reste en KV pour l'historique." style="padding:8px;background:rgba(107,114,128,0.08);border-radius:6px;text-align:center">
             <div style="font-size:18px;font-weight:700;color:var(--text-muted)">${stats.canceled || 0}</div>
             <div style="color:var(--text-muted)">Canceled</div>
           </div>
-          <div style="padding:8px;background:rgba(116,185,255,0.08);border-radius:6px;text-align:center">
+          <div class="tip" data-tip="Abonnements en période d'essai gratuite Stripe (trial). Pas de paiement facturé avant la fin du trial, mais accès Premium complet. Pas activé aujourd'hui sur Kairos (pas de trial configuré)." style="padding:8px;background:rgba(116,185,255,0.08);border-radius:6px;text-align:center">
             <div style="font-size:18px;font-weight:700;color:#74b9ff">${stats.trialing || 0}</div>
             <div style="color:var(--text-muted)">Trialing</div>
           </div>
@@ -11658,12 +11733,12 @@
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
               <tr style="border-bottom:2px solid var(--border)">
-                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
-                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Sub</th>
-                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
-                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
-                <th style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Fin period.</th>
+                <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
+                <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe' affiché), fallback sur watchlistEmail si l'user a configuré sa watchlist. Cache KV 24h par customer Stripe." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
+                <th class="tip" data-tip="Statut Stripe de l'abonnement : ACTIVE (OK), PAST DUE (paiement échoué en cours de retry), CANCELED (terminé), TRIAL (essai gratuit), FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Sub</th>
+                <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon. Les digests email quotidiens sont envoyés à 8h Paris uniquement aux users avec WL non vide ET opt-in confirmé." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
+                <th class="tip" data-tip="Double opt-in RGPD pour les emails de digest. ✅ = a cliqué sur le lien de confirmation (reçoit les digests). ⏳ = mail de confirmation envoyé mais jamais cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
+                <th class="tip" data-tip="Date de fin de la période facturée en cours (Stripe currentPeriodEnd). L'abonnement se renouvelle automatiquement à cette date si actif, sinon il bascule en canceled." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Fin period.</th>
               </tr>
             </thead>
             <tbody>${rows || '<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
