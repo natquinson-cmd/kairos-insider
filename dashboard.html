@@ -11612,7 +11612,7 @@
       const rows = usersRes.users.slice(0, 100).map(u => `
         <tr style="border-bottom:1px solid var(--divider)">
           <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)" title="${esc(u.uid)}">${esc(u.uid.slice(0, 10))}...</td>
-          <td style="padding:8px 10px;font-size:12px">${esc(u.watchlistEmail || '—')}</td>
+          <td style="padding:8px 10px;font-size:12px" title="${u.emailSource ? 'Source: ' + u.emailSource : ''}">${esc(u.email || u.watchlistEmail || '—')}${u.emailSource === 'stripe' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">stripe</span>' : ''}</td>
           <td style="padding:8px 10px;text-align:center">${badgeStatus(u.subStatus)}</td>
           <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
           <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>

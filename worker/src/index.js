@@ -3783,10 +3783,42 @@ async function handleAdminSubsStats(env, origin) {
   }
 }
 
+// Fetch l'email d'un customer Stripe avec cache KV 24h.
+// Retourne null si customerId absent, deleted, rate-limite ou Stripe indispo.
+// Cache key : stripe-email:{customerId} (infini en cas de 404 pour pas repaper).
+async function fetchStripeCustomerEmail(customerId, env) {
+  if (!customerId || !env.STRIPE_SECRET_KEY) return null;
+  const cacheKey = `stripe-email:${customerId}`;
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached.hasOwnProperty('email')) return cached.email;
+  } catch {}
+  try {
+    const resp = await fetch(`https://api.stripe.com/v1/customers/${encodeURIComponent(customerId)}`, {
+      headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+    });
+    if (!resp.ok) {
+      // 404 (deleted customer) → cache null 7j pour eviter de reappeler
+      if (resp.status === 404) {
+        await env.CACHE.put(cacheKey, JSON.stringify({ email: null, deleted: true }), { expirationTtl: 7 * 86400 });
+      }
+      return null;
+    }
+    const data = await resp.json();
+    const email = data.deleted ? null : (data.email || null);
+    await env.CACHE.put(cacheKey, JSON.stringify({ email }), { expirationTtl: 24 * 3600 });
+    return email;
+  } catch {
+    return null;
+  }
+}
+
 // GET /api/admin/users : liste tous les utilisateurs connus via KV (sub:* + wl:*)
 // Ne retourne PAS les users free qui n'ont ni watchlist ni paiement
 // (pour ca il faudrait un service account Firebase Admin, a faire plus tard).
-// Retourne : { total, users: [{ uid, hasSubscription, subStatus, hasWatchlist, watchlistCount, lastActivity }] }
+// Email : on prefere d'abord l'email Stripe (plus fiable pour les payants),
+// fallback watchlistEmail. Cache KV 24h par customerId (stripe-email:XXX).
+// Retourne : { total, users: [{ uid, hasSubscription, subStatus, email, ... }] }
 async function handleAdminUsers(env, origin) {
   try {
     const [subKeys, wlKeys] = await Promise.all([
@@ -3810,15 +3842,21 @@ async function handleAdminUsers(env, origin) {
         let wlData = null;
         if (hasSub) subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
         if (hasWl) wlData = await env.CACHE.get(`wl:${uid}`, 'json').catch(() => null);
+        // Email : Stripe prioritaire (payants), puis watchlist en fallback
+        const customerId = subData?.customerId || null;
+        const stripeEmail = customerId ? await fetchStripeCustomerEmail(customerId, env) : null;
+        const email = stripeEmail || wlData?.email || null;
         return {
           uid,
           hasSubscription: hasSub,
           subStatus: subData?.status || null,
           currentPeriodEnd: subData?.currentPeriodEnd || null,
-          customerId: subData?.customerId || null,
+          customerId,
           hasWatchlist: hasWl,
           watchlistCount: Array.isArray(wlData?.tickers) ? wlData.tickers.length : 0,
-          watchlistEmail: wlData?.email || null,
+          email,                                  // <- source unifiee (Stripe > watchlist)
+          watchlistEmail: wlData?.email || null,  // conserve pour compat
+          emailSource: stripeEmail ? 'stripe' : (wlData?.email ? 'watchlist' : null),
           watchlistOptIn: !!wlData?.optin,
           lastWatchlistUpdate: wlData?.updatedAt || null,
         };
