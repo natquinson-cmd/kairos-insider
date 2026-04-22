@@ -1398,6 +1398,34 @@
       background: linear-gradient(90deg, transparent, #3B82F6, transparent);
       border-radius: 2px;
     }
+    /* Pills tickers dans le tableau Transversaux — lisible dans les 2 themes */
+    .cl-ticker-pill {
+      display: inline-block;
+      padding: 2px 9px;
+      margin: 2px 4px 2px 0;
+      background: rgba(59, 130, 246, 0.14);
+      border: 1px solid var(--accent-blue);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cl-ticker-pill:hover {
+      background: var(--accent-blue);
+      color: #FFFFFF;
+    }
+    [data-theme="light"] .cl-ticker-pill {
+      background: #EFF6FF;
+      color: #1E40AF;
+      border-color: #60A5FA;
+    }
+    [data-theme="light"] .cl-ticker-pill:hover {
+      background: #2563EB;
+      color: #FFFFFF;
+      border-color: #2563EB;
+    }
 
     /* ===== CHARTS ===== */
     .charts-row {
@@ -9555,7 +9583,7 @@
         const net = it.netValue || 0;
         const netColor = net >= 0 ? 'var(--accent-green)' : net < 0 ? 'var(--accent-red)' : 'var(--text-secondary)';
         const tickersList = (it.tickers || []).slice(0, 8).map(t =>
-          `<span ${clTickerClick(t)} style="display:inline-block;padding:2px 8px;margin:2px 3px 2px 0;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:11px;font-weight:600;color:#74b9ff;cursor:pointer">${escapeHtml(t)}</span>`
+          `<span class="cl-ticker-pill" ${clTickerClick(t)}>${escapeHtml(t)}</span>`
         ).join('');
         const moreCount = Math.max(0, (it.tickerCount || 0) - 8);
         const insiderEsc = escapeHtml((it.insider || '').replace(/'/g, ''));
