@@ -1205,21 +1205,38 @@ async function handleTickerActivity(url, env, origin) {
         const prevByEtf = {};
         (prevRes.results || []).forEach(r => { prevByEtf[r.etf_symbol] = { weight: r.weight, rank: r.rank }; });
 
+        // Dates de transition pour chaque (etf, ticker) sur la fenetre :
+        // permet d'afficher la vraie date d'entree / sortie dans le front,
+        // pas juste latestDate (moins informatif quand 4 mouvements apparaissent
+        // tous "au 22 avr." alors qu'ils se sont faits a des jours differents).
+        const transitionRes = await env.HISTORY.prepare(
+          `SELECT etf_symbol, MIN(date) AS first_date, MAX(date) AS last_date
+           FROM etf_snapshots
+           WHERE ticker = ? AND date >= ? AND date <= ?
+           GROUP BY etf_symbol`
+        ).bind(ticker, cutoffStr, latestDate).all();
+        const windowByEtf = {};
+        (transitionRes.results || []).forEach(r => { windowByEtf[r.etf_symbol] = { firstDate: r.first_date, lastDate: r.last_date }; });
+
         // Union des ETFs (pour détecter entrées et sorties)
         const allEtfs = new Set([...Object.keys(todayByEtf), ...Object.keys(prevByEtf)]);
         for (const etf of allEtfs) {
           const cur = todayByEtf[etf];
           const prev = prevByEtf[etf];
+          const win = windowByEtf[etf] || {};
           if (cur && !prev) {
-            etfChanges.push({ etf, prevWeight: null, currWeight: cur.weight, delta: cur.weight, status: 'new' });
+            // Entree : date = premier snapshot dans la fenetre (= date d'apparition)
+            etfChanges.push({ etf, prevWeight: null, currWeight: cur.weight, delta: cur.weight, status: 'new', eventDate: win.firstDate || latestDate });
           } else if (!cur && prev) {
-            etfChanges.push({ etf, prevWeight: prev.weight, currWeight: null, delta: -prev.weight, status: 'exit' });
+            // Sortie : date = dernier snapshot ou le ticker etait encore present
+            etfChanges.push({ etf, prevWeight: prev.weight, currWeight: null, delta: -prev.weight, status: 'exit', eventDate: win.lastDate || cutoffStr });
           } else if (cur && prev) {
             const delta = (cur.weight || 0) - (prev.weight || 0);
             if (Math.abs(delta) >= 0.01) { // seuil 0.01% pour filtrer le bruit
               etfChanges.push({
                 etf, prevWeight: prev.weight, currWeight: cur.weight, delta,
                 status: delta > 0 ? 'increased' : 'decreased',
+                eventDate: latestDate, // pour increased/decreased on n'a pas de date precise de transition, on prend latestDate
               });
             }
           }

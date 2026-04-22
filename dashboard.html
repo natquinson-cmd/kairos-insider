@@ -6516,6 +6516,18 @@
             ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${ownershipChips.join('')}</div>`
             : '';
 
+          // Lien vers le filing complet sur SEC EDGAR. Utile surtout quand
+          // l'enrichissement XML n'a pas tourne (pas de shares/percent) : l'user
+          // peut voir les details directement a la source.
+          const filerCikClean = (f.filerCik || '').replace(/^0+/, '') || (f.targetCik || '').replace(/^0+/, '');
+          const accessionClean = (f.accession || '').replace(/-/g, '');
+          const secUrl = (filerCikClean && accessionClean)
+            ? `https://www.sec.gov/Archives/edgar/data/${filerCikClean}/${accessionClean}/`
+            : (f.targetCik ? `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${(f.targetCik || '').replace(/^0+/, '')}&type=SC&dateb=&owner=include&count=40` : '');
+          const secLink = secUrl
+            ? `<a href="${secUrl}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-left:auto;flex-shrink:0;transition:all 0.15s" onmouseover="this.style.color='var(--accent-blue)';this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'" title="Voir le filing complet sur SEC EDGAR">SEC ↗</a>`
+            : '';
+
           return `
             <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:12px">
               <div style="width:34px;height:34px;border-radius:50%;background:${avatarBg};color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.3px;box-shadow:0 0 12px ${f.isActivist ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}">${escapeHtmlClient(initials)}</div>
@@ -6523,7 +6535,7 @@
                 <div style="font-weight:700;color:var(--text-primary);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   <span style="word-break:break-word">${escapeHtmlClient(filerName)}</span>
                   ${activistTag}
-                  <span style="flex-shrink:0;margin-left:auto">${formBadgeHtml(f.form)}</span>
+                  <span style="flex-shrink:0;margin-left:auto;display:flex;align-items:center;gap:6px">${formBadgeHtml(f.form)}${secLink}</span>
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:3px">${formDesc(f.form)} · ${fmtLongD(f.fileDate)}</div>
                 ${ownershipRow}
@@ -6636,6 +6648,14 @@
         let etfHTML = '';
         if (hasEtf) {
           const top = data.etfChanges.slice(0, 5);
+          // Format compact de la date (ex: "3 avr."). Pour 'new' = date d'entree,
+          // 'exit' = date de derniere presence avant sortie, 'increased'/'decreased'
+          // = date du snapshot le plus recent (pas de date precise de transition).
+          const fmtEventDate = (iso) => {
+            if (!iso) return '';
+            try { return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+            catch { return iso; }
+          };
           const rows = top.map(e => {
             const statusIcon = e.status === 'new' ? '🆕' : e.status === 'exit' ? '❌' : e.status === 'increased' ? '📈' : '📉';
             const statusColor = e.status === 'new' || e.status === 'increased' ? '#10B981' : '#EF4444';
@@ -6644,10 +6664,20 @@
               : e.status === 'exit'
               ? `sorti (était ${e.prevWeight.toFixed(2)}%)`
               : `${e.delta > 0 ? '+' : ''}${e.delta.toFixed(2)}pt (${e.prevWeight.toFixed(2)}% → ${e.currWeight.toFixed(2)}%)`;
+            const dateLabel = fmtEventDate(e.eventDate);
+            const dateTooltip = e.status === 'new' ? 'Date d\'entrée dans l\'ETF'
+                              : e.status === 'exit' ? 'Dernière date où le ticker était encore dans l\'ETF'
+                              : 'Date du dernier snapshot observé';
+            const dateChip = dateLabel
+              ? `<span title="${dateTooltip}" style="font-size:10px;color:var(--text-muted);margin-left:8px;padding:1px 6px;border:1px solid var(--border);border-radius:6px;white-space:nowrap">${dateLabel}</span>`
+              : '';
             return `
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
                 <div><span style="margin-right:6px">${statusIcon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient(e.etf)}</strong></div>
-                <div style="color:${statusColor};font-weight:600">${deltaText}</div>
+                <div style="display:flex;align-items:center;justify-content:flex-end">
+                  <span style="color:${statusColor};font-weight:600">${deltaText}</span>
+                  ${dateChip}
+                </div>
               </div>`;
           }).join('');
           etfHTML = `
