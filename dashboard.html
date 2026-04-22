@@ -1641,7 +1641,10 @@
     .fund-detail-row.open { display: table-row; }
     .fund-detail-cell {
       padding: 0 !important;
-      background: rgba(10,15,30,0.5);
+      /* var(--surface-2) s'adapte au theme : tres leger en light (#F9FAFB),
+         subtil overlay clair en dark (rgba(255,255,255,0.05)). Avant on avait
+         rgba(10,15,30,0.5) hardcode qui assombrissait le mode clair. */
+      background: var(--surface-2);
     }
     .fund-detail-inner {
       max-height: 0;
