@@ -120,9 +120,14 @@ jobs:
 
       - name: Fetch 13D/G Schedule filings (incremental + merge)
         # --days 3 suffit pour un cron quotidien (3 jours de marge vs 10).
-        # timeout 25 min pour avoir de la marge sur les gros merges.
-        run: cd worker && python fetch-13dg.py --days 3 --merge-with 13dg_existing.json
-        timeout-minutes: 25
+        # PYTHONUNBUFFERED=1 : sinon les prints restent en buffer jusqu'a la fin
+        # (non-TTY), et si le script est kill par timeout on ne voit RIEN.
+        # timeout 45 min : l'enrichissement de ~4000 filings XML SEC avec timeout
+        # individuel 20s peut etre lent quand beaucoup d'URL retournent vide/404.
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: cd worker && python -u fetch-13dg.py --days 3 --merge-with 13dg_existing.json
+        timeout-minutes: 45
         continue-on-error: true
 
       - name: Upload 13D/G filings to KV
