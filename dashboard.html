@@ -1650,7 +1650,7 @@
       padding: 0 20px;
     }
     .fund-detail-row.open .fund-detail-inner {
-      max-height: 700px;
+      max-height: 650px;
       padding: 20px;
     }
     .fund-detail-inner .sub-header {
@@ -9262,49 +9262,13 @@
             <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
           </tr>`;
 
-          // Ligne depliable : detail des insiders avec dates et valeurs
-          const allDetails = c.insiderDetails || c.insiders?.map(n => ({ name: n, dates: [], value: 0 })) || [];
-          // Filtrer : garder seulement les insiders avec au moins un poste OU des actions OU une valeur
-          const details = allDetails.filter(d => d.title || (d.shares && d.shares > 0) || (d.value && d.value > 0));
-          let detailRows = '';
-          for (const d of details) {
-            const dates = (d.dates || []).map(dt => fmtDate(dt)).join(', ');
-            const val = d.value && d.value > 0 ? fmtCurShort(d.value) : '—';
-            const sharesStr = d.shares && d.shares > 0 ? fmtNum(d.shares) : '—';
-            const title = d.title ? translatePosition(d.title) : '—';
-            const typeLabel = d.txType === 'buy' ? '<span class="pill buy" style="font-size:9px">ACHAT</span>'
-              : d.txType === 'sell' ? '<span class="pill sell" style="font-size:9px">VENTE</span>'
-              : d.txType === 'mixed' ? '<span class="pill other" style="font-size:9px">MIXTE</span>'
-              : '<span style="color:var(--text-muted);font-size:10px">attribution</span>';
-            detailRows += `<tr>
-              <td style="color:var(--text-primary);font-weight:500">${d.name}</td>
-              <td style="color:var(--text-secondary)">${title}</td>
-              <td class="last-update">${dates || '—'}</td>
-              <td style="text-align:center">${typeLabel}</td>
-              <td style="text-align:right">${sharesStr}</td>
-              <td style="text-align:right;font-weight:600">${val}</td>
-            </tr>`;
-          }
-
-          rows += `<tr class="fund-detail-row" id="cluster-detail-${absIdx}">
+          // Ligne depliable : contenu charge lazy au clic via loadClusterDetail (D1 -> 1 ligne par tx)
+          const tickerEsc = (c.ticker || '').replace(/'/g, "\\'");
+          rows += `<tr class="fund-detail-row" id="cluster-detail-${absIdx}" data-ticker="${escapeHtml(c.ticker || '')}" data-company="${escapeHtml(c.company || '')}">
             <td colspan="8" class="fund-detail-cell">
               <div class="fund-detail-inner">
-                <div class="sub-header">
-                  <span>${details.length > 0 ? details.length : c.insiderCount} dirigeants avec transactions significatives pour ${c.ticker || c.company}</span>
-                  <span class="last-update">Période: ${fmtDate(c.firstDate)} au ${fmtDate(c.lastDate)}</span>
-                </div>
-                <div class="table-wrap" style="border:none">
-                  <table>
-                    <thead><tr>
-                      <th>Declarant</th>
-                      <th>Poste</th>
-                      <th>Date(s)</th>
-                      <th style="text-align:center">Type</th>
-                      <th style="text-align:right">Actions</th>
-                      <th style="text-align:right">Valeur</th>
-                    </tr></thead>
-                    <tbody>${detailRows}</tbody>
-                  </table>
+                <div id="cluster-detail-content-${absIdx}" style="color:var(--text-muted);padding:20px;text-align:center;font-size:13px">
+                  <div class="spinner" style="display:inline-block;margin-right:10px;vertical-align:middle"></div>Chargement des transactions…
                 </div>
               </div>
             </td>
@@ -9359,6 +9323,9 @@
         updatePag(pagBottom, 'clusterPrevBtn',    'clusterNextBtn',    'clusterPageInfo');
     }
 
+    // Cache des detail transactions par ticker (evite refetch a chaque reouverture)
+    const clusterDetailCache = {};
+
     function toggleCluster(idx) {
       const detailRow = document.getElementById(`cluster-detail-${idx}`);
       const mainRow = detailRow.previousElementSibling;
@@ -9372,7 +9339,84 @@
       if (!isOpen) {
         detailRow.classList.add('open');
         mainRow.classList.add('expanded');
+        // Lazy load : fetch 1 ligne par tx (D1) a la premiere ouverture
+        const ticker = detailRow.dataset.ticker;
+        const company = detailRow.dataset.company;
+        if (ticker) loadClusterDetail(idx, ticker, company);
       }
+    }
+
+    async function loadClusterDetail(idx, ticker, company) {
+      const content = document.getElementById(`cluster-detail-content-${idx}`);
+      if (!content) return;
+      // Deja charge ? On rerend juste (pas de fetch)
+      if (clusterDetailCache[ticker]) {
+        renderClusterDetail(content, ticker, company, clusterDetailCache[ticker]);
+        return;
+      }
+      try {
+        const data = await apiFetch('/api/signals/insider-cluster-detail', { ticker, days: 90 });
+        clusterDetailCache[ticker] = data;
+        renderClusterDetail(content, ticker, company, data);
+      } catch (err) {
+        content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--accent-red);font-size:13px">Erreur chargement : ${escapeHtml(err.message || String(err))}</div>`;
+      }
+    }
+
+    function renderClusterDetail(content, ticker, company, data) {
+      const txs = (data && Array.isArray(data.transactions)) ? data.transactions : [];
+      if (!txs.length) {
+        content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Aucune transaction détaillée en base pour ${escapeHtml(ticker)} sur 90j.</div>`;
+        return;
+      }
+      const rows = txs.map(t => {
+        const typeLabel = t.transType === 'buy' ? '<span class="pill buy" style="font-size:10px">ACHAT</span>'
+          : t.transType === 'sell' ? '<span class="pill sell" style="font-size:10px">VENTE</span>'
+          : t.transType === 'option-exercise' ? '<span class="pill other" style="font-size:10px">OPTION</span>'
+          : '<span class="pill other" style="font-size:10px">AUTRE</span>';
+        const shares = t.shares ? fmtNum(t.shares) : '—';
+        const price = t.price && t.price > 0 ? '$' + Number(t.price).toFixed(2) : '—';
+        const value = t.value && t.value > 0 ? fmtCurShort(t.value) : '—';
+        const valueColor = t.transType === 'buy' ? 'var(--accent-green)'
+                        : t.transType === 'sell' ? 'var(--accent-red)'
+                        : 'var(--text-primary)';
+        const title = t.title ? escapeHtml(translatePosition(t.title)) : '—';
+        const source = t.source ? `<span style="font-size:9px;color:var(--text-muted);padding:1px 6px;border:1px solid var(--border);border-radius:4px">${escapeHtml(t.source)}</span>` : '';
+        return `<tr>
+          <td style="color:var(--text-secondary);font-size:12px;white-space:nowrap">${fmtDate(t.transDate)}</td>
+          <td style="color:var(--text-primary);font-weight:500">${escapeHtml(t.insider || '—')}</td>
+          <td style="color:var(--text-secondary);font-size:12px">${title}</td>
+          <td style="text-align:center">${typeLabel}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${shares}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-secondary)">${price}</td>
+          <td style="text-align:right;font-weight:600;color:${valueColor};font-variant-numeric:tabular-nums">${value}</td>
+          <td style="text-align:center">${source}</td>
+        </tr>`;
+      }).join('');
+
+      content.innerHTML = `
+        <div class="sub-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="color:var(--text-primary);font-size:13px;font-weight:600">${txs.length} transaction${txs.length > 1 ? 's' : ''} · ${escapeHtml(company || ticker)} · triees par date decroissante</span>
+          <span class="last-update">90 derniers jours</span>
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;max-height:500px;border:1px solid var(--border);border-radius:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead style="position:sticky;top:0;background:var(--surface-2);z-index:1">
+              <tr>
+                <th style="text-align:left;padding:8px 12px;white-space:nowrap">Date</th>
+                <th style="text-align:left;padding:8px 12px">Déclarant</th>
+                <th style="text-align:left;padding:8px 12px">Poste</th>
+                <th style="text-align:center;padding:8px 12px">Type</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">Actions</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">Prix unit.</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">Valeur</th>
+                <th style="text-align:center;padding:8px 12px">Source</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
     }
 
     // ============================================================

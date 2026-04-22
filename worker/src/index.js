@@ -591,6 +591,9 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/signals/insider-crossticker') {
     return handleSignalsInsiderCrossTicker(url, env, origin);
   }
+  if (path === '/api/signals/insider-cluster-detail') {
+    return handleSignalsInsiderClusterDetail(url, env, origin);
+  }
   if (path === '/api/signals/score-movers') {
     return handleSignalsScoreMovers(url, env, origin);
   }
@@ -1700,6 +1703,71 @@ async function handleSignalsInsiderCrossTicker(url, env, origin) {
     return jsonResponse(result, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'insider-crossticker query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SIGNAL DETAIL : Transactions individuelles d'un cluster
+// GET /api/signals/insider-cluster-detail?ticker=AEHR&days=90
+// Retourne TOUTES les transactions insider pour ce ticker sur la fenetre,
+// triees par date DESC (une ligne par transaction, pas agrege par insider).
+// Utilise pour l'ecran deplie d'un cluster.
+// ============================================================
+async function handleSignalsInsiderClusterDetail(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  try {
+    const ticker = (url.searchParams.get('ticker') || '').toUpperCase().trim();
+    if (!ticker) return jsonResponse({ error: 'missing ticker parameter' }, 400, origin);
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '90', 10), 1), 365);
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceStr = since.toISOString().slice(0, 10);
+
+    const cacheKey = `clusterdetail:${ticker}:${days}`;
+    try {
+      const cached = await env.CACHE?.get(cacheKey, 'json');
+      if (cached) return jsonResponse(cached, 200, origin);
+    } catch {}
+
+    const query = `
+      SELECT
+        trans_date, filing_date, insider, title, trans_type,
+        shares, price, value, source, accession
+      FROM insider_transactions_history
+      WHERE ticker = ?
+        AND trans_date >= ?
+        AND insider IS NOT NULL AND insider != ''
+      ORDER BY trans_date DESC, filing_date DESC
+      LIMIT 500
+    `;
+    const rows = (await env.HISTORY.prepare(query).bind(ticker, sinceStr).all()).results || [];
+
+    const transactions = rows.map(r => ({
+      transDate: r.trans_date,
+      filingDate: r.filing_date,
+      insider: r.insider,
+      title: r.title || '',
+      transType: r.trans_type || 'other',
+      shares: r.shares || 0,
+      price: r.price || 0,
+      value: r.value || 0,
+      source: r.source || '',
+      accession: r.accession || '',
+    }));
+
+    const result = {
+      ticker,
+      days,
+      total: transactions.length,
+      transactions,
+      generatedAt: new Date().toISOString(),
+    };
+
+    try { await env.CACHE?.put(cacheKey, JSON.stringify(result), { expirationTtl: 900 }); } catch {}
+    return jsonResponse(result, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'insider-cluster-detail query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
