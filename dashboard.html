@@ -1429,7 +1429,10 @@
 
     /* ===== TOOLTIP CUSTOM (console admin) ===== */
     /* Marche sur tout element avec class="tip" + attribut data-tip="texte".
-       S'adapte au theme clair/sombre via variables CSS existantes. */
+       S'adapte au theme clair/sombre via variables CSS existantes.
+       Par defaut le tooltip s'affiche AU-DESSUS. Pour les elements en haut
+       de page ou la place manque, ajouter class="tip tip-below" pour que
+       le tooltip apparaisse EN-DESSOUS. */
     .tip {
       position: relative;
       cursor: help;
@@ -1474,6 +1477,21 @@
       transition: opacity 0.15s, visibility 0.15s;
       pointer-events: none;
       z-index: 100;
+    }
+    /* Variante : tooltip EN-DESSOUS de l'element (pour cards en haut de page). */
+    .tip.tip-below::after {
+      bottom: auto;
+      top: calc(100% + 8px);
+    }
+    .tip.tip-below::before {
+      bottom: auto;
+      top: calc(100% + 3px);
+      border-top-color: transparent;
+      border-bottom-color: var(--border-strong);
+    }
+    [data-theme="light"] .tip.tip-below::before {
+      border-top-color: transparent;
+      border-bottom-color: #374151;
     }
     .tip:hover::after,
     .tip:hover::before {
@@ -3721,27 +3739,27 @@
 
         <!-- KPI TOP ROW -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
-          <div class="tip" data-tip="Nombre total d'utilisateurs connus de la plateforme (somme unique des clés sub:* et wl:* en KV). Les comptes Firebase sans abonnement ni watchlist ne sont pas comptés — il faudrait un service account Firebase Admin pour les voir." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip tip-below" data-tip="Nombre total d'utilisateurs connus de la plateforme (somme unique des clés sub:* et wl:* en KV). Les comptes Firebase sans abonnement ni watchlist ne sont pas comptés — il faudrait un service account Firebase Admin pour les voir." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Utilisateurs</div>
             <div id="adKpiUsers" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiUsersDelta" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
           </div>
-          <div class="tip" data-tip="Abonnements Stripe au statut 'active' (paiement réussi, accès Premium actif). MRR = Monthly Recurring Revenue estimé à partir du prix du plan × nombre d'actifs. Ne compte pas les past_due ni trialing." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip tip-below" data-tip="Abonnements Stripe au statut 'active' (paiement réussi, accès Premium actif). MRR = Monthly Recurring Revenue estimé à partir du prix du plan × nombre d'actifs. Ne compte pas les past_due ni trialing." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Premium actifs</div>
             <div id="adKpiPremium" style="font-size:28px;font-weight:700;color:#10B981">—</div>
             <div id="adKpiMrr" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
           </div>
-          <div class="tip" data-tip="Page views sur la période sélectionnée via Google Analytics 4 (events filtrés RGPD Consent Mode v2 — seuls les users ayant accepté les cookies comptent). Les sessions incluent aussi les visiteurs anonymes via GA4 metric totalUsers." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip tip-below" data-tip="Page views sur la période sélectionnée via Google Analytics 4 (events filtrés RGPD Consent Mode v2 — seuls les users ayant accepté les cookies comptent). Les sessions incluent aussi les visiteurs anonymes via GA4 metric totalUsers." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Visites (7j)</div>
             <div id="adKpiVisits" style="font-size:28px;font-weight:700;color:#74b9ff">—</div>
             <div id="adKpiVisitsToday" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase C</div>
           </div>
-          <div class="tip" data-tip="Jobs du pipeline data avec statut 'ok' dans les 24 dernières heures (fetch-13dg, fetch-amf, prefetch-etf, push-to-d1, etc.). Un job stale >48h déclenche une alerte email admin." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip tip-below" data-tip="Jobs du pipeline data avec statut 'ok' dans les 24 dernières heures (fetch-13dg, fetch-amf, prefetch-etf, push-to-d1, etc.). Un job stale >48h déclenche une alerte email admin." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Jobs OK / Total</div>
             <div id="adKpiJobs" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiJobsLast" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase E</div>
           </div>
-          <div class="tip" data-tip="Âge du dernier backup D1 + KV vers R2. Vert si <25h (cron quotidien OK), orange entre 25h et 48h (retard possible), rouge >48h (cron en panne — alerte à investiguer). Le workflow .github/workflows/backup.yml tourne chaque jour à 7h UTC. Rétention 30 jours. Voir BACKUP_RECOVERY.md pour le plan de reprise." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip tip-below" data-tip="Âge du dernier backup D1 + KV vers R2. Vert si <25h (cron quotidien OK), orange entre 25h et 48h (retard possible), rouge >48h (cron en panne — alerte à investiguer). Le workflow .github/workflows/backup.yml tourne chaque jour à 7h UTC. Rétention 30 jours. Voir BACKUP_RECOVERY.md pour le plan de reprise." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Backup R2</div>
             <div id="adKpiBackup" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiBackupMeta" style="font-size:11px;color:var(--text-muted);margin-top:4px">D1 + KV → R2</div>
@@ -3794,6 +3812,24 @@
             <div id="adJobsBody" style="min-height:200px;min-width:0">
               <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase E — en attente.</div>
             </div>
+          </div>
+        </div>
+
+        <!-- PANEL PONDÉRATION KAIROS SCORE -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0;font-size:16px">⚖️ Pondération Kairos Score</h3>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Poids de chaque axe dans le score composite 0-100 affiché aux users. Modifiable ici, masqué côté user.</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onclick="loadAdminScoreWeights()" class="tip" data-tip="Recharger les poids depuis le serveur" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+              <button onclick="resetAdminScoreWeights()" class="tip" data-tip="Revenir aux poids par défaut (20/20/10/15/10/10/10/5)" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">↺ Reset</button>
+              <button onclick="saveAdminScoreWeights()" class="tip" data-tip="Sauvegarder les nouveaux poids. Appliqué dans les ~60 min suivants (cache stock-analysis TTL 1h)." style="padding:6px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">💾 Sauvegarder</button>
+            </div>
+          </div>
+          <div id="adScoreWeightsBody" style="min-height:200px">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>
           </div>
         </div>
 
@@ -7125,11 +7161,15 @@
       // ID unique pour le gradient (eviter les conflits entre rendus)
       const gradId = 'kairosGrad_' + Math.random().toString(36).slice(2, 8);
 
-      // Mini barres de detail (sous le radar, pour explications)
+      // Mini barres de detail (sous le radar, pour explications).
+      // On n'expose PAS le poids de chaque axe (b.max) a l'utilisateur final
+      // — c'est une info de calibration paramatrable dans la console admin.
+      // A la place : pourcentage normalise 0-100% (meme echelle pour tous les axes).
       const breakdownRows = axesOrder.map(axis => {
         const b = breakdown[axis.key];
         if (!b) return '';
         const pct = b.max > 0 ? (b.score / b.max) * 100 : 0;
+        const pctDisplay = Math.round(pct);
         return `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider)">
             <div style="flex:0 0 110px;font-size:12px;color:var(--text-secondary)">${b.label}</div>
@@ -7137,7 +7177,7 @@
               <div style="height:100%;background:linear-gradient(90deg, ${palette.main}, ${palette.light});width:${pct}%;border-radius:3px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
             </div>
             <div style="flex:0 0 52px;text-align:right;font-size:12px;font-family:'Space Grotesk',sans-serif">
-              <strong style="color:${palette.main}">${b.score}</strong><span style="opacity:0.5">/${b.max}</span>
+              <strong style="color:${palette.main}">${pctDisplay}</strong><span style="opacity:0.5">%</span>
             </div>
           </div>
         `;
@@ -7192,7 +7232,7 @@
               <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
                 <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
                   <span>Décomposition (8 axes)</span>
-                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">Score sur 100 = somme des 8 sous-scores</span>
+                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">Score par axe — 0% = faible, 100% = excellent</span>
                 </div>
                 ${breakdownRows || '<div style="opacity:0.5;font-size:12px">Détails indisponibles</div>'}
               </div>
@@ -11700,6 +11740,7 @@
         renderAdminJobsPanel(jobsRes);
         // Load error tracking (non-blocking)
         loadAdminErrors().catch(() => {});
+        loadAdminScoreWeights().catch(() => {});
 
         // Status
         if (statusEl) {
@@ -12271,6 +12312,100 @@
       }
     }
     window.runWatchlistCron = runWatchlistCron;
+
+    // ============================================================
+    // ADMIN : Ponderation Kairos Score (load / reset / save)
+    // ============================================================
+    let adminScoreWeightsState = { defaults: null, labels: null, keys: null, current: null };
+
+    async function loadAdminScoreWeights() {
+      const body = document.getElementById('adScoreWeightsBody');
+      if (!body || !currentUser) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.lines(4) : 'Chargement…';
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/admin/score-weights`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        adminScoreWeightsState = { defaults: data.defaults, labels: data.labels, keys: data.keys, current: { ...data.weights } };
+        renderAdminScoreWeights();
+      } catch (e) {
+        body.innerHTML = `<div style="padding:20px;color:var(--accent-red);font-size:13px">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    function renderAdminScoreWeights() {
+      const body = document.getElementById('adScoreWeightsBody');
+      if (!body) return;
+      const { defaults, labels, keys, current } = adminScoreWeightsState;
+      if (!keys) return;
+      const sum = keys.reduce((s, k) => s + (Number(current[k]) || 0), 0);
+      const sumColor = Math.abs(sum - 100) < 0.5 ? '#10B981' : (sum < 100 ? '#F59E0B' : '#EF4444');
+      const rows = keys.map(k => {
+        const def = defaults[k];
+        const val = current[k];
+        const isModified = Math.abs(val - def) > 0.01;
+        return `
+          <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider)">
+            <div style="font-size:13px;color:var(--text-primary);font-weight:500">${escapeHtml(labels[k])}${isModified ? ' <span style="font-size:10px;color:#F59E0B;margin-left:4px" title="Modifié par rapport au défaut">●</span>' : ''}</div>
+            <input type="range" min="0" max="40" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%" aria-label="${escapeHtml(labels[k])}" />
+            <input type="number" min="0" max="100" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:13px;font-variant-numeric:tabular-nums" />
+            <div style="font-size:11px;color:var(--text-muted);text-align:right">déf. ${def}</div>
+          </div>`;
+      }).join('');
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:0 0 8px;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)">
+          <div>Axe</div>
+          <div>Poids (slider 0–40)</div>
+          <div style="text-align:center">Valeur</div>
+          <div style="text-align:right">Défaut</div>
+        </div>
+        ${rows}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 14px;background:var(--surface-2);border-radius:8px">
+          <div style="font-size:12px;color:var(--text-secondary)">Somme des poids</div>
+          <div style="font-size:18px;font-weight:700;color:${sumColor};font-variant-numeric:tabular-nums">${sum.toFixed(1)} <span style="font-size:11px;font-weight:400;opacity:0.6">/ 100 idéal</span></div>
+        </div>
+        <div style="margin-top:10px;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:11px;color:var(--text-secondary);line-height:1.5">
+          💡 Les poids somment idéalement à <strong>100</strong> pour que le score affiché soit lisible (0-100). Une somme différente reste valide — le score total peut juste sortir de l'intervalle (ex: max 120 si somme=120). Le cache stock-analysis (TTL 1h) expire progressivement, donc les nouveaux poids s'appliquent dans les ~60 min.
+        </div>`;
+    }
+
+    function onAdminWeightChange(key, value) {
+      const v = Math.max(0, Math.min(100, Number(value) || 0));
+      adminScoreWeightsState.current[key] = v;
+      renderAdminScoreWeights();
+    }
+
+    function resetAdminScoreWeights() {
+      if (!adminScoreWeightsState.defaults) return;
+      adminScoreWeightsState.current = { ...adminScoreWeightsState.defaults };
+      renderAdminScoreWeights();
+    }
+
+    async function saveAdminScoreWeights() {
+      if (!currentUser || !adminScoreWeightsState.current) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/admin/score-weights`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(adminScoreWeightsState.current),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          Toast.error('Erreur : ' + (data.error || `API ${res.status}`));
+          return;
+        }
+        Toast.success(`Poids sauvegardés (somme : ${data.sum}). Effet progressif sur ~60 min.`);
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || e));
+      }
+    }
+
+    window.loadAdminScoreWeights = loadAdminScoreWeights;
+    window.onAdminWeightChange = onAdminWeightChange;
+    window.resetAdminScoreWeights = resetAdminScoreWeights;
+    window.saveAdminScoreWeights = saveAdminScoreWeights;
 
     // ============================================================
     // ADMIN : Error tracking (Priorité 3.2)

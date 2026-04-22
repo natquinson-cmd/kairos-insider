@@ -391,6 +391,12 @@ async function handleRequest(request, env) {
         if (path === '/api/admin/backup-status') {
           return handleAdminBackupStatus(env, origin);
         }
+        if (path === '/api/admin/score-weights' && request.method === 'GET') {
+          return handleAdminScoreWeightsGet(env, origin);
+        }
+        if (path === '/api/admin/score-weights' && request.method === 'PUT') {
+          return handleAdminScoreWeightsPut(request, env, origin);
+        }
         // Error log : liste + clear
         if (path === '/api/admin/errors') {
           return handleAdminErrors(env, origin);
@@ -4248,6 +4254,75 @@ async function handleAdminBackupStatus(env, origin) {
       meta,
       now: new Date(nowMs).toISOString(),
     }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: err.message || String(err) }, 500, origin);
+  }
+}
+
+// ============================================================
+// ADMIN : Ponderation du Kairos Score (GET + PUT)
+// ============================================================
+// Les poids par defaut somment a 100. On accepte aussi une somme
+// differente (ex: 120 ou 80) — on normalisera cote front si besoin.
+const SCORE_WEIGHT_KEYS = ['insider','smartMoney','govGuru','momentum','valuation','analyst','health','earnings'];
+const SCORE_DEFAULT_WEIGHTS = {
+  insider: 20, smartMoney: 20, govGuru: 10, momentum: 15,
+  valuation: 10, analyst: 10, health: 10, earnings: 5,
+};
+const SCORE_WEIGHT_LABELS = {
+  insider: 'Signal des initiés',
+  smartMoney: 'Hedge funds (13F)',
+  govGuru: 'Politiciens & gourous',
+  momentum: 'Momentum du cours',
+  valuation: 'Valorisation',
+  analyst: 'Consensus analystes',
+  health: 'Santé financière',
+  earnings: 'Momentum résultats',
+};
+
+async function handleAdminScoreWeightsGet(env, origin) {
+  try {
+    let current = null;
+    try { current = await env.CACHE.get('config:score-weights', 'json'); } catch {}
+    const weights = current && typeof current === 'object' ? current : SCORE_DEFAULT_WEIGHTS;
+    const sum = SCORE_WEIGHT_KEYS.reduce((s, k) => s + (weights[k] || 0), 0);
+    return jsonResponse({
+      weights,
+      defaults: SCORE_DEFAULT_WEIGHTS,
+      labels: SCORE_WEIGHT_LABELS,
+      keys: SCORE_WEIGHT_KEYS,
+      sum,
+      isDefault: !current,
+    }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: err.message || String(err) }, 500, origin);
+  }
+}
+
+async function handleAdminScoreWeightsPut(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return jsonResponse({ error: 'Invalid JSON body' }, 400, origin);
+    }
+    const weights = {};
+    for (const k of SCORE_WEIGHT_KEYS) {
+      const v = Number(body[k]);
+      if (!Number.isFinite(v) || v < 0 || v > 100) {
+        return jsonResponse({ error: `Invalid weight for '${k}' : must be a number between 0 and 100.` }, 400, origin);
+      }
+      weights[k] = Math.round(v * 100) / 100; // 2 decimals max
+    }
+    const sum = SCORE_WEIGHT_KEYS.reduce((s, k) => s + weights[k], 0);
+    if (sum < 1) {
+      return jsonResponse({ error: 'Sum of weights must be > 0' }, 400, origin);
+    }
+    if (sum > 200) {
+      return jsonResponse({ error: `Sum of weights too high (${sum}) — max 200` }, 400, origin);
+    }
+    // Save (infinite TTL, ecrase la precedente config)
+    await env.CACHE.put('config:score-weights', JSON.stringify(weights));
+    return jsonResponse({ ok: true, weights, sum, savedAt: new Date().toISOString() }, 200, origin);
   } catch (err) {
     return jsonResponse({ error: err.message || String(err) }, 500, origin);
   }

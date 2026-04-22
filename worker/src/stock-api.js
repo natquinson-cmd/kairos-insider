@@ -72,9 +72,19 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
   };
   const consensus = overview.consensus;
 
+  // Poids du Kairos Score : parametrables via console admin → KV config:score-weights.
+  // Cache 1h : la config ne change pas souvent et les appels stockAnalysis sont
+  // tres frequents. Fallback sur les poids par defaut si KV vide ou invalide.
+  let scoreWeights = null;
+  try {
+    const w = await env.CACHE.get('config:score-weights', 'json');
+    if (w && typeof w === 'object') scoreWeights = w;
+  } catch {}
+
   const score = computeKairosScore({
     insiders, smartMoney, govEtf, quote, fundamentals, consensus,
     health: statistics.health, earnings: earningsData,
+    weights: scoreWeights,
   });
 
   const result = {
@@ -1077,18 +1087,42 @@ async function fetchGoogleTrends(ticker, env) {
 }
 
 // ============================================================
-// KAIROS SCORE : composite 0-100 avec 7 sous-scores
+// KAIROS SCORE : composite 0-100 avec 8 sous-scores + poids parametrables
 // ============================================================
-function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings }) {
+// Les poids par defaut somment a 100 (score max = 100). Chaque axe est
+// calcule en interne sur une base fixe (BASE_MAX), puis le score final
+// pour l'axe = (score_brut / BASE_MAX) * poids_custom.
+//
+// Pour personnaliser les poids : console admin → panneau 'Ponderation
+// Kairos Score' → ecrit dans KV config:score-weights.
+// ============================================================
+const SCORE_BASE_MAX = {
+  insider: 20, smartMoney: 20, govGuru: 10, momentum: 15,
+  valuation: 10, analyst: 10, health: 10, earnings: 5,
+};
+const SCORE_DEFAULT_WEIGHTS = { ...SCORE_BASE_MAX }; // somme = 100
+
+function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, weights }) {
+  // weights custom OU defaults (meme repartition que BASE_MAX)
+  const W = { ...SCORE_DEFAULT_WEIGHTS, ...(weights || {}) };
+
   const breakdown = {
-    insider: { score: 0, max: 20, label: 'Signal des initiés', detail: '' },
-    smartMoney: { score: 0, max: 20, label: 'Hedge funds (13F)', detail: '' },
-    govGuru: { score: 0, max: 10, label: 'Politiciens & gourous', detail: '' },
-    momentum: { score: 0, max: 15, label: 'Momentum du cours', detail: '' },
-    valuation: { score: 0, max: 10, label: 'Valorisation', detail: '' },
-    analyst: { score: 0, max: 10, label: 'Consensus analystes', detail: '' },
-    health: { score: 0, max: 10, label: 'Santé financière', detail: '' },
-    earnings: { score: 0, max: 5, label: 'Momentum résultats', detail: '' },
+    insider: { score: 0, max: W.insider, label: 'Signal des initiés', detail: '' },
+    smartMoney: { score: 0, max: W.smartMoney, label: 'Hedge funds (13F)', detail: '' },
+    govGuru: { score: 0, max: W.govGuru, label: 'Politiciens & gourous', detail: '' },
+    momentum: { score: 0, max: W.momentum, label: 'Momentum du cours', detail: '' },
+    valuation: { score: 0, max: W.valuation, label: 'Valorisation', detail: '' },
+    analyst: { score: 0, max: W.analyst, label: 'Consensus analystes', detail: '' },
+    health: { score: 0, max: W.health, label: 'Santé financière', detail: '' },
+    earnings: { score: 0, max: W.earnings, label: 'Momentum résultats', detail: '' },
+  };
+
+  // Helper : applique le poids custom a un score brut calcule sur BASE_MAX.
+  // Ex: insider raw=15 sur BASE_MAX=20 → normalized=0.75 → si weight=25 → score=19
+  const applyWeight = (axis, rawScore) => {
+    const baseMax = SCORE_BASE_MAX[axis];
+    const normalized = Math.max(0, Math.min(1, rawScore / baseMax));
+    return Math.round(normalized * W[axis]);
   };
 
   // --- INSIDER (0-20) ---
@@ -1101,7 +1135,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   else if (buyVsSell < 0) insiderScore -= Math.min(2, Math.abs(buyVsSell) * 0.4);
   if (insiders.clusterSignal) insiderScore += 3;
   if (insiders.uniqueInsiders >= 5) insiderScore += 1;
-  breakdown.insider.score = Math.max(0, Math.min(20, Math.round(insiderScore)));
+  breakdown.insider.score = applyWeight('insider', insiderScore);
   breakdown.insider.detail = `${insiders.buyCount} achats / ${insiders.sellCount} ventes, ${insiders.uniqueInsiders} initiés uniques${insiders.clusterSignal ? ', CLUSTER DÉTECTÉ' : ''}`;
 
   // --- SMART MONEY (0-20) ---
@@ -1111,14 +1145,14 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   else if (smartMoney.avgDeltaPct > 0) smScore += 2;
   else if (smartMoney.avgDeltaPct < -5) smScore -= 4;
   else if (smartMoney.avgDeltaPct < 0) smScore -= 2;
-  breakdown.smartMoney.score = Math.max(0, Math.min(20, Math.round(smScore)));
+  breakdown.smartMoney.score = applyWeight('smartMoney', smScore);
   breakdown.smartMoney.detail = `${smartMoney.fundCount} fonds, évolution moyenne ${smartMoney.avgDeltaPct.toFixed(1)}%`;
 
   // --- GOV/GURU (0-10) ---
   let ggScore = 5;
   if (govEtf.inEtfs.length > 0) ggScore += govEtf.inEtfs.length * 1.5;
   if (govEtf.totalPct > 1) ggScore += 1;
-  breakdown.govGuru.score = Math.max(0, Math.min(10, Math.round(ggScore)));
+  breakdown.govGuru.score = applyWeight('govGuru', ggScore);
   breakdown.govGuru.detail = govEtf.inEtfs.length > 0
     ? `Présent dans ${govEtf.inEtfs.map(e => e.etf).join(', ')} (${govEtf.totalPct.toFixed(2)}%)`
     : 'Absent des ETF suivis';
@@ -1136,7 +1170,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   }
   if (price && price.changePct > 2) momScore = Math.min(15, momScore + 2);
   else if (price && price.changePct < -2) momScore = Math.max(0, momScore - 2);
-  breakdown.momentum.score = Math.max(0, Math.min(15, momScore));
+  breakdown.momentum.score = applyWeight('momentum', momScore);
   if (price && price.high52w) {
     const distHigh = ((price.high52w - price.current) / price.high52w) * 100;
     breakdown.momentum.detail = `${distHigh.toFixed(0)}% sous le plus-haut 52 sem.`;
@@ -1153,7 +1187,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
     else if (stats.peRatio > 40) valScore -= 2;
   }
   if (stats.forwardPE && stats.peRatio && stats.forwardPE < stats.peRatio) valScore += 1;
-  breakdown.valuation.score = Math.max(0, Math.min(10, Math.round(valScore)));
+  breakdown.valuation.score = applyWeight('valuation', valScore);
   breakdown.valuation.detail = stats.peRatio
     ? `P/E ${stats.peRatio.toFixed(1)}${stats.forwardPE ? `, prév. ${stats.forwardPE.toFixed(1)}` : ''}`
     : 'P/E indisponible';
@@ -1172,7 +1206,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
     else if (upside > -10) anaScore = 4;
     else anaScore = 2;
   }
-  breakdown.analyst.score = Math.max(0, Math.min(10, anaScore));
+  breakdown.analyst.score = applyWeight('analyst', anaScore);
   if (consensus && consensus.total > 0) {
     breakdown.analyst.detail = `${consensus.bullishPct.toFixed(0)}% haussiers (${consensus.total} analystes)`;
   } else if (stats.targetMeanPrice && price && price.current) {
@@ -1196,7 +1230,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
     else if (h.piotroskiF >= 4) { healthScore += 0; bits.push(`F=${h.piotroskiF}/9`); }
     else { healthScore -= 2; bits.push(`F=${h.piotroskiF}/9 (faible)`); }
   }
-  breakdown.health.score = Math.max(0, Math.min(10, Math.round(healthScore)));
+  breakdown.health.score = applyWeight('health', healthScore);
   breakdown.health.detail = bits.length > 0 ? bits.join(', ') : 'Scores indisponibles';
 
   // --- EARNINGS MOMENTUM (0-5) : beats consecutifs ---
@@ -1210,7 +1244,7 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   } else {
     breakdown.earnings.detail = 'Historique indisponible';
   }
-  breakdown.earnings.score = Math.max(0, Math.min(5, earnScore));
+  breakdown.earnings.score = applyWeight('earnings', earnScore);
 
   // --- Total ---
   const total = Object.values(breakdown).reduce((s, b) => s + b.score, 0);
