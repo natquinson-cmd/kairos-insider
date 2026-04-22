@@ -43,6 +43,14 @@ binding = "HISTORY"
 database_name = "kairos-history"
 database_id = "e26b41bc-9a11-42b4-a33e-e369f2fd7602"
 
+# R2 bucket pour les backups quotidiens D1 + KV.
+# Ecrit par le workflow GitHub Actions backup.yml (cron 7h UTC).
+# Le worker n'a besoin que de la lecture de meta/last-backup.json
+# pour alimenter /api/admin/backup/status.
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "kairos-backups"
+
 # ============================================================
 # CRON TRIGGERS
 # ============================================================

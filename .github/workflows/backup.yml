@@ -1,0 +1,210 @@
+name: Backup D1 + KV to R2
+
+# Backup quotidien des donnees critiques vers R2 bucket kairos-backups.
+# - D1 kairos-history : dump SQL complet via wrangler d1 export
+# - KV critical keys  : users (sub:*, wl:*) + data pipeline (insiders, 13F, ETF, etc.)
+# - Rotation 30 jours (on supprime les backups plus vieux)
+# - Metadata last-backup.json mise a jour a chaque run
+#
+# Le cron tourne a 7h UTC = apres le cron data (5h UTC) donc les backups
+# incluent toujours les donnees du jour.
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BUCKET: kairos-backups
+      KV_ID: aca7ff9d2a244b06ae92d6a7129b4cc4
+      D1_NAME: kairos-history
+      DATE: ''            # rempli au step suivant
+      BACKUP_DIR: backup-output
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Wrangler + tools
+        run: |
+          npm install -g wrangler
+          sudo apt-get update -qq && sudo apt-get install -y -qq gzip jq coreutils
+
+      - name: Compute date stamp
+        run: echo "DATE=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Create output dir
+        run: mkdir -p "$BACKUP_DIR/d1" "$BACKUP_DIR/kv"
+
+      # ================================================================
+      # D1 — export SQL complet de kairos-history
+      # ================================================================
+      - name: D1 export kairos-history
+        run: |
+          cd worker
+          wrangler d1 export "$D1_NAME" --remote --output="../$BACKUP_DIR/d1/$DATE.sql"
+          echo "D1 dump size: $(wc -c < ../$BACKUP_DIR/d1/$DATE.sql) bytes"
+          gzip -9 "../$BACKUP_DIR/d1/$DATE.sql"
+          echo "D1 dump gzipped: $(wc -c < ../$BACKUP_DIR/d1/$DATE.sql.gz) bytes"
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: Upload D1 dump to R2
+        run: |
+          wrangler r2 object put "$BUCKET/d1/$DATE.sql.gz" \
+            --file="$BACKUP_DIR/d1/$DATE.sql.gz" \
+            --content-type="application/gzip" \
+            --remote
+        continue-on-error: true
+
+      # ================================================================
+      # KV — export des cles critiques (P1 users + P2 data pipeline)
+      # ================================================================
+      # On export par prefix pour P1 (sub:*, wl:*) et par cle exacte pour P2.
+      - name: Export KV users (sub:*, wl:*)
+        run: |
+          cd worker
+          for prefix in "sub:" "wl:"; do
+            echo "--- Exporting prefix: $prefix ---"
+            wrangler kv key list --namespace-id="$KV_ID" --prefix="$prefix" --remote > "../$BACKUP_DIR/kv/_list-${prefix%:}.json" 2>/dev/null || echo "[]" > "../$BACKUP_DIR/kv/_list-${prefix%:}.json"
+            count=$(jq 'length' "../$BACKUP_DIR/kv/_list-${prefix%:}.json" 2>/dev/null || echo "0")
+            echo "Found $count keys with prefix $prefix"
+            echo "{}" > "../$BACKUP_DIR/kv/${prefix%:}-all.json"
+            jq -r '.[].name' "../$BACKUP_DIR/kv/_list-${prefix%:}.json" 2>/dev/null | while read -r key; do
+              [ -z "$key" ] && continue
+              val=$(wrangler kv key get --namespace-id="$KV_ID" --remote "$key" 2>/dev/null || echo "")
+              # Concatene en un seul JSON map
+              jq --arg k "$key" --arg v "$val" '. + {($k): $v}' "../$BACKUP_DIR/kv/${prefix%:}-all.json" > "../$BACKUP_DIR/kv/${prefix%:}-all.tmp" && mv "../$BACKUP_DIR/kv/${prefix%:}-all.tmp" "../$BACKUP_DIR/kv/${prefix%:}-all.json"
+            done
+            gzip -9 "../$BACKUP_DIR/kv/${prefix%:}-all.json"
+            echo "KV ${prefix%:} gzipped: $(wc -c < ../$BACKUP_DIR/kv/${prefix%:}-all.json.gz) bytes"
+          done
+        timeout-minutes: 15
+        continue-on-error: true
+
+      - name: Export KV data pipeline keys (exact keys)
+        run: |
+          cd worker
+          KEYS=(
+            "insider-transactions"
+            "insider-clusters"
+            "13f-all-funds"
+            "13f-ticker-index"
+            "13f-funds-list"
+            "13dg-recent"
+            "google-trends-hot"
+            "google-trends-data"
+            "public-tickers-list"
+            "home:top-signals"
+          )
+          for key in "${KEYS[@]}"; do
+            echo "--- Exporting: $key ---"
+            safe="${key//:/_}"
+            wrangler kv key get --namespace-id="$KV_ID" --remote "$key" > "../$BACKUP_DIR/kv/data-$safe.json" 2>/dev/null || echo "{}" > "../$BACKUP_DIR/kv/data-$safe.json"
+            size=$(wc -c < "../$BACKUP_DIR/kv/data-$safe.json")
+            echo "$key: $size bytes"
+            gzip -9 "../$BACKUP_DIR/kv/data-$safe.json"
+          done
+          # Export tous les etf-*
+          wrangler kv key list --namespace-id="$KV_ID" --prefix="etf-" --remote > "../$BACKUP_DIR/kv/_list-etf.json" 2>/dev/null || echo "[]" > "../$BACKUP_DIR/kv/_list-etf.json"
+          echo "{}" > "../$BACKUP_DIR/kv/etf-all.json"
+          jq -r '.[].name' "../$BACKUP_DIR/kv/_list-etf.json" 2>/dev/null | while read -r key; do
+            [ -z "$key" ] && continue
+            val=$(wrangler kv key get --namespace-id="$KV_ID" --remote "$key" 2>/dev/null || echo "")
+            jq --arg k "$key" --arg v "$val" '. + {($k): $v}' "../$BACKUP_DIR/kv/etf-all.json" > "../$BACKUP_DIR/kv/etf-all.tmp" && mv "../$BACKUP_DIR/kv/etf-all.tmp" "../$BACKUP_DIR/kv/etf-all.json"
+          done
+          gzip -9 "../$BACKUP_DIR/kv/etf-all.json"
+        timeout-minutes: 10
+        continue-on-error: true
+
+      - name: Upload KV backups to R2
+        run: |
+          for f in $BACKUP_DIR/kv/*.gz; do
+            [ -f "$f" ] || continue
+            fname=$(basename "$f")
+            echo "Uploading $fname..."
+            wrangler r2 object put "$BUCKET/kv/$DATE/$fname" \
+              --file="$f" \
+              --content-type="application/gzip" \
+              --remote || echo "WARN: upload failed for $fname"
+          done
+        continue-on-error: true
+
+      # ================================================================
+      # ROTATION : supprimer les backups > 30 jours
+      # ================================================================
+      - name: Rotate old backups (>30 days)
+        run: |
+          CUTOFF=$(date -u -d '30 days ago' +%Y-%m-%d)
+          echo "Cutoff date: $CUTOFF — suppression des backups anterieurs"
+          # D1
+          wrangler r2 object list "$BUCKET" --prefix="d1/" --remote 2>/dev/null | tail -n +2 | awk '{print $1}' | while read -r key; do
+            [ -z "$key" ] && continue
+            date_part=$(echo "$key" | sed -n 's|^d1/\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\).*|\1|p')
+            if [ -n "$date_part" ] && [ "$date_part" \< "$CUTOFF" ]; then
+              echo "DELETE $key"
+              wrangler r2 object delete "$BUCKET/$key" --remote 2>/dev/null || true
+            fi
+          done
+          # KV (meme logique, prefix kv/YYYY-MM-DD/)
+          wrangler r2 object list "$BUCKET" --prefix="kv/" --remote 2>/dev/null | tail -n +2 | awk '{print $1}' | while read -r key; do
+            [ -z "$key" ] && continue
+            date_part=$(echo "$key" | sed -n 's|^kv/\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)/.*|\1|p')
+            if [ -n "$date_part" ] && [ "$date_part" \< "$CUTOFF" ]; then
+              echo "DELETE $key"
+              wrangler r2 object delete "$BUCKET/$key" --remote 2>/dev/null || true
+            fi
+          done
+        continue-on-error: true
+
+      # ================================================================
+      # METADATA : publier last-backup.json pour visibilite admin
+      # ================================================================
+      - name: Publish backup metadata
+        run: |
+          # Compute sizes
+          D1_SIZE=0
+          [ -f "$BACKUP_DIR/d1/$DATE.sql.gz" ] && D1_SIZE=$(wc -c < "$BACKUP_DIR/d1/$DATE.sql.gz")
+          KV_SIZE=0
+          for f in $BACKUP_DIR/kv/*.gz; do
+            [ -f "$f" ] || continue
+            s=$(wc -c < "$f")
+            KV_SIZE=$((KV_SIZE + s))
+          done
+          KV_FILES=$(ls $BACKUP_DIR/kv/*.gz 2>/dev/null | wc -l)
+          cat > "$BACKUP_DIR/meta.json" <<META
+          {
+            "ts": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "date": "$DATE",
+            "status": "ok",
+            "runId": "${{ github.run_id }}",
+            "runUrl": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "d1": { "sizeBytes": $D1_SIZE, "path": "d1/$DATE.sql.gz" },
+            "kv": { "sizeBytes": $KV_SIZE, "fileCount": $KV_FILES, "prefix": "kv/$DATE/" },
+            "retentionDays": 30
+          }
+          META
+          echo "=== meta.json ==="
+          cat "$BACKUP_DIR/meta.json"
+          wrangler r2 object put "$BUCKET/meta/last-backup.json" \
+            --file="$BACKUP_DIR/meta.json" \
+            --content-type="application/json" \
+            --remote
+
+      # ================================================================
+      # HEALTH : mise a jour KV lastRun pour le health check
+      # ================================================================
+      - name: Update lastRun in KV for health monitoring
+        run: |
+          NOW_TS=$(date -u +%s)
+          echo "{\"ts\": $NOW_TS, \"status\": \"ok\", \"label\": \"backup-to-r2\"}" > /tmp/lastrun.json
+          wrangler kv key put "lastRun:backup-to-r2" \
+            --namespace-id="$KV_ID" \
+            --remote \
+            --path=/tmp/lastrun.json
+        continue-on-error: true

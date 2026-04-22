@@ -388,6 +388,9 @@ async function handleRequest(request, env) {
         if (path === '/api/admin/health-status') {
           return handleAdminHealthStatus(env, origin);
         }
+        if (path === '/api/admin/backup-status') {
+          return handleAdminBackupStatus(env, origin);
+        }
         // Error log : liste + clear
         if (path === '/api/admin/errors') {
           return handleAdminErrors(env, origin);
@@ -4184,6 +4187,49 @@ async function handleAdminHealthStatus(env, origin) {
       check,
       alert,
       now: Math.floor(Date.now() / 1000),
+    }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: err.message || String(err) }, 500, origin);
+  }
+}
+
+// ============================================================
+// ADMIN : statut du dernier backup (GitHub Actions → R2)
+// ============================================================
+// Lit meta/last-backup.json depuis le bucket R2 kairos-backups.
+// Le workflow .github/workflows/backup.yml ecrit ce fichier apres chaque
+// run. On calcule l'age du backup et un flag fresh (< 25h) / stale (> 48h).
+async function handleAdminBackupStatus(env, origin) {
+  try {
+    if (!env.BACKUPS) {
+      return jsonResponse({
+        error: 'R2 binding BACKUPS not configured',
+        hint: 'Add [[r2_buckets]] binding=BACKUPS bucket_name=kairos-backups to wrangler.toml and deploy.',
+      }, 503, origin);
+    }
+    const obj = await env.BACKUPS.get('meta/last-backup.json');
+    if (!obj) {
+      return jsonResponse({
+        hasBackup: false,
+        message: 'Aucun backup trouve. Le workflow GitHub Actions n\'a pas encore tourne.',
+      }, 200, origin);
+    }
+    const meta = await obj.json();
+    const nowMs = Date.now();
+    const backupMs = meta.ts ? new Date(meta.ts).getTime() : 0;
+    const ageHours = backupMs ? Math.round((nowMs - backupMs) / 3600000) : null;
+    let freshness = 'unknown';
+    if (ageHours !== null) {
+      if (ageHours < 25) freshness = 'fresh';
+      else if (ageHours < 48) freshness = 'warning';
+      else freshness = 'stale';
+    }
+    return jsonResponse({
+      hasBackup: true,
+      ageHours,
+      freshness,
+      meta,
+      now: new Date(nowMs).toISOString(),
     }, 200, origin);
   } catch (err) {
     return jsonResponse({ error: err.message || String(err) }, 500, origin);

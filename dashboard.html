@@ -3666,6 +3666,11 @@
             <div id="adKpiJobs" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiJobsLast" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase E</div>
           </div>
+          <div style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Backup R2</div>
+            <div id="adKpiBackup" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
+            <div id="adKpiBackupMeta" style="font-size:11px;color:var(--text-muted);margin-top:4px">D1 + KV → R2</div>
+          </div>
         </div>
 
         <!-- 2 COLONNES : USERS + SUBS / TRAFFIC -->
@@ -11502,14 +11507,15 @@
         const token = await currentUser.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Fetch en parallele : subs-stats + users + traffic + db-stats + jobs
+        // Fetch en parallele : subs-stats + users + traffic + db-stats + jobs + backup
         const trafficDays = document.getElementById('adTrafficDays')?.value || '7';
-        const [subsRes, usersRes, trafficRes, dbRes, jobsRes] = await Promise.all([
+        const [subsRes, usersRes, trafficRes, dbRes, jobsRes, backupRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/ga4-stats?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/db-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/jobs`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/backup-status`, { headers }).then(r => r.json()).catch(() => null),
         ]);
 
         // KPI cards
@@ -11543,6 +11549,33 @@
             const mostRecent = jobsRes.jobs[0];
             const when = mostRecent.iso ? new Date(mostRecent.iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
             lastEl.textContent = `Dernier : ${mostRecent.name} · ${when}`;
+          }
+        }
+
+        // KPI Backup R2
+        if (backupRes) {
+          const kpiEl = document.getElementById('adKpiBackup');
+          const metaEl = document.getElementById('adKpiBackupMeta');
+          if (kpiEl) {
+            if (!backupRes.hasBackup) {
+              kpiEl.textContent = '—';
+              kpiEl.style.color = 'var(--text-muted)';
+              if (metaEl) metaEl.textContent = 'Aucun backup';
+            } else {
+              const h = backupRes.ageHours;
+              kpiEl.textContent = h != null ? `${h}h` : '—';
+              const freshness = backupRes.freshness || 'unknown';
+              kpiEl.style.color = freshness === 'fresh' ? '#10B981'
+                                : freshness === 'warning' ? '#F59E0B'
+                                : freshness === 'stale' ? '#EF4444'
+                                : 'var(--text-primary)';
+              if (metaEl) {
+                const d1Mb = backupRes.meta?.d1?.sizeBytes ? (backupRes.meta.d1.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : '—';
+                const kvMb = backupRes.meta?.kv?.sizeBytes ? (backupRes.meta.kv.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : '—';
+                const files = backupRes.meta?.kv?.fileCount || 0;
+                metaEl.textContent = `D1 ${d1Mb} · KV ${kvMb} (${files} fichiers)`;
+              }
+            }
           }
         }
 

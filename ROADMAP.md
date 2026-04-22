@@ -103,9 +103,10 @@
 ## 🔧 Priorité 5 — Fiabilité & Infrastructure
 
 ### Backups
-- [ ] **Backup automatique D1 → R2** (cron quotidien)
-- [ ] **Backup KV** (export critical keys → R2 avec rotation 30j)
-- [ ] **Plan de reprise d'activité** documenté
+✅ **Backup automatique D1 → R2** : workflow `.github/workflows/backup.yml` cron 7h UTC, `wrangler d1 export` → gzip → R2 `d1/YYYY-MM-DD.sql.gz`, rotation 30j  
+✅ **Backup KV** : sub:* + wl:* + insider-* + 13f-* + 13dg-* + etf-* + public-tickers-list + google-trends-* + home:top-signals → R2 `kv/YYYY-MM-DD/*.json.gz`, rotation 30j  
+✅ **Plan de reprise d'activité** : [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) (RPO 24h · RTO < 2h · procédures de restauration D1 + KV pas à pas)  
+✅ **Monitoring** : card "Backup R2" dans le dashboard admin (vert <25h / orange <48h / rouge >48h) + endpoint `/api/admin/backup-status`
 
 ### Tests
 - [ ] **Tests unitaires** Worker (Vitest ou Node test runner)
