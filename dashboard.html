@@ -1353,6 +1353,52 @@
       box-shadow: 0 0 12px rgba(59,130,246,0.3);
     }
 
+    /* ===== SIGNAUX INSIDERS — SOUS-ONGLETS ===== */
+    .cl-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .cl-tab {
+      padding: 10px 18px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+    }
+    .cl-tab:hover {
+      color: var(--text-primary);
+      background: var(--surface-2);
+      border-color: var(--border-strong);
+    }
+    .cl-tab.active {
+      color: #FFFFFF;
+      background: linear-gradient(135deg, #3B82F6, #6366F1);
+      border-color: #3B82F6;
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+    }
+    .cl-tab.active::after {
+      content: '';
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      bottom: -15px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #3B82F6, transparent);
+      border-radius: 2px;
+    }
+
     /* ===== CHARTS ===== */
     .charts-row {
       display: grid;
@@ -2544,11 +2590,11 @@
         <p class="section-desc" data-i18n="dash.section.clustering.desc">Quatre angles de lecture des transactions insiders — clusters, flux net, insiders transversaux et achats contrarians. Chaque vue repond a une question differente : "qui achete ensemble ?", "ou accumulent-ils ?", "qui a la vision transversale ?", "qui a la plus forte conviction ?".</p>
 
         <!-- BARRE DE SOUS-ONGLETS -->
-        <div class="cl-tabs" role="tablist" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--divider)">
-          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')" style="padding:10px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">🎯 <span data-i18n="dash.clustering.tab.clusters">Clusters</span></button>
-          <button class="cl-tab" role="tab" data-cltab="netflow" onclick="switchClusterTab('netflow')" style="padding:10px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">💰 <span data-i18n="dash.clustering.tab.netflow">Flux net 30j</span></button>
-          <button class="cl-tab" role="tab" data-cltab="crossticker" onclick="switchClusterTab('crossticker')" style="padding:10px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">🔄 <span data-i18n="dash.clustering.tab.crossticker">Transversaux</span></button>
-          <button class="cl-tab" role="tab" data-cltab="contrarian" onclick="switchClusterTab('contrarian')" style="padding:10px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s">⚡ <span data-i18n="dash.clustering.tab.contrarian">Contrarian</span></button>
+        <div class="cl-tabs" role="tablist">
+          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')">🎯 <span data-i18n="dash.clustering.tab.clusters">Clusters</span></button>
+          <button class="cl-tab" role="tab" data-cltab="netflow" onclick="switchClusterTab('netflow')">💰 <span data-i18n="dash.clustering.tab.netflow">Flux net 30j</span></button>
+          <button class="cl-tab" role="tab" data-cltab="crossticker" onclick="switchClusterTab('crossticker')">🔄 <span data-i18n="dash.clustering.tab.crossticker">Transversaux</span></button>
+          <button class="cl-tab" role="tab" data-cltab="contrarian" onclick="switchClusterTab('contrarian')">⚡ <span data-i18n="dash.clustering.tab.contrarian">Contrarian</span></button>
         </div>
 
         <!-- ===== ONGLET 1 : CLUSTERS ===== -->
@@ -9099,21 +9145,13 @@
       if (!['clusters','netflow','crossticker','contrarian'].includes(tab)) return;
       currentClusterTab = tab;
 
-      // Bascule visuelle des boutons
       document.querySelectorAll('.cl-tab').forEach(b => {
-        const active = b.dataset.cltab === tab;
-        b.classList.toggle('active', active);
-        b.style.background = active ? 'var(--surface-2)' : 'var(--surface-1)';
-        b.style.borderColor = active ? 'var(--border-strong)' : 'var(--border)';
-        b.style.color = active ? 'var(--text-primary)' : 'var(--text-secondary)';
+        b.classList.toggle('active', b.dataset.cltab === tab);
       });
-
-      // Bascule panels
       document.querySelectorAll('.cl-panel').forEach(p => {
         p.hidden = (p.id !== `cl-panel-${tab}`);
       });
 
-      // Lazy load
       if (!clusterTabLoaded[tab]) {
         clusterTabLoaded[tab] = true;
         if (tab === 'netflow') loadNetFlow();
