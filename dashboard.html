@@ -3727,7 +3727,7 @@
       <div class="section-page" id="section-admin">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap">
           <h2 style="margin:0">🛡️ Tableau de bord Admin</h2>
-          <span id="adminAutoRefreshStatus" style="font-size:11px;color:var(--text-muted)">—</span>
+          <span id="adminAutoRefreshStatus" class="tip tip-below" data-tip="Heure de la dernière mise à jour des données admin (users, trafic, jobs, backup, erreurs). Cliquer sur 🔄 Refresh ou activer Auto-refresh pour rafraichir." style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:11px;color:#10B981;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap">—</span>
           <label style="margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px">
             <input type="checkbox" id="adminAutoRefresh" onchange="toggleAdminAutoRefresh()" style="accent-color:#10B981" />
             <span>Auto-refresh</span>
@@ -11742,15 +11742,43 @@
         loadAdminErrors().catch(() => {});
         loadAdminScoreWeights().catch(() => {});
 
-        // Status
-        if (statusEl) {
-          const now = new Date().toLocaleTimeString('fr-FR');
-          statusEl.textContent = `MAJ ${now}`;
-        }
+        // Status : timestamp persiste + updater live pour "il y a Xs / Xmin"
+        window._adminLastRefreshTs = Date.now();
+        updateAdminRefreshBadge();
       } catch (e) {
         if (statusEl) statusEl.textContent = 'Erreur : ' + (e.message || e);
       }
     }
+
+    // Met a jour le badge de derniere MAJ (heure + age relatif).
+    // Appele toutes les secondes par un setInterval tant que la section admin
+    // est active. L'age se raffraichit en live (12s → 13s → ... → 2 min).
+    function updateAdminRefreshBadge() {
+      const statusEl = document.getElementById('adminAutoRefreshStatus');
+      if (!statusEl || !window._adminLastRefreshTs) return;
+      const ts = window._adminLastRefreshTs;
+      const ageSec = Math.round((Date.now() - ts) / 1000);
+      const time = new Date(ts).toLocaleTimeString('fr-FR');
+      let rel;
+      if (ageSec < 10) rel = 'à l\'instant';
+      else if (ageSec < 60) rel = `il y a ${ageSec}s`;
+      else if (ageSec < 3600) rel = `il y a ${Math.floor(ageSec / 60)} min`;
+      else rel = `il y a ${Math.floor(ageSec / 3600)}h`;
+      // Coloration selon fraicheur : vert <2min, orange <10min, rouge sinon
+      let color = '#10B981', bg = 'rgba(16,185,129,0.1)', border = 'rgba(16,185,129,0.3)';
+      if (ageSec > 600) { color = '#EF4444'; bg = 'rgba(239,68,68,0.1)'; border = 'rgba(239,68,68,0.3)'; }
+      else if (ageSec > 120) { color = '#F59E0B'; bg = 'rgba(245,158,11,0.1)'; border = 'rgba(245,158,11,0.3)'; }
+      statusEl.style.color = color;
+      statusEl.style.background = bg;
+      statusEl.style.borderColor = border;
+      statusEl.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block"></span>MAJ ${time} <span style="opacity:0.75;font-weight:400">· ${rel}</span>`;
+    }
+    // Ticker 1s — ne tourne que si la section admin est visible (evite le bruit)
+    setInterval(() => {
+      if (document.getElementById('section-admin')?.classList.contains('active')) {
+        updateAdminRefreshBadge();
+      }
+    }, 1000);
 
     function renderAdminUsersPanel(usersRes, subsRes) {
       const body = document.getElementById('adUsersBody');
