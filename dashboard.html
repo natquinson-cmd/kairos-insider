@@ -7475,7 +7475,16 @@
                       <strong>${f.label || f.fundName || 'Inconnu'}</strong>
                       <div style="font-size:11px;opacity:0.55">${f.category || ''} · ${f.reportDate || ''}</div>
                     </div>
-                    <span style="color:${f.deltaPct>0?'#2ecc71':f.deltaPct<0?'#ff7675':'#9CA3AF'};font-size:11px;font-weight:600">${f.status ? hfStatusLabel(f.status) : (f.deltaPct>0?'📈 +'+f.deltaPct.toFixed(0)+'%':f.deltaPct<0?'📉 '+f.deltaPct.toFixed(0)+'%':'➖ —')}</span>
+                    ${(() => {
+                      // Couleur : status prioritaire sur deltaPct. Un 'new' a deltaPct=null
+                      // mais est clairement bullish → vert. Idem sold/closed → rouge.
+                      const s = (f.status || '').toLowerCase();
+                      const isBullish = s === 'new' || s === 'increased' || (f.deltaPct > 0 && !s);
+                      const isBearish = s === 'sold' || s === 'closed' || s === 'exit' || s === 'decreased' || (f.deltaPct < 0 && !s);
+                      const color = isBullish ? '#2ecc71' : isBearish ? '#ff7675' : '#9CA3AF';
+                      const label = f.status ? hfStatusLabel(f.status) : (f.deltaPct>0?'📈 +'+f.deltaPct.toFixed(0)+'%':f.deltaPct<0?'📉 '+f.deltaPct.toFixed(0)+'%':'➖ —');
+                      return `<span style="color:${color};font-size:11px;font-weight:600">${label}</span>`;
+                    })()}
                   </div>
                   <div style="font-size:11px;opacity:0.7;margin-top:2px">
                     $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
