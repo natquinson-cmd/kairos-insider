@@ -46,13 +46,18 @@ def log_last_run(job_name, status='ok', summary='', error='', duration_sec=None)
         if duration_sec is not None:
             payload['durationSec'] = round(float(duration_sec), 1)
 
+        # shell=False : avec shell=True + list, Python execute seulement
+        # le premier element ('npx') sans arguments — meme bug silencieux
+        # que les scripts push-*-to-d1.py, corrige dans commit c12c941.
+        # Resultat : log_last_run failait silently pour tous les jobs,
+        # d'ou les badges STALE permanents malgre les runs OK.
         result = subprocess.run(
             ['npx', 'wrangler', 'kv', 'key', 'put',
              f'--namespace-id={NAMESPACE_ID}',
              '--remote',
              f'lastRun:{job_name}',
              json.dumps(payload)],
-            capture_output=True, timeout=30, shell=True
+            capture_output=True, timeout=30, shell=False
         )
         if result.returncode == 0:
             return True

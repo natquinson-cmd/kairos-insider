@@ -11889,10 +11889,14 @@
         { prefix: 'google-', label: '🔎 Cache trends', desc: 'Cache des tendances Google Trends / Hot Stocks.', expect: '1-5' },
         { prefix: 'lastRun:', label: '📋 Jobs lastRun', desc: 'Traces du dernier run des jobs Python (pipeline).', expect: 'toujours >= 1' },
       ];
+      // wl-prev:* ne doit warner qu'en presence de watchlists actives. Sans
+      // users abonnes a la watchlist, 0 snapshots J-1 est normal (pas un bug).
+      const wlCount = kv['wl:'] || 0;
       const kvRows = kvPrefixes.map(k => {
         const count = kv[k.prefix];
         if (count === undefined || count === null) return '';
-        const isWarning = k.warnIfZero && count === 0;
+        let isWarning = k.warnIfZero && count === 0;
+        if (k.prefix === 'wl-prev:' && wlCount === 0) isWarning = false; // false positif : pas de watchlists => pas de snapshots attendus
         const color = isWarning ? '#F59E0B' : (count > 0 ? 'var(--text-primary)' : 'var(--text-muted)');
         const icon = isWarning ? ' ⚠️' : '';
         const titleAttr = `${k.desc}${k.expect ? ' Attendu : ' + k.expect + '.' : ''}`;
