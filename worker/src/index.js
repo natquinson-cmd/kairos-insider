@@ -5065,12 +5065,23 @@ async function runHealthCheck(env) {
           </thead>
           <tbody>
             ${jobs.sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0, 15).map(j => {
-              const age = j.ts ? Math.round((now - j.ts) / 3600) + 'h' : '—';
-              const color = j.status === 'ok' ? '#10B981' : j.status === 'failed' ? '#EF4444' : '#F59E0B';
+              const ageSec = j.ts ? (now - j.ts) : 0;
+              const age = j.ts ? Math.round(ageSec / 3600) + 'h' : '—';
+              // Un job peut etre "ok" en dernier run mais n'avoir pas tourne
+              // depuis >48h (ex. GitHub Action kill par timeout). Le status STALE
+              // a priorite sur l'ancien status "ok" pour eviter un faux positif.
+              const isStale = j.ts > 0 && ageSec > 2 * HOURS_STALE;
+              const displayStatus = isStale ? 'STALE' : j.status.toUpperCase();
+              const color = isStale ? '#F59E0B'
+                          : j.status === 'ok' ? '#10B981'
+                          : j.status === 'failed' ? '#EF4444'
+                          : '#F59E0B';
+              const ageColor = isStale ? '#F59E0B' : '#6B7280';
+              const ageWeight = isStale ? '600' : '400';
               return `<tr style="border-bottom:1px solid #E5E7EB">
                 <td style="padding:8px">${j.name.replace(/</g, '&lt;')}</td>
-                <td style="padding:8px;color:${color};font-weight:600">${j.status.toUpperCase()}</td>
-                <td style="padding:8px;color:#6B7280">${age}</td>
+                <td style="padding:8px;color:${color};font-weight:600">${displayStatus}</td>
+                <td style="padding:8px;color:${ageColor};font-weight:${ageWeight}">${age}</td>
               </tr>`;
             }).join('')}
           </tbody>
