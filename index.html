@@ -37,12 +37,60 @@
   <link rel="shortcut icon" type="image/svg+xml" href="assets/logo.svg" />
   <link rel="apple-touch-icon" href="assets/logo.svg" />
 
+  <!-- Canonical -->
+  <link rel="canonical" href="https://kairosinsider.fr/" />
+
   <!-- Open Graph -->
-  <meta property="og:image" content="assets/logo.svg" />
+  <meta property="og:site_name" content="Kairos Insider" />
   <meta property="og:title" content="Kairos Insider — Voyez ce que les pros voient" />
   <meta property="og:description" content="Kairos Score, 200+ hedge funds, 11 ETF thématiques, 1000+ actions analysées. La plateforme francophone du smart money." />
+  <meta property="og:image" content="https://kairosinsider.fr/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Kairos Insider — Smart Money Intelligence FR" />
+  <meta property="og:url" content="https://kairosinsider.fr/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="fr_FR" />
+  <meta property="og:locale:alternate" content="en_US" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Kairos Insider — Voyez ce que les pros voient" />
+  <meta name="twitter:description" content="Kairos Score, 200+ hedge funds, 11 ETF thématiques. La plateforme francophone du smart money." />
+  <meta name="twitter:image" content="https://kairosinsider.fr/assets/og-image.png" />
+  <meta name="twitter:image:alt" content="Kairos Insider — Smart Money Intelligence FR" />
+
+  <!-- Schema.org : Organization + WebSite + SearchAction -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://kairosinsider.fr/#org",
+        "name": "Kairos Insider",
+        "url": "https://kairosinsider.fr/",
+        "logo": "https://kairosinsider.fr/assets/logo-512.png",
+        "description": "Plateforme francophone d'analyse smart money : insiders, 13F hedge funds, ETF thématiques, activists.",
+        "sameAs": []
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://kairosinsider.fr/#website",
+        "url": "https://kairosinsider.fr/",
+        "name": "Kairos Insider",
+        "description": "Voyez ce que les pros voient — Kairos Score, 200+ hedge funds, 11 ETF thématiques, 3500+ actions.",
+        "publisher": { "@id": "https://kairosinsider.fr/#org" },
+        "inLanguage": ["fr-FR", "en-US"],
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://kairosinsider.fr/a/{ticker}",
+          "query-input": "required name=ticker"
+        }
+      }
+    ]
+  }
+  </script>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

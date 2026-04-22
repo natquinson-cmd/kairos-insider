@@ -2231,6 +2231,19 @@ async function handleSitemap(env) {
 <lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority>
 </url>`);
 
+    // Pages statiques legales (RGPD / conformite / mentions) — faible priorite mais indexables
+    const staticPages = [
+      { path: '/legal.html',   freq: 'monthly', prio: '0.3' },
+      { path: '/privacy.html', freq: 'monthly', prio: '0.3' },
+      { path: '/cgv.html',     freq: 'monthly', prio: '0.3' },
+    ];
+    for (const sp of staticPages) {
+      urls.push(`<url>
+<loc>${SITE}${sp.path}</loc>
+<lastmod>${today}</lastmod><changefreq>${sp.freq}</changefreq><priority>${sp.prio}</priority>
+</url>`);
+    }
+
     // Une URL SSR par ticker avec hreflang FR + EN (Googlebot indexera les 2)
     for (const t of tickers) {
       const tk = encodeURIComponent(t.ticker);
@@ -2617,14 +2630,14 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
     description: desc,
     datePublished: data.updatedAt || new Date().toISOString(),
     dateModified: data.updatedAt || new Date().toISOString(),
-    image: 'https://kairosinsider.fr/assets/logo.svg',
+    image: 'https://kairosinsider.fr/assets/og-image.png',
     url: canonical,
     author: { '@type': 'Organization', name: 'Kairos Insider', url: 'https://kairosinsider.fr' },
     publisher: {
       '@type': 'Organization',
       name: 'Kairos Insider',
       url: 'https://kairosinsider.fr',
-      logo: { '@type': 'ImageObject', url: 'https://kairosinsider.fr/assets/logo.svg' },
+      logo: { '@type': 'ImageObject', url: 'https://kairosinsider.fr/assets/logo-512.png' },
     },
     about: {
       '@type': 'Corporation',
@@ -2681,12 +2694,16 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
 <meta property="og:url" content="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
-<meta property="og:image" content="https://kairosinsider.fr/assets/logo.svg">
+<meta property="og:image" content="https://kairosinsider.fr/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${escHtmlSsr(title)}">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escHtmlSsr(title)}">
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
-<meta name="twitter:image" content="https://kairosinsider.fr/assets/logo.svg">
+<meta name="twitter:image" content="https://kairosinsider.fr/assets/og-image.png">
+<meta name="twitter:image:alt" content="${escHtmlSsr(title)}">
 
 <!-- Google Analytics 4 (RGPD-friendly) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-7YPCWL035M"></script>

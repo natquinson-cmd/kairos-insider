@@ -148,10 +148,11 @@
 ## 💰 Priorité 7 — Croissance / Acquisition
 
 ### SEO
-- [ ] **Pages `/a/{ticker}` SSR** déjà faites — vérifier indexation Google
-- [ ] **Sitemap dynamique** complet (déjà fait ? à vérifier)
-- [ ] **Meta tags** Open Graph + Twitter Card sur toutes les pages
-- [ ] **Schema.org** (FinancialProduct, Organization)
+✅ **Pages `/a/{ticker}` SSR** en place (worker handleActionSSR, hreflang FR/EN, canonical, JSON-LD Article+Corporation)
+✅ **Sitemap dynamique** (`/sitemap.xml`) : home + 1000 tickers + pages statiques légales (legal/privacy/cgv)
+✅ **Meta tags Open Graph + Twitter Card** sur toutes les pages publiques (index, action, /a/*, legal, privacy, cgv) avec image OG dédiée 1200×630
+✅ **Image OG brandée** (`assets/og-image.png`) — gradient indigo/violet + logo + tagline + candle chart
+✅ **Schema.org** : Organization + WebSite + SearchAction sur index · Article + Organization + Corporation sur /a/{ticker}
 - [ ] **Articles de blog** SEO ciblés ("comment investir comme Warren Buffett", "qu'est-ce qu'un 13F", etc.)
 
 ### Marketing
