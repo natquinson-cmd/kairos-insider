@@ -406,6 +406,14 @@ async function handleRequest(request, env, ctx) {
         if (path === '/api/admin/debug-user') {
           return handleAdminDebugUser(url, env, origin);
         }
+        // Typefully : generation d'un draft dans la queue X depuis signaux Kairos
+        if (request.method === 'POST' && path === '/api/admin/typefully/push') {
+          return handleTypefullyPush(request, env, origin);
+        }
+        // Typefully : dry-run (retourne le tweet sans le pousser)
+        if (request.method === 'GET' && path === '/api/admin/daily-tweets') {
+          return handleDailyTweetsPreview(env, origin);
+        }
         if (path === '/api/admin/subs-stats') {
           return handleAdminSubsStats(env, origin);
         }
@@ -4265,6 +4273,164 @@ async function handleAdminDebugUser(url, env, origin) {
     return jsonResponse(debug, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'debug failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// TYPEFULLY — Auto-push de tweets depuis les signaux Kairos
+// ============================================================
+// Flow :
+//   1. Cron (ou GitHub Action) appelle POST /api/admin/typefully/push
+//   2. Le worker fetch les signaux Kairos du jour (clusters, 13D, score movers)
+//   3. Genere 3 tweets au format compact
+//   4. Poste chaque tweet comme DRAFT dans Typefully (queue X)
+//   5. L'utilisateur approuve/edite depuis l'app Typefully, planifie, publie
+//
+// API Typefully docs : https://typefully.com/help/api
+// Endpoint : POST https://api.typefully.com/v1/drafts/
+// Headers : X-API-KEY: <token>
+// Body : { content, share?: boolean, schedule_date?: ISO, threadify?: boolean }
+// ============================================================
+
+// Genere 3 tweets a partir des signaux Kairos du jour
+async function generateDailyTweets(env) {
+  const tweets = [];
+  // 1. Top signaux du jour (Kairos Score movers + clusters)
+  try {
+    const data = await env.CACHE.get('home-top-signals', 'json');
+    if (data) {
+      // Signal #1 : biggest score mover
+      const topMover = (data.scoreMovers || [])[0];
+      if (topMover && topMover.delta != null) {
+        const arrow = topMover.delta > 0 ? '▲' : '▼';
+        const sign = topMover.delta > 0 ? '+' : '';
+        tweets.push(
+`📊 SCORE MOVER DU JOUR
+
+$${topMover.ticker} : ${topMover.scorePrev}→${topMover.scoreNow} ${arrow} ${sign}${topMover.delta}pt
+
+Cette variation ≥3pt reflète une convergence smart money (hedge funds, insiders, ETF) sur ce ticker en 24h.
+
+Analyse complète : kairosinsider.fr
+#bourse #smartmoney`
+        );
+      }
+      // Signal #2 : biggest insider cluster
+      const topCluster = (data.insiderClusters || [])[0];
+      if (topCluster) {
+        const fmtM = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? '$' + Math.round(v / 1e3) + 'K' : '$' + Math.round(v);
+        const dir = (topCluster.buyCount || 0) > (topCluster.sellCount || 0) ? '🟢 achats' : '🔴 ventes';
+        tweets.push(
+`🔔 CLUSTER INSIDER DETECTE
+
+$${topCluster.ticker} : ${topCluster.buyCount || 0}🟢 / ${topCluster.sellCount || 0}🔴 ${dir} coordonnes.
+Total valeur : ${fmtM(topCluster.totalValue || 0)}
+
+Historique : cluster 3+ insiders = +11% alpha sur 6 mois (Cohen-Malloy-Pomorski 2012).
+
+kairosinsider.fr`
+        );
+      }
+      // Signal #3 : fresh 13D activist
+      const topActivist = (data.activistsFresh || [])[0];
+      if (topActivist) {
+        const form = String(topActivist.form || '').replace(/^SCHEDULE\s+/i, '');
+        tweets.push(
+`⚡ ${topActivist.isActivist ? 'FONDS OFFENSIF' : 'PRISE >5%'} : ${topActivist.filer}
+
+$${topActivist.ticker} · ${form}
+
+${topActivist.isActivist ? 'Activist reconnu → campagne probable (board, buybacks, spin-off).' : 'Prise passive >5%.'}
+
+Source : SEC EDGAR (public).
+kairosinsider.fr`
+        );
+      }
+    }
+  } catch (e) {
+    log.warn('generateDailyTweets.fetch.failed', { detail: String(e && e.message || e) });
+  }
+
+  // Fallback : tweet generique si aucun signal exploitable
+  if (tweets.length === 0) {
+    tweets.push(
+`Voyez ce que les pros voient. 🇫🇷
+
+Kairos Insider agrege en temps reel :
+- 13F de 500+ hedge funds (Buffett, Ackman...)
+- Form 4 insiders (2j delai SEC)
+- 13D activists (Elliott, Icahn)
+- ETF politiques NANC/KRUZ
+
+3 analyses gratuites par jour.
+kairosinsider.fr`
+    );
+  }
+
+  return tweets;
+}
+
+// GET /api/admin/daily-tweets : preview (sans poster)
+async function handleDailyTweetsPreview(env, origin) {
+  try {
+    const tweets = await generateDailyTweets(env);
+    return jsonResponse({ tweets, count: tweets.length, generatedAt: new Date().toISOString() }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'generation failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// POST /api/admin/typefully/push : push les tweets du jour dans Typefully
+// Body optionnel : { tweets: [...] } pour push custom, sinon auto-gen depuis signaux
+async function handleTypefullyPush(request, env, origin) {
+  if (!env.TYPEFULLY_API_KEY) {
+    return jsonResponse({ error: 'TYPEFULLY_API_KEY not configured' }, 500, origin);
+  }
+  try {
+    let body = {};
+    try { body = await request.json(); } catch {}
+    const tweets = Array.isArray(body.tweets) && body.tweets.length
+      ? body.tweets
+      : await generateDailyTweets(env);
+
+    const results = [];
+    for (const content of tweets) {
+      try {
+        const resp = await fetch('https://api.typefully.com/v1/drafts/', {
+          method: 'POST',
+          headers: {
+            'X-API-KEY': `Bearer ${env.TYPEFULLY_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content,
+            // On laisse threadify=true → si le content depasse 280 chars, Typefully
+            // le split automatiquement en thread
+            threadify: true,
+            // share=true genere une URL de preview partageable
+            share: true,
+          }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        results.push({
+          ok: resp.ok,
+          status: resp.status,
+          draftId: data.id || null,
+          shareUrl: data.share_url || null,
+          error: resp.ok ? null : (data.error || data.detail || 'unknown'),
+          preview: content.slice(0, 80) + (content.length > 80 ? '...' : ''),
+        });
+      } catch (e) {
+        results.push({ ok: false, error: String(e && e.message || e), preview: content.slice(0, 80) });
+      }
+    }
+    return jsonResponse({
+      pushed: results.filter(r => r.ok).length,
+      total: results.length,
+      results,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'push failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
