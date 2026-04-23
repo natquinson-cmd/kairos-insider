@@ -2036,12 +2036,12 @@
 
   <!-- ===== PAYWALL OVERLAY ===== -->
   <div class="auth-overlay hidden" id="paywallOverlay">
-    <div class="auth-card" style="max-width:500px">
+    <div class="auth-card" style="max-width:560px">
       <div class="logo-mark">
         <img src="assets/logo.svg" alt="Kairos Insider" />
       </div>
-      <h2 style="margin-bottom:12px">Passez à Kairos Pro</h2>
-      <p style="margin-bottom:18px;font-size:14px;color:var(--text-secondary)">Débloquez l'accès complet : Kairos Score, insiders, hedge funds 13F, fonds offensifs, ETF live, watchlist & digest email.</p>
+      <h2 style="margin-bottom:8px">Débloquez le smart money</h2>
+      <p style="margin-bottom:18px;font-size:13px;color:var(--text-secondary)">Choisissez le plan qui vous convient. Sans engagement, annulable en 1 clic.</p>
 
       <!-- Selecteur de plan : Pro (recommande) vs Elite -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
@@ -2050,16 +2050,21 @@
       </div>
 
       <!-- Toggle Mensuel / Annuel -->
-      <div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;padding:3px;margin-bottom:16px;width:100%">
+      <div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;padding:3px;margin-bottom:14px;width:100%">
         <button type="button" id="pwTabMonthly" onclick="setPaywallBilling('monthly')" style="flex:1;background:var(--surface-1);border:none;color:var(--text-primary);cursor:pointer;padding:8px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;transition:all 0.15s">Mensuel</button>
         <button type="button" id="pwTabYearly" onclick="setPaywallBilling('yearly')" style="flex:1;background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:8px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;transition:all 0.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px">Annuel <span style="background:#10B981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:700">-17%</span></button>
       </div>
 
-      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:20px;margin-bottom:20px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:36px;font-weight:800;color:var(--accent-blue)"><span id="pwAmount">19€</span><span id="pwPeriod" style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
-        <div id="pwSubline" style="font-size:13px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable à tout moment</div>
+      <!-- Prix -->
+      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:16px;margin-bottom:14px;text-align:center">
+        <div style="font-family:'Space Grotesk';font-size:34px;font-weight:800;color:var(--accent-blue);line-height:1"><span id="pwAmount">19€</span><span id="pwPeriod" style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
+        <div id="pwSubline" style="font-size:12px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable à tout moment</div>
       </div>
-      <button class="btn btn-primary" onclick="startCheckout()" id="checkoutBtn" style="width:100%;padding:16px"><span id="pwCta">S'abonner — 19€/mois</span></button>
+
+      <!-- Features du plan selectionne -->
+      <div id="pwFeatures" style="margin-bottom:16px"></div>
+
+      <button class="btn btn-primary" onclick="startCheckout()" id="checkoutBtn" style="width:100%;padding:14px"><span id="pwCta">S'abonner — 19€/mois</span></button>
       <p style="margin-top:12px;font-size:12px;color:var(--text-muted)">Paiement securise par Stripe. Vous pouvez annuler a tout moment.</p>
       <p style="margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.5">
         En vous abonnant, vous acceptez nos
@@ -4293,24 +4298,46 @@
           try {
             const autoCheckout = localStorage.getItem('kairos_auto_checkout');
             const alreadyFired = sessionStorage.getItem('kairos_checkout_fired');
+            console.log('[auto-checkout]', { autoCheckout: !!autoCheckout, alreadyFired: !!alreadyFired, isPremium, plan: getPlanPreference(), billing: getBillingPreference() });
+
             if (autoCheckout && !isPremium && !alreadyFired) {
-              localStorage.removeItem('kairos_auto_checkout');       // cross-session consume
-              sessionStorage.setItem('kairos_checkout_fired', '1');  // per-tab consume
-              // Pas de setTimeout : l'overlay 'pending-checkout' (pose des le
-              // debut du script) masque deja le dashboard. On peut lancer
-              // startCheckout immediatement pour minimiser la latence percue.
+              // Cas normal : user free avec flag one-shot → lance checkout direct
+              localStorage.removeItem('kairos_auto_checkout');
+              sessionStorage.setItem('kairos_checkout_fired', '1');
               startCheckout();
-            } else if (autoCheckout && alreadyFired) {
-              // Defense-in-depth : le flag localStorage a survecu bizarrement.
-              // Nettoie sans re-trigger.
+            } else if (autoCheckout && isPremium) {
+              // User deja abonne clique 'S'abonner' sur la landing → portail Stripe
               localStorage.removeItem('kairos_auto_checkout');
               hidePendingCheckoutOverlay();
+              setTimeout(() => {
+                try {
+                  if (window.Toast && Toast.info) {
+                    Toast.info('Vous êtes déjà abonné. Pour changer de plan, utilisez le portail de facturation Stripe.');
+                  }
+                  if (typeof openStripePortal === 'function') openStripePortal();
+                } catch (e) {}
+              }, 300);
+            } else if (autoCheckout && alreadyFired) {
+              // Defense-in-depth : le flag localStorage a survecu dans un
+              // contexte ou sessionStorage indique deja un checkout fire
+              // (ex: tab reste ouvert depuis un essai precedent). On evite
+              // le re-trigger auto (boucle) mais on ouvre le PAYWALL pour
+              // que l'user puisse relancer manuellement s'il veut.
+              console.log('[auto-checkout] Flag survivant + session deja fired → fallback paywall');
+              localStorage.removeItem('kairos_auto_checkout');
+              hidePendingCheckoutOverlay();
+              setTimeout(() => {
+                try {
+                  document.getElementById('paywallOverlay')?.classList.remove('hidden');
+                  if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+                } catch (e) {}
+              }, 200);
             } else {
-              // Aucun auto-checkout en attente : cache l'overlay s'il etait
-              // resté actif par precaution (ex: user deja premium).
+              // Aucun auto-checkout en attente : cache l'overlay par precaution.
               hidePendingCheckoutOverlay();
             }
           } catch (e) {
+            console.error('[auto-checkout] error:', e);
             hidePendingCheckoutOverlay();
           }
 
@@ -4517,6 +4544,31 @@
       'elite:yearly':  { amount: '490€', period: '/an',   subline: 'Soit 40,83€/mois · 2 mois offerts',       cta: "S'abonner Elite — 490€/an" },
     };
 
+    // Liste des features par plan affichees dans le paywall overlay.
+    // Tick vert = inclus, croix grise = pas dans ce plan (comparatif clair).
+    const PAYWALL_FEATURES = {
+      pro: [
+        { ok: true,  text: '<strong>Kairos Score</strong> complet — 8 axes · 3 349 tickers' },
+        { ok: true,  text: 'Initiés : transactions · signaux · clusters · screener' },
+        { ok: true,  text: '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)' },
+        { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
+        { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
+        { ok: true,  text: 'Watchlist + digest email quotidien' },
+        { ok: true,  text: 'Historique 2 ans + exports CSV (10/jour)' },
+        { ok: false, text: 'API REST · alertes temps-réel · backtests historiques' },
+      ],
+      elite: [
+        { ok: true,  text: '<strong style="color:var(--text-primary)">Tout le plan Pro</strong>, plus :' },
+        { ok: true,  text: '<strong>API REST</strong> pour intégrer la data' },
+        { ok: true,  text: '<strong>Alertes temps-réel</strong> (push + email) sur clusters & 13D' },
+        { ok: true,  text: '<strong>Backtests historiques</strong> (coming soon)' },
+        { ok: true,  text: '<strong>Exports CSV illimités</strong>' },
+        { ok: true,  text: 'Support prioritaire (&lt; 4h)' },
+        { ok: true,  text: 'Accès anticipé aux nouvelles features' },
+        { ok: true,  text: 'Kit presse pour créateurs de contenu' },
+      ],
+    };
+
     function applyPaywallDisplay() {
       const plan = getPlanPreference();        // 'pro' ou 'elite'
       const billing = getBillingPreference();  // 'monthly' ou 'yearly'
@@ -4530,6 +4582,19 @@
       if (period) period.textContent = p.period;
       if (subline) subline.textContent = p.subline;
       if (cta) cta.textContent = p.cta;
+
+      // Liste des features du plan selectionne
+      const featuresEl = document.getElementById('pwFeatures');
+      if (featuresEl) {
+        const features = PAYWALL_FEATURES[plan] || PAYWALL_FEATURES.pro;
+        featuresEl.innerHTML = features.map(f => {
+          const icon = f.ok
+            ? '<span style="color:#10B981;font-weight:700;flex-shrink:0">✓</span>'
+            : '<span style="color:var(--text-muted);flex-shrink:0;opacity:0.5">✕</span>';
+          const textColor = f.ok ? 'var(--text-primary)' : 'var(--text-muted)';
+          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:13px;line-height:1.5;color:${textColor}">${icon}<span>${f.text}</span></div>`;
+        }).join('');
+      }
 
       // Toggle visuel Pro/Elite
       const tabPro = document.getElementById('pwTabPro');
