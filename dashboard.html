@@ -792,25 +792,76 @@
       100% { background-position: 200% 50%; }
     }
 
-    /* ===== HOME CARDS : gating visuel (cadenas + flou) =====
-       Pour les users Free/Pro qui voient des tuiles au-dela de leur plan,
-       on floute legerement le contenu (sneak peek qui donne envie) et on
-       superpose un overlay avec badge PRO/ELITE + CTA 'Debloquer'. */
-    .home-card[data-locked="true"] {
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
-    }
-    .home-card[data-locked="true"] > :not(.home-card-lock-overlay) {
-      filter: blur(3px) saturate(0.85);
-      opacity: 0.5;
+    /* ===== SNEAK PEEK LOCK : floutage sur les blocs DONNEES premium =====
+       Applique sur chaque .signal-card des 'Top signaux du jour' pour
+       les users Free : le HEADER reste visible (titre + sous-titre + icone
+       pour que l'utilisateur voie ce qu'il rate), seule la ZONE DONNEES
+       (.signal-card-body avec tickers/prix) est floutee + overlayee avec
+       un petit CTA 'Pro'. */
+    .signal-card.sneak-peek-locked { position: relative; }
+    .signal-card.sneak-peek-locked .signal-card-body {
+      filter: blur(6px) saturate(0.75);
+      opacity: 0.55;
       pointer-events: none;
       user-select: none;
       transition: filter 0.3s, opacity 0.3s;
+      min-height: 120px;
     }
-    .home-card[data-locked="true"]:hover > :not(.home-card-lock-overlay) {
-      filter: blur(5px) saturate(0.7);
-      opacity: 0.35;
+    .signal-card.sneak-peek-locked:hover .signal-card-body {
+      filter: blur(8px) saturate(0.6);
+      opacity: 0.4;
+    }
+    .signal-card-lock-overlay {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      /* overlay couvre uniquement la zone body sous le header */
+      top: var(--signal-head-h, 60px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, rgba(15, 22, 41, 0.35) 0%, rgba(15, 22, 41, 0.75) 60%, rgba(30, 27, 75, 0.82) 100%);
+      backdrop-filter: blur(1px);
+      -webkit-backdrop-filter: blur(1px);
+      border-radius: 0 0 12px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    [data-theme="light"] .signal-card-lock-overlay {
+      background: linear-gradient(180deg, rgba(249, 250, 251, 0.35) 0%, rgba(249, 250, 251, 0.78) 60%, rgba(237, 233, 254, 0.85) 100%);
+    }
+    .signal-card.sneak-peek-locked:hover .signal-card-lock-overlay {
+      background: linear-gradient(180deg, rgba(15, 22, 41, 0.25) 0%, rgba(15, 22, 41, 0.68) 60%, rgba(30, 27, 75, 0.78) 100%);
+    }
+    [data-theme="light"] .signal-card.sneak-peek-locked:hover .signal-card-lock-overlay {
+      background: linear-gradient(180deg, rgba(249, 250, 251, 0.3) 0%, rgba(249, 250, 251, 0.72) 60%, rgba(237, 233, 254, 0.8) 100%);
+    }
+    .signal-card-lock-badge {
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #fff;
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .signal-card-lock-cta {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+      line-height: 1.35;
+    }
+    .signal-card-lock-cta small {
+      display: block;
+      font-weight: 400;
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
     .home-card-lock-overlay {
       position: absolute;
@@ -4844,68 +4895,97 @@
       if (!li) return;
       li.style.display = isPremium ? 'none' : '';
       renderFreeQuotaBanner();
-      applyHomeCardsLocking();
+      applyHomeDataLocking();
     }
 
-    // Mapping section cible → plan requis pour l'acces.
-    // free = accessible a tous · pro = Pro/Elite · elite = Elite uniquement.
-    const HOME_CARD_PLAN_MAP = {
-      // Free
-      stockAnalysis: 'free', hotStocks: 'free', feargreed: 'free', shorts: 'free', home: 'free',
-      // Pro (+Elite)
-      watchlist: 'pro', consensus13f: 'pro', screener: 'pro', activists: 'pro',
-      insider: 'pro', clustering: 'pro', '13f': 'pro', etf: 'pro', portfolio: 'pro',
-      // Elite uniquement
-      eliteApi: 'elite', eliteAlerts: 'elite', eliteBacktests: 'elite',
-    };
-    const PLAN_RANK = { free: 0, pro: 1, legacy: 1, elite: 2 };
+    // Nettoyage potentiel des anciens overlays pose sur .home-card
+    // (migration v1 → v2 du locking : avant on floutait les tuiles de
+    // navigation, maintenant on floute les blocs de donnees reelles).
+    function clearLegacyHomeCardLocks() {
+      document.querySelectorAll('.home-card[data-locked]').forEach(card => {
+        card.removeAttribute('data-locked');
+        card.removeAttribute('data-required-plan');
+        const overlay = card.querySelector('.home-card-lock-overlay');
+        if (overlay) overlay.remove();
+      });
+    }
 
-    // Pose un overlay cadenas + floutage sur les home-cards qui depassent le
-    // plan de l'user. Donne envie (sneak peek) + CTA explicite 'Debloquer Pro/Elite'.
-    function applyHomeCardsLocking() {
-      const currentPlan = (window._currentPlan || 'free').toLowerCase();
-      const currentRank = PLAN_RANK[currentPlan] ?? 0;
+    // Applique le floutage 'sneak peek' sur les DONNEES des cards 'Top signaux
+    // du jour' (score movers, clusters, ETF, activists). Pour chaque card,
+    // on conserve le HEADER visible (titre + sous-titre + icone → le user voit
+    // QUEL contenu il rate) et on floute uniquement la zone .signal-card-body
+    // (tickers/prix/deltas). Un overlay avec badge PRO + CTA se superpose a
+    // la zone body et ouvre le paywall au clic. Les cards de navigation
+    // (.home-card) restent totalement claires.
+    function applyHomeDataLocking() {
+      clearLegacyHomeCardLocks(); // nettoyage ponctuel post-refactor
+      const wrap = document.getElementById('homeTopSignalsWrap');
+      if (!wrap) return;
 
-      document.querySelectorAll('.home-card').forEach(card => {
-        // Remove overlay precedent pour eviter les doublons quand on refresh
-        const prev = card.querySelector('.home-card-lock-overlay');
-        if (prev) prev.remove();
+      // Nettoie d'eventuels verrous poses sur le wrap (v2 du refactor)
+      wrap.classList.remove('sneak-peek-locked');
+      const prevWrapOverlay = wrap.querySelector(':scope > .home-card-lock-overlay');
+      if (prevWrapOverlay) prevWrapOverlay.remove();
 
-        // Parse le onclick pour trouver la section cible
-        const onclick = card.getAttribute('onclick') || '';
-        const match = onclick.match(/switchSection\(['"]([^'"]+)['"]\)/);
-        if (!match) { card.removeAttribute('data-locked'); return; }
-        const section = match[1];
-        const requiredPlan = HOME_CARD_PLAN_MAP[section];
-        if (!requiredPlan || requiredPlan === 'free') {
-          card.removeAttribute('data-locked');
+      const cards = wrap.querySelectorAll('.signal-card');
+      // Premium : retire tous les verrous existants et stop.
+      if (isPremium) {
+        cards.forEach(card => {
+          card.classList.remove('sneak-peek-locked');
+          const ov = card.querySelector(':scope > .signal-card-lock-overlay');
+          if (ov) ov.remove();
+        });
+        return;
+      }
+
+      // Free : verrouille chaque card individuellement.
+      cards.forEach(card => {
+        if (card.classList.contains('sneak-peek-locked')) {
+          // deja verrouillee, pas besoin de recreer l'overlay
           return;
         }
+        card.classList.add('sneak-peek-locked');
 
-        const requiredRank = PLAN_RANK[requiredPlan] ?? 0;
-        if (currentRank >= requiredRank) {
-          // User a l'acces, pas de verrou
-          card.removeAttribute('data-locked');
-          return;
+        // Calcule la hauteur du header pour positionner precisement l'overlay
+        // (evite de masquer le titre meme si la hauteur varie entre cards).
+        const head = card.querySelector('.signal-card-head');
+        if (head) {
+          const h = head.getBoundingClientRect().height;
+          if (h > 0) card.style.setProperty('--signal-head-h', `${Math.round(h)}px`);
         }
 
-        // Pose le verrou visuel (switchSection lui-meme gere le paywall au clic)
-        card.setAttribute('data-locked', 'true');
-        card.setAttribute('data-required-plan', requiredPlan);
         const overlay = document.createElement('div');
-        overlay.className = 'home-card-lock-overlay';
-        const isElite = requiredPlan === 'elite';
-        const priceLabel = isElite ? '49€/mois' : '19€/mois';
-        const planLabel = isElite ? 'Elite' : 'Pro';
+        overlay.className = 'signal-card-lock-overlay';
         overlay.innerHTML = `
-          <div class="home-card-lock-icon" aria-hidden="true">🔒</div>
-          <div class="home-card-lock-badge ${isElite ? 'elite' : 'pro'}">${planLabel.toUpperCase()}</div>
-          <div class="home-card-lock-cta">
-            Débloquer avec <strong>${planLabel}</strong>
-            <br><span style="opacity:0.7;font-weight:400;font-size:11px">${priceLabel}</span>
+          <div class="signal-card-lock-badge">🔒 PRO</div>
+          <div class="signal-card-lock-cta">
+            Débloquer les signaux
+            <small>19€/mois — voir tickers &amp; montants</small>
           </div>
         `;
+        overlay.onclick = (e) => {
+          e.stopPropagation();
+          try { localStorage.setItem('kairos_plan', 'pro'); } catch (err) {}
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        };
         card.appendChild(overlay);
+
+        // Intercepte aussi les clics sur le header clickable : pour un Free,
+        // cliquer sur "Ouvrir l'analyse" ouvre le paywall au lieu de naviguer
+        // vers une section bloquee (meilleure UX).
+        const clickableHead = card.querySelector('.signal-card-head-clickable');
+        if (clickableHead && !clickableHead.dataset.lockBound) {
+          clickableHead.dataset.lockBound = '1';
+          clickableHead.addEventListener('click', (e) => {
+            if (!card.classList.contains('sneak-peek-locked')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            try { localStorage.setItem('kairos_plan', 'pro'); } catch (err) {}
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+            document.getElementById('paywallOverlay')?.classList.remove('hidden');
+          }, true);
+        }
       });
     }
 
@@ -6128,6 +6208,10 @@
         setText('homeStatInsider', '5k+');
         setText('homeStatClusters', '50+');
         setText('homeStatFunds', '100+');
+        // Affiche les 4 cards 'Top signaux du jour' avec des donnees placeholder
+        // realistes mais floutees → le user Free voit la structure + les titres
+        // et comprend quel contenu smart money il rate. Overlay PRO au-dessus.
+        try { renderHomeTopSignalsPlaceholder(); } catch (e) {}
         return;
       }
 
@@ -6158,6 +6242,133 @@
 
       // Top signaux du jour (Phase C) — premium only
       loadHomeTopSignals().catch(() => {});
+    }
+
+    // ============================================================
+    // Home : Top signaux du jour — placeholder Free users
+    // ============================================================
+    // Rend les 4 cards 'Top signaux du jour' avec des donnees fictives mais
+    // coherentes (vrais tickers grand public, chiffres realistes) pour les
+    // users Free. La zone body sera automatiquement floutee + overlayee via
+    // applyHomeDataLocking(). But : montrer la structure + donner envie, sans
+    // jamais exposer de vraie data smart money aux non-abonnes.
+    function renderHomeTopSignalsPlaceholder() {
+      const wrap = document.getElementById('homeTopSignalsWrap');
+      if (!wrap) return;
+      // Donnees bidon mais plausibles — la blur les rend illisibles de toute
+      // facon, mais on garde un rendu coherent au cas ou.
+      const mkRow = (ticker, sub, right, rightColor) => `
+        <div class="signal-row" style="cursor:default">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0">
+            <strong style="color:var(--text-primary);font-size:13px">${ticker}</strong>
+            <span style="color:var(--text-muted);font-size:11px">${sub}</span>
+          </div>
+          <div style="color:${rightColor};font-weight:700;font-size:13px;flex-shrink:0">${right}</div>
+        </div>`;
+
+      const scoreBody = [
+        mkRow('NVDA', '72→81', '▲ +9pt', '#10B981'),
+        mkRow('TSLA', '64→55', '▼ -9pt', '#EF4444'),
+        mkRow('META', '68→74', '▲ +6pt', '#10B981'),
+        mkRow('AMZN', '70→65', '▼ -5pt', '#EF4444'),
+        mkRow('GOOGL','66→70', '▲ +4pt', '#10B981'),
+      ].join('');
+
+      const clusterBody = [
+        mkRow('AAPL', '5🟢 / 1🔴', '🟢 $12.4M', '#10B981'),
+        mkRow('MSFT', '4🟢 / 0🔴', '🟢 $8.1M',  '#10B981'),
+        mkRow('CRM',  '1🟢 / 3🔴', '🔴 $3.2M',  '#EF4444'),
+        mkRow('ORCL', '3🟢 / 0🔴', '🟢 $2.7M',  '#10B981'),
+      ].join('');
+
+      const etfBody = [
+        mkRow('NANC', '+ politique', '↑ +2.1pt', '#10B981'),
+        mkRow('KRUZ', '− politique', '↓ -1.8pt', '#EF4444'),
+        mkRow('ARKK', '+ innovation', '↑ +1.2pt', '#10B981'),
+        mkRow('SMH',  '+ semi',       '↑ +0.9pt', '#10B981'),
+      ].join('');
+
+      const activistBody = [
+        mkRow('DIS',  'Trian Partners',   '13D · 14 avr', '#F59E0B'),
+        mkRow('SBUX', 'Elliott Mgmt',     '13D · 12 avr', '#F59E0B'),
+        mkRow('NFLX', 'Pershing Square',  '13G · 11 avr', '#10B981'),
+        mkRow('HLT',  'Starboard Value',  '13D · 09 avr', '#F59E0B'),
+      ].join('');
+
+      const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+
+      wrap.innerHTML = `
+        <style>
+          .top-signals-header { display:flex;align-items:center;justify-content:space-between;margin:0 0 14px; }
+          .top-signals-header h3 { font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0; }
+          .top-signals-date { font-size:12px;color:var(--text-muted);padding:4px 10px;background:var(--surface-2);border-radius:100px; }
+          .signals-grid { display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+          .signal-card { background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow:hidden; }
+          .signal-card-head { display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid; }
+          .signal-card-head-clickable { cursor: pointer; transition: background 0.15s; }
+          .signal-card-head-clickable:hover { background: var(--surface-2); }
+          .signal-card-head-clickable:hover .signal-card-chevron { transform: translateX(4px); color: var(--text-primary); }
+          .signal-card-chevron { color: var(--text-muted); font-size: 18px; font-weight: 600; transition: all 0.2s; flex-shrink: 0; opacity: 0.7; }
+          .signal-card-icon { width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0; }
+          .signal-card-title { font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.2; }
+          .signal-card-sub { font-size:11px;color:var(--text-muted);margin-top:2px; }
+          .signal-card-body { padding:6px 14px 12px; }
+          .signal-row { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider);border-radius:4px;margin:0 -6px;padding-left:6px;padding-right:6px; }
+          .signal-row:last-child { border-bottom:none; }
+        </style>
+        <div class="top-signals-header">
+          <h3>🔔 Top signaux du jour</h3>
+          <span class="top-signals-date">${today}</span>
+        </div>
+        <div class="signals-grid">
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊</div>
+              <div style="flex:1">
+                <div class="signal-card-title">Kairos Score — gros deltas</div>
+                <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${scoreBody}</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
+              <div style="flex:1">
+                <div class="signal-card-title">Clusters insiders</div>
+                <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${clusterBody}</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">💼</div>
+              <div style="flex:1">
+                <div class="signal-card-title">Rotations ETF</div>
+                <div class="signal-card-sub">Plus gros changements de poids</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${etfBody}</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)">
+              <div class="signal-card-icon" style="background:linear-gradient(135deg,#EC4899,#F43F5E)">⚡</div>
+              <div style="flex:1">
+                <div class="signal-card-title">Fonds offensifs frais</div>
+                <div class="signal-card-sub">Derniers dépôts 13D/G</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${activistBody}</div>
+          </div>
+        </div>
+      `;
+      wrap.style.display = 'block';
+      try { applyHomeDataLocking(); } catch (e) {}
     }
 
     // ============================================================
@@ -6363,6 +6574,9 @@
           <div class="signals-grid">${scoreCard}${clusterCard}${etfCard}${activistCard}</div>
         `;
         wrap.style.display = 'block';
+        // Re-applique le locking sneak-peek apres injection des cards
+        // (sinon les .signal-card n'existaient pas encore au 1er appel).
+        try { applyHomeDataLocking(); } catch (e) {}
       } catch (e) {
         console.warn('[home top-signals]', e);
       }
