@@ -16,6 +16,7 @@ Rate limit SEC : 10 req/s, on prend ~7 req/s.
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import urllib.request
@@ -25,6 +26,7 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 UA = 'KairosInsider contact@kairosinsider.fr'
+NAMESPACE_ID = 'aca7ff9d2a244b06ae92d6a7129b4cc4'  # KV CACHE namespace
 
 # Parallelisation pour l'enrichissement XML (fetch primary_doc.xml de chaque filing)
 # 6 workers + throttle global ~9 req/s pour respecter SEC 10 req/s.
@@ -381,19 +383,62 @@ def main():
     # ============================================================
     # ENRICHISSEMENT : fetch primary_doc.xml pour extraire shares + %
     # On ne ré-enrichit que les filings qui n'ont pas encore ces champs.
-    # Limite MAX_ENRICH_PER_RUN (4000) pour tenir dans le timeout GitHub Actions.
-    # Priorité : (1) fonds offensifs connus, (2) dates récentes.
+    # Limite MAX_ENRICH_PER_RUN par run pour tenir dans le timeout GitHub
+    # Actions (45 min). Priorite en 3 niveaux :
+    #   P0 : activists connus (Elliott, Ackman, Icahn, etc.)
+    #   P1 : ticker dans la liste des plus consultes (public-tickers-list KV)
+    #        — evite que Vanguard/BlackRock sur NVDA/BYND/TSLA attendent 30j
+    #   P2 : autres, par date decroissante
     # ============================================================
-    MAX_ENRICH_PER_RUN = 4000
+    MAX_ENRICH_PER_RUN = 5000
     candidates = [f for f in deduped if f.get('percentOfClass') is None and f.get('sharesOwned') is None]
-    # Tri par priorité : activists d'abord, puis par date décroissante
+
+    # Charge la liste des tickers populaires (top tickers consultes sur le site).
+    # Best-effort : si wrangler n'est pas dispo ou la cle KV est vide, on tombe
+    # sur un set vide et tous les non-activists sont P2.
+    popular_tickers = set()
+    try:
+        result = subprocess.run(
+            ['npx', 'wrangler', 'kv', 'key', 'get',
+             f'--namespace-id={NAMESPACE_ID}',
+             '--remote',
+             'public-tickers-list'],
+            capture_output=True, timeout=30, shell=False
+        )
+        if result.returncode == 0 and result.stdout:
+            tickers_data = json.loads(result.stdout.decode('utf-8', errors='replace'))
+            if isinstance(tickers_data, dict) and isinstance(tickers_data.get('tickers'), list):
+                popular_tickers = set(
+                    str(t.get('ticker', '')).upper().strip()
+                    for t in tickers_data['tickers']
+                    if t.get('ticker')
+                )
+        print(f'[enrich] Tickers populaires charges : {len(popular_tickers)}')
+    except Exception as e:
+        print(f'[enrich] WARN : impossible de charger public-tickers-list ({e}), priorite tickers desactivee')
+
+    def _priority(f):
+        if f.get('isActivist'):
+            return 0  # P0
+        tk = (f.get('ticker') or '').upper().strip()
+        if tk and tk in popular_tickers:
+            return 1  # P1 : ticker populaire
+        return 2  # P2
+
+    # Tri par priorite croissante puis date decroissante
     candidates.sort(key=lambda f: (
-        0 if f.get('isActivist') else 1,       # activists d'abord
-        -(int((f.get('fileDate') or '0000-00-00').replace('-', '')) or 0)  # date récente en priorité
+        _priority(f),
+        -(int((f.get('fileDate') or '0000-00-00').replace('-', '')) or 0)
     ))
     to_enrich = candidates[:MAX_ENRICH_PER_RUN]
+
+    # Compte par priorite pour traceability
+    p0 = sum(1 for f in to_enrich if f.get('isActivist'))
+    p1 = sum(1 for f in to_enrich if not f.get('isActivist') and (f.get('ticker') or '').upper().strip() in popular_tickers)
+    p2 = len(to_enrich) - p0 - p1
     if len(candidates) > MAX_ENRICH_PER_RUN:
-        print(f'\n{len(candidates)} filings à enrichir au total — on en traite {MAX_ENRICH_PER_RUN} ce run (priorité activists + récents).')
+        print(f'\n{len(candidates)} filings a enrichir au total — on en traite {MAX_ENRICH_PER_RUN} ce run')
+        print(f'  Repartition : P0 activists={p0} · P1 tickers populaires={p1} · P2 autres={p2}')
     if to_enrich:
         print(f'\n=== Enrichissement XML ({len(to_enrich)} filings a fetcher) ===')
         enriched_count = 0
