@@ -4112,6 +4112,43 @@ async function handleAdminSubsStats(env, origin) {
   }
 }
 
+// Fetch les details complets d'une subscription Stripe avec cache KV 6h.
+// Utile pour re-hydrater currentPeriodEnd, status, priceId quand le payload
+// KV 'sub:{uid}' est vieux ou incomplet (ex: abonnements d'avant le schema).
+// Retourne { currentPeriodEnd, status, priceId, plan, billing } ou null.
+async function fetchStripeSubscriptionDetails(subscriptionId, env) {
+  if (!subscriptionId || !env.STRIPE_SECRET_KEY) return null;
+  const cacheKey = `stripe-sub:${subscriptionId}`;
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 6 * 3600 * 1000) {
+      return cached;
+    }
+  } catch {}
+  try {
+    const resp = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+    });
+    if (!resp.ok) return null;
+    const sub = await resp.json();
+    const priceId = sub.items?.data?.[0]?.price?.id || null;
+    const resolved = resolveStripePlan(priceId, sub.metadata, env);
+    const details = {
+      _cachedAt: Date.now(),
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end,
+      priceId,
+      plan: resolved.plan,
+      billing: resolved.billing,
+    };
+    // Cache 6h (les periodes bougent peu, on tolere 6h de stale)
+    try { await env.CACHE.put(cacheKey, JSON.stringify(details), { expirationTtl: 6 * 3600 }); } catch {}
+    return details;
+  } catch {
+    return null;
+  }
+}
+
 // Fetch l'email d'un customer Stripe avec cache KV 24h.
 // Retourne null si customerId absent, deleted, rate-limite ou Stripe indispo.
 // Cache key : stripe-email:{customerId} (infini en cas de 404 pour pas repaper).
@@ -4181,11 +4218,21 @@ async function handleAdminUsers(env, origin) {
         const stripeEmail = customerId ? await fetchStripeCustomerEmail(customerId, env) : null;
         const email = stripeEmail || userData?.email || wlData?.email || null;
         const emailSource = stripeEmail ? 'stripe' : (userData?.email ? 'firebase' : (wlData?.email ? 'watchlist' : null));
-        // Plan + billing + montant (source : subData.plan/billing si present,
-        // sinon resolve via priceId). Normalise en €/mois pour le MRR.
+        // Re-hydrate depuis Stripe si currentPeriodEnd ou plan absent en KV
+        // (cas des abonnements crees avant le schema actuel, ou si webhook a rate).
+        // Utilise un cache KV 6h pour eviter de spammer l'API Stripe.
+        let stripeSubDetails = null;
+        if (hasSub && subData?.subscriptionId && (!subData.currentPeriodEnd || !subData.plan)) {
+          stripeSubDetails = await fetchStripeSubscriptionDetails(subData.subscriptionId, env);
+        }
+        // Plan + billing + montant (source : subData si present, sinon Stripe re-fetch).
         let plan = null, billing = null, amountEur = null, monthlyEur = null;
-        if (hasSub && subData) {
-          const resolved = resolveStripePlan(subData.priceId, { plan: subData.plan, billing: subData.billing }, env);
+        if (hasSub && (subData || stripeSubDetails)) {
+          const effectivePriceId = subData?.priceId || stripeSubDetails?.priceId;
+          const resolved = resolveStripePlan(effectivePriceId, {
+            plan: subData?.plan || stripeSubDetails?.plan,
+            billing: subData?.billing || stripeSubDetails?.billing,
+          }, env);
           plan = resolved.plan;
           billing = resolved.billing;
           // Tarifs hardcoded (coherents avec les prix Stripe env.STRIPE_PRICE_ID_*)
@@ -4199,11 +4246,15 @@ async function handleAdminUsers(env, origin) {
           const p = priceMap[`${plan}:${billing}`];
           if (p) { amountEur = p.amount; monthlyEur = p.monthly; }
         }
+        // currentPeriodEnd : KV en priorite, sinon Stripe re-fetch
+        const currentPeriodEnd = subData?.currentPeriodEnd || stripeSubDetails?.currentPeriodEnd || null;
+        // Status : KV en priorite mais rafraichi depuis Stripe si dispo
+        const subStatus = subData?.status || stripeSubDetails?.status || null;
         return {
           uid,
           hasSubscription: hasSub,
-          subStatus: subData?.status || null,
-          currentPeriodEnd: subData?.currentPeriodEnd || null,
+          subStatus,
+          currentPeriodEnd,
           customerId,
           plan,                                   // 'pro' | 'elite' | 'legacy' | null
           billing,                                // 'monthly' | 'yearly' | null
