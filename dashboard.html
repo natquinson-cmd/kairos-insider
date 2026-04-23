@@ -2238,10 +2238,12 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.analyse">Analyse</div>
-        <button class="sidebar-item" data-section="stockAnalysis" data-premium="true" onclick="switchSection('stockAnalysis')">
+        <!-- Analyse action : accessible AUSSI aux users Free (quota 3/jour).
+             Gate geree cote loadStockAnalysis, pas en sidebar (on veut que
+             les free decouvrent le produit). -->
+        <button class="sidebar-item" data-section="stockAnalysis" onclick="switchSection('stockAnalysis')">
           <span class="sidebar-icon icon-blue"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
           <span data-i18n="dash.sidebar.stock_analysis">Analyse action</span>
-          <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="hotStocks" onclick="switchSection('hotStocks')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>
@@ -2528,6 +2530,10 @@
       <div class="section-page" id="section-stockAnalysis">
         <h2 data-i18n="dash.section.stockAnalysis.title">Analyse action</h2>
         <p class="section-desc" data-i18n="dash.section.stockAnalysis.desc">Cherche un ticker et obtiens une analyse complete : insiders, hedge funds, ETF politiciens/gurus, prix, fondamentaux, news — le tout synthetise en un <strong>Kairos Score</strong> de 0 a 100.</p>
+
+        <!-- Bandeau quota Free : visible uniquement si user non-premium.
+             Rendu dynamiquement par updatePremiumUI() → renderFreeQuotaBanner(). -->
+        <div id="freeQuotaBanner" style="display:none"></div>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;">
           <input id="stockSearchInput" type="text" placeholder="Ticker (ex. AAPL, MSFT, ASML, MC.PA)..." autocomplete="off"
@@ -4564,6 +4570,39 @@
       const li = document.getElementById('navUpgradeItem');
       if (!li) return;
       li.style.display = isPremium ? 'none' : '';
+      renderFreeQuotaBanner();
+    }
+
+    // Bandeau 'Quota Free X/3 analyses' affiche en tete de la section
+    // stockAnalysis pour les users non-premium. Rafraichi apres chaque analyse
+    // pour refleter le quota restant.
+    function renderFreeQuotaBanner() {
+      const el = document.getElementById('freeQuotaBanner');
+      if (!el) return;
+      if (isPremium) { el.style.display = 'none'; return; }
+      const state = getFreeQuotaState();
+      const remaining = Math.max(0, FREE_DAILY_QUOTA - state.count);
+      const pctUsed = Math.min(100, (state.count / FREE_DAILY_QUOTA) * 100);
+      const emoji = remaining === 0 ? '🔒' : remaining === 1 ? '⚡' : '✨';
+      const color = remaining === 0 ? '#EF4444' : remaining === 1 ? '#F59E0B' : '#10B981';
+      el.style.display = 'block';
+      el.innerHTML = `
+        <div style="position:relative;padding:14px 18px;margin-bottom:20px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.22);border-radius:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="font-size:24px;line-height:1;flex-shrink:0">${emoji}</div>
+          <div style="flex:1;min-width:220px">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">
+              ${remaining === 0
+                ? 'Quota quotidien atteint'
+                : `<span style="color:${color}">${remaining} analyse${remaining > 1 ? 's' : ''} gratuite${remaining > 1 ? 's' : ''}</span> restante${remaining > 1 ? 's' : ''} aujourd'hui`}
+            </div>
+            <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
+              <div style="height:100%;width:${pctUsed}%;background:linear-gradient(90deg,${color},${color});border-radius:3px;transition:width 0.3s"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">${state.count}/${FREE_DAILY_QUOTA} utilisées · reset à minuit · passer Pro pour illimité + watchlist + fonds offensifs</div>
+          </div>
+          <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:9px 16px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.25)">Passer Pro</button>
+        </div>
+      `;
     }
 
     // Billing preference (monthly | yearly) — peut etre set via ?billing= dans l'URL depuis la landing
@@ -6890,6 +6929,37 @@
       }
     }
 
+    // Quota Free : 3 analyses / jour. Permet au user gratuit de tester
+    // le vrai Kairos Score, pas une 'vue tronquée'. Trial-like.
+    // Stockage : kairos_free_analyses = JSON { date: 'YYYY-MM-DD', tickers: [...], count: N }
+    // (on stocke les tickers deja analyses → permet de re-consulter un ticker
+    //  deja analyse aujourd'hui sans decrementer le quota).
+    const FREE_DAILY_QUOTA = 3;
+    function getFreeQuotaState() {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const raw = localStorage.getItem('kairos_free_analyses');
+        if (!raw) return { date: today, tickers: [], count: 0 };
+        const parsed = JSON.parse(raw);
+        if (parsed.date !== today) return { date: today, tickers: [], count: 0 }; // reset quotidien
+        return { date: today, tickers: parsed.tickers || [], count: parsed.count || 0 };
+      } catch (e) {
+        return { date: new Date().toISOString().slice(0, 10), tickers: [], count: 0 };
+      }
+    }
+    function recordFreeAnalysis(ticker) {
+      const state = getFreeQuotaState();
+      if (!state.tickers.includes(ticker)) {
+        state.tickers.push(ticker);
+        state.count = state.tickers.length;
+      }
+      try { localStorage.setItem('kairos_free_analyses', JSON.stringify(state)); } catch (e) {}
+      return state;
+    }
+    function freeQuotaRemaining() {
+      return Math.max(0, FREE_DAILY_QUOTA - getFreeQuotaState().count);
+    }
+
     async function loadStockAnalysis(ticker, chartRange) {
       ticker = ticker.toUpperCase().trim();
       currentStockTicker = ticker;
@@ -6899,6 +6969,29 @@
       const suggest = document.getElementById('stockSearchSuggest');
       if (input) input.value = ticker;
       if (suggest) suggest.style.display = 'none';
+
+      // Gate Free : quota 3 analyses/jour. Les premium (Pro/Elite) passent.
+      if (!isPremium) {
+        const state = getFreeQuotaState();
+        // Autorise si : ticker deja analyse aujourd'hui OU quota pas atteint
+        if (!state.tickers.includes(ticker) && state.count >= FREE_DAILY_QUOTA) {
+          body.innerHTML = `
+            <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
+              <div style="font-size:48px;margin-bottom:12px">🔒</div>
+              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
+              <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
+              </div>
+              <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.<br>Compteur remis à zéro chaque jour à minuit.</div>
+            </div>`;
+          return;
+        }
+        // Enregistre le ticker (idempotent : n'augmente pas si deja dans la liste)
+        recordFreeAnalysis(ticker);
+        renderFreeQuotaBanner(); // met a jour le bandeau quota avec le nouveau count
+      }
 
       renderStockLoader(body, ticker);
       const startedAt = Date.now();
