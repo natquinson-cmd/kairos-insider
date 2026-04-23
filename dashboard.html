@@ -12167,6 +12167,69 @@
       `;
     }
 
+    // Metadonnees human-readable pour les jobs du pipeline.
+    // Chaque entree : { title: texte court lisible, desc: tooltip explicatif }.
+    // Fallback sur le nom technique si l'entree manque.
+    const JOB_META = {
+      'cron-watchlist-digest': {
+        title: '📧 Digest email watchlists',
+        desc: 'Tourne chaque matin à 8h15 Paris. Envoie aux users opt-in un récap de leurs actions en watchlist : clusters insiders détectés, rotations ETF, variation Kairos Score. Skippé pour les users sans watchlist ou sans opt-in RGPD.',
+      },
+      'fetch-13dg': {
+        title: '📜 Filings 13D/G (activists + gros actionnaires >5%)',
+        desc: 'Cron quotidien. Récupère les Schedule 13D (offensif) et 13G (passif) depuis SEC EDGAR pour les investisseurs détenant >5% du capital. Enrichit chaque filing via XML primary_doc (shares, percentOfClass, purchase price). ~37k filings stockés sur 2 ans. Alimente les onglets "Fonds Offensifs" et les cards "Gros actionnaires" des fiches action.',
+      },
+      'fetch-amf': {
+        title: '🇫🇷 AMF — Déclarations dirigeants FR',
+        desc: 'Cron quotidien. Récupère les déclarations publiques des dirigeants d\'entreprises cotées en France via le site de l\'AMF. Complète les Form 4 SEC (US) et BaFin (DE) pour une couverture insider européenne.',
+      },
+      'fetch-bafin': {
+        title: '🇩🇪 BaFin — Directors\' dealings DE',
+        desc: 'Cron quotidien. Récupère les dealings des dirigeants allemands via BaFin. Couvre les actions cotées sur Xetra et les autres places allemandes.',
+      },
+      'prefetch-13f': {
+        title: '🏛️ Portefeuilles hedge funds (13F-HR)',
+        desc: 'Cron quotidien (fetch tous les trimestres SEC). Télécharge les portefeuilles 13F-HR des top 200 hedge funds par AUM. Chaque fonds publie sa composition tous les 3 mois avec 45j de retard. Alimente les onglets "Hedge Funds" et la card "Hedge Funds" des fiches action.',
+      },
+      'prefetch-all': {
+        title: '🕴️ Insiders SEC Form 4 + clusters',
+        desc: 'Cron quotidien. Récupère les transactions insiders SEC Form 4 (achats/ventes par CEO/CFO/Directors) des 90 derniers jours. Détecte les clusters (≥3 insiders même ticker même période) — signal fort. Alimente la section "Signaux Insiders".',
+      },
+      'prefetch-etf': {
+        title: '💼 ETF thématiques (NANC, GOP, GURU...)',
+        desc: 'Cron quotidien. Télécharge les holdings actuels des 11 ETF thématiques suivis (NANC=Pelosi, GOP=républicains, GURU=gurus hedge funds, BUZZ=social sentiment, MEME=WallStreetBets, etc.). Alimente l\'onglet "ETF Live" et les cards ETF des fiches action.',
+      },
+      'prefetch-trends': {
+        title: '🔎 Google Trends hot stocks',
+        desc: 'Cron quotidien. Calcule l\'indice Google Trends pour les top ~100 tickers les plus consultés. Détecte les pics d\'intérêt retail (FOMO, news virales). Alimente l\'onglet "Hot Stocks" du dashboard.',
+      },
+      'merge-sources': {
+        title: '🔀 Fusion insiders SEC + BaFin + AMF',
+        desc: 'Cron quotidien. Merge les 3 sources d\'insiders (US, DE, FR) en un flux unifié avec dedup. Enrichit les transactions EU avec un ticker résolu via OpenFIGI (ISIN → ticker).',
+      },
+      'push-to-d1': {
+        title: '📥 Archivage ETF + 13F → D1',
+        desc: 'Cron quotidien. Push les snapshots ETF et 13F du jour dans la D1 (table etf_snapshots, fund_holdings_history). Permet de comparer l\'évolution dans le temps : rotations ETF, nouveaux investissements des fonds, positions abandonnées. Historique long-terme.',
+      },
+      'push-insiders-to-d1': {
+        title: '📥 Archivage insider transactions → D1',
+        desc: 'Cron quotidien. Push les transactions insiders dans la D1 (table insider_transactions_history, ~160k rows sur 12 mois). Utilisé par le Screener avancé et les onglets "Flux net 30j" / "Transversaux" de Signaux Insiders (query SQL directe sur la D1).',
+      },
+      'push-scores-to-d1': {
+        title: '📥 Archivage Kairos Scores → D1',
+        desc: 'Cron quotidien. Push le Kairos Score des 3349 tickers dans la D1 (table score_history) pour tracer l\'évolution du score dans le temps. Alimente le widget "Activité récente 7j" et les graphs d\'évolution sur les fiches action.',
+      },
+      'discover-13f-funds': {
+        title: '🔍 Discovery top 200 hedge funds',
+        desc: 'Cron hebdomadaire (lundi). Met à jour la liste des 200 plus gros hedge funds par AUM depuis SEC EDGAR. Cette liste est ensuite utilisée par prefetch-13f pour cibler les fonds à suivre.',
+      },
+      'backup-to-r2': {
+        title: '💾 Backup D1 + KV → R2',
+        desc: 'Cron quotidien 7h UTC. Dump SQL complet de la D1 kairos-history + export de toutes les clés KV critiques (sub:*, wl:*, insider-*, 13f-*, etc.) vers le bucket R2 kairos-backups. Rétention 30 jours glissants. Voir BACKUP_RECOVERY.md pour le plan de reprise.',
+      },
+    };
+    const getJobMeta = (name) => JOB_META[name] || { title: name, desc: 'Job pipeline non documenté. Voir GitHub Actions pour les détails.' };
+
     function renderAdminJobsPanel(jobsRes) {
       const body = document.getElementById('adJobsBody');
       if (!body) return;
@@ -12279,20 +12342,32 @@
             const isGitHub = j.name !== 'cron-watchlist-digest';
             const GITHUB_REPO_L = 'natquinson-cmd/kairos-insider';
             const workflowMap = {
-              'fetch-13dg': 'update-13dg.yml',
-              'fetch-insider': 'update-insiders.yml',
-              'fetch-13f': 'update-13f.yml',
-              'fetch-etf': 'update-etfs.yml',
-              'fetch-kairos-score': 'update-scores.yml',
+              'fetch-13dg': 'update-13f.yml',
+              'fetch-amf': 'update-13f.yml',
+              'fetch-bafin': 'update-13f.yml',
+              'prefetch-13f': 'update-13f.yml',
+              'prefetch-all': 'update-13f.yml',
+              'prefetch-etf': 'update-13f.yml',
+              'prefetch-trends': 'update-13f.yml',
+              'merge-sources': 'update-13f.yml',
+              'push-to-d1': 'update-13f.yml',
+              'push-insiders-to-d1': 'update-13f.yml',
+              'push-scores-to-d1': 'update-13f.yml',
+              'discover-13f-funds': 'update-13f.yml',
+              'backup-to-r2': 'backup.yml',
             };
             const wf = workflowMap[j.name];
             const btnHTML = isGitHub
               ? `<a href="https://github.com/${GITHUB_REPO_L}/actions${wf ? '/workflows/' + wf : ''}" target="_blank" rel="noopener" class="admin-run-btn">🔗 GitHub</a>`
               : `<button type="button" onclick="runWatchlistCron(this)" class="admin-run-btn">▶ Lancer</button>`;
+            const meta = getJobMeta(j.name);
             return `
-              <div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface-1)">
+              <div class="tip" data-tip="${escapeHtml(meta.desc)}" style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface-1);cursor:help">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-                  <div style="font-weight:700;font-size:13px;color:var(--text-primary)">${escapeHtml(j.name)}</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:700;font-size:13px;color:var(--text-primary);line-height:1.3">${escapeHtml(meta.title)}</div>
+                    <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-top:2px">${escapeHtml(j.name)}</div>
+                  </div>
                   <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
                     ${badgeStatus(j.status, j.ts)}
                     ${btnHTML}
