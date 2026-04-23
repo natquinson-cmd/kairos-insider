@@ -6552,22 +6552,21 @@
         const body = document.getElementById('stockAnalysisBody');
         if (!body) return;
 
-        // Cherche/cree le slot JUSTE APRES le Kairos Score card (pas apres le hero).
+        // Cherche/cree le slot JUSTE APRES le chart de cours (card principale
+        // de la fiche action). L'utilisateur voit d'abord le graphique, puis
+        // les gros actionnaires detectes — ordre plus logique que de mettre
+        // les filings tout en haut apres le score.
         let slot = document.getElementById('activistBannerSlot');
         if (!slot) {
           slot = document.createElement('div');
           slot.id = 'activistBannerSlot';
           slot.style.cssText = 'margin:0 0 24px';
+          const chartCard = body.querySelector('#stockChartCard');
           const scoreCard = body.querySelector('.kairos-score-card');
-          if (scoreCard) {
-            if (scoreCard.nextSibling) scoreCard.parentNode.insertBefore(slot, scoreCard.nextSibling);
-            else scoreCard.parentNode.appendChild(slot);
-          } else {
-            // Fallback : apres le hero si pas de score card
-            const firstChild = body.firstElementChild;
-            if (firstChild && firstChild.nextSibling) body.insertBefore(slot, firstChild.nextSibling);
-            else body.appendChild(slot);
-          }
+          const anchor = chartCard || scoreCard || body.firstElementChild;
+          if (anchor && anchor.nextSibling) anchor.parentNode.insertBefore(slot, anchor.nextSibling);
+          else if (anchor) anchor.parentNode.appendChild(slot);
+          else body.appendChild(slot);
         }
 
         const isActivist = res.hasActivist;
@@ -7523,7 +7522,7 @@
         ${renderKairosScoreCard(score, d.ticker)}
 
         <!-- CHART prix avec superposition insiders + fonds offensifs + period selector -->
-        <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
+        <div id="stockChartCard" style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:12px">
             <h3 style="margin:0;font-size:16px;opacity:0.9">Cours &amp; signaux smart money</h3>
             <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:8px" id="chartPeriodSelector">
