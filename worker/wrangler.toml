@@ -6,14 +6,30 @@ compatibility_date = "2024-01-01"
 # (le dashboard appelle kairos-insider-api.natquinson.workers.dev pour les /api/*)
 workers_dev = true
 
+# Import des .md comme strings (articles blog). Wrangler utilise esbuild en
+# interne → la rule "Text" inline le contenu du fichier comme export default.
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
 # Routes Workers attachees a kairosinsider.fr (domaine dans le meme compte Cloudflare)
-# - /a/*        : pages SSR publiques pour bots SEO + sociaux
+# - /a/*         : pages SSR publiques pour bots SEO + sociaux (tickers)
+# - /blog, /blog/* : blog SEO (articles pillar, index, feed RSS)
 # - /sitemap.xml : sitemap dynamique (overrides le statique de GitHub Pages)
 # - /robots.txt  : robots.txt dynamique (overrides le statique de GitHub Pages)
 # Tout le reste (index.html, action.html, dashboard.html, CSS, assets) continue
 # d'etre servi par GitHub Pages via le proxy Cloudflare.
 [[routes]]
 pattern = "kairosinsider.fr/a/*"
+zone_name = "kairosinsider.fr"
+
+[[routes]]
+pattern = "kairosinsider.fr/blog"
+zone_name = "kairosinsider.fr"
+
+[[routes]]
+pattern = "kairosinsider.fr/blog/*"
 zone_name = "kairosinsider.fr"
 
 [[routes]]

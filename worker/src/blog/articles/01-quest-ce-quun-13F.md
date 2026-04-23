@@ -287,5 +287,5 @@ Pour un investisseur retail francophone, la valeur c'est :
 
 ## 📚 Articles connexes
 
-- [Comment suivre Warren Buffett en temps réel](./02-comment-suivre-warren-buffett.md)
-- [Insider trading légal vs illégal : comprendre et exploiter les Form 4](./03-insider-trading-legal-vs-illegal.md)
+- [Comment suivre Warren Buffett en temps réel](./comment-suivre-warren-buffett.md)
+- [Insider trading légal vs illégal : comprendre et exploiter les Form 4](./insider-trading-legal-vs-illegal.md)

@@ -12,6 +12,7 @@
  */
 
 import { handleStockAnalysis } from './stock-api.js';
+import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
 
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 
@@ -291,6 +292,21 @@ async function handleRequest(request, env) {
       const ticker = decodeURIComponent(path.slice('/a/'.length));
       const lang = (url.searchParams.get('lang') || '').toLowerCase() === 'en' ? 'en' : 'fr';
       return handleActionSSR(ticker, env, lang);
+    }
+
+    // Blog SEO (articles pillar MARKETING.md Sprint 1+2)
+    // - /blog           : index / liste des articles
+    // - /blog/feed.xml  : flux RSS 2.0
+    // - /blog/:slug     : article individuel (SSR complet + JSON-LD)
+    if (request.method === 'GET' && (path === '/blog' || path === '/blog/')) {
+      return handleBlogIndex();
+    }
+    if (request.method === 'GET' && path === '/blog/feed.xml') {
+      return handleBlogFeed();
+    }
+    if (request.method === 'GET' && path.startsWith('/blog/')) {
+      const slug = decodeURIComponent(path.slice('/blog/'.length).replace(/\/$/, ''));
+      return handleBlogPost(slug);
     }
 
     // ==========================================
@@ -2310,6 +2326,22 @@ async function handleSitemap(env) {
 <lastmod>${today}</lastmod><changefreq>${sp.freq}</changefreq><priority>${sp.prio}</priority>
 </url>`);
     }
+
+    // Blog : page index + chaque article pillar SEO. Priorite haute (0.9)
+    // car ce sont nos principales sources de trafic organique long-terme.
+    urls.push(`<url>
+<loc>${SITE}/blog</loc>
+<lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
+</url>`);
+    try {
+      for (const a of listPublishedArticles()) {
+        const lastmod = (a.date || today).slice(0, 10);
+        urls.push(`<url>
+<loc>${SITE}/blog/${encodeURIComponent(a.slug)}</loc>
+<lastmod>${lastmod}</lastmod><changefreq>monthly</changefreq><priority>0.9</priority>
+</url>`);
+      }
+    } catch (_) { /* si le module blog n'est pas charge, on skip */ }
 
     // Une URL SSR par ticker avec hreflang FR + EN (Googlebot indexera les 2)
     for (const t of tickers) {

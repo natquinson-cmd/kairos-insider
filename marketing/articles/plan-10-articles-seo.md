@@ -14,8 +14,8 @@
 
 | # | Article | Keyword principal | Volume FR | Diff. | Priorité |
 |---|---|---|---|---|---|
-| 1 | Qu'est-ce qu'un 13F ? | "13F" | 320/mo | Low | P1 🔥 |
-| 2 | Comment suivre Warren Buffett | "suivre warren buffett" | 480/mo | Low | P1 🔥 |
+| 1 | Qu'est-ce qu'un 13F ? | "13F" | 320/mo | Low | P1 🔥 ✅ |
+| 2 | Comment suivre Warren Buffett | "suivre warren buffett" | 480/mo | Low | P1 🔥 ✅ |
 | 3 | Insider trading légal expliqué | "insider trading légal" | 260/mo | Low | P1 🔥 |
 | 4 | Qui sont Elliott, Ackman, Icahn | "fonds activiste" | 210/mo | Low | P2 |
 | 5 | Smart money vs retail | "smart money" | 390/mo | Medium | P2 |
