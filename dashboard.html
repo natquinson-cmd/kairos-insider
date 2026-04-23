@@ -4363,10 +4363,13 @@
 
         <!-- KPI TOP ROW -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
-          <div class="tip tip-below" data-tip="Nombre total d'utilisateurs de la plateforme (union des clés user:* + sub:* + wl:* en KV). Chaque user Firebase est tracké automatiquement à son premier login authentifié (création d'une clé user:{uid} fire-and-forget). Les users qui ne se sont pas connectés depuis le dernier redéploiement du worker n'apparaîtront qu'à leur prochaine session." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Utilisateurs</div>
+          <div class="tip tip-below" data-tip="Cliquer pour voir la liste détaillée de tous les utilisateurs (email, date d'inscription, statut). Le total = union des clés user:* + sub:* + wl:* en KV. Chaque user Firebase est tracké automatiquement à son premier login." onclick="document.getElementById('adUsersBody')?.scrollIntoView({behavior:'smooth',block:'start'})" style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+              <span>Utilisateurs</span>
+              <span style="opacity:0.5;font-size:14px">↓</span>
+            </div>
             <div id="adKpiUsers" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
-            <div id="adKpiUsersDelta" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
+            <div id="adKpiUsersDelta" style="font-size:11px;color:var(--text-muted);margin-top:4px">Voir liste détaillée →</div>
           </div>
           <div class="tip tip-below" data-tip="Abonnements Stripe au statut 'active' (paiement réussi, accès Premium actif). MRR = Monthly Recurring Revenue estimé à partir du prix du plan × nombre d'actifs. Ne compte pas les past_due ni trialing." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Premium actifs</div>
@@ -13765,34 +13768,53 @@
         return '<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px">FREE</span>';
       };
 
-      const rows = usersRes.users.slice(0, 100).map(u => `
+      // Format date + heure courte pour la date d'inscription (firstSeen ISO)
+      const fmtDT = (iso) => {
+        if (!iso) return '—';
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch { return '—'; }
+      };
+
+      // Tri : premium d'abord, puis par date d'inscription decroissante (plus recent en haut)
+      const sortedUsers = [...usersRes.users].sort((a, b) => {
+        const ap = a.subStatus === 'active' ? 0 : (a.hasSubscription ? 1 : 2);
+        const bp = b.subStatus === 'active' ? 0 : (b.hasSubscription ? 1 : 2);
+        if (ap !== bp) return ap - bp;
+        return (b.firstSeen || '').localeCompare(a.firstSeen || '');
+      });
+
+      const rows = sortedUsers.slice(0, 100).map(u => `
         <tr style="border-bottom:1px solid var(--divider)">
           <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)" title="${esc(u.uid)}">${esc(u.uid.slice(0, 10))}...</td>
-          <td style="padding:8px 10px;font-size:12px" title="${u.emailSource ? 'Source: ' + u.emailSource : ''}">${esc(u.email || u.watchlistEmail || '—')}${u.emailSource === 'stripe' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">stripe</span>' : ''}</td>
+          <td style="padding:8px 10px;font-size:12px" title="${u.emailSource ? 'Source: ' + u.emailSource : ''}">${esc(u.email || u.watchlistEmail || '—')}${u.emailSource === 'stripe' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">stripe</span>' : u.emailSource === 'firebase' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">firebase</span>' : ''}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);white-space:nowrap" title="Date du premier login authentifié (création de la clé user:{uid} en KV)">${fmtDT(u.firstSeen)}</td>
           <td style="padding:8px 10px;text-align:center">${badgeStatus(u.subStatus)}</td>
           <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
           <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>
-          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted)">${fmtDTs(u.currentPeriodEnd)}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtDTs(u.currentPeriodEnd)}</td>
         </tr>
       `).join('');
 
       body.innerHTML = statusBar + `
-        <div style="overflow-x:auto;max-height:340px;overflow-y:auto">
+        <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
               <tr style="border-bottom:2px solid var(--border)">
                 <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
-                <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe' affiché), fallback sur watchlistEmail si l'user a configuré sa watchlist. Cache KV 24h par customer Stripe." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
+                <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe'), sinon email Firebase (badge 'firebase'), sinon watchlistEmail." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
+                <th class="tip" data-tip="Date et heure du premier login authentifié au dashboard (= création de la clé user:{uid} en KV). Précision à la minute." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Inscrit le</th>
                 <th class="tip" data-tip="Statut Stripe de l'abonnement : ACTIVE (OK), PAST DUE (paiement échoué en cours de retry), CANCELED (terminé), TRIAL (essai gratuit), FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Sub</th>
                 <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon. Les Briefs quotidiens par email sont envoyés à 8h Paris uniquement aux users avec WL non vide ET opt-in confirmé." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
                 <th class="tip" data-tip="Double opt-in RGPD pour les emails Brief. ✅ = a cliqué sur le lien de confirmation (reçoit les Briefs). ⏳ = mail de confirmation envoyé mais jamais cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
                 <th class="tip" data-tip="Date de fin de la période facturée en cours (Stripe currentPeriodEnd). L'abonnement se renouvelle automatiquement à cette date si actif, sinon il bascule en canceled." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Fin period.</th>
               </tr>
             </thead>
-            <tbody>${rows || '<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
           </table>
         </div>
-        ${usersRes.users.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${usersRes.users.length}</div>` : ''}
+        ${sortedUsers.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${sortedUsers.length} · triés par premium actif d'abord puis date d'inscription récente</div>` : ''}
       `;
     }
 
