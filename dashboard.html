@@ -4375,8 +4375,8 @@
             <span id="adminCountdown" style="font-size:10px;color:var(--text-muted)"></span>
           </label>
           <button onclick="loadAdminDashboard(true)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
-          <button onclick="previewDailyTweets()" class="tip" data-tip="Preview les 3 tweets que le worker génère aujourd'hui à partir des signaux Kairos (sans push)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid rgba(29,161,242,0.4);border-radius:6px;color:#1DA1F2;cursor:pointer;margin-left:4px">🐦 Preview tweets</button>
-          <button onclick="pushTweetsToTypefully()" class="tip" data-tip="Pousse les 3 tweets du jour dans ta queue Typefully (en drafts). Tu édites/valides ensuite dans typefully.com" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#1DA1F2,#0E71C8);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">✈️ Push Typefully</button>
+          <button onclick="previewDailyTweets()" class="tip" data-tip="Preview les 3 tweets que le worker génère aujourd'hui à partir des signaux Kairos (sans envoi)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid rgba(29,161,242,0.4);border-radius:6px;color:#1DA1F2;cursor:pointer;margin-left:4px">🐦 Preview tweets</button>
+          <button onclick="sendTweetsEmail()" class="tip" data-tip="Envoie immédiatement un email avec les 3 tweets du jour (même contenu que celui envoyé auto chaque matin 8h30)" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">📧 Email tweets</button>
         </div>
         <p class="section-desc">Monitoring interne de la plateforme. Acces limite a ton email.</p>
 
@@ -13638,25 +13638,16 @@
       }
     }
 
-    // Push les 3 tweets du jour dans la queue Typefully (drafts).
-    async function pushTweetsToTypefully() {
+    // Envoie un email HTML à l'admin avec les 3 tweets du jour (boutons "Poster sur X")
+    async function sendTweetsEmail() {
       if (!currentUser) return Toast.error('Pas authentifié.');
-      if (!confirm('Pousser 3 drafts dans ta queue Typefully ? Tu pourras les éditer avant publication.')) return;
+      if (!confirm('Envoyer un email avec les 3 tweets du jour à ton email admin ?')) return;
       try {
-        const data = await apiFetch('/api/admin/typefully/push', {}, 'POST');
-        if (data.error) return Toast.error('Erreur Typefully: ' + data.error);
-        const ok = data.pushed || 0;
-        const total = data.total || 0;
-        if (ok === 0) {
-          Toast.error(`Aucun tweet poussé (${total} tentative${total > 1 ? 's' : ''}). Voir console F12 pour détails.`);
-          console.log('Typefully push results:', data.results);
-        } else {
-          Toast.success(`✓ ${ok}/${total} drafts poussés dans Typefully`);
-          // Ouvre Typefully dans un nouvel onglet
-          setTimeout(() => window.open('https://typefully.com/drafts', '_blank'), 800);
-        }
+        const data = await apiFetch('/api/admin/daily-tweets/email', {}, 'POST');
+        if (data.error) return Toast.error('Erreur: ' + data.error);
+        Toast.success(`✓ Email envoyé à ${data.to || 'admin'} (${data.tweets || 0} tweets)`);
       } catch (e) {
-        Toast.error('Erreur: ' + (e.message || 'push échoué'));
+        Toast.error('Erreur: ' + (e.message || 'envoi échoué'));
       }
     }
 

@@ -433,13 +433,16 @@ async function handleRequest(request, env, ctx) {
         if (path === '/api/admin/debug-user') {
           return handleAdminDebugUser(url, env, origin);
         }
-        // Typefully : generation d'un draft dans la queue X depuis signaux Kairos
-        if (request.method === 'POST' && path === '/api/admin/typefully/push') {
-          return handleTypefullyPush(request, env, origin);
-        }
-        // Typefully : dry-run (retourne le tweet sans le pousser)
+        // Daily tweets : preview (GET) sans envoi / email (POST) vers admin
         if (request.method === 'GET' && path === '/api/admin/daily-tweets') {
           return handleDailyTweetsPreview(env, origin);
+        }
+        if (request.method === 'POST' && path === '/api/admin/daily-tweets/email') {
+          return handleDailyTweetsEmail(request, env, origin);
+        }
+        // Typefully (optionnel, necessite plan payant) — garde pour futur si upgrade
+        if (request.method === 'POST' && path === '/api/admin/typefully/push') {
+          return handleTypefullyPush(request, env, origin);
         }
         if (path === '/api/admin/subs-stats') {
           return handleAdminSubsStats(env, origin);
@@ -4424,6 +4427,90 @@ async function handleDailyTweetsPreview(env, origin) {
     return jsonResponse({ tweets, count: tweets.length, generatedAt: new Date().toISOString() }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'generation failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// POST /api/admin/daily-tweets/email : envoie un email HTML avec les 3 tweets
+// du jour a l'admin. Alternative GRATUITE a Typefully (API payante) :
+// - Tweets genereset + formates en cards HTML
+// - Bouton "Copier" par tweet + bouton "Ouvrir X pour poster"
+// - Stats signaux du jour en entete
+// Destinataire : ADMIN_EMAILS[0] par defaut, override possible via ?to=
+async function handleDailyTweetsEmail(request, env, origin) {
+  if (!env.BREVO_API_KEY) {
+    return jsonResponse({ error: 'BREVO_API_KEY not configured' }, 500, origin);
+  }
+  try {
+    const url = new URL(request.url);
+    const to = url.searchParams.get('to') || ADMIN_EMAILS[0];
+    const tweets = await generateDailyTweets(env);
+    const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' });
+
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Escape pour attribut HTML (href, data-*) + URL-encode pour X
+    const urlEncode = (s) => encodeURIComponent(String(s || ''));
+
+    const tweetCards = tweets.map((t, i) => {
+      const chars = t.length;
+      const charColor = chars > 280 ? '#EF4444' : chars > 240 ? '#F59E0B' : '#10B981';
+      const warnThread = chars > 280 ? ' · will be threaded' : '';
+      const xIntent = `https://x.com/intent/tweet?text=${urlEncode(t)}`;
+      return `
+<div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Tweet ${i+1} / ${tweets.length}</div>
+    <div style="font-size:11px;color:${charColor};font-weight:600">${chars} caractères${warnThread}</div>
+  </div>
+  <div style="background:#0A0F1E;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:16px;white-space:pre-wrap;color:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.5;margin-bottom:12px">${esc(t)}</div>
+  <div style="text-align:right">
+    <a href="${xIntent}" style="display:inline-block;padding:8px 16px;background:#1DA1F2;color:#fff !important;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600">🐦 Poster sur X</a>
+  </div>
+</div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Kairos · Tweets du jour</title></head>
+<body style="margin:0;padding:24px 12px;background:#0A0F1E;color:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:640px;margin:0 auto;background:#0A0F1E">
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;margin-bottom:4px">Kairos · Tweets du jour</div>
+    <div style="font-size:13px;color:#9CA3AF">${today}</div>
+  </div>
+  <div style="background:#111827;border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#CBD5E1;line-height:1.6">
+    <strong style="color:#F9FAFB">🚀 ${tweets.length} tweet${tweets.length > 1 ? 's' : ''} généré${tweets.length > 1 ? 's' : ''}</strong> à partir des signaux Kairos du jour.<br>
+    Clique sur <strong style="color:#1DA1F2">🐦 Poster sur X</strong> pour ouvrir le compose window de X avec le tweet pré-rempli.
+  </div>
+  ${tweetCards}
+  <div style="margin-top:24px;padding:16px;background:#111827;border:1px solid rgba(255,255,255,0.05);border-radius:10px;font-size:12px;color:#9CA3AF;text-align:center;line-height:1.6">
+    Envoyé par Kairos Insider · Workflow automatique <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;font-size:11px">daily-tweets.yml</code><br>
+    <a href="https://kairosinsider.fr/dashboard.html" style="color:#3B82F6;text-decoration:none">Dashboard admin</a> · <a href="https://x.com/compose/tweet" style="color:#3B82F6;text-decoration:none">Composer sur X</a>
+  </div>
+</div></body></html>`;
+
+    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+        to: [{ email: to }],
+        subject: `🐦 Kairos · ${tweets.length} tweet${tweets.length > 1 ? 's' : ''} du jour (${today})`,
+        htmlContent: html,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      log.warn('daily-tweets.email.brevo.fail', { status: resp.status, detail: errText.slice(0, 200) });
+      return jsonResponse({ error: 'Brevo API failed', status: resp.status, detail: errText.slice(0, 500) }, 502, origin);
+    }
+    log.info('daily-tweets.email.sent', { to, tweets: tweets.length });
+    return jsonResponse({ ok: true, sent: true, to, tweets: tweets.length }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'email send failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

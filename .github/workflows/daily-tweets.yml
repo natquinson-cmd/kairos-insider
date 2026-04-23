@@ -1,32 +1,29 @@
-name: Daily Tweets → Typefully
+name: Daily Tweets → Email
 
-# Pousse chaque matin 3 drafts de tweets dans la queue Typefully,
-# generes a partir des signaux Kairos du jour (clusters insiders,
-# 13D activists, score movers). L'utilisateur approuve/edite depuis
-# l'app Typefully et planifie la publication.
+# Envoie chaque matin un email avec les 3 tweets du jour,
+# generes a partir des signaux Kairos (clusters insiders, 13D
+# activists, score movers). L'utilisateur recoit l'email dans sa
+# boite admin et peut copier/poster sur X (ou planifier dans
+# Typefully/Buffer manuellement).
 #
 # Prerequis :
-# - TYPEFULLY_API_KEY configure comme secret Cloudflare
-#   (wrangler secret put TYPEFULLY_API_KEY)
-# - ADMIN_API_KEY configure comme secret Cloudflare (cote worker)
-#   (wrangler secret put ADMIN_API_KEY) — clef long-lived
-# - KAIROS_ADMIN_API_KEY configure comme secret GitHub (meme valeur que
-#   ADMIN_API_KEY cote Cloudflare) — permet au workflow d'appeler le worker
-#   via le header X-Admin-API-Key (bypass du token Firebase qui expire en 1h).
+# - BREVO_API_KEY configure comme secret Cloudflare (deja fait)
+# - ADMIN_API_KEY configure comme secret Cloudflare
+# - KAIROS_ADMIN_API_KEY configure comme secret GitHub (meme valeur)
 
 on:
   schedule:
-    # 7h30 UTC = 9h30 Paris (ete) / 8h30 Paris (hiver)
+    # 6h30 UTC = 8h30 Paris (ete) / 7h30 Paris (hiver)
     # Tourne APRES le cron de prefetch des signaux (15 6 * * * UTC)
-    # pour etre sur d'avoir la data fraiche du jour.
-    - cron: '30 7 * * *'
+    # pour avoir la data fraiche.
+    - cron: '30 6 * * *'
   workflow_dispatch:  # run manuel depuis GitHub UI
 
 jobs:
-  push-tweets:
+  send-email:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Typefully push endpoint
+      - name: Send daily tweets email via Brevo
         env:
           ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
           WORKER_URL: https://kairos-insider-api.natquinson.workers.dev
@@ -35,18 +32,18 @@ jobs:
             echo "::warning::KAIROS_ADMIN_API_KEY not set — skipping."
             exit 0
           fi
-          echo "Calling /api/admin/typefully/push via X-Admin-API-Key..."
+          echo "Calling /api/admin/daily-tweets/email..."
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "X-Admin-API-Key: $ADMIN_API_KEY" \
             -H "Content-Type: application/json" \
-            "${WORKER_URL}/api/admin/typefully/push")
+            "${WORKER_URL}/api/admin/daily-tweets/email")
           status_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
           echo "HTTP $status_code"
-          echo "$body" | head -c 2000
+          echo "$body"
           if [ "$status_code" != "200" ]; then
-            echo "::error::Typefully push failed (HTTP $status_code)"
+            echo "::error::Email send failed (HTTP $status_code)"
             exit 1
           fi
           echo ""
-          echo "::notice::Tweets poussés dans Typefully — valider depuis l'app."
+          echo "::notice::Email envoyé à l'admin avec les tweets du jour."
