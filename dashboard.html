@@ -756,6 +756,36 @@
       backdrop-filter: blur(10px);
     }
     .auth-overlay.hidden { display: none; }
+
+    /* ===== PENDING CHECKOUT FULL-SCREEN OVERLAY =====
+       Affichee des que l'user arrive depuis la landing avec un plan choisi,
+       cache TOUT le dashboard en arriere-plan jusqu'au redirect Stripe.
+       Evite le flash 'dashboard puis redirect' qui semble bizarre.
+       Style : fond primary plein + logo + spinner + message. */
+    html.pending-checkout body > *:not(#pendingCheckoutOverlay) { visibility: hidden !important; }
+    html.pending-checkout { background: var(--bg-primary, #0A0F1E); }
+    #pendingCheckoutOverlay {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #0B1226 0%, #1E1B4B 50%, #2A1245 100%);
+      z-index: 9999;
+      display: none;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 20px;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+    }
+    html.pending-checkout #pendingCheckoutOverlay { display: flex; visibility: visible !important; }
+    #pendingCheckoutOverlay .pco-spinner {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #3B82F6;
+      border-radius: 50%;
+      animation: pco-spin 0.8s linear infinite;
+    }
+    @keyframes pco-spin { to { transform: rotate(360deg); } }
+    #pendingCheckoutOverlay h2 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+    #pendingCheckoutOverlay p { font-size: 14px; color: #94A3B8; margin: 0; max-width: 360px; line-height: 1.6; }
     .auth-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -1994,6 +2024,14 @@
         </p>
       </div>
     </div>
+  </div>
+
+  <!-- ===== PENDING CHECKOUT OVERLAY (redirect vers Stripe en cours) ===== -->
+  <div id="pendingCheckoutOverlay" aria-live="polite" role="status">
+    <img src="assets/logo-128.png" width="56" height="56" alt="Kairos Insider" style="border-radius:12px" />
+    <div class="pco-spinner"></div>
+    <h2>Redirection vers le paiement…</h2>
+    <p>Préparation de votre session Stripe sécurisée. Merci de patienter quelques secondes.</p>
   </div>
 
   <!-- ===== PAYWALL OVERLAY ===== -->
@@ -4258,22 +4296,33 @@
             if (autoCheckout && !isPremium && !alreadyFired) {
               localStorage.removeItem('kairos_auto_checkout');       // cross-session consume
               sessionStorage.setItem('kairos_checkout_fired', '1');  // per-tab consume
-              setTimeout(() => {
-                try { window.Toast && Toast.info && Toast.info('Redirection vers le paiement…'); } catch (e) {}
-                startCheckout();
-              }, 500);
+              // Pas de setTimeout : l'overlay 'pending-checkout' (pose des le
+              // debut du script) masque deja le dashboard. On peut lancer
+              // startCheckout immediatement pour minimiser la latence percue.
+              startCheckout();
             } else if (autoCheckout && alreadyFired) {
               // Defense-in-depth : le flag localStorage a survecu bizarrement.
               // Nettoie sans re-trigger.
               localStorage.removeItem('kairos_auto_checkout');
+              hidePendingCheckoutOverlay();
+            } else {
+              // Aucun auto-checkout en attente : cache l'overlay s'il etait
+              // resté actif par precaution (ex: user deja premium).
+              hidePendingCheckoutOverlay();
             }
-          } catch (e) {}
+          } catch (e) {
+            hidePendingCheckoutOverlay();
+          }
 
           window.dispatchEvent(new CustomEvent('kairos:auth-ready'));
         } else {
           currentUser = null;
           isPremium = false;
           document.getElementById('authOverlay').classList.remove('hidden');
+          // L'user doit se login d'abord : retire l'overlay 'pending-checkout'
+          // pour que le login apparaisse. Le flag localStorage reste en place,
+          // il declenchera le checkout auto apres login.
+          hidePendingCheckoutOverlay();
         }
       });
     }
@@ -4554,8 +4603,21 @@
         if (planUrl || billingUrl || url.searchParams.get('checkout')) {
           window.history.replaceState({}, '', url.toString());
         }
+
+        // Active l'overlay plein ecran 'Redirection vers le paiement...' TOUT DE
+        // SUITE si un auto-checkout est en attente. Cache le dashboard flash
+        // entre login et redirect Stripe (UX continue : landing → loader → Stripe).
+        if (localStorage.getItem('kairos_auto_checkout') && !sessionStorage.getItem('kairos_checkout_fired')) {
+          document.documentElement.classList.add('pending-checkout');
+        }
       } catch (e) {}
     })();
+
+    // Retire l'overlay plein ecran (utilise apres auto-checkout fire ou si
+    // le flow est annule, pour revealer le dashboard).
+    function hidePendingCheckoutOverlay() {
+      document.documentElement.classList.remove('pending-checkout');
+    }
 
     function getPlanPreference() {
       try {
