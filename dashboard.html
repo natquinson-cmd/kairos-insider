@@ -2387,7 +2387,7 @@
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.watchlist_title">Ma Watchlist</h4>
-            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions preferees et recevez un <strong>digest email quotidien</strong> a 8h avec les événements smart-money détectés : clusters insiders, rotations ETF, variation Kairos Score.</p>
+            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions préférées et recevez un <strong>Brief quotidien par email</strong> à 8h avec les événements smart money détectés : clusters d'initiés, rotations ETF, variations Kairos Score.</p>
             <div style="margin-top:12px;font-size:12px;color:#FBBF24" data-i18n="dash.home.watchlist_cta">Configurer mes alertes →</div>
           </div>
 
@@ -3378,7 +3378,7 @@
       <!-- ===== SECTION: MA WATCHLIST ===== -->
       <div class="section-page" id="section-watchlist">
         <h2><span data-i18n="dash.section.watchlist.title">Ma Watchlist</span> <span class="beta-tag" style="background:linear-gradient(135deg,#F59E0B,#EC4899)">NEW</span></h2>
-        <p class="section-desc" data-i18n="dash.section.watchlist.desc">Suivez vos actions preferees et recevez chaque matin a 8h un digest email des événements smart-money détectés : nouveaux clusters insiders, entrees/sorties d'ETF, variations du Kairos Score.</p>
+        <p class="section-desc" data-i18n="dash.section.watchlist.desc">Suivez vos actions préférées et recevez chaque matin à 8h un Brief par email des événements smart money détectés : nouveaux clusters d'initiés, entrées/sorties d'ETF, variations du Kairos Score.</p>
 
         <!-- KPIs + bouton d'ajout -->
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;margin:20px 0 24px">
@@ -3394,7 +3394,7 @@
             <div id="wlStatus" style="font-size:15px;font-weight:600;color:var(--text-primary)">Non configure</div>
           </div>
           <div style="flex:2;min-width:300px;padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Dernier digest</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Dernier Brief</div>
             <div id="wlLastDigest" style="font-size:14px;color:var(--text-primary)">—</div>
           </div>
         </div>
@@ -3425,7 +3425,7 @@
           <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:14px;padding:12px;background:rgba(59,130,246,0.05);border-radius:8px">
             <input type="checkbox" id="wlEmailAlerts" onchange="saveWatchlistPrefs()" style="margin-top:2px;width:18px;height:18px;cursor:pointer;accent-color:var(--accent-blue)" />
             <div>
-              <div style="font-weight:600;color:var(--text-primary);font-size:14px">Recevoir le digest email quotidien</div>
+              <div style="font-weight:600;color:var(--text-primary);font-size:14px">Recevoir le Brief quotidien par email</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Chaque matin a 8h (Paris), si des événements sont détectés sur vos tickers. Premiere activation = email de confirmation (double opt-in).</div>
             </div>
           </label>
@@ -3456,7 +3456,7 @@
 
           <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
             <button onclick="testWatchlistDigest()" class="btn" style="padding:10px 18px;font-size:13px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-primary)">
-              📧 Tester le digest maintenant
+              📧 Tester le Brief maintenant
             </button>
             <button onclick="clearWatchlist()" class="btn" style="padding:10px 18px;font-size:13px;background:transparent;border:1px solid var(--accent-red);color:var(--accent-red)">
               Tout supprimer
@@ -4598,7 +4598,7 @@
         { ok: true,  text: '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)' },
         { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
         { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
-        { ok: true,  text: 'Watchlist + digest email quotidien' },
+        { ok: true,  text: 'Watchlist + Brief quotidien par email' },
         { ok: true,  text: 'Historique 2 ans + exports CSV (10/jour)' },
         { ok: false, text: 'API REST · alertes temps-réel · backtests historiques' },
       ],
@@ -12342,8 +12342,8 @@
                 <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
                 <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe' affiché), fallback sur watchlistEmail si l'user a configuré sa watchlist. Cache KV 24h par customer Stripe." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
                 <th class="tip" data-tip="Statut Stripe de l'abonnement : ACTIVE (OK), PAST DUE (paiement échoué en cours de retry), CANCELED (terminé), TRIAL (essai gratuit), FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Sub</th>
-                <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon. Les digests email quotidiens sont envoyés à 8h Paris uniquement aux users avec WL non vide ET opt-in confirmé." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
-                <th class="tip" data-tip="Double opt-in RGPD pour les emails de digest. ✅ = a cliqué sur le lien de confirmation (reçoit les digests). ⏳ = mail de confirmation envoyé mais jamais cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
+                <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon. Les Briefs quotidiens par email sont envoyés à 8h Paris uniquement aux users avec WL non vide ET opt-in confirmé." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
+                <th class="tip" data-tip="Double opt-in RGPD pour les emails Brief. ✅ = a cliqué sur le lien de confirmation (reçoit les Briefs). ⏳ = mail de confirmation envoyé mais jamais cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
                 <th class="tip" data-tip="Date de fin de la période facturée en cours (Stripe currentPeriodEnd). L'abonnement se renouvelle automatiquement à cette date si actif, sinon il bascule en canceled." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Fin period.</th>
               </tr>
             </thead>
@@ -12670,8 +12670,8 @@
     // Fallback sur le nom technique si l'entree manque.
     const JOB_META = {
       'cron-watchlist-digest': {
-        title: '📧 Digest email watchlists',
-        desc: 'Tourne chaque matin à 8h15 Paris. Envoie aux users opt-in un récap de leurs actions en watchlist : clusters insiders détectés, rotations ETF, variation Kairos Score. Skippé pour les users sans watchlist ou sans opt-in RGPD.',
+        title: '📧 Brief email watchlists',
+        desc: 'Tourne chaque matin à 8h15 Paris. Envoie aux users opt-in un Brief des actions en watchlist : clusters insiders détectés, rotations ETF, variation Kairos Score. Skippé pour les users sans watchlist ou sans opt-in RGPD.',
       },
       'fetch-13dg': {
         title: '📜 Filings 13D/G (activists + gros actionnaires >5%)',

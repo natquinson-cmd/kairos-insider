@@ -126,7 +126,7 @@ Ce sont les features qui justifient l'upgrade Pro→Elite :
 
 #### 4. Newsletter hebdomadaire gratuite
 
-- **Titre** : *Smart Money FR · le digest du lundi*
+- **Titre** : *Smart Money FR · le Brief du lundi*
 - **Format** : 5-7 insights de la semaine :
   - 1 cluster insider détecté
   - 1 mouvement 13D activist

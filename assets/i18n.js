@@ -121,7 +121,7 @@
       'feat.activists.chip': 'NEW · Signal 10 jours',
 
       'feat.watchlist.title': 'Watchlist &amp; Alertes Email',
-      'feat.watchlist.desc_html': 'Créez votre <strong>watchlist personnalisée</strong> et recevez chaque matin un <strong>digest email</strong> avec tous les événements smart money détectés sur VOS actions : nouveaux clusters d\'initiés, entrées/sorties d\'ETF, variations du Kairos Score, consensus hedge funds qui change. Plus jamais rater un signal.',
+      'feat.watchlist.desc_html': 'Créez votre <strong>watchlist personnalisée</strong> et recevez chaque matin un <strong>Brief par email</strong> avec tous les événements smart money détectés sur VOS actions : nouveaux clusters d\'initiés, entrées/sorties d\'ETF, variations du Kairos Score, consensus hedge funds qui change. Plus jamais rater un signal.',
       'feat.watchlist.chip': 'NEW · Alerte matinale 8h',
 
       'feat.portfolio.title': 'Mon Portefeuille',
@@ -403,7 +403,7 @@
       'dash.home.stockAnalysis_desc': 'Deep-dive complet sur n\'importe quel ticker : <strong>Kairos Score</strong> composite de 0 à 100, initiés, hedge funds, fondamentaux, santé financière, peers, earnings.',
       'dash.home.stockAnalysis_cta': 'Rechercher une action →',
       'dash.home.watchlist_title': 'Ma Watchlist',
-      'dash.home.watchlist_desc': 'Suivez vos actions préférées et recevez un <strong>digest email quotidien</strong> à 8h avec les événements smart-money détectés : clusters insiders, rotations ETF, variation Kairos Score.',
+      'dash.home.watchlist_desc': 'Suivez vos actions préférées et recevez un <strong>Brief quotidien par email</strong> à 8h avec les événements smart money détectés : clusters d\'initiés, rotations ETF, variations Kairos Score.',
       'dash.home.watchlist_cta': 'Configurer mes alertes →',
       'dash.home.hotStocks_title': 'Hot Stocks',
       'dash.home.hotStocks_desc': 'Les actions <strong>les plus cherchées sur Google</strong> avec score de momentum. Détectez les small caps qui commencent à attirer l\'attention retail avant le reste du marché.',
@@ -484,7 +484,7 @@
       'dash.section.portfolio.title': 'Mon Portefeuille',
       'dash.section.portfolio.desc': 'Importez vos trades depuis votre plateforme de trading pour suivre votre performance. <strong style="color:#FDE047">Module en beta</strong> — la synchronisation automatique avec votre broker arrive bientot.',
       'dash.section.watchlist.title': 'Ma Watchlist',
-      'dash.section.watchlist.desc': 'Suivez vos actions preferees et recevez chaque matin a 8h un digest email des événements smart-money détectes : nouveaux clusters insiders, entrees/sorties d\'ETF, variations du Kairos Score.',
+      'dash.section.watchlist.desc': 'Suivez vos actions préférées et recevez chaque matin à 8h un Brief par email des événements smart money détectés : nouveaux clusters d\'initiés, entrées/sorties d\'ETF, variations du Kairos Score.',
 
       // ==== TX TYPES (legacy compat avec dashboard.html) ====
       'tx.buy': 'Achat',
@@ -594,7 +594,7 @@
       'feat.activists.chip': 'NEW · 10-day signal',
 
       'feat.watchlist.title': 'Watchlist &amp; Email Alerts',
-      'feat.watchlist.desc_html': 'Build your <strong>custom watchlist</strong> and receive a <strong>daily morning digest</strong> with all smart money events détected on YOUR stocks: new insider clusters, ETF entries/exits, Kairos Score changes, hedge fund consensus shifts. Never miss a signal.',
+      'feat.watchlist.desc_html': 'Build your <strong>custom watchlist</strong> and receive a <strong>daily morning Brief</strong> with all smart money events detected on YOUR stocks: new insider clusters, ETF entries/exits, Kairos Score changes, hedge fund consensus shifts. Never miss a signal.',
       'feat.watchlist.chip': 'NEW · Morning alert 8am',
 
       'feat.portfolio.title': 'My Portfolio',
@@ -868,7 +868,7 @@
       'dash.home.stockAnalysis_desc': 'Complete deep-dive on any ticker: <strong>Kairos Score</strong> composite from 0 to 100, insiders, hedge funds, fundamentals, financial health, peers, earnings.',
       'dash.home.stockAnalysis_cta': 'Search a stock →',
       'dash.home.watchlist_title': 'My Watchlist',
-      'dash.home.watchlist_desc': 'Track your favorite stocks and receive a <strong>daily email digest</strong> at 8am with détected smart-money events: insider clusters, ETF rotations, Kairos Score changes.',
+      'dash.home.watchlist_desc': 'Track your favorite stocks and receive a <strong>daily email Brief</strong> at 8am with detected smart money events: insider clusters, ETF rotations, Kairos Score changes.',
       'dash.home.watchlist_cta': 'Configure my alerts →',
       'dash.home.hotStocks_title': 'Hot Stocks',
       'dash.home.hotStocks_desc': 'Stocks <strong>most searched on Google</strong> with momentum score. Spot small caps starting to attract retail attention before the rest of the market.',
@@ -949,7 +949,7 @@
       'dash.section.portfolio.title': 'My Portfolio',
       'dash.section.portfolio.desc': 'Import your trades from your trading platform to track your performance. <strong style="color:#FDE047">Beta module</strong> — automatic broker sync coming soon.',
       'dash.section.watchlist.title': 'My Watchlist',
-      'dash.section.watchlist.desc': 'Track your favorite stocks and receive a daily email digest at 8am with détected smart-money events: new insider clusters, ETF entries/exits, Kairos Score changes.',
+      'dash.section.watchlist.desc': 'Track your favorite stocks and receive a daily email Brief at 8am with detected smart money events: new insider clusters, ETF entries/exits, Kairos Score changes.',
 
       'tx.buy': 'Buy',
       'tx.sell': 'Sell',

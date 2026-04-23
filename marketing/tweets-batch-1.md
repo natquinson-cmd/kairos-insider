@@ -168,7 +168,7 @@ Aucun compte nécessaire.
 Plus de X investisseurs ont déjà configuré leur watchlist
 smart money sur Kairos.
 
-Tous les matins à 8h15 Paris, ils reçoivent un digest
+Tous les matins à 8h15 Paris, ils reçoivent un Brief
 des événements notables sur leurs actions :
 → Cluster insider détecté
 → Nouveau 13D activist
