@@ -3,7 +3,7 @@ title: "Cluster insiders : le signal smart money que les hedge funds utilisent (
 slug: cluster-insiders-signal
 description: "Un cluster insider = 3 dirigeants ou plus qui achètent les actions de leur société dans une fenêtre de 7 à 30 jours. Études académiques : +11 % d'alpha sur 6 mois. Comment les détecter et les exploiter."
 keywords: "cluster insider, insider cluster buying, signal smart money, Form 4, insider trading, cluster d'achat, insider alpha, Cohen Malloy Pomorski"
-date: 2026-04-23
+date: 2026-04-20
 author: Kairos Insider
 readingTime: 8 min
 ---

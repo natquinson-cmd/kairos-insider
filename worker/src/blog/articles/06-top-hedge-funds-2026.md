@@ -3,7 +3,7 @@ title: "Les 5 meilleurs hedge funds à suivre en 2026 (track record + thèses ac
 slug: top-hedge-funds-2026
 description: "Berkshire, Pershing, Baupost, Citadel, Renaissance : les 5 hedge funds qui surperforment le marché depuis 20+ ans. Découvrez leurs thèses 2026, leurs dernières positions 13F et comment les suivre gratuitement."
 keywords: "meilleurs hedge funds, top hedge funds 2026, hedge funds performance, Berkshire Hathaway, Pershing Square, Baupost, Citadel, Renaissance, classement hedge funds"
-date: 2026-04-23
+date: 2026-04-07
 author: Kairos Insider
 readingTime: 10 min
 ---

@@ -612,13 +612,98 @@
       border-radius: 0 0 8px 0;
     }
     .skip-link:focus { top: 0; }
-    /* Réduit les animations pour les users qui l'ont demandé (WCAG 2.3.3) */
+    /* Réduit les animations pour les users qui l'ont demandé (WCAG 2.3.3).
+       Exceptions : les graphiques informatifs (Fear & Greed gauge + chart)
+       conservent leurs animations car elles aident a lire la donnee, pas
+       juste decoratives. */
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
+      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *),
+      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *)::before,
+      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *)::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
+    }
+
+    /* ===== ANIMATIONS GLOBALES ===== */
+
+    /* Scroll reveal : les elements avec .reveal-on-scroll fade-in
+       (+ translate Y subtil) quand ils entrent dans le viewport.
+       L'IntersectionObserver JS ajoute .is-visible → la transition joue. */
+    .reveal-on-scroll {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                  transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: opacity, transform;
+    }
+    .reveal-on-scroll.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Stagger in : keyframe pour l'apparition en cascade des items d'une liste */
+    @keyframes kairosStaggerIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Pulse dot "live" : point qui pulse pour signaler une donnee en temps reel */
+    .pulse-dot {
+      position: relative;
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green, #10B981);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+      flex-shrink: 0;
+    }
+    .pulse-dot::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: var(--accent-green, #10B981);
+      opacity: 0.6;
+      animation: pulseDotRing 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes pulseDotRing {
+      0%   { transform: scale(0.7); opacity: 0.6; }
+      70%  { transform: scale(2.2); opacity: 0;   }
+      100% { transform: scale(2.2); opacity: 0;   }
+    }
+
+    /* Micro-interaction : scale au clic sur boutons & cards cliquables */
+    .home-card,
+    button:not([disabled]),
+    .btn-search,
+    .signal-card-head-clickable {
+      transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1),
+                  background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .home-card:active,
+    button:not([disabled]):active,
+    .btn-search:active,
+    .signal-card-head-clickable:active {
+      transform: scale(0.97);
+    }
+
+    /* Count-up : quand un nombre s'anime, leger scale pulse */
+    .stat-value-pop {
+      animation: statPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes statPop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
     }
 
     /* ===== RESPONSIVE MOBILE GLOBAL ===== */
@@ -2498,7 +2583,10 @@
         </div>
 
         <!-- STATS DU JOUR -->
-        <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px" data-i18n="dash.home.recent_activity">Activité récente</h3>
+        <div class="reveal-on-scroll" style="display:flex;align-items:center;gap:10px;margin:0 0 12px">
+          <span class="pulse-dot" aria-hidden="true" title="Données actualisées quotidiennement"></span>
+          <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0" data-i18n="dash.home.recent_activity">Activité récente</h3>
+        </div>
         <div id="homeStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:32px">
           <div class="home-stat" style="padding:16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
             <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px" data-i18n="dash.home.stat_tx_title">Transactions (90j)</div>
@@ -2523,7 +2611,7 @@
         </div>
 
         <!-- TOP SIGNAUX DU JOUR (Phase C) -->
-        <div id="homeTopSignalsWrap" style="margin-bottom:32px;display:none"></div>
+        <div id="homeTopSignalsWrap" class="reveal-on-scroll" style="margin-bottom:32px;display:none"></div>
 
         <!-- CARTES FONCTIONNALITES -->
         <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px" data-i18n="dash.home.explore_features">Explorez les fonctionnalités</h3>
@@ -6179,6 +6267,99 @@
       return String(Math.round(n));
     }
 
+    // ============================================================
+    // ANIMATIONS — Kit d'helpers reutilisables
+    // ============================================================
+    // Respecte prefers-reduced-motion : si l'user a active cette option
+    // systeme, on skip les animations qui pourraient le deranger
+    // (seul le Fear & Greed gauge fait exception car c'est un graphique
+    // informatif, pas decoratif).
+    const _prefersReducedMotion = (() => {
+      try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+      catch { return false; }
+    })();
+
+    // Count-up : anime un nombre de 0 a target en duration ms.
+    // Supporte les strings type "5k+" ou "—" via auto-detection.
+    function animateCountUp(el, target, options = {}) {
+      if (!el) return;
+      const duration = options.duration || 1400;
+      const suffix = options.suffix || '';
+      // Parse le target : si string "5k", "1.2k+", "—", on extrait le nombre
+      let numTarget;
+      let outSuffix = suffix;
+      if (typeof target === 'number') {
+        numTarget = target;
+      } else {
+        const s = String(target).trim();
+        if (s === '—' || s === '-' || s === '') { el.textContent = s; return; }
+        const m = s.match(/^([\d.,]+)\s*([kKmM])?\s*([+]?)$/);
+        if (!m) { el.textContent = s; return; }
+        numTarget = parseFloat(m[1].replace(',', '.'));
+        if (m[2]) {
+          const mult = m[2].toLowerCase() === 'k' ? 1000 : 1000000;
+          numTarget *= mult;
+        }
+        if (m[3]) outSuffix = m[3] + outSuffix;
+      }
+      if (!isFinite(numTarget)) { el.textContent = String(target); return; }
+
+      // Si reduced-motion, on skip l'animation et set direct la valeur finale
+      if (_prefersReducedMotion) { el.textContent = fmtHomeStat(numTarget) + outSuffix; return; }
+
+      let start = null;
+      function frame(now) {
+        if (start === null) start = now;
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        // easeOutCubic : rapide au debut, decelere a la fin
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = numTarget * eased;
+        el.textContent = fmtHomeStat(current) + (progress === 1 ? outSuffix : '');
+        if (progress < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // Scroll reveal : attache un IntersectionObserver qui ajoute la classe
+    // .is-visible aux elements .reveal-on-scroll quand ils entrent dans le
+    // viewport. Couple avec un CSS transition (opacity + translateY).
+    // Init appele une seule fois par section (cf loadHome).
+    let _revealObserver = null;
+    function initScrollReveal(scope) {
+      if (_prefersReducedMotion) {
+        // Pas d'animation : revele tout direct
+        (scope || document).querySelectorAll('.reveal-on-scroll').forEach(el => el.classList.add('is-visible'));
+        return;
+      }
+      if (!_revealObserver) {
+        _revealObserver = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              _revealObserver.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+      }
+      (scope || document).querySelectorAll('.reveal-on-scroll:not(.is-visible)').forEach(el => {
+        _revealObserver.observe(el);
+      });
+    }
+
+    // Applique un stagger a une liste d'elements enfants d'un container
+    // (apparition decalee de 50ms entre chaque element, max 12 pour eviter
+    // un delai trop long sur les grandes listes).
+    function applyStagger(container, selector = '> *', stepMs = 50) {
+      if (!container) return;
+      if (_prefersReducedMotion) return;
+      const items = Array.from(container.querySelectorAll(selector.replace('> ', ':scope > ')));
+      items.forEach((el, i) => {
+        const delay = Math.min(i, 12) * stepMs;
+        el.style.animation = `kairosStaggerIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms both`;
+      });
+    }
+
     // Fetch silencieux : ne déclenche pas l'overlay paywall sur 403 (utilisé pour les stats d'accueil)
     async function silentFetch(endpoint) {
       if (!currentUser) return null;
@@ -6202,12 +6383,25 @@
       }
 
       const setText = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+      // Count-up wrapper : anime de 0 vers la valeur (numerique ou string type "5k+")
+      const animateStat = (id, target) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        animateCountUp(el, target);
+      };
+
+      // Initialise le scroll reveal + stagger sur les cards home
+      setTimeout(() => {
+        try { initScrollReveal(document.getElementById('section-home')); } catch (e) {}
+        const homeStats = document.getElementById('homeStats');
+        if (homeStats) applyStagger(homeStats, '> *', 80);
+      }, 50);
 
       // Utilisateur non-premium : affiche des placeholders engageants au lieu de fetcher
       if (!isPremium) {
-        setText('homeStatInsider', '5k+');
-        setText('homeStatClusters', '50+');
-        setText('homeStatFunds', '100+');
+        animateStat('homeStatInsider', '5k+');
+        animateStat('homeStatClusters', '50+');
+        animateStat('homeStatFunds', '100+');
         // Affiche les 4 cards 'Top signaux du jour' avec des donnees placeholder
         // realistes mais floutees → le user Free voit la structure + les titres
         // et comprend quel contenu smart money il rate. Overlay PRO au-dessus.
@@ -6225,19 +6419,19 @@
           const dt = t.date || t.fileDate || '';
           return dt <= today && dt >= cutoff;
         });
-        setText('homeStatInsider', fmtHomeStat(recent.length));
+        animateStat('homeStatInsider', recent.length);
       });
 
       silentFetch('/api/clusters').then(d => {
         if (!d) { setText('homeStatClusters', '—'); return; }
         const clusters = d.clusters || [];
-        setText('homeStatClusters', fmtHomeStat(clusters.length));
+        animateStat('homeStatClusters', clusters.length);
       });
 
       silentFetch('/api/13f-funds').then(d => {
         if (!d) { setText('homeStatFunds', '—'); return; }
         const funds = Array.isArray(d) ? d : (d && d.funds) || [];
-        setText('homeStatFunds', fmtHomeStat(funds.length));
+        animateStat('homeStatFunds', funds.length);
       });
 
       // Top signaux du jour (Phase C) — premium only
@@ -6369,6 +6563,10 @@
       `;
       wrap.style.display = 'block';
       try { applyHomeDataLocking(); } catch (e) {}
+      try {
+        initScrollReveal(wrap);
+        applyStagger(wrap.querySelector('.signals-grid'), '> .signal-card', 90);
+      } catch (e) {}
     }
 
     // ============================================================
@@ -6577,6 +6775,10 @@
         // Re-applique le locking sneak-peek apres injection des cards
         // (sinon les .signal-card n'existaient pas encore au 1er appel).
         try { applyHomeDataLocking(); } catch (e) {}
+        try {
+          initScrollReveal(wrap);
+          applyStagger(wrap.querySelector('.signals-grid'), '> .signal-card', 90);
+        } catch (e) {}
       } catch (e) {
         console.warn('[home top-signals]', e);
       }

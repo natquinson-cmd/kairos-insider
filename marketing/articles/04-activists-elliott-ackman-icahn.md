@@ -3,7 +3,7 @@ title: "Fonds activistes : qui sont Elliott, Ackman, Icahn et comment les suivre
 slug: activists-elliott-ackman-icahn
 description: "Elliott, Ackman, Icahn, Starboard : ces fonds activistes bougent des actions de +20 % en 24 h rien qu'avec leurs 13D. Découvrez qui ils sont, comment ils opèrent et comment suivre leurs mouvements gratuitement."
 keywords: "fonds activiste, activist investor, Elliott Management, Bill Ackman, Carl Icahn, Starboard Value, 13D, Pershing Square, fonds activistes liste, activism investing"
-date: 2026-04-23
+date: 2026-03-28
 author: Kairos Insider
 readingTime: 11 min
 ---

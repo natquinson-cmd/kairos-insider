@@ -3,7 +3,7 @@ title: "Comment suivre Warren Buffett en temps réel : le guide complet 2026"
 slug: comment-suivre-warren-buffett
 description: "Découvrez comment suivre en temps quasi-réel les achats et ventes de Warren Buffett via Berkshire Hathaway. Sources officielles SEC, délais, limites, et les 5 mouvements à ne pas rater en 2026."
 keywords: "warren buffett, berkshire hathaway, portefeuille buffett, 13F buffett, suivre buffett temps réel, warren buffett actions, berkshire 13F-HR"
-date: 2026-04-23
+date: 2026-02-18
 author: Kairos Insider
 readingTime: 10 min
 ---

@@ -3,7 +3,7 @@ title: "Fear & Greed Index expliqué simplement : comment l'utiliser en 2026 (gu
 slug: fear-and-greed-index
 description: "Le Fear & Greed Index de CNN mesure le sentiment de marché sur une échelle 0-100. Découvrez les 7 indicateurs qui le composent, comment l'utiliser pour timer ses entrées et les 3 pièges à éviter."
 keywords: "fear and greed index, indice peur avidité, sentiment marché, CNN fear greed, indicateur sentiment bourse, fear greed index explication, VIX, timer marché"
-date: 2026-04-23
+date: 2026-03-04
 author: Kairos Insider
 readingTime: 9 min
 ---

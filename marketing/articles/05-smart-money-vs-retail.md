@@ -3,7 +3,7 @@ title: "Smart money vs retail : qui gagne vraiment en bourse ? Étude chiffrée 
 slug: smart-money-vs-retail
 description: "Les hedge funds battent-ils vraiment le marché ? Les retail traders sont-ils condamnés à perdre ? Étude complète sur 20 ans de données SEC pour trancher — avec les stratégies pour combler l'écart."
 keywords: "smart money, smart money vs retail, hedge fund performance, retail trading, surperformance hedge fund, institutionnels bourse, retail bourse"
-date: 2026-04-23
+date: 2026-03-17
 author: Kairos Insider
 readingTime: 10 min
 ---

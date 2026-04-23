@@ -3,7 +3,7 @@ title: "Short Interest expliqué : comprendre qui parie contre une action (guide
 slug: short-interest-explique
 description: "Le Short Interest mesure combien d'actions sont vendues à découvert sur un ticker. Au-delà de 20 %, c'est un signal fort de conviction baissière — ou d'un potentiel short squeeze. Guide complet avec seuils, études et cas historiques."
 keywords: "short interest, short selling, vente à découvert, short squeeze, short ratio, days to cover, shorts bourse, GameStop, Tesla short"
-date: 2026-04-23
+date: 2026-04-15
 author: Kairos Insider
 readingTime: 9 min
 ---

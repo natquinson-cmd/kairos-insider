@@ -3,7 +3,7 @@ title: "Qu'est-ce qu'un 13F ? Le guide complet pour suivre les hedge funds amér
 slug: quest-ce-quun-13F
 description: "Le 13F est un document officiel SEC qui révèle les portefeuilles de tous les hedge funds US. Apprenez à les lire, leurs limites et comment les exploiter comme un pro."
 keywords: "13F, hedge fund, SEC, portefeuille, Buffett, Ackman, 13F-HR"
-date: 2026-04-23
+date: 2026-01-22
 author: Kairos Insider
 readingTime: 8 min
 ---

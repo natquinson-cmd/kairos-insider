@@ -3,7 +3,7 @@ title: "Insider trading légal vs illégal : comprendre et exploiter les Form 4 
 slug: insider-trading-legal-vs-illegal
 description: "Le 'délit d'initié' fait peur, mais saviez-vous que 95 % des transactions d'insiders sont parfaitement légales ? Ce guide vous explique la différence, comment lire un Form 4 et comment les pros utilisent les déclarations SEC pour investir."
 keywords: "insider trading, délit d'initié, Form 4, SEC, transactions insiders, initiés bourse, insider trading légal, insider trading illégal"
-date: 2026-04-23
+date: 2026-02-04
 author: Kairos Insider
 readingTime: 9 min
 ---
