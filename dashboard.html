@@ -1336,7 +1336,12 @@
     .sig-filter-select:focus { outline: none; border-color: var(--accent-blue); }
     .sig-table-wrap {
       background: var(--surface-1); border: 1px solid var(--border);
-      border-radius: 12px; overflow: hidden;
+      border-radius: 12px;
+      /* overflow:auto (pas hidden) pour que les sticky thead fonctionnent ET
+         pour que le border-radius clip toujours les rows. max-height cree un
+         scroll vertical interne → comportement Excel. */
+      max-height: 72vh;
+      overflow: auto;
     }
     .sig-table {
       width: 100%; border-collapse: collapse; font-size: 13px;
@@ -1348,6 +1353,12 @@
       text-transform: uppercase; letter-spacing: 0.04em;
       cursor: pointer; user-select: none;
       white-space: nowrap;
+      /* Sticky header : reste visible au scroll vertical du wrap.
+         background opaque necessaire pour masquer les rows qui passent derriere. */
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--surface-1);
     }
     .sig-table th:hover { color: var(--text-primary); }
     .sig-table th.sorted { color: var(--accent-blue); }
@@ -1521,7 +1532,11 @@
     .stat-card .stat-value.red { color: var(--accent-red); }
 
     /* ===== TABLE ===== */
-    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+    .table-wrap {
+      max-height: 72vh;
+      overflow: auto;
+      border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card);
+    }
     /* Variante pour la table principale Hedge Funds : scrollbar horizontale
        toujours visible (max-height + sticky header) au lieu d'etre tout
        en bas après tous les fonds. */
@@ -1538,10 +1553,42 @@
       backdrop-filter: blur(8px);
     }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    /* Sticky headers : les entetes restent visibles en scrollant.
-       Fonctionne pour les tables dans un container scrollable
-       (overflow-x:auto) + pour le scroll de la page entiere.
-       z-index 5 pour passer au-dessus des td mais sous les modals (z-index 100+). */
+
+    /* ===== STICKY HEADERS =====
+       Probleme classique : quand un parent a overflow-x:auto, il cree un
+       scroll-context qui PIEGE le sticky enfant dedans. Si le container
+       n'a PAS de hauteur max, il n'a rien a scroller en Y donc le header
+       reste colle visuellement au scroll Y de la page... mais mal cale.
+       SOLUTION : on donne aux wraps de tables une hauteur max explicite
+       + overflow auto sur les 2 axes. Le sticky est alors sticky vs ce
+       container (comportement Excel : tableau scrollable, header reste
+       visible en haut du tableau).
+       On cible les wraps en utilisant les classes utilitaires ET un
+       attribut-selector sur les inline styles contenant overflow*auto.
+       Ca couvre les 16+ wraps inline du dashboard sans avoir a les
+       retagger un par un. */
+    .funds-table-wrap,
+    .sig-table-wrap,
+    .table-scroll,
+    div[style*="overflow-x:auto"]:has(> table),
+    div[style*="overflow-x: auto"]:has(> table),
+    div[style*="overflow:auto"]:has(> table),
+    div[style*="overflow: auto"]:has(> table),
+    div[style*="overflow-x:auto"]:has(> div > table),
+    div[style*="overflow-x: auto"]:has(> div > table) {
+      max-height: 72vh !important;
+      overflow: auto !important;
+    }
+
+    /* Fallback pour browsers sans :has() : au minimum les classes nommees */
+    .funds-table-wrap,
+    .sig-table-wrap,
+    .table-scroll {
+      max-height: 72vh;
+      overflow: auto;
+    }
+
+    /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows */
     thead th {
       padding: 14px 16px; text-align: left; font-weight: 600; font-size: 12px;
       color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
@@ -1549,14 +1596,20 @@
       position: sticky;
       top: 0;
       z-index: 5;
-      background: var(--bg-secondary, var(--surface-1));
-      /* Fallback pour les navigateurs qui gerent mal la transparence sur sticky :
-         blurred bg au cas ou un fond transparent passerait. */
+      /* IMPORTANT : background OPAQUE (pas transparent) pour masquer les rows
+         qui passent derriere le header sticky lors du scroll. Fallback en
+         cascade : bg-secondary → surface-1 → couleur fixe dark theme. */
+      background: var(--bg-secondary, var(--surface-1, #111827));
+      box-shadow: 0 1px 0 var(--border);
+      /* Preserve le rendu compact du background meme sur les browsers qui
+         ne supportent pas backdrop-filter. */
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }
-    /* Variante : sticky offset pour tables dans un container scrollable avec un
-       header au-dessus (rare, mais permet un override manuel via .table-sticky-offset-N). */
+    [data-theme="light"] thead th {
+      background: var(--bg-secondary, var(--surface-1, #F9FAFB));
+    }
+    /* Offsets pour tables dans un container avec un header au-dessus */
     .table-sticky-off-40 thead th { top: 40px; }
     .table-sticky-off-60 thead th { top: 60px; }
     tbody td {
@@ -13496,7 +13549,7 @@
         </tr>`).join('');
 
       tableArea.innerHTML = `
-        <div style="overflow-x:auto">
+        <div class="table-scroll" style="max-height:72vh;overflow:auto">
           <table class="data-table" style="width:100%;border-collapse:collapse">
             <thead>${headers}</thead>
             <tbody>${body}</tbody>
@@ -14777,7 +14830,7 @@
               <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
             </div>
           </div>
-          <div style="overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+          <div class="table-scroll" style="max-height:72vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
             <table class="data-table" style="width:100%;border-collapse:collapse;min-width:1100px">
               <thead>
                 <tr>
