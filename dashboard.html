@@ -4588,6 +4588,11 @@
         if (hasPricingIntent) {
           localStorage.setItem('kairos_plan', planUrl);
           localStorage.setItem('kairos_auto_checkout', '1'); // one-shot
+          // Reset le flag per-tab : c'est une NOUVELLE intention d'achat, meme
+          // si l'user a deja declenche un checkout precedemment dans ce tab.
+          // Sinon, le user qui revient de la landing apres un back Stripe
+          // resterait bloque sans redirect.
+          sessionStorage.removeItem('kairos_checkout_fired');
           url.searchParams.delete('plan');
         }
         if (billingUrl === 'yearly' || billingUrl === 'monthly') {
