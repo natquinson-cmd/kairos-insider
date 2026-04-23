@@ -4341,8 +4341,10 @@ async function handleAdminDebugUser(url, env, origin) {
 async function generateDailyTweets(env) {
   const tweets = [];
   // 1. Top signaux du jour (Kairos Score movers + clusters)
+  // Source : cache KV 'home:top-signals' (peuple par handleHomeTopSignals).
+  // Si absent/stale, on tombe sur le fallback tweet generique.
   try {
-    const data = await env.CACHE.get('home-top-signals', 'json');
+    const data = await env.CACHE.get('home:top-signals', 'json');
     if (data) {
       // Signal #1 : biggest score mover
       const topMover = (data.scoreMovers || [])[0];
