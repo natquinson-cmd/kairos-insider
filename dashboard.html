@@ -791,6 +791,85 @@
       0%   { background-position: 0% 50%; }
       100% { background-position: 200% 50%; }
     }
+
+    /* ===== HOME CARDS : gating visuel (cadenas + flou) =====
+       Pour les users Free/Pro qui voient des tuiles au-dela de leur plan,
+       on floute legerement le contenu (sneak peek qui donne envie) et on
+       superpose un overlay avec badge PRO/ELITE + CTA 'Debloquer'. */
+    .home-card[data-locked="true"] {
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .home-card[data-locked="true"] > :not(.home-card-lock-overlay) {
+      filter: blur(3px) saturate(0.85);
+      opacity: 0.5;
+      pointer-events: none;
+      user-select: none;
+      transition: filter 0.3s, opacity 0.3s;
+    }
+    .home-card[data-locked="true"]:hover > :not(.home-card-lock-overlay) {
+      filter: blur(5px) saturate(0.7);
+      opacity: 0.35;
+    }
+    .home-card-lock-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(15, 22, 41, 0.82), rgba(30, 27, 75, 0.72));
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      border-radius: inherit;
+      z-index: 2;
+      transition: background 0.2s;
+    }
+    [data-theme="light"] .home-card-lock-overlay {
+      background: linear-gradient(135deg, rgba(249, 250, 251, 0.88), rgba(237, 233, 254, 0.78));
+    }
+    .home-card[data-locked="true"]:hover .home-card-lock-overlay {
+      background: linear-gradient(135deg, rgba(15, 22, 41, 0.72), rgba(30, 27, 75, 0.62));
+    }
+    [data-theme="light"] .home-card[data-locked="true"]:hover .home-card-lock-overlay {
+      background: linear-gradient(135deg, rgba(249, 250, 251, 0.78), rgba(237, 233, 254, 0.68));
+    }
+    .home-card-lock-icon {
+      font-size: 26px;
+      filter: drop-shadow(0 2px 8px rgba(139, 92, 246, 0.4));
+    }
+    .home-card-lock-badge {
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #fff;
+    }
+    .home-card-lock-badge.pro {
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+    }
+    .home-card-lock-badge.elite {
+      background: linear-gradient(135deg, #F59E0B, #EC4899);
+      box-shadow: 0 2px 10px rgba(236, 72, 153, 0.35);
+    }
+    .home-card-lock-cta {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+      line-height: 1.45;
+    }
+    .home-card-lock-cta strong {
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
     #pendingCheckoutOverlay h2 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
     #pendingCheckoutOverlay p { font-size: 14px; color: #94A3B8; margin: 0; max-width: 360px; line-height: 1.6; }
     .auth-card {
@@ -4765,6 +4844,69 @@
       if (!li) return;
       li.style.display = isPremium ? 'none' : '';
       renderFreeQuotaBanner();
+      applyHomeCardsLocking();
+    }
+
+    // Mapping section cible → plan requis pour l'acces.
+    // free = accessible a tous · pro = Pro/Elite · elite = Elite uniquement.
+    const HOME_CARD_PLAN_MAP = {
+      // Free
+      stockAnalysis: 'free', hotStocks: 'free', feargreed: 'free', shorts: 'free', home: 'free',
+      // Pro (+Elite)
+      watchlist: 'pro', consensus13f: 'pro', screener: 'pro', activists: 'pro',
+      insider: 'pro', clustering: 'pro', '13f': 'pro', etf: 'pro', portfolio: 'pro',
+      // Elite uniquement
+      eliteApi: 'elite', eliteAlerts: 'elite', eliteBacktests: 'elite',
+    };
+    const PLAN_RANK = { free: 0, pro: 1, legacy: 1, elite: 2 };
+
+    // Pose un overlay cadenas + floutage sur les home-cards qui depassent le
+    // plan de l'user. Donne envie (sneak peek) + CTA explicite 'Debloquer Pro/Elite'.
+    function applyHomeCardsLocking() {
+      const currentPlan = (window._currentPlan || 'free').toLowerCase();
+      const currentRank = PLAN_RANK[currentPlan] ?? 0;
+
+      document.querySelectorAll('.home-card').forEach(card => {
+        // Remove overlay precedent pour eviter les doublons quand on refresh
+        const prev = card.querySelector('.home-card-lock-overlay');
+        if (prev) prev.remove();
+
+        // Parse le onclick pour trouver la section cible
+        const onclick = card.getAttribute('onclick') || '';
+        const match = onclick.match(/switchSection\(['"]([^'"]+)['"]\)/);
+        if (!match) { card.removeAttribute('data-locked'); return; }
+        const section = match[1];
+        const requiredPlan = HOME_CARD_PLAN_MAP[section];
+        if (!requiredPlan || requiredPlan === 'free') {
+          card.removeAttribute('data-locked');
+          return;
+        }
+
+        const requiredRank = PLAN_RANK[requiredPlan] ?? 0;
+        if (currentRank >= requiredRank) {
+          // User a l'acces, pas de verrou
+          card.removeAttribute('data-locked');
+          return;
+        }
+
+        // Pose le verrou visuel (switchSection lui-meme gere le paywall au clic)
+        card.setAttribute('data-locked', 'true');
+        card.setAttribute('data-required-plan', requiredPlan);
+        const overlay = document.createElement('div');
+        overlay.className = 'home-card-lock-overlay';
+        const isElite = requiredPlan === 'elite';
+        const priceLabel = isElite ? '49€/mois' : '19€/mois';
+        const planLabel = isElite ? 'Elite' : 'Pro';
+        overlay.innerHTML = `
+          <div class="home-card-lock-icon" aria-hidden="true">🔒</div>
+          <div class="home-card-lock-badge ${isElite ? 'elite' : 'pro'}">${planLabel.toUpperCase()}</div>
+          <div class="home-card-lock-cta">
+            Débloquer avec <strong>${planLabel}</strong>
+            <br><span style="opacity:0.7;font-weight:400;font-size:11px">${priceLabel}</span>
+          </div>
+        `;
+        card.appendChild(overlay);
+      });
     }
 
     // Bandeau 'Quota Free X/3 analyses' affiche en tete de la section
