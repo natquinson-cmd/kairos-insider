@@ -4237,22 +4237,18 @@
             loadWatchlist().catch(() => {});
           }
 
-          // Auto-trigger checkout Stripe : l'user vient de la landing avec un
-          // plan choisi (?plan=pro&billing=monthly → persiste en localStorage
-          // par initPlanBillingFromUrl). Si pas deja abonne, on redirige
-          // directement vers Stripe sans l'obliger a re-cliquer.
+          // Auto-trigger checkout Stripe : flag 'kairos_auto_checkout' pose
+          // par initPlanBillingFromUrl quand l'user arrive depuis la landing
+          // avec ?plan=X. Consomme des la 1ere utilisation pour eviter la
+          // boucle 'annule Stripe → retour dashboard → re-redirect Stripe'.
           try {
-            const pendingPlan = localStorage.getItem('kairos_plan');
-            if (pendingPlan && !isPremium) {
+            const autoCheckout = localStorage.getItem('kairos_auto_checkout');
+            if (autoCheckout && !isPremium) {
+              localStorage.removeItem('kairos_auto_checkout'); // CONSUME before redirect
               setTimeout(() => {
                 try { window.Toast && Toast.info && Toast.info('Redirection vers le paiement…'); } catch (e) {}
                 startCheckout();
               }, 500);
-            } else if (isPremium) {
-              // L'user est deja abonne — nettoie le plan persiste pour ne pas
-              // relancer checkout au prochain login.
-              localStorage.removeItem('kairos_plan');
-              localStorage.removeItem('kairos_billing');
             }
           } catch (e) {}
 
@@ -4513,21 +4509,32 @@
     });
 
     // Au chargement : si ?plan= et/ou ?billing= sont dans l'URL, on les stocke
-    // en localStorage (persistance cross-refresh), puis on nettoie l'URL.
+    // en localStorage (preference cross-session) + on pose un flag one-shot
+    // 'kairos_auto_checkout' pour declencher Stripe automatiquement APRES
+    // login (consomme des la 1ere fois). Evite la boucle 'annule Stripe →
+    // retour dashboard → re-redirect Stripe' en ne l'auto-triggerant qu'une fois.
     (function initPlanBillingFromUrl() {
       try {
         const url = new URL(window.location.href);
         const planUrl = (url.searchParams.get('plan') || '').toLowerCase();
         const billingUrl = (url.searchParams.get('billing') || '').toLowerCase();
-        if (planUrl === 'pro' || planUrl === 'elite') {
+        const hasPricingIntent = (planUrl === 'pro' || planUrl === 'elite');
+        if (hasPricingIntent) {
           localStorage.setItem('kairos_plan', planUrl);
+          localStorage.setItem('kairos_auto_checkout', '1'); // one-shot
           url.searchParams.delete('plan');
         }
         if (billingUrl === 'yearly' || billingUrl === 'monthly') {
           localStorage.setItem('kairos_billing', billingUrl);
           url.searchParams.delete('billing');
         }
-        if (planUrl || billingUrl) {
+        // Cas : retour annule depuis Stripe (cancel_url inclut ?checkout=cancelled)
+        // → clear le flag pour eviter le retrigger infini.
+        if (url.searchParams.get('checkout') === 'cancelled') {
+          localStorage.removeItem('kairos_auto_checkout');
+          url.searchParams.delete('checkout');
+        }
+        if (planUrl || billingUrl || url.searchParams.get('checkout')) {
           window.history.replaceState({}, '', url.toString());
         }
       } catch (e) {}
