@@ -2301,6 +2301,11 @@
     <main class="main" id="main-content">
       <div class="container">
 
+      <!-- ===== BANNIERE UPGRADE (users non-premium uniquement) ===== -->
+      <!-- Injected dynamiquement par renderUpgradeBanner() apres checkSubscription.
+           Cachee par defaut, rendue seulement si isPremium === false. -->
+      <div id="upgradeBanner" style="display:none"></div>
+
       <!-- ===== SECTION: ACCUEIL ===== -->
       <div class="section-page active" id="section-home">
         <!-- HERO D'ACCUEIL -->
@@ -4336,6 +4341,22 @@
               // Aucun auto-checkout en attente : cache l'overlay par precaution.
               hidePendingCheckoutOverlay();
             }
+
+            // Retour depuis Stripe avec annulation (?checkout=cancelled) →
+            // rouvre automatiquement le paywall pour que l'user puisse
+            // re-tenter ou changer de plan sans avoir a re-naviguer.
+            if (!isPremium && sessionStorage.getItem('kairos_reopen_paywall')) {
+              sessionStorage.removeItem('kairos_reopen_paywall');
+              setTimeout(() => {
+                try {
+                  if (window.Toast && Toast.info) {
+                    Toast.info('Paiement annulé. Vous pouvez réessayer quand vous voulez.');
+                  }
+                  document.getElementById('paywallOverlay')?.classList.remove('hidden');
+                  if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+                } catch (e) {}
+              }, 400);
+            }
           } catch (e) {
             console.error('[auto-checkout] error:', e);
             hidePendingCheckoutOverlay();
@@ -4519,6 +4540,36 @@
           badge.title = 'Reserve aux abonnes Premium';
         }
       });
+      renderUpgradeBanner();
+    }
+
+    // Banniere promo en haut du dashboard, visible UNIQUEMENT pour les users
+    // non-premium. Invite a passer Pro (ou Elite). Dismiss-able : 1 clic sur
+    // X → cachee pour la session (pas cross-session : on ne veut pas que l'user
+    // l'oublie definitivement, mais eviter qu'elle re-apparaisse a chaque
+    // navigation dans l'onglet courant).
+    function renderUpgradeBanner() {
+      const el = document.getElementById('upgradeBanner');
+      if (!el) return;
+      // Cache si premium OU si user a ferme dans cette session
+      if (isPremium || sessionStorage.getItem('kairos_upgrade_banner_dismissed')) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = 'block';
+      el.innerHTML = `
+        <div style="position:relative;padding:14px 44px 14px 20px;margin-bottom:20px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.08),rgba(236,72,153,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="flex:1;min-width:280px">
+            <div style="font-size:12px;color:#A78BFA;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:4px">✨ Offre Kairos Pro</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text-primary);line-height:1.4;margin-bottom:2px">Débloquez le smart money complet dès <span style="color:#60A5FA">19€/mois</span></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Kairos Score · Hedge Funds 13F · Fonds Offensifs · Signaux Insiders · Watchlist · 2 mois offerts en annuel</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay();" style="padding:10px 20px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(59,130,246,0.3)">Voir les plans</button>
+          </div>
+          <button type="button" aria-label="Fermer la bannière" onclick="sessionStorage.setItem('kairos_upgrade_banner_dismissed','1');document.getElementById('upgradeBanner').style.display='none';" style="position:absolute;top:10px;right:12px;width:26px;height:26px;background:transparent;border:none;border-radius:50%;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center" title="Masquer pour cette session">✕</button>
+        </div>
+      `;
     }
 
     // Billing preference (monthly | yearly) — peut etre set via ?billing= dans l'URL depuis la landing
@@ -4665,10 +4716,15 @@
           url.searchParams.delete('billing');
         }
         // Cas : retour annule depuis Stripe (cancel_url inclut ?checkout=cancelled)
-        // → clear le flag pour eviter le retrigger infini.
+        // → clear le flag pour eviter le retrigger infini + pose un flag qui
+        // demande au onAuthStateChanged de ROUVRIR le paywall (plus friendly
+        // UX que de renvoyer au dashboard vide apres annulation).
+        let wasCheckoutCancelled = false;
         if (url.searchParams.get('checkout') === 'cancelled') {
           localStorage.removeItem('kairos_auto_checkout');
           url.searchParams.delete('checkout');
+          wasCheckoutCancelled = true;
+          sessionStorage.setItem('kairos_reopen_paywall', '1');
         }
         if (planUrl || billingUrl || url.searchParams.get('checkout')) {
           window.history.replaceState({}, '', url.toString());
