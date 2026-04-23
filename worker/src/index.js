@@ -4228,6 +4228,63 @@ async function handleAdminJobs(env, origin) {
 // ============================================================
 // 13D / 13G Schedule filings (>5% stakes & activist signals)
 // ============================================================
+// Enrichit chaque filing avec le delta par rapport au filing precedent du meme
+// filer sur le meme ticker. Utile pour les /A (amendements) : montre la
+// VARIATION de position vs la position totale affichee dans percentOfClass.
+//
+// Ajoute les champs : previousPercent, previousShares, previousFileDate,
+// percentDelta (pt, positif = renforcement), sharesDelta, isFirstFiling.
+//
+// Note : se base sur les filings du cache (30j de profondeur typiquement). Si
+// le filing precedent est plus vieux que ca, le delta est marque null.
+function enrichFilingsWithDelta(filings, allFilings) {
+  // Cle unique = (filerCik OU filerName normalise) + (targetCik OU ticker)
+  const keyOf = (f) => {
+    const fk = (f.filerCik || '').replace(/^0+/, '') || (f.filerName || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const tk = (f.targetCik || '').replace(/^0+/, '') || (f.ticker || '').toUpperCase();
+    if (!fk || !tk) return null;
+    return `${fk}|${tk}`;
+  };
+  // Index : key → liste des filings tries par date desc
+  const byKey = new Map();
+  for (const f of (allFilings || [])) {
+    const k = keyOf(f);
+    if (!k) continue;
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(f);
+  }
+  for (const arr of byKey.values()) {
+    arr.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
+  }
+  return filings.map(f => {
+    const k = keyOf(f);
+    if (!k) return f;
+    const bucket = byKey.get(k) || [];
+    const myDate = f.fileDate || '';
+    // Premier filing strictement anterieur (meme key)
+    const prev = bucket.find(p => (p.fileDate || '') < myDate);
+    if (!prev) {
+      // Pas de filing precedent dans le cache → c'est peut-etre un filing initial
+      // (13D / 13G non-amend), ou bien le precedent est trop vieux (> 30j)
+      return { ...f, isFirstFiling: /^SCHEDULE\s+13[DG]$/i.test((f.form || '').trim()) };
+    }
+    const percentDelta = (f.percentOfClass != null && prev.percentOfClass != null)
+      ? +((f.percentOfClass - prev.percentOfClass).toFixed(3))
+      : null;
+    const sharesDelta = (f.sharesOwned != null && prev.sharesOwned != null)
+      ? (f.sharesOwned - prev.sharesOwned)
+      : null;
+    return {
+      ...f,
+      previousPercent: prev.percentOfClass,
+      previousShares: prev.sharesOwned,
+      previousFileDate: prev.fileDate,
+      percentDelta,
+      sharesDelta,
+    };
+  });
+}
+
 // GET /api/13dg/recent?days=30&activistOnly=0
 // Retourne les filings recents (max 300 items). Filtrable par periode + activists-only.
 async function handleScheduleDGRecent(url, env, origin) {
@@ -4243,6 +4300,9 @@ async function handleScheduleDGRecent(url, env, origin) {
   if (activistOnly) filings = filings.filter(f => f.isActivist);
   const total = filings.length;
   filings = filings.slice(0, limit);
+
+  // Enrichit avec le delta vs filing precedent (pour les /A principalement)
+  filings = enrichFilingsWithDelta(filings, data.filings || []);
 
   return jsonResponse({
     updatedAt: data.updatedAt,
@@ -4262,7 +4322,9 @@ async function handleScheduleDGTicker(url, env, origin) {
   const data = await env.CACHE.get('13dg-recent', 'json');
   if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
-  const filings = (data.filings || []).filter(f => (f.ticker || '').toUpperCase() === ticker);
+  let filings = (data.filings || []).filter(f => (f.ticker || '').toUpperCase() === ticker);
+  // Enrichit avec le delta vs filing precedent du meme filer+ticker
+  filings = enrichFilingsWithDelta(filings, data.filings || []);
   return jsonResponse({
     ticker,
     updatedAt: data.updatedAt,

@@ -14708,6 +14708,25 @@
             : f.percentOfClass >= 10 ? '#EF4444'
             : f.percentOfClass >= 5 ? '#F59E0B'
             : '#10B981';
+
+          // Delta (uniquement pour les /A avec un filing precedent dispo)
+          // Affiche la variation en pt sous le % total. Si pas de delta dispo
+          // sur un /A (filing precedent trop vieux > 30j), on affiche '∆ ?'
+          // pour signaler que c'est un ajustement sans historique.
+          const isAmendment = /\/A\b/.test((f.form || '').toUpperCase());
+          let deltaHtml = '';
+          if (f.percentDelta != null) {
+            const d = f.percentDelta;
+            const dColor = d > 0 ? '#10B981' : d < 0 ? '#EF4444' : 'var(--text-muted)';
+            const arrow = d > 0 ? '▲' : d < 0 ? '▼' : '=';
+            const sign = d > 0 ? '+' : '';
+            const prevPctStr = f.previousPercent != null ? `${f.previousPercent.toFixed(2)}%` : '?';
+            const prevDateStr = f.previousFileDate ? new Date(f.previousFileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '';
+            deltaHtml = `<div style="margin-top:2px;font-size:10px;color:${dColor};font-weight:600;cursor:help" title="Variation vs filing précédent du ${prevDateStr} (${prevPctStr}). Position actuelle = ${f.percentOfClass != null ? f.percentOfClass.toFixed(2) : '?'}%.">${arrow} ${sign}${d.toFixed(2)}pt</div>`;
+          } else if (isAmendment) {
+            // Amendement sans delta (prev filing non trouvable → pre-cache)
+            deltaHtml = `<div style="margin-top:2px;font-size:10px;color:var(--text-muted);font-weight:500;cursor:help" title="Amendement : la position précédente n'est pas dans notre cache (dépôt initial > 30j). Le % affiché est la position TOTALE après ajustement.">ajust.</div>`;
+          }
           // Lien SEC EDGAR (toujours visible quand on a l'accession, utile surtout
           // quand le ticker n'est pas resolu — ~27% des filings SEC ne matchent
           // pas de ticker auto).
@@ -14730,7 +14749,10 @@
               <td style="padding:10px 12px">${tickerCell}</td>
               <td style="padding:10px 12px;font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
               <td style="padding:10px 12px;font-size:13px">${escapeHtmlClient(f.filerName || '—')}${activistBadge}</td>
-              <td style="padding:10px 12px;text-align:right;font-weight:600;color:${pctColor};font-variant-numeric:tabular-nums">${fmtPct(f.percentOfClass)}</td>
+              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums">
+                <div style="font-weight:600;color:${pctColor}">${fmtPct(f.percentOfClass)}</div>
+                ${deltaHtml}
+              </td>
               <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues">${fmtSharesA(f.sharesOwned)}</td>
               <td style="padding:10px 12px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (narratif item 3 du filing SEC, approximatif)">${fmtPriceA(f.purchasePriceApprox)}</td>
               <td style="padding:10px 12px;text-align:center">${secLink}</td>
@@ -14740,13 +14762,19 @@
 
         body.innerHTML = `
           <div style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;font-size:12px;line-height:1.6;color:var(--text-secondary)">
-            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:6px">
               <strong style="color:var(--text-primary);font-size:13px">Légende :</strong>
               <span><span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700">13D</span> <strong style="color:#F59E0B">Actif</strong> — intention d'influencer</span>
               <span><span style="padding:2px 7px;background:rgba(239,68,68,0.12);color:#F87171;border:1px solid rgba(239,68,68,0.25);border-radius:6px;font-size:10px;font-weight:700">13D/A</span> Amendement position active</span>
               <span><span style="padding:2px 7px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700">13G</span> <strong style="color:#10B981">Passif</strong> — simple investissement</span>
               <span><span style="padding:2px 7px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700">13G/A</span> Amendement position passive</span>
               <span><span style="padding:2px 7px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700">⚡ OFFENSIF</span> Fonds activiste reconnu <span style="color:var(--text-muted);cursor:help" title="Liste hardcodée de ~28 activists institutionnels connus : Elliott, Ackman, Icahn, Peltz (Trian), Starboard, Loeb (Third Point), ValueAct, Cevian, JANA, Greenlight/Einhorn…">(détails)</span></span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding-top:8px;border-top:1px solid var(--border);color:var(--text-muted);font-size:11px">
+              <strong style="color:var(--text-primary);font-size:12px">Colonne % capital :</strong>
+              <span>Valeur principale = <strong style="color:var(--text-primary)">position TOTALE</strong> après le filing.</span>
+              <span>Ligne <span style="color:#10B981;font-weight:600">▲ +Xpt</span> ou <span style="color:#EF4444;font-weight:600">▼ −Xpt</span> = <strong style="color:var(--text-primary)">variation</strong> vs filing précédent du même fonds (= le mouvement qui a déclenché le /A).</span>
+              <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
             </div>
           </div>
           <div style="overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
