@@ -5439,9 +5439,9 @@
               <div>
                 <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">Plan actuel</div>
                 <div style="font-size:20px;font-weight:700;color:var(--text-primary)">🆓 Gratuit</div>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Accès limité. Passez Premium pour débloquer tout le dashboard.</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Accès limité. Passez Pro pour débloquer tout le dashboard.</div>
               </div>
-              <a href="index.html#pricing" class="btn btn-primary" style="padding:10px 18px;width:auto;flex-shrink:0;text-decoration:none">⭐ Passer Premium</a>
+              <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden')" class="btn btn-primary" style="padding:10px 18px;width:auto;flex-shrink:0;border:none;cursor:pointer">⭐ Voir les plans</button>
             </div>`;
           return;
         }
@@ -5471,7 +5471,7 @@
                   <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Passer Elite — 49€/mois</div>
                   <div style="font-size:12px;color:var(--text-muted);line-height:1.55">API REST · alertes temps-réel (push/email) · backtests historiques · exports CSV illimités · support prioritaire</div>
                 </div>
-                <a href="index.html#pricing" class="btn btn-primary" style="padding:9px 16px;width:auto;flex-shrink:0;background:linear-gradient(135deg,#F59E0B,#EC4899);text-decoration:none;font-size:13px">Voir le plan Elite</a>
+                <button type="button" onclick="try{localStorage.setItem('kairos_plan','elite');}catch(e){} if(typeof applyPaywallDisplay==='function') applyPaywallDisplay(); document.getElementById('paywallOverlay').classList.remove('hidden');" class="btn btn-primary" style="padding:9px 16px;width:auto;flex-shrink:0;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;font-size:13px;cursor:pointer">Passer Elite</button>
               </div>
             </div>`
           : '';
