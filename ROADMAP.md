@@ -108,6 +108,21 @@
 ✅ **Plan de reprise d'activité** : [BACKUP_RECOVERY.md](BACKUP_RECOVERY.md) (RPO 24h · RTO < 2h · procédures de restauration D1 + KV pas à pas)  
 ✅ **Monitoring** : card "Backup R2" dans le dashboard admin (vert <25h / orange <48h / rouge >48h) + endpoint `/api/admin/backup-status`
 
+### Pipeline data (perf + observabilité)
+- [ ] **Paralléliser `update-13f.yml` en jobs GitHub Actions indépendants** (actuellement 32 steps séquentiels dans 1 seul job `update-data` → 35-62 min). Propositon :
+  - **Job 0 — Discovery** (hebdo lundi + dispatch) : `discover-13f-funds` → upload `13f-funds-list` KV
+  - **Job 1 — 13F** (needs: Discovery) : `prefetch-13f` → upload KV
+  - **Job 2 — Insiders SEC** : `prefetch-all` (SEC Form 4 + clusters)
+  - **Job 3 — 13D/G activists** : `fetch-13dg` + upload KV
+  - **Job 4 — BaFin + AMF + merge** : `fetch-bafin` + `fetch-amf` + OpenFIGI enrichment + `merge-sources` + upload transactions
+  - **Job 5 — ETF** : `prefetch-etf` + upload KV
+  - **Job 6 — Google Trends** : `prefetch-trends` + upload KV
+  - **Job 7 — Push D1** (needs: 1, 2, 3, 4, 5) : `push-to-d1` + `push-insiders-to-d1` + `push-scores-to-d1`
+  - Jobs 1-6 tournent en parallèle → gain estimé **~25-30 min** (60 min → ~35 min)
+  - Plus facile à suivre dans la console admin (1 job = 1 ligne avec ses propres lastRun, failures isolées, retry indépendant)
+  - Passage d'artifacts GitHub Actions pour les fichiers intermédiaires (`13f_funds_list.json`, `transactions_data.json`, etc.)
+  - Vérifier que les 2000 min/mois GitHub free suffisent (actuellement ~1h/jour × 30 = 1800 min, avec parallélisation ~2h/jour × 30 = 3600 min → passer sur runner perso si besoin)
+
 ### Tests
 - [ ] **Tests unitaires** Worker (Vitest ou Node test runner)
 - [ ] **Tests E2E** dashboard (Playwright sur les flows critiques : login, paywall, watchlist)
