@@ -6679,15 +6679,29 @@
           </div>` : '';
 
         // Card 4 : Activists Fresh
+        // Normalise le nom du formulaire SEC : 'SCHEDULE 13D/A' → '13D/A',
+        // 'SCHEDULE 13G' → '13G', etc. Le prefix 'SCHEDULE ' est bruit visuel.
+        const shortForm = (form) => {
+          if (!form) return '';
+          return String(form)
+            .replace(/^SCHEDULE\s+/i, '')
+            .replace(/^SC\s+/i, '')
+            .trim();
+        };
         const activistItems = (data.activistsFresh || []).slice(0, 5).map(a => {
           const formColor = /13D/.test(a.form || '') ? '#F59E0B' : '#10B981';
+          const form = shortForm(a.form);
+          const date = fmtD(a.date);
+          // Affiche 'form · date' si les deux sont presents, sinon l'un des deux
+          // (jamais 'form · ' avec un separateur orphelin comme avant).
+          const rightText = [form, date].filter(Boolean).join(' · ');
           return `
             <div class="signal-row" ${goTicker(a.ticker)}>
               <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
                 <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient(a.ticker)}</strong>
                 <span style="color:var(--text-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient((a.filer || '').slice(0, 24))}</span>
               </div>
-              <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0">${escapeHtmlClient(a.form || '')} · ${fmtD(a.date)}</div>
+              <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0">${escapeHtmlClient(rightText)}</div>
             </div>`;
         }).join('');
         const activistCard = hasActivists ? `
