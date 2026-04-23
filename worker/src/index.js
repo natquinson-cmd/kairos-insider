@@ -2677,8 +2677,25 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
     data = { error: 'Failed to load', detail: String(e && e.message || e) };
   }
 
-  // Page d'erreur SSR (reste indexable)
-  if (!data || data.error) {
+  // Detection "thin content" → evite les Soft 404 signales par Google.
+  // Un ticker sans smart money + sans prix + sans news + sans company name
+  // produit un HTML vide/pauvre qui passe en Soft 404 a l'indexation.
+  // On retourne un vrai 404 HTTP dans ce cas → Google les deindexe proprement.
+  const isThinContent = (d) => {
+    if (!d) return true;
+    const insiderCount = d.insiders?._totalTransactions ?? (d.insiders?.transactions?.length ?? 0);
+    const fundCount = d.smartMoney?._totalFunds ?? (d.smartMoney?.topFunds?.length ?? 0);
+    const newsCount = d._totalNews ?? (d.news?.length ?? 0);
+    const hasPrice = d.price?.current != null;
+    const hasCompanyName = !!(d.company?.name);
+    const score = d.score?.total || 0;
+    // Thin = aucun signal smart money ET pas de prix ET pas de news ET pas de nom
+    // (on accepte les tickers avec au moins UN indicateur de vie)
+    return insiderCount === 0 && fundCount === 0 && newsCount === 0 && !hasPrice && !hasCompanyName && score < 5;
+  };
+
+  // Page d'erreur SSR — 404 propre (indique a Google de ne pas indexer)
+  if (!data || data.error || isThinContent(data)) {
     const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"><title>${escHtmlSsr(ssrT(lang, 'not_found_title'))}</title><meta name="robots" content="noindex,follow"><style>body{font-family:system-ui;background:#0A0F1E;color:#F9FAFB;text-align:center;padding:80px 20px}a{color:#3B82F6}</style></head><body><h1>${ssrT(lang, 'not_found_h1', { ticker: escHtmlSsr(ticker) })}</h1><p>${ssrT(lang, 'not_found_p')}</p><p><a href="https://kairosinsider.fr/dashboard.html?lang=${lang}">${ssrT(lang, 'back_to_dashboard')}</a></p></body></html>`;
     return new Response(html, {
       status: 404,
