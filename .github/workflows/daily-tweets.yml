@@ -6,11 +6,13 @@ name: Daily Tweets → Typefully
 # l'app Typefully et planifie la publication.
 #
 # Prerequis :
-# - TYPEFULLY_API_KEY deja configure comme secret Cloudflare
+# - TYPEFULLY_API_KEY configure comme secret Cloudflare
 #   (wrangler secret put TYPEFULLY_API_KEY)
-# - KAIROS_ADMIN_TOKEN : Firebase ID token admin (secret GitHub)
-#   a renouveler manuellement si expire (1h par defaut Firebase,
-#   OU utiliser un service account avec token long-lived — TODO)
+# - ADMIN_API_KEY configure comme secret Cloudflare (cote worker)
+#   (wrangler secret put ADMIN_API_KEY) — clef long-lived
+# - KAIROS_ADMIN_API_KEY configure comme secret GitHub (meme valeur que
+#   ADMIN_API_KEY cote Cloudflare) — permet au workflow d'appeler le worker
+#   via le header X-Admin-API-Key (bypass du token Firebase qui expire en 1h).
 
 on:
   schedule:
@@ -26,16 +28,16 @@ jobs:
     steps:
       - name: Trigger Typefully push endpoint
         env:
-          ADMIN_TOKEN: ${{ secrets.KAIROS_ADMIN_TOKEN }}
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
           WORKER_URL: https://kairos-insider-api.natquinson.workers.dev
         run: |
-          if [ -z "$ADMIN_TOKEN" ]; then
-            echo "::warning::KAIROS_ADMIN_TOKEN not set — skipping."
+          if [ -z "$ADMIN_API_KEY" ]; then
+            echo "::warning::KAIROS_ADMIN_API_KEY not set — skipping."
             exit 0
           fi
-          echo "Calling /api/admin/typefully/push..."
+          echo "Calling /api/admin/typefully/push via X-Admin-API-Key..."
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "X-Admin-API-Key: $ADMIN_API_KEY" \
             -H "Content-Type: application/json" \
             "${WORKER_URL}/api/admin/typefully/push")
           status_code=$(echo "$response" | tail -n1)

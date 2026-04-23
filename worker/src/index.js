@@ -313,17 +313,41 @@ async function handleRequest(request, env, ctx) {
     // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
     // ==========================================
     if (path.startsWith('/api/') || path.startsWith('/stripe/') || path.startsWith('/account/') || path.startsWith('/support/')) {
-      // Vérifier le token Firebase
-      const authHeader = request.headers.get('Authorization') || '';
-      const idToken = authHeader.replace('Bearer ', '');
+      // --- Bypass admin via X-Admin-API-Key (pour crons internes GitHub Actions) ---
+      // Un secret long-lived (ADMIN_API_KEY) permet aux workflows automatisés
+      // d'appeler les endpoints /api/admin/* sans devoir renouveler un token
+      // Firebase (qui expire en 1h). Limite au prefix /api/admin/ pour reduire
+      // la surface d'attaque si la clef fuite.
+      let user = null;
+      const adminApiKeyHeader = request.headers.get('X-Admin-API-Key') || '';
+      const isAdminApiKeyAuth = (
+        adminApiKeyHeader &&
+        env.ADMIN_API_KEY &&
+        path.startsWith('/api/admin/') &&
+        constantTimeEquals(adminApiKeyHeader, env.ADMIN_API_KEY)
+      );
+      if (isAdminApiKeyAuth) {
+        // Synthétise un user admin — isAdmin(user) retournera true grace a l'email.
+        user = {
+          uid: 'admin-api-key',
+          email: ADMIN_EMAILS[0],
+          emailVerified: true,
+          _viaApiKey: true,
+        };
+        log.info('admin.api-key.auth', { path, ip: request.headers.get('CF-Connecting-IP') });
+      } else {
+        // Vérifier le token Firebase
+        const authHeader = request.headers.get('Authorization') || '';
+        const idToken = authHeader.replace('Bearer ', '');
 
-      if (!idToken) {
-        return jsonResponse({ error: 'No token provided' }, 401, origin);
-      }
+        if (!idToken) {
+          return jsonResponse({ error: 'No token provided' }, 401, origin);
+        }
 
-      const user = await verifyFirebaseToken(idToken, env);
-      if (!user) {
-        return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
+        user = await verifyFirebaseToken(idToken, env);
+        if (!user) {
+          return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
+        }
       }
 
       // Track le user au premier login : cree 'user:{uid}' en KV si pas
@@ -331,8 +355,11 @@ async function handleRequest(request, env, ctx) {
       // inscrits Firebase, pas juste ceux avec sub/wl. Fire-and-forget
       // pour ne pas ralentir la requete (cache in-memory → 0 hit KV apres
       // la 1ere vue dans cette instance worker).
-      const trackPromise = trackFirstSeenUser(env, user).catch(() => {});
-      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(trackPromise);
+      // Skip pour l'auth via API key (pas un vrai user).
+      if (!user._viaApiKey) {
+        const trackPromise = trackFirstSeenUser(env, user).catch(() => {});
+        if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(trackPromise);
+      }
 
       // --- Rate limit par uid DÉSACTIVÉ pour économiser les writes KV free tier ---
       // Les users authentifiés sont déjà limités par le coût de verif JWT Firebase.
@@ -525,6 +552,24 @@ const ADMIN_EMAILS = ['natquinson@gmail.com'];
 function isAdmin(user) {
   if (!user || !user.email) return false;
   return ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
+// Comparaison timing-safe : eviter les timing attacks qui pourraient
+// deviner le secret caractere-par-caractere via mesures de duree de response.
+// Toujours compare tous les chars de la chaine la plus longue.
+function constantTimeEquals(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const aLen = a.length;
+  const bLen = b.length;
+  // Comparer la longueur avec les mêmes primitives que le reste (pas early return)
+  let mismatch = aLen === bLen ? 0 : 1;
+  const len = Math.max(aLen, bLen);
+  for (let i = 0; i < len; i++) {
+    const ca = i < aLen ? a.charCodeAt(i) : 0;
+    const cb = i < bLen ? b.charCodeAt(i) : 0;
+    mismatch |= ca ^ cb;
+  }
+  return mismatch === 0;
 }
 
 // Cache in-memory des uids deja vus dans cette instance worker.
