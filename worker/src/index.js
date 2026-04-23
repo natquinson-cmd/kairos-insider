@@ -16,7 +16,18 @@ import { handleStockAnalysis } from './stock-api.js';
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 
 // Routes gratuites (auth requise mais pas d'abonnement)
-const FREE_ROUTES = ['/api/feargreed', '/api/shorts', '/api/trends-hot'];
+// Routes API accessibles aux users Free (pas de gate premium).
+// La valeur ajoutee payante de Kairos = Kairos Score composite (gate sur
+// /api/stock/:ticker avec quota 3/jour free). Les donnees auxiliaires
+// (13dg ticker, activity 7j, etf history) sont publiques SEC + necessaires
+// pour afficher l'analyse complete d'un ticker aux users Free dans leur
+// quota — les gater casserait l'UX sans valeur business.
+const FREE_ROUTES = [
+  '/api/feargreed', '/api/shorts', '/api/trends-hot',
+  '/api/13dg/ticker',           // gros actionnaires sur 1 ticker
+  '/api/history/ticker-activity', // widget 'Activite recente 7j' (ETF+insiders+score delta)
+  '/api/history/etf',             // ETF historique 180j pour 1 ticker
+];
 
 // ============================================================
 // STRUCTURED LOGGING (Priorité 3.3)
