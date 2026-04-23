@@ -1,0 +1,50 @@
+name: Daily Tweets → Typefully
+
+# Pousse chaque matin 3 drafts de tweets dans la queue Typefully,
+# generes a partir des signaux Kairos du jour (clusters insiders,
+# 13D activists, score movers). L'utilisateur approuve/edite depuis
+# l'app Typefully et planifie la publication.
+#
+# Prerequis :
+# - TYPEFULLY_API_KEY deja configure comme secret Cloudflare
+#   (wrangler secret put TYPEFULLY_API_KEY)
+# - KAIROS_ADMIN_TOKEN : Firebase ID token admin (secret GitHub)
+#   a renouveler manuellement si expire (1h par defaut Firebase,
+#   OU utiliser un service account avec token long-lived — TODO)
+
+on:
+  schedule:
+    # 7h30 UTC = 9h30 Paris (ete) / 8h30 Paris (hiver)
+    # Tourne APRES le cron de prefetch des signaux (15 6 * * * UTC)
+    # pour etre sur d'avoir la data fraiche du jour.
+    - cron: '30 7 * * *'
+  workflow_dispatch:  # run manuel depuis GitHub UI
+
+jobs:
+  push-tweets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Typefully push endpoint
+        env:
+          ADMIN_TOKEN: ${{ secrets.KAIROS_ADMIN_TOKEN }}
+          WORKER_URL: https://kairos-insider-api.natquinson.workers.dev
+        run: |
+          if [ -z "$ADMIN_TOKEN" ]; then
+            echo "::warning::KAIROS_ADMIN_TOKEN not set — skipping."
+            exit 0
+          fi
+          echo "Calling /api/admin/typefully/push..."
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            "${WORKER_URL}/api/admin/typefully/push")
+          status_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          echo "HTTP $status_code"
+          echo "$body" | head -c 2000
+          if [ "$status_code" != "200" ]; then
+            echo "::error::Typefully push failed (HTTP $status_code)"
+            exit 1
+          fi
+          echo ""
+          echo "::notice::Tweets poussés dans Typefully — valider depuis l'app."
