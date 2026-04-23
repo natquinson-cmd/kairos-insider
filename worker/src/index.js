@@ -403,6 +403,9 @@ async function handleRequest(request, env, ctx) {
         if (path === '/api/admin/users') {
           return handleAdminUsers(env, origin);
         }
+        if (path === '/api/admin/debug-user') {
+          return handleAdminDebugUser(url, env, origin);
+        }
         if (path === '/api/admin/subs-stats') {
           return handleAdminSubsStats(env, origin);
         }
@@ -4226,6 +4229,42 @@ async function fetchStripeCustomerEmail(customerId, env) {
     return email;
   } catch {
     return null;
+  }
+}
+
+// GET /api/admin/debug-user?uid=XXX ou ?email=XXX : retourne la donnee RAW
+// pour un user specifique (sub KV, stripe sub via subId, stripe sub via customerId).
+// Utilitaire de diagnostic — permet de voir exactement ce qui manque.
+async function handleAdminDebugUser(url, env, origin) {
+  try {
+    const uid = url.searchParams.get('uid');
+    if (!uid) return jsonResponse({ error: 'uid query param required' }, 400, origin);
+    const subRaw = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
+    const wlRaw = await env.CACHE.get(`wl:${uid}`, 'json').catch(() => null);
+    const userRaw = await env.CACHE.get(`user:${uid}`, 'json').catch(() => null);
+    const debug = { uid, kv: { sub: subRaw, wl: wlRaw, user: userRaw } };
+    // Fetch Stripe via subscriptionId si present
+    if (subRaw?.subscriptionId) {
+      try {
+        const resp = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subRaw.subscriptionId)}`, {
+          headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` },
+        });
+        debug.stripeBySubId = { status: resp.status, ok: resp.ok, body: await resp.json() };
+      } catch (e) { debug.stripeBySubId = { error: String(e) }; }
+    }
+    // Fetch Stripe via customerId (list)
+    if (subRaw?.customerId) {
+      try {
+        const resp = await fetch(
+          `https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(subRaw.customerId)}&status=all&limit=5`,
+          { headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` } }
+        );
+        debug.stripeByCustomer = { status: resp.status, ok: resp.ok, body: await resp.json() };
+      } catch (e) { debug.stripeByCustomer = { error: String(e) }; }
+    }
+    return jsonResponse(debug, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'debug failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
