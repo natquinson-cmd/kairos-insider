@@ -40,6 +40,49 @@ DEFAULT_LOOKBACK_DAYS = 10
 # pour l'analyse des signaux activists.
 MAX_HISTORY_DAYS = 730
 
+# ============================================================
+# Mapping CIK → ticker depuis SEC (company_tickers.json)
+# ============================================================
+# SEC publie un JSON officiel de ~10k entreprises avec leur CIK + ticker
+# principal. On l'utilise pour resoudre les tickers que display_names
+# EDGAR ne fournit pas directement (~27% des filings 13D/G).
+# Source : https://www.sec.gov/files/company_tickers.json
+# Format : {"0": {"cik_str": 789019, "ticker": "MSFT", "title": "MICROSOFT CORP"}}
+_CIK_TICKER_MAP = None  # { '0000789019': 'MSFT', ... } padded 10 chars
+
+def _load_cik_ticker_map():
+    """Charge le mapping CIK → ticker SEC une fois (cache memoire)."""
+    global _CIK_TICKER_MAP
+    if _CIK_TICKER_MAP is not None:
+        return _CIK_TICKER_MAP
+    _CIK_TICKER_MAP = {}
+    try:
+        print('Loading SEC company_tickers.json (CIK → ticker mapping)...')
+        raw = fetch('https://www.sec.gov/files/company_tickers.json', timeout=15, throttled=False)
+        if not raw:
+            print('  WARN : impossible de telecharger company_tickers.json, fallback disable')
+            return _CIK_TICKER_MAP
+        data = json.loads(raw)
+        for _k, entry in data.items():
+            cik = str(entry.get('cik_str', '')).zfill(10)
+            ticker = (entry.get('ticker') or '').strip().upper()
+            if cik and ticker:
+                _CIK_TICKER_MAP[cik] = ticker
+        print(f'  → {len(_CIK_TICKER_MAP)} mappings CIK → ticker charges')
+    except Exception as e:
+        print(f'  WARN : parse company_tickers.json echoue : {e}')
+    return _CIK_TICKER_MAP
+
+
+def resolve_ticker_from_cik(cik):
+    """Retourne le ticker officiel SEC pour un CIK (ou None)."""
+    if not cik:
+        return None
+    mp = _load_cik_ticker_map()
+    # CIK peut arriver en format non padde (ex: '2488') ou padde ('0000002488')
+    padded = str(cik).lstrip('0').zfill(10)
+    return mp.get(padded)
+
 # Liste des activists institutionnels reconnus (pour le flag "isActivist")
 # Chaque entree est une sous-chaine recherche case-insensitive dans le nom du filer.
 # Source : ex Wikipedia activist investors + Harvard Law 13D Monitor.
@@ -250,6 +293,10 @@ def fetch_day_filings(day_date):
                 is_activist, activist_label = flag_activist(filer_name)
                 accession = hit.get('_id', '').split(':')[0]
                 ciks = src.get('ciks', [])
+                # Si display_names ne contient pas le ticker (~27% des cas),
+                # fallback via CIK officiel SEC (company_tickers.json mapping).
+                if not ticker and len(ciks) >= 1:
+                    ticker = resolve_ticker_from_cik(ciks[0]) or ''
                 file_type = src.get('file_type', form.replace('+', ' ').replace('%2F', '/'))
                 filings.append({
                     'fileDate': src.get('file_date', day_date),
@@ -313,6 +360,23 @@ def main():
         seen.add(key)
         deduped.append(f)
     print(f'Apres merge + dedup : {len(deduped)} filings')
+
+    # ============================================================
+    # BACKFILL TICKERS : pour les filings existants dont le ticker est vide,
+    # re-essayer la resolution via CIK → company_tickers.json SEC.
+    # Execute a chaque run → progressive sur les 37k filings existants.
+    # ============================================================
+    ticker_missing = [f for f in deduped if not f.get('ticker') and f.get('targetCik')]
+    if ticker_missing:
+        print(f'\n=== Backfill tickers ({len(ticker_missing)} filings sans ticker a retenter) ===')
+        _load_cik_ticker_map()  # charge le mapping une fois avant la boucle
+        resolved = 0
+        for f in ticker_missing:
+            tk = resolve_ticker_from_cik(f.get('targetCik'))
+            if tk:
+                f['ticker'] = tk
+                resolved += 1
+        print(f'  → {resolved} tickers resolus ({resolved * 100 // max(1, len(ticker_missing))}% des manquants)')
 
     # ============================================================
     # ENRICHISSEMENT : fetch primary_doc.xml pour extraire shares + %
