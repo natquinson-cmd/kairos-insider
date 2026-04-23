@@ -4237,18 +4237,35 @@
             loadWatchlist().catch(() => {});
           }
 
-          // Auto-trigger checkout Stripe : flag 'kairos_auto_checkout' pose
-          // par initPlanBillingFromUrl quand l'user arrive depuis la landing
-          // avec ?plan=X. Consomme des la 1ere utilisation pour eviter la
-          // boucle 'annule Stripe → retour dashboard → re-redirect Stripe'.
+          // Auto-trigger checkout Stripe avec DOUBLE garde-fou :
+          //
+          // 1. localStorage.kairos_auto_checkout — flag cross-session pose par
+          //    initPlanBillingFromUrl quand ?plan= est dans l'URL (= clic
+          //    'S'abonner Pro/Elite' depuis la landing). Consomme immediatement.
+          //
+          // 2. sessionStorage.kairos_checkout_fired — flag per-tab pose des
+          //    qu'on fire startCheckout. Empeche le retrigger quand l'user
+          //    revient via 'Back' du navigateur depuis Stripe (bfcache peut
+          //    restaurer la page dans un etat intermediaire). Efface auto
+          //    a la fermeture de l'onglet.
+          //
+          // 3. Nettoyage des anciens flags orphelins (migration v1 → v2) :
+          //    si kairos_plan existe sans auto_checkout flag, c'est un
+          //    residu de l'ancien code buggue — on le nettoie sans declencher.
           try {
             const autoCheckout = localStorage.getItem('kairos_auto_checkout');
-            if (autoCheckout && !isPremium) {
-              localStorage.removeItem('kairos_auto_checkout'); // CONSUME before redirect
+            const alreadyFired = sessionStorage.getItem('kairos_checkout_fired');
+            if (autoCheckout && !isPremium && !alreadyFired) {
+              localStorage.removeItem('kairos_auto_checkout');       // cross-session consume
+              sessionStorage.setItem('kairos_checkout_fired', '1');  // per-tab consume
               setTimeout(() => {
                 try { window.Toast && Toast.info && Toast.info('Redirection vers le paiement…'); } catch (e) {}
                 startCheckout();
               }, 500);
+            } else if (autoCheckout && alreadyFired) {
+              // Defense-in-depth : le flag localStorage a survecu bizarrement.
+              // Nettoie sans re-trigger.
+              localStorage.removeItem('kairos_auto_checkout');
             }
           } catch (e) {}
 
