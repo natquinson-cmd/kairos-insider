@@ -18,6 +18,9 @@
 import article01 from './articles/01-quest-ce-quun-13F.md';
 import article02 from './articles/02-comment-suivre-warren-buffett.md';
 import article03 from './articles/03-insider-trading-legal-vs-illegal.md';
+import article04 from './articles/04-activists-elliott-ackman-icahn.md';
+import article05 from './articles/05-smart-money-vs-retail.md';
+import article08 from './articles/08-fear-and-greed-index.md';
 
 import { parseFrontmatter, renderMarkdown, escHtml } from './renderer.js';
 import { renderArticlePage, renderIndexPage } from './template.js';
@@ -27,7 +30,7 @@ const SITE = 'https://kairosinsider.fr';
 // ------------------------------------------------------------
 // Raw articles registry — ordre = ordre chrono editorial
 // ------------------------------------------------------------
-const RAW_ARTICLES = [article01, article02, article03];
+const RAW_ARTICLES = [article01, article02, article03, article04, article05, article08];
 
 // Cache parse : on ne parse les .md qu'une fois par instance de worker
 let _parsedCache = null;
