@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Smart Money FR — Digest du lundi</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#0A0F1E;color:#F9FAFB;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;line-height:1.55">
+
+<!-- Container principal -->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#0A0F1E">
+  <tr>
+    <td align="center" style="padding:32px 16px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:100%;background:#0F1629;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+
+        <!-- HEADER avec gradient branding -->
+        <tr>
+          <td style="padding:28px 32px;background:linear-gradient(135deg,#0F1629 0%,#1E1B4B 50%,#2A1245 100%);border-bottom:1px solid rgba(255,255,255,0.06)">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td align="left" style="vertical-align:middle">
+                  <a href="https://kairosinsider.fr/" target="_blank" style="text-decoration:none;display:inline-block">
+                    <img src="https://kairosinsider.fr/assets/logo-128.png" width="44" height="44" alt="Kairos Insider" style="vertical-align:middle;border-radius:8px">
+                    <span style="display:inline-block;margin-left:12px;vertical-align:middle;font-size:18px;font-weight:700;color:#ffffff">Kairos <span style="background:linear-gradient(135deg,#3B82F6,#EC4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Insider</span></span>
+                  </a>
+                </td>
+                <td align="right" style="vertical-align:middle;font-size:11px;color:#94A3B8;letter-spacing:0.06em;text-transform:uppercase;font-weight:600">
+                  Digest du lundi
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- TITRE + DATE -->
+        <tr>
+          <td style="padding:36px 32px 12px">
+            <div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px">Semaine du {{startDate}}</div>
+            <h1 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-0.02em;color:#ffffff;line-height:1.2">{{emailTitle}}</h1>
+            <p style="margin:10px 0 0;font-size:15px;color:#CBD5E1;line-height:1.6">{{emailSubtitle}}</p>
+          </td>
+        </tr>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 1 — Cluster de la semaine -->
+        <!-- ============================================================ -->
+        <tr>
+          <td style="padding:24px 32px 8px">
+            <div style="padding:20px;background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:12px">
+              <div style="font-size:11px;color:#10B981;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px">🎯 Cluster insider de la semaine</div>
+              <div style="font-size:20px;font-weight:800;color:#ffffff;margin-bottom:8px">{{clusterTicker}} · {{clusterCompany}}</div>
+              <div style="font-size:14px;color:#D1D5DB;line-height:1.6;margin-bottom:14px">
+                <strong>{{clusterInsiderCount}} dirigeants différents</strong> ont acheté leurs propres actions ces 30 derniers jours pour un total de <strong style="color:#34D399">${{clusterTotalUsd}}</strong>.
+              </div>
+              <a href="https://kairosinsider.fr/a/{{clusterTicker}}" target="_blank" style="display:inline-block;padding:10px 18px;background:linear-gradient(135deg,#10B981,#059669);color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:13px">Voir l'analyse complète →</a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 2 — Nouveau 13D activist -->
+        <!-- ============================================================ -->
+        <tr>
+          <td style="padding:12px 32px">
+            <div style="padding:20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.04));border:1px solid rgba(245,158,11,0.25);border-radius:12px">
+              <div style="font-size:11px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px">⚡ Nouveau fonds offensif détecté</div>
+              <div style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:8px">{{activistFiler}} sur {{activistTicker}}</div>
+              <div style="font-size:13px;color:#D1D5DB;line-height:1.6;margin-bottom:12px">
+                <strong>{{activistPercent}}% du capital</strong> · Schedule 13D déposé le {{activistDate}}. Un 13D signale l'intention de pousser pour des changements stratégiques — souvent catalyseur d'une hausse du cours à 6-12 mois.
+              </div>
+              <a href="https://kairosinsider.fr/a/{{activistTicker}}" target="_blank" style="color:#F59E0B;text-decoration:none;font-weight:600;font-size:13px">Analyser {{activistTicker}} →</a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 3 — Mouvements ETF notables -->
+        <!-- ============================================================ -->
+        <tr>
+          <td style="padding:12px 32px">
+            <div style="padding:20px;background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.2);border-radius:12px">
+              <div style="font-size:11px;color:#60A5FA;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">💼 ETF : les rotations de la semaine</div>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;color:#D1D5DB">
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <td style="padding:8px 0;font-weight:600">🆕 {{etf1Symbol}}</td>
+                  <td style="padding:8px 0;text-align:right;color:#34D399">entrée {{etf1Ticker}} ({{etf1Weight}}%)</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <td style="padding:8px 0;font-weight:600">📈 {{etf2Symbol}}</td>
+                  <td style="padding:8px 0;text-align:right;color:#34D399">renforcé {{etf2Ticker}} ({{etf2Delta}}pt)</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;font-weight:600">❌ {{etf3Symbol}}</td>
+                  <td style="padding:8px 0;text-align:right;color:#F87171">sortie {{etf3Ticker}}</td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 4 — Kairos Score movers -->
+        <!-- ============================================================ -->
+        <tr>
+          <td style="padding:12px 32px">
+            <div style="padding:20px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.22);border-radius:12px">
+              <div style="font-size:11px;color:#A78BFA;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">📊 Kairos Score — les variations de la semaine</div>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;color:#D1D5DB">
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <td style="padding:6px 0;font-weight:600">↑ {{score1Ticker}}</td>
+                  <td style="padding:6px 0;text-align:right">{{score1Before}} → <strong style="color:#34D399">{{score1After}}</strong>/100</td>
+                </tr>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <td style="padding:6px 0;font-weight:600">↑ {{score2Ticker}}</td>
+                  <td style="padding:6px 0;text-align:right">{{score2Before}} → <strong style="color:#34D399">{{score2After}}</strong>/100</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;font-weight:600">↓ {{score3Ticker}}</td>
+                  <td style="padding:6px 0;text-align:right">{{score3Before}} → <strong style="color:#F87171">{{score3After}}</strong>/100</td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5 — Mini-analyse pédagogique -->
+        <!-- ============================================================ -->
+        <tr>
+          <td style="padding:20px 32px">
+            <div style="padding:22px;background:#111827;border:1px solid rgba(255,255,255,0.06);border-radius:12px;border-left:3px solid #EC4899">
+              <div style="font-size:11px;color:#F472B6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:10px">🎓 Le saviez-vous ?</div>
+              <div style="font-size:15px;color:#ffffff;line-height:1.6;font-weight:600;margin-bottom:8px">{{eduTitle}}</div>
+              <p style="margin:0;font-size:13.5px;color:#CBD5E1;line-height:1.65">{{eduBody}}</p>
+              <a href="{{eduArticleUrl}}" target="_blank" style="display:inline-block;margin-top:12px;color:#F472B6;text-decoration:none;font-weight:600;font-size:13px">Lire l'article complet →</a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ============================================================ -->
+        <!-- CTA UPGRADE -->
+        <!-- ============================================================ -->
+        <tr>
+          <td style="padding:16px 32px 24px">
+            <div style="padding:22px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.08));border:1px solid rgba(59,130,246,0.3);border-radius:14px;text-align:center">
+              <div style="font-size:18px;font-weight:700;color:#ffffff;margin-bottom:8px">Envie du détail complet ?</div>
+              <div style="font-size:13px;color:#CBD5E1;margin-bottom:16px;line-height:1.6">Passez Pro pour débloquer le Kairos Score complet, les analyses détaillées sur 3 349 tickers, le screener avancé et les alertes temps-réel.</div>
+              <a href="https://kairosinsider.fr/#pricing" target="_blank" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#ffffff;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;box-shadow:0 4px 16px rgba(59,130,246,0.35)">Découvrir Pro — 19€/mois</a>
+              <div style="margin-top:10px;font-size:11px;color:#94A3B8">Sans engagement · Annulable en 1 clic</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td style="padding:20px 32px 28px;border-top:1px solid rgba(255,255,255,0.06);background:#0A0F1E">
+            <div style="font-size:11px;color:#6B7280;line-height:1.7;text-align:center">
+              <a href="https://kairosinsider.fr/" target="_blank" style="color:#94A3B8;text-decoration:none">kairosinsider.fr</a> ·
+              <a href="https://twitter.com/KairosInsiderFR" target="_blank" style="color:#94A3B8;text-decoration:none">Twitter/X</a> ·
+              <a href="{{unsubscribe}}" style="color:#94A3B8;text-decoration:none">Se désabonner</a>
+              <br><br>
+              <em>Les informations publiées dans cet email ne constituent pas un conseil en investissement. Les performances passées ne préjugent pas des performances futures.</em>
+            </div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

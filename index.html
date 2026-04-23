@@ -1520,51 +1520,79 @@
         </div>
       </div>
 
-      <div class="pricing-grid">
+      <div class="pricing-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+        <!-- PLAN 1 · GRATUIT -->
         <div class="pricing-card">
-          <div class="pricing-name" data-i18n="pricing.free.name">Gratuit</div>
-          <div class="pricing-desc" data-i18n="pricing.free.desc">Pour découvrir le smart money</div>
+          <div class="pricing-name">Gratuit</div>
+          <div class="pricing-desc">Découvrir le smart money</div>
           <div class="pricing-price">
             <span class="pricing-amount">0€</span>
-            <span class="pricing-period" data-i18n="pricing.premium.period_monthly">/mois</span>
+            <span class="pricing-period">/mois</span>
           </div>
-          <div class="pricing-subline" data-i18n="pricing.free.subline">Aucune carte bancaire requise</div>
+          <div class="pricing-subline">Aucune carte bancaire</div>
           <ul class="pricing-features">
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f1">Analyse publique de 1000+ tickers (vue tronquée)</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f2">Indicateur Fear &amp; Greed</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f3">Short Interest top tickers</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.free.f4">Hot Stocks Google Trends</span></li>
-            <li><span class="feat-cross">✗</span> <span data-i18n="pricing.free.f5">Kairos Score complet</span></li>
-            <li><span class="feat-cross">✗</span> <span data-i18n="pricing.free.f6">Hedge Funds &amp; Consensus</span></li>
-            <li><span class="feat-cross">✗</span> <span data-i18n="pricing.free.f7">Import portefeuille</span></li>
+            <li><span class="feat-check">✓</span> Analyse publique 1 000+ tickers (vue tronquée)</li>
+            <li><span class="feat-check">✓</span> Fear &amp; Greed · Short Interest · Hot Stocks</li>
+            <li><span class="feat-check">✓</span> 5 analyses détaillées / jour</li>
+            <li><span class="feat-cross">✗</span> Kairos Score complet</li>
+            <li><span class="feat-cross">✗</span> Hedge funds · Activists · Signaux insiders</li>
+            <li><span class="feat-cross">✗</span> API · Alertes · Exports CSV</li>
           </ul>
-          <a href="dashboard.html" class="btn btn-secondary" data-i18n="pricing.free.cta">Commencer gratuitement</a>
+          <a href="dashboard.html" class="btn btn-secondary">Commencer gratuitement</a>
         </div>
 
+        <!-- PLAN 2 · PRO (recommandé) -->
         <div class="pricing-card featured">
-          <div class="pricing-badge" data-i18n="pricing.premium.badge">★ Premium</div>
-          <div class="pricing-name" data-i18n="pricing.premium.name">Premium</div>
-          <div class="pricing-desc" data-i18n="pricing.premium.desc">L'accès complet au smart money</div>
+          <div class="pricing-badge">⭐ Le plus choisi</div>
+          <div class="pricing-name">Pro</div>
+          <div class="pricing-desc">Tout ce qu'il faut pour suivre le smart money</div>
           <div class="pricing-price">
-            <span class="pricing-amount" id="priceAmount">29€</span>
-            <span class="pricing-period" id="pricePeriod">/mois</span>
+            <span class="pricing-amount" id="proAmount">19€</span>
+            <span class="pricing-period" id="proPeriod">/mois</span>
           </div>
-          <div class="pricing-subline" id="priceSubline">Sans engagement, annulable à tout moment</div>
+          <div class="pricing-subline" id="proSubline">Sans engagement · annulable en 1 clic</div>
           <ul class="pricing-features">
-            <li><span class="feat-check">✓</span> <strong style="color:var(--text-primary)" data-i18n="pricing.premium.all_free">Tout le plan Gratuit</strong></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_score">Kairos Score composite 0-100 (radar 8 axes + synthèse)</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_insiders">Transactions insiders SEC + AMF + BaFin en détail</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_clusters">Signaux Insiders (clusters 90j)</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_activists"><strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_funds"><strong>200+ hedge funds</strong> 13F consolidés</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_consensus">Consensus Hedge Funds avec ★ conviction</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_etf"><strong>11 ETF Live</strong> (politique, ARK, sentiment, income, thématiques)</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_history">Historique 2 ans (AUM, rotations, scores)</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_watchlist"><strong>Watchlist &amp; alertes email</strong> quotidiennes</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.premium.f_portfolio">Import portefeuille multi-broker (CSV)</span></li>
+            <li><span class="feat-check">✓</span> <strong style="color:var(--text-primary)">Tout le plan Gratuit</strong></li>
+            <li><span class="feat-check">✓</span> <strong>Kairos Score complet</strong> · 8 axes · 3 349 tickers</li>
+            <li><span class="feat-check">✓</span> Initiés (SEC + AMF + BaFin) avec 3 sous-onglets</li>
+            <li><span class="feat-check">✓</span> Signaux &amp; Clusters insiders (4 angles)</li>
+            <li><span class="feat-check">✓</span> Screener avancé + exports CSV (10/jour)</li>
+            <li><span class="feat-check">✓</span> <strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)</li>
+            <li><span class="feat-check">✓</span> <strong>200+ Hedge Funds 13F</strong> + Consensus</li>
+            <li><span class="feat-check">✓</span> 11 ETF thématiques live (NANC, GOP, ARK…)</li>
+            <li><span class="feat-check">✓</span> Watchlist + digest email quotidien</li>
+            <li><span class="feat-check">✓</span> Historique 2 ans (scores, rotations, 13F)</li>
           </ul>
-          <a href="dashboard.html" class="btn btn-primary" id="priceCta" data-i18n="pricing.premium.cta_monthly">S'abonner — 29€/mois</a>
+          <a href="dashboard.html?plan=pro" class="btn btn-primary" id="proCta">S'abonner Pro — 19€/mois</a>
         </div>
+
+        <!-- PLAN 3 · ELITE -->
+        <div class="pricing-card">
+          <div class="pricing-badge" style="background:linear-gradient(135deg,#F59E0B,#EC4899)">⚡ Power users</div>
+          <div class="pricing-name">Elite</div>
+          <div class="pricing-desc">Pour les traders pro et créateurs de contenu</div>
+          <div class="pricing-price">
+            <span class="pricing-amount" id="eliteAmount">49€</span>
+            <span class="pricing-period" id="elitePeriod">/mois</span>
+          </div>
+          <div class="pricing-subline" id="eliteSubline">Sans engagement · annulable en 1 clic</div>
+          <ul class="pricing-features">
+            <li><span class="feat-check">✓</span> <strong style="color:var(--text-primary)">Tout le plan Pro</strong></li>
+            <li><span class="feat-check">✓</span> <strong>API REST</strong> pour intégrer la data dans vos outils</li>
+            <li><span class="feat-check">✓</span> <strong>Alertes temps-réel</strong> (push + email) sur clusters, 13D, big buys</li>
+            <li><span class="feat-check">✓</span> <strong>Backtests historiques</strong> (coming soon)</li>
+            <li><span class="feat-check">✓</span> <strong>Exports CSV illimités</strong></li>
+            <li><span class="feat-check">✓</span> Support prioritaire (réponse &lt; 4h)</li>
+            <li><span class="feat-check">✓</span> Accès anticipé aux nouvelles features</li>
+            <li><span class="feat-check">✓</span> Kit presse (screenshots, data exports) pour créateurs</li>
+          </ul>
+          <a href="dashboard.html?plan=elite" class="btn btn-secondary" id="eliteCta" style="border-color:#F59E0B;color:#F59E0B">S'abonner Elite — 49€/mois</a>
+        </div>
+      </div>
+
+      <!-- Ancrage psychologique -->
+      <div style="max-width:760px;margin:36px auto 0;padding:18px 24px;background:rgba(116,185,255,0.05);border:1px solid rgba(116,185,255,0.18);border-radius:12px;text-align:center;font-size:14px;color:var(--text-muted);line-height:1.7">
+        💡 <strong style="color:var(--text-primary)">Bloomberg Terminal : 24 000 €/an</strong> · Kairos Pro : <strong style="color:#74b9ff">190 €/an</strong> · <strong style="color:#10B981">126× moins cher</strong> pour 90% du signal smart money.
       </div>
     </div>
   </section>
@@ -1791,30 +1819,45 @@
     });
 
     // Pricing toggle Mensuel / Annuel
+    // Nouvelle structure 3 plans : Free / Pro 19€ / Elite 49€.
+    // Les toggles mettent a jour Pro ET Elite simultanement.
     function setPricing(mode) {
-      const amount = document.getElementById('priceAmount');
-      const period = document.getElementById('pricePeriod');
-      const subline = document.getElementById('priceSubline');
-      const cta = document.getElementById('priceCta');
       const tabM = document.getElementById('tabMonthly');
       const tabA = document.getElementById('tabAnnual');
-      const t = (window.KairosI18n && window.KairosI18n.t) || ((k, fb) => fb || k);
+      // Elements Pro
+      const proA = document.getElementById('proAmount');
+      const proP = document.getElementById('proPeriod');
+      const proS = document.getElementById('proSubline');
+      const proC = document.getElementById('proCta');
+      // Elements Elite
+      const eliA = document.getElementById('eliteAmount');
+      const eliP = document.getElementById('elitePeriod');
+      const eliS = document.getElementById('eliteSubline');
+      const eliC = document.getElementById('eliteCta');
       if (mode === 'annual') {
-        amount.textContent = t('pricing.premium.amount_annual', '290€');
-        period.textContent = t('pricing.premium.period_annual', '/an');
-        subline.textContent = t('pricing.premium.subline_annual', 'Soit 24,17€/mois · Économisez 58€/an (17%)');
-        cta.textContent = t('pricing.premium.cta_annual', "S'abonner — 290€/an");
-        cta.href = 'dashboard.html?billing=yearly';
-        tabA.classList.add('active');
-        tabM.classList.remove('active');
+        // Pro annuel : 190€ (soit 15,83€/mois, economie 38€/an = ~17%)
+        if (proA) proA.textContent = '190€';
+        if (proP) proP.textContent = '/an';
+        if (proS) proS.textContent = 'Soit 15,83€/mois · 2 mois offerts';
+        if (proC) { proC.textContent = "S'abonner Pro — 190€/an"; proC.href = 'dashboard.html?plan=pro&billing=yearly'; }
+        // Elite annuel : 490€ (soit 40,83€/mois, economie 98€/an = ~17%)
+        if (eliA) eliA.textContent = '490€';
+        if (eliP) eliP.textContent = '/an';
+        if (eliS) eliS.textContent = 'Soit 40,83€/mois · 2 mois offerts';
+        if (eliC) { eliC.textContent = "S'abonner Elite — 490€/an"; eliC.href = 'dashboard.html?plan=elite&billing=yearly'; }
+        if (tabA) tabA.classList.add('active');
+        if (tabM) tabM.classList.remove('active');
       } else {
-        amount.textContent = t('pricing.premium.amount_monthly', '29€');
-        period.textContent = t('pricing.premium.period_monthly', '/mois');
-        subline.textContent = t('pricing.premium.subline_monthly', 'Sans engagement, annulable à tout moment');
-        cta.textContent = t('pricing.premium.cta_monthly', "S'abonner — 29€/mois");
-        cta.href = 'dashboard.html?billing=monthly';
-        tabM.classList.add('active');
-        tabA.classList.remove('active');
+        if (proA) proA.textContent = '19€';
+        if (proP) proP.textContent = '/mois';
+        if (proS) proS.textContent = 'Sans engagement · annulable en 1 clic';
+        if (proC) { proC.textContent = "S'abonner Pro — 19€/mois"; proC.href = 'dashboard.html?plan=pro&billing=monthly'; }
+        if (eliA) eliA.textContent = '49€';
+        if (eliP) eliP.textContent = '/mois';
+        if (eliS) eliS.textContent = 'Sans engagement · annulable en 1 clic';
+        if (eliC) { eliC.textContent = "S'abonner Elite — 49€/mois"; eliC.href = 'dashboard.html?plan=elite&billing=monthly'; }
+        if (tabM) tabM.classList.add('active');
+        if (tabA) tabA.classList.remove('active');
       }
     }
     // Helper : injecte le SVG drapeau cible (UK si on est en FR, FR si on est en EN)
