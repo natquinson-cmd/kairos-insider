@@ -10998,11 +10998,11 @@
         const lastUpdate = data.timestamp ? new Date(data.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
         const ratingFR = {
-          'Extreme Fear': 'Peur extreme',
+          'Extreme Fear': 'Peur extrême',
           'Fear': 'Peur',
           'Neutral': 'Neutre',
-          'Greed': 'Cupidite',
-          'Extreme Greed': 'Cupidite extreme',
+          'Greed': 'Cupidité',
+          'Extreme Greed': 'Cupidité extrême',
         }[rating] || rating;
 
         const color = score <= 25 ? 'var(--accent-red)' : score <= 45 ? '#F97316' : score <= 55 ? 'var(--text-secondary)' : score <= 75 ? '#84CC16' : 'var(--accent-green)';
@@ -11056,18 +11056,18 @@
                 <div style="font-size:15px;color:var(--text-secondary);font-weight:600;margin-top:-4px">${ratingFR}</div>
               </div>
             </div>
-            <div style="display:flex;justify-content:center;gap:24px;margin-bottom:24px;">
-              <span style="font-size:11px;color:var(--accent-red);font-weight:600">0 — Peur extreme</span>
+            <div style="display:flex;justify-content:center;gap:24px;margin-bottom:24px;flex-wrap:wrap">
+              <span style="font-size:11px;color:var(--accent-red);font-weight:600">0 — Peur extrême</span>
               <span style="font-size:11px;color:#F97316;font-weight:600">25 — Peur</span>
               <span style="font-size:11px;color:var(--text-muted);font-weight:600">50 — Neutre</span>
-              <span style="font-size:11px;color:#84CC16;font-weight:600">75 — Cupidite</span>
-              <span style="font-size:11px;color:var(--accent-green);font-weight:600">100 — Extreme</span>
+              <span style="font-size:11px;color:#84CC16;font-weight:600">75 — Cupidité</span>
+              <span style="font-size:11px;color:var(--accent-green);font-weight:600">100 — Extrême</span>
             </div>
             <p style="color:var(--text-muted);font-size:13px;max-width:500px;margin:0 auto;">
-              Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extreme) a 100 (cupidite extreme).
-              Un score bas peut indiquer une opportunite d'achat, un score haut un exces d'optimisme.
+              Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extrême) à 100 (cupidité extrême).
+              Un score bas peut indiquer une opportunité d'achat, un score haut un excès d'optimisme.
             </p>
-            <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Derniere mise a jour CNN : ${lastUpdate}${data._stale ? ' · <span style="color:#F97316">cache (CNN indisponible)</span>' : ''}</div>
+            <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Dernière mise à jour CNN : ${lastUpdate}${data._stale ? ' · <span style="color:#F97316">cache (CNN indisponible)</span>' : ''}</div>
           </div>
 
           <!-- Comparaisons historiques (snapshot) -->
@@ -11098,9 +11098,9 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
               <div>
                 <h4 style="margin:0;font-size:15px;font-weight:700">📈 Historique 1 an</h4>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Evolution du Fear &amp; Greed Index — ${history.length} jours</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Évolution du Fear &amp; Greed Index — ${history.length} jours</div>
               </div>
-              <div class="chart-period-btns" role="group" aria-label="Periode">
+              <div class="chart-period-btns" role="group" aria-label="Période">
                 <button onclick="setFgChartPeriod(30)" data-fg-period="30">1M</button>
                 <button onclick="setFgChartPeriod(90)" data-fg-period="90">3M</button>
                 <button onclick="setFgChartPeriod(180)" data-fg-period="180">6M</button>
@@ -11120,7 +11120,7 @@
                 { key: 'breadth', label: 'Stock Price Breadth', desc: 'Volume acheteur/vendeur' },
                 { key: 'strength', label: 'Stock Price Strength', desc: 'Plus-hauts vs plus-bas 52 semaines' },
                 { key: 'putCall', label: 'Put / Call Options', desc: 'Ratio options pessimistes/optimistes' },
-                { key: 'volatility', label: 'Market Volatility (VIX)', desc: 'Indice de volatilite CBOE' },
+                { key: 'volatility', label: 'Market Volatility (VIX)', desc: 'Indice de volatilité CBOE' },
                 { key: 'safeHaven', label: 'Safe Haven Demand', desc: 'Actions vs obligations Treasury' },
                 { key: 'junkBond', label: 'Junk Bond Demand', desc: 'Spread high-yield vs investment grade' },
               ].map(c => {
@@ -11130,8 +11130,8 @@
                 const col = s <= 25 ? 'var(--accent-red)' : s <= 45 ? '#F97316' : s <= 55 ? 'var(--text-muted)' : s <= 75 ? '#84CC16' : 'var(--accent-green)';
                 const pct = Math.max(0, Math.min(100, s));
                 const ratingFR = {
-                  'Extreme Fear': 'Peur extreme', 'Fear': 'Peur', 'Neutral': 'Neutre',
-                  'Greed': 'Cupidite', 'Extreme Greed': 'Cupidite extreme',
+                  'Extreme Fear': 'Peur extrême', 'Fear': 'Peur', 'Neutral': 'Neutre',
+                  'Greed': 'Cupidité', 'Extreme Greed': 'Cupidité extrême',
                 }[comp.rating] || comp.rating || '';
                 return `
                   <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
@@ -11180,7 +11180,7 @@
             <div style="font-size:48px;margin-bottom:14px">😶‍🌫️</div>
             <p style="margin:0 0 10px;font-size:16px;color:var(--text-primary);font-weight:600">Indicateur indisponible</p>
             <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">
-              Nous ne parvenons pas a recuperer le Fear &amp; Greed Index pour le moment. Reessayez dans quelques minutes, ou consultez-le sur
+              Nous ne parvenons pas à récupérer le Fear &amp; Greed Index pour le moment. Réessayez dans quelques minutes, ou consultez-le sur
               <a href="https://edition.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener" style="color:var(--accent-blue)">CNN Markets →</a>
             </p>
           </div>`;
@@ -11233,12 +11233,14 @@
           if (!chartArea) return;
           const yScale = scales.y;
           ctx.save();
+          // Zones colorees subtiles en background (peur rouge → cupidite verte).
+          // Opacites augmentees vs v1 pour bien se voir en dark mode ET en light mode.
           const zones = [
-            { min: 0,  max: 25,  color: 'rgba(239, 68, 68, 0.08)' },   // Peur extreme
-            { min: 25, max: 45,  color: 'rgba(249, 115, 22, 0.06)' },  // Peur
-            { min: 45, max: 55,  color: 'rgba(148, 163, 184, 0.04)' }, // Neutre
-            { min: 55, max: 75,  color: 'rgba(132, 204, 22, 0.06)' },  // Cupidite
-            { min: 75, max: 100, color: 'rgba(16, 185, 129, 0.08)' },  // Cupidite extreme
+            { min: 0,  max: 25,  color: 'rgba(239, 68, 68, 0.16)' },   // Peur extreme
+            { min: 25, max: 45,  color: 'rgba(249, 115, 22, 0.12)' },  // Peur
+            { min: 45, max: 55,  color: 'rgba(148, 163, 184, 0.08)' }, // Neutre
+            { min: 55, max: 75,  color: 'rgba(132, 204, 22, 0.12)' },  // Cupidite
+            { min: 75, max: 100, color: 'rgba(16, 185, 129, 0.16)' },  // Cupidite extreme
           ];
           zones.forEach(z => {
             const yTop = yScale.getPixelForValue(z.max);
@@ -11291,7 +11293,7 @@
                 },
                 label: (ctx) => {
                   const s = ctx.parsed.y;
-                  const r = s <= 25 ? 'Peur extreme' : s <= 45 ? 'Peur' : s <= 55 ? 'Neutre' : s <= 75 ? 'Cupidite' : 'Cupidite extreme';
+                  const r = s <= 25 ? 'Peur extrême' : s <= 45 ? 'Peur' : s <= 55 ? 'Neutre' : s <= 75 ? 'Cupidité' : 'Cupidité extrême';
                   return `Score : ${Math.round(s)} · ${r}`;
                 }
               }
@@ -11299,16 +11301,17 @@
           },
           scales: {
             x: {
-              grid: { color: 'var(--chart-grid-subtle)', display: false },
-              ticks: { color: 'var(--chart-text)', maxRotation: 0, autoSkip: true, maxTicksLimit: 6 },
+              grid: { color: getCssVar('--chart-grid-subtle'), display: false },
+              ticks: { color: getCssVar('--chart-text-strong'), maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 12, weight: 500 } },
             },
             y: {
               min: 0,
               max: 100,
-              grid: { color: 'var(--chart-grid)' },
+              grid: { color: getCssVar('--chart-grid') },
               ticks: {
-                color: 'var(--chart-text)',
+                color: getCssVar('--chart-text-strong'),
                 stepSize: 25,
+                font: { size: 12, weight: 500 },
                 callback: (v) => v + (v === 0 ? ' Peur ext.' : v === 25 ? ' Peur' : v === 50 ? ' Neutre' : v === 75 ? ' Cupid.' : v === 100 ? ' Extrême' : ''),
               },
             }
