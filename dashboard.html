@@ -1398,6 +1398,54 @@
       background: linear-gradient(90deg, transparent, #3B82F6, transparent);
       border-radius: 2px;
     }
+    /* ===== HUB TABS (regroupement sidebar : Insiders, Hedge Funds) ===== */
+    /* Barre d'onglets au sommet d'une section 'hub' qui regroupe plusieurs
+       sous-sections partageant la meme source de donnees (ex: Form 4 pour
+       Insiders). Style plus marque que .cl-tab (niveau 1). */
+    .hub-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+      padding: 6px;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .hub-tab {
+      flex: 1 1 auto;
+      min-width: 150px;
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .hub-tab:hover {
+      color: var(--text-primary);
+      background: var(--surface-2);
+    }
+    .hub-tab.active {
+      color: #FFFFFF;
+      background: linear-gradient(135deg, #3B82F6, #6366F1);
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+    }
+    .hub-tab-sub {
+      font-size: 10px;
+      opacity: 0.7;
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
     /* Pills tickers dans le tableau Transversaux — lisible dans les 2 themes */
     .cl-ticker-pill {
       display: inline-block;
@@ -2136,14 +2184,14 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.smart_money">Smart Money</div>
+        <!-- Sidebar simplifiee : regroupement par source SEC.
+             Insiders (Form 4) : Transactions recentes + Signaux & Clusters + Screener
+             Fonds Offensifs (Schedule 13D/G)
+             Hedge Funds (Form 13F-HR) : Portefeuilles + Consensus
+             ETF thematiques (providers) -->
         <button class="sidebar-item" data-section="insider" data-premium="true" onclick="switchSection('insider')">
           <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
-          <span data-i18n="dash.sidebar.insiders">Transactions Insiders</span>
-          <span class="sidebar-badge premium-badge">PRO</span>
-        </button>
-        <button class="sidebar-item" data-section="screener" data-premium="true" onclick="switchSection('screener')">
-          <span class="sidebar-icon icon-blue"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg></span>
-          <span data-i18n="dash.sidebar.screener">Screener Avancé</span>
+          <span data-i18n="dash.sidebar.insiders">Initiés</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="activists" data-premium="true" onclick="switchSection('activists')">
@@ -2151,19 +2199,10 @@
           <span data-i18n="dash.sidebar.activists">Fonds Offensifs</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="clustering" data-premium="true" onclick="switchSection('clustering')">
-          <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
-          <span data-i18n="dash.sidebar.signals">Signaux Insiders</span>
-          <span class="sidebar-badge premium-badge">PRO</span>
-        </button>
         <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')">
           <span class="sidebar-icon icon-teal"><svg viewBox="0 0 24 24"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span>
           <span data-i18n="dash.sidebar.hedge_funds">Hedge Funds</span>
           <span class="sidebar-badge premium-badge">PRO</span>
-        </button>
-        <button class="sidebar-item" data-section="consensus13f" data-premium="true" onclick="switchSection('consensus13f')">
-          <span class="sidebar-icon icon-green"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
-          <span data-i18n="dash.sidebar.consensus">Consensus Hedge Funds</span>
         </button>
         <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
           <span class="sidebar-icon icon-cyan"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
@@ -2453,8 +2492,15 @@
 
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page" id="section-insider">
-        <h2 data-i18n="dash.section.insider.title">Transactions Insiders</h2>
+        <h2 data-i18n="dash.section.insider.title">Initiés — Transactions récentes</h2>
         <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — déclarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement.</p>
+
+        <!-- HUB INSIDERS (toutes les donnees issues de SEC Form 4 + BaFin + AMF) -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Transactions récentes</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
+          <button class="hub-tab" data-hub-target="screener" onclick="switchSection('screener')">🔎 <span data-i18n="dash.hub.insider.screener">Screener avancé</span></button>
+        </div>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
           <div style="position:relative;flex:1">
@@ -2512,8 +2558,15 @@
 
       <!-- ===== SECTION: SCREENER AVANCE ===== -->
       <div class="section-page" id="section-screener">
-        <h2><span data-i18n="dash.section.screener.title">Screener Avancé</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:rgba(116,185,255,0.15);color:#74b9ff;border-radius:12px;letter-spacing:0.5px">NEW</span></h2>
+        <h2><span data-i18n="dash.section.screener.title">Initiés — Screener avancé</span></h2>
         <p class="section-desc" data-i18n="dash.section.screener.desc">Filtres combinables sur l'historique complet des transactions insiders (jusqu'a 5 ans). Filtre par role, montant, période, ticker, source — exporte les resultats en CSV.</p>
+
+        <!-- HUB INSIDERS (meme barre qu'ailleurs) -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Transactions récentes</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
+          <button class="hub-tab" data-hub-target="screener" onclick="switchSection('screener')">🔎 <span data-i18n="dash.hub.insider.screener">Screener avancé</span></button>
+        </div>
 
         <!-- GRILLE DE FILTRES -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
@@ -2710,8 +2763,15 @@
 
       <!-- ===== SECTION: SIGNAUX INSIDERS (4 sous-onglets) ===== -->
       <div class="section-page" id="section-clustering">
-        <h2 data-i18n="dash.section.clustering.title">Signaux Insiders</h2>
+        <h2 data-i18n="dash.section.clustering.title">Initiés — Signaux & Clusters</h2>
         <p class="section-desc" data-i18n="dash.section.clustering.desc">Quatre angles de lecture des transactions insiders — clusters, flux net, insiders transversaux et achats contrarians. Chaque vue repond a une question differente : "qui achete ensemble ?", "ou accumulent-ils ?", "qui a la vision transversale ?", "qui a la plus forte conviction ?".</p>
+
+        <!-- HUB INSIDERS (meme barre qu'ailleurs) -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Transactions récentes</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
+          <button class="hub-tab" data-hub-target="screener" onclick="switchSection('screener')">🔎 <span data-i18n="dash.hub.insider.screener">Screener avancé</span></button>
+        </div>
 
         <!-- BARRE DE SOUS-ONGLETS -->
         <div class="cl-tabs" role="tablist">
@@ -2857,9 +2917,16 @@
 
       <!-- ===== SECTION: 13F ===== -->
       <div class="section-page" id="section-13f">
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;" data-i18n="dash.section.13f.desc">
+        <h2>Hedge Funds — Portefeuilles</h2>
+        <p class="section-desc" data-i18n="dash.section.13f.desc">
           Classement des plus grands fonds d'investissement par taille de portefeuille (AUM). Cliquez sur une ligne pour voir les principales positions.
         </p>
+
+        <!-- HUB HEDGE FUNDS (regroupe donnees 13F-HR : portefeuilles + consensus) -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
+        </div>
 
         <!-- Bloc résumé : Activité du dernier trimestre -->
         <div id="quarterActivityArea" style="margin-bottom:24px"></div>
@@ -2871,10 +2938,17 @@
 
       <!-- ===== SECTION: SMART MONEY CONSENSUS (13F) ===== -->
       <div class="section-page" id="section-consensus13f">
-        <h2 data-i18n="dash.section.consensus13f.title">🤝 Smart Money Consensus</h2>
+        <h2 data-i18n="dash.section.consensus13f.title">Hedge Funds — Consensus 🤝</h2>
         <p class="section-desc" data-i18n="dash.section.consensus13f.desc">
           Quelles actions sont détenues par <strong>plusieurs hedge funds simultanément</strong> ? Plus une position est partagée, plus elle est consensus du smart money. À l'inverse, les actions tenues par un seul fonds sont des "lonely picks" — paris originaux ou contrarian.
         </p>
+
+        <!-- HUB HEDGE FUNDS (meme barre qu'ailleurs) -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
+        </div>
+
         <div id="consensus13fBody">
           <div class="loading"><div class="spinner"></div>Calcul du consensus...</div>
         </div>
@@ -4577,17 +4651,34 @@
     document.addEventListener('DOMContentLoaded', applyThemeIcon);
 
     let loadedSections = {};
+    // Mapping des sous-onglets hub → leur parent dans la sidebar.
+    // Quand on switch vers screener/clustering/consensus13f (qui ne sont plus
+    // dans la sidebar), on active quand meme le bouton sidebar du parent
+    // (insider ou 13f) pour que l'utilisateur voit clairement ou il est.
+    const HUB_PARENT = {
+      screener: 'insider',
+      clustering: 'insider',
+      consensus13f: '13f',
+    };
+
     function switchSection(section) {
-      // Gate premium : bloque l'acces aux onglets PRO si pas d'abonnement actif
-      const btn = document.querySelector(`[data-section="${section}"]`);
+      // Gate premium : la section cible OU son parent hub doit etre premium.
+      // Comme screener/clustering n'ont plus de bouton sidebar, on cherche
+      // le premium flag via le parent hub.
+      const hubParent = HUB_PARENT[section] || section;
+      const btn = document.querySelector(`[data-section="${hubParent}"]`);
       const isPremiumSection = btn?.dataset.premium === 'true';
       if (isPremiumSection && !isPremium) {
         document.getElementById('paywallOverlay').classList.remove('hidden');
         return;
       }
 
-      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.toggle('active', b.dataset.section === section));
+      // Sidebar : active le parent hub (ou le bouton direct si pas dans un hub)
+      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.toggle('active', b.dataset.section === hubParent));
+      // Section visible : la vraie section cible (incluant sous-onglets hub)
       document.querySelectorAll('.section-page').forEach(c => c.classList.toggle('active', c.id === `section-${section}`));
+      // Hub tabs : active tous les boutons hub qui correspondent a la section cible
+      document.querySelectorAll('.hub-tab').forEach(b => b.classList.toggle('active', b.dataset.hubTarget === section));
 
       // Lazy load des données
       if (!loadedSections[section]) {
