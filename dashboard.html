@@ -784,6 +784,13 @@
       animation: pco-spin 0.8s linear infinite;
     }
     @keyframes pco-spin { to { transform: rotate(360deg); } }
+    /* Animation shine du bouton 'Passer Pro' dans la navbar : le gradient
+       glisse lentement pour un effet brillant subtil attirant l'oeil sans
+       etre agressif. */
+    @keyframes navUpgradeShine {
+      0%   { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
     #pendingCheckoutOverlay h2 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
     #pendingCheckoutOverlay p { font-size: 14px; color: #94A3B8; margin: 0; max-width: 360px; line-height: 1.6; }
     .auth-card {
@@ -2088,6 +2095,17 @@
         <span class="logo-text">Kairos Insider</span>
       </a>
       <ul class="nav-links">
+        <!-- Bouton Upgrade (visible uniquement pour les users non-premium).
+             Gradient anime brand + pulse discret pour attirer l'oeil sans etre agressif. -->
+        <li id="navUpgradeItem" style="display:none">
+          <button id="navUpgradeBtn" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay();" title="Passer Pro — Débloquer le smart money complet" aria-label="Passer Pro"
+                  style="background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);background-size:200% 100%;border:none;color:#ffffff;padding:7px 14px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:0.02em;box-shadow:0 2px 12px rgba(139,92,246,0.35);animation:navUpgradeShine 4s linear infinite;transition:transform 0.2s"
+                  onmouseover="this.style.transform='translateY(-1px) scale(1.03)';this.style.boxShadow='0 4px 18px rgba(139,92,246,0.5)'"
+                  onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(139,92,246,0.35)'">
+            <span style="font-size:14px;line-height:1">✨</span>
+            <span>Passer Pro</span>
+          </button>
+        </li>
         <li>
           <button id="navSupportBtn" onclick="openSupportModal()" title="Aide et support" aria-label="Aide et support"
                   style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);width:34px;height:34px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0"
@@ -2300,11 +2318,6 @@
     <!-- MAIN CONTENT -->
     <main class="main" id="main-content">
       <div class="container">
-
-      <!-- ===== BANNIERE UPGRADE (users non-premium uniquement) ===== -->
-      <!-- Injected dynamiquement par renderUpgradeBanner() apres checkSubscription.
-           Cachee par defaut, rendue seulement si isPremium === false. -->
-      <div id="upgradeBanner" style="display:none"></div>
 
       <!-- ===== SECTION: ACCUEIL ===== -->
       <div class="section-page active" id="section-home">
@@ -4543,33 +4556,14 @@
       renderUpgradeBanner();
     }
 
-    // Banniere promo en haut du dashboard, visible UNIQUEMENT pour les users
-    // non-premium. Invite a passer Pro (ou Elite). Dismiss-able : 1 clic sur
-    // X → cachee pour la session (pas cross-session : on ne veut pas que l'user
-    // l'oublie definitivement, mais eviter qu'elle re-apparaisse a chaque
-    // navigation dans l'onglet courant).
+    // Bouton 'Passer Pro' dans la navbar : visible uniquement pour les users
+    // non-premium. Petit, bien visible (gradient anime), ouvre le paywall au
+    // clic. Pas de dismiss : c'est un simple icone en bout de barre, ne gene
+    // pas. Permet a tout moment de re-acceder au pricing.
     function renderUpgradeBanner() {
-      const el = document.getElementById('upgradeBanner');
-      if (!el) return;
-      // Cache si premium OU si user a ferme dans cette session
-      if (isPremium || sessionStorage.getItem('kairos_upgrade_banner_dismissed')) {
-        el.style.display = 'none';
-        return;
-      }
-      el.style.display = 'block';
-      el.innerHTML = `
-        <div style="position:relative;padding:14px 44px 14px 20px;margin-bottom:20px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.08),rgba(236,72,153,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-          <div style="flex:1;min-width:280px">
-            <div style="font-size:12px;color:#A78BFA;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:4px">✨ Offre Kairos Pro</div>
-            <div style="font-size:15px;font-weight:700;color:var(--text-primary);line-height:1.4;margin-bottom:2px">Débloquez le smart money complet dès <span style="color:#60A5FA">19€/mois</span></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Kairos Score · Hedge Funds 13F · Fonds Offensifs · Signaux Insiders · Watchlist · 2 mois offerts en annuel</div>
-          </div>
-          <div style="display:flex;gap:8px;flex-shrink:0">
-            <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay();" style="padding:10px 20px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 10px rgba(59,130,246,0.3)">Voir les plans</button>
-          </div>
-          <button type="button" aria-label="Fermer la bannière" onclick="sessionStorage.setItem('kairos_upgrade_banner_dismissed','1');document.getElementById('upgradeBanner').style.display='none';" style="position:absolute;top:10px;right:12px;width:26px;height:26px;background:transparent;border:none;border-radius:50%;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center" title="Masquer pour cette session">✕</button>
-        </div>
-      `;
+      const li = document.getElementById('navUpgradeItem');
+      if (!li) return;
+      li.style.display = isPremium ? 'none' : '';
     }
 
     // Billing preference (monthly | yearly) — peut etre set via ?billing= dans l'URL depuis la landing
