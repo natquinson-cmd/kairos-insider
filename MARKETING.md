@@ -62,7 +62,7 @@
 
 | Plan | Prix mensuel | Prix annuel | Remise annuelle | Cible | Bénéfices clés |
 |---|---|---|---|---|---|
-| **Free** | 0€ | 0€ | — | Lead / SEO | Kairos Score tronqué · 5 analyses/j · Fear & Greed · Hot Stocks |
+| **Free** | 0€ | 0€ | — | Lead / SEO | **3 analyses complètes/jour** (Kairos Score + 8 axes) · Fear & Greed · Short Interest · Hot Stocks · aperçu 1 000+ tickers |
 | **Pro** | **19€** | **190€** | ~17% (2 mois offerts) | Pierre | Accès complet dashboard · screener · signaux insiders · hedge funds · activists · ETF · watchlist |
 | **Elite** | **49€** | **490€** | ~17% | Thomas + Anne | Pro + API · alertes temps-réel (push/email) · backtests · exports CSV illimités · support 4h |
 
