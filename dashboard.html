@@ -983,6 +983,13 @@
       color: #FDE047;
       border: 1px solid rgba(250,204,21,0.4);
     }
+    /* Badge Elite : gradient doree/rose (power users, pricing plus haut).
+       Diffore visuellement de PRO (bleu) pour bien distinguer les niveaux. */
+    .sidebar-item .elite-badge {
+      background: linear-gradient(135deg, rgba(245,158,11,0.22), rgba(236,72,153,0.16));
+      color: #F59E0B;
+      border: 1px solid rgba(245,158,11,0.42);
+    }
     /* Badge Beta inline (a cote des titres H2) */
     .beta-tag {
       display: inline-flex;
@@ -2277,6 +2284,26 @@
           <span class="sidebar-icon icon-cyan"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
           <span data-i18n="dash.sidebar.etf_live">ETF Live</span>
           <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
+      </div>
+
+      <!-- ===== SECTION ELITE (power users : API + alertes + backtests) ===== -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Elite</div>
+        <button class="sidebar-item" data-section="eliteApi" data-elite="true" onclick="switchSection('eliteApi')">
+          <span class="sidebar-icon icon-teal"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+          <span>API REST</span>
+          <span class="sidebar-badge elite-badge">ELITE</span>
+        </button>
+        <button class="sidebar-item" data-section="eliteAlerts" data-elite="true" onclick="switchSection('eliteAlerts')">
+          <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span>Alertes temps-réel</span>
+          <span class="sidebar-badge elite-badge">ELITE</span>
+        </button>
+        <button class="sidebar-item" data-section="eliteBacktests" data-elite="true" onclick="switchSection('eliteBacktests')">
+          <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
+          <span>Backtests</span>
+          <span class="sidebar-badge elite-badge">ELITE</span>
         </button>
       </div>
 
@@ -3870,6 +3897,169 @@
         </div>
       </div>
 
+      <!-- ===== SECTION ELITE : API REST ===== -->
+      <div class="section-page" id="section-eliteApi">
+        <h2 style="display:flex;align-items:center;gap:12px">
+          <span>🔌 API REST Kairos</span>
+          <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
+        </h2>
+        <p class="section-desc">Intégrez les données smart money de Kairos dans vos propres outils : Google Sheets, Excel, Python notebooks, Zapier, ou votre propre dashboard.</p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px">
+          <div style="padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Votre clé API</div>
+            <div style="font-family:monospace;font-size:12px;color:var(--text-primary);padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;word-break:break-all;margin-bottom:8px" id="eliteApiKey">Votre token Firebase (à récupérer via /stripe/status)</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Authentification Bearer dans le header. Le token expire après 1h — rafraîchissez côté client Firebase.</div>
+          </div>
+          <div style="padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Limites</div>
+            <div style="font-size:22px;font-weight:700;color:var(--accent-blue);margin-bottom:4px">10 000 req/jour</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Rate limit : 60 req/min. Besoin de plus ? Contactez-nous via le support.</div>
+          </div>
+          <div style="padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Base URL</div>
+            <div style="font-family:monospace;font-size:13px;color:#74b9ff;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">https://kairos-insider-api<br>&nbsp;&nbsp;.natquinson.workers.dev</div>
+          </div>
+        </div>
+
+        <h3 style="margin:28px 0 14px;font-size:16px">Endpoints disponibles</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/stock/:ticker</code></div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Analyse complète : Kairos Score, insiders, hedge funds, ETF, fondamentaux, news. Accepte <code style="font-size:11px">?range=1y|5y|max</code>.</div>
+            <pre style="margin:0;padding:12px;background:#0A0F1E;border:1px solid var(--border);border-radius:6px;font-size:11px;color:#CBD5E1;overflow-x:auto">curl -H "Authorization: Bearer $FIREBASE_TOKEN" \
+  https://kairos-insider-api.natquinson.workers.dev/api/stock/AAPL</pre>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/signals/insider-clusters</code></div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Clusters insiders (≥3 dirigeants même ticker). Filtres : <code style="font-size:11px">?days=7&minTx=3&direction=all&roles=all&sort=value</code>.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/signals/insider-netflow</code></div>
+            <div style="font-size:12px;color:var(--text-secondary)">Flux net par ticker (buys − sells) sur la fenêtre donnée.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/signals/insider-crossticker</code></div>
+            <div style="font-size:12px;color:var(--text-secondary)">Insiders actifs sur plusieurs tickers — vision transversale.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/13dg/ticker</code></div>
+            <div style="font-size:12px;color:var(--text-secondary)">Filings 13D/G (gros actionnaires &gt;5%) sur un ticker.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/history/ticker-activity</code></div>
+            <div style="font-size:12px;color:var(--text-secondary)">Activité récente (7 jours par défaut) : insiders + ETF + delta Kairos Score.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:24px;padding:16px 18px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:10px;font-size:13px;color:var(--text-secondary);line-height:1.6">
+          💡 <strong style="color:var(--text-primary)">Documentation complète</strong> : téléchargez la collection Postman + exemples Python/JS sur le <a href="https://github.com/natquinson-cmd/kairos-insider" target="_blank" style="color:var(--accent-blue)">repo GitHub</a>. Questions ? Contactez-nous via le bouton support.
+        </div>
+      </div>
+
+      <!-- ===== SECTION ELITE : ALERTES TEMPS-REEL ===== -->
+      <div class="section-page" id="section-eliteAlerts">
+        <h2 style="display:flex;align-items:center;gap:12px">
+          <span>🔔 Alertes temps-réel</span>
+          <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
+        </h2>
+        <p class="section-desc">Soyez notifié dès qu'un signal smart money se déclenche sur vos tickers watchlistés. Email + push navigateur.</p>
+
+        <div style="padding:22px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:14px;margin-bottom:20px">
+          <div style="font-size:11px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px">🚧 En cours de développement</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Lancement prévu : mi-mai 2026</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6">Les alertes temps-réel sont la priorité #1 de la roadmap Elite. Inscrivez-vous à la liste d'attente pour être prévenu dès que c'est disponible (et obtenir 1 mois offert).</div>
+        </div>
+
+        <h3 style="margin:24px 0 14px;font-size:16px">Types d'alertes prévues</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:20px;margin-bottom:6px">🎯</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Cluster insider détecté</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">≥3 dirigeants achètent leurs propres actions sur un ticker de votre watchlist en &lt; 30 jours.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:20px;margin-bottom:6px">⚡</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Nouveau 13D activist</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un fonds offensif connu (Elliott, Ackman, Icahn…) dépose un 13D sur un ticker que vous suivez.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:20px;margin-bottom:6px">💰</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Big insider buy</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un CEO/CFO achète pour &gt; 1 M$ de ses propres actions (signal de vraie conviction).</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:20px;margin-bottom:6px">📊</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Kairos Score +10 pts</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un ticker de votre watchlist voit son score grimper significativement (≥ 10 pts sur 7j).</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:20px;margin-bottom:6px">🤝</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Consensus 13F nouveau</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">≥3 hedge funds top 50 achètent le même ticker ce trimestre.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:20px;margin-bottom:6px">🌊</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Rotation ETF</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un ticker entre ou sort d'un ETF que vous suivez (NANC, GOP, ARK…).</div>
+          </div>
+        </div>
+
+        <div style="margin-top:28px;padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;text-align:center">
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Canaux de notification prévus</div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
+            <span style="padding:6px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:12px;color:#10B981;font-weight:600">📧 Email temps-réel</span>
+            <span style="padding:6px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:100px;font-size:12px;color:#60A5FA;font-weight:600">🔔 Push navigateur</span>
+            <span style="padding:6px 14px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:100px;font-size:12px;color:#A78BFA;font-weight:600">🪝 Webhooks</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:8px">Les abonnés Elite actuels auront accès gratuit aux alertes dès leur lancement.</div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION ELITE : BACKTESTS ===== -->
+      <div class="section-page" id="section-eliteBacktests">
+        <h2 style="display:flex;align-items:center;gap:12px">
+          <span>📈 Backtests historiques</span>
+          <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
+        </h2>
+        <p class="section-desc">Testez vos stratégies smart money sur 5 ans d'historique : "acheter quand cluster insider détecté", "suivre les 13D activists", "copier le top 50 hedge funds".</p>
+
+        <div style="padding:22px;background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(236,72,153,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:14px;margin-bottom:20px">
+          <div style="font-size:11px;color:#A78BFA;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px">🚧 En cours de construction</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Lancement prévu : été 2026</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6">Prérequis en cours : historisation des prix OHLCV (8 000 tickers × 5 ans) dans D1. Sans cette infra, pas de backtests réalistes.</div>
+        </div>
+
+        <h3 style="margin:24px 0 14px;font-size:16px">Stratégies backtestables (prévues)</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🎯 Cluster chasing</strong></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Acheter 100$ à chaque détection de cluster ≥3 insiders. Hold 90/180/365 jours. Compare au S&amp;P 500.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">⚡ Activist following</strong></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Tracker Elliott / Ackman / Icahn : acheter à chaque 13D nouveau. Hold jusqu'à la sortie (13D/A — Item 4).</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🏛️ Top 50 hedge funds clone</strong></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Répliquer les top 10 positions de chaque 13F-HR trimestriel. Rebalance à chaque release (45j lag SEC).</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">📊 Kairos Score ≥ 80</strong></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Acheter tous les tickers qui atteignent un Kairos Score ≥ 80. Vendre quand &lt; 50. Rebalance mensuel.</div>
+          </div>
+          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🌊 NANC (Pelosi) clone</strong></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Répliquer l'ETF NANC (transactions Congrès US). Mesurer vs S&amp;P 500 et vs ETF officiel (qui a 50 pts de base de frais).</div>
+          </div>
+        </div>
+
+        <div style="margin-top:28px;padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;text-align:center">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:8px">Les abonnés Elite actuels auront accès gratuit</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6">Dès le lancement, les Elite pourront configurer et lancer des backtests illimités avec des métriques complètes (Sharpe, max drawdown, win rate, alpha vs benchmark).</div>
+        </div>
+      </div>
+
       <!-- ===== SECTION: ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS) ===== -->
       <div class="section-page" id="section-admin">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap">
@@ -5078,8 +5268,23 @@
       const hubParent = HUB_PARENT[section] || section;
       const btn = document.querySelector(`[data-section="${hubParent}"]`);
       const isPremiumSection = btn?.dataset.premium === 'true';
+      const isEliteSection = btn?.dataset.elite === 'true';
+
+      // Gate Elite : l'user doit etre plan='elite'. Pro + Free → paywall
+      // avec Elite preselectionne pour conversion directe.
+      if (isEliteSection) {
+        const plan = (window._currentPlan || '').toLowerCase();
+        if (plan !== 'elite') {
+          try { localStorage.setItem('kairos_plan', 'elite'); } catch (e) {}
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          document.getElementById('paywallOverlay').classList.remove('hidden');
+          return;
+        }
+      }
+
       if (isPremiumSection && !isPremium) {
         document.getElementById('paywallOverlay').classList.remove('hidden');
+        if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
         return;
       }
 
