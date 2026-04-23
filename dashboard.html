@@ -11011,24 +11011,22 @@
 
         area.innerHTML = `
           <style>
-            @keyframes gaugeGrow {
-              from { stroke-dasharray: 0 597; }
-              to { stroke-dasharray: ${targetDash} 597; }
-            }
-            @keyframes gaugeGlow {
-              0%, 100% { filter: drop-shadow(0 0 6px ${color}40); }
-              50% { filter: drop-shadow(0 0 18px ${color}90); }
-            }
             @keyframes scoreCount {
-              from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); }
-              to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+              from { opacity: 0; transform: scale(0.6); }
+              to { opacity: 1; transform: scale(1); }
             }
-            .fg-arc {
-              animation: gaugeGrow 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
-                         gaugeGlow 3s ease-in-out 1.8s infinite;
+            @keyframes needlePulse {
+              0%, 100% { filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.5)); }
+              50%      { filter: drop-shadow(0 0 16px rgba(236, 72, 153, 0.8)); }
+            }
+            #fgNeedle {
+              filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+            }
+            #fgNeedle > polygon:last-child {
+              animation: needlePulse 3s ease-in-out 2.5s infinite;
             }
             .fg-score {
-              animation: scoreCount 0.6s ease-out 1s forwards;
+              animation: scoreCount 0.6s ease-out 1.8s forwards;
               opacity: 0;
             }
             /* Tooltip custom sur les 7 indicateurs — hover/focus reveal */
@@ -11084,36 +11082,130 @@
               .fg-tip-body { width: 240px; max-width: 80vw; }
             }
           </style>
-          <div style="text-align:center;padding:40px 20px;">
-            <div style="position:relative;width:250px;height:250px;margin:0 auto 24px;">
-              <svg viewBox="0 0 220 220" style="transform:rotate(-90deg)">
-                <!-- Track -->
-                <circle cx="110" cy="110" r="95" style="stroke:var(--surface-2)" stroke-width="14" fill="none"/>
-                <!-- Tick marks -->
-                ${[0,25,50,75,100].map(v => {
-                  const angle = (v / 100) * 360 - 90;
-                  const rad = angle * Math.PI / 180;
-                  const x1 = 110 + 82 * Math.cos(rad);
-                  const y1 = 110 + 82 * Math.sin(rad);
-                  const x2 = 110 + 88 * Math.cos(rad);
-                  const y2 = 110 + 88 * Math.sin(rad);
-                  return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" style="stroke:var(--border-strong)" stroke-width="2"/>';
-                }).join('')}
-                <!-- Animated arc -->
-                <circle class="fg-arc" cx="110" cy="110" r="95" stroke="${color}" stroke-width="14" fill="none"
-                  stroke-dasharray="0 597" stroke-linecap="round"/>
+          <div style="text-align:center;padding:32px 20px 24px;">
+            <!-- Gauge speedometer semi-circulaire avec segments colores + aiguille animee.
+                 Helpers geometriques :
+                 - Score 0   → aiguille pointe a gauche (rotation -90deg)
+                 - Score 50  → aiguille pointe en haut  (rotation   0deg)
+                 - Score 100 → aiguille pointe a droite (rotation +90deg)
+                 Formule : rotation = score * 1.8 - 90   (range 0-100 → -90° à +90°) -->
+            <div style="position:relative;width:min(440px,92vw);margin:0 auto 8px;aspect-ratio:440/260">
+              <svg viewBox="0 0 440 260" style="width:100%;height:100%;overflow:visible">
+                <defs>
+                  <!-- Glow color-matched au score final -->
+                  <filter id="fgGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
+                  </filter>
+                  <!-- Gradient lineaire pour l'aiguille (bleu → violet Kairos) -->
+                  <linearGradient id="fgNeedleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#F9FAFB"/>
+                    <stop offset="100%" stop-color="#A78BFA"/>
+                  </linearGradient>
+                  <radialGradient id="fgHubGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#F9A8D4"/>
+                    <stop offset="70%" stop-color="#8B5CF6"/>
+                    <stop offset="100%" stop-color="#3B82F6"/>
+                  </radialGradient>
+                </defs>
+
+                <!-- 5 segments colores en arc semi-circulaire, avec gaps de 2° entre eux -->
+                ${(() => {
+                  const cx = 220, cy = 230, rOuter = 180, rInner = 150;
+                  const segments = [
+                    { from: 0,  to: 25,  color: '#EF4444' }, // Peur extreme
+                    { from: 25, to: 45,  color: '#F97316' }, // Peur
+                    { from: 45, to: 55,  color: '#94A3B8' }, // Neutre
+                    { from: 55, to: 75,  color: '#84CC16' }, // Cupidite
+                    { from: 75, to: 100, color: '#10B981' }, // Cupidite extreme
+                  ];
+                  const GAP = 1.2; // degres de gap visuel entre chaque segment
+                  // Score 0 = angle 180° (left), Score 100 = angle 0° (right) — SVG math
+                  const scoreToAngle = (s) => 180 - (s / 100) * 180;
+                  const polar = (r, a) => {
+                    const rad = a * Math.PI / 180;
+                    return [cx + r * Math.cos(rad), cy - r * Math.sin(rad)];
+                  };
+                  return segments.map(seg => {
+                    const a1 = scoreToAngle(seg.from) - GAP / 2;
+                    const a2 = scoreToAngle(seg.to)   + GAP / 2;
+                    // a1 > a2 (on va dans le sens horaire visuellement)
+                    const [x1o, y1o] = polar(rOuter, a1);
+                    const [x2o, y2o] = polar(rOuter, a2);
+                    const [x2i, y2i] = polar(rInner, a2);
+                    const [x1i, y1i] = polar(rInner, a1);
+                    const largeArc = Math.abs(a1 - a2) > 180 ? 1 : 0;
+                    const d = [
+                      `M ${x1o} ${y1o}`,
+                      `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2o} ${y2o}`,
+                      `L ${x2i} ${y2i}`,
+                      `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x1i} ${y1i}`,
+                      `Z`,
+                    ].join(' ');
+                    return `<path d="${d}" fill="${seg.color}" opacity="0.88"/>`;
+                  }).join('');
+                })()}
+
+                <!-- Tick marks secondaires (5, 15, 35, 65, 85, 95) discrets -->
+                ${(() => {
+                  const cx = 220, cy = 230, rIn = 152, rOut = 148;
+                  const scoreToAngle = (s) => 180 - (s / 100) * 180;
+                  const ticks = [10, 20, 30, 40, 60, 70, 80, 90];
+                  return ticks.map(s => {
+                    const a = scoreToAngle(s) * Math.PI / 180;
+                    const x1 = cx + rIn * Math.cos(a);
+                    const y1 = cy - rIn * Math.sin(a);
+                    const x2 = cx + rOut * Math.cos(a);
+                    const y2 = cy - rOut * Math.sin(a);
+                    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-linecap="round"/>`;
+                  }).join('');
+                })()}
+
+                <!-- Labels numeriques 0, 25, 50, 75, 100 au-dessus de l'arc -->
+                ${(() => {
+                  const cx = 220, cy = 230, rLabel = 200;
+                  const scoreToAngle = (s) => 180 - (s / 100) * 180;
+                  const labels = [
+                    { s: 0,   text: '0'   },
+                    { s: 25,  text: '25'  },
+                    { s: 50,  text: '50'  },
+                    { s: 75,  text: '75'  },
+                    { s: 100, text: '100' },
+                  ];
+                  return labels.map(l => {
+                    const a = scoreToAngle(l.s) * Math.PI / 180;
+                    const x = cx + rLabel * Math.cos(a);
+                    const y = cy - rLabel * Math.sin(a);
+                    return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="var(--text-muted)" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="600">${l.text}</text>`;
+                  }).join('');
+                })()}
+
+                <!-- Aiguille : triangle fin qui pivote de -90° a +90° depuis le centre (220, 230).
+                     transform-box: view-box est crucial pour que transform-origin fonctionne
+                     correctement dans tous les browsers (sinon Safari/Firefox sont buggy). -->
+                <g id="fgNeedle" style="transform-box:view-box;transform-origin:220px 230px;transform:rotate(-90deg);transition:transform 1.8s cubic-bezier(0.34,1.56,0.64,1)">
+                  <!-- aiguille : triangle fin et long -->
+                  <polygon points="220,70 215,232 225,232" fill="url(#fgNeedleGrad)" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-linejoin="round"/>
+                </g>
+
+                <!-- Hub central (le pivot de l'aiguille) -->
+                <circle cx="220" cy="230" r="16" fill="url(#fgHubGrad)"/>
+                <circle cx="220" cy="230" r="6" fill="#0A0F1E"/>
               </svg>
-              <div class="fg-score" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-                <div id="fgCounter" style="font-family:'Space Grotesk';font-size:60px;font-weight:800;color:${color}">0</div>
-                <div style="font-size:15px;color:var(--text-secondary);font-weight:600;margin-top:-4px">${ratingFR}</div>
-              </div>
             </div>
-            <div style="display:flex;justify-content:center;gap:24px;margin-bottom:24px;flex-wrap:wrap">
-              <span style="font-size:11px;color:var(--accent-red);font-weight:600">0 — Peur extrême</span>
-              <span style="font-size:11px;color:#F97316;font-weight:600">25 — Peur</span>
-              <span style="font-size:11px;color:var(--text-muted);font-weight:600">50 — Neutre</span>
-              <span style="font-size:11px;color:#84CC16;font-weight:600">75 — Cupidité</span>
-              <span style="font-size:11px;color:var(--accent-green);font-weight:600">100 — Extrême</span>
+
+            <!-- Score + rating sous la gauge (pas d'overlay qui chevauche l'aiguille) -->
+            <div class="fg-score" style="text-align:center;margin-top:-8px">
+              <div id="fgCounter" style="font-family:'Space Grotesk';font-size:64px;font-weight:800;color:${color};line-height:1;text-shadow:0 4px 24px ${color}55">0</div>
+              <div style="font-size:15px;color:${color};font-weight:700;margin-top:6px;letter-spacing:0.04em;text-transform:uppercase">${ratingFR}</div>
+            </div>
+
+            <!-- Legende des zones alignee sur l'arc -->
+            <div style="display:flex;justify-content:center;gap:16px;margin:16px auto 22px;flex-wrap:wrap;max-width:600px">
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#EF4444;display:inline-block"></span>Peur extrême</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#F97316;display:inline-block"></span>Peur</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#94A3B8;display:inline-block"></span>Neutre</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#84CC16;display:inline-block"></span>Cupidité</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#10B981;display:inline-block"></span>Cupidité extrême</span>
             </div>
             <p style="color:var(--text-muted);font-size:13px;max-width:500px;margin:0 auto;">
               Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extrême) à 100 (cupidité extrême).
@@ -11253,8 +11345,9 @@
           </div>` : ''}
         `;
 
-        // Compteur animé de 0 au score
+        // Animation : l'aiguille pivote vers le score final + compteur anime
         const counter = document.getElementById('fgCounter');
+        const needle = document.getElementById('fgNeedle');
         if (counter) {
           let current = 0;
           const duration = 1800;
@@ -11268,6 +11361,14 @@
             if (progress < 1) requestAnimationFrame(animate);
           }
           setTimeout(() => requestAnimationFrame(animate), 200);
+        }
+        if (needle) {
+          // Score 0 → -90deg (pointe a gauche) ; Score 100 → +90deg (pointe a droite)
+          // La transition CSS 1.8s cubic-bezier gere l'animation automatiquement
+          const finalRotation = (score * 1.8 - 90).toFixed(2);
+          setTimeout(() => {
+            needle.style.transform = `rotate(${finalRotation}deg)`;
+          }, 100);
         }
 
         // Render chart historique 1 an (toute la data dispo, ~365 points)
