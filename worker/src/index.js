@@ -169,9 +169,9 @@ function getClientIP(request) {
 const RATE_LIMIT_EXEMPT_PATHS = new Set(['/stripe/webhook']);
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     try {
-      return await handleRequest(request, env);
+      return await handleRequest(request, env, ctx);
     } catch (err) {
       // Global catch : toute exception non-catchée finit ici + est loggée pour observabilité
       const url = request && request.url ? new URL(request.url) : null;
@@ -209,7 +209,7 @@ export default {
 // Handler principal : toute la logique de routing
 // (Extrait de fetch() pour permettre le wrap try/catch + logError global)
 // ============================================================
-async function handleRequest(request, env) {
+async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const origin = request.headers.get('Origin') || '';
 
@@ -325,6 +325,14 @@ async function handleRequest(request, env) {
       if (!user) {
         return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
       }
+
+      // Track le user au premier login : cree 'user:{uid}' en KV si pas
+      // deja present. Permet au dashboard admin de compter TOUS les
+      // inscrits Firebase, pas juste ceux avec sub/wl. Fire-and-forget
+      // pour ne pas ralentir la requete (cache in-memory → 0 hit KV apres
+      // la 1ere vue dans cette instance worker).
+      const trackPromise = trackFirstSeenUser(env, user).catch(() => {});
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(trackPromise);
 
       // --- Rate limit par uid DÉSACTIVÉ pour économiser les writes KV free tier ---
       // Les users authentifiés sont déjà limités par le coût de verif JWT Firebase.
@@ -506,6 +514,38 @@ const ADMIN_EMAILS = ['natquinson@gmail.com'];
 function isAdmin(user) {
   if (!user || !user.email) return false;
   return ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
+// Cache in-memory des uids deja vus dans cette instance worker.
+// Evite un hit KV a chaque requete authentifiee : on ne checke/write
+// user:{uid} que si on ne l'a JAMAIS vu dans cette instance.
+// Le Set est reset a chaque redeploiement du worker (ce qui fait au
+// pire 1 hit KV par user par deploy — negligeable).
+const _seenUids = new Set();
+
+async function trackFirstSeenUser(env, user) {
+  const uid = user?.uid;
+  if (!uid) return;
+  if (_seenUids.has(uid)) return; // deja vu dans cette instance
+  _seenUids.add(uid);
+  try {
+    const existing = await env.CACHE.get(`user:${uid}`);
+    if (existing) return; // deja enregistre depuis un autre worker instance
+    await env.CACHE.put(
+      `user:${uid}`,
+      JSON.stringify({
+        uid,
+        email: user.email || null,
+        emailVerified: !!user.emailVerified,
+        firstSeen: new Date().toISOString(),
+      })
+      // Pas de TTL → clé permanente (comparable aux sub:* et wl:*)
+    );
+  } catch (e) {
+    // En cas d'echec (quota, 429...), on accepte de perdre le tracking.
+    // Le Set garde l'uid pour ne pas retenter tout de suite.
+    log.warn('trackFirstSeenUser.failed', { uid, detail: String(e && e.message || e) });
+  }
 }
 
 async function verifyFirebaseToken(idToken, env) {
@@ -3670,14 +3710,18 @@ async function handleAccountDelete(env, user, origin) {
       }
     } catch (e) { console.warn('sub cancel pre-delete:', e); }
 
-    // 2) Purge KV
+    // 2) Purge KV (sub:abonnement, wl:watchlist, user:tracking Firebase)
     await Promise.all([
       env.CACHE.delete(`sub:${uid}`).catch(() => {}),
       env.CACHE.delete(`wl:${uid}`).catch(() => {}),
+      env.CACHE.delete(`user:${uid}`).catch(() => {}),
     ]);
+    // Retire aussi du cache in-memory de tracking pour que si l'user se
+    // reconnecte apres, on re-cree la cle (au cas ou il cree un nouveau compte).
+    _seenUids.delete(uid);
 
     console.log(`[account/delete] purged KV for uid=${uid} (email=${user.email})`);
-    return jsonResponse({ ok: true, purged: ['sub', 'wl'] }, 200, origin);
+    return jsonResponse({ ok: true, purged: ['sub', 'wl', 'user'] }, 200, origin);
   } catch (err) {
     console.error('handleAccountDelete error:', err);
     return jsonResponse({ error: 'Internal error' }, 500, origin);
@@ -4098,21 +4142,23 @@ async function fetchStripeCustomerEmail(customerId, env) {
   }
 }
 
-// GET /api/admin/users : liste tous les utilisateurs connus via KV (sub:* + wl:*)
-// Ne retourne PAS les users free qui n'ont ni watchlist ni paiement
-// (pour ca il faudrait un service account Firebase Admin, a faire plus tard).
-// Email : on prefere d'abord l'email Stripe (plus fiable pour les payants),
-// fallback watchlistEmail. Cache KV 24h par customerId (stripe-email:XXX).
+// GET /api/admin/users : liste tous les utilisateurs connus via KV (user:* + sub:* + wl:*)
+// Depuis le tracking au premier login, tout user authentifie apparait ici.
+// Les users pre-tracking (qui n'ont ni sub ni wl) seront ajoutes automatiquement
+// a leur prochaine connexion authentifiee.
+// Email : Stripe prioritaire (payants) > user:* (email Firebase) > watchlistEmail.
 // Retourne : { total, users: [{ uid, hasSubscription, subStatus, email, ... }] }
 async function handleAdminUsers(env, origin) {
   try {
-    const [subKeys, wlKeys] = await Promise.all([
+    const [subKeys, wlKeys, userKeys] = await Promise.all([
       listAllKvKeys(env, 'sub:', 5000),
       listAllKvKeys(env, 'wl:', 5000),
+      listAllKvKeys(env, 'user:', 10000),
     ]);
-    const subUids = new Set(subKeys.map(k => k.slice(4)));  // "sub:XXX" -> "XXX"
-    const wlUids = new Set(wlKeys.map(k => k.slice(3)));    // "wl:XXX"  -> "XXX"
-    const allUids = new Set([...subUids, ...wlUids]);
+    const subUids = new Set(subKeys.map(k => k.slice(4)));   // "sub:XXX" -> "XXX"
+    const wlUids = new Set(wlKeys.map(k => k.slice(3)));     // "wl:XXX"  -> "XXX"
+    const userUids = new Set(userKeys.map(k => k.slice(5))); // "user:XXX" -> "XXX"
+    const allUids = new Set([...subUids, ...wlUids, ...userUids]);
 
     // Fetch les donnees en parallele (batch 40 pour eviter de saturer)
     const users = [];
@@ -4123,14 +4169,18 @@ async function handleAdminUsers(env, origin) {
       const results = await Promise.all(batch.map(async (uid) => {
         const hasSub = subUids.has(uid);
         const hasWl = wlUids.has(uid);
+        const hasUser = userUids.has(uid);
         let subData = null;
         let wlData = null;
+        let userData = null;
         if (hasSub) subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
         if (hasWl) wlData = await env.CACHE.get(`wl:${uid}`, 'json').catch(() => null);
-        // Email : Stripe prioritaire (payants), puis watchlist en fallback
+        if (hasUser) userData = await env.CACHE.get(`user:${uid}`, 'json').catch(() => null);
+        // Email : Stripe prioritaire (payants) > user.email (Firebase) > watchlist (fallback)
         const customerId = subData?.customerId || null;
         const stripeEmail = customerId ? await fetchStripeCustomerEmail(customerId, env) : null;
-        const email = stripeEmail || wlData?.email || null;
+        const email = stripeEmail || userData?.email || wlData?.email || null;
+        const emailSource = stripeEmail ? 'stripe' : (userData?.email ? 'firebase' : (wlData?.email ? 'watchlist' : null));
         return {
           uid,
           hasSubscription: hasSub,
@@ -4139,29 +4189,31 @@ async function handleAdminUsers(env, origin) {
           customerId,
           hasWatchlist: hasWl,
           watchlistCount: Array.isArray(wlData?.tickers) ? wlData.tickers.length : 0,
-          email,                                  // <- source unifiee (Stripe > watchlist)
-          watchlistEmail: wlData?.email || null,  // conserve pour compat
-          emailSource: stripeEmail ? 'stripe' : (wlData?.email ? 'watchlist' : null),
+          email,                                  // source unifiee
+          watchlistEmail: wlData?.email || null,
+          emailSource,
           watchlistOptIn: !!wlData?.optin,
           lastWatchlistUpdate: wlData?.updatedAt || null,
+          firstSeen: userData?.firstSeen || null, // date premiere connexion
         };
       }));
       users.push(...results);
     }
 
-    // Tri : premium active en premier, puis watchlist, puis le reste
+    // Tri : premium active → sub → wl → user inscrit seul
     users.sort((a, b) => {
       const ap = a.subStatus === 'active' ? 0 : (a.hasSubscription ? 1 : (a.hasWatchlist ? 2 : 3));
       const bp = b.subStatus === 'active' ? 0 : (b.hasSubscription ? 1 : (b.hasWatchlist ? 2 : 3));
       if (ap !== bp) return ap - bp;
-      return (b.lastWatchlistUpdate || '').localeCompare(a.lastWatchlistUpdate || '');
+      return (b.lastWatchlistUpdate || b.firstSeen || '').localeCompare(a.lastWatchlistUpdate || a.firstSeen || '');
     });
 
     return jsonResponse({
       total: users.length,
       withSubscription: subKeys.length,
       withWatchlist: wlKeys.length,
-      note: 'Ne liste que les users avec subscription ou watchlist. Les free sans activite ne sont pas en KV.',
+      withFirebaseTracking: userKeys.length,
+      note: 'Les users Firebase sont trackes au premier login authentifie (user:* en KV). Les users qui ne se sont jamais connectes au dashboard depuis le dernier deploy ne sont pas comptes.',
       users,
     }, 200, origin);
   } catch (e) {

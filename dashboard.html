@@ -4363,7 +4363,7 @@
 
         <!-- KPI TOP ROW -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
-          <div class="tip tip-below" data-tip="Nombre total d'utilisateurs connus de la plateforme (somme unique des clés sub:* et wl:* en KV). Les comptes Firebase sans abonnement ni watchlist ne sont pas comptés — il faudrait un service account Firebase Admin pour les voir." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+          <div class="tip tip-below" data-tip="Nombre total d'utilisateurs de la plateforme (union des clés user:* + sub:* + wl:* en KV). Chaque user Firebase est tracké automatiquement à son premier login authentifié (création d'une clé user:{uid} fire-and-forget). Les users qui ne se sont pas connectés depuis le dernier redéploiement du worker n'apparaîtront qu'à leur prochaine session." style="padding:18px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
             <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Utilisateurs</div>
             <div id="adKpiUsers" style="font-size:28px;font-weight:700;color:var(--text-primary)">—</div>
             <div id="adKpiUsersDelta" style="font-size:11px;color:var(--text-muted);margin-top:4px">Phase B</div>
