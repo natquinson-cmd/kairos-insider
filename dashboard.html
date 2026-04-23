@@ -8114,11 +8114,12 @@
       }
     }
 
-    // Copie l'URL publique de partage (action.html?ticker=X) dans le presse-papier.
-    // Accessible aux bots Google = trafic organique. Utilisateur peut partager sur reseaux sociaux.
+    // Copie l'URL publique de partage (SSR /a/:ticker) dans le presse-papier.
+    // Pointe vers la version SSR (HTML riche pre-rendu) plutot que action.html
+    // (SPA skeleton) pour que les partages sociaux + bots Google indexent la bonne URL.
     async function shareStockAnalysis(ticker) {
       if (!ticker) return;
-      const url = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
+      const url = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
       const label = document.getElementById(`shareBtnLabel-${ticker}`);
       const reset = (txt) => { if (label) setTimeout(() => { label.textContent = txt; }, 2000); };
       try {

@@ -33,8 +33,12 @@
   <title id="pageTitle">Analyse action — Kairos Insider</title>
   <meta id="metaDesc" name="description" content="Analyse smart money d'une action : Kairos Score 0-100 (8 dimensions), transactions insiders SEC/AMF/BaFin, 200+ hedge funds 13F, ETF thématiques, fondamentaux, santé financière. Vue publique gratuite." />
   <meta name="theme-color" content="#0A0F1E" />
-  <meta name="robots" content="index, follow" />
-  <link id="canonicalLink" rel="canonical" href="https://kairosinsider.fr/action.html" />
+  <!-- SPA skeleton : noindex pour que Google indexe la version SSR /a/:ticker a la place.
+       Le canonical sera reecrit dynamiquement par le JS vers /a/:ticker quand un
+       ticker est charge (cf plus bas dans le script). Evite les Soft 404 Google
+       sur ?ticker=X&lang=en mal formes et sur tickers europeens type AIR.PA. -->
+  <meta name="robots" content="noindex, follow" />
+  <link id="canonicalLink" rel="canonical" href="https://kairosinsider.fr/" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
@@ -339,7 +343,10 @@
 
       const title = `${name} (${ticker}) — Kairos Score ${score}/100 · ${sig.label} | Kairos Insider`;
       const desc = `Analyse smart money de ${name} (${ticker})${sector ? ' — ' + sector : ''}. Kairos Score : ${score}/100 (${sig.label}). Activité des initiés, hedge funds, momentum et valorisation. Cours : ${fmtCurr(price, currency)}.`;
-      const canonical = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
+      // Canonical SEO : pointer vers la version SSR /a/:ticker (HTML riche pre-rendu),
+      // pas vers action.html?ticker=X qui est une SPA skeleton (Google voit du vide).
+      // Cela consolide le SEO sur une seule URL par ticker + evite les Soft 404.
+      const canonical = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
 
       document.title = title;
       document.getElementById('pageTitle').textContent = title;
