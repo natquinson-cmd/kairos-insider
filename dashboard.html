@@ -4452,20 +4452,33 @@
       setPaywallBilling(getBillingPreference());
     });
 
-    // Au chargement : si ?billing= est dans l'URL, on l'enregistre et on met a jour
-    // le wording du bouton paywall pour refleter le plan choisi.
-    (function initBillingFromUrl() {
+    // Au chargement : si ?plan= et/ou ?billing= sont dans l'URL, on les stocke
+    // en localStorage (persistance cross-refresh), puis on nettoie l'URL.
+    (function initPlanBillingFromUrl() {
       try {
         const url = new URL(window.location.href);
-        const fromUrl = url.searchParams.get('billing');
-        if (fromUrl === 'yearly' || fromUrl === 'monthly') {
-          localStorage.setItem('kairos_billing', fromUrl);
-          // Nettoie l'URL pour eviter une persistance indesirable
+        const planUrl = (url.searchParams.get('plan') || '').toLowerCase();
+        const billingUrl = (url.searchParams.get('billing') || '').toLowerCase();
+        if (planUrl === 'pro' || planUrl === 'elite') {
+          localStorage.setItem('kairos_plan', planUrl);
+          url.searchParams.delete('plan');
+        }
+        if (billingUrl === 'yearly' || billingUrl === 'monthly') {
+          localStorage.setItem('kairos_billing', billingUrl);
           url.searchParams.delete('billing');
+        }
+        if (planUrl || billingUrl) {
           window.history.replaceState({}, '', url.toString());
         }
       } catch (e) {}
     })();
+
+    function getPlanPreference() {
+      try {
+        const p = localStorage.getItem('kairos_plan');
+        return (p === 'pro' || p === 'elite') ? p : 'pro';
+      } catch (e) { return 'pro'; }
+    }
 
     // Stripe Checkout
     async function startCheckout() {
@@ -4475,11 +4488,12 @@
       btn.disabled = true;
       try {
         const billing = getBillingPreference();
-        const data = await apiFetch('/stripe/create-checkout', { billing }, 'POST');
+        const plan = getPlanPreference();
+        const data = await apiFetch('/stripe/create-checkout', { plan, billing }, 'POST');
         if (data && data.error) {
           // Cas : plan annuel demande mais pas encore configure cote Stripe
-          if (data.code === 'YEARLY_NOT_CONFIGURED') {
-            Toast.warning(data.detail || 'Le plan annuel n\'est pas encore disponible. Essayez avec le plan mensuel.');
+          if (data.code === 'YEARLY_NOT_CONFIGURED' || data.code === 'PRICE_NOT_CONFIGURED') {
+            Toast.warning(data.detail || 'Ce plan n\'est pas encore disponible. Contactez le support.');
             try { localStorage.setItem('kairos_billing', 'monthly'); } catch (e) {}
           } else {
             Toast.error('Erreur : ' + (data.detail || data.error));
@@ -5264,6 +5278,7 @@
         const status = data.status || 'free';
         const hasSub = !!data.hasSubscription;
         const billing = data.billing || 'monthly';
+        const plan = (data.plan || 'legacy').toLowerCase();  // 'pro' | 'elite' | 'legacy' (ancien 29€)
         const until = data.currentPeriodEnd ? new Date(data.currentPeriodEnd * 1000) : null;
         const untilStr = until ? until.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 
@@ -5280,12 +5295,35 @@
           return;
         }
 
-        const planLabel = billing === 'yearly' ? '⭐ Premium Annuel' : '⭐ Premium Mensuel';
+        // Libelle plan selon nouvelle architecture 3 plans.
+        // 'legacy' = abonnes 29€ historiques (pre avril 2026), affiches comme Pro
+        // pour ne pas les perturber et aligner l'UX.
+        const planNameMap = { pro: 'Pro', elite: 'Elite', legacy: 'Pro' };
+        const planEmojiMap = { pro: '⭐', elite: '⚡', legacy: '⭐' };
+        const planName = planNameMap[plan] || 'Pro';
+        const planEmoji = planEmojiMap[plan] || '⭐';
+        const planLabel = `${planEmoji} Kairos ${planName} ${billing === 'yearly' ? 'Annuel' : 'Mensuel'}`;
         const statusBadge = status === 'active'
           ? '<span style="background:rgba(34,197,94,0.15);color:#22C55E;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">ACTIF</span>'
           : status === 'past_due'
           ? '<span style="background:rgba(245,158,11,0.15);color:#F59E0B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">PAIEMENT EN RETARD</span>'
           : `<span style="background:rgba(148,163,184,0.15);color:#94A3B8;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${(status || '').toUpperCase()}</span>`;
+
+        // Banniere upsell Pro → Elite : affichee aux users Pro ou legacy (29€).
+        // Elite = API REST + alertes temps-reel + backtests + exports CSV illimites.
+        // Cachee si deja Elite.
+        const upsellBanner = (plan !== 'elite' && status === 'active')
+          ? `<div style="margin-top:14px;padding:16px 18px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:12px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap">
+                <div style="flex:1;min-width:220px">
+                  <div style="font-size:12px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:6px">⚡ Débloquer plus</div>
+                  <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Passer Elite — 49€/mois</div>
+                  <div style="font-size:12px;color:var(--text-muted);line-height:1.55">API REST · alertes temps-réel (push/email) · backtests historiques · exports CSV illimités · support prioritaire</div>
+                </div>
+                <a href="index.html#pricing" class="btn btn-primary" style="padding:9px 16px;width:auto;flex-shrink:0;background:linear-gradient(135deg,#F59E0B,#EC4899);text-decoration:none;font-size:13px">Voir le plan Elite</a>
+              </div>
+            </div>`
+          : '';
 
         body.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
@@ -5296,6 +5334,7 @@
             </div>
             <button class="btn btn-primary" onclick="openStripePortal()" style="padding:10px 18px;width:auto;flex-shrink:0">💳 Gérer mon abonnement</button>
           </div>
+          ${upsellBanner}
           <div style="background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;padding:12px;font-size:12px;color:var(--text-muted);line-height:1.6">
             Via le portail Stripe, vous pouvez : mettre à jour votre carte, télécharger vos factures, passer au plan annuel (économisez 20%), ou annuler à tout moment.
           </div>`;

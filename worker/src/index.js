@@ -3142,31 +3142,59 @@ async function handleRobotsTxt(env) {
 // ============================================================
 // STRIPE : Création de Checkout Session
 // ============================================================
+// Resout le plan (pro|elite|legacy) + billing (monthly|yearly) a partir du
+// priceId Stripe. Prioritise les metadata Stripe (nouvelle architecture avril 2026),
+// fallback sur mapping inverse via les env vars de prix.
+function resolveStripePlan(priceId, metadata, env) {
+  // 1. Metadata presente (checkout cree avec la nouvelle architecture)
+  if (metadata?.plan && metadata?.billing) {
+    return {
+      plan: metadata.plan,
+      billing: metadata.billing === 'yearly' ? 'yearly' : 'monthly',
+    };
+  }
+  // 2. Mapping inverse via priceId
+  if (priceId === env.STRIPE_PRICE_ID_PRO_MONTHLY)   return { plan: 'pro',   billing: 'monthly' };
+  if (priceId === env.STRIPE_PRICE_ID_PRO_ANNUAL)    return { plan: 'pro',   billing: 'yearly'  };
+  if (priceId === env.STRIPE_PRICE_ID_ELITE_MONTHLY) return { plan: 'elite', billing: 'monthly' };
+  if (priceId === env.STRIPE_PRICE_ID_ELITE_ANNUAL)  return { plan: 'elite', billing: 'yearly'  };
+  // 3. Fallback : ancien prix Premium 29€ (grandfathered users)
+  if (priceId === env.STRIPE_PRICE_ID)               return { plan: 'legacy', billing: 'monthly' };
+  // 4. Prix inconnu : defaut pro/monthly pour eviter blocage
+  return { plan: 'pro', billing: 'monthly' };
+}
+
 async function handleCreateCheckout(request, env, user, origin) {
   try {
     const body = await request.json().catch(() => ({}));
 
-    // Choix du prix Stripe selon la periodicite demandee.
-    // billing='yearly' -> STRIPE_PRICE_YEARLY_ID (si configure, sinon fallback monthly)
-    // billing='monthly' (defaut) -> STRIPE_PRICE_ID
+    // Nouveau modele 3 plans (avr 2026) :
+    //   plan=pro + billing=monthly  → STRIPE_PRICE_ID_PRO_MONTHLY   (19€/mois)
+    //   plan=pro + billing=yearly   → STRIPE_PRICE_ID_PRO_ANNUAL    (190€/an)
+    //   plan=elite + billing=monthly → STRIPE_PRICE_ID_ELITE_MONTHLY (49€/mois)
+    //   plan=elite + billing=yearly  → STRIPE_PRICE_ID_ELITE_ANNUAL  (490€/an)
+    //   fallback (pas de plan) → STRIPE_PRICE_ID (ancien Premium 29€, archive
+    //   cote Stripe mais toujours utilisable pour grandfathering).
+    const plan = (body.plan === 'elite') ? 'elite' : (body.plan === 'pro') ? 'pro' : 'pro'; // defaut pro (nouveau flow)
     const billing = (body.billing === 'yearly') ? 'yearly' : 'monthly';
-    let priceId = env.STRIPE_PRICE_ID;
-    let effectiveBilling = 'monthly';
-    if (billing === 'yearly') {
-      if (env.STRIPE_PRICE_YEARLY_ID) {
-        priceId = env.STRIPE_PRICE_YEARLY_ID;
-        effectiveBilling = 'yearly';
-      } else {
-        // Pas de prix annuel configure : on retourne 200 OK avec error field pour
-        // que le client puisse afficher un message user-friendly sans throw.
-        // (facturer discretement le prix mensuel serait pire.)
-        console.warn('[stripe] Yearly billing requested but STRIPE_PRICE_YEARLY_ID not set.');
-        return jsonResponse({
-          error: 'Yearly plan not yet available',
-          detail: 'Le plan annuel n\'est pas encore disponible. Essayez avec le plan mensuel.',
-          code: 'YEARLY_NOT_CONFIGURED',
-        }, 200, origin);
-      }
+
+    const priceMap = {
+      'pro:monthly':   env.STRIPE_PRICE_ID_PRO_MONTHLY,
+      'pro:yearly':    env.STRIPE_PRICE_ID_PRO_ANNUAL,
+      'elite:monthly': env.STRIPE_PRICE_ID_ELITE_MONTHLY,
+      'elite:yearly':  env.STRIPE_PRICE_ID_ELITE_ANNUAL,
+    };
+    const priceId = priceMap[`${plan}:${billing}`] || env.STRIPE_PRICE_ID;
+    const effectiveBilling = billing;
+    const effectivePlan = plan;
+
+    if (!priceId) {
+      console.warn('[stripe] No price_id available for plan=' + plan + ' billing=' + billing);
+      return jsonResponse({
+        error: 'Price not configured',
+        detail: 'Le plan demande n\'est pas encore configure cote Stripe.',
+        code: 'PRICE_NOT_CONFIGURED',
+      }, 200, origin);
     }
 
     const params = new URLSearchParams({
@@ -3179,6 +3207,7 @@ async function handleCreateCheckout(request, env, user, origin) {
       'cancel_url': body.cancelUrl || `${env.ALLOWED_ORIGIN}/dashboard.html?checkout=cancelled`,
       'subscription_data[metadata][firebase_uid]': user.uid,
       'subscription_data[metadata][billing]': effectiveBilling,
+      'subscription_data[metadata][plan]': effectivePlan,
     });
     // Méthodes de paiement : carte en 1er, PayPal si activé sur Stripe Dashboard.
     // Ordre explicite évite que Link soit auto-injecté en premier écran.
@@ -3299,16 +3328,19 @@ async function handleStripeWebhook(request, env) {
         const sub = await subResp.json();
 
         const priceId = sub.items?.data?.[0]?.price?.id || env.STRIPE_PRICE_ID;
-        const billing = sub.metadata?.billing || (priceId === env.STRIPE_PRICE_YEARLY_ID ? 'yearly' : 'monthly');
+        // Resolve plan (pro|elite|legacy) + billing (monthly|yearly) depuis priceId.
+        // Prioritise le metadata si dispo (nouvelle architecture), sinon mapping inverse.
+        const { plan, billing } = resolveStripePlan(priceId, sub.metadata, env);
         await env.CACHE.put(`sub:${uid}`, JSON.stringify({
           status: sub.status,
           subscriptionId: sub.id,
           customerId: sub.customer,
           currentPeriodEnd: sub.current_period_end,
           priceId,
+          plan,
           billing,
         }));
-        console.log(`Subscription created for uid: ${uid}, status: ${sub.status}, billing: ${billing}`);
+        console.log(`Subscription created for uid: ${uid}, status: ${sub.status}, plan: ${plan}, billing: ${billing}`);
 
         // Email de bienvenue Premium via Brevo (one-shot, best-effort)
         const recipientEmail = session.customer_details?.email || session.customer_email;
@@ -3325,16 +3357,17 @@ async function handleStripeWebhook(request, env) {
       const uid = sub.metadata?.firebase_uid;
       if (uid) {
         const priceId = sub.items?.data?.[0]?.price?.id || env.STRIPE_PRICE_ID;
-        const billing = sub.metadata?.billing || (priceId === env.STRIPE_PRICE_YEARLY_ID ? 'yearly' : 'monthly');
+        const { plan, billing } = resolveStripePlan(priceId, sub.metadata, env);
         await env.CACHE.put(`sub:${uid}`, JSON.stringify({
           status: sub.status,
           subscriptionId: sub.id,
           customerId: sub.customer,
           currentPeriodEnd: sub.current_period_end,
           priceId,
+          plan,
           billing,
         }));
-        console.log(`Subscription updated for uid: ${uid}, status: ${sub.status}, billing: ${billing}`);
+        console.log(`Subscription updated for uid: ${uid}, status: ${sub.status}, plan: ${plan}, billing: ${billing}`);
       }
     }
 
@@ -3364,13 +3397,24 @@ async function handleStripeWebhook(request, env) {
 // ============================================================
 async function handleSubscriptionStatus(env, user, origin) {
   const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
-
+  // Resolve le plan actuel (pro | elite | legacy) pour l'UI dashboard.
+  // 'legacy' = abonnes historiques sur l'ancien prix 29€, grandfathered.
+  let plan = null;
+  let billing = null;
+  if (subData) {
+    const resolved = resolveStripePlan(subData.priceId, { plan: subData.plan, billing: subData.billing }, env);
+    plan = resolved.plan;
+    billing = resolved.billing;
+  }
   return jsonResponse({
     uid: user.uid,
     email: user.email,
-    hasSubscription: subData && (subData.status === 'active' || subData.status === 'past_due'),
-    subscriptionStatus: subData?.status || null,
+    hasSubscription: !!(subData && (subData.status === 'active' || subData.status === 'past_due')),
+    status: subData?.status || null,
+    subscriptionStatus: subData?.status || null,   // retrocompat
     currentPeriodEnd: subData?.currentPeriodEnd || null,
+    plan,                                           // 'pro' | 'elite' | 'legacy' | null
+    billing,                                        // 'monthly' | 'yearly' | null
   }, 200, origin);
 }
 
