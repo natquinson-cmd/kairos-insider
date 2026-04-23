@@ -4540,9 +4540,13 @@
       try {
         const data = await apiFetch('/stripe/status');
         isPremium = data.hasSubscription;
+        // Expose le plan (free | pro | elite | legacy) pour les gatings
+        // feature-by-feature (ex: exports CSV reserves Elite).
+        window._currentPlan = data.plan || (isPremium ? 'pro' : 'free');
         updatePremiumUI();
       } catch (err) {
         isPremium = false;
+        window._currentPlan = 'free';
         updatePremiumUI();
       }
     }
@@ -4638,7 +4642,7 @@
         { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
         { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
         { ok: true,  text: 'Watchlist + Brief quotidien par email' },
-        { ok: true,  text: 'Historique 2 ans + exports CSV (10/jour)' },
+        { ok: true,  text: 'Historique 2 ans (scores, rotations, 13F)' },
         { ok: false, text: 'API REST · alertes temps-réel · backtests historiques' },
       ],
       elite: [
@@ -4646,7 +4650,7 @@
         { ok: true,  text: '<strong>API REST</strong> pour intégrer la data' },
         { ok: true,  text: '<strong>Alertes temps-réel</strong> (push + email) sur clusters & 13D' },
         { ok: true,  text: '<strong>Backtests historiques</strong> (coming soon)' },
-        { ok: true,  text: '<strong>Exports CSV illimités</strong>' },
+        { ok: true,  text: '<strong>Exports CSV</strong> (screener, insiders, hedge funds)' },
         { ok: true,  text: 'Support prioritaire (&lt; 4h)' },
         { ok: true,  text: 'Accès anticipé aux nouvelles features' },
         { ok: true,  text: 'Kit presse pour créateurs de contenu' },
@@ -5615,7 +5619,7 @@
           : `<span style="background:rgba(148,163,184,0.15);color:#94A3B8;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${(status || '').toUpperCase()}</span>`;
 
         // Banniere upsell Pro → Elite : affichee aux users Pro ou legacy (29€).
-        // Elite = API REST + alertes temps-reel + backtests + exports CSV illimites.
+        // Elite = API REST + alertes temps-reel + backtests + exports CSV.
         // Cachee si deja Elite.
         const upsellBanner = (plan !== 'elite' && status === 'active')
           ? `<div style="margin-top:14px;padding:16px 18px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:12px">
@@ -5623,7 +5627,7 @@
                 <div style="flex:1;min-width:220px">
                   <div style="font-size:12px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:6px">⚡ Débloquer plus</div>
                   <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Passer Elite — 49€/mois</div>
-                  <div style="font-size:12px;color:var(--text-muted);line-height:1.55">API REST · alertes temps-réel (push/email) · backtests historiques · exports CSV illimités · support prioritaire</div>
+                  <div style="font-size:12px;color:var(--text-muted);line-height:1.55">API REST · alertes temps-réel (push/email) · backtests historiques · exports CSV · support prioritaire</div>
                 </div>
                 <button type="button" onclick="try{localStorage.setItem('kairos_plan','elite');}catch(e){} if(typeof applyPaywallDisplay==='function') applyPaywallDisplay(); document.getElementById('paywallOverlay').classList.remove('hidden');" class="btn btn-primary" style="padding:9px 16px;width:auto;flex-shrink:0;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;font-size:13px;cursor:pointer">Passer Elite</button>
               </div>
@@ -13587,6 +13591,20 @@
 
     function exportScreenerCsv() {
       if (!screenerResults || !screenerResults.length) return;
+      // Gating Elite : l'export CSV est reserve aux users plan Elite
+      // (Pro = acces screener + visualisation, Elite = export + API + alertes)
+      const plan = (window._currentPlan || '').toLowerCase();
+      if (plan !== 'elite') {
+        try {
+          if (window.Toast && Toast.info) {
+            Toast.info('L\'export CSV est une feature Elite. Passez Elite pour l\'activer.');
+          }
+          localStorage.setItem('kairos_plan', 'elite'); // preselectionne Elite dans le paywall
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        } catch (e) {}
+        return;
+      }
       const headers = ['filing_date','trans_date','source','ticker','company','insider','title','trans_type','shares','price','value','shares_after'];
       const csv = [
         headers.join(','),

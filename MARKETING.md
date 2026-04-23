@@ -64,7 +64,7 @@
 |---|---|---|---|---|---|
 | **Free** | 0€ | 0€ | — | Lead / SEO | **3 analyses complètes/jour** (Kairos Score + 8 axes) · Fear & Greed · Short Interest · Hot Stocks · aperçu 1 000+ tickers |
 | **Pro** | **19€** | **190€** | ~17% (2 mois offerts) | Pierre | Accès complet dashboard · screener · signaux insiders · hedge funds · activists · ETF · watchlist |
-| **Elite** | **49€** | **490€** | ~17% | Thomas + Anne | Pro + API · alertes temps-réel (push/email) · backtests · exports CSV illimités · support 4h |
+| **Elite** | **49€** | **490€** | ~17% | Thomas + Anne | Pro + API · alertes temps-réel (push/email) · backtests · **exports CSV** · support 4h |
 
 ### Raisons du choix
 
@@ -85,7 +85,7 @@ Ce sont les features qui justifient l'upgrade Pro→Elite :
 - [ ] **API** (REST) — existe déjà côté worker, à exposer proprement
 - [ ] **Alertes temps-réel** : cluster détecté, nouveau 13D activist, big insider buy >10M$
 - [ ] **Backtests historiques** (dépend de l'historique OHLCV — chantier P5 roadmap)
-- [ ] **Exports CSV illimités** — facile à ajouter
+- [x] **Exports CSV** — gated côté front sur plan Elite (screener/insiders/13F). Backend gating à ajouter pour sécurité.
 
 ---
 
