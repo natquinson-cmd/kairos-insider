@@ -10979,15 +10979,23 @@
     // ============================================================
     // FEAR & GREED INDEX
     // ============================================================
+    // Proxifie via le worker Kairos (CNN ne supporte pas les appels
+    // cross-origin depuis un navigateur). Retourne score + rating +
+    // historique 1Y + 7 composantes. Affichage : gauge circulaire (actuel)
+    // + chart Chart.js line format 'Analyse action' pour l'historique.
+    let _fgHistoryChart = null;
     async function loadFearGreed() {
       const area = document.getElementById('fearGreedArea');
       try {
-        const resp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
-        if (!resp.ok) throw new Error('CNN API error');
-        const data = await resp.json();
+        // Passe par apiFetch (auth Firebase) → worker → cache KV → CNN
+        const data = await apiFetch('/api/feargreed');
+        if (!data || data.error) throw new Error(data?.error || 'Fear & Greed API error');
 
-        const score = Math.round(data.fear_and_greed?.score || data.score || 50);
-        const rating = data.fear_and_greed?.rating || data.rating || 'Neutral';
+        const score = Math.round(data.score || 50);
+        const rating = data.rating || 'Neutral';
+        const history = Array.isArray(data.history) ? data.history : [];
+        const components = data.components || {};
+        const lastUpdate = data.timestamp ? new Date(data.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
         const ratingFR = {
           'Extreme Fear': 'Peur extreme',
@@ -11059,7 +11067,89 @@
               Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extreme) a 100 (cupidite extreme).
               Un score bas peut indiquer une opportunite d'achat, un score haut un exces d'optimisme.
             </p>
-          </div>`;
+            <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Derniere mise a jour CNN : ${lastUpdate}${data._stale ? ' · <span style="color:#F97316">cache (CNN indisponible)</span>' : ''}</div>
+          </div>
+
+          <!-- Comparaisons historiques (snapshot) -->
+          ${(data.previous_close != null || data.previous_1_week != null || data.previous_1_month != null || data.previous_1_year != null) ? `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:0 auto 24px;max-width:720px">
+            ${[
+              { label: 'Hier', val: data.previous_close },
+              { label: 'Il y a 1 semaine', val: data.previous_1_week },
+              { label: 'Il y a 1 mois', val: data.previous_1_month },
+              { label: 'Il y a 1 an', val: data.previous_1_year },
+            ].filter(c => c.val != null).map(c => {
+              const delta = score - c.val;
+              const deltaColor = delta > 0 ? 'var(--accent-green)' : delta < 0 ? 'var(--accent-red)' : 'var(--text-muted)';
+              const deltaArrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
+              const deltaAbs = Math.abs(delta);
+              return `
+                <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;text-align:center">
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${c.label}</div>
+                  <div style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:'Space Grotesk'">${c.val}</div>
+                  <div style="font-size:11px;color:${deltaColor};margin-top:2px">${deltaArrow} ${delta > 0 ? '+' : delta < 0 ? '-' : ''}${deltaAbs}pt</div>
+                </div>`;
+            }).join('')}
+          </div>` : ''}
+
+          <!-- Graphique historique 1 an (format Analyse action) -->
+          ${history.length > 10 ? `
+          <div style="margin:32px 0;padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+              <div>
+                <h4 style="margin:0;font-size:15px;font-weight:700">📈 Historique 1 an</h4>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Evolution du Fear &amp; Greed Index — ${history.length} jours</div>
+              </div>
+              <div class="chart-period-btns" role="group" aria-label="Periode">
+                <button onclick="setFgChartPeriod(30)" data-fg-period="30">1M</button>
+                <button onclick="setFgChartPeriod(90)" data-fg-period="90">3M</button>
+                <button onclick="setFgChartPeriod(180)" data-fg-period="180">6M</button>
+                <button onclick="setFgChartPeriod(365)" data-fg-period="365" class="active">1A</button>
+              </div>
+            </div>
+            <div style="position:relative;height:320px"><canvas id="fgHistoryChart"></canvas></div>
+          </div>` : ''}
+
+          <!-- 7 composantes CNN -->
+          ${components && Object.values(components).some(c => c) ? `
+          <div style="margin:32px 0">
+            <h4 style="margin:0 0 14px;font-size:15px;font-weight:700">🧭 Les 7 indicateurs CNN</h4>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+              ${[
+                { key: 'momentum', label: 'Market Momentum', desc: 'S&P 500 vs MM 125j' },
+                { key: 'breadth', label: 'Stock Price Breadth', desc: 'Volume acheteur/vendeur' },
+                { key: 'strength', label: 'Stock Price Strength', desc: 'Plus-hauts vs plus-bas 52 semaines' },
+                { key: 'putCall', label: 'Put / Call Options', desc: 'Ratio options pessimistes/optimistes' },
+                { key: 'volatility', label: 'Market Volatility (VIX)', desc: 'Indice de volatilite CBOE' },
+                { key: 'safeHaven', label: 'Safe Haven Demand', desc: 'Actions vs obligations Treasury' },
+                { key: 'junkBond', label: 'Junk Bond Demand', desc: 'Spread high-yield vs investment grade' },
+              ].map(c => {
+                const comp = components[c.key];
+                if (!comp || comp.score == null) return '';
+                const s = comp.score;
+                const col = s <= 25 ? 'var(--accent-red)' : s <= 45 ? '#F97316' : s <= 55 ? 'var(--text-muted)' : s <= 75 ? '#84CC16' : 'var(--accent-green)';
+                const pct = Math.max(0, Math.min(100, s));
+                const ratingFR = {
+                  'Extreme Fear': 'Peur extreme', 'Fear': 'Peur', 'Neutral': 'Neutre',
+                  'Greed': 'Cupidite', 'Extreme Greed': 'Cupidite extreme',
+                }[comp.rating] || comp.rating || '';
+                return `
+                  <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                      <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${c.label}</div>
+                      <div style="font-size:18px;font-weight:800;color:${col};font-family:'Space Grotesk'">${s}</div>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${c.desc}</div>
+                    <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+                      <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width 0.6s ease-out"></div>
+                    </div>
+                    ${ratingFR ? `<div style="margin-top:6px;font-size:10px;color:${col};font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${ratingFR}</div>` : ''}
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>` : ''}
+        `;
+
         // Compteur animé de 0 au score
         const counter = document.getElementById('fgCounter');
         if (counter) {
@@ -11077,15 +11167,155 @@
           setTimeout(() => requestAnimationFrame(animate), 200);
         }
 
+        // Render chart historique 1 an (toute la data dispo, ~365 points)
+        if (history.length > 10) {
+          _fgHistoryData = history;
+          renderFgHistoryChart(365);
+        }
+
       } catch (err) {
-        // Fallback si l'API CNN ne fonctionne pas
+        console.warn('[feargreed] fetch failed', err);
         area.innerHTML = `
-          <div class="empty-state">
-            <p>L'API Fear & Greed n'est pas accessible directement. Consultez-le sur
+          <div class="empty-state" style="padding:60px 20px;text-align:center">
+            <div style="font-size:48px;margin-bottom:14px">😶‍🌫️</div>
+            <p style="margin:0 0 10px;font-size:16px;color:var(--text-primary);font-weight:600">Indicateur indisponible</p>
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">
+              Nous ne parvenons pas a recuperer le Fear &amp; Greed Index pour le moment. Reessayez dans quelques minutes, ou consultez-le sur
               <a href="https://edition.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener" style="color:var(--accent-blue)">CNN Markets →</a>
             </p>
           </div>`;
       }
+    }
+
+    // State + render pour le chart historique Fear & Greed
+    // Le payload contient ~365 points (1/jour). On slice selon la periode.
+    let _fgHistoryData = [];
+    function setFgChartPeriod(days) {
+      document.querySelectorAll('[data-fg-period]').forEach(b => {
+        b.classList.toggle('active', Number(b.dataset.fgPeriod) === days);
+      });
+      renderFgHistoryChart(days);
+    }
+    function renderFgHistoryChart(days) {
+      const canvas = document.getElementById('fgHistoryChart');
+      if (!canvas || !_fgHistoryData.length) return;
+      const ctx = canvas.getContext('2d');
+      if (_fgHistoryChart) _fgHistoryChart.destroy();
+
+      // Slice sur les N derniers jours
+      const n = Math.min(days || 365, _fgHistoryData.length);
+      const slice = _fgHistoryData.slice(-n);
+      // Pre-formate les labels en dates FR (pas d'adapter date Chart.js dans ce projet)
+      const labels = slice.map(p => {
+        const d = new Date(p.t);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+      });
+      const timestamps = slice.map(p => p.t);
+      const values = slice.map(p => p.s);
+
+      // Gradient stroke cohérent Kairos (bleu → violet → rose)
+      const strokeGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+      strokeGradient.addColorStop(0, '#3B82F6');
+      strokeGradient.addColorStop(0.55, '#8B5CF6');
+      strokeGradient.addColorStop(1, '#EC4899');
+
+      // Gradient fill vertical
+      const fillGradient = ctx.createLinearGradient(0, 0, 0, 320);
+      fillGradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      fillGradient.addColorStop(0.55, 'rgba(59, 130, 246, 0.12)');
+      fillGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+      // Plugin custom pour zones colorees en background (peur/neutre/cupidite)
+      const fgZonesPlugin = {
+        id: 'fgZones',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const yScale = scales.y;
+          ctx.save();
+          const zones = [
+            { min: 0,  max: 25,  color: 'rgba(239, 68, 68, 0.08)' },   // Peur extreme
+            { min: 25, max: 45,  color: 'rgba(249, 115, 22, 0.06)' },  // Peur
+            { min: 45, max: 55,  color: 'rgba(148, 163, 184, 0.04)' }, // Neutre
+            { min: 55, max: 75,  color: 'rgba(132, 204, 22, 0.06)' },  // Cupidite
+            { min: 75, max: 100, color: 'rgba(16, 185, 129, 0.08)' },  // Cupidite extreme
+          ];
+          zones.forEach(z => {
+            const yTop = yScale.getPixelForValue(z.max);
+            const yBot = yScale.getPixelForValue(z.min);
+            ctx.fillStyle = z.color;
+            ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBot - yTop);
+          });
+          ctx.restore();
+        }
+      };
+
+      _fgHistoryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Fear & Greed',
+            data: values,
+            borderColor: strokeGradient,
+            backgroundColor: fillGradient,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#F9A8D4',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            tension: 0.25,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 22, 41, 0.96)',
+              borderColor: 'rgba(139, 92, 246, 0.35)',
+              borderWidth: 1,
+              titleColor: '#F9FAFB',
+              bodyColor: '#CBD5E1',
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const t = timestamps[idx];
+                  return t ? new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+                },
+                label: (ctx) => {
+                  const s = ctx.parsed.y;
+                  const r = s <= 25 ? 'Peur extreme' : s <= 45 ? 'Peur' : s <= 55 ? 'Neutre' : s <= 75 ? 'Cupidite' : 'Cupidite extreme';
+                  return `Score : ${Math.round(s)} · ${r}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'var(--chart-grid-subtle)', display: false },
+              ticks: { color: 'var(--chart-text)', maxRotation: 0, autoSkip: true, maxTicksLimit: 6 },
+            },
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: 'var(--chart-grid)' },
+              ticks: {
+                color: 'var(--chart-text)',
+                stepSize: 25,
+                callback: (v) => v + (v === 0 ? ' Peur ext.' : v === 25 ? ' Peur' : v === 50 ? ' Neutre' : v === 75 ? ' Cupid.' : v === 100 ? ' Extrême' : ''),
+              },
+            }
+          }
+        },
+        plugins: [fgZonesPlugin]
+      });
     }
 
     // ============================================================

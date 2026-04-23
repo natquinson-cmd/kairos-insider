@@ -706,9 +706,16 @@ async function handleApiRoute(path, url, env, origin) {
     return jsonResponse(data, data.error ? 400 : 200, origin);
   }
 
-  // Free routes
-  if (path === '/api/feargreed' || path === '/api/shorts') {
-    // Ces données sont dans le frontend, pas besoin de backend
+  // Fear & Greed Index : proxy CNN avec cache KV 1h
+  // Le frontend ne peut pas appeler CNN directement (CORS), donc le worker
+  // sert d'intermediaire. Retourne : score actuel + rating + historique 1Y
+  // + les 7 composantes (momentum, breadth, strength, put/call, volatility,
+  // safe haven, junk bond).
+  if (path === '/api/feargreed') {
+    return handleFearGreed(env, origin);
+  }
+  if (path === '/api/shorts') {
+    // Ces donnees sont dans le frontend, pas besoin de backend
     return jsonResponse({ ok: true }, 200, origin);
   }
 
@@ -753,6 +760,93 @@ async function handlePublicTickersList(env, origin) {
     return jsonResponse(payload, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'Failed to build tickers list', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// FEAR & GREED INDEX (proxy CNN + cache KV)
+// ============================================================
+// CNN expose un endpoint JSON complet a production.dataviz.cnn.io.
+// Le navigateur ne peut pas l'appeler directement (CORS policy CNN).
+// Le worker le proxifie : fetch CNN → repack compact → cache 1h en KV.
+// Payload retourne :
+//   - score (0-100) + rating ("Extreme Fear" | "Fear" | "Neutral" | "Greed" | "Extreme Greed")
+//   - timestamp ISO de la derniere mise a jour CNN
+//   - history[] : les 365 derniers points (un par jour, score + rating)
+//   - components : les 7 sous-indicateurs CNN (momentum, breadth, etc.)
+async function handleFearGreed(env, origin) {
+  try {
+    // Cache : max_age 1h → CNN update 1x/jour mais on tolere le delai
+    const cached = await env.CACHE.get('fg-cnn-v2', 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 3600 * 1000) {
+      return jsonResponse(cached, 200, origin);
+    }
+
+    // CNN requires a proper User-Agent, sinon 403
+    const resp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; KairosInsider/1.0; +https://kairosinsider.fr)',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://edition.cnn.com/',
+        'Origin': 'https://edition.cnn.com',
+      },
+    });
+
+    if (!resp.ok) {
+      log.warn('feargreed.cnn.upstream.error', { status: resp.status });
+      // Fallback : si on a un cache meme expire, on le ressert
+      if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
+      return jsonResponse({ error: 'CNN upstream error', status: resp.status }, 502, origin);
+    }
+
+    const raw = await resp.json();
+    const fg = raw.fear_and_greed || {};
+    const hist = raw.fear_and_greed_historical?.data || [];
+
+    // Historique : on garde les 365 derniers points (un par jour)
+    // Format compact : t (timestamp ms), s (score 0-100), r (rating)
+    const history = hist.map(p => ({
+      t: typeof p.x === 'number' ? p.x : Date.parse(p.x),
+      s: Math.round(p.y != null ? p.y : p.score || 0),
+      r: p.rating || null,
+    })).filter(p => !isNaN(p.t) && p.s >= 0 && p.s <= 100);
+
+    // Les 7 composantes CNN (chacune score 0-100 + rating)
+    const component = (node) => node ? ({
+      score: Math.round(node.score || 0),
+      rating: node.rating || null,
+    }) : null;
+
+    const payload = {
+      _cachedAt: Date.now(),
+      score: Math.round(fg.score || 50),
+      rating: fg.rating || 'Neutral',
+      timestamp: fg.timestamp || null,
+      previous_close: fg.previous_close != null ? Math.round(fg.previous_close) : null,
+      previous_1_week: fg.previous_1_week != null ? Math.round(fg.previous_1_week) : null,
+      previous_1_month: fg.previous_1_month != null ? Math.round(fg.previous_1_month) : null,
+      previous_1_year: fg.previous_1_year != null ? Math.round(fg.previous_1_year) : null,
+      history,
+      components: {
+        momentum: component(raw.market_momentum_sp500),
+        breadth: component(raw.stock_price_breadth),
+        strength: component(raw.stock_price_strength),
+        putCall: component(raw.put_call_options),
+        volatility: component(raw.market_volatility_vix),
+        safeHaven: component(raw.safe_haven_demand),
+        junkBond: component(raw.junk_bond_demand),
+      },
+    };
+
+    await env.CACHE.put('fg-cnn-v2', JSON.stringify(payload), { expirationTtl: 3600 });
+    return jsonResponse(payload, 200, origin);
+  } catch (e) {
+    log.error('feargreed.fetch.failed', { detail: String(e && e.message || e) });
+    // Tentative : servir un cache meme perime pour eviter une page cassee
+    const cached = await env.CACHE.get('fg-cnn-v2', 'json');
+    if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
+    return jsonResponse({ error: 'Fear & Greed proxy failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 
