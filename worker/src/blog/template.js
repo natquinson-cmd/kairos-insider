@@ -59,7 +59,7 @@ const SHARED_CSS = `
   a { color: var(--accent-blue); text-decoration: none; transition: color 0.15s; }
   a:hover { color: var(--accent-purple); }
 
-  /* --- Nav (identique landing) --- */
+  /* --- Nav (copie pixel-pres de la landing index.html) --- */
   .nav-wrap {
     position: sticky; top: 0; z-index: 100;
     background: rgba(10, 15, 30, 0.85);
@@ -67,7 +67,7 @@ const SHARED_CSS = `
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
   }
-  .nav {
+  .nav-container {
     max-width: 1280px;
     margin: 0 auto;
     padding: 16px 32px;
@@ -75,13 +75,13 @@ const SHARED_CSS = `
   }
   .logo {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 21px; font-weight: 700;
+    font-size: 22px; font-weight: 700;
     color: var(--text-primary);
     display: inline-flex; align-items: center; gap: 10px;
     text-decoration: none;
   }
   .logo-mark {
-    width: 40px; height: 40px;
+    width: 44px; height: 44px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
@@ -93,7 +93,12 @@ const SHARED_CSS = `
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links {
+    list-style: none;
+    display: flex; gap: 28px; align-items: center;
+    margin: 0; padding: 0;
+  }
+  .nav-links > li { list-style: none; }
   .nav-links a {
     color: var(--text-secondary);
     font-size: 14px; font-weight: 500;
@@ -101,28 +106,42 @@ const SHARED_CSS = `
     text-decoration: none;
   }
   .nav-links a:hover { color: var(--text-primary); }
-  .nav-links a.is-current { color: var(--text-primary); }
-  .btn-cta {
-    padding: 11px 22px;
-    background: var(--gradient-primary);
-    color: #fff !important;
-    border-radius: 10px;
-    font-size: 14px; font-weight: 600;
-    box-shadow: 0 4px 14px rgba(59,130,246,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
-    transition: all 0.2s;
+  .nav-links a.is-current { color: var(--text-primary); font-weight: 600; }
+  /* Bouton CTA — reprend .btn.btn-primary de la landing */
+  .nav-links .btn,
+  .nav-links .btn:hover,
+  .nav-links a.btn-primary,
+  .nav-links a.btn-primary:hover {
     display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+    background: var(--gradient-primary);
+    color: white !important;
+    box-shadow: 0 4px 14px rgba(59,130,246,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
   }
-  .btn-cta:hover {
+  .nav-links .btn:hover,
+  .nav-links a.btn-primary:hover {
     transform: translateY(-1px);
     box-shadow: 0 8px 24px rgba(59,130,246,0.55), 0 0 0 1px rgba(255,255,255,0.18) inset;
     filter: brightness(1.08);
-    color: #fff !important;
+  }
+  @media (max-width: 900px) {
+    .nav-links { gap: 18px; }
+    .nav-links .nav-link-hide { display: none; } /* Données en premier a sauter */
   }
   @media (max-width: 760px) {
-    .nav { padding: 12px 20px; }
-    .nav-links { gap: 14px; }
-    .nav-links a:not(.btn-cta) { display: none; }
-    .logo-text { display: none; } /* on garde juste le logo-mark pour economiser l'espace */
+    .nav-container { padding: 12px 20px; }
+    .nav-links { gap: 12px; }
+    .nav-links > li:not(.nav-cta) { display: none; }
+    .logo-text { display: none; }
   }
 
   /* --- Layout container --- */
@@ -581,17 +600,18 @@ ${extraJsonLd}
 </head>
 <body>
 <div class="nav-wrap">
-  <nav class="nav">
+  <nav class="nav-container">
     <a href="/" class="logo">
       <span class="logo-mark"><img src="/assets/logo.svg" alt="Kairos Insider"></span>
       <span class="logo-text">Kairos Insider</span>
     </a>
-    <div class="nav-links">
-      <a href="/#features">Fonctionnalités</a>
-      <a href="/#pricing">Tarifs</a>
-      <a href="/blog" class="is-current">Blog</a>
-      <a href="/dashboard.html" class="btn-cta">Accéder gratuitement</a>
-    </div>
+    <ul class="nav-links">
+      <li><a href="/#features">Fonctionnalités</a></li>
+      <li><a href="/#pricing">Tarifs</a></li>
+      <li class="nav-link-hide"><a href="/#data">Données</a></li>
+      <li><a href="/blog" class="is-current">Blog</a></li>
+      <li class="nav-cta"><a href="/dashboard.html" class="btn btn-primary">Essayer gratuitement</a></li>
+    </ul>
   </nav>
 </div>
 ${bodyHtml}
