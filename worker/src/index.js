@@ -4115,7 +4115,7 @@ async function handleAdminSubsStats(env, origin) {
 // Fetch les details complets d'une subscription Stripe avec cache KV 6h.
 // Utile pour re-hydrater currentPeriodEnd, status, priceId quand le payload
 // KV 'sub:{uid}' est vieux ou incomplet (ex: abonnements d'avant le schema).
-// Retourne { currentPeriodEnd, status, priceId, plan, billing } ou null.
+// Retourne { currentPeriodEnd, status, priceId, plan, billing, subscriptionId } ou null.
 async function fetchStripeSubscriptionDetails(subscriptionId, env) {
   if (!subscriptionId || !env.STRIPE_SECRET_KEY) return null;
   const cacheKey = `stripe-sub:${subscriptionId}`;
@@ -4135,6 +4135,7 @@ async function fetchStripeSubscriptionDetails(subscriptionId, env) {
     const resolved = resolveStripePlan(priceId, sub.metadata, env);
     const details = {
       _cachedAt: Date.now(),
+      subscriptionId: sub.id,
       status: sub.status,
       currentPeriodEnd: sub.current_period_end,
       priceId,
@@ -4142,6 +4143,55 @@ async function fetchStripeSubscriptionDetails(subscriptionId, env) {
       billing: resolved.billing,
     };
     // Cache 6h (les periodes bougent peu, on tolere 6h de stale)
+    try { await env.CACHE.put(cacheKey, JSON.stringify(details), { expirationTtl: 6 * 3600 }); } catch {}
+    return details;
+  } catch {
+    return null;
+  }
+}
+
+// Fallback : recupere la subscription ACTIVE la plus recente d'un customer.
+// Utile quand on a customerId en KV mais pas subscriptionId (ancien schema
+// ou webhook a rate). Cache 6h sur customer pour eviter hits repetes.
+async function fetchStripeActiveSubscriptionByCustomer(customerId, env) {
+  if (!customerId || !env.STRIPE_SECRET_KEY) return null;
+  const cacheKey = `stripe-custsub:${customerId}`;
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 6 * 3600 * 1000) {
+      return cached;
+    }
+  } catch {}
+  try {
+    // status=all pour attraper les active, past_due, canceled. On filtre apres.
+    const resp = await fetch(
+      `https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=10`,
+      { headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` } }
+    );
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    const subs = json.data || [];
+    if (!subs.length) return null;
+    // On prend la active / past_due la plus recente, sinon la derniere tout court
+    const prioritised = [...subs].sort((a, b) => {
+      const order = { active: 0, trialing: 1, past_due: 2, unpaid: 3, canceled: 4, incomplete: 5 };
+      const ap = order[a.status] ?? 9;
+      const bp = order[b.status] ?? 9;
+      if (ap !== bp) return ap - bp;
+      return (b.created || 0) - (a.created || 0);
+    });
+    const sub = prioritised[0];
+    const priceId = sub.items?.data?.[0]?.price?.id || null;
+    const resolved = resolveStripePlan(priceId, sub.metadata, env);
+    const details = {
+      _cachedAt: Date.now(),
+      subscriptionId: sub.id,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end,
+      priceId,
+      plan: resolved.plan,
+      billing: resolved.billing,
+    };
     try { await env.CACHE.put(cacheKey, JSON.stringify(details), { expirationTtl: 6 * 3600 }); } catch {}
     return details;
   } catch {
@@ -4220,10 +4270,20 @@ async function handleAdminUsers(env, origin) {
         const emailSource = stripeEmail ? 'stripe' : (userData?.email ? 'firebase' : (wlData?.email ? 'watchlist' : null));
         // Re-hydrate depuis Stripe si currentPeriodEnd ou plan absent en KV
         // (cas des abonnements crees avant le schema actuel, ou si webhook a rate).
-        // Utilise un cache KV 6h pour eviter de spammer l'API Stripe.
+        // 2 chemins de recuperation avec cache KV 6h :
+        //   1. Si subscriptionId en KV → GET direct /v1/subscriptions/{id}
+        //   2. Sinon si customerId en KV → LIST /v1/subscriptions?customer={id}
+        //      → on prend la plus recente active/past_due
         let stripeSubDetails = null;
-        if (hasSub && subData?.subscriptionId && (!subData.currentPeriodEnd || !subData.plan)) {
-          stripeSubDetails = await fetchStripeSubscriptionDetails(subData.subscriptionId, env);
+        const needsRehydrate = hasSub && (!subData?.currentPeriodEnd || !subData?.plan);
+        if (needsRehydrate) {
+          if (subData?.subscriptionId) {
+            stripeSubDetails = await fetchStripeSubscriptionDetails(subData.subscriptionId, env);
+          }
+          // Fallback : chercher via customerId si pas de subscriptionId ou echec du 1er fetch
+          if (!stripeSubDetails && customerId) {
+            stripeSubDetails = await fetchStripeActiveSubscriptionByCustomer(customerId, env);
+          }
         }
         // Plan + billing + montant (source : subData si present, sinon Stripe re-fetch).
         let plan = null, billing = null, amountEur = null, monthlyEur = null;
