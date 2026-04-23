@@ -4181,12 +4181,34 @@ async function handleAdminUsers(env, origin) {
         const stripeEmail = customerId ? await fetchStripeCustomerEmail(customerId, env) : null;
         const email = stripeEmail || userData?.email || wlData?.email || null;
         const emailSource = stripeEmail ? 'stripe' : (userData?.email ? 'firebase' : (wlData?.email ? 'watchlist' : null));
+        // Plan + billing + montant (source : subData.plan/billing si present,
+        // sinon resolve via priceId). Normalise en €/mois pour le MRR.
+        let plan = null, billing = null, amountEur = null, monthlyEur = null;
+        if (hasSub && subData) {
+          const resolved = resolveStripePlan(subData.priceId, { plan: subData.plan, billing: subData.billing }, env);
+          plan = resolved.plan;
+          billing = resolved.billing;
+          // Tarifs hardcoded (coherents avec les prix Stripe env.STRIPE_PRICE_ID_*)
+          const priceMap = {
+            'pro:monthly':    { amount: 19,  monthly: 19 },
+            'pro:yearly':     { amount: 190, monthly: 15.83 }, // 190/12
+            'elite:monthly':  { amount: 49,  monthly: 49 },
+            'elite:yearly':   { amount: 490, monthly: 40.83 },
+            'legacy:monthly': { amount: 29,  monthly: 29 },
+          };
+          const p = priceMap[`${plan}:${billing}`];
+          if (p) { amountEur = p.amount; monthlyEur = p.monthly; }
+        }
         return {
           uid,
           hasSubscription: hasSub,
           subStatus: subData?.status || null,
           currentPeriodEnd: subData?.currentPeriodEnd || null,
           customerId,
+          plan,                                   // 'pro' | 'elite' | 'legacy' | null
+          billing,                                // 'monthly' | 'yearly' | null
+          amountEur,                              // montant facture par periode (19/49/190/490/29)
+          monthlyEur,                             // revenu mensuel normalise (pour MRR)
           hasWatchlist: hasWl,
           watchlistCount: Array.isArray(wlData?.tickers) ? wlData.tickers.length : 0,
           email,                                  // source unifiee
@@ -4208,11 +4230,31 @@ async function handleAdminUsers(env, origin) {
       return (b.lastWatchlistUpdate || b.firstSeen || '').localeCompare(a.lastWatchlistUpdate || a.firstSeen || '');
     });
 
+    // Agregats de revenus : MRR, ARR, breakdown par plan (subs ACTIVE uniquement)
+    const activeSubs = users.filter(u => u.subStatus === 'active' && u.monthlyEur != null);
+    const mrrEur = Math.round(activeSubs.reduce((s, u) => s + (u.monthlyEur || 0), 0) * 100) / 100;
+    const arrEur = Math.round(mrrEur * 12 * 100) / 100;
+    const revenueByPlan = {};
+    for (const u of activeSubs) {
+      const key = `${u.plan || 'unknown'}_${u.billing || 'monthly'}`;
+      if (!revenueByPlan[key]) revenueByPlan[key] = { plan: u.plan, billing: u.billing, count: 0, mrrEur: 0 };
+      revenueByPlan[key].count += 1;
+      revenueByPlan[key].mrrEur += u.monthlyEur || 0;
+    }
+    // Round les mrrEur par bucket
+    Object.values(revenueByPlan).forEach(b => { b.mrrEur = Math.round(b.mrrEur * 100) / 100; });
+
     return jsonResponse({
       total: users.length,
       withSubscription: subKeys.length,
       withWatchlist: wlKeys.length,
       withFirebaseTracking: userKeys.length,
+      revenue: {
+        mrrEur,                                     // Monthly Recurring Revenue total
+        arrEur,                                     // Annualised Run Rate (MRR x 12)
+        activeSubsCount: activeSubs.length,
+        byPlan: Object.values(revenueByPlan).sort((a, b) => b.mrrEur - a.mrrEur),
+      },
       note: 'Les users Firebase sont trackes au premier login authentifie (user:* en KV). Les users qui ne se sont jamais connectes au dashboard depuis le dernier deploy ne sont pas comptes.',
       users,
     }, 200, origin);

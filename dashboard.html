@@ -4407,33 +4407,31 @@
           </div>
         </div>
 
-        <!-- 2 COLONNES : USERS + SUBS / TRAFFIC -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;margin-bottom:24px">
-          <!-- PANEL USERS & SUBS -->
-          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <h3 style="margin:0;font-size:16px">👥 Utilisateurs &amp; Abonnements</h3>
-              <span id="adUsersCount" style="font-size:12px;color:var(--text-muted)">—</span>
-            </div>
-            <div id="adUsersBody" style="min-height:240px">
-              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase B — en attente de deploy.</div>
-            </div>
+        <!-- PANEL USERS & SUBS (pleine largeur pour afficher toutes les colonnes
+             MRR / plan / billing / prochain paiement sans compromis) -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <h3 style="margin:0;font-size:16px">👥 Utilisateurs &amp; Abonnements</h3>
+            <span id="adUsersCount" style="font-size:12px;color:var(--text-muted)">—</span>
           </div>
+          <div id="adUsersBody" style="min-height:240px">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase B — en attente de deploy.</div>
+          </div>
+        </div>
 
-          <!-- PANEL TRAFFIC -->
-          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <h3 style="margin:0;font-size:16px">📈 Trafic <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">via Google Analytics</span></h3>
-              <select id="adTrafficDays" onchange="loadAdminDashboard(true)" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);outline:none">
-                <option value="1">24h</option>
-                <option value="7" selected>7j</option>
-                <option value="30">30j</option>
-                <option value="90">90j</option>
-              </select>
-            </div>
-            <div id="adTrafficBody" style="min-height:240px">
-              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase C — en attente.</div>
-            </div>
+        <!-- PANEL TRAFFIC (pleine largeur aussi) -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h3 style="margin:0;font-size:16px">📈 Trafic <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">via Google Analytics</span></h3>
+            <select id="adTrafficDays" onchange="loadAdminDashboard(true)" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);outline:none">
+              <option value="1">24h</option>
+              <option value="7" selected>7j</option>
+              <option value="30">30j</option>
+              <option value="90">90j</option>
+            </select>
+          </div>
+          <div id="adTrafficBody" style="min-height:240px">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase C — en attente.</div>
           </div>
         </div>
 
@@ -13747,6 +13745,41 @@
       }
       if (countEl) countEl.textContent = `${usersRes.users.length} users · ${usersRes.withSubscription || 0} subs`;
 
+      // Formateur €
+      const fmtEur = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.round(n));
+      const fmtEur2 = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
+
+      // Stats revenus : MRR, ARR, breakdown par plan (backend agrege)
+      const rev = usersRes.revenue || { mrrEur: 0, arrEur: 0, activeSubsCount: 0, byPlan: [] };
+      const planLabel = (plan, billing) => {
+        const p = plan === 'pro' ? 'Pro' : plan === 'elite' ? 'Elite' : plan === 'legacy' ? 'Premium (legacy 29€)' : 'Unknown';
+        const b = billing === 'yearly' ? 'annuel' : 'mensuel';
+        return `${p} ${b}`;
+      };
+
+      // Bandeau revenus (MRR + ARR + breakdown par plan)
+      const revenueBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+          <div class="tip" data-tip="Monthly Recurring Revenue. Somme normalisée en €/mois de tous les abonnements ACTIVE. Les plans annuels sont divisés par 12 pour l'estimation mensuelle." style="padding:12px;background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:8px">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">MRR</div>
+            <div style="font-size:22px;font-weight:700;color:#10B981;font-family:'Space Grotesk'">${fmtEur2(rev.mrrEur)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${rev.activeSubsCount} abo actifs</div>
+          </div>
+          <div class="tip" data-tip="Annualised Run Rate = MRR × 12. Projection de revenu annuel si les abonnements actifs actuels restent tels quels pendant 12 mois. Ne tient pas compte du churn ou de la croissance." style="padding:12px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(116,185,255,0.04));border:1px solid rgba(116,185,255,0.25);border-radius:8px">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">ARR (MRR×12)</div>
+            <div style="font-size:22px;font-weight:700;color:#74b9ff;font-family:'Space Grotesk'">${fmtEur(rev.arrEur)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Run rate annuel</div>
+          </div>
+          ${(rev.byPlan || []).slice(0, 3).map(p => `
+            <div class="tip" data-tip="${p.count} abonnement(s) ${planLabel(p.plan, p.billing)}. Contribution MRR : ${fmtEur2(p.mrrEur)}." style="padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${p.plan === 'elite' ? '⚡' : p.plan === 'pro' ? '⭐' : '🛡'} ${planLabel(p.plan, p.billing)}</div>
+              <div style="font-size:20px;font-weight:700;font-family:'Space Grotesk'">${p.count}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtEur2(p.mrrEur)} MRR</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
       // Petite stat bar : subs par status
       const stats = subsRes || {};
       const statusBar = `
@@ -13773,6 +13806,21 @@
       const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
       const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
       const fmtDTs = (ts) => ts ? new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+      // Badge plan (Pro / Elite / Legacy / FREE) — remplace l'ancien badgeStatus seul
+      const badgePlan = (u) => {
+        if (u.plan === 'elite') {
+          const lab = u.billing === 'yearly' ? 'ELITE · ANNUEL' : 'ELITE';
+          return `<span style="padding:2px 8px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em">${lab}</span>`;
+        }
+        if (u.plan === 'pro') {
+          const lab = u.billing === 'yearly' ? 'PRO · ANNUEL' : 'PRO';
+          return `<span style="padding:2px 8px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#fff;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em">${lab}</span>`;
+        }
+        if (u.plan === 'legacy') {
+          return `<span style="padding:2px 8px;background:rgba(107,114,128,0.15);color:var(--text-secondary);border:1px solid rgba(107,114,128,0.3);border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em">LEGACY 29€</span>`;
+        }
+        return `<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px;font-weight:600">FREE</span>`;
+      };
       const badgeStatus = (s) => {
         if (s === 'active') return '<span style="padding:2px 8px;background:rgba(16,185,129,0.15);color:#10B981;border-radius:10px;font-size:10px;font-weight:600">ACTIVE</span>';
         if (s === 'past_due') return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">PAST DUE</span>';
@@ -13799,33 +13847,47 @@
         return (b.firstSeen || '').localeCompare(a.firstSeen || '');
       });
 
-      const rows = sortedUsers.slice(0, 100).map(u => `
+      const rows = sortedUsers.slice(0, 100).map(u => {
+        const nextPayment = u.subStatus === 'active' ? fmtDTs(u.currentPeriodEnd) : '—';
+        const amountCell = u.amountEur != null
+          ? `<span style="font-weight:600;color:${u.subStatus === 'active' ? '#10B981' : 'var(--text-muted)'}">${fmtEur2(u.amountEur)}</span><span style="font-size:10px;color:var(--text-muted);margin-left:3px">${u.billing === 'yearly' ? '/an' : '/mois'}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+        const mrrCell = u.monthlyEur != null && u.subStatus === 'active'
+          ? `<span style="font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtEur2(u.monthlyEur)}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+        return `
         <tr style="border-bottom:1px solid var(--divider)">
           <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)" title="${esc(u.uid)}">${esc(u.uid.slice(0, 10))}...</td>
           <td style="padding:8px 10px;font-size:12px" title="${u.emailSource ? 'Source: ' + u.emailSource : ''}">${esc(u.email || u.watchlistEmail || '—')}${u.emailSource === 'stripe' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">stripe</span>' : u.emailSource === 'firebase' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">firebase</span>' : ''}</td>
           <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);white-space:nowrap" title="Date du premier login authentifié (création de la clé user:{uid} en KV)">${fmtDT(u.firstSeen)}</td>
-          <td style="padding:8px 10px;text-align:center">${badgeStatus(u.subStatus)}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgePlan(u)}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgeStatus(u.subStatus)}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap">${amountCell}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap" title="Revenu mensuel normalisé (plans annuels divisés par 12)">${mrrCell}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:${u.subStatus === 'active' ? 'var(--text-primary)' : 'var(--text-muted)'};white-space:nowrap" title="${u.subStatus === 'active' ? 'Prochaine facturation Stripe (currentPeriodEnd)' : 'Pas d\\'abonnement actif'}">${nextPayment}</td>
           <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
           <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>
-          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtDTs(u.currentPeriodEnd)}</td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
 
-      body.innerHTML = statusBar + `
-        <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
+      body.innerHTML = revenueBar + statusBar + `
+        <div class="table-scroll" style="max-height:520px;overflow:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
             <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
               <tr style="border-bottom:2px solid var(--border)">
                 <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
                 <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe'), sinon email Firebase (badge 'firebase'), sinon watchlistEmail." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
                 <th class="tip" data-tip="Date et heure du premier login authentifié au dashboard (= création de la clé user:{uid} en KV). Précision à la minute." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Inscrit le</th>
-                <th class="tip" data-tip="Statut Stripe de l'abonnement : ACTIVE (OK), PAST DUE (paiement échoué en cours de retry), CANCELED (terminé), TRIAL (essai gratuit), FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Sub</th>
-                <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon. Les Briefs quotidiens par email sont envoyés à 8h Paris uniquement aux users avec WL non vide ET opt-in confirmé." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
-                <th class="tip" data-tip="Double opt-in RGPD pour les emails Brief. ✅ = a cliqué sur le lien de confirmation (reçoit les Briefs). ⏳ = mail de confirmation envoyé mais jamais cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
-                <th class="tip" data-tip="Date de fin de la période facturée en cours (Stripe currentPeriodEnd). L'abonnement se renouvelle automatiquement à cette date si actif, sinon il bascule en canceled." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Fin period.</th>
+                <th class="tip" data-tip="Plan souscrit : Elite (49€/mois ou 490€/an), Pro (19€/mois ou 190€/an), Legacy (ancien plan 29€/mois), ou FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Plan</th>
+                <th class="tip" data-tip="Statut Stripe : ACTIVE (OK, facturation à jour), PAST DUE (échec de paiement en retry), CANCELED (terminé), TRIAL." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Statut</th>
+                <th class="tip" data-tip="Montant facturé par période (mensuel ou annuel). Correspond au plan Stripe souscrit." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Montant</th>
+                <th class="tip" data-tip="MRR individuel : revenu mensuel normalisé. Pour les plans annuels = prix annuel / 12. Utilisé pour le total MRR en haut." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">MRR €/mois</th>
+                <th class="tip" data-tip="Date du prochain prélèvement Stripe (fin de la période en cours). Si l'abonnement reste ACTIVE, il sera renouvelé à cette date." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Prochain paiement</th>
+                <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
+                <th class="tip" data-tip="Double opt-in RGPD pour les emails Brief. ✅ = confirmé. ⏳ = mail envoyé pas encore cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
               </tr>
             </thead>
-            <tbody>${rows || '<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="10" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
           </table>
         </div>
         ${sortedUsers.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${sortedUsers.length} · triés par premium actif d'abord puis date d'inscription récente</div>` : ''}
