@@ -20,7 +20,11 @@ import article02 from './articles/02-comment-suivre-warren-buffett.md';
 import article03 from './articles/03-insider-trading-legal-vs-illegal.md';
 import article04 from './articles/04-activists-elliott-ackman-icahn.md';
 import article05 from './articles/05-smart-money-vs-retail.md';
+import article06 from './articles/06-top-hedge-funds-2026.md';
+import article07 from './articles/07-cluster-insiders-signal.md';
 import article08 from './articles/08-fear-and-greed-index.md';
+import article09 from './articles/09-etf-politiques-nancy-pelosi-gop.md';
+import article10 from './articles/10-short-interest-explique.md';
 
 import { parseFrontmatter, renderMarkdown, escHtml } from './renderer.js';
 import { renderArticlePage, renderIndexPage } from './template.js';
@@ -30,7 +34,10 @@ const SITE = 'https://kairosinsider.fr';
 // ------------------------------------------------------------
 // Raw articles registry — ordre = ordre chrono editorial
 // ------------------------------------------------------------
-const RAW_ARTICLES = [article01, article02, article03, article04, article05, article08];
+const RAW_ARTICLES = [
+  article01, article02, article03, article04, article05,
+  article06, article07, article08, article09, article10,
+];
 
 // Cache parse : on ne parse les .md qu'une fois par instance de worker
 let _parsedCache = null;

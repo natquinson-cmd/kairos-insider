@@ -19,11 +19,13 @@
 | 3 | Insider trading légal expliqué | "insider trading légal" | 260/mo | Low | P1 🔥 ✅ |
 | 4 | Qui sont Elliott, Ackman, Icahn | "fonds activiste" | 210/mo | Low | P2 ✅ |
 | 5 | Smart money vs retail | "smart money" | 390/mo | Medium | P2 ✅ |
-| 6 | Top 5 hedge funds 2026 | "meilleurs hedge funds" | 140/mo | Low | P2 |
-| 7 | Cluster insiders signal | "cluster insider" | 50/mo | V.Low | P3 |
+| 6 | Top 5 hedge funds 2026 | "meilleurs hedge funds" | 140/mo | Low | P2 ✅ |
+| 7 | Cluster insiders signal | "cluster insider" | 50/mo | V.Low | P3 ✅ |
 | 8 | Fear & Greed Index | "fear and greed index" | 720/mo | Medium | P1 ✅ |
-| 9 | ETF politiques NANC GOP | "ETF Nancy Pelosi" | 80/mo | V.Low | P3 |
-| 10 | Short Interest expliqué | "short interest" | 290/mo | Low | P2 |
+| 9 | ETF politiques NANC GOP | "ETF Nancy Pelosi" | 80/mo | V.Low | P3 ✅ |
+| 10 | Short Interest expliqué | "short interest" | 290/mo | Low | P2 ✅ |
+
+> **🎉 10/10 articles publiés** — le plan éditorial Sprint 1-3 est complet au 2026-04-23.
 
 ## Ordre de publication (priorité SEO + pédagogie)
 
