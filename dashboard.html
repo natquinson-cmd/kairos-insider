@@ -12893,35 +12893,45 @@
           return '$' + Math.round(n);
         };
         const fmtPct = (n) => (n == null || !isFinite(n)) ? '—' : n.toFixed(2) + '%';
-        const fmtPriceA = (n) => {
-          if (n == null || !isFinite(n)) return '—';
-          return '$' + n.toFixed(2);
-        };
+        // purchasePriceApprox est un montant TOTAL (agrege item 3 narratif SEC)
+        // donc format compact comme pour la valeur estimee
+        const fmtPriceA = fmtUsdA;
 
         const rows = filings.map(f => {
           const activistBadge = f.isActivist
             ? `<span style="padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Fonds offensif connu (activist investor)">⚡ OFFENSIF</span>`
             : '';
-          // Valeur estimée = shares × price
-          const estValue = (f.sharesOwned && f.purchasePriceApprox)
-            ? f.sharesOwned * f.purchasePriceApprox
-            : null;
           // Couleur du % selon seuil
           const pctColor = f.percentOfClass == null ? 'var(--text-muted)'
             : f.percentOfClass >= 10 ? '#EF4444'
             : f.percentOfClass >= 5 ? '#F59E0B'
             : '#10B981';
+          // Lien SEC EDGAR (toujours visible quand on a l'accession, utile surtout
+          // quand le ticker n'est pas resolu — ~27% des filings SEC ne matchent
+          // pas de ticker auto).
+          const filerCikClean = (f.filerCik || '').replace(/^0+/, '') || (f.targetCik || '').replace(/^0+/, '');
+          const accessionClean = (f.accession || '').replace(/-/g, '');
+          const secUrl = (filerCikClean && accessionClean)
+            ? `https://www.sec.gov/Archives/edgar/data/${filerCikClean}/${accessionClean}/`
+            : '';
+          const secLink = secUrl
+            ? `<a href="${secUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px" title="Voir le filing complet sur SEC EDGAR">SEC ↗</a>`
+            : '';
+          // Ticker cell : si pas de ticker resolu, afficher '—' + tooltip
+          const tickerCell = f.ticker
+            ? `<strong style="color:#74b9ff">${escapeHtmlClient(f.ticker)}</strong>`
+            : `<span style="color:var(--text-muted);font-size:11px" title="Ticker non résolu pour ce filing — voir le nom de l'entreprise ci-contre, ou le filing SEC">—</span>`;
           return `
             <tr ${f.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${f.ticker}'), 150)" style="cursor:pointer"` : ''}>
               <td style="padding:10px 12px;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtD(f.fileDate)}</td>
               <td style="padding:10px 12px">${formBadge(f.form)}</td>
-              <td style="padding:10px 12px"><strong style="color:#74b9ff">${escapeHtmlClient(f.ticker || '—')}</strong></td>
+              <td style="padding:10px 12px">${tickerCell}</td>
               <td style="padding:10px 12px;font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
               <td style="padding:10px 12px;font-size:13px">${escapeHtmlClient(f.filerName || '—')}${activistBadge}</td>
               <td style="padding:10px 12px;text-align:right;font-weight:600;color:${pctColor};font-variant-numeric:tabular-nums">${fmtPct(f.percentOfClass)}</td>
               <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues">${fmtSharesA(f.sharesOwned)}</td>
-              <td style="padding:10px 12px;text-align:right;font-size:12px;color:var(--text-muted);font-variant-numeric:tabular-nums" title="Prix d'achat approximatif (source: item 3 filings)">${fmtPriceA(f.purchasePriceApprox)}</td>
-              <td style="padding:10px 12px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Valeur estimée = actions × prix d'achat">${estValue ? fmtUsdA(estValue) : '—'}</td>
+              <td style="padding:10px 12px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (narratif item 3 du filing SEC, approximatif)">${fmtPriceA(f.purchasePriceApprox)}</td>
+              <td style="padding:10px 12px;text-align:center">${secLink}</td>
             </tr>
           `;
         }).join('');
@@ -12938,8 +12948,8 @@
                   <th style="text-align:left">Investisseur (filer)</th>
                   <th style="text-align:right" title="% du capital détenu">% capital</th>
                   <th style="text-align:right" title="Nombre d'actions détenues">Actions</th>
-                  <th style="text-align:right" title="Prix d'achat approximatif">Prix achat</th>
-                  <th style="text-align:right" title="Valeur estimée = actions × prix">Valeur est.</th>
+                  <th style="text-align:right" title="Montant investi total (~) — extrait du narratif item 3 du filing SEC">Investi ~</th>
+                  <th style="text-align:center" title="Voir le filing complet sur SEC EDGAR">Source</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
