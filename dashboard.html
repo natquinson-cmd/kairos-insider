@@ -4074,6 +4074,83 @@
       // w20 = 20px de large, 2x DPI pour ecrans haute densite
       return `<img src="https://flagcdn.com/w20/${code}.png" srcset="https://flagcdn.com/w40/${code}.png 2x" width="20" height="15" alt="${market}" title="${market}" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.1)" onerror="this.style.display='none';this.insertAdjacentText('afterend','${market}')">`;
     }
+
+    // Mapping code exchange (Yahoo / stockanalysis / SEC) → code pays ISO-2
+    // pour afficher le drapeau correspondant dans le hero fiche action.
+    // Source exchange : d.price.exchange (Yahoo : 'NMS', 'NYQ', 'PNK', 'ASE', 'LSE'...)
+    const EXCHANGE_TO_COUNTRY = {
+      // États-Unis
+      NYSE: 'US', NASDAQ: 'US', AMEX: 'US', ASE: 'US', NYQ: 'US', NMS: 'US',
+      PNK: 'US', OTC: 'US', OTCB: 'US', OTCM: 'US', BATS: 'US', IEX: 'US',
+      NGM: 'US', NCM: 'US', NSM: 'US',
+      // Canada
+      TSX: 'CA', TSXV: 'CA', TOR: 'CA', CNSX: 'CA', NEO: 'CA', CNQ: 'CA',
+      // Royaume-Uni
+      LSE: 'GB', LON: 'GB', AIM: 'GB',
+      // France
+      EPA: 'FR', PAR: 'FR', ENX: 'FR',
+      // Allemagne
+      ETR: 'DE', XETRA: 'DE', FRA: 'DE', BER: 'DE', GER: 'DE', MUN: 'DE',
+      // Italie
+      BIT: 'IT', MIL: 'IT',
+      // Espagne
+      BME: 'ES', MAD: 'ES', MCE: 'ES',
+      // Pays-Bas
+      AEX: 'NL', AMS: 'NL',
+      // Suisse
+      SIX: 'CH', SWX: 'CH', EBS: 'CH', VTX: 'CH',
+      // Belgique
+      BRU: 'BE', EBR: 'BE',
+      // Portugal
+      LIS: 'PT',
+      // Irlande
+      ISE: 'IE', DUB: 'IE',
+      // Nordiques
+      STO: 'SE', HEL: 'FI', CPH: 'DK', OSL: 'NO', ICE: 'IS',
+      // Japon
+      TSE: 'JP', TYO: 'JP', JPX: 'JP', OSE: 'JP',
+      // Hong Kong
+      HKEX: 'HK', HKG: 'HK', SEHK: 'HK',
+      // Chine
+      SSE: 'CN', SZSE: 'CN', SHA: 'CN', SHE: 'CN',
+      // Taiwan
+      TWSE: 'TW', TPE: 'TW',
+      // Corée
+      KRX: 'KR', KOSPI: 'KR', KOSDAQ: 'KR', KSC: 'KR', KOE: 'KR',
+      // Australie
+      ASX: 'AU',
+      // Nouvelle-Zélande
+      NZX: 'NZ', NZE: 'NZ',
+      // Inde
+      BSE: 'IN', NSE: 'IN', NSI: 'IN', BOM: 'IN',
+      // Brésil
+      BVMF: 'BR', SAO: 'BR',
+      // Mexique
+      BMV: 'MX', MEX: 'MX',
+      // Afrique du Sud
+      JSE: 'ZA', JNB: 'ZA',
+      // Singapour
+      SGX: 'SG', SES: 'SG',
+      // Émirats
+      DFM: 'AE', ADX: 'AE',
+      // Arabie saoudite
+      TADAWUL: 'SA',
+      // Autriche
+      VIE: 'AT',
+      // Pologne
+      WSE: 'PL', WAR: 'PL',
+      // Turquie
+      BIST: 'TR', IST: 'TR',
+      // Russie
+      MCX: 'RU', MOEX: 'RU',
+    };
+    function exchangeToFlag(exchange) {
+      if (!exchange) return '';
+      const country = EXCHANGE_TO_COUNTRY[String(exchange).toUpperCase()];
+      if (!country) return ''; // exchange inconnu → pas de drapeau, seulement la pill texte
+      const code = country.toLowerCase();
+      return `<img src="https://flagcdn.com/w20/${code}.png" srcset="https://flagcdn.com/w40/${code}.png 2x" width="22" height="16" alt="${country}" title="Coté sur ${exchange} (${country})" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.12)">`;
+    }
     const fmtDate = (s) => {
       if (!s) return '—';
       const d = new Date(s + 'T00:00:00');
@@ -7456,6 +7533,7 @@
           <div style="flex:1;min-width:280px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
               <h1 style="margin:0;font-size:32px">${d.ticker}</h1>
+              ${price.exchange ? exchangeToFlag(price.exchange) : ''}
               ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
               ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
               <button data-wl-star="${d.ticker}" onclick="toggleWatchlistStar('${d.ticker}')"
@@ -7522,10 +7600,17 @@
         ${renderKairosScoreCard(score, d.ticker)}
 
         <!-- CHART prix avec superposition insiders + fonds offensifs + period selector -->
-        <div id="stockChartCard" style="background:var(--surface-1);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:12px">
-            <h3 style="margin:0;font-size:16px;opacity:0.9">Cours &amp; signaux smart money</h3>
-            <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:8px" id="chartPeriodSelector">
+        <div id="stockChartCard" style="position:relative;background:linear-gradient(135deg,var(--surface-1) 0%,rgba(59,130,246,0.03) 100%);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:24px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.04)">
+          <!-- Halo decoratif haut-droite (signature brand Kairos) -->
+          <div aria-hidden="true" style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,rgba(139,92,246,0.12) 0%,transparent 65%);pointer-events:none;z-index:0"></div>
+          <div aria-hidden="true" style="position:absolute;bottom:-120px;left:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(236,72,153,0.08) 0%,transparent 60%);pointer-events:none;z-index:0"></div>
+
+          <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+            <h3 style="margin:0;font-size:16px;font-weight:700;letter-spacing:-0.01em;display:inline-flex;align-items:center;gap:10px">
+              <span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#EC4899);box-shadow:0 0 12px rgba(139,92,246,0.6)"></span>
+              Cours &amp; signaux smart money
+            </h3>
+            <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)" id="chartPeriodSelector">
               ${[
                 ['1mo','1M'], ['3mo','3M'], ['6mo','6M'], ['1y','1A'],
                 ['2y','2A'], ['5y','5A'], ['max','MAX']
@@ -7534,13 +7619,13 @@
               `).join('')}
             </div>
           </div>
-          <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.75;flex-wrap:wrap">
-            <span><span style="color:#10B981">◆</span> achat insider</span>
-            <span><span style="color:#EF4444">▼</span> vente insider</span>
+          <div style="position:relative;z-index:1;display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.8;flex-wrap:wrap">
+            <span><span style="color:#10B981">◆</span> achat initié</span>
+            <span><span style="color:#EF4444">▼</span> vente initié</span>
             <span><span style="color:#FACC15;font-size:13px">★</span> fonds offensif (13D/G)</span>
             <span style="opacity:0.6">· taille ∝ montant</span>
           </div>
-          <div style="height:280px;position:relative"><canvas id="stockPriceChart"></canvas></div>
+          <div style="position:relative;z-index:1;height:300px"><canvas id="stockPriceChart"></canvas></div>
         </div>
 
         <!-- 3 COLONNES : Insiders / Smart Money / Politiciens -->
@@ -8284,16 +8369,34 @@
             }
           });
 
+          // Gradient vertical pour le remplissage sous la ligne : plus intense
+          // en haut, disparait en bas. Donne un effet "glow" propre au cours.
+          const fillGradient = ctx.createLinearGradient(0, 0, 0, 280);
+          fillGradient.addColorStop(0, 'rgba(116, 185, 255, 0.35)');
+          fillGradient.addColorStop(0.55, 'rgba(139, 92, 246, 0.12)');
+          fillGradient.addColorStop(1, 'rgba(116, 185, 255, 0)');
+          // Gradient horizontal pour la couleur de la ligne elle-meme
+          // (signature brand Kairos : bleu → violet → rose)
+          const strokeGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+          strokeGradient.addColorStop(0, '#3B82F6');
+          strokeGradient.addColorStop(0.55, '#8B5CF6');
+          strokeGradient.addColorStop(1, '#EC4899');
           const datasets = [{
             label: d.ticker,
             data: values,
-            borderColor: '#74b9ff',
-            backgroundColor: 'rgba(116,185,255,0.08)',
-            borderWidth: 2,
+            borderColor: strokeGradient,
+            backgroundColor: fillGradient,
+            borderWidth: 2.5,
             pointRadius: 0,
-            pointHoverRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#F9A8D4',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
             fill: true,
-            tension: 0.1,
+            tension: 0.35,                           // courbe lisse (monotone-cubic feeling)
+            cubicInterpolationMode: 'monotone',      // evite les overshoots bizarres
+            borderJoinStyle: 'round',
+            borderCapStyle: 'round',
             order: 2,
           }];
 
