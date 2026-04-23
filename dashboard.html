@@ -3273,10 +3273,10 @@
 
       <!-- ===== SECTION: FEAR & GREED ===== -->
       <div class="section-page" id="section-feargreed">
-        <h2 data-i18n="dash.section.feargreed.title">Fear & Greed Index</h2>
-        <p class="section-desc" data-i18n="dash.section.feargreed.desc">Indicateur de sentiment du marche — les investisseurs sont-ils euphoriques ou paniques ?</p>
+        <h2 data-i18n="dash.section.feargreed.title">Indice Peur &amp; Avidité <span style="font-size:13px;font-weight:500;color:var(--text-muted);margin-left:8px">(Fear &amp; Greed Index · CNN)</span></h2>
+        <p class="section-desc" data-i18n="dash.section.feargreed.desc">Indicateur de sentiment du marché — les investisseurs sont-ils euphoriques ou paniques ? Calculé par CNN à partir de 7 sous-indicateurs de marché.</p>
         <div id="fearGreedArea">
-          <div class="loading"><div class="spinner"></div>Chargement du sentiment de marche...</div>
+          <div class="loading"><div class="spinner"></div>Chargement du sentiment de marché…</div>
         </div>
       </div>
 
@@ -11031,6 +11031,58 @@
               animation: scoreCount 0.6s ease-out 1s forwards;
               opacity: 0;
             }
+            /* Tooltip custom sur les 7 indicateurs — hover/focus reveal */
+            .fg-tip { position: relative; transition: background 0.15s, color 0.15s; }
+            .fg-tip:hover, .fg-tip:focus {
+              background: var(--accent-blue) !important;
+              color: #fff !important;
+              outline: none;
+            }
+            .fg-tip-body {
+              position: absolute;
+              bottom: calc(100% + 10px);
+              left: 50%;
+              transform: translateX(-50%) translateY(4px);
+              width: 280px;
+              padding: 12px 14px;
+              background: var(--bg-secondary);
+              color: var(--text-primary);
+              border: 1px solid var(--border-strong);
+              border-radius: 10px;
+              font-size: 12px;
+              font-weight: 400;
+              line-height: 1.5;
+              text-transform: none;
+              letter-spacing: normal;
+              text-align: left;
+              box-shadow: 0 10px 32px rgba(0,0,0,0.45);
+              opacity: 0;
+              visibility: hidden;
+              pointer-events: none;
+              transition: opacity 0.15s, transform 0.15s, visibility 0s linear 0.15s;
+              z-index: 50;
+              white-space: normal;
+            }
+            .fg-tip-body::after {
+              content: '';
+              position: absolute;
+              top: 100%;
+              left: 50%;
+              transform: translateX(-50%);
+              border: 6px solid transparent;
+              border-top-color: var(--bg-secondary);
+            }
+            .fg-tip:hover .fg-tip-body,
+            .fg-tip:focus .fg-tip-body {
+              opacity: 1;
+              visibility: visible;
+              transform: translateX(-50%) translateY(0);
+              transition: opacity 0.2s, transform 0.2s, visibility 0s linear 0s;
+            }
+            /* Evite que le tooltip deborde a gauche/droite sur mobile */
+            @media (max-width: 640px) {
+              .fg-tip-body { width: 240px; max-width: 80vw; }
+            }
           </style>
           <div style="text-align:center;padding:40px 20px;">
             <div style="position:relative;width:250px;height:250px;margin:0 auto 24px;">
@@ -11113,16 +11165,61 @@
           <!-- 7 composantes CNN -->
           ${components && Object.values(components).some(c => c) ? `
           <div style="margin:32px 0">
-            <h4 style="margin:0 0 14px;font-size:15px;font-weight:700">🧭 Les 7 indicateurs CNN</h4>
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+              <h4 style="margin:0;font-size:15px;font-weight:700">🧭 Les 7 indicateurs CNN qui composent l'indice</h4>
+              <span style="font-size:11px;color:var(--text-muted)">Survolez chaque ℹ️ pour le détail</span>
+            </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
               ${[
-                { key: 'momentum', label: 'Market Momentum', desc: 'S&P 500 vs MM 125j' },
-                { key: 'breadth', label: 'Stock Price Breadth', desc: 'Volume acheteur/vendeur' },
-                { key: 'strength', label: 'Stock Price Strength', desc: 'Plus-hauts vs plus-bas 52 semaines' },
-                { key: 'putCall', label: 'Put / Call Options', desc: 'Ratio options pessimistes/optimistes' },
-                { key: 'volatility', label: 'Market Volatility (VIX)', desc: 'Indice de volatilité CBOE' },
-                { key: 'safeHaven', label: 'Safe Haven Demand', desc: 'Actions vs obligations Treasury' },
-                { key: 'junkBond', label: 'Junk Bond Demand', desc: 'Spread high-yield vs investment grade' },
+                {
+                  key: 'momentum',
+                  labelFR: 'Momentum de marché',
+                  labelEN: 'Market Momentum',
+                  shortDesc: 'S&P 500 vs moyenne mobile 125j',
+                  fullDesc: 'Compare le cours actuel du S&P 500 à sa moyenne mobile sur 125 jours. Au-dessus = tendance haussière durable (avidité). En dessous = correction ou récession en cours (peur).'
+                },
+                {
+                  key: 'breadth',
+                  labelFR: 'Largeur de marché',
+                  labelEN: 'Stock Price Breadth',
+                  shortDesc: 'Volume acheteur vs vendeur',
+                  fullDesc: 'Mesure le volume cumulé des actions qui montent moins celles qui baissent (McClellan Volume Summation Index). Volume acheteur dominant = avidité. Volume vendeur dominant = peur.'
+                },
+                {
+                  key: 'strength',
+                  labelFR: 'Force des cours',
+                  labelEN: 'Stock Price Strength',
+                  shortDesc: 'Plus-hauts vs plus-bas 52 sem.',
+                  fullDesc: 'Ratio entre le nombre d\'actions au plus haut 52 semaines sur le NYSE et celles au plus bas. Beaucoup de plus-hauts = avidité généralisée. Beaucoup de plus-bas = bear market.'
+                },
+                {
+                  key: 'putCall',
+                  labelFR: 'Options Put / Call',
+                  labelEN: 'Put / Call Options',
+                  shortDesc: 'Ratio options baissières / haussières',
+                  fullDesc: 'Rapport entre les options de vente (puts = pari baissier) et d\'achat (calls = pari haussier). Ratio < 0,7 → beaucoup de calls, avidité. Ratio > 1,1 → beaucoup de puts, peur extrême.'
+                },
+                {
+                  key: 'volatility',
+                  labelFR: 'Volatilité (VIX)',
+                  labelEN: 'Market Volatility',
+                  shortDesc: 'Indice de la peur · CBOE',
+                  fullDesc: 'Le VIX mesure la volatilité implicite à 30 jours du S&P 500, surnommé "l\'indice de la peur". VIX < 15 = calme, avidité. VIX > 25 = stress. VIX > 40 = panique type 2008 ou Covid.'
+                },
+                {
+                  key: 'safeHaven',
+                  labelFR: 'Demande valeurs refuges',
+                  labelEN: 'Safe Haven Demand',
+                  shortDesc: 'Actions vs obligations Treasury 20 ans',
+                  fullDesc: 'Compare la performance des actions aux obligations Treasury 20 ans sur 20 jours glissants. Actions > obligations = appétit pour le risque (avidité). Obligations > actions = fuite vers qualité (peur).'
+                },
+                {
+                  key: 'junkBond',
+                  labelFR: 'Demande obligations à risque',
+                  labelEN: 'Junk Bond Demand',
+                  shortDesc: 'Spread high-yield vs Treasury',
+                  fullDesc: 'Écart de rendement entre les obligations high-yield (notation BB ou moins) et les Treasury. Spread faible = les investisseurs acceptent le risque crédit (avidité). Spread élargi = fuite vers la qualité (peur).'
+                },
               ].map(c => {
                 const comp = components[c.key];
                 if (!comp || comp.score == null) return '';
@@ -11134,12 +11231,18 @@
                   'Greed': 'Cupidité', 'Extreme Greed': 'Cupidité extrême',
                 }[comp.rating] || comp.rating || '';
                 return `
-                  <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-                      <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${c.label}</div>
-                      <div style="font-size:18px;font-weight:800;color:${col};font-family:'Space Grotesk'">${s}</div>
+                  <div class="fg-indicator" style="position:relative;padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <div style="font-size:13px;font-weight:600;color:var(--text-primary);line-height:1.2">${c.labelFR}</div>
+                          <span class="fg-tip" tabindex="0" aria-label="Explication" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--surface-2);color:var(--text-secondary);font-size:10px;font-weight:700;cursor:help;user-select:none;flex-shrink:0">i<span class="fg-tip-body">${c.fullDesc}</span></span>
+                        </div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em">${c.labelEN}</div>
+                      </div>
+                      <div style="font-size:18px;font-weight:800;color:${col};font-family:'Space Grotesk';line-height:1;flex-shrink:0">${s}</div>
                     </div>
-                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${c.desc}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin:6px 0 8px;line-height:1.35">${c.shortDesc}</div>
                     <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
                       <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width 0.6s ease-out"></div>
                     </div>
