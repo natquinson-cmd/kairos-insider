@@ -166,7 +166,16 @@ export function renderMarkdown(md) {
       const id = idMatch ? idMatch[1] : slugify(inner.replace(/<[^>]+>/g, ''));
       const text = idMatch ? idMatch[2] : inner;
       const rendered = renderInline(text);
-      headings.push({ level, id, text: text.replace(/<[^>]+>/g, '') });
+      // Pour la TOC, on nettoie les marqueurs Markdown (**, *, `, [x](y), HTML)
+      // sinon on affiche "**legal**" tel quel au lieu de "legal".
+      const plainText = text
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // [label](href) → label
+        .replace(/\*\*([^*]+)\*\*/g, '$1')         // **bold** → bold
+        .replace(/\*([^*]+)\*/g, '$1')             // *italic* → italic
+        .replace(/`([^`]+)`/g, '$1')               // `code` → code
+        .replace(/<[^>]+>/g, '')                   // <tag> → ''
+        .trim();
+      headings.push({ level, id, text: plainText });
       out.push(`<h${level} id="${id}"><a class="heading-anchor" href="#${id}" aria-hidden="true">#</a> ${rendered}</h${level}>`);
       i++;
       continue;
