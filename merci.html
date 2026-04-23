@@ -24,6 +24,12 @@
     gtag('config', 'G-7YPCWL035M', { anonymize_ip: true, allow_google_signals: false, allow_ad_personalization_signals: false });
     // Event de conversion : inscription premium confirmee
     gtag('event', 'premium_signup_complete', { event_category: 'conversion', event_label: 'stripe_checkout' });
+    // Nettoie le plan persiste depuis la landing — l'abonnement est effectif,
+    // on ne veut pas relancer checkout au prochain login.
+    try {
+      localStorage.removeItem('kairos_plan');
+      localStorage.removeItem('kairos_billing');
+    } catch (e) {}
   </script>
 
   <title>Merci ! Bienvenue dans Kairos Insider Premium</title>
