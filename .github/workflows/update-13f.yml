@@ -12,6 +12,13 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    # Expose les secrets Cloudflare au niveau du job : tous les steps (et leurs
+    # subprocess Python comme kv_lastrun.log_last_run) heritent automatiquement
+    # de ces variables. Sans ca, wrangler kv put tombe en 'non-interactive env'
+    # error et tous les lastRun:* ne sont pas ecrits → badges STALE permanents.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
