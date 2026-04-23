@@ -13867,7 +13867,7 @@
           <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgeStatus(u.subStatus)}</td>
           <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap">${amountCell}</td>
           <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap" title="Revenu mensuel normalisé (plans annuels divisés par 12)">${mrrCell}</td>
-          <td style="padding:8px 10px;text-align:right;font-size:11px;color:${u.subStatus === 'active' ? 'var(--text-primary)' : 'var(--text-muted)'};white-space:nowrap" title="${u.subStatus === 'active' ? 'Prochaine facturation Stripe (currentPeriodEnd)' : 'Pas d\\'abonnement actif'}">${nextPayment}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:${u.subStatus === 'active' ? 'var(--text-primary)' : 'var(--text-muted)'};white-space:nowrap" title="${u.subStatus === 'active' ? 'Prochaine facturation Stripe (currentPeriodEnd)' : 'Pas d\'abonnement actif'}">${nextPayment}</td>
           <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
           <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>
         </tr>`;
