@@ -782,22 +782,36 @@ async function handleFearGreed(env, origin) {
       return jsonResponse(cached, 200, origin);
     }
 
-    // CNN requires a proper User-Agent, sinon 403
+    // CNN bloque les User-Agent non-browser → on utilise un UA Chrome valide.
+    // Sans ces headers, CNN retourne 403 ou une page HTML d'erreur.
     const resp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; KairosInsider/1.0; +https://kairosinsider.fr)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
         'Referer': 'https://edition.cnn.com/',
         'Origin': 'https://edition.cnn.com',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
       },
     });
 
     if (!resp.ok) {
-      log.warn('feargreed.cnn.upstream.error', { status: resp.status });
+      log.warn('feargreed.cnn.upstream.error', { status: resp.status, url: 'cnn.graphdata' });
       // Fallback : si on a un cache meme expire, on le ressert
       if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
       return jsonResponse({ error: 'CNN upstream error', status: resp.status }, 502, origin);
+    }
+
+    // Verifie aussi le Content-Type : parfois CNN renvoie une page HTML 200
+    // (ex: cloudflare challenge). Dans ce cas c'est pas du JSON.
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('json')) {
+      log.warn('feargreed.cnn.not-json', { contentType: ct });
+      if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
+      return jsonResponse({ error: 'CNN returned non-JSON', contentType: ct }, 502, origin);
     }
 
     const raw = await resp.json();
