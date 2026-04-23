@@ -4846,8 +4846,18 @@
 
       if (resp.status === 403) {
         const data = await resp.json();
+        // Quota Free atteint sur analyse action : le front doit afficher
+        // l'ecran 'Quota atteint' dedie (deja gere dans loadStockAnalysis).
+        // On re-throw avec un marqueur pour que l'appelant puisse distinguer.
+        if (data.code === 'FREE_QUOTA_EXCEEDED') {
+          const err = new Error(data.error || 'Free daily quota reached');
+          err.code = 'FREE_QUOTA_EXCEEDED';
+          err.quotaData = data;
+          throw err;
+        }
         if (data.code === 'PREMIUM_REQUIRED') {
           document.getElementById('paywallOverlay').classList.remove('hidden');
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
           throw new Error('Premium required');
         }
       }
@@ -7016,6 +7026,29 @@
         loadTickerActivity(ticker).catch(() => {});
       } catch (e) {
         clearStockLoader();
+        // Cas special : backend dit 'FREE_QUOTA_EXCEEDED' → on affiche
+        // l'ecran quota avec les vrais chiffres du backend + on sync le
+        // localStorage pour que le bandeau soit correct.
+        if (e.code === 'FREE_QUOTA_EXCEEDED' && e.quotaData) {
+          const qd = e.quotaData;
+          try {
+            const today = new Date().toISOString().slice(0, 10);
+            localStorage.setItem('kairos_free_analyses', JSON.stringify({
+              date: today, tickers: qd.analyzedToday || [], count: qd.quotaUsed || FREE_DAILY_QUOTA,
+            }));
+          } catch (ex) {}
+          body.innerHTML = `
+            <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
+              <div style="font-size:48px;margin-bottom:12px">🔒</div>
+              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${qd.quotaMax || FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
+              <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
+              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${qd.analyzedToday.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.</div>` : ''}
+            </div>`;
+          renderFreeQuotaBanner();
+          return;
+        }
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
       }
     }

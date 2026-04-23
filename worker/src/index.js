@@ -425,7 +425,37 @@ async function handleRequest(request, env) {
           const isPastDue = subData && subData.status === 'past_due';
 
           if (!isActive && !isPastDue) {
-            return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
+            // Cas special : les users Free ont droit a FREE_STOCK_QUOTA
+            // analyses action /api/stock/:ticker par jour. Au-dela ils
+            // doivent passer Pro. Re-consulter un ticker deja analyse
+            // aujourd'hui ne decremente pas le quota.
+            const FREE_STOCK_QUOTA = 3;
+            if (path.startsWith('/api/stock/')) {
+              const ticker = decodeURIComponent(path.slice('/api/stock/'.length)).toUpperCase().split('?')[0].trim();
+              const today = new Date().toISOString().slice(0, 10);
+              const quotaKey = `free-quota:${user.uid}:${today}`;
+              let quotaData = await env.CACHE.get(quotaKey, 'json').catch(() => null);
+              if (!quotaData || !Array.isArray(quotaData.tickers)) quotaData = { tickers: [], count: 0 };
+              const alreadyAnalyzedToday = quotaData.tickers.includes(ticker);
+              if (!alreadyAnalyzedToday && quotaData.count >= FREE_STOCK_QUOTA) {
+                return jsonResponse({
+                  error: `Quota gratuit atteint : ${FREE_STOCK_QUOTA} analyses/jour. Passez Pro pour des analyses illimitées.`,
+                  code: 'FREE_QUOTA_EXCEEDED',
+                  quotaUsed: quotaData.count,
+                  quotaMax: FREE_STOCK_QUOTA,
+                  analyzedToday: quotaData.tickers,
+                }, 403, origin);
+              }
+              if (!alreadyAnalyzedToday) {
+                quotaData.tickers.push(ticker);
+                quotaData.count = quotaData.tickers.length;
+                // TTL 36h pour couvrir les fuseaux + safety margin
+                await env.CACHE.put(quotaKey, JSON.stringify(quotaData), { expirationTtl: 36 * 3600 });
+              }
+              // OK, laisse passer vers handleApiRoute
+            } else {
+              return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
+            }
           }
         }
 
