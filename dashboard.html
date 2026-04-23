@@ -4375,6 +4375,8 @@
             <span id="adminCountdown" style="font-size:10px;color:var(--text-muted)"></span>
           </label>
           <button onclick="loadAdminDashboard(true)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+          <button onclick="previewDailyTweets()" class="tip" data-tip="Preview les 3 tweets que le worker génère aujourd'hui à partir des signaux Kairos (sans push)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid rgba(29,161,242,0.4);border-radius:6px;color:#1DA1F2;cursor:pointer;margin-left:4px">🐦 Preview tweets</button>
+          <button onclick="pushTweetsToTypefully()" class="tip" data-tip="Pousse les 3 tweets du jour dans ta queue Typefully (en drafts). Tu édites/valides ensuite dans typefully.com" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#1DA1F2,#0E71C8);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">✈️ Push Typefully</button>
         </div>
         <p class="section-desc">Monitoring interne de la plateforme. Acces limite a ton email.</p>
 
@@ -13603,6 +13605,61 @@
     }
 
     // Charge les panels de l'admin dashboard (Phase B : users + subs)
+    // Preview les 3 tweets du jour sans pousser vers Typefully
+    // (utile pour verifier le contenu avant publication).
+    async function previewDailyTweets() {
+      if (!currentUser) return Toast.error('Pas authentifié.');
+      try {
+        const data = await apiFetch('/api/admin/daily-tweets');
+        if (data.error) return Toast.error('Erreur: ' + data.error);
+        const tweets = data.tweets || [];
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;backdrop-filter:blur(6px)';
+        modal.innerHTML = `
+          <div style="max-width:640px;width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <h3 style="margin:0;font-size:18px">🐦 Preview des tweets du jour</h3>
+              <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:4px 10px">✕</button>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin:0 0 18px">Générés depuis les signaux Kairos du jour. En cliquant "Push Typefully", ces 3 drafts seront ajoutés à ta queue.</p>
+            ${tweets.map((t, i) => `
+              <div style="padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;white-space:pre-wrap;font-family:'Inter',sans-serif;font-size:13px;line-height:1.5">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Tweet ${i+1} · ${t.length} chars</div>${t}
+              </div>
+            `).join('')}
+            <div style="display:flex;gap:10px;margin-top:18px">
+              <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer">Fermer</button>
+              <button onclick="this.closest('div[style*=fixed]').remove();pushTweetsToTypefully()" style="flex:1;padding:10px;background:linear-gradient(135deg,#1DA1F2,#0E71C8);border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:600">✈️ Push dans Typefully</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+      } catch (e) {
+        Toast.error('Erreur: ' + (e.message || 'preview échouée'));
+      }
+    }
+
+    // Push les 3 tweets du jour dans la queue Typefully (drafts).
+    async function pushTweetsToTypefully() {
+      if (!currentUser) return Toast.error('Pas authentifié.');
+      if (!confirm('Pousser 3 drafts dans ta queue Typefully ? Tu pourras les éditer avant publication.')) return;
+      try {
+        const data = await apiFetch('/api/admin/typefully/push', {}, 'POST');
+        if (data.error) return Toast.error('Erreur Typefully: ' + data.error);
+        const ok = data.pushed || 0;
+        const total = data.total || 0;
+        if (ok === 0) {
+          Toast.error(`Aucun tweet poussé (${total} tentative${total > 1 ? 's' : ''}). Voir console F12 pour détails.`);
+          console.log('Typefully push results:', data.results);
+        } else {
+          Toast.success(`✓ ${ok}/${total} drafts poussés dans Typefully`);
+          // Ouvre Typefully dans un nouvel onglet
+          setTimeout(() => window.open('https://typefully.com/drafts', '_blank'), 800);
+        }
+      } catch (e) {
+        Toast.error('Erreur: ' + (e.message || 'push échoué'));
+      }
+    }
+
     async function loadAdminDashboard(force) {
       if (!isAdminUser) {
         await checkAdminStatus();
