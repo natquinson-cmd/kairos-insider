@@ -1040,7 +1040,15 @@
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
-    .source-ico { font-size: 18px; }
+    .source-ico {
+      font-size: 18px;
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      display: inline-block;
+      flex-shrink: 0;
+      border-radius: 4px;
+    }
     .source-name { letter-spacing: -0.01em; }
     .sources-footnote {
       text-align: center;
@@ -1478,31 +1486,31 @@
       <div class="sources-label" data-i18n="sources.label">Données officielles agrégées depuis</div>
       <div class="sources-logos">
         <div class="source-logo" title="Securities and Exchange Commission (SEC) — régulateur US">
-          <span class="source-ico">🇺🇸</span>
+          <img class="source-ico" src="assets/sources/sec.png" alt="SEC" width="22" height="22" loading="lazy" />
           <span class="source-name">SEC EDGAR</span>
         </div>
         <div class="source-logo" title="Autorité des marchés financiers — régulateur français">
-          <span class="source-ico">🇫🇷</span>
+          <img class="source-ico" src="assets/sources/amf.png" alt="AMF" width="22" height="22" loading="lazy" />
           <span class="source-name">AMF</span>
         </div>
         <div class="source-logo" title="BaFin — régulateur financier allemand">
-          <span class="source-ico">🇩🇪</span>
+          <img class="source-ico" src="assets/sources/bafin.png" alt="BaFin" width="22" height="22" loading="lazy" />
           <span class="source-name">BaFin</span>
         </div>
         <div class="source-logo" title="Yahoo Finance — cours, fondamentaux, earnings">
-          <span class="source-ico">📊</span>
+          <img class="source-ico" src="assets/sources/yahoo.png" alt="Yahoo Finance" width="22" height="22" loading="lazy" />
           <span class="source-name">Yahoo Finance</span>
         </div>
         <div class="source-logo" title="StockAnalysis.com — statistiques étendues, health scores">
-          <span class="source-ico">📈</span>
+          <img class="source-ico" src="assets/sources/stockanalysis.png" alt="StockAnalysis" width="22" height="22" loading="lazy" />
           <span class="source-name">StockAnalysis</span>
         </div>
         <div class="source-logo" title="Finnhub — consensus analystes">
-          <span class="source-ico">🎯</span>
+          <img class="source-ico" src="assets/sources/finnhub.png" alt="Finnhub" width="22" height="22" loading="lazy" />
           <span class="source-name">Finnhub</span>
         </div>
         <div class="source-logo" title="CNN Business — Fear &amp; Greed Index">
-          <span class="source-ico">🌡️</span>
+          <img class="source-ico" src="assets/sources/cnn.png" alt="CNN" width="22" height="22" loading="lazy" />
           <span class="source-name">CNN F&amp;G</span>
         </div>
       </div>
