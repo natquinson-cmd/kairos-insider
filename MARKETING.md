@@ -232,6 +232,22 @@ Depuis le 24 avril 2026, un cron GitHub Actions (`daily-comment-digest.yml`, lun
 
 **Résultat concret** : à 7h50 chaque matin tu as un email avec 10-20 tweets prêts à commenter, le commentaire est déjà rédigé avec de la data Kairos, tu cliques, tu modifies légèrement si besoin, tu postes. **Temps total : ~15-20 min** pour 10 commentaires vs 45 min en scroll manuel.
 
+##### Fallback "mode munitions" (depuis le 24 avril 2026)
+
+**Problème** : `syndication.twitter.com` a été verrouillé par X et ne retourne plus de tweets frais (seulement des tweets de 2024-2025 pour la plupart des handles). Conséquence : le scrape direct est souvent vide.
+
+**Solution** : si le digest détecte 0 tweet commentable, le worker bascule automatiquement en **mode munitions** :
+1. Interroge `computeTopSignals(env)` (top mouvements Kairos du jour)
+2. Génère 10-15 **"commentaires prêts à l'emploi"** à partir de :
+   - Les 6 biggest score movers (haussiers ET baissiers, avec delta coloré)
+   - Les 3 biggest insider clusters (ratio achat/vente + formule *"cluster 3+ = +11 % alpha 6 mois (Cohen-Malloy)"*)
+   - Les 3 activistes frais (Elliott, Ackman, etc.)
+3. Envoie l'email avec un bandeau orange *"⚠️ Scrape X indisponible — mode munitions activé"* et une banque de commentaires copie-collables
+
+**Usage** : tu scrolles X manuellement (notifications cloche 🔔 sur les 10 comptes Tier 1), et **dès qu'un compte cible parle d'un ticker de la liste munitions**, tu copies-colles le commentaire correspondant. Temps total : ~15 min pour 6-10 commentaires data-driven.
+
+Ce mode garantit que l'email quotidien est **toujours utile**, même si X bloque définitivement le scraping public.
+
 ##### Benchmark mensuel (tracker dans un Google Sheet)
 
 | Métrique | Cible après 1 mois | Cible après 3 mois |

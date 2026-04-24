@@ -5364,7 +5364,7 @@ async function generateCommentDigest(env, { maxAgeHours = 24, forceFresh = false
     d.suggestedComment = generateCommentTemplate(d.primaryTicker.ticker, d.primaryTicker.score, d.lang);
   }
 
-  return {
+  const out = {
     digest: digest.slice(0, 20),  // max 20 tweets dans l'email
     totalTweetsScanned: results.reduce((s, r) => s + r.items.length, 0),
     totalTweetsWithTickers: fresh.length,
@@ -5372,6 +5372,58 @@ async function generateCommentDigest(env, { maxAgeHours = 24, forceFresh = false
     handlesScanned: COMMENT_TARGETS.length,
     generatedAt: new Date().toISOString(),
   };
+
+  // Fallback "munitions" : si aucun tweet commentable (scrape X bloque ou
+  // aucun ticker mentionne), on bascule sur les top signaux Kairos du jour
+  // pour donner a l'user des "lignes de commentaire prêtes à l'emploi" a
+  // utiliser quand il scroll manuellement sur X.
+  if (out.digest.length === 0) {
+    try {
+      const topSignals = await computeTopSignals(env);
+      if (topSignals) {
+        const ammo = [];
+        // Top 5 score movers (haussiers et baissiers)
+        for (const m of (topSignals.scoreMovers || []).slice(0, 6)) {
+          ammo.push({
+            type: 'score-mover',
+            ticker: m.ticker,
+            score: m.scoreNow,
+            delta: m.delta,
+            // Template de commentaire "chaud" a re-utiliser
+            comment: m.delta > 0
+              ? `Le Kairos Score de $${m.ticker} passe de ${m.scorePrev} à ${m.scoreNow} (+${m.delta}pt). Convergence smart money en 24h. Détail : kairosinsider.fr/a/${m.ticker}`
+              : `$${m.ticker} : Kairos Score chute de ${m.scorePrev} à ${m.scoreNow} (${m.delta}pt). Signal négatif smart money aligné. kairosinsider.fr/a/${m.ticker}`,
+          });
+        }
+        // Top 3 insider clusters
+        for (const c of (topSignals.insiderClusters || []).slice(0, 3)) {
+          const fmtM = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? '$' + Math.round(v / 1e3) + 'K' : '$' + Math.round(v);
+          const dir = (c.buyCount || 0) > (c.sellCount || 0) ? 'achats' : 'ventes';
+          ammo.push({
+            type: 'cluster',
+            ticker: c.ticker,
+            info: `${c.buyCount || 0}🟢 / ${c.sellCount || 0}🔴`,
+            comment: `Cluster insider détecté sur $${c.ticker} : ${c.buyCount || 0} achats / ${c.sellCount || 0} ventes (${fmtM(c.totalValue || 0)}). 3+ insiders = +11% alpha 6 mois (étude Cohen-Malloy). kairosinsider.fr/a/${c.ticker}`,
+          });
+        }
+        // Top 3 activists frais
+        for (const a of (topSignals.activistsFresh || []).slice(0, 3)) {
+          ammo.push({
+            type: 'activist',
+            ticker: a.ticker,
+            info: `${a.isActivist ? 'FONDS OFFENSIF' : 'Prise >5 %'} · ${a.filer}`,
+            comment: `⚡ ${a.filer} dépose un ${a.form} sur $${a.ticker}. ${a.isActivist ? 'Activiste reconnu → campagne probable (board, buybacks, spin-off).' : 'Prise passive >5 %.'} kairosinsider.fr/a/${a.ticker}`,
+          });
+        }
+        out.ammo = ammo;
+        out.fallbackMode = true;
+      }
+    } catch (e) {
+      log.warn('comment-digest.fallback.failed', { err: String(e).slice(0, 200) });
+    }
+  }
+
+  return out;
 }
 
 async function handleCommentDigestPreview(env, origin, request) {
@@ -5461,11 +5513,50 @@ async function handleCommentDigestEmail(request, env, origin) {
     <div style="font-size:13px;color:#9CA3AF">${today}</div>
   </div>
   <div style="background:#111827;border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#CBD5E1;line-height:1.6">
-    <strong style="color:#F9FAFB">🎯 ${data.digest.length} tweet${data.digest.length > 1 ? 's' : ''} commentable${data.digest.length > 1 ? 's' : ''}</strong>
-    sur ${data.totalTweetsScanned} tweets scannés (${data.handlesScanned} handles, ${data.totalUniqueTickers} tickers uniques).<br>
-    Routine : clique sur <strong style="color:#1DA1F2">💬 Ouvrir pour commenter</strong> → paste le commentaire suggéré → poste dans les 30 min pour être en haut du thread.
+    ${data.digest.length > 0
+      ? `<strong style="color:#F9FAFB">🎯 ${data.digest.length} tweet${data.digest.length > 1 ? 's' : ''} commentable${data.digest.length > 1 ? 's' : ''}</strong> sur ${data.totalTweetsScanned} tweets scannés (${data.handlesScanned} handles, ${data.totalUniqueTickers} tickers uniques).<br>
+         Routine : clique sur <strong style="color:#1DA1F2">💬 Ouvrir pour commenter</strong> → paste le commentaire suggéré → poste dans les 30 min pour être en haut du thread.`
+      : `<strong style="color:#F59E0B">🎯 Mode munitions</strong> — ${(data.ammo || []).length} signaux Kairos du jour avec commentaires prêts à l'emploi.<br>
+         Routine : scroll X manuellement (${data.handlesScanned} comptes cibles cf. MARKETING.md) → quand un tweet parle d'un ticker ci-dessous, <strong style="color:#EC4899">copie-colle le commentaire correspondant</strong>.`
+    }
   </div>
-  ${cards || '<div style="padding:40px;text-align:center;color:#9CA3AF;background:#111827;border-radius:12px">Aucun tweet commentable détecté ce matin.<br>Scroll manuel Tier 1 + Tier 3 requis aujourd\'hui.</div>'}
+  ${cards || (() => {
+    // Fallback : mode "munitions" avec les top signaux Kairos du jour
+    const ammo = data.ammo || [];
+    if (!ammo.length) {
+      return '<div style="padding:40px;text-align:center;color:#9CA3AF;background:#111827;border-radius:12px">Aucun tweet commentable détecté ce matin.<br>Scroll manuel Tier 1 + Tier 3 requis aujourd\'hui.</div>';
+    }
+    const typeEmoji = { 'score-mover': '📈', 'cluster': '🔔', 'activist': '⚡' };
+    const typeLabel = { 'score-mover': 'Score Mover', 'cluster': 'Cluster Insider', 'activist': 'Fonds Offensif' };
+    const ammoCards = ammo.map((a, i) => {
+      const detail = a.delta != null
+        ? `<span style="color:${a.delta > 0 ? '#10B981' : '#EF4444'};font-weight:600">${a.delta > 0 ? '▲' : '▼'} ${Math.abs(a.delta)}pt</span> · score actuel ${a.score}/100`
+        : (a.info || '');
+      return `
+<div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+    <div style="font-size:13px;color:#F9FAFB">
+      <span style="font-size:16px">${typeEmoji[a.type] || '📊'}</span>
+      <span style="font-weight:700;margin:0 6px">${esc(typeLabel[a.type] || 'Signal')}</span>
+      <span style="color:#9CA3AF;margin:0 6px">·</span>
+      <a href="https://kairosinsider.fr/a/${esc(a.ticker)}" style="color:#3B82F6;text-decoration:none;font-weight:700;font-family:monospace">$${esc(a.ticker)}</a>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF">#${i + 1}</div>
+  </div>
+  <div style="font-size:12px;color:#9CA3AF;margin-bottom:10px">${detail}</div>
+  <div style="background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.3);border-radius:8px;padding:10px 12px">
+    <div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:600">💬 Commentaire prêt à utiliser</div>
+    <div style="font-size:13px;color:#F9FAFB;line-height:1.5;font-style:italic">${esc(a.comment)}</div>
+  </div>
+</div>`;
+    }).join('');
+    return `
+<div style="padding:16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:12px;margin-bottom:20px;color:#CBD5E1;font-size:13px;line-height:1.6">
+  <strong style="color:#F59E0B">⚠️ Scrape X indisponible ce matin</strong><br>
+  L'API syndication Twitter n'a pas retourné de tweets frais (limitation X). Mode <strong>"munitions"</strong> activé : voici les ${ammo.length} meilleurs signaux Kairos du jour avec des commentaires prêts à l'emploi. Copie-colle dans tes commentaires quand tu scrolles X manuellement.
+</div>
+${ammoCards}`;
+  })()}
   <div style="margin-top:24px;padding:14px;background:#111827;border:1px solid rgba(255,255,255,0.05);border-radius:10px;font-size:12px;color:#9CA3AF;text-align:center;line-height:1.6">
     Envoyé par Kairos Insider · <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;font-size:11px">daily-comment-digest.yml</code><br>
     <a href="https://kairosinsider.fr/dashboard.html" style="color:#3B82F6;text-decoration:none">Dashboard</a> · <a href="https://x.com/KairosInsider" style="color:#3B82F6;text-decoration:none">@KairosInsider</a>
@@ -5482,7 +5573,9 @@ async function handleCommentDigestEmail(request, env, origin) {
       body: JSON.stringify({
         sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
         to: [{ email: to }],
-        subject: `💬 Kairos · ${data.digest.length} tweet${data.digest.length > 1 ? 's' : ''} à commenter (${today})`,
+        subject: data.digest.length > 0
+          ? `💬 Kairos · ${data.digest.length} tweet${data.digest.length > 1 ? 's' : ''} à commenter (${today})`
+          : `💬 Kairos · ${(data.ammo || []).length} munitions commentaires (${today})`,
         htmlContent: html,
       }),
     });
