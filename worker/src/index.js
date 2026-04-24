@@ -1572,169 +1572,136 @@ async function handleTickerActivity(url, env, origin) {
 //     generatedAt
 //   }
 // ============================================================
-async function handleHomeTopSignals(url, env, origin) {
-  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+// Calcul pur des signaux : renvoie { scoreMovers, insiderClusters, etfMovers,
+// activistsFresh } depuis D1 + KV. Utilise par :
+//   - handleHomeTopSignals (HTTP wrapper)
+//   - generateDailyTweets (email quotidien)
+// Cache 15 min en KV sous 'home:top-signals'.
+async function computeTopSignals(env) {
+  if (!env.HISTORY) return null;
 
-  // Cache 10 min en KV pour éviter de recalculer à chaque chargement de home
   const cacheKey = 'home:top-signals';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
-      return jsonResponse(cached, 200, origin);
+      return cached;
     }
   } catch (e) {}
 
+  const result = {
+    date: new Date().toISOString().slice(0, 10),
+    scoreMovers: [],
+    insiderClusters: [],
+    etfMovers: [],
+    activistsFresh: [],
+  };
+
+  // 1) Score Movers : top deltas entre 2 dates les plus récentes par ticker
   try {
-    const result = {
-      date: new Date().toISOString().slice(0, 10),
-      scoreMovers: [],
-      insiderClusters: [],
-      etfMovers: [],
-      activistsFresh: [],
-    };
+    const scoreQuery = `
+      WITH latest_two AS (
+        SELECT ticker, date, total,
+               ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+        FROM score_history
+      )
+      SELECT
+        a.ticker, a.total AS scoreNow, b.total AS scorePrev,
+        a.date AS dateNow, b.date AS datePrev,
+        (a.total - b.total) AS delta
+      FROM latest_two a
+      LEFT JOIN latest_two b ON a.ticker = b.ticker AND b.rn = 2
+      WHERE a.rn = 1 AND b.total IS NOT NULL AND ABS(a.total - b.total) >= 3
+      ORDER BY ABS(a.total - b.total) DESC LIMIT 12
+    `;
+    const rows = (await env.HISTORY.prepare(scoreQuery).all()).results || [];
+    result.scoreMovers = rows.map(r => ({
+      ticker: r.ticker, scoreNow: r.scoreNow, scorePrev: r.scorePrev,
+      delta: r.delta, dateNow: r.dateNow, datePrev: r.datePrev,
+    }));
+  } catch (e) { console.warn('scoreMovers failed:', e); }
 
-    // 1) Score Movers : top deltas entre 2 dates les plus récentes par ticker
-    try {
-      const scoreQuery = `
-        WITH latest_two AS (
-          SELECT ticker, date, total,
-                 ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
-          FROM score_history
-        )
-        SELECT
-          a.ticker,
-          a.total AS scoreNow,
-          b.total AS scorePrev,
-          a.date AS dateNow,
-          b.date AS datePrev,
-          (a.total - b.total) AS delta
-        FROM latest_two a
-        LEFT JOIN latest_two b ON a.ticker = b.ticker AND b.rn = 2
-        WHERE a.rn = 1 AND b.total IS NOT NULL
-          AND ABS(a.total - b.total) >= 3
-        ORDER BY ABS(a.total - b.total) DESC
-        LIMIT 12
-      `;
-      const rows = (await env.HISTORY.prepare(scoreQuery).all()).results || [];
-      result.scoreMovers = rows.map(r => ({
-        ticker: r.ticker,
-        scoreNow: r.scoreNow,
-        scorePrev: r.scorePrev,
-        delta: r.delta,
-        dateNow: r.dateNow,
-        datePrev: r.datePrev,
+  // 2) Insider Clusters : tickers avec 3+ transactions dans les 7 derniers jours
+  try {
+    const since = new Date(); since.setDate(since.getDate() - 7);
+    const sinceStr = since.toISOString().slice(0, 10);
+    const clusterQuery = `
+      SELECT ticker, COUNT(*) AS cnt,
+        SUM(CASE WHEN trans_type = 'buy' THEN 1 ELSE 0 END) AS buyCount,
+        SUM(CASE WHEN trans_type = 'sell' THEN 1 ELSE 0 END) AS sellCount,
+        SUM(CASE WHEN trans_type = 'buy' THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
+        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
+        GROUP_CONCAT(DISTINCT insider) AS insiders,
+        MAX(trans_date) AS lastDate
+      FROM insider_transactions_history
+      WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
+      GROUP BY ticker HAVING cnt >= 3
+      ORDER BY cnt DESC, (buyValue + sellValue) DESC LIMIT 10
+    `;
+    const rows = (await env.HISTORY.prepare(clusterQuery).bind(sinceStr).all()).results || [];
+    result.insiderClusters = rows.map(r => ({
+      ticker: r.ticker, buyCount: r.buyCount || 0, sellCount: r.sellCount || 0,
+      totalValue: (r.buyValue || 0) + (r.sellValue || 0),
+      netValue: (r.buyValue || 0) - (r.sellValue || 0),
+      topNames: (r.insiders || '').split(',').slice(0, 3), lastDate: r.lastDate,
+    }));
+  } catch (e) { console.warn('insiderClusters failed:', e); }
+
+  // 3) ETF Movers : plus gros changements de poids (≥0.3pt)
+  try {
+    const etfQuery = `
+      WITH latest_two AS (
+        SELECT etf_symbol, ticker, date, weight,
+               ROW_NUMBER() OVER (PARTITION BY etf_symbol, ticker ORDER BY date DESC) AS rn
+        FROM etf_snapshots
+      )
+      SELECT a.etf_symbol AS etf, a.ticker, a.weight AS currWeight, b.weight AS prevWeight,
+             a.date AS dateNow, b.date AS datePrev, (a.weight - COALESCE(b.weight, 0)) AS delta
+      FROM latest_two a
+      LEFT JOIN latest_two b ON a.etf_symbol = b.etf_symbol AND a.ticker = b.ticker AND b.rn = 2
+      WHERE a.rn = 1 AND b.weight IS NOT NULL AND ABS(a.weight - b.weight) >= 0.3
+      ORDER BY ABS(a.weight - b.weight) DESC LIMIT 12
+    `;
+    const rows = (await env.HISTORY.prepare(etfQuery).all()).results || [];
+    result.etfMovers = rows.map(r => ({
+      etf: r.etf, ticker: r.ticker, prevWeight: r.prevWeight, currWeight: r.currWeight,
+      delta: r.delta, status: r.delta > 0 ? 'increased' : 'decreased',
+    }));
+  } catch (e) { console.warn('etfMovers failed:', e); }
+
+  // 4) Activists Fresh : derniers 13D/G depuis KV '13dg-recent'
+  try {
+    const data13dg = await env.CACHE.get('13dg-recent', 'json');
+    const filings = Array.isArray(data13dg) ? data13dg : (data13dg?.filings || []);
+    result.activistsFresh = filings
+      .filter(f => f.ticker)
+      .slice(0, 5)
+      .map(f => ({
+        filer: f.filerName || 'Investisseur non résolu',
+        ticker: f.ticker, date: f.filingDate || f.date,
+        form: f.form, isActivist: !!f.isActivist,
       }));
-    } catch (e) { console.warn('scoreMovers failed:', e); }
+  } catch (e) { console.warn('activistsFresh failed:', e); }
 
-    // 2) Insider Clusters : tickers avec multiple transactions même jour
-    try {
-      const since = new Date();
-      since.setDate(since.getDate() - 7);
-      const sinceStr = since.toISOString().slice(0, 10);
-      const clusterQuery = `
-        SELECT
-          ticker,
-          COUNT(*) AS cnt,
-          SUM(CASE WHEN trans_type = 'buy' THEN 1 ELSE 0 END) AS buyCount,
-          SUM(CASE WHEN trans_type = 'sell' THEN 1 ELSE 0 END) AS sellCount,
-          SUM(CASE WHEN trans_type = 'buy' THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
-          SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
-          GROUP_CONCAT(DISTINCT insider) AS insiders,
-          MAX(trans_date) AS lastDate
-        FROM insider_transactions_history
-        WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
-        GROUP BY ticker
-        HAVING cnt >= 3
-        ORDER BY cnt DESC, (buyValue + sellValue) DESC
-        LIMIT 10
-      `;
-      const rows = (await env.HISTORY.prepare(clusterQuery).bind(sinceStr).all()).results || [];
-      result.insiderClusters = rows.map(r => ({
-        ticker: r.ticker,
-        buyCount: r.buyCount || 0,
-        sellCount: r.sellCount || 0,
-        totalValue: (r.buyValue || 0) + (r.sellValue || 0),
-        netValue: (r.buyValue || 0) - (r.sellValue || 0),
-        topNames: (r.insiders || '').split(',').slice(0, 3),
-        lastDate: r.lastDate,
-      }));
-    } catch (e) { console.warn('insiderClusters failed:', e); }
+  result.generatedAt = new Date().toISOString();
+  result._cachedAt = Date.now();
 
-    // 3) ETF Movers : plus gros changements de poids entre les 2 dernières dates par ETF
-    try {
-      const etfQuery = `
-        WITH latest_two AS (
-          SELECT etf_symbol, ticker, date, weight,
-                 ROW_NUMBER() OVER (PARTITION BY etf_symbol, ticker ORDER BY date DESC) AS rn
-          FROM etf_snapshots
-        )
-        SELECT
-          a.etf_symbol AS etf,
-          a.ticker,
-          a.weight AS currWeight,
-          b.weight AS prevWeight,
-          a.date AS dateNow,
-          b.date AS datePrev,
-          (a.weight - COALESCE(b.weight, 0)) AS delta
-        FROM latest_two a
-        LEFT JOIN latest_two b ON a.etf_symbol = b.etf_symbol AND a.ticker = b.ticker AND b.rn = 2
-        WHERE a.rn = 1 AND b.weight IS NOT NULL
-          AND ABS(a.weight - b.weight) >= 0.3
-        ORDER BY ABS(a.weight - b.weight) DESC
-        LIMIT 12
-      `;
-      const rows = (await env.HISTORY.prepare(etfQuery).all()).results || [];
-      result.etfMovers = rows.map(r => ({
-        etf: r.etf,
-        ticker: r.ticker,
-        prevWeight: r.prevWeight,
-        currWeight: r.currWeight,
-        delta: r.delta,
-        status: r.delta > 0 ? 'increased' : 'decreased',
-      }));
-    } catch (e) { console.warn('etfMovers failed:', e); }
+  try { await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 900 }); } catch (e) {}
+  return result;
+}
 
-    // 4) Activists Fresh : derniers 13D/G filings depuis le KV
-    try {
-      const data13dg = await env.CACHE.get('13dg-recent', 'json');
-      if (data13dg && Array.isArray(data13dg)) {
-        result.activistsFresh = data13dg
-          .filter(f => f.ticker)
-          .slice(0, 5)
-          .map(f => ({
-            filer: f.filerName || 'Investisseur non résolu',
-            ticker: f.ticker,
-            date: f.filingDate || f.date,
-            form: f.form,
-            isActivist: !!f.isActivist,
-          }));
-      } else if (data13dg && data13dg.filings) {
-        result.activistsFresh = (data13dg.filings || [])
-          .filter(f => f.ticker)
-          .slice(0, 5)
-          .map(f => ({
-            filer: f.filerName || 'Investisseur non résolu',
-            ticker: f.ticker,
-            date: f.filingDate || f.date,
-            form: f.form,
-            isActivist: !!f.isActivist,
-          }));
-      }
-    } catch (e) { console.warn('activistsFresh failed:', e); }
-
-    result.generatedAt = new Date().toISOString();
-    result._cachedAt = Date.now();
-
-    // Cache 10 min (la plupart des signaux sont quotidiens donc pas besoin de refresher souvent)
-    try {
-      await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 900 });
-    } catch (e) {}
-
-    return jsonResponse(result, 200, origin);
+// Wrapper HTTP (ex-logique extracted dans computeTopSignals)
+async function handleHomeTopSignals(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+  try {
+    const data = await computeTopSignals(env);
+    if (!data) return jsonResponse({ error: 'compute failed' }, 500, origin);
+    return jsonResponse(data, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'top-signals query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
+
+// --- Ancienne logique remplacee par computeTopSignals(). Garde pour reference. ---
 
 // ============================================================
 // SIGNAL DETAIL : Clusters insiders (écran d'analyse dédié, Lot 1)
@@ -4341,13 +4308,13 @@ async function handleAdminDebugUser(url, env, origin) {
 // ============================================================
 
 // Genere 3 tweets a partir des signaux Kairos du jour
+// Calcule directement depuis les sources primaires (D1 score_history,
+// D1 insider_transactions_history, KV 13dg-recent) via computeTopSignals().
+// Plus besoin de dependre du cache peuple par un user sur la home.
 async function generateDailyTweets(env) {
   const tweets = [];
-  // 1. Top signaux du jour (Kairos Score movers + clusters)
-  // Source : cache KV 'home:top-signals' (peuple par handleHomeTopSignals).
-  // Si absent/stale, on tombe sur le fallback tweet generique.
   try {
-    const data = await env.CACHE.get('home:top-signals', 'json');
+    const data = await computeTopSignals(env);
     if (data) {
       // Signal #1 : biggest score mover
       const topMover = (data.scoreMovers || [])[0];
