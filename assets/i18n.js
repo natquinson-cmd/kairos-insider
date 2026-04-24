@@ -62,11 +62,43 @@
       'hero.meta_french': '100% en français',
       'hero.meta_english': '100% in French',
 
-      // ==== STATS ====
-      'stats.funds_tracked': 'Hedge funds suivis',
+      // ==== STATS (live counters animes au scroll) ====
+      'stats.tickers_tracked': 'Tickers suivis (US + EU)',
+      'stats.insider_tx': 'Transactions initiés agrégées',
+      'stats.activist_filings': '13D/G fonds offensifs',
+      'stats.funds_tracked': 'Hedge funds trackés (13F)',
       'stats.stocks_analyzed': 'Actions analysées',
       'stats.kairos_score': 'Kairos Score composite',
       'stats.daily_update': 'MàJ quotidienne (Paris)',
+
+      // ==== SOURCES (bandeau "Donnees officielles agregees depuis") ====
+      'sources.label': 'Données officielles agrégées depuis',
+      'sources.footnote': 'Aucune donnée inventée. 100 % des signaux proviennent de régulateurs officiels ou de fournisseurs de marché reconnus.',
+
+      // ==== WHY KAIROS (section "Notre mission") ====
+      'why.badge': 'Notre mission',
+      'why.title_part1': 'Le smart money',
+      'why.title_part2': 'ne doit plus être un privilège.',
+      'why.caption': 'Basé à Annecy · Indépendant',
+      'why.p1': 'Pendant des décennies, seuls les investisseurs institutionnels accédaient à la vraie data : les mouvements des initiés, les portefeuilles des hedge funds, les prises de contrôle activistes, les rotations ETF thématiques. Un Bloomberg Terminal coûte <strong>24 000 € par an</strong>. WhaleWisdom n\'est qu\'en anglais, aride, réservé aux pros.',
+      'why.p2': '<strong>Chez Kairos Insider</strong>, on a construit l\'outil qu\'on aurait voulu avoir comme investisseurs retail : agréger en temps réel les signaux officiels de la SEC, l\'AMF et la BaFin, les traduire en français, les synthétiser via un score composite transparent (<strong>Kairos Score 0-100</strong> sur 8 dimensions), et les rendre accessibles à <strong>19 €/mois</strong> — 126 fois moins cher qu\'un terminal pro.',
+      'why.p3': 'On ne donne pas de recommandations d\'achat. On agrège la data publique que les institutionnels lisent depuis toujours, et on la rend lisible. <strong>À toi de décider.</strong>',
+      'why.trust_siret': 'SIRET',
+      'why.trust_location': 'Siège',
+      'why.trust_location_val': 'Annecy, France',
+      'why.trust_support': 'Support',
+
+      // ==== TRUST BADGES (sous pricing, avant decision d'achat) ====
+      'trust.france': 'Basé en France',
+      'trust.france_sub': 'Annecy · SIRET vérifiable',
+      'trust.rgpd': 'RGPD compliant',
+      'trust.rgpd_sub': 'Suppression & export en 1 clic',
+      'trust.stripe': 'Paiements Stripe',
+      'trust.stripe_sub': 'PSD2 + 3DS2 chiffrés',
+      'trust.security': 'Sécurité renforcée',
+      'trust.security_sub': 'CSP, HSTS, webhooks signés',
+      'trust.cancel': 'Annulation 1 clic',
+      'trust.cancel_sub': 'Via portail Stripe, sans friction',
 
       // ==== POUR QUI ====
       'profiles.badge': 'Pour qui ?',
@@ -541,10 +573,42 @@
       'hero.meta_french': 'French & English',
       'hero.meta_english': '🇫🇷 / 🇬🇧',
 
-      'stats.funds_tracked': 'Hedge funds tracked',
+      'stats.tickers_tracked': 'Tickers tracked (US + EU)',
+      'stats.insider_tx': 'Insider transactions aggregated',
+      'stats.activist_filings': '13D/G activist filings',
+      'stats.funds_tracked': 'Hedge funds tracked (13F)',
       'stats.stocks_analyzed': 'Stocks analyzed',
       'stats.kairos_score': 'Kairos Score',
       'stats.daily_update': 'Daily refresh (Paris)',
+
+      // ==== SOURCES (data sources strip) ====
+      'sources.label': 'Official data aggregated from',
+      'sources.footnote': 'Zero invented data. 100% of signals come from official regulators or recognized market data providers.',
+
+      // ==== WHY KAIROS (our mission) ====
+      'why.badge': 'Our mission',
+      'why.title_part1': 'Smart money should',
+      'why.title_part2': 'no longer be a privilege.',
+      'why.caption': 'Based in Annecy · Independent',
+      'why.p1': 'For decades, only institutional investors had access to the real data: insider moves, hedge fund portfolios, activist takeovers, thematic ETF rotations. A Bloomberg Terminal costs <strong>€24,000 per year</strong>. WhaleWisdom is English-only, dry, reserved for pros.',
+      'why.p2': '<strong>At Kairos Insider</strong>, we built the tool we wished we had as retail investors: aggregate official signals from the SEC, AMF and BaFin in real time, translate them, synthesize them via a transparent composite score (<strong>Kairos Score 0-100</strong> across 8 dimensions), and make them accessible for <strong>€19/month</strong> — 126x cheaper than a pro terminal.',
+      'why.p3': 'We don\'t give buy recommendations. We aggregate the public data institutions have always read, and make it readable. <strong>Your call.</strong>',
+      'why.trust_siret': 'Company ID',
+      'why.trust_location': 'HQ',
+      'why.trust_location_val': 'Annecy, France',
+      'why.trust_support': 'Support',
+
+      // ==== TRUST BADGES (below pricing) ====
+      'trust.france': 'Based in France',
+      'trust.france_sub': 'Annecy · Verifiable SIRET',
+      'trust.rgpd': 'GDPR compliant',
+      'trust.rgpd_sub': 'Delete & export in 1 click',
+      'trust.stripe': 'Stripe payments',
+      'trust.stripe_sub': 'PSD2 + 3DS2 encrypted',
+      'trust.security': 'Hardened security',
+      'trust.security_sub': 'CSP, HSTS, signed webhooks',
+      'trust.cancel': '1-click cancellation',
+      'trust.cancel_sub': 'Via Stripe portal, no friction',
 
       'profiles.badge': 'For who?',
       'profiles.title_part1': 'Built for every investor',

@@ -975,6 +975,218 @@
     .footer-legal a { color: var(--text-muted); text-decoration: underline; }
     .footer-legal a:hover { color: var(--text-primary); }
 
+    /* ===== SOURCES DE DONNEES (bandeau "As seen on" honnete) ===== */
+    .data-sources-strip {
+      padding: 50px 0 40px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, transparent, rgba(116,185,255,0.02), transparent);
+    }
+    .sources-label {
+      text-align: center;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .sources-logos {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 14px 28px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .source-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text-primary);
+      transition: all 0.15s ease;
+      cursor: default;
+    }
+    .source-logo:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .source-ico { font-size: 18px; }
+    .source-name { letter-spacing: -0.01em; }
+    .sources-footnote {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 24px;
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
+    /* ===== WHY KAIROS (section "fondateur" collectif) ===== */
+    .why-kairos { }
+    .why-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) 1fr;
+      gap: 48px;
+      align-items: center;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .why-photo-frame {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border-radius: 24px;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(116,185,255,0.15), rgba(147,112,219,0.15));
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .why-photo-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .why-photo-placeholder {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+    }
+    .why-photo-frame.why-photo-fallback .why-photo-placeholder {
+      display: flex;
+    }
+    .why-photo-emoji {
+      font-size: 72px;
+      filter: drop-shadow(0 4px 12px rgba(116,185,255,0.4));
+    }
+    .why-photo-hint {
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.6;
+    }
+    .why-photo-hint code {
+      background: var(--surface-1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-primary);
+    }
+    .why-photo-caption {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+    .why-flag { font-size: 16px; }
+    .why-content h2 {
+      margin: 16px 0 20px;
+      font-size: 36px;
+      line-height: 1.15;
+    }
+    .why-para {
+      font-size: 15.5px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    .why-para strong { color: var(--text-primary); }
+    .why-trust {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 28px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+    }
+    .why-trust-item { }
+    .why-trust-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .why-trust-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: -0.01em;
+    }
+    .why-trust-value a { color: var(--accent-blue); text-decoration: none; }
+    .why-trust-value a:hover { text-decoration: underline; }
+
+    /* ===== TRUST BADGES (sous pricing, avant decision d'achat) ===== */
+    .trust-badges {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      max-width: 1100px;
+      margin: 40px auto 0;
+      padding: 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+    .trust-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: all 0.15s ease;
+    }
+    .trust-badge:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+    .trust-ico {
+      font-size: 26px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .trust-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .trust-text strong {
+      font-size: 13px;
+      color: var(--text-primary);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .trust-text span {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
     /* ===== RESPONSIVE ===== */
     @media (max-width: 900px) {
       .hero { padding: 140px 0 80px; }
@@ -987,6 +1199,15 @@
       .nav-links li:not(:last-child) { display: none; }
       .comparison-table { font-size: 12px; }
       .comparison-table th, .comparison-table td { padding: 10px 8px; }
+      /* Preuve sociale responsive */
+      .sources-logos { gap: 10px 14px; }
+      .source-logo { padding: 8px 12px; font-size: 13px; }
+      .why-grid { grid-template-columns: 1fr; gap: 32px; }
+      .why-photo-frame { max-width: 320px; margin: 0 auto; }
+      .why-content h2 { font-size: 28px; text-align: center; }
+      .why-content .section-badge { display: inline-block; }
+      .why-trust { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .trust-badges { grid-template-columns: 1fr; gap: 10px; padding: 20px; }
     }
   </style>
 </head>
@@ -1200,25 +1421,68 @@
         </div>
       </div>
 
-      <!-- Stats bar -->
+      <!-- Stats bar : chiffres live tires de la prod (volumetrie reelle) -->
       <div class="stats-bar">
         <div class="stat-item">
-          <div class="stat-number">200+</div>
-          <div class="stat-label" data-i18n="stats.funds_tracked">Hedge funds suivis</div>
+          <div class="stat-number" data-counter="3349" data-suffix="">3 349</div>
+          <div class="stat-label" data-i18n="stats.tickers_tracked">Tickers suivis (US + EU)</div>
         </div>
         <div class="stat-item">
-          <div class="stat-number">1000+</div>
-          <div class="stat-label" data-i18n="stats.stocks_analyzed">Actions analysées</div>
+          <div class="stat-number" data-counter="164200" data-suffix="+" data-format="short">164k+</div>
+          <div class="stat-label" data-i18n="stats.insider_tx">Transactions initiés agrégées</div>
         </div>
         <div class="stat-item">
-          <div class="stat-number">0-100</div>
-          <div class="stat-label" data-i18n="stats.kairos_score">Kairos Score composite</div>
+          <div class="stat-number" data-counter="37000" data-suffix="+" data-format="short">37k+</div>
+          <div class="stat-label" data-i18n="stats.activist_filings">13D/G fonds offensifs</div>
         </div>
         <div class="stat-item">
-          <div class="stat-number">7h</div>
-          <div class="stat-label" data-i18n="stats.daily_update">MàJ quotidienne (Paris)</div>
+          <div class="stat-number" data-counter="500" data-suffix="+">500+</div>
+          <div class="stat-label" data-i18n="stats.funds_tracked">Hedge funds trackés (13F)</div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ===== SOURCES DE DONNEES (bandeau "As seen on" version honnete) ===== -->
+  <!--
+    Plutot qu'un faux "Vu dans Yahoo Finance" (qu'on ne peut pas prouver),
+    on affiche les 7 SOURCES officielles qu'on agrege. Ca cree la credibilite
+    institutionnelle sans mensonge.
+  -->
+  <section class="data-sources-strip">
+    <div class="container">
+      <div class="sources-label" data-i18n="sources.label">Données officielles agrégées depuis</div>
+      <div class="sources-logos">
+        <div class="source-logo" title="Securities and Exchange Commission (SEC) — régulateur US">
+          <span class="source-ico">🇺🇸</span>
+          <span class="source-name">SEC EDGAR</span>
+        </div>
+        <div class="source-logo" title="Autorité des marchés financiers — régulateur français">
+          <span class="source-ico">🇫🇷</span>
+          <span class="source-name">AMF</span>
+        </div>
+        <div class="source-logo" title="BaFin — régulateur financier allemand">
+          <span class="source-ico">🇩🇪</span>
+          <span class="source-name">BaFin</span>
+        </div>
+        <div class="source-logo" title="Yahoo Finance — cours, fondamentaux, earnings">
+          <span class="source-ico">📊</span>
+          <span class="source-name">Yahoo Finance</span>
+        </div>
+        <div class="source-logo" title="StockAnalysis.com — statistiques étendues, health scores">
+          <span class="source-ico">📈</span>
+          <span class="source-name">StockAnalysis</span>
+        </div>
+        <div class="source-logo" title="Finnhub — consensus analystes">
+          <span class="source-ico">🎯</span>
+          <span class="source-name">Finnhub</span>
+        </div>
+        <div class="source-logo" title="CNN Business — Fear &amp; Greed Index">
+          <span class="source-ico">🌡️</span>
+          <span class="source-name">CNN F&amp;G</span>
+        </div>
+      </div>
+      <div class="sources-footnote" data-i18n="sources.footnote">Aucune donnée inventée. 100 % des signaux proviennent de régulateurs officiels ou de fournisseurs de marché reconnus.</div>
     </div>
   </section>
 
@@ -1503,6 +1767,63 @@
     </div>
   </section>
 
+  <!-- ===== POURQUOI KAIROS (story courte au nom du collectif) ===== -->
+  <!--
+    Au lieu d'un "About us" anonyme, on raconte la genese de Kairos a la 1ere
+    personne du pluriel. Photo de l'equipe / du lieu en illustration (pas de nom
+    individuel affiche). SIRET + Annecy = trust signal pro FR.
+  -->
+  <section class="section why-kairos" id="why" style="padding-top:60px">
+    <div class="container">
+      <div class="why-grid">
+        <div class="why-photo">
+          <!-- Placeholder : remplacer par photo carree 480x480 dans /assets/founder.jpg -->
+          <div class="why-photo-frame">
+            <img src="assets/founder.jpg" alt="L'équipe Kairos Insider" onerror="this.style.display='none';this.parentElement.classList.add('why-photo-fallback')" />
+            <div class="why-photo-placeholder">
+              <span class="why-photo-emoji">⚡</span>
+              <span class="why-photo-hint">Photo à remplacer<br/><code>assets/founder.jpg</code></span>
+            </div>
+          </div>
+          <div class="why-photo-caption">
+            <span class="why-flag">🇫🇷</span>
+            <span data-i18n="why.caption">Basé à Annecy · Indépendant</span>
+          </div>
+        </div>
+        <div class="why-content">
+          <span class="section-badge" data-i18n="why.badge">Notre mission</span>
+          <h2>
+            <span data-i18n="why.title_part1">Le smart money</span><br/>
+            <span class="gradient-text" data-i18n="why.title_part2">ne doit plus être un privilège.</span>
+          </h2>
+          <p class="why-para" data-i18n="why.p1">
+            Pendant des décennies, seuls les investisseurs institutionnels accédaient à la vraie data : les mouvements des initiés, les portefeuilles des hedge funds, les prises de contrôle activistes, les rotations ETF thématiques. Un Bloomberg Terminal coûte <strong>24 000 € par an</strong>. WhaleWisdom n'est qu'en anglais, aride, réservé aux pros.
+          </p>
+          <p class="why-para" data-i18n="why.p2">
+            <strong>Chez Kairos Insider</strong>, on a construit l'outil qu'on aurait voulu avoir comme investisseurs retail : agréger en temps réel les signaux officiels de la SEC, l'AMF et la BaFin, les traduire en français, les synthétiser via un score composite transparent (<strong>Kairos Score 0-100</strong> sur 8 dimensions), et les rendre accessibles à <strong>19 €/mois</strong> — 126 fois moins cher qu'un terminal pro.
+          </p>
+          <p class="why-para" data-i18n="why.p3">
+            On ne donne pas de recommandations d'achat. On agrège la data publique que les institutionnels lisent depuis toujours, et on la rend lisible. <strong>À toi de décider.</strong>
+          </p>
+          <div class="why-trust">
+            <div class="why-trust-item">
+              <div class="why-trust-label" data-i18n="why.trust_siret">SIRET</div>
+              <div class="why-trust-value">938 381 928 00010</div>
+            </div>
+            <div class="why-trust-item">
+              <div class="why-trust-label" data-i18n="why.trust_location">Siège</div>
+              <div class="why-trust-value" data-i18n="why.trust_location_val">Annecy, France</div>
+            </div>
+            <div class="why-trust-item">
+              <div class="why-trust-label" data-i18n="why.trust_support">Support</div>
+              <div class="why-trust-value"><a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== PRICING ===== -->
   <section class="section" id="pricing" style="padding-top:60px">
     <div class="container">
@@ -1594,6 +1915,45 @@
       <!-- Ancrage psychologique -->
       <div style="max-width:760px;margin:36px auto 0;padding:18px 24px;background:rgba(116,185,255,0.05);border:1px solid rgba(116,185,255,0.18);border-radius:12px;text-align:center;font-size:14px;color:var(--text-muted);line-height:1.7">
         💡 <strong style="color:var(--text-primary)">Bloomberg Terminal : 24 000 €/an</strong> · Kairos Pro : <strong style="color:#74b9ff">190 €/an</strong> · <strong style="color:#10B981">126× moins cher</strong> pour 90% du signal smart money.
+      </div>
+
+      <!-- Trust badges : levier psychologique juste avant la decision d'achat -->
+      <div class="trust-badges">
+        <div class="trust-badge">
+          <span class="trust-ico">🇫🇷</span>
+          <div class="trust-text">
+            <strong data-i18n="trust.france">Basé en France</strong>
+            <span data-i18n="trust.france_sub">Annecy · SIRET vérifiable</span>
+          </div>
+        </div>
+        <div class="trust-badge">
+          <span class="trust-ico">🛡️</span>
+          <div class="trust-text">
+            <strong data-i18n="trust.rgpd">RGPD compliant</strong>
+            <span data-i18n="trust.rgpd_sub">Suppression &amp; export en 1 clic</span>
+          </div>
+        </div>
+        <div class="trust-badge">
+          <span class="trust-ico">💳</span>
+          <div class="trust-text">
+            <strong data-i18n="trust.stripe">Paiements Stripe</strong>
+            <span data-i18n="trust.stripe_sub">PSD2 + 3DS2 chiffrés</span>
+          </div>
+        </div>
+        <div class="trust-badge">
+          <span class="trust-ico">🔒</span>
+          <div class="trust-text">
+            <strong data-i18n="trust.security">Sécurité renforcée</strong>
+            <span data-i18n="trust.security_sub">CSP, HSTS, webhooks signés</span>
+          </div>
+        </div>
+        <div class="trust-badge">
+          <span class="trust-ico">↩️</span>
+          <div class="trust-text">
+            <strong data-i18n="trust.cancel">Annulation 1 clic</strong>
+            <span data-i18n="trust.cancel_sub">Via portail Stripe, sans friction</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -1818,6 +2178,52 @@
     window.addEventListener('scroll', () => {
       if (window.scrollY > 20) nav.classList.add('scrolled');
       else nav.classList.remove('scrolled');
+    });
+
+    // ===== ANIMATED COUNTERS (preuve sociale) =====
+    // Anime les chiffres du stats-bar au premier scroll dans la viewport.
+    // Format : 164200 -> "164k+" (si data-format="short" et > 1000) ou
+    //          3349 -> "3 349" (espaces francais, classique).
+    function formatCounter(n, mode) {
+      if (mode === 'short') {
+        if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+        return String(n);
+      }
+      // Mode par defaut : espaces milliers a la francaise
+      return new Intl.NumberFormat('fr-FR').format(Math.round(n));
+    }
+    function animateCounter(el) {
+      const target = parseFloat(el.getAttribute('data-counter')) || 0;
+      const suffix = el.getAttribute('data-suffix') || '';
+      const mode = el.getAttribute('data-format') || 'full';
+      const duration = 1500;
+      const start = performance.now();
+      function tick(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        // Easing ease-out-cubic pour un rendu plus naturel
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = target * eased;
+        el.textContent = formatCounter(current, mode) + suffix;
+        if (progress < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+    // Observer : declenche l'animation au 1er scroll dans le viewport
+    document.addEventListener('DOMContentLoaded', () => {
+      const counters = document.querySelectorAll('[data-counter]');
+      if (!counters.length || !('IntersectionObserver' in window)) return;
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting && !e.target.dataset.animated) {
+            e.target.dataset.animated = '1';
+            animateCounter(e.target);
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.3 });
+      counters.forEach(c => io.observe(c));
     });
 
     // Pricing toggle Mensuel / Annuel
