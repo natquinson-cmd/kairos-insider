@@ -207,6 +207,31 @@ Impact : valeur visuelle immédiate, clics profil ×3-4 vs commentaire texte, wa
 
 Sur les 10 comptes Tier 1 (liste ci-dessus) : activer la cloche X → notification push dès qu'ils postent → réactivité 15 min.
 
+##### 🤖 Automation : email "Digest commentaires" chaque matin 7h45 Paris
+
+Depuis le 24 avril 2026, un cron GitHub Actions (`daily-comment-digest.yml`, lun-ven 5h45 UTC) scrape automatiquement les tweets des **15 handles cibles** (Tier 1 + 2 + 3) et envoie un email à l'admin avec :
+
+1. **Les tweets < 12h** de chaque handle
+2. **Les tickers détectés** dans chaque tweet (regex `$XXXX`, filtre blacklist `USD/EUR/AI/CEO/…`)
+3. **Le Kairos Score** de chaque ticker (lu depuis le cache KV)
+4. **Un template de commentaire suggéré** adapté au score :
+   - Score ≥75 (ACHAT FORT) → *"Confirmé par la data : Kairos Score $XYZ = 78/100 (ACHAT FORT)…"*
+   - Score ≥60 (ACHAT) → *"Kairos Score sur $XYZ = 65/100 (ACHAT). Smart money légèrement positif…"*
+   - Score 40-59 (NEUTRE) → *"Kairos Score = 52/100 (NEUTRE). Pas de signal smart money tranché…"*
+   - Score 25-39 (VENTE) → *"Attention : Kairos Score = 30/100 (VENTE). Insiders + fonds négatifs…"*
+   - Score <25 (VENTE FORTE) → *"Red flag sur $XYZ : Kairos Score = 15/100 (VENTE FORTE)…"*
+5. **Un bouton "💬 Ouvrir pour commenter"** qui ouvre le tweet sur X prêt à être commenté
+
+**Source des tweets** : `syndication.twitter.com` (endpoint utilisé par les widgets embed officiels X — gratuit, sans auth). Cache KV 30 min par handle pour éviter le rate limit 429.
+
+**Endpoints worker** :
+- `GET /api/admin/comment-digest` — preview JSON (sans envoi)
+- `POST /api/admin/comment-digest/email` — envoi email Brevo (appelé par le cron)
+
+**Bouton dashboard admin** : 💬 **Digest commentaires** (dans l'en-tête de la section admin) — envoie immédiatement le digest si besoin de test manuel.
+
+**Résultat concret** : à 7h50 chaque matin tu as un email avec 10-20 tweets prêts à commenter, le commentaire est déjà rédigé avec de la data Kairos, tu cliques, tu modifies légèrement si besoin, tu postes. **Temps total : ~15-20 min** pour 10 commentaires vs 45 min en scroll manuel.
+
 ##### Benchmark mensuel (tracker dans un Google Sheet)
 
 | Métrique | Cible après 1 mois | Cible après 3 mois |

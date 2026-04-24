@@ -480,6 +480,14 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'GET' && path === '/api/admin/score-anomalies') {
           return handleScoreAnomaliesList(url, env, origin);
         }
+        // Comment digest : scrape 15 handles cibles + tickers + Kairos Score
+        // GET : preview JSON / POST : envoie email HTML admin avec templates commentaires
+        if (request.method === 'GET' && path === '/api/admin/comment-digest') {
+          return handleCommentDigestPreview(env, origin);
+        }
+        if (request.method === 'POST' && path === '/api/admin/comment-digest/email') {
+          return handleCommentDigestEmail(request, env, origin);
+        }
         // Typefully (optionnel, necessite plan payant) — garde pour futur si upgrade
         if (request.method === 'POST' && path === '/api/admin/typefully/push') {
           return handleTypefullyPush(request, env, origin);
@@ -4833,6 +4841,469 @@ async function handleScoreAnomaliesList(url, env, origin) {
     return jsonResponse({ anomalies: rows, days, since: sinceStr }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// COMMENT DIGEST : scrape les 15 handles X cibles et propose des
+// commentaires data-driven basés sur le Kairos Score des tickers cités.
+// ============================================================
+// Envoyé chaque matin 7h45 Paris à l'admin. Pour chaque tweet récent (<12h)
+// des comptes cibles, extrait les tickers mentionnes ($AAPL, $NVDA...) et
+// joint le Kairos Score. Propose un template de commentaire adapte au score.
+//
+// Source : RSSHub public instance (rsshub.app) — RSS gratuit pour X sans API key.
+// Fallback : nitter instances si rsshub down.
+
+// Configuration : les 15 handles cibles (cf. MARKETING.md § 3.bis)
+const COMMENT_TARGETS = [
+  // Tier 1 — FinTwit FR 5k-50k (priorite haute)
+  { handle: 'LeMario_Invest', tier: 1, lang: 'fr' },
+  { handle: 'finary_fr', tier: 1, lang: 'fr' },
+  { handle: 'avenue_invest', tier: 1, lang: 'fr' },
+  { handle: 'TraderSensible', tier: 1, lang: 'fr' },
+  { handle: 'stephane_finance', tier: 1, lang: 'fr' },
+  { handle: 'MatthieuLouvet', tier: 1, lang: 'fr' },
+  { handle: 'petit_porteur_', tier: 1, lang: 'fr' },
+  { handle: 'cafebourse', tier: 1, lang: 'fr' },
+  // Tier 2 — Macro/finance grand public FR
+  { handle: 'XavierDelmas', tier: 2, lang: 'fr' },
+  // Tier 3 — FinTwit US (angle FR insiders EU)
+  { handle: 'unusual_whales', tier: 3, lang: 'en' },
+  { handle: 'TheTranscript_', tier: 3, lang: 'en' },
+  { handle: 'QCompounding', tier: 3, lang: 'en' },
+  { handle: 'pelosi_tracker_', tier: 3, lang: 'en' },
+  { handle: 'QuiverQuant', tier: 3, lang: 'en' },
+  { handle: 'StockAnalysis', tier: 3, lang: 'en' },
+];
+
+// Regex ticker : $XXXX (1-5 lettres maj) — evite les faux positifs comme $10, $EUR
+const TICKER_REGEX = /\$([A-Z]{1,5})\b/g;
+
+// Blacklist des "faux tickers" courants (monnaies, unites, etc.)
+const TICKER_BLACKLIST = new Set([
+  'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'CHF', 'CAD',
+  'AI', 'CEO', 'CFO', 'IPO', 'ETF', 'YTD', 'EPS', 'ATH', 'ATL',
+]);
+
+// Decode les entites HTML basiques dans le texte XML des RSS feeds
+function decodeHtmlEntities(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/<[^>]+>/g, '')   // Strip tags HTML (souvent <br>, <a>, <img>)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Parser XML naïf : on extrait tous les <item>...</item> d'un feed RSS et
+// pour chaque item ses <title>, <description>, <pubDate>, <link>.
+// Pas de dependance XML (Cloudflare Workers n'a pas DOMParser). Regex suffit.
+function parseRssItems(xml, maxItems = 10) {
+  const items = [];
+  const itemRegex = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
+  let match;
+  while ((match = itemRegex.exec(xml)) && items.length < maxItems) {
+    const block = match[1];
+    const extract = (tag) => {
+      const m = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i').exec(block);
+      if (!m) return '';
+      // CDATA : <![CDATA[...]]>
+      const cdata = /<!\[CDATA\[([\s\S]*?)\]\]>/.exec(m[1]);
+      return cdata ? cdata[1] : m[1];
+    };
+    const title = decodeHtmlEntities(extract('title'));
+    const description = decodeHtmlEntities(extract('description'));
+    const pubDate = extract('pubDate').trim();
+    const link = extract('link').trim();
+    const guid = extract('guid').trim();
+    // Le "texte" du tweet est soit le title, soit la description (certains RSS)
+    const content = description && description.length > title.length ? description : title;
+    items.push({ content, pubDate, link: link || guid, guid });
+  }
+  return items;
+}
+
+// Extrait les tickers mentionnes dans un texte, filtre la blacklist
+function extractTickers(text) {
+  const tickers = new Set();
+  if (!text) return [];
+  let m;
+  TICKER_REGEX.lastIndex = 0;
+  while ((m = TICKER_REGEX.exec(text))) {
+    const ticker = m[1].toUpperCase();
+    if (!TICKER_BLACKLIST.has(ticker) && ticker.length >= 1 && ticker.length <= 5) {
+      tickers.add(ticker);
+    }
+  }
+  return Array.from(tickers);
+}
+
+// Fetch les tweets recents d'un handle X via syndication.twitter.com
+// (endpoint utilise par les widgets embed officiels Twitter/X — gratuit, sans auth).
+// Le HTML retourne contient un <script id="__NEXT_DATA__"> avec tous les tweets.
+// Cache KV 30 min par handle pour eviter le rate limit sur les refresh admin.
+async function fetchTweetsFromHandle(handle, env) {
+  const cacheKey = `x-synd:${handle}`;
+  const CACHE_TTL_SEC = 30 * 60;
+
+  // Tentative cache
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL_SEC * 1000) {
+      return cached.items || [];
+    }
+  } catch {}
+
+  try {
+    const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false&showPinnedTweet=false`;
+    const resp = await fetchWithRetryIndex(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    }, { retries: 1, backoffMs: 500, timeoutMs: 10000 });
+    if (!resp || !resp.ok) {
+      // Si 429, on retourne le cache meme expire plutot que rien
+      try {
+        const stale = await env.CACHE.get(cacheKey, 'json');
+        if (stale && stale.items) return stale.items;
+      } catch {}
+      return [];
+    }
+    const html = await resp.text();
+    if (!html || html.length < 1000) return [];
+
+    // Extraction du blob JSON __NEXT_DATA__
+    const nextMatch = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(html);
+    if (!nextMatch) return [];
+    let data;
+    try { data = JSON.parse(nextMatch[1]); } catch { return []; }
+
+    const entries = data?.props?.pageProps?.timeline?.entries || [];
+    const items = [];
+    for (const entry of entries) {
+      if (items.length >= 5) break;
+      const tweet = entry?.content?.tweet;
+      if (!tweet) continue;
+      // Skip retweets simples (chez Twitter syndication, les RT ont parfois
+      // un champ 'retweeted_status' distinct. Le full_text commence par "RT @...")
+      const fullText = tweet.full_text || tweet.text || '';
+      if (/^RT\s*@/i.test(fullText)) continue;
+      items.push({
+        content: fullText,
+        pubDate: tweet.created_at || null,
+        link: tweet.permalink
+          ? `https://twitter.com${tweet.permalink}`
+          : `https://twitter.com/${handle}/status/${tweet.id_str}`,
+        guid: tweet.id_str || '',
+      });
+    }
+
+    // Cache les resultats
+    try {
+      await env.CACHE.put(cacheKey, JSON.stringify({ items, _cachedAt: Date.now() }), { expirationTtl: CACHE_TTL_SEC * 2 });
+    } catch {}
+
+    return items;
+  } catch (e) {
+    // Handle inexistant ou syndication bloque ce handle
+    return [];
+  }
+}
+
+// Helper fetch avec retry + timeout (pas de dependance sur stock-api.js helper
+// car celui-la utilise AbortController pas dispo partout. Version simplifiee ici)
+async function fetchWithRetryIndex(url, init = {}, { retries = 1, backoffMs = 300, timeoutMs = 8000 } = {}) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      const resp = await fetch(url, { ...init, signal: ctrl.signal });
+      clearTimeout(t);
+      if (resp.ok) return resp;
+      if (attempt < retries && (resp.status >= 500 || resp.status === 429)) {
+        await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+        continue;
+      }
+      return resp;
+    } catch (e) {
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+        continue;
+      }
+    }
+  }
+  return null;
+}
+
+// Recupere le Kairos Score d'un ticker depuis le cache KV (rapide, sinon skip)
+async function getKairosScoreFromCache(ticker, env) {
+  try {
+    // Le cache stock-analysis:TICKER:full:1y contient le score complet
+    // mais il est gros. On tente plutot stock-analysis:TICKER:pub:1y (publicView tronque)
+    // puis on lit juste le champ score.total
+    const keys = [
+      `stock-analysis:${ticker}:full:1y`,
+      `stock-analysis:${ticker}:pub:1y`,
+    ];
+    for (const key of keys) {
+      const cached = await env.CACHE.get(key, 'json');
+      if (cached && cached.score) {
+        return {
+          total: cached.score.total,
+          signal: cached.score.signal,
+          signalColor: cached.score.signalColor,
+          cached: true,
+        };
+      }
+    }
+    return null; // pas en cache : on ne force pas le fetch pour le digest (coute cher)
+  } catch (e) {
+    return null;
+  }
+}
+
+// Template de commentaire base sur le score
+function generateCommentTemplate(ticker, score, tweetLang) {
+  if (!score || score.total == null) {
+    return tweetLang === 'en'
+      ? `Check the Kairos Score for $${ticker} here: kairosinsider.fr/a/${ticker}`
+      : `Le Kairos Score pour $${ticker} : kairosinsider.fr/a/${ticker}`;
+  }
+  const s = score.total;
+  const sig = score.signal || '';
+  if (tweetLang === 'en') {
+    if (s >= 75) return `Confirmed : Kairos Score on $${ticker} = ${s}/100 (STRONG BUY). Insiders + 13F funds are aligned. kairosinsider.fr/a/${ticker}`;
+    if (s >= 60) return `Kairos Score on $${ticker} = ${s}/100 (BUY). Smart money slightly positive, worth watching. kairosinsider.fr/a/${ticker}`;
+    if (s >= 40) return `Kairos Score = ${s}/100 (NEUTRAL) on $${ticker}. No strong smart money signal either way. kairosinsider.fr/a/${ticker}`;
+    if (s >= 25) return `Careful : Kairos Score on $${ticker} = ${s}/100 (SELL). Insiders + funds leaning negative. kairosinsider.fr/a/${ticker}`;
+    return `Red flag : $${ticker} Kairos Score = ${s}/100 (STRONG SELL). Insider selling + fund outflows aligned. kairosinsider.fr/a/${ticker}`;
+  }
+  // FR
+  if (s >= 75) return `Confirmé par la data : Kairos Score $${ticker} = ${s}/100 (ACHAT FORT). Insiders + hedge funds alignés. kairosinsider.fr/a/${ticker}`;
+  if (s >= 60) return `Kairos Score sur $${ticker} = ${s}/100 (ACHAT). Smart money légèrement positif, à surveiller. kairosinsider.fr/a/${ticker}`;
+  if (s >= 40) return `Kairos Score = ${s}/100 (NEUTRE) sur $${ticker}. Pas de signal smart money tranché. kairosinsider.fr/a/${ticker}`;
+  if (s >= 25) return `Attention : Kairos Score $${ticker} = ${s}/100 (VENTE). Insiders + fonds négatifs. kairosinsider.fr/a/${ticker}`;
+  return `Red flag sur $${ticker} : Kairos Score = ${s}/100 (VENTE FORTE). Ventes insiders + sorties de fonds alignées. kairosinsider.fr/a/${ticker}`;
+}
+
+// Genere le digest complet : parcourt les 15 handles, detecte les tickers,
+// enrichit avec le Kairos Score, propose un commentaire.
+async function generateCommentDigest(env, { maxAgeHours = 12 } = {}) {
+  const now = Date.now();
+  const cutoff = now - maxAgeHours * 3600 * 1000;
+
+  // Fetch les tweets handle par handle, batched par 3 pour etaler la charge
+  // sur syndication.twitter.com (evite 429). Le cache KV 30 min limite
+  // aussi les appels reels a ~2/jour par handle.
+  const BATCH_SIZE = 3;
+  const results = [];
+  for (let i = 0; i < COMMENT_TARGETS.length; i += BATCH_SIZE) {
+    const batch = COMMENT_TARGETS.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (target) => ({
+        target,
+        items: await fetchTweetsFromHandle(target.handle, env),
+      }))
+    );
+    results.push(...batchResults);
+    // Pause 300ms entre batches sauf au dernier
+    if (i + BATCH_SIZE < COMMENT_TARGETS.length) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+
+  // Aplatit + filtre par age
+  const fresh = [];
+  for (const { target, items } of results) {
+    for (const item of items) {
+      const pub = item.pubDate ? new Date(item.pubDate).getTime() : null;
+      if (pub && pub < cutoff) continue; // trop vieux
+      // Filtre les retweets simples (RT @...) pour focus sur contenu original
+      if (/^RT\s*@/i.test(item.content)) continue;
+      const tickers = extractTickers(item.content);
+      if (!tickers.length) continue; // pas de ticker = pas commentable avec Kairos
+      fresh.push({
+        handle: target.handle,
+        tier: target.tier,
+        lang: target.lang,
+        tweet: item.content.slice(0, 300),
+        fullContent: item.content,
+        pubDate: item.pubDate,
+        ageHours: pub ? (now - pub) / (3600 * 1000) : null,
+        link: item.link,
+        tickers,
+      });
+    }
+  }
+
+  // Collecte les tickers uniques pour batch Kairos Score lookup
+  const allTickers = new Set();
+  for (const f of fresh) f.tickers.forEach(t => allTickers.add(t));
+
+  // Batch Kairos Score (depuis KV cache uniquement, rapide)
+  const scoreMap = {};
+  await Promise.all(
+    Array.from(allTickers).map(async (t) => {
+      scoreMap[t] = await getKairosScoreFromCache(t, env);
+    })
+  );
+
+  // Construit le digest final, trie par tier + recence
+  const digest = fresh.map(f => ({
+    ...f,
+    scores: f.tickers.map(t => ({ ticker: t, score: scoreMap[t] })),
+    // Focus sur le ticker avec le plus gros score (soit tres haut, soit tres bas)
+    // car c'est la ou on a le plus de valeur a ajouter en commentaire
+    primaryTicker: f.tickers.reduce((best, t) => {
+      const s = scoreMap[t];
+      if (!s || s.total == null) return best;
+      if (!best || Math.abs(s.total - 50) > Math.abs((best.score?.total ?? 50) - 50)) {
+        return { ticker: t, score: s };
+      }
+      return best;
+    }, null),
+  })).filter(d => d.primaryTicker != null)
+    .sort((a, b) => a.tier - b.tier || a.ageHours - b.ageHours);
+
+  // Genere les templates de commentaire pour chaque primary ticker
+  for (const d of digest) {
+    d.suggestedComment = generateCommentTemplate(d.primaryTicker.ticker, d.primaryTicker.score, d.lang);
+  }
+
+  return {
+    digest: digest.slice(0, 20),  // max 20 tweets dans l'email
+    totalTweetsScanned: results.reduce((s, r) => s + r.items.length, 0),
+    totalTweetsWithTickers: fresh.length,
+    totalUniqueTickers: allTickers.size,
+    handlesScanned: COMMENT_TARGETS.length,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+async function handleCommentDigestPreview(env, origin) {
+  try {
+    const data = await generateCommentDigest(env);
+    return jsonResponse(data, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'digest failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+async function handleCommentDigestEmail(request, env, origin) {
+  if (!env.BREVO_API_KEY) {
+    return jsonResponse({ error: 'BREVO_API_KEY not configured' }, 500, origin);
+  }
+  try {
+    const url = new URL(request.url);
+    const to = url.searchParams.get('to') || ADMIN_EMAILS[0];
+    const data = await generateCommentDigest(env);
+    const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' });
+
+    const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const urlEncode = (s) => encodeURIComponent(String(s || ''));
+
+    const scoreBadge = (score) => {
+      if (!score || score.total == null) return '<span style="font-size:11px;color:#9CA3AF">— pas en cache</span>';
+      const s = score.total;
+      const color = s >= 75 ? '#10B981' : s >= 60 ? '#84CC16' : s >= 40 ? '#9CA3AF' : s >= 25 ? '#F59E0B' : '#EF4444';
+      const label = score.signal || (s >= 75 ? 'ACHAT FORT' : s >= 60 ? 'ACHAT' : s >= 40 ? 'NEUTRE' : s >= 25 ? 'VENTE' : 'VENTE FORTE');
+      return `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:6px;font-size:11px;font-weight:700">${s}/100 · ${label}</span>`;
+    };
+
+    const tierLabel = (tier) => {
+      return tier === 1 ? '<span style="color:#EC4899;font-weight:700">T1 FR</span>'
+           : tier === 2 ? '<span style="color:#8B5CF6;font-weight:700">T2 FR</span>'
+           : tier === 3 ? '<span style="color:#3B82F6;font-weight:700">T3 EN</span>'
+           : 'T?';
+    };
+
+    const cards = data.digest.map((d, i) => {
+      const pubTime = d.pubDate ? new Date(d.pubDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '?';
+      const ageStr = d.ageHours != null ? `il y a ${d.ageHours < 1 ? Math.round(d.ageHours * 60) + ' min' : Math.round(d.ageHours) + 'h'}` : '';
+      const tickersHtml = d.scores.map(s =>
+        `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+          <a href="https://kairosinsider.fr/a/${esc(s.ticker)}" style="color:#3B82F6;text-decoration:none;font-weight:700;font-family:monospace;font-size:13px">$${esc(s.ticker)}</a>
+          ${scoreBadge(s.score)}
+        </div>`
+      ).join('');
+      const xIntent = `https://x.com/intent/tweet?in_reply_to=${urlEncode(d.link.split('/').pop() || '')}&text=${urlEncode(d.suggestedComment)}`;
+      const replyBtn = `<a href="${esc(d.link)}" style="display:inline-block;padding:6px 14px;background:#1DA1F2;color:#fff !important;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600">💬 Ouvrir pour commenter</a>`;
+      return `
+<div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px;margin-bottom:14px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+    <div style="font-size:13px">
+      <a href="https://x.com/${esc(d.handle)}" style="color:#F9FAFB;font-weight:700;text-decoration:none">@${esc(d.handle)}</a>
+      <span style="color:#9CA3AF;margin:0 6px">·</span>
+      ${tierLabel(d.tier)}
+      <span style="color:#9CA3AF;margin:0 6px">·</span>
+      <span style="color:#9CA3AF;font-size:11px">${esc(pubTime)} · ${esc(ageStr)}</span>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF">#${i + 1}</div>
+  </div>
+  <div style="background:#0A0F1E;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px;color:#F9FAFB;font-size:13px;line-height:1.5;margin-bottom:12px">${esc(d.tweet)}${d.fullContent.length > 300 ? ' <span style="color:#9CA3AF">[…]</span>' : ''}</div>
+  <div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.15);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+    <div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:600">Tickers détectés</div>
+    ${tickersHtml}
+  </div>
+  <div style="background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.3);border-radius:8px;padding:12px;margin-bottom:12px">
+    <div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:600">💬 Commentaire suggéré (${esc(d.primaryTicker.ticker)})</div>
+    <div style="font-size:13px;color:#F9FAFB;line-height:1.5;font-style:italic">${esc(d.suggestedComment)}</div>
+  </div>
+  <div style="text-align:right">${replyBtn}</div>
+</div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Kairos · Digest commentaires X</title></head>
+<body style="margin:0;padding:24px 12px;background:#0A0F1E;color:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:720px;margin:0 auto">
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#F9FAFB;margin-bottom:4px">💬 Kairos · Digest commentaires X</div>
+    <div style="font-size:13px;color:#9CA3AF">${today}</div>
+  </div>
+  <div style="background:#111827;border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#CBD5E1;line-height:1.6">
+    <strong style="color:#F9FAFB">🎯 ${data.digest.length} tweet${data.digest.length > 1 ? 's' : ''} commentable${data.digest.length > 1 ? 's' : ''}</strong>
+    sur ${data.totalTweetsScanned} tweets scannés (${data.handlesScanned} handles, ${data.totalUniqueTickers} tickers uniques).<br>
+    Routine : clique sur <strong style="color:#1DA1F2">💬 Ouvrir pour commenter</strong> → paste le commentaire suggéré → poste dans les 30 min pour être en haut du thread.
+  </div>
+  ${cards || '<div style="padding:40px;text-align:center;color:#9CA3AF;background:#111827;border-radius:12px">Aucun tweet commentable détecté ce matin.<br>Scroll manuel Tier 1 + Tier 3 requis aujourd\'hui.</div>'}
+  <div style="margin-top:24px;padding:14px;background:#111827;border:1px solid rgba(255,255,255,0.05);border-radius:10px;font-size:12px;color:#9CA3AF;text-align:center;line-height:1.6">
+    Envoyé par Kairos Insider · <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;font-size:11px">daily-comment-digest.yml</code><br>
+    <a href="https://kairosinsider.fr/dashboard.html" style="color:#3B82F6;text-decoration:none">Dashboard</a> · <a href="https://x.com/KairosInsider" style="color:#3B82F6;text-decoration:none">@KairosInsider</a>
+  </div>
+</div></body></html>`;
+
+    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+        to: [{ email: to }],
+        subject: `💬 Kairos · ${data.digest.length} tweet${data.digest.length > 1 ? 's' : ''} à commenter (${today})`,
+        htmlContent: html,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      log.warn('comment-digest.email.brevo.fail', { status: resp.status, detail: errText.slice(0, 200) });
+      return jsonResponse({ error: 'Brevo API failed', status: resp.status, detail: errText.slice(0, 500) }, 502, origin);
+    }
+    log.info('comment-digest.email.sent', { to, count: data.digest.length, scanned: data.totalTweetsScanned });
+    return jsonResponse({ ok: true, sent: true, to, ...data }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'email send failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

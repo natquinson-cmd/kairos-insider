@@ -54,6 +54,8 @@ Objectif : éliminer les faux mouvements du Kairos Score (observé : ACN +23 pts
 
 ✅ **Stratégie engagement commentaires** documentée dans `MARKETING.md` (4 tiers de profils + 4 types de commentaires + routine 6-10/jour)
 
+✅ **Automation digest commentaires** (24 avr 2026) : cron `daily-comment-digest.yml` lun-ven 5h45 UTC (7h45 Paris) scrape 15 handles X via `syndication.twitter.com` · détection tickers + jointure Kairos Score + templates de commentaires adaptés au score · email Brevo avec boutons "💬 Ouvrir pour commenter" · bouton admin dashboard pour test manuel · cache KV 30 min par handle
+
 ---
 
 ## 🎯 Refonte Signaux Insiders (21 avr 2026)

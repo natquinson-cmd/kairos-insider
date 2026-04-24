@@ -273,6 +273,14 @@ En plus de `update-13f.yml` (pipeline data principal 7h UTC), deux workflows cro
 - Envoie un email HTML à l'admin via Brevo avec cards + bouton "Poster sur X"
 - Budget : ~3 min/run, minimal
 
+**`.github/workflows/daily-comment-digest.yml`** (5h45 UTC = 7h45 Paris, lun-ven) :
+- Appelle `POST /api/admin/comment-digest/email`
+- Le worker `generateCommentDigest(env)` scrape 15 handles X via `syndication.twitter.com` (endpoint public utilisé par les widgets embed officiels)
+- Extrait les tickers mentionnés (`$XXXX` regex + blacklist), joint le Kairos Score depuis KV cache, propose un template de commentaire adapté au score
+- Envoie un email récap à l'admin avec cards "Ouvrir pour commenter"
+- Cache KV 30 min par handle (`x-synd:{handle}`) pour éviter 429 rate limit
+- Lun-ven uniquement (week-end = X moins actif)
+
 **`.github/workflows/backup.yml`** (7h UTC — Priorité 5) :
 - Exporte D1 → R2 via `wrangler d1 export`
 - Snapshot les clés KV critiques → R2
@@ -512,6 +520,8 @@ Toutes les routes `/api/*` et `/stripe/*` demandent un header `Authorization: Be
 - `GET /api/admin/debug-user?uid=…` — diagnostic Stripe d'un utilisateur (cascade re-hydration)
 - `GET /api/admin/daily-tweets` — preview des 3 tweets générés aujourd'hui (sans envoi)
 - `POST /api/admin/daily-tweets/email?to=…` — envoie l'email HTML avec les tweets du jour via Brevo
+- `GET /api/admin/comment-digest` — preview du digest des commentaires X à faire (15 handles scrapés via syndication.twitter.com, tickers détectés, Kairos Score joint)
+- `POST /api/admin/comment-digest/email?to=…` — envoie l'email HTML digest (appelé par le cron `daily-comment-digest.yml` lun-ven 5h45 UTC)
 - `POST /api/admin/score-anomalies` — **pipeline report endpoint** : le cron Python POST le rapport quotidien (anomalies ≥20pt + trigger circuit breaker) → persistence D1 + email admin
 - `GET /api/admin/score-anomalies?days=30` — liste les anomalies récentes pour le panel admin
 

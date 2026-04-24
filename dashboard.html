@@ -4467,6 +4467,7 @@
           <button onclick="loadAdminDashboard(true)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
           <button onclick="previewDailyTweets()" class="tip" data-tip="Preview les 3 tweets que le worker génère aujourd'hui à partir des signaux Kairos (sans envoi)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid rgba(29,161,242,0.4);border-radius:6px;color:#1DA1F2;cursor:pointer;margin-left:4px">🐦 Preview tweets</button>
           <button onclick="sendTweetsEmail()" class="tip" data-tip="Envoie immédiatement un email avec les 3 tweets du jour (même contenu que celui envoyé auto chaque matin 8h30)" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">📧 Email tweets</button>
+          <button onclick="sendCommentDigestEmail()" class="tip" data-tip="Envoie immédiatement le digest des tweets X à commenter (15 handles cibles + tickers + Kairos Score). Cron auto : lun-ven 7h45 Paris" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#EC4899,#F59E0B);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">💬 Digest commentaires</button>
         </div>
         <p class="section-desc">Monitoring interne de la plateforme. Acces limite a ton email.</p>
 
@@ -14184,6 +14185,22 @@
         const data = await apiFetch('/api/admin/daily-tweets/email', {}, 'POST');
         if (data.error) return Toast.error('Erreur: ' + data.error);
         Toast.success(`✓ Email envoyé à ${data.to || 'admin'} (${data.tweets || 0} tweets)`);
+      } catch (e) {
+        Toast.error('Erreur: ' + (e.message || 'envoi échoué'));
+      }
+    }
+
+    // Envoie le digest des commentaires X à faire (scrape 15 handles cibles)
+    async function sendCommentDigestEmail() {
+      if (!currentUser) return Toast.error('Pas authentifié.');
+      if (!confirm('Envoyer le digest des commentaires X à ton email admin ? (scrape 15 handles, ~15s)')) return;
+      Toast.info('Scan des 15 handles en cours... (~15s)');
+      try {
+        const data = await apiFetch('/api/admin/comment-digest/email', {}, 'POST');
+        if (data.error) return Toast.error('Erreur: ' + data.error);
+        const count = (data.digest || []).length;
+        const scanned = data.totalTweetsScanned || 0;
+        Toast.success(`✓ Digest envoyé : ${count} tweets à commenter sur ${scanned} scannés`);
       } catch (e) {
         Toast.error('Erreur: ' + (e.message || 'envoi échoué'));
       }

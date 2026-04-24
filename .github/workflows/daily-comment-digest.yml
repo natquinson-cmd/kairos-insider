@@ -1,0 +1,50 @@
+name: Daily Comment Digest → Email
+
+# Envoie chaque matin 7h45 Paris un email avec :
+# - Les derniers tweets (<12h) des 15 comptes X cibles (Tier 1 FR + Tier 3 US)
+# - Les tickers detectes dans ces tweets ($AAPL, $NVDA, etc.)
+# - Le Kairos Score actuel de chaque ticker
+# - Un template de commentaire suggere pour chaque tweet
+#
+# Objectif : aider Nat a commenter de maniere data-driven 6-10 fois par jour
+# sur les gros comptes FinTwit FR/US (strategie engagement cf. MARKETING.md § 3.bis)
+#
+# Pre-requis GitHub Secrets :
+# - KAIROS_ADMIN_API_KEY : meme valeur que le secret ADMIN_API_KEY du worker
+
+on:
+  schedule:
+    # 5h45 UTC = 7h45 Paris (ete) / 6h45 Paris (hiver)
+    # Tourne APRES daily-tweets (6h30 UTC) pour que la journee start a 7h45
+    # avec les 3 tweets a publier + les 20 tweets a commenter.
+    - cron: '45 5 * * 1-5'   # lundi-vendredi uniquement (week-end X moins actif)
+  workflow_dispatch:  # run manuel
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send comment digest email via Brevo
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+          WORKER_URL: https://kairos-insider-api.natquinson.workers.dev
+        run: |
+          if [ -z "$ADMIN_API_KEY" ]; then
+            echo "::warning::KAIROS_ADMIN_API_KEY not set — skipping."
+            exit 0
+          fi
+          echo "Calling /api/admin/comment-digest/email..."
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "X-Admin-API-Key: $ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            "${WORKER_URL}/api/admin/comment-digest/email")
+          status_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          echo "HTTP $status_code"
+          echo "$body" | head -c 500
+          if [ "$status_code" != "200" ]; then
+            echo "::error::Digest send failed (HTTP $status_code)"
+            exit 1
+          fi
+          echo ""
+          echo "::notice::Comment digest envoyé à l'admin."
