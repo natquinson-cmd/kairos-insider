@@ -1289,6 +1289,527 @@
       color: #F59E0B;
       border: 1px solid rgba(245,158,11,0.42);
     }
+    /* ============================================================
+       RADAR PORTEFEUILLE — style Kairos (dark glassmorphic, gradient bleu/violet)
+       Feature Pro+ : sync broker auto + positions live + alertes smart money
+       ============================================================ */
+    .radar-portfolio {
+      margin-bottom: 32px;
+    }
+    /* --- Etat NON CONNECTE : CTA + 3 features --- */
+    .radar-empty {
+      background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04));
+      border: 1px solid rgba(59,130,246,0.22);
+      border-radius: 18px;
+      padding: 28px 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .radar-empty::before {
+      content: "";
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 260px; height: 260px;
+      background: radial-gradient(circle, rgba(139,92,246,0.15), transparent 70%);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+    .radar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .radar-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      min-width: 0;
+    }
+    .radar-emoji {
+      font-size: 38px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 8px rgba(59,130,246,0.4));
+    }
+    .radar-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .radar-sub {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .radar-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(59,130,246,0.35);
+    }
+    .radar-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59,130,246,0.5);
+    }
+    .radar-features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      position: relative;
+    }
+    .radar-feat {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 14px 16px;
+      background: rgba(10, 15, 30, 0.5);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+    }
+    .radar-feat-ico {
+      font-size: 22px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .radar-feat-text strong {
+      display: block;
+      font-size: 13px;
+      color: var(--text-primary);
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .radar-feat-text span {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* --- Etat CONNECTE : positions + alertes --- */
+    .radar-connected {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+    }
+    .radar-connected-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .radar-connected-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .radar-connected-meta {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .radar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: rgba(59,130,246,0.12);
+      color: var(--accent-blue);
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .radar-btn:hover {
+      background: rgba(59,130,246,0.2);
+      transform: translateY(-1px);
+    }
+    .radar-btn.secondary {
+      background: var(--surface-2);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .radar-kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .radar-kpi {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .radar-kpi-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .radar-kpi-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .radar-main {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+    }
+    .radar-positions, .radar-alerts {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .radar-block-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .radar-block-head h4 {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .radar-block-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .radar-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .radar-table th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .radar-table td {
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text-secondary);
+    }
+    .radar-table tr:last-child td { border-bottom: none; }
+    .radar-table tr:hover { background: rgba(59,130,246,0.03); }
+    .radar-score-chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .radar-alert-item {
+      padding: 10px 12px;
+      background: rgba(10,15,30,0.4);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .radar-alert-item:last-child { margin-bottom: 0; }
+    .radar-alert-item strong { color: var(--accent-blue); font-family: monospace; font-weight: 700; }
+    .radar-alert-date {
+      display: block;
+      margin-top: 4px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+    .radar-empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* --- Details wrapper du CSV fallback --- */
+    .csv-fallback-wrap {
+      margin: 24px 0 32px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-1);
+    }
+    .csv-fallback-wrap summary {
+      padding: 14px 18px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      list-style: none;
+      user-select: none;
+    }
+    .csv-fallback-wrap summary::-webkit-details-marker { display: none; }
+    .csv-fallback-wrap summary::after {
+      content: "▼";
+      margin-left: auto;
+      font-size: 10px;
+      opacity: 0.5;
+      transition: transform 0.2s;
+    }
+    .csv-fallback-wrap[open] summary::after { transform: rotate(180deg); }
+    .csv-fallback-wrap[open] { background: var(--bg-card); }
+    .csv-fallback-wrap > *:not(summary) { padding: 0 18px 18px; }
+
+    /* --- Modal broker selection (Kairos style, pas Tradezella green) --- */
+    .broker-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 10, 25, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 500;
+      align-items: flex-start;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 40px 16px;
+    }
+    .broker-modal.open { display: flex; }
+    .broker-modal-inner {
+      max-width: 720px;
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      padding: 32px;
+      position: relative;
+    }
+    .broker-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .broker-modal-header h3 {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    .broker-modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+    .broker-modal-close:hover { background: var(--surface-2); color: var(--text-primary); }
+    .broker-modal-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    .broker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .broker-card {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 104px;
+    }
+    .broker-card.available {
+      cursor: pointer;
+    }
+    .broker-card.available:hover {
+      border-color: var(--accent-blue);
+      background: rgba(59,130,246,0.05);
+      transform: translateY(-1px);
+    }
+    .broker-card.soon {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .broker-card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .broker-card-flag { font-size: 22px; }
+    .broker-card-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .broker-card-country {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+      letter-spacing: 0.03em;
+    }
+    .broker-card-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      flex-grow: 1;
+    }
+    .broker-card-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .broker-card-badge.live {
+      background: rgba(16,185,129,0.15);
+      color: #10B981;
+      border: 1px solid rgba(16,185,129,0.35);
+    }
+    .broker-card-badge.soon {
+      background: rgba(245,158,11,0.12);
+      color: #F59E0B;
+      border: 1px solid rgba(245,158,11,0.3);
+    }
+    .broker-card-badge.csv {
+      background: rgba(148,163,184,0.12);
+      color: #94a3b8;
+      border: 1px solid rgba(148,163,184,0.3);
+    }
+    /* Form broker (Step 2) */
+    .broker-back {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 0;
+      margin-bottom: 16px;
+    }
+    .broker-back:hover { color: var(--text-primary); }
+    .broker-form-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .broker-form-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 0 0 20px;
+      line-height: 1.5;
+    }
+    #brokerFormFields label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    #brokerFormFields .broker-field {
+      margin-bottom: 14px;
+    }
+    #brokerFormFields input, #brokerFormFields select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    #brokerFormFields input:focus, #brokerFormFields select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      background: var(--bg-card);
+    }
+    .broker-form-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .broker-security {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .broker-form-status {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      min-height: 20px;
+    }
+    .broker-form-status.error { color: #EF4444; }
+    .broker-form-status.success { color: #10B981; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .radar-features { grid-template-columns: 1fr; }
+      .radar-kpis { grid-template-columns: repeat(2, 1fr); }
+      .radar-main { grid-template-columns: 1fr; }
+      .broker-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+      .broker-modal-inner { padding: 24px 20px; }
+    }
+
     /* Badge Beta inline (a cote des titres H2) */
     .beta-tag {
       display: inline-flex;
@@ -3556,7 +4077,113 @@
       <!-- ===== SECTION: MON PORTEFEUILLE ===== -->
       <div class="section-page" id="section-portfolio">
         <h2><span data-i18n="dash.section.portfolio.title">Mon Portefeuille</span> <span class="beta-tag">Beta</span></h2>
-        <p class="section-desc" data-i18n="dash.section.portfolio.desc">Importez vos trades depuis votre plateforme de trading pour suivre votre performance. <strong style="color:#FDE047">Module en bêta</strong> — la synchronisation automatique avec votre broker arrive bientôt.</p>
+        <p class="section-desc" data-i18n="dash.section.portfolio.desc">Suivez la performance de vos trades et branchez votre broker pour un suivi automatique de vos positions avec <strong>alertes smart money</strong> contextuelles.</p>
+
+        <!-- ============================================================
+             RADAR PORTEFEUILLE (sync auto broker + positions live + alertes)
+             Style Kairos : dark glassmorphic, gradient bleu/violet cohérent
+             avec le reste du dashboard. Feature Pro+.
+             ============================================================ -->
+        <div class="radar-portfolio" id="radarPortfolio">
+          <!-- État : non connecté (par défaut) -->
+          <div class="radar-empty" id="radarEmpty">
+            <div class="radar-header">
+              <div class="radar-title-wrap">
+                <div class="radar-emoji">📡</div>
+                <div>
+                  <h3 class="radar-title" data-i18n="dash.radar.title">Radar Portefeuille</h3>
+                  <p class="radar-sub" data-i18n="dash.radar.sub">Branchez votre broker pour un suivi automatique · Kairos Score par position · Alertes smart money</p>
+                </div>
+              </div>
+              <button class="radar-cta" onclick="openBrokerModal()">
+                <span>🔌</span>
+                <span data-i18n="dash.radar.connect">Connecter un broker</span>
+              </button>
+            </div>
+            <div class="radar-features">
+              <div class="radar-feat">
+                <div class="radar-feat-ico">⚡</div>
+                <div class="radar-feat-text">
+                  <strong data-i18n="dash.radar.f1_title">Sync automatique</strong>
+                  <span data-i18n="dash.radar.f1_desc">Vos positions mises à jour chaque matin 7h Paris</span>
+                </div>
+              </div>
+              <div class="radar-feat">
+                <div class="radar-feat-ico">🎯</div>
+                <div class="radar-feat-text">
+                  <strong data-i18n="dash.radar.f2_title">Kairos Score par position</strong>
+                  <span data-i18n="dash.radar.f2_desc">Le score smart money de chaque action que vous détenez</span>
+                </div>
+              </div>
+              <div class="radar-feat">
+                <div class="radar-feat-ico">🔔</div>
+                <div class="radar-feat-text">
+                  <strong data-i18n="dash.radar.f3_title">Alertes contextuelles</strong>
+                  <span data-i18n="dash.radar.f3_desc">Un insider vend sur votre ticker ? Vous savez le jour même</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- État : connecté (positions + alertes, s'affiche quand ≥1 connexion active) -->
+          <div class="radar-connected" id="radarConnected" style="display:none">
+            <div class="radar-connected-header">
+              <div>
+                <div class="radar-connected-title" id="radarConnectedTitle">Radar Portefeuille</div>
+                <div class="radar-connected-meta" id="radarConnectedMeta"></div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="radar-btn" onclick="syncPortfolioNow()" id="radarSyncBtn"><span>↻</span> <span data-i18n="dash.radar.sync_now">Synchroniser</span></button>
+                <button class="radar-btn secondary" onclick="openBrokerModal()"><span>+</span> <span data-i18n="dash.radar.add_broker">Ajouter</span></button>
+              </div>
+            </div>
+
+            <!-- KPI bar du portefeuille live -->
+            <div class="radar-kpis" id="radarKpis">
+              <div class="radar-kpi">
+                <div class="radar-kpi-label" data-i18n="dash.radar.kpi_value">Valeur totale</div>
+                <div class="radar-kpi-value" id="radarKpiValue">—</div>
+              </div>
+              <div class="radar-kpi">
+                <div class="radar-kpi-label" data-i18n="dash.radar.kpi_positions">Positions</div>
+                <div class="radar-kpi-value" id="radarKpiPositions">—</div>
+              </div>
+              <div class="radar-kpi">
+                <div class="radar-kpi-label" data-i18n="dash.radar.kpi_avg_score">Score moyen</div>
+                <div class="radar-kpi-value" id="radarKpiScore">—</div>
+              </div>
+              <div class="radar-kpi">
+                <div class="radar-kpi-label" data-i18n="dash.radar.kpi_alerts">Alertes 30j</div>
+                <div class="radar-kpi-value" id="radarKpiAlerts">—</div>
+              </div>
+            </div>
+
+            <!-- Layout 2 colonnes : positions table (gauche) + alertes feed (droite) -->
+            <div class="radar-main">
+              <div class="radar-positions">
+                <div class="radar-block-head">
+                  <h4 data-i18n="dash.radar.positions_title">Positions live</h4>
+                  <span class="radar-block-sub" id="radarPositionsSub"></span>
+                </div>
+                <div id="radarPositionsTable" style="overflow-x:auto"></div>
+              </div>
+              <div class="radar-alerts">
+                <div class="radar-block-head">
+                  <h4 data-i18n="dash.radar.alerts_title">Alertes smart money</h4>
+                  <span class="radar-block-sub" data-i18n="dash.radar.alerts_sub">30 derniers jours</span>
+                </div>
+                <div id="radarAlertsFeed"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider discret + bloc fallback CSV -->
+        <details class="csv-fallback-wrap" id="csvFallbackWrap">
+          <summary>
+            <span>📂</span>
+            <span data-i18n="dash.radar.csv_toggle">Ou importer manuellement un CSV (fallback universel)</span>
+          </summary>
 
         <!-- Zone d'upload CSV -->
         <div id="portfolioUpload" style="margin-bottom:32px">
@@ -3573,6 +4200,7 @@
           <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvFile(this.files[0])" />
           <p id="csvStatus" style="margin-top:12px;font-size:13px;color:var(--text-muted);display:none"></p>
         </div>
+        </details>  <!-- /csv-fallback-wrap : fermeture du details ouvert plus haut -->
 
         <!-- KPIs -->
         <div id="portfolioKpis" style="display:none">
@@ -3800,6 +4428,46 @@
           </div>
           <div id="portfolioTableArea"></div>
         </div>
+
+        <!-- ============================================================
+             MODAL : sélection & connexion d'un broker
+             Affiche une grid de brokers (Kairos style). L'utilisateur clique
+             sur un broker → form de connexion adapté (auth fields dynamiques).
+             ============================================================ -->
+        <div class="broker-modal" id="brokerModal" onclick="if(event.target===this)closeBrokerModal()">
+          <div class="broker-modal-inner">
+            <div class="broker-modal-header">
+              <h3 data-i18n="dash.broker.title">Connecter un broker</h3>
+              <button class="broker-modal-close" onclick="closeBrokerModal()">✕</button>
+            </div>
+            <p class="broker-modal-sub" data-i18n="dash.broker.sub">Choisissez votre broker pour un suivi automatique de vos positions. Les identifiants sont chiffrés côté serveur (AES-256-GCM).</p>
+
+            <!-- Step 1 : liste des brokers -->
+            <div id="brokerListStep">
+              <div class="broker-grid" id="brokerGrid">
+                <!-- Rempli par loadBrokerList() au boot -->
+              </div>
+            </div>
+
+            <!-- Step 2 : form de connexion (dynamique selon broker sélectionné) -->
+            <div id="brokerFormStep" style="display:none">
+              <button class="broker-back" onclick="brokerBackToList()">← <span data-i18n="dash.broker.back">Retour à la liste</span></button>
+              <div class="broker-form-title" id="brokerFormTitle"></div>
+              <p class="broker-form-desc" id="brokerFormDesc"></p>
+              <form id="brokerForm" onsubmit="event.preventDefault();submitBrokerConnect()">
+                <div id="brokerFormFields"></div>
+                <div class="broker-form-footer">
+                  <div class="broker-security">🔒 <span data-i18n="dash.broker.security">Chiffré côté serveur, jamais en clair en base</span></div>
+                  <button type="submit" class="radar-cta" id="brokerSubmitBtn">
+                    <span data-i18n="dash.broker.submit">Connecter</span>
+                  </button>
+                </div>
+              </form>
+              <p class="broker-form-status" id="brokerFormStatus"></p>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- ===== SECTION: MA WATCHLIST ===== -->
@@ -13621,6 +14289,301 @@
       Object.values(portfolioCharts).forEach(c => c.destroy());
       portfolioCharts = {};
     }
+
+    // ============================================================
+    // RADAR PORTEFEUILLE — sync broker auto + positions live + alertes
+    // ============================================================
+    // Feature Pro+ : connexion broker (IG, IBKR, Saxo...), sync automatique des
+    // positions, jointure Kairos Score par ticker, alertes smart money (insider
+    // moves, 13D filings, score movers) sur les tickers détenus.
+    //
+    // Endpoints :
+    //   GET  /api/portfolio/brokers     → catalogue des brokers supportés
+    //   GET  /api/portfolio/connections → connexions actives du user
+    //   POST /api/portfolio/connect     → ajoute une connexion (creds chiffrées KV)
+    //   POST /api/portfolio/sync        → sync manuel (positions live)
+    //   GET  /api/portfolio/positions   → positions détaillées
+    //   GET  /api/portfolio/alerts      → alertes 30j sur les tickers détenus
+
+    let radarBrokerCatalog = null; // cache après 1er fetch
+    let radarSelectedBroker = null; // broker en cours de config dans le modal
+
+    // Charge la liste des brokers (appel 1x, puis cache)
+    async function loadRadarBrokerCatalog() {
+      if (radarBrokerCatalog) return radarBrokerCatalog;
+      try {
+        const data = await apiFetch('/api/portfolio/brokers');
+        if (data && Array.isArray(data.brokers)) {
+          radarBrokerCatalog = data.brokers;
+          return radarBrokerCatalog;
+        }
+      } catch (e) { console.warn('[radar] brokers fetch failed', e); }
+      radarBrokerCatalog = [];
+      return radarBrokerCatalog;
+    }
+
+    // Ouvre le modal de sélection broker
+    async function openBrokerModal() {
+      if (!currentUser) return Toast.error('Connectez-vous d\'abord.');
+      const modal = document.getElementById('brokerModal');
+      if (!modal) return;
+      document.getElementById('brokerListStep').style.display = 'block';
+      document.getElementById('brokerFormStep').style.display = 'none';
+      modal.classList.add('open');
+      const brokers = await loadRadarBrokerCatalog();
+      const grid = document.getElementById('brokerGrid');
+      grid.innerHTML = brokers.map(b => {
+        const cls = b.status === 'live' ? 'available'
+                  : b.status === 'soon' ? 'soon'
+                  : b.status === 'csv'  ? 'soon' : 'soon';
+        const badgeText = b.status === 'live' ? 'Live'
+                        : b.status === 'soon' ? '🚀 Bientôt'
+                        : b.status === 'csv'  ? 'CSV' : 'Bientôt';
+        const click = b.status === 'live' ? `onclick="selectBrokerForConnect('${b.id}')"` : '';
+        return `
+          <div class="broker-card ${cls}" ${click}>
+            <div class="broker-card-badge ${b.status}">${badgeText}</div>
+            <div class="broker-card-head">
+              <span class="broker-card-flag">${b.flag || '🏦'}</span>
+              <div>
+                <div class="broker-card-name">${escapeHtml(b.name)}</div>
+                <div class="broker-card-country">${escapeHtml(b.country || '')}</div>
+              </div>
+            </div>
+            <div class="broker-card-desc">${escapeHtml(b.description || '')}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function closeBrokerModal() {
+      document.getElementById('brokerModal')?.classList.remove('open');
+      radarSelectedBroker = null;
+    }
+
+    // Étape 2 : form de connexion dynamique selon broker choisi
+    function selectBrokerForConnect(brokerId) {
+      const broker = (radarBrokerCatalog || []).find(b => b.id === brokerId);
+      if (!broker) return;
+      if (broker.status !== 'live') {
+        Toast.info(`${broker.name} : pas encore supporté. Restez connectés !`);
+        return;
+      }
+      radarSelectedBroker = broker;
+      document.getElementById('brokerListStep').style.display = 'none';
+      document.getElementById('brokerFormStep').style.display = 'block';
+      document.getElementById('brokerFormTitle').textContent = `Connexion à ${broker.name}`;
+      document.getElementById('brokerFormDesc').textContent = broker.description || '';
+      document.getElementById('brokerFormStatus').textContent = '';
+      document.getElementById('brokerFormStatus').className = 'broker-form-status';
+
+      const fieldsHtml = (broker.authFields || []).map(f => {
+        const id = `bf_${f.name}`;
+        if (f.type === 'select') {
+          const opts = (f.options || []).map(o => `<option value="${escapeHtml(o)}"${f.default === o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('');
+          return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><select id="${id}" name="${escapeHtml(f.name)}">${opts}</select></div>`;
+        }
+        return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><input id="${id}" name="${escapeHtml(f.name)}" type="${f.type || 'text'}" ${f.required ? 'required' : ''} autocomplete="off" /></div>`;
+      }).join('');
+      document.getElementById('brokerFormFields').innerHTML = fieldsHtml
+        + (broker.docsUrl ? `<p style="font-size:11px;color:var(--text-muted);margin-top:8px">📘 <a href="${broker.docsUrl}" target="_blank" rel="noopener" style="color:var(--accent-blue)">Doc officielle pour obtenir les identifiants</a></p>` : '');
+    }
+
+    function brokerBackToList() {
+      document.getElementById('brokerListStep').style.display = 'block';
+      document.getElementById('brokerFormStep').style.display = 'none';
+      radarSelectedBroker = null;
+    }
+
+    // Submit : POST /api/portfolio/connect
+    async function submitBrokerConnect() {
+      if (!radarSelectedBroker) return;
+      const broker = radarSelectedBroker;
+      const creds = {};
+      for (const f of (broker.authFields || [])) {
+        const el = document.getElementById(`bf_${f.name}`);
+        if (!el) continue;
+        creds[f.name] = el.value;
+      }
+      const statusEl = document.getElementById('brokerFormStatus');
+      statusEl.textContent = 'Connexion en cours...';
+      statusEl.className = 'broker-form-status';
+      try {
+        const data = await apiFetch('/api/portfolio/connect', { broker: broker.id, creds }, 'POST');
+        if (data.error) {
+          statusEl.textContent = '❌ ' + data.error;
+          statusEl.className = 'broker-form-status error';
+          return;
+        }
+        statusEl.textContent = '✓ ' + (data.message || 'Connexion réussie !');
+        statusEl.className = 'broker-form-status success';
+        Toast.success(`${broker.name} connecté. Chargement des positions...`);
+        setTimeout(() => {
+          closeBrokerModal();
+          syncPortfolioNow();
+          loadRadarPortfolio();
+        }, 1000);
+      } catch (e) {
+        statusEl.textContent = '❌ ' + (e.message || 'Erreur inconnue');
+        statusEl.className = 'broker-form-status error';
+      }
+    }
+
+    // Charge l'état global (connexions + positions + alertes)
+    async function loadRadarPortfolio() {
+      if (!currentUser) return;
+      try {
+        const connData = await apiFetch('/api/portfolio/connections');
+        const emptyEl = document.getElementById('radarEmpty');
+        const connectedEl = document.getElementById('radarConnected');
+        if (!connData || connData.error || !Array.isArray(connData.connections) || !connData.connections.length) {
+          // État par défaut : non connecté → CTA visible
+          if (emptyEl) emptyEl.style.display = 'block';
+          if (connectedEl) connectedEl.style.display = 'none';
+          return;
+        }
+        // Au moins 1 connexion active → afficher le panel connected
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (connectedEl) connectedEl.style.display = 'block';
+
+        const conns = connData.connections;
+        const active = conns.filter(c => c.status === 'active');
+        const totalValue = conns.reduce((s, c) => s + (c.total_value_eur || 0), 0);
+        const totalPos = conns.reduce((s, c) => s + (c.positions_count || 0), 0);
+        const lastSync = conns.map(c => c.last_sync_at).filter(Boolean).sort().reverse()[0];
+        document.getElementById('radarConnectedTitle').textContent =
+          `📡 ${active.length} broker${active.length > 1 ? 's' : ''} connecté${active.length > 1 ? 's' : ''}`;
+        document.getElementById('radarConnectedMeta').textContent =
+          (lastSync ? `Dernière sync : ${formatRelativeTime(lastSync)}` : 'Jamais synchronisé')
+          + ' · ' + active.map(c => c.broker).join(', ');
+
+        document.getElementById('radarKpiValue').textContent = fmtEur(totalValue);
+        document.getElementById('radarKpiPositions').textContent = totalPos;
+
+        // Positions + alertes en parallèle
+        const [posData, alertsData] = await Promise.all([
+          apiFetch('/api/portfolio/positions').catch(() => ({ positions: [] })),
+          apiFetch('/api/portfolio/alerts').catch(() => ({ alerts: [] })),
+        ]);
+        renderRadarPositions(posData.positions || []);
+        renderRadarAlerts(alertsData.alerts || []);
+      } catch (e) {
+        console.warn('[radar] load failed:', e);
+      }
+    }
+
+    function fmtEur(v) {
+      if (v == null || isNaN(v)) return '—';
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
+    }
+    function formatRelativeTime(iso) {
+      if (!iso) return '—';
+      const t = new Date(iso).getTime();
+      const delta = (Date.now() - t) / 1000;
+      if (delta < 60) return 'à l\'instant';
+      if (delta < 3600) return `il y a ${Math.round(delta / 60)} min`;
+      if (delta < 86400) return `il y a ${Math.round(delta / 3600)} h`;
+      return `il y a ${Math.round(delta / 86400)} j`;
+    }
+
+    function renderRadarPositions(positions) {
+      const el = document.getElementById('radarPositionsTable');
+      const sub = document.getElementById('radarPositionsSub');
+      if (!el) return;
+      if (!positions.length) {
+        el.innerHTML = '<div class="radar-empty-state">Aucune position synchronisée.<br/>Cliquez sur <strong>Synchroniser</strong> pour charger vos positions.</div>';
+        if (sub) sub.textContent = '';
+        // Score moyen + alertes : 0
+        document.getElementById('radarKpiScore').textContent = '—';
+        return;
+      }
+      if (sub) sub.textContent = `${positions.length} titre${positions.length > 1 ? 's' : ''}`;
+
+      const avgScore = positions.filter(p => p.kairos_score != null).reduce((s, p, _, a) => s + p.kairos_score / a.length, 0);
+      document.getElementById('radarKpiScore').textContent = avgScore ? Math.round(avgScore) + ' / 100' : '—';
+
+      const rows = positions.map(p => {
+        const score = p.kairos_score;
+        const scoreColor = score == null ? 'var(--text-muted)'
+          : score >= 75 ? '#10B981' : score >= 60 ? '#84CC16' : score >= 40 ? '#9CA3AF' : score >= 25 ? '#F59E0B' : '#EF4444';
+        const pnlPct = p.unrealized_pnl_pct;
+        const pnlColor = pnlPct == null ? 'var(--text-muted)' : pnlPct >= 0 ? '#10B981' : '#EF4444';
+        const alertsCell = (p.has_alerts && p.has_alerts > 0)
+          ? `<span style="color:#F59E0B;font-weight:700">🔔 ${p.has_alerts}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+        return `
+          <tr>
+            <td><a href="/a/${escapeHtml(p.ticker_kairos || p.ticker)}" style="color:var(--accent-blue);text-decoration:none;font-weight:700;font-family:monospace">$${escapeHtml(p.ticker_kairos || p.ticker)}</a></td>
+            <td>${p.quantity ?? '—'}</td>
+            <td style="text-align:right">${fmtEur(p.current_value_eur)}</td>
+            <td style="text-align:right;color:${pnlColor};font-weight:600">${pnlPct != null ? (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%' : '—'}</td>
+            <td style="text-align:center"><span class="radar-score-chip" style="background:${scoreColor}20;color:${scoreColor}">${score != null ? score : '—'}</span></td>
+            <td style="text-align:center">${alertsCell}</td>
+          </tr>`;
+      }).join('');
+      el.innerHTML = `
+        <table class="radar-table">
+          <thead><tr>
+            <th>Ticker</th><th>Qté</th><th style="text-align:right">Valeur</th>
+            <th style="text-align:right">P&amp;L</th><th style="text-align:center">Kairos</th><th style="text-align:center">Alertes</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function renderRadarAlerts(alerts) {
+      const el = document.getElementById('radarAlertsFeed');
+      const kpi = document.getElementById('radarKpiAlerts');
+      if (!el) return;
+      if (kpi) kpi.textContent = alerts.length || '—';
+      if (!alerts.length) {
+        el.innerHTML = '<div class="radar-empty-state">Aucune alerte smart money<br/>sur vos positions.</div>';
+        return;
+      }
+      el.innerHTML = alerts.slice(0, 12).map(a => `
+        <div class="radar-alert-item">
+          <strong>$${escapeHtml(a.ticker)}</strong> · ${escapeHtml(a.title || '')}
+          ${a.date ? `<span class="radar-alert-date">${escapeHtml(new Date(a.date).toLocaleDateString('fr-FR'))}</span>` : ''}
+        </div>`).join('');
+    }
+
+    async function syncPortfolioNow() {
+      if (!currentUser) return Toast.error('Non authentifié.');
+      const btn = document.getElementById('radarSyncBtn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+      Toast.info('Synchronisation en cours...');
+      try {
+        const data = await apiFetch('/api/portfolio/sync', {}, 'POST');
+        if (data.error) {
+          Toast.error(data.error);
+        } else {
+          const ok = (data.results || []).filter(r => r.ok).length;
+          const failed = (data.results || []).filter(r => r.error).length;
+          if (ok) Toast.success(`✓ ${ok} broker${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}`);
+          if (failed) Toast.warning(`${failed} erreur${failed > 1 ? 's' : ''} lors du sync`);
+        }
+        await loadRadarPortfolio();
+      } catch (e) {
+        Toast.error('Erreur sync : ' + (e.message || ''));
+      } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      }
+    }
+
+    // Hook : charge l'état Radar quand on affiche la section portfolio
+    // (on ne polluer pas loadPortfolio() existant, on piggyback sur switchSection)
+    document.addEventListener('DOMContentLoaded', () => {
+      // Intégration via un hook léger sur switchSection (défini ailleurs dans le dashboard)
+      if (typeof window.switchSection === 'function' && !window._radarHooked) {
+        const _orig = window.switchSection;
+        window.switchSection = function(name) {
+          _orig.apply(this, arguments);
+          if (name === 'portfolio' && currentUser) {
+            setTimeout(loadRadarPortfolio, 200);
+          }
+        };
+        window._radarHooked = true;
+      }
+    });
 
     // ============================================================
     // WATCHLIST — Ma watchlist + digest email quotidien

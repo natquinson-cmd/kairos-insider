@@ -904,6 +904,7 @@ Gérés via `npx wrangler secret put {NAME}`. Ne jamais mettre dans `wrangler.to
 | `GA4_PROPERTY_ID` | ID numérique de la propriété GA4 (532249211) |
 | `INTERNAL_SECRET` | Bypass rate limit pour GitHub Actions + protection `/internal/score/:ticker` |
 | `ADMIN_API_KEY` | Clé admin long-lived pour les crons externes (daily-tweets, score-anomalies). Comparée en constant-time via `constantTimeEquals()`. |
+| `PORTFOLIO_ENCRYPTION_KEY` | Clé maître AES-256 pour chiffrer les credentials broker du Radar Portefeuille. Dérivée via PBKDF2 + sel par uid pour isoler les clés. **Obligatoire** dès qu'un user connecte un broker. Générée via `openssl rand -base64 32`. |
 | `SUPPORT_INBOX_EMAIL` | Destinataire des emails de support (natquinson@gmail.com) |
 | `TYPEFULLY_API_KEY` | (Optionnel) Push dans Typefully si plan payant actif. Actuellement non utilisé — stratégie Brevo email à la place. |
 

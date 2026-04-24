@@ -1,0 +1,614 @@
+/**
+ * Kairos Insider — Radar Portefeuille (Auto-sync API)
+ *
+ * Endpoints :
+ *   GET  /api/portfolio/brokers           → liste des brokers supportés + leur statut
+ *   GET  /api/portfolio/connections       → connexions actives de l'utilisateur
+ *   POST /api/portfolio/connect           → crée une nouvelle connexion (stocke creds chiffrées en KV)
+ *   POST /api/portfolio/disconnect        → révoque une connexion
+ *   POST /api/portfolio/sync              → déclenche un sync manuel
+ *   GET  /api/portfolio/positions         → positions live (join Kairos Score + alertes)
+ *   GET  /api/portfolio/snapshots         → historique valeur portefeuille (pour chart équité)
+ *   GET  /api/portfolio/alerts            → alertes smart money sur les positions détenues
+ *
+ * Sécurité :
+ *   - Les credentials broker sont chiffrés via Web Crypto API (AES-GCM) avec
+ *     un secret dérivé de env.PORTFOLIO_ENCRYPTION_KEY + user.uid (clé par utilisateur).
+ *   - Stockés en KV (pas en D1) car on ne veut JAMAIS les lire dans une query
+ *     accidentelle de debug/admin.
+ *   - La clé KV est référencée dans portfolio_connections.credentials_kv_key.
+ *
+ * Broker adapters (modulaire) :
+ *   - Chaque broker = 1 module avec { fetchPositions(creds), validateCreds(creds) }
+ *   - Interface commune → facile d'ajouter Interactive Brokers, Saxo, etc.
+ *   - Phase 1 : IG Markets (prioritaire, API REST officielle FR)
+ *   - Phase 2 : IBKR (Client Portal Gateway), Saxo (OpenAPI), Trade Republic (reverse eng)
+ *
+ * Rate limiting sync :
+ *   - Max 1 sync manuel toutes les 60 sec (éviter spam API broker)
+ *   - Cron quotidien 7h Paris : sync auto pour toutes les connexions 'active'
+ */
+
+// ============================================================
+// CATALOGUE DES BROKERS SUPPORTÉS
+// ============================================================
+// Chaque broker a un statut : 'live' | 'beta' | 'soon' | 'csv'
+//   live = connexion API opérationnelle
+//   beta = en test, connexion possible mais instable
+//   soon = roadmap, non encore implémenté
+//   csv  = uniquement import CSV (pas d'API disponible publiquement)
+
+export const SUPPORTED_BROKERS = [
+  {
+    id: 'ig',
+    name: 'IG Markets',
+    country: 'UK/FR',
+    flag: '🇬🇧',
+    logo: '/assets/brokers/ig.png',
+    status: 'soon',                           // sera 'live' après implémentation complète
+    description: 'API REST officielle · 17 000 produits · FR/UK/DE',
+    authFields: [
+      { name: 'username', label: 'Nom d\'utilisateur IG', type: 'text', required: true },
+      { name: 'password', label: 'Mot de passe', type: 'password', required: true },
+      { name: 'apiKey',   label: 'Clé API (onglet "My API Keys" dans le compte IG)', type: 'text', required: true },
+      { name: 'environment', label: 'Environnement', type: 'select', options: ['demo', 'live'], default: 'live', required: true },
+    ],
+    docsUrl: 'https://labs.ig.com/gettingstarted',
+  },
+  {
+    id: 'ibkr',
+    name: 'Interactive Brokers',
+    country: 'US',
+    flag: '🇺🇸',
+    logo: '/assets/brokers/ibkr.png',
+    status: 'soon',
+    description: 'Client Portal Gateway · Institutionnel · Pro traders',
+    authFields: [],
+    docsUrl: 'https://www.interactivebrokers.com/api/doc.html',
+  },
+  {
+    id: 'saxo',
+    name: 'Saxo Bank',
+    country: 'DK/FR',
+    flag: '🇩🇰',
+    logo: '/assets/brokers/saxo.png',
+    status: 'soon',
+    description: 'OpenAPI OAuth2 · Multi-asset · Institutionnel',
+    authFields: [],
+    docsUrl: 'https://www.developer.saxo/openapi/learn',
+  },
+  {
+    id: 'trade-republic',
+    name: 'Trade Republic',
+    country: 'DE/FR',
+    flag: '🇩🇪',
+    logo: '/assets/brokers/trade-republic.png',
+    status: 'soon',
+    description: 'Broker retail populaire en France · Pas d\'API officielle',
+    authFields: [],
+    docsUrl: null,
+  },
+  {
+    id: 'degiro',
+    name: 'Degiro (flatexDEGIRO)',
+    country: 'NL/FR',
+    flag: '🇳🇱',
+    logo: '/assets/brokers/degiro.png',
+    status: 'soon',
+    description: 'Discount broker européen · Pas d\'API officielle',
+    authFields: [],
+    docsUrl: null,
+  },
+  {
+    id: 'boursorama',
+    name: 'BoursoBank (Boursorama)',
+    country: 'FR',
+    flag: '🇫🇷',
+    logo: '/assets/brokers/boursorama.png',
+    status: 'soon',
+    description: 'Banque en ligne · Bourse · Reverse engineering possible via DSP2',
+    authFields: [],
+    docsUrl: null,
+  },
+  {
+    id: 'etoro',
+    name: 'eToro',
+    country: 'IL',
+    flag: '🇮🇱',
+    logo: '/assets/brokers/etoro.png',
+    status: 'soon',
+    description: 'Social trading · Crypto + actions · API partenaire fermée',
+    authFields: [],
+    docsUrl: null,
+  },
+  {
+    id: 'bourse-direct',
+    name: 'Bourse Direct',
+    country: 'FR',
+    flag: '🇫🇷',
+    logo: '/assets/brokers/bourse-direct.png',
+    status: 'soon',
+    description: 'Broker spécialisé bourse FR · PEA PME · Pas d\'API publique',
+    authFields: [],
+    docsUrl: null,
+  },
+  {
+    id: 'fortuneo',
+    name: 'Fortuneo',
+    country: 'FR',
+    flag: '🇫🇷',
+    logo: '/assets/brokers/fortuneo.png',
+    status: 'soon',
+    description: 'Banque en ligne · Bourse · Pas d\'API publique',
+    authFields: [],
+    docsUrl: null,
+  },
+  {
+    id: 'csv',
+    name: 'Import CSV manuel',
+    country: '—',
+    flag: '📂',
+    logo: null,
+    status: 'live',                           // mode fallback universel déjà en place
+    description: 'Fallback universel · Tous brokers supportés (IG, TR, Degiro, Boursorama, eToro, IBKR, Revolut, XTB…)',
+    authFields: [],
+    docsUrl: null,
+  },
+];
+
+// ============================================================
+// CRYPTO : chiffrement AES-GCM des credentials broker
+// ============================================================
+// Clé dérivée de env.PORTFOLIO_ENCRYPTION_KEY + uid via HKDF (PBKDF2 fallback).
+// Les creds sont stockées sous forme { iv: base64, ct: base64 } en KV.
+
+async function deriveKey(env, uid) {
+  if (!env.PORTFOLIO_ENCRYPTION_KEY) {
+    throw new Error('PORTFOLIO_ENCRYPTION_KEY not configured');
+  }
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(env.PORTFOLIO_ENCRYPTION_KEY),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: enc.encode(`kairos-portfolio:${uid}`),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+function toBase64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+function fromBase64(str) {
+  return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+}
+
+async function encryptCreds(env, uid, plainObj) {
+  const key = await deriveKey(env, uid);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    enc.encode(JSON.stringify(plainObj))
+  );
+  return { iv: toBase64(iv), ct: toBase64(ct) };
+}
+
+async function decryptCreds(env, uid, encObj) {
+  const key = await deriveKey(env, uid);
+  const iv = fromBase64(encObj.iv);
+  const ct = fromBase64(encObj.ct);
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    ct
+  );
+  const dec = new TextDecoder();
+  return JSON.parse(dec.decode(plain));
+}
+
+// ============================================================
+// BROKER ADAPTERS (Phase 1 : IG uniquement, skeletons pour les autres)
+// ============================================================
+// Interface commune : async fetchPositions(creds, env) => {
+//   positions: [{ ticker, isin, quantity, avg_cost, current_price, value_eur, pnl, pnl_pct }],
+//   totalValue, currency, accountId
+// }
+
+const BROKER_ADAPTERS = {
+  ig: {
+    /**
+     * IG Markets REST API
+     * Doc : https://labs.ig.com/rest-trading-api-reference
+     *
+     * Flow :
+     *   1) POST /session avec { identifier, password } + headers X-IG-API-KEY, CST, Version:3
+     *   2) Récupère CST + X-SECURITY-TOKEN dans headers response
+     *   3) GET /positions avec ces 2 tokens pour récupérer la liste
+     */
+    async validateCreds(creds) {
+      const required = ['username', 'password', 'apiKey'];
+      for (const f of required) {
+        if (!creds[f] || typeof creds[f] !== 'string' || creds[f].length < 3) {
+          return { ok: false, error: `Champ manquant ou invalide : ${f}` };
+        }
+      }
+      return { ok: true };
+    },
+
+    async fetchPositions(creds, env) {
+      // TODO Phase 2 : implémenter l'appel réel IG
+      // Pour l'instant on renvoie un stub "pending implementation"
+      return {
+        error: 'IG Markets sync pas encore implémenté (Phase 2). Connexion sauvegardée, mais pas de positions récupérées.',
+        positions: [],
+        totalValue: 0,
+        currency: 'EUR',
+        accountId: null,
+      };
+    },
+  },
+
+  // Stubs pour les autres brokers
+  ibkr: { validateCreds: async () => ({ ok: false, error: 'IBKR: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  saxo: { validateCreds: async () => ({ ok: false, error: 'Saxo: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  'trade-republic': { validateCreds: async () => ({ ok: false, error: 'Trade Republic: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  degiro: { validateCreds: async () => ({ ok: false, error: 'Degiro: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  boursorama: { validateCreds: async () => ({ ok: false, error: 'Boursorama: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  etoro: { validateCreds: async () => ({ ok: false, error: 'eToro: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  'bourse-direct': { validateCreds: async () => ({ ok: false, error: 'Bourse Direct: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+  fortuneo: { validateCreds: async () => ({ ok: false, error: 'Fortuneo: pas encore supporté' }), fetchPositions: async () => ({ error: 'not implemented' }) },
+};
+
+// ============================================================
+// HANDLERS HTTP
+// ============================================================
+
+// GET /api/portfolio/brokers : catalogue des brokers (public info seulement, pas d'auth)
+export function handlePortfolioBrokers(env, origin) {
+  // On expose seulement les infos publiques (pas les adapters, pas le code interne)
+  const publicBrokers = SUPPORTED_BROKERS.map(b => ({
+    id: b.id,
+    name: b.name,
+    country: b.country,
+    flag: b.flag,
+    logo: b.logo,
+    status: b.status,
+    description: b.description,
+    authFields: b.authFields,
+    docsUrl: b.docsUrl,
+  }));
+  return { brokers: publicBrokers };
+}
+
+// GET /api/portfolio/connections : liste les connexions actives d'un user
+export async function handlePortfolioConnections(uid, env) {
+  if (!env.HISTORY) return { error: 'D1 not configured', connections: [] };
+  try {
+    const rows = (await env.HISTORY.prepare(
+      `SELECT uid, broker, account_id, status, last_sync_at, last_error,
+              positions_count, total_value_eur, created_at, updated_at
+       FROM portfolio_connections
+       WHERE uid = ?
+       ORDER BY created_at DESC`
+    ).bind(uid).all()).results || [];
+    return { connections: rows };
+  } catch (e) {
+    return { error: String(e && e.message || e), connections: [] };
+  }
+}
+
+// POST /api/portfolio/connect : crée une connexion (stocke creds chiffrées en KV)
+// Body : { broker: 'ig', creds: { username, password, apiKey, environment } }
+export async function handlePortfolioConnect(request, uid, env) {
+  try {
+    const body = await request.json();
+    const broker = String(body.broker || '').toLowerCase();
+    const creds = body.creds || {};
+
+    // Validation broker
+    const brokerInfo = SUPPORTED_BROKERS.find(b => b.id === broker);
+    if (!brokerInfo) {
+      return { error: `Broker inconnu : ${broker}`, code: 'UNKNOWN_BROKER' };
+    }
+    if (brokerInfo.status === 'soon') {
+      return { error: `Le broker ${brokerInfo.name} n'est pas encore supporté`, code: 'BROKER_NOT_READY' };
+    }
+    if (brokerInfo.status === 'csv') {
+      return { error: 'Utilisez l\'import CSV directement', code: 'USE_CSV' };
+    }
+
+    const adapter = BROKER_ADAPTERS[broker];
+    if (!adapter) {
+      return { error: 'Adapter manquant', code: 'NO_ADAPTER' };
+    }
+
+    // Validation des creds
+    const valid = await adapter.validateCreds(creds);
+    if (!valid.ok) {
+      return { error: valid.error, code: 'INVALID_CREDS' };
+    }
+
+    // Chiffrement + stockage KV
+    if (!env.CACHE) return { error: 'KV not configured' };
+    const encrypted = await encryptCreds(env, uid, creds);
+    const kvKey = `portfolio-creds:${uid}:${broker}:${Date.now().toString(36)}`;
+    await env.CACHE.put(kvKey, JSON.stringify(encrypted), {
+      expirationTtl: 365 * 24 * 3600,  // 1 an, refresh à chaque sync
+    });
+
+    // Insert/update en D1
+    if (!env.HISTORY) return { error: 'D1 not configured' };
+    const accountId = creds.accountId || 'default';
+    await env.HISTORY.prepare(
+      `INSERT INTO portfolio_connections (uid, broker, account_id, credentials_kv_key, status, last_sync_at, updated_at)
+       VALUES (?, ?, ?, ?, 'active', NULL, CURRENT_TIMESTAMP)
+       ON CONFLICT(uid, broker, account_id) DO UPDATE SET
+         credentials_kv_key = excluded.credentials_kv_key,
+         status = 'active',
+         last_error = NULL,
+         updated_at = CURRENT_TIMESTAMP`
+    ).bind(uid, broker, accountId, kvKey).run();
+
+    return {
+      ok: true,
+      broker: brokerInfo.name,
+      status: 'active',
+      message: 'Connexion créée. Utilisez "Synchroniser" pour charger vos positions.',
+    };
+  } catch (e) {
+    return { error: String(e && e.message || e), code: 'CONNECT_FAILED' };
+  }
+}
+
+// POST /api/portfolio/disconnect : révoque une connexion
+// Body : { broker: 'ig', accountId?: 'default' }
+export async function handlePortfolioDisconnect(request, uid, env) {
+  try {
+    const body = await request.json();
+    const broker = String(body.broker || '').toLowerCase();
+    const accountId = body.accountId || 'default';
+    if (!broker) return { error: 'Broker manquant', code: 'MISSING_BROKER' };
+
+    if (!env.HISTORY) return { error: 'D1 not configured' };
+
+    // Récupère la clé KV à supprimer
+    const row = await env.HISTORY.prepare(
+      `SELECT credentials_kv_key FROM portfolio_connections WHERE uid = ? AND broker = ? AND account_id = ?`
+    ).bind(uid, broker, accountId).first();
+
+    if (row && row.credentials_kv_key && env.CACHE) {
+      try { await env.CACHE.delete(row.credentials_kv_key); } catch {}
+    }
+
+    // Supprime la connexion + positions associées
+    await env.HISTORY.batch([
+      env.HISTORY.prepare(`DELETE FROM portfolio_positions WHERE uid = ? AND broker = ? AND account_id = ?`).bind(uid, broker, accountId),
+      env.HISTORY.prepare(`DELETE FROM portfolio_connections WHERE uid = ? AND broker = ? AND account_id = ?`).bind(uid, broker, accountId),
+    ]);
+
+    return { ok: true, message: 'Connexion révoquée et positions effacées.' };
+  } catch (e) {
+    return { error: String(e && e.message || e), code: 'DISCONNECT_FAILED' };
+  }
+}
+
+// POST /api/portfolio/sync : déclenche un sync manuel pour toutes les connexions du user
+export async function handlePortfolioSync(uid, env) {
+  if (!env.HISTORY) return { error: 'D1 not configured' };
+  if (!env.CACHE) return { error: 'KV not configured' };
+
+  // Rate limit : max 1 sync par 60 sec par user (évite spam API broker)
+  const rlKey = `portfolio-sync-rl:${uid}`;
+  try {
+    const last = await env.CACHE.get(rlKey);
+    if (last) {
+      return { error: 'Trop rapide. Patientez 60s entre 2 syncs.', code: 'RATE_LIMITED', retryAfter: 60 };
+    }
+    await env.CACHE.put(rlKey, '1', { expirationTtl: 60 });
+  } catch {}
+
+  // Charge toutes les connexions actives du user
+  const conns = (await env.HISTORY.prepare(
+    `SELECT uid, broker, account_id, credentials_kv_key FROM portfolio_connections WHERE uid = ? AND status = 'active'`
+  ).bind(uid).all()).results || [];
+
+  if (!conns.length) {
+    return { error: 'Aucune connexion active. Connectez un broker d\'abord.', code: 'NO_CONNECTIONS' };
+  }
+
+  const results = [];
+  for (const conn of conns) {
+    try {
+      // Charge + déchiffre les creds
+      const rawCreds = await env.CACHE.get(conn.credentials_kv_key, 'json');
+      if (!rawCreds) {
+        results.push({ broker: conn.broker, error: 'Credentials expirées, reconnectez-vous' });
+        continue;
+      }
+      const creds = await decryptCreds(env, uid, rawCreds);
+
+      // Fetch positions via adapter
+      const adapter = BROKER_ADAPTERS[conn.broker];
+      if (!adapter) {
+        results.push({ broker: conn.broker, error: 'Adapter introuvable' });
+        continue;
+      }
+      const fetchResult = await adapter.fetchPositions(creds, env);
+
+      if (fetchResult.error) {
+        await env.HISTORY.prepare(
+          `UPDATE portfolio_connections SET last_sync_at = CURRENT_TIMESTAMP, last_error = ?, status = 'error'
+           WHERE uid = ? AND broker = ? AND account_id = ?`
+        ).bind(fetchResult.error.slice(0, 300), uid, conn.broker, conn.account_id).run();
+        results.push({ broker: conn.broker, error: fetchResult.error });
+        continue;
+      }
+
+      // Upsert positions en D1 (réécrit à chaque sync : le dernier état gagne)
+      // TODO Phase 2 : batch upsert + join Kairos Score par ticker_kairos
+      const positions = fetchResult.positions || [];
+      await env.HISTORY.prepare(
+        `DELETE FROM portfolio_positions WHERE uid = ? AND broker = ? AND account_id = ?`
+      ).bind(uid, conn.broker, conn.account_id).run();
+
+      // TODO batch insert positions…
+
+      // Update connection status + snapshot
+      await env.HISTORY.prepare(
+        `UPDATE portfolio_connections
+         SET last_sync_at = CURRENT_TIMESTAMP,
+             last_error = NULL,
+             status = 'active',
+             positions_count = ?,
+             total_value_eur = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE uid = ? AND broker = ? AND account_id = ?`
+      ).bind(positions.length, fetchResult.totalValue || 0, uid, conn.broker, conn.account_id).run();
+
+      results.push({
+        broker: conn.broker,
+        ok: true,
+        positionsCount: positions.length,
+        totalValue: fetchResult.totalValue,
+      });
+    } catch (e) {
+      results.push({ broker: conn.broker, error: String(e && e.message || e) });
+    }
+  }
+
+  return { ok: true, results, syncedAt: new Date().toISOString() };
+}
+
+// GET /api/portfolio/positions : positions live (enrichies Kairos Score + alertes)
+export async function handlePortfolioPositions(uid, env) {
+  if (!env.HISTORY) return { error: 'D1 not configured', positions: [] };
+  try {
+    // Join portfolio_positions + score_history (dernier score connu par ticker_kairos)
+    const rows = (await env.HISTORY.prepare(
+      `SELECT p.broker, p.ticker, p.isin, p.ticker_kairos, p.quantity,
+              p.avg_cost_price, p.current_price, p.current_value_eur, p.currency,
+              p.unrealized_pnl, p.unrealized_pnl_pct,
+              COALESCE(
+                (SELECT s.total FROM score_history s
+                 WHERE s.ticker = p.ticker_kairos
+                 ORDER BY s.date DESC LIMIT 1),
+                p.kairos_score
+              ) AS kairos_score,
+              p.has_alerts, p.updated_at
+       FROM portfolio_positions p
+       WHERE p.uid = ?
+       ORDER BY p.current_value_eur DESC NULLS LAST, p.ticker ASC`
+    ).bind(uid).all()).results || [];
+    return { positions: rows, count: rows.length };
+  } catch (e) {
+    return { error: String(e && e.message || e), positions: [] };
+  }
+}
+
+// GET /api/portfolio/snapshots?days=90 : historique valeur portefeuille pour chart équité
+export async function handlePortfolioSnapshots(url, uid, env) {
+  if (!env.HISTORY) return { error: 'D1 not configured', snapshots: [] };
+  const days = Math.max(7, Math.min(365, parseInt(url.searchParams.get('days') || '90', 10)));
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceStr = since.toISOString().slice(0, 10);
+  try {
+    const rows = (await env.HISTORY.prepare(
+      `SELECT snapshot_date, SUM(total_value_eur) AS total_value_eur,
+              SUM(positions_count) AS positions_count,
+              SUM(day_pnl_eur) AS day_pnl_eur
+       FROM portfolio_snapshots
+       WHERE uid = ? AND snapshot_date >= ?
+       GROUP BY snapshot_date
+       ORDER BY snapshot_date ASC`
+    ).bind(uid, sinceStr).all()).results || [];
+    return { snapshots: rows, days, since: sinceStr };
+  } catch (e) {
+    return { error: String(e && e.message || e), snapshots: [] };
+  }
+}
+
+// GET /api/portfolio/alerts : alertes smart money sur les positions détenues (30 derniers jours)
+// Pour chaque ticker détenu, on cherche : insider transactions récentes, 13D filings,
+// score movers significatifs, rotations ETF.
+export async function handlePortfolioAlerts(uid, env) {
+  if (!env.HISTORY) return { error: 'D1 not configured', alerts: [] };
+  try {
+    // Récupère les tickers détenus
+    const tickers = (await env.HISTORY.prepare(
+      `SELECT DISTINCT ticker_kairos FROM portfolio_positions WHERE uid = ? AND ticker_kairos IS NOT NULL`
+    ).bind(uid).all()).results || [];
+
+    if (!tickers.length) return { alerts: [], count: 0, tickers: [] };
+
+    const tickersList = tickers.map(r => r.ticker_kairos).filter(Boolean);
+    const placeholders = tickersList.map(() => '?').join(',');
+
+    // Insider transactions récentes (14j)
+    const insiderAlerts = (await env.HISTORY.prepare(
+      `SELECT ticker, insider, title, trans_type, value, trans_date,
+              'insider' AS alert_type
+       FROM insider_transactions_history
+       WHERE ticker IN (${placeholders})
+         AND trans_date >= date('now', '-14 days')
+         AND ABS(COALESCE(value, 0)) >= 100000
+       ORDER BY trans_date DESC
+       LIMIT 50`
+    ).bind(...tickersList).all()).results || [];
+
+    // Score movers significatifs (delta ≥ 10 pts sur 7j)
+    const scoreAlerts = (await env.HISTORY.prepare(
+      `WITH score_delta AS (
+         SELECT ticker,
+                FIRST_VALUE(total) OVER (PARTITION BY ticker ORDER BY date DESC) AS score_now,
+                FIRST_VALUE(total) OVER (PARTITION BY ticker ORDER BY date ASC) AS score_then,
+                MAX(date) OVER (PARTITION BY ticker) AS last_date
+         FROM score_history
+         WHERE ticker IN (${placeholders})
+           AND date >= date('now', '-7 days')
+       )
+       SELECT DISTINCT ticker, score_now, score_then, (score_now - score_then) AS delta, last_date,
+              'score_mover' AS alert_type
+       FROM score_delta
+       WHERE ABS(score_now - score_then) >= 10`
+    ).bind(...tickersList).all()).results || [];
+
+    // Merge + trie par date
+    const alerts = [
+      ...insiderAlerts.map(a => ({
+        type: 'insider',
+        ticker: a.ticker,
+        title: `${a.trans_type === 'buy' ? '🟢' : '🔴'} ${a.insider} (${a.title || 'insider'}) · ${a.trans_type === 'buy' ? 'achat' : 'vente'} ${a.value ? Math.round(a.value).toLocaleString('fr-FR') + ' $' : ''}`,
+        date: a.trans_date,
+      })),
+      ...scoreAlerts.map(a => ({
+        type: 'score_mover',
+        ticker: a.ticker,
+        title: `${a.delta > 0 ? '▲' : '▼'} Kairos Score ${a.score_then} → ${a.score_now} (${a.delta > 0 ? '+' : ''}${a.delta} pts)`,
+        date: a.last_date,
+      })),
+    ].sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+
+    return {
+      alerts: alerts.slice(0, 50),
+      count: alerts.length,
+      tickers: tickersList,
+    };
+  } catch (e) {
+    return { error: String(e && e.message || e), alerts: [] };
+  }
+}

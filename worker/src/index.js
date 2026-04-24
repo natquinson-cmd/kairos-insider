@@ -13,6 +13,16 @@
 
 import { handleStockAnalysis } from './stock-api.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
+import {
+  handlePortfolioBrokers,
+  handlePortfolioConnections,
+  handlePortfolioConnect,
+  handlePortfolioDisconnect,
+  handlePortfolioSync,
+  handlePortfolioPositions,
+  handlePortfolioSnapshots,
+  handlePortfolioAlerts,
+} from './portfolio-api.js';
 
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 
@@ -422,6 +432,44 @@ async function handleRequest(request, env, ctx) {
       // --- Support : formulaire de contact (envoie un email au support via Brevo) ---
       if (request.method === 'POST' && path === '/support/contact') {
         return handleSupportContact(request, env, user, origin);
+      }
+
+      // --- Routes Portfolio (Radar Portefeuille : auth requise, Pro+ pour API sync) ---
+      // Permet la connexion broker automatique, le sync des positions, les alertes
+      // smart money contextuelles. Voir worker/src/portfolio-api.js pour la logique.
+      if (path.startsWith('/api/portfolio/')) {
+        // Catalogue des brokers : accessible aussi en Free (pour affichage sur landing/dashboard)
+        if (request.method === 'GET' && path === '/api/portfolio/brokers') {
+          return jsonResponse(handlePortfolioBrokers(env, origin), 200, origin);
+        }
+        // Autres routes : Pro+ uniquement (le sync API est une feature premium)
+        const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
+        const isPremium = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
+        if (!isPremium) {
+          return jsonResponse({ error: 'Radar Portefeuille réservé aux abonnés Pro et Elite', code: 'PREMIUM_REQUIRED' }, 403, origin);
+        }
+        if (request.method === 'GET' && path === '/api/portfolio/connections') {
+          return jsonResponse(await handlePortfolioConnections(user.uid, env), 200, origin);
+        }
+        if (request.method === 'POST' && path === '/api/portfolio/connect') {
+          return jsonResponse(await handlePortfolioConnect(request, user.uid, env), 200, origin);
+        }
+        if (request.method === 'POST' && path === '/api/portfolio/disconnect') {
+          return jsonResponse(await handlePortfolioDisconnect(request, user.uid, env), 200, origin);
+        }
+        if (request.method === 'POST' && path === '/api/portfolio/sync') {
+          return jsonResponse(await handlePortfolioSync(user.uid, env), 200, origin);
+        }
+        if (request.method === 'GET' && path === '/api/portfolio/positions') {
+          return jsonResponse(await handlePortfolioPositions(user.uid, env), 200, origin);
+        }
+        if (request.method === 'GET' && path === '/api/portfolio/snapshots') {
+          return jsonResponse(await handlePortfolioSnapshots(url, user.uid, env), 200, origin);
+        }
+        if (request.method === 'GET' && path === '/api/portfolio/alerts') {
+          return jsonResponse(await handlePortfolioAlerts(user.uid, env), 200, origin);
+        }
+        return jsonResponse({ error: 'Not found' }, 404, origin);
       }
 
       // --- Routes Watchlist (auth requise, check premium integre dans la route) ---
