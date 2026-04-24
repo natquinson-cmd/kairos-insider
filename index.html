@@ -29,7 +29,7 @@
   </script>
 
   <title>Kairos Insider — Voyez ce que les pros voient</title>
-  <meta name="description" content="La plateforme francophone du smart money. Kairos Score 0-100, 200+ hedge funds suivis, 11 ETF thématiques (politique US, sentiment retail, ARK, income), 1000+ actions analysées. Insiders SEC/AMF/BaFin, Hot Stocks Google Trends, historique 2 ans." />
+  <meta name="description" content="La plateforme francophone du smart money. Kairos Score 0-100, 500+ hedge funds suivis, 11 ETF thématiques (politique US, sentiment retail, ARK, income), 1000+ actions analysées. Insiders SEC/AMF/BaFin, Hot Stocks Google Trends, historique 2 ans." />
   <meta name="theme-color" content="#0A0F1E" />
 
   <!-- Favicon -->
@@ -43,7 +43,7 @@
   <!-- Open Graph -->
   <meta property="og:site_name" content="Kairos Insider" />
   <meta property="og:title" content="Kairos Insider — Voyez ce que les pros voient" />
-  <meta property="og:description" content="Kairos Score, 200+ hedge funds, 11 ETF thématiques, 1000+ actions analysées. La plateforme francophone du smart money." />
+  <meta property="og:description" content="Kairos Score, 500+ hedge funds, 11 ETF thématiques, 1000+ actions analysées. La plateforme francophone du smart money." />
   <meta property="og:image" content="https://kairosinsider.fr/assets/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -56,7 +56,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Kairos Insider — Voyez ce que les pros voient" />
-  <meta name="twitter:description" content="Kairos Score, 200+ hedge funds, 11 ETF thématiques. La plateforme francophone du smart money." />
+  <meta name="twitter:description" content="Kairos Score, 500+ hedge funds, 11 ETF thématiques. La plateforme francophone du smart money." />
   <meta name="twitter:image" content="https://kairosinsider.fr/assets/og-image.png" />
   <meta name="twitter:image:alt" content="Kairos Insider — Smart Money Intelligence FR" />
 
@@ -79,7 +79,7 @@
         "@id": "https://kairosinsider.fr/#website",
         "url": "https://kairosinsider.fr/",
         "name": "Kairos Insider",
-        "description": "Voyez ce que les pros voient — Kairos Score, 200+ hedge funds, 11 ETF thématiques, 3500+ actions.",
+        "description": "Voyez ce que les pros voient — Kairos Score, 500+ hedge funds, 11 ETF thématiques, 3500+ actions.",
         "publisher": { "@id": "https://kairosinsider.fr/#org" },
         "inLanguage": ["fr-FR", "en-US"],
         "potentialAction": {
@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260424d"></script>
+  <script src="assets/i18n.js?v=20260424f"></script>
 
   <style>
     :root {
@@ -545,6 +545,20 @@
       line-height: 1;
     }
     .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 8px; font-weight: 500; }
+    /* Sous-label "bientot X de plus" pour suggerer la croissance sans chiffre engageant */
+    .stat-expanding {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 3px 10px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #10B981;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 100px;
+      white-space: nowrap;
+    }
 
     /* ===== SECTIONS ===== */
     .section { padding: 120px 0; position: relative; }
@@ -1290,7 +1304,7 @@
           </h1>
 
           <p class="hero-subtitle" data-i18n="hero.subtitle_html">
-            Suivez chaque jour les mouvements des <strong style="color:var(--text-primary)">200+ plus grands hedge funds</strong>, des <strong style="color:var(--text-primary)">dirigeants d'entreprise</strong>, des <strong style="color:var(--text-primary)">politiciens US</strong> et des <strong style="color:var(--text-primary)">ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.
+            Suivez chaque jour les mouvements des <strong style="color:var(--text-primary)">500+ plus grands hedge funds</strong>, des <strong style="color:var(--text-primary)">dirigeants d'entreprise</strong>, des <strong style="color:var(--text-primary)">politiciens US</strong> et des <strong style="color:var(--text-primary)">ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.
           </p>
 
           <div class="hero-cta">
@@ -1371,7 +1385,7 @@
           <!-- Floating cards decoratifs -->
           <div class="mockup-float left">
             <div class="mockup-float-title">Hedge funds suivis</div>
-            <div class="mockup-float-value">200+ fonds</div>
+            <div class="mockup-float-value">500+ fonds</div>
           </div>
           <div class="mockup-float right">
             <div class="mockup-float-title">Consensus</div>
@@ -1462,6 +1476,7 @@
         <div class="stat-item">
           <div class="stat-number" data-counter="3349" data-suffix="">3 349</div>
           <div class="stat-label" data-i18n="stats.tickers_tracked">Tickers suivis (US + EU)</div>
+          <div class="stat-expanding" data-i18n="stats.tickers_growing">📈 Couverture en expansion continue</div>
         </div>
         <div class="stat-item">
           <div class="stat-number" data-counter="164200" data-suffix="+" data-format="short">164k+</div>
@@ -1588,7 +1603,7 @@
         <div class="feature-big">
           <div class="feature-big-icon purple">🤝</div>
           <h3 data-i18n="feat.consensus.title">Consensus Hedge Funds</h3>
-          <p data-i18n="feat.consensus.desc_html"><strong>200+ hedge funds suivis</strong> (Buffett, Burry, Ackman, Tiger Global, Coatue, BlackRock, Vanguard…). Voyez quelles actions sont partagées en <strong>conviction ★</strong> et qui sont les "lonely picks" — ces paris contrariens qu'un seul fonds détient.</p>
+          <p data-i18n="feat.consensus.desc_html"><strong>500+ hedge funds suivis</strong> (Buffett, Burry, Ackman, Tiger Global, Coatue, BlackRock, Vanguard…). Voyez quelles actions sont partagées en <strong>conviction ★</strong> et qui sont les "lonely picks" — ces paris contrariens qu'un seul fonds détient.</p>
           <span class="feature-big-chip live" data-i18n="feat.consensus.chip">● Activité du trimestre</span>
         </div>
 
@@ -1696,7 +1711,7 @@
               <td class="no">✗</td>
             </tr>
             <tr>
-              <td class="feature-name" data-i18n="comp.row_hedge_funds">Hedge Funds 13F (200+ fonds)</td>
+              <td class="feature-name" data-i18n="comp.row_hedge_funds">Hedge Funds 13F (500+ fonds)</td>
               <td class="kairos-col yes">✓</td>
               <td class="no">✗</td>
               <td class="yes">✓</td>
@@ -2115,7 +2130,7 @@
         </details>
 
         <details class="faq-item">
-          <summary data-i18n="faq.q_funds">Comment sont sélectionnés les 200+ hedge funds suivis ?</summary>
+          <summary data-i18n="faq.q_funds">Comment sont sélectionnés les 500+ hedge funds suivis ?</summary>
           <p data-i18n="faq.a_funds">Nous suivons les <strong>200 plus grands hedge funds et asset managers par AUM</strong>, découverts <strong>automatiquement chaque semaine</strong> via SEC EDGAR (script qui scanne tous les filings 13F-HR récents et trie par taille). Inclut les légendes (Buffett, Burry, Klarman, Ackman, Einhorn…), multi-strategy mega (Citadel, Point72, Millennium), quants (Renaissance, Two Sigma, D.E. Shaw, AQR), Tiger Cubs (Tiger Global, Coatue, Viking, Lone Pine), fonds offensifs (Elliott, Trian, Icahn, Starboard), macro (Bridgewater, Tudor, Druckenmiller) et mega managers (Vanguard $5.9T, BlackRock $4.4T, State Street, Fidelity, Morgan Stanley…).</p>
         </details>
 

@@ -2929,7 +2929,7 @@ const SSR_I18N = {
     stats_insiders: 'Transactions insiders',
     stats_insiders_sub: 'SEC Form 4 · AMF · BaFin — 90 jours glissants',
     stats_funds: 'Hedge funds suivis',
-    stats_funds_sub: '200+ fonds 13F SEC, mis a jour trimestriellement',
+    stats_funds_sub: '500+ fonds 13F SEC, mis a jour trimestriellement',
     stats_etfs: 'ETF thematiques',
     stats_etfs_sub: 'ARK, NANC, GOP, GURU, BUZZ, JEPI, ITA…',
     stats_fresh: 'Frequence',
@@ -4102,7 +4102,7 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
   <li>✓ <strong>Kairos Score 0-100</strong> (radar 8 axes + synthese textuelle)</li>
   <li>✓ Transactions d'inities US, Europe et France en quasi-temps reel</li>
   <li>✓ Signaux de clusters d'insiders sur 90 jours</li>
-  <li>✓ <strong>200+ hedge funds</strong> 13F consolides (Buffett, Burry, Tiger, BlackRock...)</li>
+  <li>✓ <strong>500+ hedge funds</strong> 13F consolides (Buffett, Burry, Tiger, BlackRock...)</li>
   <li>✓ Smart Money Consensus avec ★ conviction</li>
   <li>✓ <strong>11 ETF thematiques</strong> (politique, ARK, sentiment retail, income, defense, uranium...)</li>
   <li>✓ Hot Stocks via Google Trends</li>
