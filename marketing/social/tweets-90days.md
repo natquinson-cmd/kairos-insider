@@ -41,39 +41,43 @@ Synthèse en un seul chiffre : le Kairos Score 0-100 sur 8 axes.
 
 ---
 
-### Lundi — Post 2 (suite du thread)
+### Lundi — Post 2 (suite du thread, 276 chars)
 
 **Heure** : 9h02 (même thread)
 
 ```
 2/ Pourquoi faire ça ?
 
-Parce que le smart money US a 6 mois d'avance sur le retail français.
+Le smart money US a 6 mois d'avance sur le retail français.
 
 Quand Zonebourse parle d'une tendance, Bridgewater en est déjà sorti.
 Quand BFM Bourse découvre un clustering, Baupost a déjà doublé.
 
-Le signal EXISTE. Il est gratuit (SEC). Il est juste pas en FR.
+Le signal EXISTE. Il est gratuit (SEC). Juste pas en FR.
 ```
+
+_(276 chars — version corrigée de l'original qui dépassait de 13)_
 
 ---
 
-### Lundi — Post 3
+### Lundi — Post 3 (≤280 chars)
 
 **Heure** : 9h04
 
 ```
-3/ Ce que tu peux faire avec Kairos dès aujourd'hui :
+3/ Avec Kairos dès aujourd'hui :
 
-→ 3 analyses complètes / jour GRATUITES (Kairos Score 0-100)
-→ Dashboard sentiment Fear & Greed live
-→ Top signaux : clusters insiders, rotations ETF
-→ 1000+ tickers couverts
+→ 3 analyses / jour GRATUITES (Kairos Score 0-100)
+→ Fear & Greed live
+→ Top signaux : clusters, 13D, ETF
+→ 1000+ tickers
 
-Plan Pro 19€/mo · Elite 49€/mo (accès API + alertes)
+Pro 19€/mo · Elite 49€/mo (API + alertes)
 
 kairosinsider.fr
 ```
+
+_(~218 chars)_
 
 ---
 
