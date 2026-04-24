@@ -3535,6 +3535,15 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: VIX (volatility index) ===== -->
+      <div class="section-page" id="section-vix">
+        <h2>VIX <span style="font-size:13px;font-weight:500;color:var(--text-muted);margin-left:8px">(Cboe Volatility Index · S&amp;P 500)</span></h2>
+        <p class="section-desc">L'indice de la peur. Mesure la volatilité attendue du S&amp;P 500 sur 30 jours, dérivée du prix des options. Plus il est haut, plus les investisseurs anticipent de turbulence.</p>
+        <div id="vixArea">
+          <div class="loading"><div class="spinner"></div>Chargement de l'indice VIX…</div>
+        </div>
+      </div>
+
       <!-- ===== SECTION: SHORT INTEREST ===== -->
       <div class="section-page" id="section-shorts">
         <h2 data-i18n="dash.section.shorts.title">Short Interest</h2>
@@ -5782,6 +5791,7 @@
         if (section === '13f') { loadQuarterActivity(); load13FFunds(); }
         if (section === 'clustering') loadClustering();
         if (section === 'feargreed') loadFearGreed();
+        if (section === 'vix') loadVix();
         if (section === 'shorts') loadShortInterest();
         if (section === 'portfolio') loadPortfolioFromFirebase();
         if (section === 'stockAnalysis') initStockAnalysis();
@@ -6647,20 +6657,55 @@
         const fgCard = () => {
           if (!fg || fg.score == null) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">F&amp;G Index</div><div>—</div></div>`;
           const s = fg.score;
-          const color = s <= 25 ? '#EF4444' : s <= 45 ? '#F97316' : s <= 55 ? 'var(--text-muted)' : s <= 75 ? '#84CC16' : '#10B981';
-          const labelFR = { 'Extreme Fear': 'Peur extrême', 'Fear': 'Peur', 'Neutral': 'Neutre', 'Greed': 'Avidité', 'Extreme Greed': 'Avidité ext.' }[fg.rating] || fg.rating || '';
+          const color = s <= 25 ? '#EF4444' : s <= 45 ? '#F97316' : s <= 55 ? '#94A3B8' : s <= 75 ? '#84CC16' : '#10B981';
+          // Delta vs la veille (comme les autres indices)
+          const delta = fg.delta;
+          const deltaColor = (delta == null) ? 'var(--text-muted)' : delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : 'var(--text-muted)';
+          const arrow = (delta == null) ? '' : delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
+          const deltaStr = (delta == null) ? '—' : (delta > 0 ? '+' : '') + delta + 'pt';
+          // Mini barometre horizontal : 5 segments colorés (peur ext → avidité ext)
+          // + marker vertical à la position du score
+          const pctPos = Math.max(0, Math.min(100, s));
+          const barometer = `
+            <svg viewBox="0 0 100 14" style="width:70px;height:12px;display:block;margin:3px auto">
+              <rect x="0"  width="19" height="8" y="3" fill="#EF4444" rx="1"/>
+              <rect x="20" width="19" height="8" y="3" fill="#F97316" rx="1"/>
+              <rect x="40" width="19" height="8" y="3" fill="#94A3B8" rx="1"/>
+              <rect x="60" width="19" height="8" y="3" fill="#84CC16" rx="1"/>
+              <rect x="80" width="19" height="8" y="3" fill="#10B981" rx="1"/>
+              <polygon points="${pctPos - 2},0 ${pctPos + 2},0 ${pctPos},4" fill="${color}"/>
+              <polygon points="${pctPos - 2},14 ${pctPos + 2},14 ${pctPos},10" fill="${color}"/>
+            </svg>`;
           return `
-            <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'">
+            <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="F&amp;G hier: ${fg.previousClose != null ? fg.previousClose : '?'} · cliquer pour voir l'historique 1 an">
               <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">Fear &amp; Greed</div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:800;color:${color}">${s}/100</div>
-              <div style="font-size:11px;color:${color};font-weight:600;margin-top:2px">${labelFR}</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${color};line-height:1">${s}<span style="font-size:12px;opacity:0.65;font-weight:600">/100</span></div>
+              ${barometer}
+              <div style="font-size:11px;color:${deltaColor};font-weight:600;font-variant-numeric:tabular-nums">${arrow} ${deltaStr}</div>
+            </div>`;
+        };
+        // VIX cliquable : onclick → section VIX dedicated
+        const vixCard = () => {
+          if (!vix) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">VIX</div><div>—</div></div>`;
+          const color = vix.changePct > 0 ? '#10B981' : vix.changePct < 0 ? '#EF4444' : 'var(--text-muted)';
+          const arrow = vix.changePct > 0 ? '▲' : vix.changePct < 0 ? '▼' : '—';
+          // VIX zones : calme <15, normal 15-20, stress 20-25, panique 25-40, crash >40
+          const v = vix.price;
+          const zone = v < 15 ? 'Calme' : v < 20 ? 'Normal' : v < 25 ? 'Stress' : v < 40 ? 'Panique' : 'Crash';
+          const zoneColor = v < 15 ? '#10B981' : v < 20 ? '#84CC16' : v < 25 ? '#F59E0B' : v < 40 ? '#EF4444' : '#B91C1C';
+          return `
+            <div onclick="switchSection('vix')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="VIX — indice de peur (volatilité implicite S&P). Cliquer pour voir l'historique 1 an.">
+              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">VIX</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtPrice(vix.price)}</div>
+              <div style="font-size:10px;color:${zoneColor};font-weight:700;margin-top:1px;text-transform:uppercase;letter-spacing:0.04em">${zone}</div>
+              <div style="font-size:11px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(vix.changePct)}</div>
             </div>`;
         };
         container.innerHTML = `
           ${pulse('S&P 500', sp500)}
           ${pulse('NASDAQ', nasdaq)}
           ${pulse('DOW JONES', dow)}
-          ${pulse('VIX', vix)}
+          ${vixCard()}
           ${fgCard()}
         `;
       } catch (e) {
@@ -12110,6 +12155,244 @@
           }
         },
         plugins: [fgZonesPlugin]
+      });
+    }
+
+    // ============================================================
+    // VIX — Indice de volatilité (Cboe) historique 1 an
+    // ============================================================
+    // Load depuis /api/vix-history (public). Affiche :
+    //   - Valeur actuelle + badge zone (Calme/Normal/Stress/Panique/Crash)
+    //   - Stats 1 an (high/low/avg/percentile)
+    //   - Chart Chart.js line avec zones colorees en background
+    //   - Tableau explicatif des 5 zones
+    let _vixChart = null;
+    async function loadVix() {
+      const area = document.getElementById('vixArea');
+      if (!area) return;
+      try {
+        const resp = await fetch(API_BASE + '/api/vix-history');
+        const data = await resp.json();
+        if (!data || data.error) throw new Error(data?.error || 'VIX fetch failed');
+
+        const v = data.current;
+        const prev = data.previousClose;
+        const changePct = data.changePct;
+        const stats = data.stats || {};
+        const history = data.history || [];
+
+        // Zone courante
+        const zoneOf = (val) => {
+          if (val < 15) return { label: 'Calme', color: '#10B981', desc: 'Marché serein, volatilité minimale' };
+          if (val < 20) return { label: 'Normal', color: '#84CC16', desc: 'Volatilité historique moyenne' };
+          if (val < 25) return { label: 'Stress', color: '#F59E0B', desc: 'Nervosité en hausse, prudence' };
+          if (val < 40) return { label: 'Panique', color: '#EF4444', desc: 'Baisse rapide attendue, contrarians actifs' };
+          return { label: 'Crash', color: '#B91C1C', desc: 'Événement majeur (Covid 2020, 2008...)' };
+        };
+        const zone = zoneOf(v);
+
+        // Color delta changePct
+        const deltaColor = changePct > 0 ? '#10B981' : changePct < 0 ? '#EF4444' : 'var(--text-muted)';
+        const arrow = changePct > 0 ? '▲' : changePct < 0 ? '▼' : '—';
+
+        area.innerHTML = `
+          <style>
+            .vix-zones-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 10px; margin-top: 12px; }
+            .vix-zone-card { padding:12px 14px; background:var(--surface-1); border:1px solid var(--border); border-radius:10px; }
+            .vix-zone-badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; letter-spacing:0.04em; }
+          </style>
+
+          <!-- Top stats : valeur courante + zone + comparaison 1 an -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px">
+            <div style="padding:18px 20px;background:linear-gradient(135deg,${zone.color}14,${zone.color}05);border:1px solid ${zone.color}33;border-radius:12px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">VIX actuel</div>
+              <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+                <div style="font-family:'Space Grotesk';font-size:38px;font-weight:800;color:${zone.color};line-height:1">${v.toFixed(2)}</div>
+                <div style="font-size:12px;color:${deltaColor};font-weight:700">${arrow} ${(changePct > 0 ? '+' : '') + changePct}%</div>
+              </div>
+              <div style="margin-top:8px">
+                <span class="vix-zone-badge" style="background:${zone.color}22;color:${zone.color};border:1px solid ${zone.color}44">${zone.label.toUpperCase()}</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${zone.desc}</span>
+              </div>
+            </div>
+            <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Percentile 1 an</div>
+              <div style="font-family:'Space Grotesk';font-size:38px;font-weight:800;color:var(--text-primary);line-height:1">${stats.percentile}%</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px">du temps, le VIX était inférieur au niveau actuel</div>
+            </div>
+            <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Fourchette 1 an</div>
+              <div style="display:flex;gap:14px;align-items:baseline;margin-top:4px">
+                <div>
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Bas</div>
+                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#10B981">${stats.low}</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Moyenne</div>
+                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:var(--text-primary)">${stats.avg}</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Haut</div>
+                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#EF4444">${stats.high}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Graphique historique 1 an -->
+          <div style="margin:0 0 24px;padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div>
+                <h4 style="margin:0;font-size:15px;font-weight:700">📈 Historique 1 an</h4>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${history.length} séances · zones colorées en fond</div>
+              </div>
+            </div>
+            <div style="position:relative;height:340px"><canvas id="vixHistoryChart"></canvas></div>
+          </div>
+
+          <!-- 5 zones expliquees -->
+          <h4 style="margin:0 0 12px;font-size:15px;font-weight:700">🧭 Comprendre les 5 zones du VIX</h4>
+          <div class="vix-zones-grid">
+            ${[
+              { label: 'Calme', range: '< 15', color: '#10B981', desc: 'Marché serein, faible volatilité attendue. Souvent en fin de bull market — attention complacence.' },
+              { label: 'Normal', range: '15-20', color: '#84CC16', desc: 'Moyenne historique du VIX (~19). Comportement neutre.' },
+              { label: 'Stress', range: '20-25', color: '#F59E0B', desc: 'Nervosité croissante. Correction possible, revoir exposition risque.' },
+              { label: 'Panique', range: '25-40', color: '#EF4444', desc: 'Baisse forte probable. Historiquement excellent pour contrarians (achat long-terme).' },
+              { label: 'Crash', range: '> 40', color: '#B91C1C', desc: 'Événement systémique (Covid mars 2020 : 82 · 2008 : 80). Opportunité historique d\'achat.' },
+            ].map(z => `
+              <div class="vix-zone-card" style="border-color:${v >= parseInt(z.range.match(/\\d+/)?.[0] || '0') && (z.label === 'Crash' || v < parseInt(z.range.split('-')[1] || '999')) ? z.color : 'var(--border)'}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span class="vix-zone-badge" style="background:${z.color}22;color:${z.color};border:1px solid ${z.color}44">${z.label}</span>
+                  <span style="font-family:'Space Grotesk';font-size:13px;font-weight:700;color:var(--text-primary)">${z.range}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">${z.desc}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        // Render chart avec zones colorées
+        renderVixHistoryChart(history);
+      } catch (e) {
+        console.warn('[vix]', e);
+        area.innerHTML = `
+          <div class="empty-state" style="padding:60px 20px;text-align:center">
+            <div style="font-size:48px;margin-bottom:14px">📉</div>
+            <p style="margin:0 0 10px;font-size:16px;color:var(--text-primary);font-weight:600">VIX indisponible</p>
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">Impossible de récupérer l'historique VIX. Réessayez dans quelques minutes.</p>
+          </div>`;
+      }
+    }
+
+    function renderVixHistoryChart(history) {
+      const canvas = document.getElementById('vixHistoryChart');
+      if (!canvas || !history || !history.length) return;
+      const ctx = canvas.getContext('2d');
+      if (_vixChart) _vixChart.destroy();
+
+      const labels = history.map(p => {
+        const d = new Date(p.t);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+      });
+      const timestamps = history.map(p => p.t);
+      const values = history.map(p => p.v);
+
+      // Gradient stroke Kairos bleu → violet → rose
+      const strokeGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+      strokeGradient.addColorStop(0, '#3B82F6');
+      strokeGradient.addColorStop(0.55, '#8B5CF6');
+      strokeGradient.addColorStop(1, '#EC4899');
+
+      // Gradient fill vertical
+      const fillGradient = ctx.createLinearGradient(0, 0, 0, 340);
+      fillGradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      fillGradient.addColorStop(0.55, 'rgba(59, 130, 246, 0.12)');
+      fillGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+      // Plugin custom : zones colorées en background (calme→crash)
+      const vixZonesPlugin = {
+        id: 'vixZones',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const yScale = scales.y;
+          ctx.save();
+          const zones = [
+            { min: 0, max: 15, color: 'rgba(16, 185, 129, 0.10)' },     // Calme
+            { min: 15, max: 20, color: 'rgba(132, 204, 22, 0.08)' },    // Normal
+            { min: 20, max: 25, color: 'rgba(245, 158, 11, 0.10)' },    // Stress
+            { min: 25, max: 40, color: 'rgba(239, 68, 68, 0.13)' },     // Panique
+            { min: 40, max: 100, color: 'rgba(185, 28, 28, 0.16)' },    // Crash
+          ];
+          zones.forEach(z => {
+            const yTop = yScale.getPixelForValue(z.max);
+            const yBot = yScale.getPixelForValue(z.min);
+            ctx.fillStyle = z.color;
+            ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBot - yTop);
+          });
+          ctx.restore();
+        },
+      };
+
+      _vixChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'VIX',
+            data: values,
+            borderColor: strokeGradient,
+            backgroundColor: fillGradient,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#F9A8D4',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            tension: 0.2,
+            fill: true,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 22, 41, 0.96)',
+              borderColor: 'rgba(139, 92, 246, 0.35)',
+              borderWidth: 1,
+              titleColor: '#F9FAFB',
+              bodyColor: '#CBD5E1',
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const t = timestamps[idx];
+                  return t ? new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+                },
+                label: (c) => {
+                  const v = c.parsed.y;
+                  const z = v < 15 ? 'Calme' : v < 20 ? 'Normal' : v < 25 ? 'Stress' : v < 40 ? 'Panique' : 'Crash';
+                  return `VIX : ${v.toFixed(2)} · ${z}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: getCssVar('--chart-text-strong'), maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 12, weight: 500 } },
+            },
+            y: {
+              grid: { color: getCssVar('--chart-grid') },
+              ticks: { color: getCssVar('--chart-text-strong'), font: { size: 12, weight: 500 } },
+            },
+          },
+        },
+        plugins: [vixZonesPlugin],
       });
     }
 

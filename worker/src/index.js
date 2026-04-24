@@ -316,6 +316,10 @@ async function handleRequest(request, env, ctx) {
     if (request.method === 'GET' && path === '/api/market-pulse') {
       return handleMarketPulse(env, request.headers.get('Origin') || '');
     }
+    // VIX history 1 an (pour la section VIX dedicated, graphe + stats + zones)
+    if (request.method === 'GET' && path === '/api/vix-history') {
+      return handleVixHistory(env, request.headers.get('Origin') || '');
+    }
 
     // ==========================================
     // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
@@ -1031,14 +1035,20 @@ async function handleMarketPulse(env, origin) {
     fetchYahooQuote('^VIX'),
   ]);
 
-  // Fear & Greed : reuse du cache existant, pas de double fetch CNN
+  // Fear & Greed : reuse du cache existant, pas de double fetch CNN.
+  // On expose aussi le previous_close pour calculer le delta vs la veille
+  // (comme les autres indices du market pulse).
   let feargreed = null;
   try {
     const fgCached = await env.CACHE.get('fg-cnn-v2', 'json');
     if (fgCached && fgCached.score != null) {
+      const prev = fgCached.previous_close;
+      const delta = (prev != null) ? (fgCached.score - prev) : null;
       feargreed = {
         score: fgCached.score,
         rating: fgCached.rating,
+        previousClose: prev,
+        delta,
       };
     }
   } catch {}
@@ -1057,6 +1067,78 @@ async function handleMarketPulse(env, origin) {
 
   try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 600 }); } catch {}
   return jsonResponse(payload, 200, origin);
+}
+
+// ============================================================
+// VIX HISTORY (1 an glissant) pour la section VIX dedicated
+// ============================================================
+// Source : Yahoo Finance v8 chart ^VIX range=1y interval=1d
+// Cache KV 1h (VIX daily close update rarement vs intraday)
+async function handleVixHistory(env, origin) {
+  const cacheKey = 'vix-history:1y';
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 3600 * 1000) {
+      return jsonResponse(cached, 200, origin);
+    }
+  } catch {}
+
+  try {
+    const resp = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1y',
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+        },
+      }
+    );
+    if (!resp.ok) return jsonResponse({ error: 'Yahoo upstream error', status: resp.status }, 502, origin);
+    const json = await resp.json();
+    const r = json?.chart?.result?.[0];
+    if (!r) return jsonResponse({ error: 'no data' }, 502, origin);
+
+    const ts = r.timestamp || [];
+    const closes = r.indicators?.quote?.[0]?.close || [];
+    // history[] : points {t (timestamp ms), v (valeur VIX)}
+    const history = [];
+    for (let i = 0; i < ts.length; i++) {
+      const v = closes[i];
+      if (v != null && !isNaN(v)) {
+        history.push({ t: ts[i] * 1000, v: Math.round(v * 100) / 100 });
+      }
+    }
+    if (history.length === 0) return jsonResponse({ error: 'no valid data' }, 502, origin);
+
+    // Stats agregees : current, high, low, avg, percentile du current
+    const values = history.map(p => p.v);
+    const current = history[history.length - 1].v;
+    const high = Math.max(...values);
+    const low = Math.min(...values);
+    const avg = Math.round((values.reduce((s, x) => s + x, 0) / values.length) * 100) / 100;
+    // Percentile : % de jours où VIX était <= current
+    const percentile = Math.round((values.filter(v => v <= current).length / values.length) * 100);
+
+    const meta = r.meta || {};
+    const prev = meta.chartPreviousClose || meta.previousClose;
+    const changePct = (prev && current) ? Math.round(((current - prev) / prev) * 10000) / 100 : null;
+
+    const payload = {
+      _cachedAt: Date.now(),
+      updatedAt: new Date().toISOString(),
+      symbol: '^VIX',
+      current,
+      previousClose: prev ? Math.round(prev * 100) / 100 : null,
+      changePct,
+      stats: { high, low, avg, percentile },
+      history,
+    };
+
+    try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 3600 }); } catch {}
+    return jsonResponse(payload, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'VIX fetch failed', detail: String(e && e.message || e) }, 500, origin);
+  }
 }
 
 // ============================================================
