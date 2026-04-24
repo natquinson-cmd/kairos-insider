@@ -6574,20 +6574,40 @@
         planBadge.style.color = cfg.color;
         planBadge.style.background = cfg.bg;
         planBadge.style.borderColor = cfg.border;
-        // Admin seulement : badge cliquable pour cycler free → pro → elite → reset
-        if (typeof isAdminUser !== 'undefined' && isAdminUser) {
-          planBadge.style.cursor = 'pointer';
-          planBadge.title = 'Admin : cliquer pour preview un autre plan (free/pro/elite) et voir les cadenas comme un user lambda';
-          planBadge.onclick = function() {
-            const cycle = { null: 'free', '': 'free', 'free': 'pro', 'pro': 'elite', 'elite': '' };
-            const current = localStorage.getItem('kairos_preview_plan') || '';
+        // Badge toujours cliquable. Comportement selon user :
+        //   - Admin (isAdminUser) : cycle preview plan free→pro→elite→reset pour tester les cadenas
+        //   - User non-admin FREE : ouvre le paywall (upgrade prompt)
+        //   - User non-admin PREMIUM/PRO/ELITE : ouvre le portail Stripe
+        planBadge.style.cursor = 'pointer';
+        planBadge.style.userSelect = 'none';
+        planBadge.onclick = function() {
+          const adminOn = (typeof isAdminUser !== 'undefined' && isAdminUser);
+          if (adminOn) {
+            // Cycle preview : null → free → pro → elite → null
+            const cycle = { '': 'free', 'free': 'pro', 'pro': 'elite', 'elite': '' };
+            const current = (localStorage.getItem('kairos_preview_plan') || '');
             const next = cycle[current] ?? '';
             if (next) localStorage.setItem('kairos_preview_plan', next);
             else localStorage.removeItem('kairos_preview_plan');
-            Toast.info(next ? `Preview plan : ${next.toUpperCase()}` : 'Preview désactivé (plan réel)');
+            Toast.info(next ? 'Preview : ' + next.toUpperCase() : 'Preview désactivé (plan réel)');
             renderCockpitHeader();
             applyHomeCardLocking();
-          };
+          } else if (realPlan === 'free') {
+            // Non-admin free : upgrade prompt
+            document.getElementById('paywallOverlay')?.classList.remove('hidden');
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          } else {
+            // Non-admin premium : ouvre le portail Stripe pour gérer l'abonnement
+            switchSection('profile');
+          }
+        };
+        // Hint visuel selon l'état
+        if (typeof isAdminUser !== 'undefined' && isAdminUser) {
+          planBadge.title = 'Admin : cliquer pour cycler preview free / pro / elite (voir les cadenas comme un user lambda)';
+        } else if (realPlan === 'free') {
+          planBadge.title = 'Cliquer pour découvrir les plans Pro et Elite';
+        } else {
+          planBadge.title = 'Cliquer pour gérer votre abonnement';
         }
       }
     }
@@ -15004,6 +15024,9 @@
     window.addEventListener('kairos:auth-ready', () => {
       if (currentUser) {
         checkAdminStatus().then(() => {
+          // Re-render le cockpit header pour mettre a jour le tooltip admin
+          // (cliquable pour cycler preview plan)
+          try { renderCockpitHeader(); } catch (e) {}
           // Restore auto-refresh preference si admin
           if (isAdminUser) {
             try {
