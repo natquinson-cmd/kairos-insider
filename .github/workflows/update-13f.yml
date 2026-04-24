@@ -248,6 +248,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+          # Permet au pipeline d'envoyer un rapport d'anomalies (email admin)
+          # quand il detecte des deltas suspects (>=20pts) ou declenche le
+          # circuit breaker (>10% des tickers avec delta >=15pts).
+          KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
         run: |
           cd worker
           python push-scores-to-d1.py

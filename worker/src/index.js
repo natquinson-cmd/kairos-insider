@@ -272,6 +272,25 @@ async function handleRequest(request, env, ctx) {
       return jsonResponse(data, data.error ? 400 : 200, origin);
     }
 
+    // Endpoint interne reserve au pipeline (push-scores-to-d1.py).
+    // Renvoie UNIQUEMENT le score + breakdown des 8 piliers (payload minimal
+    // pour reduire la bande passante et le cout KV). Protege par X-Internal-Secret.
+    // Format : GET /internal/score/:ticker
+    if (request.method === 'GET' && path.startsWith('/internal/score/')) {
+      if (!isTrustedInternal) {
+        return jsonResponse({ error: 'Forbidden' }, 403, origin);
+      }
+      const ticker = decodeURIComponent(path.slice('/internal/score/'.length));
+      const full = await handleStockAnalysis(ticker, env, { publicView: false });
+      if (full.error) return jsonResponse(full, 400, origin);
+      // Payload ultra leger : juste score + breakdown + quelques meta
+      return jsonResponse({
+        ticker: full.ticker,
+        updatedAt: full.updatedAt,
+        score: full.score,  // { total, signal, breakdown: {insider, smartMoney, ...} }
+      }, 200, origin);
+    }
+
     // Liste des tickers suivis (pour l'autocomplete de la barre de recherche)
     if (request.method === 'GET' && path === '/public/tickers') {
       return handlePublicTickersList(env, origin);
@@ -451,6 +470,15 @@ async function handleRequest(request, env, ctx) {
         }
         if (request.method === 'POST' && path === '/api/admin/daily-tweets/email') {
           return handleDailyTweetsEmail(request, env, origin);
+        }
+        // Anomalies de score (deltas >=20 pts detectes par push-scores-to-d1.py)
+        // POST : pipeline envoie son rapport -> persistence D1 + email admin
+        // GET : liste les anomalies des 30 derniers jours (panel admin)
+        if (request.method === 'POST' && path === '/api/admin/score-anomalies') {
+          return handleScoreAnomaliesReport(request, env, origin);
+        }
+        if (request.method === 'GET' && path === '/api/admin/score-anomalies') {
+          return handleScoreAnomaliesList(url, env, origin);
         }
         // Typefully (optionnel, necessite plan payant) — garde pour futur si upgrade
         if (request.method === 'POST' && path === '/api/admin/typefully/push') {
@@ -888,16 +916,18 @@ async function handlePublicTickersList(env, origin) {
 //   - timestamp ISO de la derniere mise a jour CNN
 //   - history[] : les 365 derniers points (un par jour, score + rating)
 //   - components : les 7 sous-indicateurs CNN (momentum, breadth, etc.)
-async function handleFearGreed(env, origin) {
+// Fetch + cache du Fear & Greed (fonction pure). Retourne le payload ou null.
+// Utilise par handleFearGreed (HTTP wrapper) + handleMarketPulse (auto-fetch
+// si cache vide pour que le cockpit affiche toujours le F&G).
+// Cache 1h en KV (fg-cnn-v2).
+async function fetchAndCacheFearGreed(env) {
   try {
-    // Cache : max_age 1h → CNN update 1x/jour mais on tolere le delai
     const cached = await env.CACHE.get('fg-cnn-v2', 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 3600 * 1000) {
-      return jsonResponse(cached, 200, origin);
+      return cached;
     }
 
     // CNN bloque les User-Agent non-browser → on utilise un UA Chrome valide.
-    // Sans ces headers, CNN retourne 403 ou une page HTML d'erreur.
     const resp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -913,38 +943,24 @@ async function handleFearGreed(env, origin) {
     });
 
     if (!resp.ok) {
-      log.warn('feargreed.cnn.upstream.error', { status: resp.status, url: 'cnn.graphdata' });
-      // Fallback : si on a un cache meme expire, on le ressert
-      if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
-      return jsonResponse({ error: 'CNN upstream error', status: resp.status }, 502, origin);
+      log.warn('feargreed.cnn.upstream.error', { status: resp.status });
+      return cached ? { ...cached, _stale: true } : null;
     }
-
-    // Verifie aussi le Content-Type : parfois CNN renvoie une page HTML 200
-    // (ex: cloudflare challenge). Dans ce cas c'est pas du JSON.
     const ct = resp.headers.get('content-type') || '';
     if (!ct.includes('json')) {
       log.warn('feargreed.cnn.not-json', { contentType: ct });
-      if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
-      return jsonResponse({ error: 'CNN returned non-JSON', contentType: ct }, 502, origin);
+      return cached ? { ...cached, _stale: true } : null;
     }
 
     const raw = await resp.json();
     const fg = raw.fear_and_greed || {};
     const hist = raw.fear_and_greed_historical?.data || [];
-
-    // Historique : on garde les 365 derniers points (un par jour)
-    // Format compact : t (timestamp ms), s (score 0-100), r (rating)
     const history = hist.map(p => ({
       t: typeof p.x === 'number' ? p.x : Date.parse(p.x),
       s: Math.round(p.y != null ? p.y : p.score || 0),
       r: p.rating || null,
     })).filter(p => !isNaN(p.t) && p.s >= 0 && p.s <= 100);
-
-    // Les 7 composantes CNN (chacune score 0-100 + rating)
-    const component = (node) => node ? ({
-      score: Math.round(node.score || 0),
-      rating: node.rating || null,
-    }) : null;
+    const component = (node) => node ? ({ score: Math.round(node.score || 0), rating: node.rating || null }) : null;
 
     const payload = {
       _cachedAt: Date.now(),
@@ -967,15 +983,21 @@ async function handleFearGreed(env, origin) {
       },
     };
 
-    await env.CACHE.put('fg-cnn-v2', JSON.stringify(payload), { expirationTtl: 3600 });
-    return jsonResponse(payload, 200, origin);
+    try { await env.CACHE.put('fg-cnn-v2', JSON.stringify(payload), { expirationTtl: 3600 }); } catch {}
+    return payload;
   } catch (e) {
     log.error('feargreed.fetch.failed', { detail: String(e && e.message || e) });
-    // Tentative : servir un cache meme perime pour eviter une page cassee
-    const cached = await env.CACHE.get('fg-cnn-v2', 'json');
-    if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
-    return jsonResponse({ error: 'Fear & Greed proxy failed', detail: String(e && e.message || e) }, 500, origin);
+    try {
+      const cached = await env.CACHE.get('fg-cnn-v2', 'json');
+      return cached ? { ...cached, _stale: true } : null;
+    } catch { return null; }
   }
+}
+
+async function handleFearGreed(env, origin) {
+  const payload = await fetchAndCacheFearGreed(env);
+  if (!payload) return jsonResponse({ error: 'Fear & Greed proxy failed' }, 502, origin);
+  return jsonResponse(payload, 200, origin);
 }
 
 // ============================================================
@@ -1035,12 +1057,13 @@ async function handleMarketPulse(env, origin) {
     fetchYahooQuote('^VIX'),
   ]);
 
-  // Fear & Greed : reuse du cache existant, pas de double fetch CNN.
+  // Fear & Greed : on passe par la fonction pure mutualisee avec /api/feargreed
+  // pour que le cockpit market-pulse ait toujours la data (fetch CNN si cache vide).
   // On expose aussi le previous_close pour calculer le delta vs la veille
   // (comme les autres indices du market pulse).
   let feargreed = null;
   try {
-    const fgCached = await env.CACHE.get('fg-cnn-v2', 'json');
+    const fgCached = await fetchAndCacheFearGreed(env);
     if (fgCached && fgCached.score != null) {
       const prev = fgCached.previous_close;
       const delta = (prev != null) ? (fgCached.score - prev) : null;
@@ -4516,9 +4539,9 @@ Analyse complète : kairosinsider.fr
         const fmtM = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? '$' + Math.round(v / 1e3) + 'K' : '$' + Math.round(v);
         const dir = (topCluster.buyCount || 0) > (topCluster.sellCount || 0) ? '🟢 achats' : '🔴 ventes';
         tweets.push(
-`🔔 CLUSTER INSIDER DETECTE
+`🔔 CLUSTER INSIDER DÉTECTÉ
 
-$${topCluster.ticker} : ${topCluster.buyCount || 0}🟢 / ${topCluster.sellCount || 0}🔴 ${dir} coordonnes.
+$${topCluster.ticker} : ${topCluster.buyCount || 0}🟢 / ${topCluster.sellCount || 0}🔴 ${dir} coordonnés.
 Total valeur : ${fmtM(topCluster.totalValue || 0)}
 
 Historique : cluster 3+ insiders = +11% alpha sur 6 mois (Cohen-Malloy-Pomorski 2012).
@@ -4531,11 +4554,11 @@ kairosinsider.fr`
       if (topActivist) {
         const form = String(topActivist.form || '').replace(/^SCHEDULE\s+/i, '');
         tweets.push(
-`⚡ ${topActivist.isActivist ? 'FONDS OFFENSIF' : 'PRISE >5%'} : ${topActivist.filer}
+`⚡ ${topActivist.isActivist ? 'FONDS OFFENSIF' : 'PRISE >5 %'} : ${topActivist.filer}
 
 $${topActivist.ticker} · ${form}
 
-${topActivist.isActivist ? 'Activist reconnu → campagne probable (board, buybacks, spin-off).' : 'Prise passive >5%.'}
+${topActivist.isActivist ? 'Activiste reconnu → campagne probable (board, buybacks, spin-off).' : 'Prise passive >5 %.'}
 
 Source : SEC EDGAR (public).
 kairosinsider.fr`
@@ -4551,10 +4574,10 @@ kairosinsider.fr`
     tweets.push(
 `Voyez ce que les pros voient. 🇫🇷
 
-Kairos Insider agrege en temps reel :
-- 13F de 500+ hedge funds (Buffett, Ackman...)
-- Form 4 insiders (2j delai SEC)
-- 13D activists (Elliott, Icahn)
+Kairos Insider agrège en temps réel :
+- 13F de 500+ hedge funds (Buffett, Ackman…)
+- Form 4 insiders (2j délai SEC)
+- 13D activistes (Elliott, Icahn)
 - ETF politiques NANC/KRUZ
 
 3 analyses gratuites par jour.
@@ -4656,6 +4679,160 @@ async function handleDailyTweetsEmail(request, env, origin) {
     return jsonResponse({ ok: true, sent: true, to, tweets: tweets.length }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'email send failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// SCORE ANOMALIES : rapport du pipeline quand un ticker bouge >=20 pts
+// ============================================================
+// Le pipeline push-scores-to-d1.py detecte les deltas suspects et POST
+// un rapport ici. On persiste en D1 (table score_anomalies) + on envoie
+// un email recap a l'admin si le seuil global est depasse.
+async function handleScoreAnomaliesReport(request, env, origin) {
+  try {
+    const body = await request.json();
+    const anomalies = Array.isArray(body.anomalies) ? body.anomalies : [];
+    const runDate = body.runDate || new Date().toISOString().slice(0, 10);
+    const totalTickers = parseInt(body.totalTickers || 0, 10);
+    const circuitBreakerTriggered = !!body.circuitBreakerTriggered;
+
+    if (!env.HISTORY) {
+      return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+    }
+
+    // Persistence : insere les anomalies en batch D1
+    let inserted = 0;
+    if (anomalies.length) {
+      const stmts = anomalies.map(a => env.HISTORY.prepare(
+        `INSERT INTO score_anomalies (date, ticker, old_total, new_total, delta, old_breakdown, new_breakdown, suspected_cause)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        runDate,
+        String(a.ticker || '').slice(0, 12),
+        a.oldTotal != null ? parseInt(a.oldTotal, 10) : null,
+        a.newTotal != null ? parseInt(a.newTotal, 10) : null,
+        parseInt(a.delta || 0, 10),
+        a.oldBreakdown ? JSON.stringify(a.oldBreakdown).slice(0, 2000) : null,
+        a.newBreakdown ? JSON.stringify(a.newBreakdown).slice(0, 2000) : null,
+        String(a.suspectedCause || '').slice(0, 300) || null,
+      ));
+      try {
+        await env.HISTORY.batch(stmts);
+        inserted = anomalies.length;
+      } catch (e) {
+        log.warn('score-anomalies.insert.fail', { err: String(e).slice(0, 200) });
+      }
+    }
+
+    // Email admin si au moins 1 anomalie OU circuit breaker
+    let emailSent = false;
+    if ((anomalies.length >= 1 || circuitBreakerTriggered) && env.BREVO_API_KEY) {
+      const to = ADMIN_EMAILS[0];
+      const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' });
+      const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      const rows = anomalies.slice(0, 30).map(a => {
+        const deltaColor = a.delta > 0 ? '#10B981' : '#EF4444';
+        const arrow = a.delta > 0 ? '▲' : '▼';
+        return `<tr>
+          <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.06);font-weight:600;color:#F9FAFB">${esc(a.ticker)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.06);color:#9CA3AF">${a.oldTotal ?? '—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.06);color:#F9FAFB;font-weight:600">${a.newTotal ?? '—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.06);color:${deltaColor};font-weight:700">${arrow} ${Math.abs(a.delta)}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.06);color:#9CA3AF;font-size:11px">${esc(a.suspectedCause || '')}</td>
+        </tr>`;
+      }).join('');
+
+      const banner = circuitBreakerTriggered
+        ? `<div style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);border-radius:10px;padding:16px;margin-bottom:20px;color:#FCA5A5">
+             <strong style="color:#EF4444;font-size:15px">⚠️ CIRCUIT BREAKER DECLENCHE</strong><br>
+             <span style="font-size:13px">Plus de 10% des tickers ont un delta >=15 pts — une API source est probablement down. Les nouveaux scores N'ONT PAS ete ecrits en base. Les scores d'hier sont conserves.</span>
+           </div>`
+        : '';
+
+      const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Kairos · Anomalies scores</title></head>
+<body style="margin:0;padding:24px 12px;background:#0A0F1E;color:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:720px;margin:0 auto">
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#F9FAFB;margin-bottom:4px">Kairos · Anomalies de score</div>
+    <div style="font-size:13px;color:#9CA3AF">${today} · ${anomalies.length} ticker${anomalies.length > 1 ? 's' : ''} suspect${anomalies.length > 1 ? 's' : ''} / ${totalTickers} au total</div>
+  </div>
+  ${banner}
+  <div style="background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:rgba(255,255,255,0.03)">
+          <th style="padding:10px;text-align:left;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em">Ticker</th>
+          <th style="padding:10px;text-align:left;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em">Avant</th>
+          <th style="padding:10px;text-align:left;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em">Apres</th>
+          <th style="padding:10px;text-align:left;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em">Delta</th>
+          <th style="padding:10px;text-align:left;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em">Cause suspectee</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="5" style="padding:20px;text-align:center;color:#9CA3AF">Aucune anomalie, circuit breaker uniquement</td></tr>'}</tbody>
+    </table>
+  </div>
+  <div style="margin-top:20px;padding:14px;background:#111827;border:1px solid rgba(255,255,255,0.05);border-radius:10px;font-size:12px;color:#9CA3AF;line-height:1.6">
+    <strong style="color:#CBD5E1">Comment interpreter :</strong> un delta >=20 pts en 1 jour est rare et peut indiquer (1) un event legitime (earnings, upgrade, 13D), (2) une API source qui timeout puis revient, (3) un bug pipeline. Les anomalies restent visibles dans le panel admin pour revue.
+  </div>
+  <div style="margin-top:16px;text-align:center">
+    <a href="https://kairosinsider.fr/dashboard.html#admin" style="display:inline-block;padding:10px 20px;background:#3B82F6;color:#fff !important;text-decoration:none;border-radius:8px;font-size:13px;font-weight:600">Panel admin</a>
+  </div>
+</div></body></html>`;
+
+      try {
+        const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+            to: [{ email: to }],
+            subject: `${circuitBreakerTriggered ? '🚨' : '⚠️'} Kairos · ${anomalies.length} anomalie${anomalies.length > 1 ? 's' : ''} score${circuitBreakerTriggered ? ' + circuit breaker' : ''} (${today})`,
+            htmlContent: html,
+          }),
+        });
+        emailSent = resp.ok;
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => '');
+          log.warn('score-anomalies.email.brevo.fail', { status: resp.status, detail: errText.slice(0, 200) });
+        }
+      } catch (e) {
+        log.warn('score-anomalies.email.fail', { err: String(e).slice(0, 200) });
+      }
+    }
+
+    log.info('score-anomalies.report', { inserted, total: anomalies.length, circuitBreakerTriggered, emailSent });
+    return jsonResponse({ ok: true, inserted, emailSent, circuitBreakerTriggered }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'report failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// GET /api/admin/score-anomalies?days=30 : liste les anomalies recentes (panel admin)
+async function handleScoreAnomaliesList(url, env, origin) {
+  if (!env.HISTORY) {
+    return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  }
+  const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '30', 10)));
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceStr = since.toISOString().slice(0, 10);
+  try {
+    const rows = (await env.HISTORY.prepare(
+      `SELECT id, date, ticker, old_total, new_total, delta, suspected_cause, reviewed, created_at
+       FROM score_anomalies
+       WHERE date >= ?
+       ORDER BY date DESC, ABS(delta) DESC
+       LIMIT 200`
+    ).bind(sinceStr).all()).results || [];
+    return jsonResponse({ anomalies: rows, days, since: sinceStr }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

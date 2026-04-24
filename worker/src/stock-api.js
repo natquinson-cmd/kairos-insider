@@ -28,6 +28,51 @@ const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 C
 const CACHE_TTL = 900; // 15 min
 
 // ============================================================
+// fetchWithRetry : fetch resilient avec retry + backoff exponentiel
+// ============================================================
+// Usage : const resp = await fetchWithRetry(url, { headers }, { retries: 2, backoffMs: 400 })
+// Retry UNIQUEMENT sur :
+//   - exception reseau (timeout, DNS, reset)
+//   - status 5xx (server error)
+//   - status 429 (rate limit, avec backoff respectant Retry-After si present)
+// JAMAIS retry sur 4xx != 429 (logique metier : la source dit "bad request", pas la peine d'insister).
+async function fetchWithRetry(url, init = {}, opts = {}) {
+  const { retries = 2, backoffMs = 400, label = '' } = opts;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const resp = await fetch(url, init);
+      if (resp.ok) return resp;
+      // Retry sur 5xx et 429
+      if (resp.status >= 500 || resp.status === 429) {
+        if (attempt < retries) {
+          // Respect Retry-After si header present (sinon backoff exponentiel)
+          const retryAfter = resp.headers.get('Retry-After');
+          const wait = retryAfter && !isNaN(parseInt(retryAfter, 10))
+            ? Math.min(parseInt(retryAfter, 10) * 1000, 5000)
+            : backoffMs * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+      }
+      // 4xx != 429 : pas de retry, on retourne direct la reponse pour que
+      // le caller decide (souvent : default/empty).
+      return resp;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) {
+        const wait = backoffMs * Math.pow(2, attempt);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+    }
+  }
+  // Tous les retries echouent : on throw l'exception pour que le caller
+  // (qui est deja dans un try/catch) puisse retourner la valeur par defaut.
+  throw lastErr || new Error(`fetchWithRetry failed: ${label || url}`);
+}
+
+// ============================================================
 // ENTREE PRINCIPALE
 // ============================================================
 export async function handleStockAnalysis(ticker, env, options = {}) {
@@ -170,7 +215,7 @@ async function fetchYahooQuote(ticker, range = '1y') {
     // chart v8 : prix courant + historique daily (range configurable : 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, max)
     // Pour > 1y, Yahoo renvoie interval=1d avec un nombre de points proportionnel.
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${encodeURIComponent(range)}&includePrePost=false`;
-    const resp = await fetch(url, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
+    const resp = await fetchWithRetry(url, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } }, { retries: 2, label: `yahoo-quote:${ticker}` });
     if (!resp.ok) return empty;
     const json = await resp.json();
     const result = json.chart && json.chart.result && json.chart.result[0];
@@ -291,9 +336,9 @@ async function fetchStockAnalysisOverview(ticker) {
   for (const path of paths) {
     try {
       const url = `https://api.stockanalysis.com/api/symbol/${path}/overview`;
-      const resp = await withTimeout(fetch(url, {
+      const resp = await withTimeout(fetchWithRetry(url, {
         headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
-      }), 7000);
+      }, { retries: 2, backoffMs: 300, label: `sa-overview:${ticker}` }), 10000);
       if (!resp.ok) continue;
       const json = await resp.json();
       if (!json || !json.data) continue;
@@ -416,9 +461,9 @@ async function fetchStockAnalysisStatistics(ticker) {
   for (const path of paths) {
     try {
       const url = `https://api.stockanalysis.com/api/symbol/${path}/statistics`;
-      const resp = await withTimeout(fetch(url, {
+      const resp = await withTimeout(fetchWithRetry(url, {
         headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
-      }), 7000);
+      }, { retries: 2, backoffMs: 300, label: `sa-stats:${ticker}` }), 10000);
       if (!resp.ok) continue;
       const json = await resp.json();
       const d = json && json.data;
@@ -556,9 +601,9 @@ async function fetchStockAnalysisEarnings(ticker) {
   for (const path of paths) {
     try {
       const url = `https://api.stockanalysis.com/api/symbol/${path}/earnings`;
-      const resp = await withTimeout(fetch(url, {
+      const resp = await withTimeout(fetchWithRetry(url, {
         headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
-      }), 7000);
+      }, { retries: 2, backoffMs: 300, label: `sa-earnings:${ticker}` }), 10000);
       if (!resp.ok) continue;
       const json = await resp.json();
       const arr = json && json.data;
@@ -615,9 +660,9 @@ async function fetchStockAnalysisEmployees(ticker) {
   for (const path of paths) {
     try {
       const url = `https://api.stockanalysis.com/api/symbol/${path}/employees`;
-      const resp = await withTimeout(fetch(url, {
+      const resp = await withTimeout(fetchWithRetry(url, {
         headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json', 'Referer': 'https://stockanalysis.com/' },
-      }), 7000);
+      }, { retries: 2, backoffMs: 300, label: `sa-employees:${ticker}` }), 10000);
       if (!resp.ok) continue;
       const json = await resp.json();
       const d = json && json.data;
@@ -1107,15 +1152,37 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   const W = { ...SCORE_DEFAULT_WEIGHTS, ...(weights || {}) };
 
   const breakdown = {
-    insider: { score: 0, max: W.insider, label: 'Signal des initiés', detail: '' },
-    smartMoney: { score: 0, max: W.smartMoney, label: 'Hedge funds (13F)', detail: '' },
-    govGuru: { score: 0, max: W.govGuru, label: 'Politiciens & gourous', detail: '' },
-    momentum: { score: 0, max: W.momentum, label: 'Momentum du cours', detail: '' },
-    valuation: { score: 0, max: W.valuation, label: 'Valorisation', detail: '' },
-    analyst: { score: 0, max: W.analyst, label: 'Consensus analystes', detail: '' },
-    health: { score: 0, max: W.health, label: 'Santé financière', detail: '' },
-    earnings: { score: 0, max: W.earnings, label: 'Momentum résultats', detail: '' },
+    insider: { score: 0, max: W.insider, label: 'Signal des initiés', detail: '', dataOk: true },
+    smartMoney: { score: 0, max: W.smartMoney, label: 'Hedge funds (13F)', detail: '', dataOk: true },
+    govGuru: { score: 0, max: W.govGuru, label: 'Politiciens & gourous', detail: '', dataOk: true },
+    momentum: { score: 0, max: W.momentum, label: 'Momentum du cours', detail: '', dataOk: true },
+    valuation: { score: 0, max: W.valuation, label: 'Valorisation', detail: '', dataOk: true },
+    analyst: { score: 0, max: W.analyst, label: 'Consensus analystes', detail: '', dataOk: true },
+    health: { score: 0, max: W.health, label: 'Santé financière', detail: '', dataOk: true },
+    earnings: { score: 0, max: W.earnings, label: 'Momentum résultats', detail: '', dataOk: true },
   };
+
+  // Data presence check : dataOk=false signale que la source a probablement rate,
+  // donc le pilier a defaut vers le score "neutre" et ne reflete pas la realite.
+  // Le pipeline push-scores-to-d1.py utilisera ce flag pour faire du fallback
+  // "last known good" (= ne pas ecraser une bonne valeur par un defaut neutre).
+  const hasInsiderData = (insiders.buyCount || 0) > 0 || (insiders.sellCount || 0) > 0 || (insiders.uniqueInsiders || 0) > 0;
+  const hasSmartMoneyData = (smartMoney.fundCount || 0) > 0;
+  const hasGovGuruData = Array.isArray(govEtf.inEtfs) && govEtf.inEtfs.length > 0;
+  const hasMomentumData = !!(quote && quote.price && quote.price.current && quote.price.high52w && quote.price.low52w);
+  const hasValuationData = !!(fundamentals && (fundamentals.peRatio || fundamentals.forwardPE));
+  const hasAnalystData = !!(consensus && consensus.total > 0) || !!(fundamentals && fundamentals.targetMeanPrice);
+  const hasHealthData = !!(health && (health.altmanZ != null || health.piotroskiF != null));
+  const hasEarningsData = Array.isArray(earnings && earnings.history) && earnings.history.length > 0;
+
+  breakdown.insider.dataOk = hasInsiderData;
+  breakdown.smartMoney.dataOk = hasSmartMoneyData;
+  breakdown.govGuru.dataOk = hasGovGuruData;
+  breakdown.momentum.dataOk = hasMomentumData;
+  breakdown.valuation.dataOk = hasValuationData;
+  breakdown.analyst.dataOk = hasAnalystData;
+  breakdown.health.dataOk = hasHealthData;
+  breakdown.earnings.dataOk = hasEarningsData;
 
   // Helper : applique le poids custom a un score brut calcule sur BASE_MAX.
   // Ex: insider raw=15 sur BASE_MAX=20 → normalized=0.75 → si weight=25 → score=19
