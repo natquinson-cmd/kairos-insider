@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js"></script>
+  <script src="assets/i18n.js?v=20260424b"></script>
 
   <style>
     :root {
@@ -686,6 +686,22 @@
     .comparison-table .no { color: #6B7280; font-size: 16px; }
     .comparison-table .partial { color: #FBBF24; font-weight: 700; }
     .comparison-table td.kairos-col { background: rgba(59, 130, 246, 0.05); }
+    /* Badge "Bientot" pour les features en cours de developpement */
+    .badge-soon {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 8px;
+      background: linear-gradient(135deg, rgba(236,72,153,0.15), rgba(245,158,11,0.15));
+      border: 1px solid rgba(245,158,11,0.4);
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #F59E0B;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
 
     /* ===== HOW IT WORKS ===== */
     .steps {
@@ -777,10 +793,11 @@
 
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-      max-width: 840px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1180px;
       margin: 0 auto;
+      align-items: stretch;
     }
     .pricing-card {
       padding: 36px 30px;
@@ -788,6 +805,8 @@
       border: 1px solid var(--border);
       border-radius: 18px;
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
     .pricing-card.featured {
       background: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(139,92,246,0.05));
@@ -828,7 +847,9 @@
     .pricing-features li:last-child { border-bottom: none; }
     .pricing-features .feat-check { color: var(--accent-green); flex-shrink: 0; font-weight: 700; }
     .pricing-features .feat-cross { color: var(--text-muted); flex-shrink: 0; }
-    .pricing-card .btn { width: 100%; justify-content: center; }
+    /* Pousse le bouton CTA au bas de la card pour alignement horizontal entre les 3 plans */
+    .pricing-card .btn { width: 100%; justify-content: center; margin-top: auto; }
+    .pricing-card .pricing-features { flex-grow: 1; }
 
     /* ===== POPULAR STOCKS ===== */
     .popular-stocks {
@@ -1188,14 +1209,17 @@
     }
 
     /* ===== RESPONSIVE ===== */
+    /* Tablette : on passe a 1 colonne pour pricing pour lisibilite */
+    @media (max-width: 1040px) {
+      .pricing-grid { grid-template-columns: 1fr; max-width: 520px; }
+      .pricing-card.featured { transform: none; }
+    }
     @media (max-width: 900px) {
       .hero { padding: 140px 0 80px; }
       .hero-grid { grid-template-columns: 1fr; gap: 60px; }
       .mockup-card { transform: none; }
       .mockup-float { display: none; }
       .stats-bar { grid-template-columns: repeat(2, 1fr); margin-top: 40px; padding: 22px; }
-      .pricing-grid { grid-template-columns: 1fr; }
-      .pricing-card.featured { transform: none; }
       .nav-links li:not(:last-child) { display: none; }
       .comparison-table { font-size: 12px; }
       .comparison-table th, .comparison-table td { padding: 10px 8px; }
@@ -1702,8 +1726,15 @@
               <td class="partial" data-i18n="comp.manual">Manuel</td>
             </tr>
             <tr>
+              <td class="feature-name"><span data-i18n="comp.row_radar">Radar Portefeuille (sync auto + alertes smart money)</span> <span class="badge-soon" data-i18n="comp.soon">🚀 Bientôt</span></td>
+              <td class="kairos-col yes">✓</td>
+              <td class="no">✗</td>
+              <td class="no">✗</td>
+              <td class="no">✗</td>
+            </tr>
+            <tr>
               <td class="feature-name" data-i18n="comp.row_price">Prix</td>
-              <td class="kairos-col" style="font-weight:700;color:var(--text-primary)">29€/mois</td>
+              <td class="kairos-col" style="font-weight:700;color:var(--text-primary)"><span data-i18n="comp.price_pro">19€/mois (Pro)</span><br/><span style="font-size:11px;color:var(--text-muted);font-weight:500" data-i18n="comp.price_elite">Elite 49€ · Annuel −17%</span></td>
               <td>39,50 $ / mois</td>
               <td>169 $ / mois</td>
               <td>14,95 $ / mois (basique)</td>
@@ -1731,8 +1762,8 @@
         </div>
         <div class="step">
           <div class="step-number">2</div>
-          <h3 data-i18n="how.step2.title">Passez Premium (29€/mois)</h3>
-          <p data-i18n="how.step2.desc">Débloquez le Kairos Score complet, tous les hedge funds, le consensus, les signaux insiders et l'import de portefeuille.</p>
+          <h3 data-i18n="how.step2.title">Passez Pro (19€/mois)</h3>
+          <p data-i18n="how.step2.desc">Débloquez le Kairos Score complet, tous les hedge funds, le consensus, les signaux insiders, l'import de portefeuille et bientôt le Radar Portefeuille (sync auto + alertes).</p>
         </div>
         <div class="step">
           <div class="step-number">3</div>
@@ -1786,8 +1817,7 @@
             </div>
           </div>
           <div class="why-photo-caption">
-            <span class="why-flag">🇫🇷</span>
-            <span data-i18n="why.caption">Basé à Annecy · Indépendant</span>
+            <span data-i18n="why.caption">Fondateur Kairos Insider</span>
           </div>
         </div>
         <div class="why-content">
@@ -1842,7 +1872,7 @@
         </div>
       </div>
 
-      <div class="pricing-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+      <div class="pricing-grid">
         <!-- PLAN 1 · GRATUIT -->
         <div class="pricing-card">
           <div class="pricing-name">Gratuit</div>
