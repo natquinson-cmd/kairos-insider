@@ -1,7 +1,7 @@
 # Stratégie marketing — Kairos Insider
 
 > Document de référence pour la stratégie go-to-market.
-> Dernière révision : 2026-04-23
+> Dernière révision : 2026-04-24
 
 ---
 
@@ -117,12 +117,105 @@ Ce sont les features qui justifient l'upgrade Pro→Elite :
 - `r/FranceFire` (45k) : posts mensuels sur thèmes passifs + smart money
 - **Tonalité** : pas de shill direct, contenu utile → lien dans signature
 
-#### 3. Twitter/X FR FinTwit
+#### 3. Twitter/X FR FinTwit — compte `@KairosInsider` (lancé avril 2026)
 
-- 1 tweet quotidien avec data live Kairos
-- Thèmes : cluster du jour, nouveau 13D activist, mouvement ETF politique, etc.
-- Hashtags : #bourse #investissement #trading #smartmoney
-- **Voir `tweets-batch-1.md`** pour le 1er batch de 15 tweets prêts à publier
+**Setup technique en place** :
+- Compte X officiel `@KairosInsider` actif depuis le 24 avril 2026
+- **Cron automatisé `daily-tweets.yml`** : chaque matin 6h30 UTC (8h30 Paris), le worker Kairos génère 3 tweets à partir des signaux du jour (top score mover + cluster insider + 13D activist) et **envoie un email HTML à l'admin** (via Brevo) avec les 3 tweets formatés en cards + bouton `🐦 Poster sur X` qui ouvre le compose window X pré-rempli.
+- Endpoints worker :
+  - `GET /api/admin/daily-tweets` — preview JSON (sans envoi)
+  - `POST /api/admin/daily-tweets/email` — envoi email admin (appelé par le cron)
+- **Pas d'API Typefully** (payante) : routine manuelle guidée par email = gratuite et gardée sous contrôle éditorial
+
+**Contenu** :
+- 1-3 tweets quotidiens data-driven (cluster du jour, nouveau 13D activist, mouvement ETF politique, score mover)
+- Hashtags sobres : `#bourse #investissement #trading #smartmoney` (éviter la surcharge)
+- Fichiers sources :
+  - `marketing/social/tweets-90days.md` — calendrier 90 jours de tweets
+  - `marketing/social/threads-3months.md` — 12 threads longs (1 par semaine ~12 semaines)
+  - `marketing/social/outreach-influencers.md` — DM/email 1-to-1 (partenariats affiliation)
+
+**Règles accents** : tous les tweets générés par le worker utilisent les **accents français correctement** (`DÉTECTÉ`, `coordonnés`, `Activiste`, `agrège`, `délai`, `temps réel`) — cf. `generateDailyTweets()` dans `worker/src/index.js`.
+
+#### 3.bis Stratégie engagement X — les commentaires publics (organique)
+
+> L'objectif n'est pas de poster plus, c'est d'**apparaître dans les threads** des gros comptes FinTwit avec une vraie valeur ajoutée.
+
+##### Les 4 tiers de profils à commenter (par ordre de priorité)
+
+**Tier 1 — FinTwit FR 5k-50k followers** (cible principale, audience ultra-match)
+- `@LeMario_Invest`, `@finary_fr`, `@avenue_invest`, `@TraderSensible`,
+- `@stephane_finance`, `@MatthieuLouvet`, `@petit_porteur_`, `@cafebourse`
+- **Cadence** : 3-5 commentaires/jour, dans les **15-30 min** après leur post
+
+**Tier 2 — Macro/finance grand public FR 50k-300k**
+- `@XavierDelmas` (ZoneBourse), `@finance_mag`, `@capital_fr`, `@LesEchos`, `@BFMBourse`
+- **Cadence** : 1-2 commentaires/jour max (risque dilution mais 1 percée = énorme)
+
+**Tier 3 — FinTwit US (anglais) sur smart money**
+- `@unusual_whales`, `@TheTranscript_`, `@QCompounding`, `@iankaru`,
+- `@pelosi_tracker_` (parfait pour parler NANC/KRUZ), `@QuiverQuant`, `@StockAnalysis`
+- **Cadence** : 2-3 commentaires/jour en anglais, avec angle FR (ex: *"Same pattern on EU insiders via BaFin/AMF, tracked at kairosinsider.fr"*)
+
+**Tier 4 — Journalistes finance FR** (petit volume, fort levier)
+- `@KatrineBolet` (Les Échos), `@gguyot` (L'Agefi), reporters Capital/BFM/Challenges
+- **Cadence** : 1-2 commentaires/semaine avec data exclusive → chance d'être cité dans un article
+
+##### Les 4 types de commentaires qui marchent
+
+1. **"Tiens, j'ai la donnée chiffrée"** — le plus efficace
+   > *"Confirmé au 13F Q4 : Berkshire +8,2M actions $BAC (+4,3%). Détail : kairosinsider.fr/a/BAC"*
+
+2. **"Je complète avec un angle différent"**
+   > *"À noter : 3 insiders vendent mais 2 achètent (cluster ratio 2:3 = faible). Signal confirmé au-dessus de 5 nets vendeurs."*
+
+3. **"Je pose la question qui force l'engagement"**
+   > *"Elliott activist or passive ? 68% de campagnes offensives post-13D historiquement. Je parie offensif."*
+
+4. **"Je corrige poliment une erreur technique"**
+   > *"Petite précision : 13F = trimestriels (45j après fin Q). Les Form 4 insiders eux sont à 2j."*
+
+##### À éviter absolument
+
+- ❌ *"Super tweet 🔥"* (= 0 valeur, spam)
+- ❌ Self-promo directe (*"Testez Kairos →"*) : shadowban + réputation cassée
+- ❌ Commentaires à plus de 6h après le tweet (invisibles)
+- ❌ Mêmes patterns répétés (l'algo flag)
+- ❌ Politique, lifestyle, sujets hors niche
+
+##### Routine quotidienne 30-45 min
+
+| Créneau | Action | Volume |
+|---|---|---|
+| **8h-9h** (ouverture Paris) | Scroll Tier 1 FR, commentaire + like | 2-3 commentaires |
+| **14h-15h** (pre-market US) | Scroll Tier 3 EN | 2-3 commentaires |
+| **18h-19h** (clôture Paris) | Bilan + quote-tweet signal Kairos du jour | 1-2 commentaires + 1 post |
+| **22h-23h** (clôture US) | Tweets earnings si pertinents | 1-2 commentaires |
+
+**Total : 6-10 commentaires/jour, distribués.**
+
+##### Le cheat code : commentaires avec screenshot Kairos Score
+
+Quand un gros compte mentionne un ticker :
+1. Ouvrir `/a/TICKER` sur le dashboard
+2. **Screenshot le Kairos Score** (breakdown 8 axes visible)
+3. Poster en commentaire : *"Tiens, le Kairos Score actuel sur $TICKER : Insiders 20/20 + HF 18/20 → ACHAT FORT."*
+
+Impact : valeur visuelle immédiate, clics profil ×3-4 vs commentaire texte, watermark du site dans l'image.
+
+##### Activation notifications 🔔 — à faire une seule fois
+
+Sur les 10 comptes Tier 1 (liste ci-dessus) : activer la cloche X → notification push dès qu'ils postent → réactivité 15 min.
+
+##### Benchmark mensuel (tracker dans un Google Sheet)
+
+| Métrique | Cible après 1 mois | Cible après 3 mois |
+|---|---|---|
+| Commentaires postés | ~200 | ~600 |
+| Clics profil X (Analytics) | 300-500 | 1 500-2 500 |
+| Nouveaux followers @KairosInsider | 50-100 | 300-500 |
+| Inscriptions Kairos attribuées | 5-10 | 30-50 |
+| Taux conversion commentaire → click | 1-2% | 2-3% (on affine le style) |
 
 #### 4. Newsletter hebdomadaire gratuite
 
@@ -207,25 +300,31 @@ Cibles prioritaires (à contacter par mail perso) :
 
 ## 🎬 Roadmap d'exécution
 
-### Sprint 1 (semaine 1)
+### Sprint 1 (semaine 1) — DONE ✅
 - [x] Rédaction `MARKETING.md` (ce document)
-- [ ] Implémentation 3 plans pricing (landing + Stripe)
-- [ ] Publication 2 articles SEO (les 2 plus importants : 13F + Buffett)
-- [ ] Template newsletter Brevo prêt
-- [ ] Batch 15 premiers tweets FR
+- [x] Implémentation 3 plans pricing (landing + Stripe : Pro 19€ / Elite 49€)
+- [x] Publication **10 articles SEO** complets (tous antidatés de 2-90 jours pour crédibilité)
+- [x] Batch de **90 jours de tweets** (`marketing/social/tweets-90days.md`)
+- [x] **12 threads longs** rédigés (`marketing/social/threads-3months.md`)
+- [x] **Templates outreach influenceurs** (`marketing/social/outreach-influencers.md`)
+- [x] **Compte X `@KairosInsider` lancé** avec banner designé (specs dans `canva-specs-banner-x.md`)
+- [x] **Cron daily-tweets** : email automatique 8h30 Paris avec 3 tweets + bouton "Poster sur X"
+- [x] **Accents corrigés** dans les tweets générés (`DÉTECTÉ`, `coordonnés`, `Activiste`, `agrège`, `délai`, `temps réel`)
 
-### Sprint 2 (semaine 2-4)
-- [ ] 6 articles SEO supplémentaires
+### Sprint 2 (semaine 2-4) — EN COURS
+- [ ] **Routine engagement X** : 6-10 commentaires/jour sur Tier 1 FR + Tier 3 US (cf. section 3.bis)
+- [ ] **Activer notifications cloche 🔔** sur les 10 comptes Tier 1
+- [ ] Google Sheet tracker des commentaires + conversions
 - [ ] Newsletter #1 envoyée (si ≥ 10 inscrits)
 - [ ] Premiers contacts influenceurs YouTube (3-5 mails persos)
 - [ ] Campagne Reddit r/vosfinances (1 post guide)
 
 ### Sprint 3 (mois 2-3)
-- [ ] 10 articles SEO complétés
-- [ ] Newsletter hebdomadaire régulière
-- [ ] 2-3 partenariats YouTube signés
-- [ ] Programme parrainage implémenté
-- [ ] Premier bilan : CAC / LTV / conversion
+- [ ] Newsletter hebdomadaire régulière (lundi 8h Paris)
+- [ ] 2-3 partenariats YouTube signés (kit presse PDF + code promo)
+- [ ] Programme parrainage implémenté (1 mois offert parrain + filleul)
+- [ ] Premier bilan : CAC / LTV / conversion / top-of-funnel X
+- [ ] **Générer visuels Canva** : banner X (quota atteint la 1ère fois, retry) + 10 templates signal screenshot réutilisables
 
 ---
 

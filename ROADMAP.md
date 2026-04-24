@@ -4,7 +4,55 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 21 avril 2026 (Signaux Insiders refondus en 4 sous-onglets)
+**Dernière mise à jour** : 24 avril 2026 (5 garde-fous pipeline Kairos Score + cockpit home + auto-tweets X)
+
+---
+
+## 🛡️ Fiabilité Pipeline Kairos Score (24 avr 2026) — DONE ✅
+
+Objectif : éliminer les faux mouvements du Kairos Score (observé : ACN +23 pts en 1 nuit par re-hydratation d'un pilier cassé la veille).
+
+✅ **1. Stockage des 8 sous-scores en D1** — endpoint interne `/internal/score/:ticker` (bypass `publicView` via `X-Internal-Secret`) · pipeline `push-scores-to-d1.py` stocke maintenant `insider, smart_money, gov_guru, momentum, valuation, analyst, health, earnings` (avant : tous NULL, seul `total`)
+
+✅ **2. Sanity check + email admin** — tout delta ≥20 pts flaggé, persisté en D1 (`score_anomalies`) + email HTML Brevo avec suspected_cause auto-diagnostiquée (ex: *"panne API probable (insider); rehydration (smart_money)"*) · endpoints `GET/POST /api/admin/score-anomalies`
+
+✅ **3. Fallback "last known good" par pilier** — flag `dataOk` dans `computeKairosScore` (basé sur présence des inputs bruts) · `apply_last_known_good_fallback()` côté pipeline Python garde l'ancien sous-score quand `dataOk=false && old > new && old >= 5`
+
+✅ **4. Retry + backoff exponentiel** — helper `fetchWithRetry(url, init, { retries, backoffMs })` dans `worker/src/stock-api.js` · appliqué à Yahoo Quote + 4 fetches StockAnalysis (overview, statistics, earnings, employees) · retry sur 5xx + 429 (respecte Retry-After) · timeout relevé 7s → 10s
+
+✅ **5. Circuit breaker global** — si >10% des tickers ont delta ≥15 pts dans la même run, le pipeline ABORT (aucune écriture D1) + email urgence admin · les scores d'hier conservés · filet de sécurité contre panne API massive
+
+✅ **Config GitHub Actions** — ajout secret `KAIROS_ADMIN_API_KEY` dans `update-13f.yml` pour que le pipeline puisse POST le rapport d'anomalies
+
+---
+
+## 📊 Cockpit Home + Market Data (24 avr 2026) — DONE ✅
+
+✅ **Refonte home "cockpit data-dense"** — Option C + stats marché Option B · locks visibles sur cards paid (préview admin : click badge pour cycler free/pro/elite) · 11 home-cards tagged `data-required-plan`
+
+✅ **Fear & Greed refondu** — baromètre SVG 5 segments (Peur extrême → Avidité extrême) · delta vs veille · fetch CNN à la demande (si cache vide) via fonction pure `fetchAndCacheFearGreed(env)` mutualisée avec `/api/market-pulse`
+
+✅ **Section VIX dédiée** — VIX cliquable dans le cockpit → `section-vix` · chart Chart.js 1 an (Yahoo v8) · stats high/low/avg/percentile · zones colorées (<12, 12-20, 20-30, >30) · endpoint `/api/vix-history` avec cache KV 1h
+
+✅ **Market Pulse endpoint public** — `/api/market-pulse` (S&P 500 + NASDAQ + Dow + VIX + F&G) · cache KV 10 min · mini-deltas vs veille pour chaque indice
+
+---
+
+## 🐦 Automation X @KairosInsider (24 avr 2026) — DONE ✅
+
+✅ **Compte X officiel `@KairosInsider`** lancé avec banner specs (`marketing/social/canva-specs-banner-x.md`)
+
+✅ **Auto-génération 3 tweets/jour** — fonction `generateDailyTweets(env)` tire les top signaux du jour (score mover + insider cluster + 13D activist) · fallback générique si aucun signal exploitable
+
+✅ **Cron `daily-tweets.yml`** (6h30 UTC = 8h30 Paris) — email HTML admin via Brevo avec 3 cards + bouton "Poster sur X" (intent URL pré-rempli) · alternative GRATUITE à Typefully (API payante)
+
+✅ **Endpoints worker** :
+- `GET /api/admin/daily-tweets` — preview JSON
+- `POST /api/admin/daily-tweets/email?to=…` — envoi Brevo
+
+✅ **Accents français corrigés** dans tous les tweets (`DÉTECTÉ`, `coordonnés`, `Activiste`, `agrège`, `délai`, `temps réel`, `activistes`)
+
+✅ **Stratégie engagement commentaires** documentée dans `MARKETING.md` (4 tiers de profils + 4 types de commentaires + routine 6-10/jour)
 
 ---
 

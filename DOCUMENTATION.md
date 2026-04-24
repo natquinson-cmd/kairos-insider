@@ -1,7 +1,7 @@
 # 📚 Documentation technique — Kairos Insider
 
 > Documentation complète de la plateforme Kairos Insider.
-> Dernière mise à jour : 21 avril 2026
+> Dernière mise à jour : 24 avril 2026
 
 ---
 
@@ -263,6 +263,21 @@ En plus du cron GitHub Actions, le Worker lui-même a un cron Cloudflare à **6h
 
 Ces deux fonctions tournent via `ctx.waitUntil()` pour ne pas bloquer la réponse cron et chaque erreur est loggée séparément.
 
+### Cron GitHub Actions additionnels
+
+En plus de `update-13f.yml` (pipeline data principal 7h UTC), deux workflows cron externes :
+
+**`.github/workflows/daily-tweets.yml`** (6h30 UTC = 8h30 Paris) :
+- Appelle `POST /api/admin/daily-tweets/email` avec `X-Admin-API-Key`
+- Le worker génère 3 tweets via `generateDailyTweets(env)` à partir des top signaux du jour (score mover + insider cluster + 13D activist)
+- Envoie un email HTML à l'admin via Brevo avec cards + bouton "Poster sur X"
+- Budget : ~3 min/run, minimal
+
+**`.github/workflows/backup.yml`** (7h UTC — Priorité 5) :
+- Exporte D1 → R2 via `wrangler d1 export`
+- Snapshot les clés KV critiques → R2
+- Rotation 30j
+
 ---
 
 ## 5. Structure des données
@@ -352,14 +367,14 @@ CREATE TABLE fund_holdings_history (
 );
 ```
 
-**Table `score_history`** (en cours de peuplement) :
+**Table `score_history`** (peuplée quotidiennement, 8 sous-scores stockés depuis le 24 avril 2026) :
 ```sql
 CREATE TABLE score_history (
   date TEXT NOT NULL,
   ticker TEXT NOT NULL,
   total INTEGER NOT NULL,         -- score global 0-100
-  insider INTEGER,                -- 8 sous-scores (peuvent être NULL si partiel)
-  smart_money INTEGER,
+  insider INTEGER,                -- 8 sous-scores (stockés depuis avril 2026 via /internal/score)
+  smart_money INTEGER,            -- avant cette date : NULL (seul `total` était stocké)
   gov_guru INTEGER,
   momentum INTEGER,
   valuation INTEGER,
@@ -369,6 +384,27 @@ CREATE TABLE score_history (
   PRIMARY KEY (date, ticker)
 );
 ```
+
+**Table `score_anomalies`** (ajoutée le 24 avril 2026 — détection des mouvements suspects) :
+```sql
+CREATE TABLE score_anomalies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,             -- YYYY-MM-DD run du pipeline
+  ticker TEXT NOT NULL,
+  old_total INTEGER,              -- score précédent
+  new_total INTEGER,              -- score après run
+  delta INTEGER NOT NULL,         -- signed delta (+ ou −)
+  old_breakdown TEXT,             -- JSON du breakdown ancien (max 2000 chars)
+  new_breakdown TEXT,             -- JSON du breakdown nouveau
+  suspected_cause TEXT,           -- heuristique auto-diagnostiquée (ex: "panne API probable (insider)")
+  reviewed INTEGER DEFAULT 0,     -- flag pour revue admin
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_anomalies_date_delta ON score_anomalies(date DESC, delta DESC);
+CREATE INDEX idx_anomalies_ticker ON score_anomalies(ticker);
+```
+
+Cette table stocke les tickers dont le Kairos Score a bougé de ≥20 points entre 2 runs du pipeline `push-scores-to-d1.py`. Le pipeline insère en batch D1 après chaque run et envoie un email HTML à l'admin si ≥1 anomalie ou si le circuit breaker est déclenché. Détail dans §9.6.
 
 ### Firebase Realtime Database (`europe-west1`)
 
@@ -415,6 +451,14 @@ URL de base : `https://kairos-insider-api.natquinson.workers.dev` (alias `kairos
 | `GET /watchlist/unsubscribe?uid&token` | Désinscription 1 clic | — |
 | `POST /stripe/webhook` | Webhooks Stripe (vérifiés par signature) | exempté |
 
+### Routes internes (header `X-Internal-Secret` requis)
+
+Réservées au pipeline GitHub Actions. Non exposées publiquement.
+
+| Endpoint | Usage |
+|---|---|
+| `GET /internal/score/:ticker` | Score complet + breakdown des 8 piliers (payload minimal). Utilisé par `push-scores-to-d1.py` pour stocker la décomposition détaillée en D1. Retourne `{ ticker, updatedAt, score: { total, signal, breakdown } }`. Ajouté le 24 avril 2026 (cf. §9.6 — garde-fous anti-mouvements artificiels). |
+
 ### Routes authentifiées (JWT Firebase requis)
 
 Toutes les routes `/api/*` et `/stripe/*` demandent un header `Authorization: Bearer {idToken}`.
@@ -452,7 +496,7 @@ Toutes les routes `/api/*` et `/stripe/*` demandent un header `Authorization: Be
 - `POST /account/delete` — suppression RGPD (purge KV + Stripe cancel)
 - `POST /support/contact` — formulaire support (rate-limited 5/h)
 
-**Admin** (réservé aux emails dans `ADMIN_EMAILS`) :
+**Admin** (réservé aux emails dans `ADMIN_EMAILS` OU header `X-Admin-API-Key` valide) :
 - `GET /api/admin/whoami` — vérifie les droits
 - `GET /api/admin/users` — liste des utilisateurs KV
 - `GET /api/admin/subs-stats` — stats des abonnements (active, past_due, canceled, MRR)
@@ -465,6 +509,16 @@ Toutes les routes `/api/*` et `/stripe/*` demandent un header `Authorization: Be
 - `POST /api/admin/run-health-check` — lance le health check manuellement
 - `GET /api/admin/errors` — log des erreurs Worker (100 dernières)
 - `POST /api/admin/errors-clear` — vide le log d'erreurs
+- `GET /api/admin/debug-user?uid=…` — diagnostic Stripe d'un utilisateur (cascade re-hydration)
+- `GET /api/admin/daily-tweets` — preview des 3 tweets générés aujourd'hui (sans envoi)
+- `POST /api/admin/daily-tweets/email?to=…` — envoie l'email HTML avec les tweets du jour via Brevo
+- `POST /api/admin/score-anomalies` — **pipeline report endpoint** : le cron Python POST le rapport quotidien (anomalies ≥20pt + trigger circuit breaker) → persistence D1 + email admin
+- `GET /api/admin/score-anomalies?days=30` — liste les anomalies récentes pour le panel admin
+
+**Market data publique** (Cockpit home) :
+- `GET /api/market-pulse` — snapshot live S&P 500 + NASDAQ + Dow + VIX + Fear & Greed (avec delta vs veille). Cache KV 10 min. Depuis le 24 avril 2026, appelle `fetchAndCacheFearGreed(env)` pour garantir la data F&G même si personne n'a visité l'onglet F&G depuis 1h.
+- `GET /api/vix-history` — VIX 1 an glissant (Yahoo Finance v8). Retourne les daily close + stats (high/low/avg/percentile). Cache KV 1h.
+- `GET /api/feargreed` — Fear & Greed Index CNN (score actuel + rating + 7 composantes + historique 1Y). Cache KV 1h, mutualisé avec `/api/market-pulse`.
 
 ### Routes de santé
 
@@ -668,6 +722,111 @@ Intégration native via **Data API** (pas de tracking côté Worker, juste de la
 - Queries parallèles (runReport x4) pour KPIs + série + top pages + sources
 - Secret : `GA4_SERVICE_ACCOUNT_JSON`, `GA4_PROPERTY_ID`
 
+### 9.6 Garde-fous anti-mouvements artificiels Kairos Score (avril 2026)
+
+**Problème résolu** : un ticker pouvait bondir de +20 à +23 points en une nuit sans event réel, à cause du comportement "best-effort" du pipeline : quand une API source (Yahoo, StockAnalysis, SEC EDGAR) timeout, le sous-score correspondant retombait à sa **valeur neutre par défaut** (ex: insider = 10/20). Le lendemain, API revenue → rattrapage de 10-15 points d'un coup, ressemblant à un signal smart money alors que c'était juste de la re-hydratation.
+
+**Cas concret observé** : ACN passe de 53 → 76 entre le 23 et 24 avril 2026. Breakdown révélé : `insider 20/20` + `smartMoney 18/20` + `earnings 5/5` tous plafonnés, alors que le momentum restait à 0/15 (légitime car proche du plus-bas 52w). Diagnostic : re-hydratation `insider` + `smartMoney` après panne API la veille.
+
+#### 5 garde-fous mis en place le 24 avril 2026
+
+##### 1) Stockage complet des 8 sous-scores en D1
+
+Avant : seul `total` était stocké dans `score_history`, les 8 colonnes de sous-scores restaient `NULL`. Impossible de debugger rétroactivement quel pilier avait bougé.
+
+Après : nouvel endpoint interne `GET /internal/score/:ticker` (protégé par `X-Internal-Secret`) qui retourne le breakdown COMPLET en payload minimal. Le script `push-scores-to-d1.py` l'appelle à la place de `/public/stock/:ticker` (qui masque le breakdown via `publicView: true`).
+
+##### 2) Sanity check + email admin (table `score_anomalies`)
+
+Le pipeline détecte **en temps réel** tout ticker dont le score bouge de ≥20 points entre 2 runs. Ces anomalies sont :
+- Persistées en D1 dans la nouvelle table `score_anomalies`
+- Envoyées par email HTML à l'admin via Brevo (format tableau + cause suspectée auto-diagnostiquée)
+
+La **cause suspectée** est calculée par l'heuristique `diagnose_cause(old_tuple, new_tuple)` dans `push-scores-to-d1.py` :
+- Compare les 8 sous-scores entre ancien et nouveau
+- Identifie les piliers qui passent de `>5 → 0` (**panne API probable**) ou `0 → >5` (**rehydration**)
+- Classe par amplitude du delta
+
+Exemple d'output : `"panne API probable (insider); rehydration (smart_money); insider 0→15 (+15)"`
+
+##### 3) Fallback "last known good" par pilier (flag `dataOk`)
+
+La fonction `computeKairosScore` dans `worker/src/stock-api.js` expose maintenant un flag `dataOk: boolean` pour chaque pilier, calculé **à partir de la présence des inputs bruts** :
+
+```js
+const hasInsiderData = (insiders.buyCount || 0) > 0 || (insiders.sellCount || 0) > 0 || ...;
+const hasSmartMoneyData = (smartMoney.fundCount || 0) > 0;
+const hasMomentumData = !!(quote?.price?.current && quote.price.high52w && quote.price.low52w);
+// ...
+breakdown.insider.dataOk = hasInsiderData;
+breakdown.smartMoney.dataOk = hasSmartMoneyData;
+// ...
+```
+
+Le pipeline Python applique ensuite `apply_last_known_good_fallback()` :
+- Si `dataOk: false` **ET** que l'ancien sous-score était plus élevé (≥5) et strictement supérieur au nouveau
+- Alors on **garde l'ancien sous-score** (pas d'écrasement d'une bonne valeur par un défaut neutre)
+- Le pilier est flaggé `fallbackUsed: true` + suffixe `[fallback: last-known-good]` dans le detail
+
+##### 4) Retry + backoff exponentiel (`fetchWithRetry`)
+
+Nouveau helper dans `worker/src/stock-api.js` :
+
+```js
+async function fetchWithRetry(url, init = {}, { retries = 2, backoffMs = 400, label = '' } = {}) {
+  // Retry UNIQUEMENT sur 5xx + 429 (respecte Retry-After)
+  // Jamais retry sur 4xx ≠ 429 (logique métier : la source dit "bad request")
+  // Backoff exponentiel : 400ms → 800ms → 1600ms
+}
+```
+
+Appliqué à :
+- `fetchYahooQuote()` (chart v8 Yahoo Finance)
+- `fetchStockAnalysisOverview()`
+- `fetchStockAnalysisStatistics()`
+- `fetchStockAnalysisEarnings()`
+- `fetchStockAnalysisEmployees()`
+
+Timeout relevé de 7s → 10s pour StockAnalysis (le backoff mange 400-1600 ms).
+
+##### 5) Circuit breaker global (pipeline)
+
+Nouvelle logique dans `push-scores-to-d1.py` — main() :
+
+```python
+CIRCUIT_BREAKER_DELTA = 15
+CIRCUIT_BREAKER_PCT = 10.0  # 10%
+
+# Si plus de 10% des tickers ont delta >=15 pts dans la même run
+# → une API source est partiellement down → ABORT
+breaker_pct = (breaker_deltas / successful_fetches * 100)
+if breaker_pct >= CIRCUIT_BREAKER_PCT:
+    # Aucune écriture D1 → scores d'hier conservés
+    # Email alerte admin immédiat
+    send_anomalies_report(anomalies, successful_fetches, circuit_breaker_triggered=True)
+    sys.exit(0)  # pas une erreur de script, juste un safeguard
+```
+
+Cela évite le scénario catastrophe : une panne massive Yahoo Finance écrirait 3 000 scores dégradés en base, polluant l'historique pendant des mois.
+
+#### Endpoint + table de debug
+
+- `POST /api/admin/score-anomalies` — endpoint appelé par le pipeline en fin de run (header `X-Admin-API-Key` requis). Insert en batch D1 + envoie email Brevo si ≥1 anomalie ou circuit breaker déclenché.
+- `GET /api/admin/score-anomalies?days=30` — lecture pour le panel admin.
+- Table D1 `score_anomalies` (cf. §5 — Structure des données).
+
+#### Configuration GitHub Actions
+
+Le workflow `.github/workflows/update-13f.yml` a été enrichi du secret `KAIROS_ADMIN_API_KEY` dans la step "Push Kairos Scores quotidiens" :
+
+```yaml
+env:
+  INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+  KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+```
+
+Ce même secret `KAIROS_ADMIN_API_KEY` est utilisé par le workflow `daily-tweets.yml` (6h30 UTC) pour poster sur `POST /api/admin/daily-tweets/email`.
+
 ---
 
 ## 10. Déploiement
@@ -733,8 +892,10 @@ Gérés via `npx wrangler secret put {NAME}`. Ne jamais mettre dans `wrangler.to
 | `WATCHLIST_SECRET` | HMAC pour tokens d'unsubscribe email |
 | `GA4_SERVICE_ACCOUNT_JSON` | JSON complet du service account Google |
 | `GA4_PROPERTY_ID` | ID numérique de la propriété GA4 (532249211) |
-| `INTERNAL_SECRET` | Bypass rate limit pour GitHub Actions |
+| `INTERNAL_SECRET` | Bypass rate limit pour GitHub Actions + protection `/internal/score/:ticker` |
+| `ADMIN_API_KEY` | Clé admin long-lived pour les crons externes (daily-tweets, score-anomalies). Comparée en constant-time via `constantTimeEquals()`. |
 | `SUPPORT_INBOX_EMAIL` | Destinataire des emails de support (natquinson@gmail.com) |
+| `TYPEFULLY_API_KEY` | (Optionnel) Push dans Typefully si plan payant actif. Actuellement non utilisé — stratégie Brevo email à la place. |
 
 ### Variables publiques (wrangler.toml)
 
@@ -751,7 +912,8 @@ Gérés via `gh secret set {NAME}` ou Settings → Secrets → Actions.
 |---|---|
 | `CLOUDFLARE_API_TOKEN` | Token avec permissions D1:Edit + KV:Edit + Workers:Edit |
 | `CLOUDFLARE_ACCOUNT_ID` | ID du compte Cloudflare |
-| `INTERNAL_SECRET` | Même valeur que Worker, pour bypass rate limit |
+| `INTERNAL_SECRET` | Même valeur que Worker, pour bypass rate limit et appel `/internal/score/:ticker` |
+| `KAIROS_ADMIN_API_KEY` | Même valeur que `ADMIN_API_KEY` côté Worker. Utilisé par `push-scores-to-d1.py` pour POST les rapports d'anomalies et par `daily-tweets.yml` pour déclencher l'email du matin. |
 
 ### Secrets Firebase
 
@@ -850,6 +1012,25 @@ Cf. `ROADMAP.md` pour le détail.
 - Phase A : score_history peuplé quotidiennement (3349 tickers, dedup intelligent)
 - Phase B : widget "Activité récente 7j" sur chaque fiche action
 - Phase C : home dashboard "Top signaux du jour"
+
+**Fiabilité pipeline Kairos Score (24 avril 2026)** — 100%
+- 5 garde-fous anti-mouvements artificiels (cf. §9.6) :
+  1. Stockage des 8 sous-scores en D1 via endpoint interne `/internal/score/:ticker`
+  2. Sanity check delta ≥20 pts + email admin + table `score_anomalies`
+  3. Fallback "last known good" par pilier (flag `dataOk` dans `computeKairosScore`)
+  4. Retry + backoff exponentiel sur Yahoo + StockAnalysis (`fetchWithRetry`)
+  5. Circuit breaker global (abort si >10% des tickers ont delta ≥15 pts)
+
+**Cockpit home + market data publique**
+- `/api/market-pulse` (S&P 500 + NASDAQ + Dow + VIX + F&G) · cache KV 10 min · mutualise fetch F&G
+- `/api/vix-history` (1 an glissant Yahoo) · section VIX dédiée avec chart + stats (high/low/avg/percentile)
+- Fear & Greed : mini baromètre SVG 5 segments + delta vs veille · endpoint F&G toujours frais (fetch CNN à la demande si cache vide)
+
+**Automation sociale X (24 avril 2026)**
+- Compte `@KairosInsider` lancé
+- Cron `daily-tweets.yml` (6h30 UTC) : email HTML admin avec 3 tweets + bouton "Poster sur X" (alternative Brevo gratuite à Typefully API payante)
+- Endpoint `/api/admin/daily-tweets` (preview) + `/api/admin/daily-tweets/email`
+- Accents français corrigés dans tous les tweets (`DÉTECTÉ`, `coordonnés`, `Activiste`, `agrège`, `délai`, `temps réel`, `activistes`)
 
 ### Prochaines priorités
 
