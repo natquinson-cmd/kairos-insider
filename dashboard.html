@@ -14191,12 +14191,13 @@
     }
 
     // Envoie le digest des commentaires X à faire (scrape 15 handles cibles)
+    // nocache=1 pour bypass le cache KV 30 min (test / debug manuel)
     async function sendCommentDigestEmail() {
       if (!currentUser) return Toast.error('Pas authentifié.');
       if (!confirm('Envoyer le digest des commentaires X à ton email admin ? (scrape 15 handles, ~15s)')) return;
       Toast.info('Scan des 15 handles en cours... (~15s)');
       try {
-        const data = await apiFetch('/api/admin/comment-digest/email', {}, 'POST');
+        const data = await apiFetch('/api/admin/comment-digest/email?nocache=1&hours=24', {}, 'POST');
         if (data.error) return Toast.error('Erreur: ' + data.error);
         const count = (data.digest || []).length;
         const scanned = data.totalTweetsScanned || 0;

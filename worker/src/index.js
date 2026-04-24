@@ -483,7 +483,7 @@ async function handleRequest(request, env, ctx) {
         // Comment digest : scrape 15 handles cibles + tickers + Kairos Score
         // GET : preview JSON / POST : envoie email HTML admin avec templates commentaires
         if (request.method === 'GET' && path === '/api/admin/comment-digest') {
-          return handleCommentDigestPreview(env, origin);
+          return handleCommentDigestPreview(env, origin, request);
         }
         if (request.method === 'POST' && path === '/api/admin/comment-digest/email') {
           return handleCommentDigestEmail(request, env, origin);
@@ -4886,6 +4886,156 @@ const TICKER_BLACKLIST = new Set([
   'AI', 'CEO', 'CFO', 'IPO', 'ETF', 'YTD', 'EPS', 'ATH', 'ATL',
 ]);
 
+// Map nom de societe → ticker pour detecter les mentions "Apple" / "Berkshire"
+// sans prefixe $. Inclut les top 150 tickers les plus mentionnes sur FinTwit
+// FR/US (Mag 7, S&P 100, hedge fund picks populaires). Variantes communes
+// incluses (ex: "Meta" + "Facebook", "Google" + "Alphabet").
+// NOTE : priorite aux noms longs (Berkshire Hathaway > Berkshire) pour eviter
+// les collisions. Les matches sont insensitive a la casse, word-boundary.
+const COMPANY_NAMES = {
+  // Mag 7
+  'AAPL': ['Apple'],
+  'MSFT': ['Microsoft'],
+  'GOOGL': ['Google', 'Alphabet'],
+  'AMZN': ['Amazon'],
+  'META': ['Meta', 'Facebook'],
+  'NVDA': ['Nvidia', 'NVIDIA'],
+  'TSLA': ['Tesla'],
+  // Berkshire + value classics
+  'BRK.B': ['Berkshire Hathaway', 'Berkshire'],
+  'BAC': ['Bank of America'],
+  'JPM': ['JPMorgan', 'JP Morgan'],
+  'GS': ['Goldman Sachs'],
+  'WFC': ['Wells Fargo'],
+  'C': [], // Citi trop ambigu (une lettre)
+  // Tech growth + AI
+  'PLTR': ['Palantir'],
+  'AMD': ['AMD'],
+  'INTC': ['Intel'],
+  'AVGO': ['Broadcom'],
+  'ORCL': ['Oracle'],
+  'CRM': ['Salesforce'],
+  'NOW': ['ServiceNow'],
+  'SNOW': ['Snowflake'],
+  'NET': ['Cloudflare'],
+  'DDOG': ['Datadog'],
+  'MDB': ['MongoDB'],
+  'CRWD': ['CrowdStrike'],
+  'SHOP': ['Shopify'],
+  'ABNB': ['Airbnb'],
+  'UBER': ['Uber'],
+  'LYFT': ['Lyft'],
+  'DASH': ['DoorDash'],
+  'RBLX': ['Roblox'],
+  'U': [], // Unity trop ambigu
+  'COIN': ['Coinbase'],
+  'HOOD': ['Robinhood'],
+  'SOFI': ['SoFi'],
+  'SQ': ['Block', 'Square'],
+  'PYPL': ['PayPal'],
+  'V': [], // Visa trop ambigu
+  'MA': ['Mastercard'],
+  // Consumer / retail
+  'WMT': ['Walmart'],
+  'COST': ['Costco'],
+  'TGT': ['Target'],
+  'HD': ['Home Depot'],
+  'LOW': ['Lowe'],
+  'NKE': ['Nike'],
+  'SBUX': ['Starbucks'],
+  'MCD': ['McDonald'],
+  'KO': ['Coca-Cola', 'Coca Cola'],
+  'PEP': ['Pepsi', 'PepsiCo'],
+  'DIS': ['Disney'],
+  'NFLX': ['Netflix'],
+  // Healthcare / pharma
+  'UNH': ['UnitedHealth'],
+  'LLY': ['Eli Lilly'],
+  'NVO': ['Novo Nordisk'],
+  'PFE': ['Pfizer'],
+  'MRK': ['Merck'],
+  'JNJ': ['Johnson & Johnson'],
+  'ABBV': ['AbbVie'],
+  'ABT': ['Abbott'],
+  // Energy
+  'XOM': ['Exxon', 'ExxonMobil'],
+  'CVX': ['Chevron'],
+  'COP': ['ConocoPhillips'],
+  'OXY': ['Occidental'],
+  'SLB': ['Schlumberger'],
+  // Industrials + autos
+  'BA': ['Boeing'],
+  'CAT': ['Caterpillar'],
+  'GE': ['General Electric'],
+  'F': [], // Ford trop ambigu
+  'GM': ['General Motors'],
+  'RIVN': ['Rivian'],
+  'LCID': ['Lucid'],
+  'NIO': ['NIO'],
+  // Defense
+  'LMT': ['Lockheed Martin', 'Lockheed'],
+  'RTX': ['Raytheon'],
+  'NOC': ['Northrop Grumman'],
+  'GD': ['General Dynamics'],
+  // Semis
+  'TSM': ['TSMC', 'Taiwan Semi'],
+  'ASML': ['ASML'],
+  'MU': ['Micron'],
+  'QCOM': ['Qualcomm'],
+  'ARM': [], // ARM trop ambigu
+  'AMAT': ['Applied Materials'],
+  // Chinese tech
+  'BABA': ['Alibaba'],
+  'JD': ['JD.com'],
+  'PDD': ['Pinduoduo', 'Temu'],
+  'BIDU': ['Baidu'],
+  // French CAC 40 populaires
+  'MC.PA': ['LVMH'],
+  'OR.PA': ['L\'Oreal', 'L\'Oréal', 'LOreal'],
+  'SAN.PA': ['Sanofi'],
+  'AIR.PA': ['Airbus'],
+  'TTE.PA': ['TotalEnergies', 'Total Energies'],
+  'BNP.PA': ['BNP Paribas'],
+  // Misc FinTwit favorites
+  'SPOT': ['Spotify'],
+  'CMG': ['Chipotle'],
+  'DELL': ['Dell'],
+  'IBM': ['IBM'],
+  'CSCO': ['Cisco'],
+  'TXN': ['Texas Instruments'],
+  'ACN': ['Accenture'],
+  'ADBE': ['Adobe'],
+  'INTU': ['Intuit'],
+  'T': [], // AT&T trop ambigu
+  'VZ': ['Verizon'],
+  'CMCSA': ['Comcast'],
+  // ETFs cibles (NANC, KRUZ, etc.)
+  'NANC': ['NANC', 'Pelosi'],
+  'KRUZ': ['KRUZ'],
+  'GURU': ['GURU'],
+  'ARKK': ['ARK Innovation', 'ARKK'],
+  'SPY': [], // SPY ambigu dans "spying"
+  'QQQ': ['QQQ'],
+  'VOO': ['VOO'],
+  'VTI': ['VTI'],
+};
+
+// Construit une regex unique pour tous les noms de societes (word-boundary insensitive)
+// pre-compilee au boot du worker pour reutilisation.
+const COMPANY_NAME_LOOKUP = (() => {
+  const pairs = [];
+  for (const [ticker, names] of Object.entries(COMPANY_NAMES)) {
+    for (const name of names) {
+      // Escape regex special chars (ex: "L'Oreal")
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      pairs.push({ ticker, nameLower: name.toLowerCase(), pattern: escaped });
+    }
+  }
+  // Tri par longueur DESC : "Berkshire Hathaway" match avant "Berkshire"
+  pairs.sort((a, b) => b.pattern.length - a.pattern.length);
+  return pairs;
+})();
+
 // Decode les entites HTML basiques dans le texte XML des RSS feeds
 function decodeHtmlEntities(s) {
   if (!s) return '';
@@ -4929,10 +5079,16 @@ function parseRssItems(xml, maxItems = 10) {
   return items;
 }
 
-// Extrait les tickers mentionnes dans un texte, filtre la blacklist
+// Extrait les tickers mentionnes dans un texte, filtre la blacklist.
+// Deux passes :
+//   1. Regex $TICKER (ex: "$NVDA", "$AAPL")
+//   2. Dictionnaire noms de societes (ex: "Nvidia", "Apple", "Berkshire Hathaway")
+//      → mappe vers le ticker correspondant
 function extractTickers(text) {
   const tickers = new Set();
   if (!text) return [];
+
+  // Passe 1 : regex $TICKER
   let m;
   TICKER_REGEX.lastIndex = 0;
   while ((m = TICKER_REGEX.exec(text))) {
@@ -4941,6 +5097,35 @@ function extractTickers(text) {
       tickers.add(ticker);
     }
   }
+
+  // Passe 2 : noms de societes dans le texte (case-insensitive, word boundary)
+  // On marque les ranges deja matches pour eviter de compter 2 fois "Berkshire Hathaway"
+  // et "Berkshire" (le tri DESC par longueur protege deja, mais on nettoie au cas ou)
+  const textLower = text.toLowerCase();
+  const covered = new Array(textLower.length).fill(false);
+  for (const { ticker, nameLower } of COMPANY_NAME_LOOKUP) {
+    let idx = 0;
+    while ((idx = textLower.indexOf(nameLower, idx)) !== -1) {
+      // Word boundary : char avant et apres doit etre non-alphanumerique
+      const prev = idx === 0 ? ' ' : textLower[idx - 1];
+      const next = idx + nameLower.length >= textLower.length ? ' ' : textLower[idx + nameLower.length];
+      const isWordChar = (c) => /[a-z0-9]/.test(c);
+      if (!isWordChar(prev) && !isWordChar(next)) {
+        // Verifie que ce range n'est pas deja couvert (tri DESC nous assure que
+        // les noms longs matchent avant les noms courts)
+        let alreadyCovered = false;
+        for (let i = idx; i < idx + nameLower.length; i++) {
+          if (covered[i]) { alreadyCovered = true; break; }
+        }
+        if (!alreadyCovered) {
+          tickers.add(ticker);
+          for (let i = idx; i < idx + nameLower.length; i++) covered[i] = true;
+        }
+      }
+      idx += nameLower.length;
+    }
+  }
+
   return Array.from(tickers);
 }
 
@@ -4948,17 +5133,19 @@ function extractTickers(text) {
 // (endpoint utilise par les widgets embed officiels Twitter/X — gratuit, sans auth).
 // Le HTML retourne contient un <script id="__NEXT_DATA__"> avec tous les tweets.
 // Cache KV 30 min par handle pour eviter le rate limit sur les refresh admin.
-async function fetchTweetsFromHandle(handle, env) {
+async function fetchTweetsFromHandle(handle, env, { forceFresh = false } = {}) {
   const cacheKey = `x-synd:${handle}`;
   const CACHE_TTL_SEC = 30 * 60;
 
-  // Tentative cache
-  try {
-    const cached = await env.CACHE.get(cacheKey, 'json');
-    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL_SEC * 1000) {
-      return cached.items || [];
-    }
-  } catch {}
+  // Tentative cache (skip si forceFresh)
+  if (!forceFresh) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL_SEC * 1000) {
+        return cached.items || [];
+      }
+    } catch {}
+  }
 
   try {
     const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false&showPinnedTweet=false`;
@@ -5095,7 +5282,7 @@ function generateCommentTemplate(ticker, score, tweetLang) {
 
 // Genere le digest complet : parcourt les 15 handles, detecte les tickers,
 // enrichit avec le Kairos Score, propose un commentaire.
-async function generateCommentDigest(env, { maxAgeHours = 12 } = {}) {
+async function generateCommentDigest(env, { maxAgeHours = 24, forceFresh = false } = {}) {
   const now = Date.now();
   const cutoff = now - maxAgeHours * 3600 * 1000;
 
@@ -5109,7 +5296,7 @@ async function generateCommentDigest(env, { maxAgeHours = 12 } = {}) {
     const batchResults = await Promise.all(
       batch.map(async (target) => ({
         target,
-        items: await fetchTweetsFromHandle(target.handle, env),
+        items: await fetchTweetsFromHandle(target.handle, env, { forceFresh }),
       }))
     );
     results.push(...batchResults);
@@ -5187,9 +5374,12 @@ async function generateCommentDigest(env, { maxAgeHours = 12 } = {}) {
   };
 }
 
-async function handleCommentDigestPreview(env, origin) {
+async function handleCommentDigestPreview(env, origin, request) {
   try {
-    const data = await generateCommentDigest(env);
+    const url = new URL(request ? request.url : 'https://x/');
+    const forceFresh = url.searchParams.get('nocache') === '1';
+    const maxAgeHours = Math.max(1, Math.min(48, parseInt(url.searchParams.get('hours') || '24', 10)));
+    const data = await generateCommentDigest(env, { forceFresh, maxAgeHours });
     return jsonResponse(data, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'digest failed', detail: String(e && e.message || e) }, 500, origin);
@@ -5203,7 +5393,9 @@ async function handleCommentDigestEmail(request, env, origin) {
   try {
     const url = new URL(request.url);
     const to = url.searchParams.get('to') || ADMIN_EMAILS[0];
-    const data = await generateCommentDigest(env);
+    const forceFresh = url.searchParams.get('nocache') === '1';
+    const maxAgeHours = Math.max(1, Math.min(48, parseInt(url.searchParams.get('hours') || '24', 10)));
+    const data = await generateCommentDigest(env, { forceFresh, maxAgeHours });
     const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' });
 
     const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

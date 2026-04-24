@@ -34,10 +34,16 @@ jobs:
             exit 0
           fi
           echo "Calling /api/admin/comment-digest/email..."
+          # hours=24 = fenetre de recherche 24h (vs 12h default) pour capter plus
+          # de tweets fresh le matin. nocache=1 sur workflow_dispatch uniquement.
+          EXTRA_QS=""
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            EXTRA_QS="&nocache=1"
+          fi
           response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "X-Admin-API-Key: $ADMIN_API_KEY" \
             -H "Content-Type: application/json" \
-            "${WORKER_URL}/api/admin/comment-digest/email")
+            "${WORKER_URL}/api/admin/comment-digest/email?hours=24${EXTRA_QS}")
           status_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
           echo "HTTP $status_code"
