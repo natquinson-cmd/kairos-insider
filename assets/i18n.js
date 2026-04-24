@@ -384,6 +384,8 @@
 
       // ==== Home hero + stats ====
       'dash.home.hello': 'Bonjour',
+      'dash.home.hey': 'Hey',
+      'dash.home.hey_suffix': 'voici ce qui bouge aujourd\'hui.',
       'dash.home.welcome': 'Bienvenue sur <strong>Kairos Insider</strong>, votre cockpit Smart Money. Suivez en temps réel ce que font les <strong>initiés</strong>, les <strong>hedge funds</strong> et les <strong>politiciens</strong> — les investisseurs qui ont une longueur d\'avance sur le marché.',
       'dash.home.cta_analyze': '🔎 Analyser une action',
       'dash.home.cta_signals': '🎯 Voir les signaux chauds',
@@ -850,6 +852,8 @@
 
       // ==== Home hero + stats ====
       'dash.home.hello': 'Hello',
+      'dash.home.hey': 'Hey',
+      'dash.home.hey_suffix': 'here\'s what\'s moving today.',
       'dash.home.welcome': 'Welcome to <strong>Kairos Insider</strong>, your Smart Money cockpit. Track in real-time what <strong>insiders</strong>, <strong>hedge funds</strong> and <strong>politicians</strong> are doing — investors with an edge over the market.',
       'dash.home.cta_analyze': '🔎 Analyze a stock',
       'dash.home.cta_signals': '🎯 See hot signals',

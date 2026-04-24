@@ -6557,7 +6557,11 @@
         updateEl.textContent = 'Mis à jour ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       }
       if (planBadge) {
-        const plan = (window._currentPlan || 'free').toLowerCase();
+        // Lit le plan reel OU le preview override (pour admins qui veulent voir les cadenas)
+        const realPlan = (window._currentPlan || 'free').toLowerCase();
+        let previewPlan = null;
+        try { previewPlan = localStorage.getItem('kairos_preview_plan'); } catch (e) {}
+        const plan = (previewPlan && ['free', 'pro', 'elite'].includes(previewPlan)) ? previewPlan : realPlan;
         const labels = {
           free: { text: 'FREE', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.04)', border: 'var(--border)' },
           pro: { text: 'PRO', color: '#74b9ff', bg: 'rgba(116,185,255,0.1)', border: 'rgba(116,185,255,0.35)' },
@@ -6565,10 +6569,26 @@
           legacy: { text: 'PREMIUM', color: '#74b9ff', bg: 'rgba(116,185,255,0.1)', border: 'rgba(116,185,255,0.35)' },
         };
         const cfg = labels[plan] || labels.free;
-        planBadge.textContent = cfg.text;
+        // Si preview actif, suffix l'etiquette pour signaler
+        planBadge.textContent = previewPlan ? cfg.text + ' (preview)' : cfg.text;
         planBadge.style.color = cfg.color;
         planBadge.style.background = cfg.bg;
         planBadge.style.borderColor = cfg.border;
+        // Admin seulement : badge cliquable pour cycler free → pro → elite → reset
+        if (typeof isAdminUser !== 'undefined' && isAdminUser) {
+          planBadge.style.cursor = 'pointer';
+          planBadge.title = 'Admin : cliquer pour preview un autre plan (free/pro/elite) et voir les cadenas comme un user lambda';
+          planBadge.onclick = function() {
+            const cycle = { null: 'free', '': 'free', 'free': 'pro', 'pro': 'elite', 'elite': '' };
+            const current = localStorage.getItem('kairos_preview_plan') || '';
+            const next = cycle[current] ?? '';
+            if (next) localStorage.setItem('kairos_preview_plan', next);
+            else localStorage.removeItem('kairos_preview_plan');
+            Toast.info(next ? `Preview plan : ${next.toUpperCase()}` : 'Preview désactivé (plan réel)');
+            renderCockpitHeader();
+            applyHomeCardLocking();
+          };
+        }
       }
     }
 
@@ -6637,7 +6657,15 @@
     // cadenas + overlay hover) et le clic redirige vers le paywall au
     // lieu d'ouvrir la section (evite le loop section-vide/paywall).
     function applyHomeCardLocking() {
-      const userPlan = (window._currentPlan || 'free').toLowerCase();
+      let userPlan = (window._currentPlan || 'free').toLowerCase();
+      // Preview mode admin : override le plan via localStorage pour tester les cadenas.
+      // Active via le badge plan (clic) ou via console : localStorage.kairos_preview_plan='free'
+      try {
+        const preview = localStorage.getItem('kairos_preview_plan');
+        if (preview && ['free', 'pro', 'elite'].includes(preview)) {
+          userPlan = preview;
+        }
+      } catch (e) {}
       const planRank = { free: 0, pro: 1, legacy: 1, elite: 2 };
       const userRank = planRank[userPlan] ?? 0;
       document.querySelectorAll('#section-home .home-card[data-required-plan]').forEach(card => {
