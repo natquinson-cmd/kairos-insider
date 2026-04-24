@@ -25,6 +25,7 @@ const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 // quota — les gater casserait l'UX sans valeur business.
 const FREE_ROUTES = [
   '/api/feargreed', '/api/shorts', '/api/trends-hot',
+  '/api/market-pulse',          // indices US + VIX + F&G (cockpit home, public data)
   '/api/13dg/ticker',           // gros actionnaires sur 1 ticker
   '/api/history/ticker-activity', // widget 'Activite recente 7j' (ETF+insiders+score delta)
   '/api/history/etf',             // ETF historique 180j pour 1 ticker
@@ -307,6 +308,13 @@ async function handleRequest(request, env, ctx) {
     if (request.method === 'GET' && path.startsWith('/blog/')) {
       const slug = decodeURIComponent(path.slice('/blog/'.length).replace(/\/$/, ''));
       return handleBlogPost(slug);
+    }
+
+    // Market Pulse : indices US + VIX + F&G pour le cockpit home.
+    // PUBLIC (pas d'auth) — juste des donnees de marche publiques, utilisables
+    // aussi bien dashboard authentifie que sur la landing si besoin.
+    if (request.method === 'GET' && path === '/api/market-pulse') {
+      return handleMarketPulse(env, request.headers.get('Origin') || '');
     }
 
     // ==========================================
@@ -813,6 +821,9 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/feargreed') {
     return handleFearGreed(env, origin);
   }
+  if (path === '/api/market-pulse') {
+    return handleMarketPulse(env, origin);
+  }
   if (path === '/api/shorts') {
     // Ces donnees sont dans le frontend, pas besoin de backend
     return jsonResponse({ ok: true }, 200, origin);
@@ -961,6 +972,91 @@ async function handleFearGreed(env, origin) {
     if (cached) return jsonResponse({ ...cached, _stale: true }, 200, origin);
     return jsonResponse({ error: 'Fear & Greed proxy failed', detail: String(e && e.message || e) }, 500, origin);
   }
+}
+
+// ============================================================
+// MARKET PULSE (indices US + VIX + Fear & Greed, pour cockpit home)
+// ============================================================
+// Source : Yahoo Finance v8 chart endpoint (sans auth) pour les 4 indices
+// + reuse du cache F&G deja fait ailleurs. Cache 5 min.
+async function handleMarketPulse(env, origin) {
+  const cacheKey = 'market-pulse:v1';
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 300000) {
+      return jsonResponse(cached, 200, origin);
+    }
+  } catch {}
+
+  // Yahoo Finance v8 chart : 1 call par symbol, parallelise
+  async function fetchYahooQuote(symbol) {
+    try {
+      const resp = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+          },
+        }
+      );
+      if (!resp.ok) return null;
+      const json = await resp.json();
+      const r = json?.chart?.result?.[0];
+      if (!r) return null;
+      const meta = r.meta || {};
+      const price = meta.regularMarketPrice;
+      const prev = meta.chartPreviousClose || meta.previousClose;
+      if (price == null || prev == null) return null;
+      const changePct = ((price - prev) / prev) * 100;
+      return {
+        symbol: meta.symbol || symbol,
+        price: Math.round(price * 100) / 100,
+        previousClose: Math.round(prev * 100) / 100,
+        changePct: Math.round(changePct * 100) / 100,
+        currency: meta.currency || 'USD',
+        marketState: meta.marketState || null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // Indices : S&P 500, NASDAQ Composite, Dow, VIX
+  // (symboles Yahoo avec prefixe ^ pour les indices)
+  const [sp500, nasdaq, dow, vix] = await Promise.all([
+    fetchYahooQuote('^GSPC'),
+    fetchYahooQuote('^IXIC'),
+    fetchYahooQuote('^DJI'),
+    fetchYahooQuote('^VIX'),
+  ]);
+
+  // Fear & Greed : reuse du cache existant, pas de double fetch CNN
+  let feargreed = null;
+  try {
+    const fgCached = await env.CACHE.get('fg-cnn-v2', 'json');
+    if (fgCached && fgCached.score != null) {
+      feargreed = {
+        score: fgCached.score,
+        rating: fgCached.rating,
+      };
+    }
+  } catch {}
+
+  const payload = {
+    _cachedAt: Date.now(),
+    updatedAt: new Date().toISOString(),
+    indices: {
+      sp500,
+      nasdaq,
+      dow,
+      vix,
+    },
+    feargreed,
+  };
+
+  try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 600 }); } catch {}
+  return jsonResponse(payload, 200, origin);
 }
 
 // ============================================================

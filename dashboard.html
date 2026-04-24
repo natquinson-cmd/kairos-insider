@@ -696,6 +696,73 @@
       transform: scale(0.97);
     }
 
+    /* ===== HOME-CARD LOCKED (selon plan user) =====
+       Cards verrouillees = grises, desaturees, cursor help + cadenas central.
+       Au hover : overlay sombre "Debloquer avec Pro/Elite →". Clic → paywall. */
+    .home-card.locked {
+      opacity: 0.62;
+      filter: saturate(0.5);
+      cursor: help;
+      position: relative;
+      pointer-events: auto; /* on laisse le click pour intercepter vers paywall */
+    }
+    .home-card.locked::before {
+      content: '🔒';
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 15, 30, 0.85);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 2;
+      backdrop-filter: blur(6px);
+    }
+    .home-card.locked::after {
+      content: 'Débloquer →';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(10, 15, 30, 0.92), rgba(30, 27, 75, 0.86));
+      color: #F9FAFB;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border-radius: 12px;
+      opacity: 0;
+      transition: opacity 0.18s;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .home-card.locked:hover {
+      opacity: 0.85;
+      filter: saturate(0.7);
+    }
+    .home-card.locked:hover::after {
+      opacity: 1;
+    }
+    [data-theme="light"] .home-card.locked::after {
+      background: linear-gradient(135deg, rgba(249, 250, 251, 0.92), rgba(237, 233, 254, 0.88));
+      color: #1E1B4B;
+    }
+
+    /* ===== COCKPIT HEADER ===== */
+    .cockpit-btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+    }
+    .cockpit-btn-secondary:hover {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.06);
+    }
+
     /* Count-up : quand un nombre s'anime, leger scale pulse */
     .stat-value-pop {
       animation: statPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2651,20 +2718,34 @@
 
       <!-- ===== SECTION: ACCUEIL ===== -->
       <div class="section-page active" id="section-home">
-        <!-- HERO D'ACCUEIL -->
-        <div style="padding:32px 28px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(162,155,254,0.05));border:1px solid var(--border);border-radius:16px;margin-bottom:28px">
-          <h1 style="margin:0 0 6px;font-size:28px;font-weight:700">
-            <span data-i18n="dash.home.hello">Bonjour</span> <span id="homeUserName" style="color:#74b9ff">—</span> 👋
-          </h1>
-          <p style="margin:0;font-size:15px;opacity:0.75;max-width:720px" data-i18n="dash.home.welcome">
-            Bienvenue sur <strong>Kairos Insider</strong>, votre cockpit Smart Money.
-            Suivez en temps réel ce que font les <strong>initiés</strong>, les <strong>hedge funds</strong>
-            et les <strong>politiciens</strong> — les investisseurs qui ont une longueur d'avance sur le marché.
-          </p>
-          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
-            <button onclick="switchSection('stockAnalysis')" style="padding:10px 18px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:14px;cursor:pointer" data-i18n="dash.home.cta_analyze">🔎 Analyser une action</button>
-            <button onclick="switchSection('clustering')" style="padding:10px 18px;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:14px;cursor:pointer" data-i18n="dash.home.cta_signals">🎯 Voir les signaux chauds</button>
-            <button onclick="switchSection('watchlist')" style="padding:10px 18px;background:var(--surface-3);border:1px solid rgba(251,191,36,0.4);border-radius:8px;color:#FBBF24;font-weight:600;font-size:14px;cursor:pointer"><span data-i18n="dash.home.cta_watchlist">⭐ Ma Watchlist</span> <span style="font-size:10px;padding:2px 6px;background:rgba(251,191,36,0.2);border-radius:4px;margin-left:4px">NEW</span></button>
+        <!-- ===== COCKPIT HEADER (v2) ===== -->
+        <!-- Greeting sobre + market pulse (indices US + VIX + F&G) + CTA contextuels.
+             Design inspire de Stripe Dashboard / Linear : dense, data-first, pas de
+             hero gadget. Les indices se mettent a jour toutes les 60s. -->
+        <div class="cockpit-header" style="margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px;flex-wrap:wrap">
+            <div>
+              <h1 style="margin:0 0 4px;font-size:22px;font-weight:600;color:var(--text-primary);letter-spacing:-0.01em">
+                <span data-i18n="dash.home.hey">Hey</span> <span id="homeUserName" style="background:linear-gradient(135deg,#74b9ff,#a29bfe);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">—</span><span style="color:var(--text-primary)">,</span> <span style="color:var(--text-secondary);font-weight:500" data-i18n="dash.home.hey_suffix">voici ce qui bouge aujourd'hui.</span>
+              </h1>
+              <div id="cockpitMeta" style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px">
+                <span class="pulse-dot" aria-hidden="true"></span>
+                <span id="cockpitDate">—</span>
+                <span style="opacity:0.4">·</span>
+                <span id="cockpitUpdate">—</span>
+                <span style="opacity:0.4">·</span>
+                <span id="cockpitPlanBadge" style="padding:1px 8px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.08em">—</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onclick="switchSection('stockAnalysis')" class="cockpit-btn-primary" style="padding:8px 14px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">🔎 Analyser un ticker</button>
+              <button onclick="switchSection('watchlist')" class="cockpit-btn-secondary" style="padding:8px 14px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer">⭐ Watchlist</button>
+            </div>
+          </div>
+
+          <!-- Market Pulse : S&P 500, NASDAQ, Dow, VIX, Fear & Greed -->
+          <div id="marketPulse" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px;overflow:hidden">
+            <div class="pulse-skel" style="padding:8px 12px;color:var(--text-muted);font-size:12px;grid-column:1/-1;text-align:center">Chargement du pouls du marché…</div>
           </div>
         </div>
 
@@ -2703,7 +2784,7 @@
         <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px" data-i18n="dash.home.explore_features">Explorez les fonctionnalités</h3>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:32px">
 
-          <div onclick="switchSection('stockAnalysis')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
+          <div onclick="switchSection('stockAnalysis')" class="home-card" data-required-plan="free" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,0.14);color:#3B82F6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
@@ -2713,7 +2794,7 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.stockAnalysis_cta">Rechercher une action →</div>
           </div>
 
-          <div onclick="switchSection('watchlist')" class="home-card" style="padding:22px;background:linear-gradient(135deg,rgba(251,191,36,0.08),var(--surface-1));border:1px solid rgba(251,191,36,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div onclick="switchSection('watchlist')" class="home-card" data-required-plan="pro" style="padding:22px;background:linear-gradient(135deg,rgba(251,191,36,0.08),var(--surface-1));border:1px solid rgba(251,191,36,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(251,191,36,0.18);border:1px solid rgba(251,191,36,0.4);border-radius:4px;font-size:10px;color:#FBBF24;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,0.16);color:#FBBF24;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
@@ -2724,7 +2805,7 @@
             <div style="margin-top:12px;font-size:12px;color:#FBBF24" data-i18n="dash.home.watchlist_cta">Configurer mes alertes →</div>
           </div>
 
-          <div onclick="switchSection('hotStocks')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div onclick="switchSection('hotStocks')" class="home-card" data-required-plan="free" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(116,185,255,0.2);border:1px solid rgba(116,185,255,0.4);border-radius:4px;font-size:10px;color:#74b9ff;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,0.16);color:#F59E0B;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>
@@ -2734,7 +2815,7 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.hotStocks_cta">Explorer les tendances →</div>
           </div>
 
-          <div onclick="switchSection('consensus13f')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div onclick="switchSection('consensus13f')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(116,185,255,0.2);border:1px solid rgba(116,185,255,0.4);border-radius:4px;font-size:10px;color:#74b9ff;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,0.14);color:#10B981;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
@@ -2745,7 +2826,7 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.consensus_cta">Voir le consensus →</div>
           </div>
 
-          <div onclick="switchSection('screener')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div onclick="switchSection('screener')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:4px;font-size:10px;color:#3B82F6;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,0.14);color:#3B82F6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg></div>
@@ -2756,7 +2837,7 @@
             <div style="margin-top:12px;font-size:12px;color:#3B82F6" data-i18n="dash.home.screener_cta">Lancer une recherche →</div>
           </div>
 
-          <div onclick="switchSection('activists')" class="home-card" style="padding:22px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-1));border:1px solid rgba(245,158,11,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div onclick="switchSection('activists')" class="home-card" data-required-plan="pro" style="padding:22px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-1));border:1px solid rgba(245,158,11,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4);border-radius:4px;font-size:10px;color:#F59E0B;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,0.16);color:#F59E0B;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
@@ -2767,7 +2848,7 @@
             <div style="margin-top:12px;font-size:12px;color:#F59E0B" data-i18n="dash.home.activists_cta">Voir les déclarations →</div>
           </div>
 
-          <div onclick="switchSection('insider')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
+          <div onclick="switchSection('insider')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(139,92,246,0.14);color:#8B5CF6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
@@ -2777,7 +2858,7 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.insider_cta">Parcourir les transactions →</div>
           </div>
 
-          <div onclick="switchSection('clustering')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
+          <div onclick="switchSection('clustering')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(46,204,113,0.2);border:1px solid rgba(46,204,113,0.35);border-radius:4px;font-size:10px;color:#2ecc71;font-weight:600;letter-spacing:0.5px">SIGNAL FORT</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(239,68,68,0.13);color:#EF4444;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
@@ -2788,7 +2869,7 @@
             <div style="margin-top:12px;font-size:12px;color:#2ecc71" data-i18n="dash.home.clustering_cta">Voir les clusters actifs →</div>
           </div>
 
-          <div onclick="switchSection('13f')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
+          <div onclick="switchSection('13f')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(20,184,166,0.14);color:#14B8A6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
@@ -2798,7 +2879,7 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.13f_cta">Explorer les fonds →</div>
           </div>
 
-          <div onclick="switchSection('etf')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
+          <div onclick="switchSection('etf')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(6,182,212,0.14);color:#06B6D4;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
@@ -2808,7 +2889,7 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.etf_cta">Voir les holdings →</div>
           </div>
 
-          <div onclick="switchSection('portfolio')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
+          <div onclick="switchSection('portfolio')" class="home-card" data-required-plan="free" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(236,72,153,0.14);color:#EC4899;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
@@ -6460,8 +6541,134 @@
       } catch (e) { return null; }
     }
 
+    // ============================================================
+    // COCKPIT HEADER : greeting sobre + date + badge plan
+    // ============================================================
+    function renderCockpitHeader() {
+      const dateEl = document.getElementById('cockpitDate');
+      const updateEl = document.getElementById('cockpitUpdate');
+      const planBadge = document.getElementById('cockpitPlanBadge');
+      if (dateEl) {
+        const now = new Date();
+        dateEl.textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' });
+      }
+      if (updateEl) {
+        const now = new Date();
+        updateEl.textContent = 'Mis à jour ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      }
+      if (planBadge) {
+        const plan = (window._currentPlan || 'free').toLowerCase();
+        const labels = {
+          free: { text: 'FREE', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.04)', border: 'var(--border)' },
+          pro: { text: 'PRO', color: '#74b9ff', bg: 'rgba(116,185,255,0.1)', border: 'rgba(116,185,255,0.35)' },
+          elite: { text: 'ELITE', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.4)' },
+          legacy: { text: 'PREMIUM', color: '#74b9ff', bg: 'rgba(116,185,255,0.1)', border: 'rgba(116,185,255,0.35)' },
+        };
+        const cfg = labels[plan] || labels.free;
+        planBadge.textContent = cfg.text;
+        planBadge.style.color = cfg.color;
+        planBadge.style.background = cfg.bg;
+        planBadge.style.borderColor = cfg.border;
+      }
+    }
+
+    // ============================================================
+    // MARKET PULSE : S&P 500, NASDAQ, Dow, VIX, Fear & Greed live
+    // ============================================================
+    async function loadMarketPulse() {
+      const container = document.getElementById('marketPulse');
+      if (!container) return;
+      try {
+        // Public endpoint (pas besoin d'auth), mais on utilise quand meme apiFetch
+        // pour la symétrie — si ça échoue en auth on fallback sur fetch direct.
+        let data;
+        try {
+          data = await apiFetch('/api/market-pulse');
+        } catch (e) {
+          const r = await fetch(API_BASE + '/api/market-pulse');
+          data = await r.json();
+        }
+        if (!data || !data.indices) return;
+        const { sp500, nasdaq, dow, vix } = data.indices;
+        const fg = data.feargreed;
+        const fmtPct = (n) => (n == null) ? '—' : ((n > 0 ? '+' : '') + n.toFixed(2) + '%');
+        const fmtPrice = (n) => (n == null) ? '—' : n >= 1000 ? Math.round(n).toLocaleString('fr-FR') : n.toFixed(2);
+        const pulse = (label, data, small) => {
+          if (!data) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${label}</div><div>—</div></div>`;
+          const color = data.changePct > 0 ? '#10B981' : data.changePct < 0 ? '#EF4444' : 'var(--text-muted)';
+          const arrow = data.changePct > 0 ? '▲' : data.changePct < 0 ? '▼' : '—';
+          return `
+            <div style="padding:10px 14px;text-align:center">
+              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">${label}</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:${small ? '16px' : '19px'};font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtPrice(data.price)}</div>
+              <div style="font-size:11px;color:${color};font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(data.changePct)}</div>
+            </div>`;
+        };
+        const fgCard = () => {
+          if (!fg || fg.score == null) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">F&amp;G Index</div><div>—</div></div>`;
+          const s = fg.score;
+          const color = s <= 25 ? '#EF4444' : s <= 45 ? '#F97316' : s <= 55 ? 'var(--text-muted)' : s <= 75 ? '#84CC16' : '#10B981';
+          const labelFR = { 'Extreme Fear': 'Peur extrême', 'Fear': 'Peur', 'Neutral': 'Neutre', 'Greed': 'Avidité', 'Extreme Greed': 'Avidité ext.' }[fg.rating] || fg.rating || '';
+          return `
+            <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'">
+              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">Fear &amp; Greed</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:800;color:${color}">${s}/100</div>
+              <div style="font-size:11px;color:${color};font-weight:600;margin-top:2px">${labelFR}</div>
+            </div>`;
+        };
+        container.innerHTML = `
+          ${pulse('S&P 500', sp500)}
+          ${pulse('NASDAQ', nasdaq)}
+          ${pulse('DOW JONES', dow)}
+          ${pulse('VIX', vix)}
+          ${fgCard()}
+        `;
+      } catch (e) {
+        console.warn('[market-pulse]', e);
+        container.innerHTML = `<div style="padding:10px 12px;color:var(--text-muted);font-size:11px;grid-column:1/-1;text-align:center">Impossible de charger le pouls du marché.</div>`;
+      }
+    }
+
+    // ============================================================
+    // CADENAS sur les home-card verrouillees (selon plan user)
+    // ============================================================
+    // Chaque card a data-required-plan="free|pro|elite". Si le plan user
+    // est insuffisant → la card est visuellement verrouillee (opacity +
+    // cadenas + overlay hover) et le clic redirige vers le paywall au
+    // lieu d'ouvrir la section (evite le loop section-vide/paywall).
+    function applyHomeCardLocking() {
+      const userPlan = (window._currentPlan || 'free').toLowerCase();
+      const planRank = { free: 0, pro: 1, legacy: 1, elite: 2 };
+      const userRank = planRank[userPlan] ?? 0;
+      document.querySelectorAll('#section-home .home-card[data-required-plan]').forEach(card => {
+        const requiredPlan = (card.dataset.requiredPlan || 'free').toLowerCase();
+        const requiredRank = planRank[requiredPlan] ?? 0;
+        const locked = requiredRank > userRank;
+        card.classList.toggle('locked', locked);
+        card.dataset.locked = locked ? '1' : '0';
+        // Si deja un click interceptor, on ne re-bind pas
+        if (locked && !card.dataset.lockBound) {
+          card.dataset.lockBound = '1';
+          card.addEventListener('click', function(e) {
+            if (!card.classList.contains('locked')) return;
+            e.preventDefault(); e.stopPropagation();
+            try { localStorage.setItem('kairos_plan', requiredPlan); } catch (err) {}
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+            document.getElementById('paywallOverlay')?.classList.remove('hidden');
+          }, true);
+        }
+      });
+    }
+
     async function loadHome() {
       setHomeUserName();
+
+      // Cockpit header : date + update time + plan badge
+      try { renderCockpitHeader(); } catch (e) {}
+      // Market Pulse : indices live (fetch async, non bloquant)
+      loadMarketPulse().catch(() => {});
+      // Cadenas sur les cards selon le plan user
+      try { applyHomeCardLocking(); } catch (e) {}
 
       // Date du jour formatée (FR)
       const upd = document.getElementById('homeStatUpdate');
