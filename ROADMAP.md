@@ -4,7 +4,80 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 24 avril 2026 (5 garde-fous pipeline Kairos Score + cockpit home + auto-tweets X)
+**Dernière mise à jour** : 25 avril 2026 (Radar Portefeuille IG + extension EU smart money)
+
+---
+
+## 🌍 Extension Smart Money Europe (25 avr 2026) — EN COURS
+
+Objectif : devenir la **seule plateforme francophone smart money EU + US consolidée**.
+WhaleWisdom est US-only, Sicavonline ne fait pas du smart money, Zonebourse n'a pas
+les insiders/franchissements. Avec ces ajouts, Kairos couvre 4 marchés majeurs.
+
+### Tier 1 — En cours d'implémentation
+
+🔄 **Phase 1 — AMF Franchissements de seuils (FR)** : équivalent 13D/G français.
+Source : AMF avis publics (BAR). Couvre tout l'Euronext Paris (CAC 40 + SBF 120).
+Push KV `amf-thresholds-recent`. Cron GitHub Actions quotidien. Schéma unifié avec
+SEC 13D/G (champ `source: 'amf' | 'sec' | 'bafin'`).
+
+🔄 **Phase 2 — BaFin Stimmrechtsmitteilungen (DE)** : équivalent 13D/G allemand.
+Source : BaFin WpHG database (XML public). Couvre tout le DAX + MDAX.
+
+🔄 **Phase 3 — UI section "Activists/Fonds Offensifs"** : merge SEC + AMF + BaFin
+dans `/api/13dg/*` · drapeau pays par filing · filtre All/🇺🇸/🇫🇷/🇩🇪 ·
+liste KNOWN_ACTIVISTS étendue (TCI, Cevian, Bluebell, Petrus Advisers, Sherborne,
+Bolloré, Pinault, Arnault…)
+
+🔄 **Phase 4 — Shorts publics EU** : agrégation AMF + BaFin + FCA UK (positions
+courtes nettes >0.5%). Drill-down par fonds. Section "Short Interest" étendue
+avec filtre US/EU.
+
+🔄 **Phase 5 — Kairos Score étendu EU** : nouveaux signaux pour les tickers FR/DE/UK
+(franchissement activist EU, short squeeze EU). Pilier `smartMoney` étendu.
+
+### Tier 2 — High impact, à venir
+
+`[ ]` **FCA TR-1 (UK)** : équivalent 13D UK (FTSE 100 + 250). Source NSM API.
+Couvre Shell, BP, AstraZeneca, HSBC, BHP, Rio Tinto, Unilever.
+
+`[ ]` **Buybacks announcements EU (Article 5 MAR)** : programmes de rachat
+d'actions FR + DE. Signal positif fort. Source : déclarations AMF + BaFin.
+
+`[ ]` **Insider transactions élargies** : PDMR UK (FCA), Internal Dealing Italie
+(Consob), insiders Espagne (CNMV). Couverture insiders complète des 6 grands
+marchés européens.
+
+### Tier 3 — Différenciation forte
+
+`[ ]` **HATVP France** : équivalent NANC FR. Déclarations de patrimoine +
+intérêts des députés / ministres FR. Source : hatvp.fr publications.
+Effort : 5-7 jours (PDF OCR + entity resolution).
+
+`[ ]` **Tokyo Stock Exchange (J-WID)** : disclosures gros porteurs sur Toyota,
+Sony, SoftBank, Nintendo. Ouvre marché asiatique.
+
+`[ ]` **Analyst consensus revisions FR** : downgrades / upgrades brokers FR.
+Source : ZoneBourse, Boursorama, Investir scraping.
+
+`[ ]` **CFTC Commitments of Traders (COT)** : positions speculators vs
+commercials sur futures forex / commodities / indices. Utile pour les CFD.
+Source : cftc.gov hebdo.
+
+### Tier 4 — Innovations / scoops uniques
+
+`[ ]` **Score Smart Money EU** : Kairos Score adapté EU (composite incluant
+franchissements + insiders FR/DE + shorts EU + buybacks). USP unique vs
+WhaleWisdom (US-only).
+
+`[ ]` **Cross-flux smart money US → EU** : détection automatique quand un fonds
+US 13F achète une action EU. Ex : *"Berkshire entre sur ASML"*. Scoop quotidien
+marketable pour le compte X.
+
+`[ ]` **Stewardship votes** : votes BlackRock/Vanguard/SSGA en AG. Utile pour
+gouvernance.
+
+`[ ]` **Dark pool prints** (US) : FINRA ATS data. Block trades >10K shares.
 
 ---
 
