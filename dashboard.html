@@ -4144,6 +4144,7 @@
               <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <button class="radar-btn" onclick="syncPortfolioNow()" id="radarSyncBtn"><span>↻</span> <span data-i18n="dash.radar.sync_now">Synchroniser</span></button>
                 <button class="radar-btn secondary" onclick="openBrokerModal()"><span>+</span> <span data-i18n="dash.radar.add_broker">Ajouter</span></button>
+                <button class="radar-btn secondary" onclick="showRadarDiagnostic()" title="Voir l'état technique pour debug"><span>🔍</span> Diagnostic</button>
                 <button class="radar-btn danger" onclick="openManageDataModal()" title="Gérer / supprimer mes données"><span>⚙️</span> <span data-i18n="dash.radar.manage">Gérer</span></button>
               </div>
             </div>
@@ -14641,6 +14642,137 @@
           <strong>$${escapeHtml(a.ticker)}</strong> · ${escapeHtml(a.title || '')}
           ${a.date ? `<span class="radar-alert-date">${escapeHtml(new Date(a.date).toLocaleDateString('fr-FR'))}</span>` : ''}
         </div>`).join('');
+    }
+
+    // ============================================================
+    // DIAGNOSTIC RADAR — debug 1-click (au lieu de la console)
+    // Affiche : schema D1, connexions, last_error, positions count + sample
+    // + résultat brut du dernier sync. Permet d'identifier le problème en 5 sec.
+    // ============================================================
+    async function showRadarDiagnostic() {
+      if (!currentUser) return Toast.error('Non authentifié.');
+      Toast.info('Récupération du diagnostic...');
+      // Modal d'affichage du JSON
+      const modal = document.createElement('div');
+      modal.className = 'broker-modal open';
+      modal.style.zIndex = '600';
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      modal.innerHTML = `
+        <div class="broker-modal-inner" style="max-width:760px;max-height:85vh;overflow-y:auto">
+          <div class="broker-modal-header">
+            <h3 style="background:none;-webkit-background-clip:initial;background-clip:initial;-webkit-text-fill-color:initial;color:var(--text-primary)">🔍 Diagnostic Radar</h3>
+            <button class="broker-modal-close" onclick="this.closest('.broker-modal').remove()">✕</button>
+          </div>
+          <p class="broker-modal-sub">État technique de ta connexion broker. Utile pour identifier pourquoi des positions ne remontent pas.</p>
+          <div id="radarDiagContent" style="font-size:12px;line-height:1.6">
+            <p style="color:var(--text-muted)">Chargement...</p>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+
+      try {
+        // Lance les 2 endpoints en parallèle (diag rapide + sync test)
+        const [diag, syncResult] = await Promise.all([
+          apiFetch('/api/portfolio/diagnostic').catch(e => ({ error: e.message })),
+          apiFetch('/api/portfolio/sync', {}, 'POST').catch(e => ({ error: e.message })),
+        ]);
+
+        const content = document.getElementById('radarDiagContent');
+
+        // Schema info
+        const schemaCol = (diag.schema?.schemaVersion === 2)
+          ? '<span style="color:#10B981;font-weight:700">✓ v2</span>'
+          : '<span style="color:#F59E0B;font-weight:700">⚠️ v1 (migration v2 manquante mais code compatible)</span>';
+
+        // Connexions
+        const connsHtml = (diag.connections || []).map(c => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><strong>${escapeHtml(c.broker)}</strong></td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><span style="color:${c.status === 'active' ? '#10B981' : '#EF4444'}">${escapeHtml(c.status)}</span></td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace">${c.positions_count ?? 0}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace">${c.total_value_eur ? Math.round(c.total_value_eur) + ' €' : '—'}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-muted)">${c.last_sync_at ? formatRelativeTime(c.last_sync_at) : 'Jamais'}</td>
+          </tr>
+          ${c.last_error ? `<tr><td colspan="5" style="padding:8px 10px;background:rgba(239,68,68,0.06);color:#FCA5A5;font-size:11px">⚠️ ${escapeHtml(c.last_error)}</td></tr>` : ''}
+        `).join('');
+
+        // Positions counts
+        const posCountsHtml = (diag.positionsCounts || []).map(p => `
+          <div style="padding:6px 10px;background:var(--surface-1);border-radius:6px;font-size:11px;margin-bottom:4px">
+            <strong>${escapeHtml(p.broker)}</strong> :
+            <span style="font-family:monospace">${p.n}</span> positions stockées
+            (<span style="font-family:monospace">${p.n_actions || 0}</span> avec ticker_kairos mappé)
+            · ${p.total_eur ? Math.round(p.total_eur) + ' €' : '—'}
+          </div>
+        `).join('') || '<p style="color:var(--text-muted);font-size:11px">Aucune position en base.</p>';
+
+        // Sync result (resultats par broker)
+        const syncHtml = (syncResult.results || []).map(r => {
+          if (r.ok) {
+            return `<div style="padding:6px 10px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:11px;margin-bottom:4px">
+              ✓ <strong>${escapeHtml(r.broker)}</strong> : ${r.positionsCount} positions, ${r.totalValue ? Math.round(r.totalValue) + ' €' : '—'}
+            </div>`;
+          }
+          return `<div style="padding:6px 10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:11px;margin-bottom:4px;color:#FCA5A5">
+            ❌ <strong>${escapeHtml(r.broker)}</strong> : ${escapeHtml(r.error)}
+          </div>`;
+        }).join('') || (syncResult.error ? `<p style="color:#EF4444">${escapeHtml(syncResult.error)}</p>` : '<p style="color:var(--text-muted);font-size:11px">Aucun broker connecté.</p>');
+
+        // Sample positions
+        const sampleHtml = (diag.positionsSample || []).map(s => `
+          <tr>
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px">${escapeHtml(s.broker)}</td>
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px">${escapeHtml(s.ticker || '—')}</td>
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px">${escapeHtml(s.ticker_kairos || '—')}</td>
+            <td style="padding:4px 8px;font-size:11px">${s.has_value ? '✓' : '✗'}</td>
+            <td style="padding:4px 8px;font-size:11px">${s.has_score ? '✓' : '✗'}</td>
+          </tr>
+        `).join('');
+
+        content.innerHTML = `
+          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">📋 Schéma D1</h4>
+          <p style="margin:0 0 16px">Schema version : ${schemaCol} (${(diag.schema?.columns || []).length} colonnes)</p>
+
+          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔌 Connexions</h4>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+            <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
+              <th style="padding:6px 10px;text-align:left">Broker</th>
+              <th style="padding:6px 10px;text-align:left">Statut</th>
+              <th style="padding:6px 10px;text-align:left">Pos.</th>
+              <th style="padding:6px 10px;text-align:left">Valeur</th>
+              <th style="padding:6px 10px;text-align:left">Sync</th>
+            </tr></thead>
+            <tbody>${connsHtml || '<tr><td colspan="5" style="padding:10px;color:var(--text-muted)">Aucune connexion.</td></tr>'}</tbody>
+          </table>
+
+          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">📊 Positions stockées (par broker)</h4>
+          ${posCountsHtml}
+
+          <h4 style="margin:16px 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔁 Résultat du sync test</h4>
+          ${syncHtml}
+
+          ${sampleHtml ? `
+            <h4 style="margin:16px 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔬 Sample des 5 premières positions</h4>
+            <table style="width:100%;border-collapse:collapse;background:var(--surface-1);border-radius:8px;overflow:hidden">
+              <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
+                <th style="padding:6px 8px;text-align:left">Broker</th>
+                <th style="padding:6px 8px;text-align:left">Ticker</th>
+                <th style="padding:6px 8px;text-align:left">Kairos</th>
+                <th style="padding:6px 8px;text-align:left">Valeur ?</th>
+                <th style="padding:6px 8px;text-align:left">Score ?</th>
+              </tr></thead>
+              <tbody>${sampleHtml}</tbody>
+            </table>
+          ` : ''}
+
+          <details style="margin-top:20px;padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
+            <summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Voir le JSON brut complet</summary>
+            <pre style="margin:10px 0 0;padding:10px;background:var(--bg-card);border-radius:6px;font-size:10.5px;overflow-x:auto;white-space:pre-wrap;word-break:break-word">${escapeHtml(JSON.stringify({ diagnostic: diag, syncResult }, null, 2))}</pre>
+          </details>
+        `;
+      } catch (e) {
+        document.getElementById('radarDiagContent').innerHTML = `<p style="color:#EF4444">Erreur diagnostic : ${escapeHtml(e.message || '')}</p>`;
+      }
     }
 
     // ============================================================
