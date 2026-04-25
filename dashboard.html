@@ -37,7 +37,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260425-radar2"></script>
+  <script src="assets/i18n.js?v=20260425-radar3"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1453,6 +1453,14 @@
       background: var(--surface-2);
       color: var(--text-primary);
       border-color: var(--border-strong);
+    }
+    .radar-btn.danger {
+      background: rgba(239,68,68,0.12);
+      color: #EF4444;
+      border: 1px solid rgba(239,68,68,0.35);
+    }
+    .radar-btn.danger:hover {
+      background: rgba(239,68,68,0.22);
     }
     .radar-kpis {
       display: grid;
@@ -4136,7 +4144,14 @@
               <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <button class="radar-btn" onclick="syncPortfolioNow()" id="radarSyncBtn"><span>↻</span> <span data-i18n="dash.radar.sync_now">Synchroniser</span></button>
                 <button class="radar-btn secondary" onclick="openBrokerModal()"><span>+</span> <span data-i18n="dash.radar.add_broker">Ajouter</span></button>
+                <button class="radar-btn danger" onclick="openManageDataModal()" title="Gérer / supprimer mes données"><span>⚙️</span> <span data-i18n="dash.radar.manage">Gérer</span></button>
               </div>
+            </div>
+
+            <!-- Bandeau d'erreur visible si la dernière sync a foiré -->
+            <div id="radarErrorBanner" style="display:none;margin-bottom:16px;padding:12px 16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);border-radius:10px;color:#FCA5A5;font-size:13px;line-height:1.5">
+              <strong style="color:#EF4444">⚠️ Erreur lors de la dernière sync :</strong>
+              <span id="radarErrorMsg" style="display:block;margin-top:4px"></span>
             </div>
 
             <!-- KPI bar du portefeuille live -->
@@ -4465,6 +4480,41 @@
                 </div>
               </form>
               <p class="broker-form-status" id="brokerFormStatus"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================
+             MODAL : Gérer mes données (purge / déconnexion broker / reset)
+             Style Tradezella : 3 actions distinctes avec confirmation
+             par saisie pour eviter les clics accidentels.
+             ============================================================ -->
+        <div class="broker-modal" id="manageDataModal" onclick="if(event.target===this)closeManageDataModal()">
+          <div class="broker-modal-inner" style="max-width:560px">
+            <div class="broker-modal-header">
+              <h3 style="background:none;-webkit-background-clip:initial;background-clip:initial;-webkit-text-fill-color:initial;color:var(--text-primary)">⚙️ Gérer mes données</h3>
+              <button class="broker-modal-close" onclick="closeManageDataModal()">✕</button>
+            </div>
+            <p class="broker-modal-sub">Toutes les actions sont irréversibles. Une confirmation par saisie est demandée pour éviter les clics accidentels.</p>
+
+            <!-- Liste des connexions actives + bouton déconnecter par broker -->
+            <div id="manageConnectionsList" style="margin-bottom:24px"></div>
+
+            <!-- Section danger : purge CSV + reset complet -->
+            <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:8px">
+              <h4 style="margin:0 0 8px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px">
+                <span>🗑️</span> <span>Données importées CSV</span>
+              </h4>
+              <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Trades importés via fichier CSV (historique P&amp;L, calendrier, charts). Ne touche pas aux brokers connectés.</p>
+              <button class="radar-btn danger" onclick="confirmAndDelete('csv')">🗑️ Supprimer les trades CSV</button>
+            </div>
+
+            <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:20px">
+              <h4 style="margin:0 0 8px;font-family:'Space Grotesk';font-size:14px;color:#EF4444;display:flex;align-items:center;gap:8px">
+                <span>💥</span> <span>Tout réinitialiser</span>
+              </h4>
+              <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px">Déconnecte tous les brokers + supprime les positions sync + supprime les trades CSV + supprime l'historique snapshots. <strong style="color:#EF4444">Reset complet, irréversible.</strong></p>
+              <button class="radar-btn danger" onclick="confirmAndDelete('all')">💥 Tout supprimer</button>
             </div>
           </div>
         </div>
@@ -14418,11 +14468,12 @@
         statusEl.textContent = '✓ ' + (data.message || 'Connexion réussie !');
         statusEl.className = 'broker-form-status success';
         Toast.success(`${broker.name} connecté. Chargement des positions...`);
-        setTimeout(() => {
+        // IMPORTANT : await sync AVANT loadRadarPortfolio (sinon UI montre 0 position)
+        setTimeout(async () => {
           closeBrokerModal();
-          syncPortfolioNow();
-          loadRadarPortfolio();
-        }, 1000);
+          await syncPortfolioNow();           // attend la fin du sync
+          await loadRadarPortfolio();         // maintenant les positions sont en D1
+        }, 800);
       } catch (e) {
         statusEl.textContent = '❌ ' + (e.message || 'Erreur inconnue');
         statusEl.className = 'broker-form-status error';
@@ -14455,7 +14506,18 @@
           `📡 ${active.length} broker${active.length > 1 ? 's' : ''} connecté${active.length > 1 ? 's' : ''}`;
         document.getElementById('radarConnectedMeta').textContent =
           (lastSync ? `Dernière sync : ${formatRelativeTime(lastSync)}` : 'Jamais synchronisé')
-          + ' · ' + active.map(c => c.broker).join(', ');
+          + ' · ' + (active.length ? active.map(c => c.broker).join(', ') : conns.map(c => c.broker).join(', '));
+
+        // Affiche le bandeau d'erreur si au moins une connexion a un last_error
+        const errs = conns.filter(c => c.last_error).map(c => `${c.broker} : ${c.last_error}`);
+        const errBanner = document.getElementById('radarErrorBanner');
+        const errMsg = document.getElementById('radarErrorMsg');
+        if (errs.length && errBanner && errMsg) {
+          errBanner.style.display = 'block';
+          errMsg.textContent = errs.join(' · ');
+        } else if (errBanner) {
+          errBanner.style.display = 'none';
+        }
 
         document.getElementById('radarKpiValue').textContent = fmtEur(totalValue);
         document.getElementById('radarKpiPositions').textContent = totalPos;
@@ -14547,6 +14609,128 @@
         </div>`).join('');
     }
 
+    // ============================================================
+    // GESTION DES DONNÉES (Manage Data, inspiré Tradezella)
+    // 3 actions distinctes avec confirmation anti-clic-accidentel :
+    //   1) Déconnecter un broker (révoque creds + supprime ses positions sync)
+    //   2) Supprimer les trades CSV (garde les brokers actifs)
+    //   3) Tout réinitialiser (nuke total)
+    // ============================================================
+
+    async function openManageDataModal() {
+      if (!currentUser) return Toast.error('Non authentifié.');
+      const modal = document.getElementById('manageDataModal');
+      if (!modal) return;
+      modal.classList.add('open');
+      // Charge la liste des connexions pour afficher 1 bouton "Déconnecter" par broker
+      const list = document.getElementById('manageConnectionsList');
+      list.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">Chargement...</p>';
+      try {
+        const data = await apiFetch('/api/portfolio/connections');
+        const conns = (data && Array.isArray(data.connections)) ? data.connections : [];
+        if (!conns.length) {
+          list.innerHTML = '<div style="padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-muted)">Aucun broker connecté actuellement.</div>';
+          return;
+        }
+        const brokerCatalog = await loadRadarBrokerCatalog();
+        list.innerHTML = '<h4 style="margin:0 0 12px;font-family:\'Space Grotesk\';font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px"><span>🔌</span> <span>Brokers connectés</span></h4>'
+          + conns.map(c => {
+              const broker = (brokerCatalog || []).find(b => b.id === c.broker);
+              const flag = broker?.flag || '🏦';
+              const name = broker?.name || c.broker;
+              const lastSync = c.last_sync_at ? formatRelativeTime(c.last_sync_at) : 'Jamais';
+              const errBadge = c.last_error
+                ? `<div style="margin-top:6px;padding:6px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:11px;color:#FCA5A5">⚠️ ${escapeHtml(c.last_error)}</div>`
+                : '';
+              return `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:700;font-size:14px;color:var(--text-primary)">${flag} ${escapeHtml(name)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${c.positions_count || 0} position${(c.positions_count || 0) > 1 ? 's' : ''} · Dernière sync : ${lastSync}</div>
+                    ${errBadge}
+                  </div>
+                  <button class="radar-btn danger" style="font-size:11px" onclick="confirmAndDelete('disconnect:${escapeHtml(c.broker)}:${escapeHtml(c.account_id || 'default')}')">🔌 Déconnecter</button>
+                </div>`;
+            }).join('');
+      } catch (e) {
+        list.innerHTML = `<div style="color:#EF4444;font-size:13px">Erreur : ${escapeHtml(e.message || '')}</div>`;
+      }
+    }
+
+    function closeManageDataModal() {
+      document.getElementById('manageDataModal')?.classList.remove('open');
+    }
+
+    // Confirmation par saisie (anti-clic-accidentel, style Tradezella)
+    // type peut être : 'csv' | 'all' | 'disconnect:broker:accountId'
+    async function confirmAndDelete(type) {
+      let title, message, expectedWord;
+      if (type === 'csv') {
+        title = 'Supprimer les trades CSV';
+        message = 'Tous tes trades importés via CSV vont être supprimés. Cette action est irréversible.';
+        expectedWord = 'SUPPRIMER';
+      } else if (type === 'all') {
+        title = 'Tout réinitialiser';
+        message = 'TOUS les brokers connectés seront déconnectés, toutes les positions sync supprimées, tous les trades CSV supprimés, et l\'historique snapshots effacé. Cette action est irréversible.';
+        expectedWord = 'RESET';
+      } else if (type.startsWith('disconnect:')) {
+        const [, broker, accountId] = type.split(':');
+        title = `Déconnecter ${broker}`;
+        message = `Les credentials ${broker} seront révoqués et toutes les positions associées supprimées. Tu pourras te reconnecter à tout moment.`;
+        expectedWord = 'OK';
+      } else {
+        return;
+      }
+
+      const word = prompt(`${title}\n\n${message}\n\nPour confirmer, tape "${expectedWord}" :`);
+      if (word !== expectedWord) {
+        if (word !== null) Toast.warning('Mot de confirmation incorrect, action annulée.');
+        return;
+      }
+
+      try {
+        if (type === 'csv') {
+          // Réutilise clearPortfolio() existant qui purge Firebase RTDB
+          await clearPortfolio();
+          Toast.success('✓ Trades CSV supprimés.');
+        } else if (type === 'all') {
+          // 1) Déconnecte tous les brokers
+          const conns = (await apiFetch('/api/portfolio/connections'))?.connections || [];
+          for (const c of conns) {
+            await apiFetch('/api/portfolio/disconnect', { broker: c.broker, accountId: c.account_id }, 'POST').catch(() => {});
+          }
+          // 2) Purge CSV (Firebase RTDB)
+          if (currentUser) {
+            try {
+              const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+              const db = getDatabase();
+              await remove(ref(db, `users/${currentUser.uid}/trades`));
+              await remove(ref(db, `users/${currentUser.uid}/meta`));
+            } catch {}
+          }
+          portfolioTrades = [];
+          document.getElementById('portfolioKpis').style.display = 'none';
+          Toast.success('✓ Tout a été réinitialisé.');
+          await loadRadarPortfolio();
+        } else if (type.startsWith('disconnect:')) {
+          const [, broker, accountId] = type.split(':');
+          const data = await apiFetch('/api/portfolio/disconnect', { broker, accountId }, 'POST');
+          if (data.error) {
+            Toast.error(data.error);
+            return;
+          }
+          Toast.success(`✓ ${broker} déconnecté.`);
+          await loadRadarPortfolio();
+          // Re-charge la liste dans le modal s'il est encore ouvert
+          if (document.getElementById('manageDataModal').classList.contains('open')) {
+            openManageDataModal();
+          }
+        }
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || ''));
+      }
+    }
+
     async function syncPortfolioNow() {
       if (!currentUser) return Toast.error('Non authentifié.');
       const btn = document.getElementById('radarSyncBtn');
@@ -14556,11 +14740,22 @@
         const data = await apiFetch('/api/portfolio/sync', {}, 'POST');
         if (data.error) {
           Toast.error(data.error);
+          console.warn('[radar] sync error:', data);
         } else {
-          const ok = (data.results || []).filter(r => r.ok).length;
-          const failed = (data.results || []).filter(r => r.error).length;
-          if (ok) Toast.success(`✓ ${ok} broker${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}`);
-          if (failed) Toast.warning(`${failed} erreur${failed > 1 ? 's' : ''} lors du sync`);
+          const okResults = (data.results || []).filter(r => r.ok);
+          const failResults = (data.results || []).filter(r => r.error);
+          if (okResults.length) {
+            const totalPos = okResults.reduce((s, r) => s + (r.positionsCount || 0), 0);
+            Toast.success(`✓ Sync OK · ${totalPos} position${totalPos > 1 ? 's' : ''} récupérée${totalPos > 1 ? 's' : ''}`);
+          }
+          // Affiche le DÉTAIL de chaque erreur, pas juste un compte
+          for (const r of failResults) {
+            Toast.error(`${r.broker} : ${r.error}`, 8000);   // 8s pour avoir le temps de lire
+            console.warn('[radar] broker sync failed', r);
+          }
+          if (!okResults.length && !failResults.length) {
+            Toast.warning('Aucun broker connecté');
+          }
         }
         await loadRadarPortfolio();
       } catch (e) {
