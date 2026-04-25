@@ -37,7 +37,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260425-radar"></script>
+  <script src="assets/i18n.js?v=20260425-radar2"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1380,8 +1380,8 @@
       gap: 12px;
       align-items: flex-start;
       padding: 14px 16px;
-      background: rgba(10, 15, 30, 0.5);
-      border: 1px solid rgba(255,255,255,0.06);
+      background: var(--surface-1);
+      border: 1px solid var(--border);
       border-radius: 12px;
     }
     .radar-feat-ico {
@@ -1391,15 +1391,16 @@
     }
     .radar-feat-text strong {
       display: block;
-      font-size: 13px;
+      font-size: 13.5px;
       color: var(--text-primary);
-      font-weight: 600;
-      margin-bottom: 3px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      letter-spacing: -0.005em;
     }
     .radar-feat-text span {
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.4;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.45;
     }
 
     /* --- Etat CONNECTE : positions + alertes --- */
@@ -4182,7 +4183,7 @@
         <details class="csv-fallback-wrap" id="csvFallbackWrap">
           <summary>
             <span>📂</span>
-            <span data-i18n="dash.radar.csv_toggle">Ou importer manuellement un CSV (fallback universel)</span>
+            <span data-i18n="dash.radar.csv_toggle">Ou importer manuellement un CSV</span>
           </summary>
 
         <!-- Zone d'upload CSV -->
