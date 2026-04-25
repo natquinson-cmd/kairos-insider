@@ -1,0 +1,40 @@
+name: Deploy Worker
+
+# Deploy le Worker Cloudflare via GitHub Actions
+# (alternative quand wrangler login local a expire / Cloudflare incidents)
+#
+# Trigger : workflow_dispatch (manuel) ou push sur worker/src/**
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'worker/src/**'
+      - 'worker/wrangler.toml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install wrangler
+        run: |
+          cd worker
+          # wrangler est en devDependency dans worker/, on l'utilise via npx
+          npm install --save-dev wrangler@4
+
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          npx wrangler deploy
