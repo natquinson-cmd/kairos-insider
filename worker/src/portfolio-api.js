@@ -45,7 +45,7 @@ export const SUPPORTED_BROKERS = [
     country: 'UK/FR',
     flag: '🇬🇧',
     logo: '/assets/brokers/ig.png',
-    status: 'soon',                           // sera 'live' après implémentation complète
+    status: 'live',                           // ✅ Phase 2 : adapter IG actif
     description: 'API REST officielle · 17 000 produits · FR/UK/DE',
     authFields: [
       { name: 'username', label: 'Nom d\'utilisateur IG', type: 'text', required: true },
@@ -228,6 +228,68 @@ async function decryptCreds(env, uid, encObj) {
 //   totalValue, currency, accountId
 // }
 
+// Helper logout IG (libère un slot dans le quota 30 logins/h)
+async function igLogout(baseUrl, apiKey, cst, xst) {
+  try {
+    await fetch(`${baseUrl}/session`, {
+      method: 'DELETE',
+      headers: {
+        'X-IG-API-KEY': apiKey,
+        'CST': cst,
+        'X-SECURITY-TOKEN': xst,
+        'Version': '1',
+      },
+    });
+  } catch (e) {
+    // Best-effort, on ignore les erreurs de cleanup
+  }
+}
+
+// Bases URL IG (live vs demo)
+const IG_API_BASES = {
+  demo: 'https://demo-api.ig.com/gateway/deal',
+  live: 'https://api.ig.com/gateway/deal',
+};
+
+// Taux de change figés (MVP) — à remplacer par un fetch API forex en Phase 3
+// Justifié par : moins de 5% d'erreur sur les majeures sur 1 mois, suffisant
+// pour afficher une valeur indicative en EUR.
+const FX_TO_EUR_FIXED = {
+  EUR: 1.0,
+  USD: 0.92,
+  GBP: 1.17,
+  CHF: 1.05,
+  JPY: 0.0061,
+  CAD: 0.68,
+  AUD: 0.62,
+};
+
+function convertToEur(amount, currency) {
+  if (amount == null || isNaN(amount)) return null;
+  const rate = FX_TO_EUR_FIXED[currency] ?? 1.0;
+  return amount * rate;
+}
+
+// Extrait le ticker "lisible" depuis l'EPIC IG
+// Patterns courants :
+//   UA.D.AAPL.CASH.IP        → AAPL (action US cash)
+//   UA.D.GS.CASH.IP          → GS
+//   UC.D.NVDA.CASH.IP        → NVDA
+//   IX.D.SPTRD.IFD.IP        → SPTRD (indice — pas dans Kairos, on retourne null)
+//   CO.D.LCO.MONTH1.IP       → LCO (commodity — pas dans Kairos)
+//   CC.D.GBPUSD.TODAY.IP     → GBPUSD (forex — null)
+// Heuristique : on retourne le ticker seulement si l'instrument est SHARES.
+function extractTickerFromEpic(epic, instrumentType) {
+  if (!epic || typeof epic !== 'string') return null;
+  if (instrumentType !== 'SHARES') return null;     // on ne traite que les actions
+  const parts = epic.split('.');
+  if (parts.length < 3) return null;
+  const candidate = parts[2];
+  // Le ticker doit être 1-6 chars alphanumériques majuscules
+  if (!/^[A-Z0-9]{1,6}$/.test(candidate)) return null;
+  return candidate;
+}
+
 const BROKER_ADAPTERS = {
   ig: {
     /**
@@ -235,9 +297,17 @@ const BROKER_ADAPTERS = {
      * Doc : https://labs.ig.com/rest-trading-api-reference
      *
      * Flow :
-     *   1) POST /session avec { identifier, password } + headers X-IG-API-KEY, CST, Version:3
-     *   2) Récupère CST + X-SECURITY-TOKEN dans headers response
-     *   3) GET /positions avec ces 2 tokens pour récupérer la liste
+     *   1) POST /session (Version:2) avec { identifier, password } + X-IG-API-KEY
+     *      → headers response contiennent CST + X-SECURITY-TOKEN
+     *   2) GET /positions (Version:2) avec X-IG-API-KEY + CST + X-SECURITY-TOKEN
+     *   3) DELETE /session (cleanup, free up daily login quota)
+     *
+     * Rate limits IG (par compte) :
+     *   - 30 logins / heure
+     *   - 60 trading requests / minute
+     *   - 10 non-trading requests / minute (positions, accounts...)
+     *
+     * On utilise environment 'live' OU 'demo' (URLs différentes).
      */
     async validateCreds(creds) {
       const required = ['username', 'password', 'apiKey'];
@@ -246,18 +316,157 @@ const BROKER_ADAPTERS = {
           return { ok: false, error: `Champ manquant ou invalide : ${f}` };
         }
       }
+      const env = (creds.environment || 'live').toLowerCase();
+      if (!['live', 'demo'].includes(env)) {
+        return { ok: false, error: 'Environnement doit être "live" ou "demo"' };
+      }
       return { ok: true };
     },
 
     async fetchPositions(creds, env) {
-      // TODO Phase 2 : implémenter l'appel réel IG
-      // Pour l'instant on renvoie un stub "pending implementation"
+      const igEnv = (creds.environment || 'live').toLowerCase();
+      const baseUrl = IG_API_BASES[igEnv] || IG_API_BASES.live;
+
+      // ===== ETAPE 1 : Authentification =====
+      let sessionResp;
+      try {
+        sessionResp = await fetch(`${baseUrl}/session`, {
+          method: 'POST',
+          headers: {
+            'X-IG-API-KEY': creds.apiKey,
+            'Version': '2',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json; charset=UTF-8',
+          },
+          body: JSON.stringify({
+            identifier: creds.username,
+            password: creds.password,
+          }),
+        });
+      } catch (e) {
+        return { error: `IG : impossible de joindre l'API (${e.message || e})`, positions: [], totalValue: 0 };
+      }
+
+      if (!sessionResp.ok) {
+        let errBody = '';
+        try { errBody = await sessionResp.text(); } catch {}
+        const errCode = sessionResp.status;
+        let userMsg = `IG auth échouée (HTTP ${errCode})`;
+        if (errCode === 401 || errCode === 403) {
+          userMsg = 'IG : identifiants invalides. Vérifie nom d\'utilisateur, mot de passe et clé API (cf. Mes Préférences > API Keys).';
+        } else if (errCode === 404) {
+          userMsg = 'IG : compte inexistant. Vérifie l\'environnement (live ou demo).';
+        } else if (errBody.includes('error.security.api-key-invalid')) {
+          userMsg = 'IG : clé API invalide. Crée une nouvelle clé dans My IG > Settings > API Keys.';
+        } else if (errBody.includes('error.security.client-token-invalid')) {
+          userMsg = 'IG : token client invalide. Réessaie dans quelques minutes.';
+        }
+        return { error: userMsg, positions: [], totalValue: 0, raw: errBody.slice(0, 200) };
+      }
+
+      const cst = sessionResp.headers.get('CST');
+      const xst = sessionResp.headers.get('X-SECURITY-TOKEN');
+      if (!cst || !xst) {
+        return { error: 'IG : tokens de session manquants (CST/X-SECURITY-TOKEN)', positions: [], totalValue: 0 };
+      }
+
+      let sessionData = {};
+      try { sessionData = await sessionResp.json(); } catch {}
+      const accountId = sessionData.currentAccountId || sessionData.accountId || 'default';
+      const userCurrency = sessionData.currencyIsoCode || 'EUR';
+
+      // ===== ETAPE 2 : Récupération des positions =====
+      let posResp;
+      try {
+        posResp = await fetch(`${baseUrl}/positions`, {
+          method: 'GET',
+          headers: {
+            'X-IG-API-KEY': creds.apiKey,
+            'CST': cst,
+            'X-SECURITY-TOKEN': xst,
+            'Version': '2',
+            'Accept': 'application/json; charset=UTF-8',
+          },
+        });
+      } catch (e) {
+        // cleanup avant de retourner
+        await igLogout(baseUrl, creds.apiKey, cst, xst);
+        return { error: `IG : impossible de récupérer les positions (${e.message || e})`, positions: [], totalValue: 0 };
+      }
+
+      if (!posResp.ok) {
+        await igLogout(baseUrl, creds.apiKey, cst, xst);
+        return { error: `IG : positions failed (HTTP ${posResp.status})`, positions: [], totalValue: 0 };
+      }
+
+      let posData = { positions: [] };
+      try { posData = await posResp.json(); } catch {}
+      const rawPositions = Array.isArray(posData.positions) ? posData.positions : [];
+
+      // ===== ETAPE 3 : Parsing + mapping ticker_kairos =====
+      const positions = rawPositions.map(p => {
+        const pos = p.position || {};
+        const mkt = p.market || {};
+
+        const epic = mkt.epic || '';
+        const instrumentName = mkt.instrumentName || '';
+        const instrumentType = mkt.instrumentType || '';
+        const tickerKairos = extractTickerFromEpic(epic, instrumentType);
+
+        const direction = (pos.direction || 'BUY').toUpperCase();
+        const size = Number(pos.size) || 0;
+        const entryLevel = Number(pos.level) || 0;
+        // Mid price : moyenne bid/offer pour valoriser la position
+        const bid = Number(mkt.bid) || 0;
+        const offer = Number(mkt.offer) || 0;
+        const currentPrice = (bid && offer) ? (bid + offer) / 2 : (bid || offer || entryLevel);
+
+        // P&L : sur SELL, plus le prix baisse plus on gagne
+        const rawPnl = direction === 'SELL'
+          ? (entryLevel - currentPrice) * size
+          : (currentPrice - entryLevel) * size;
+        const pnlPct = entryLevel > 0 ? (rawPnl / (entryLevel * Math.abs(size))) * 100 : 0;
+
+        // Devise de la position : prio sur pos.currency (déclaré), sinon défaut user currency
+        const currency = (pos.currency || userCurrency || 'EUR').toUpperCase();
+
+        // Valeur courante en EUR (conversion taux fixe MVP)
+        const currentValueNative = currentPrice * Math.abs(size);
+        const currentValueEur = convertToEur(currentValueNative, currency);
+
+        return {
+          ticker: epic,                                 // EPIC raw IG (clé unique broker-side)
+          ticker_kairos: tickerKairos,                  // ticker simplifié pour join Kairos Score
+          isin: null,                                   // IG ne renvoie pas l'ISIN dans /positions (sera enrichi en Phase 3)
+          quantity: direction === 'SELL' ? -Math.abs(size) : Math.abs(size),
+          avg_cost_price: entryLevel,
+          current_price: currentPrice,
+          current_value_eur: currentValueEur,
+          currency,
+          unrealized_pnl: rawPnl,
+          unrealized_pnl_pct: pnlPct,
+          // Meta supplémentaires (non stockées en D1 mais utiles pour debug)
+          _meta: {
+            instrumentName,
+            instrumentType,
+            direction,
+            createdDate: pos.createdDate,
+          },
+        };
+      });
+
+      // ===== ETAPE 4 : Logout (libère le quota daily login) =====
+      await igLogout(baseUrl, creds.apiKey, cst, xst);
+
+      const totalValueEur = positions.reduce((s, p) => s + (p.current_value_eur || 0), 0);
+
       return {
-        error: 'IG Markets sync pas encore implémenté (Phase 2). Connexion sauvegardée, mais pas de positions récupérées.',
-        positions: [],
-        totalValue: 0,
+        positions,
+        totalValue: totalValueEur,
         currency: 'EUR',
-        accountId: null,
+        accountId,
+        broker: 'ig',
+        environment: igEnv,
       };
     },
   },
@@ -459,25 +668,88 @@ export async function handlePortfolioSync(uid, env) {
       }
 
       // Upsert positions en D1 (réécrit à chaque sync : le dernier état gagne)
-      // TODO Phase 2 : batch upsert + join Kairos Score par ticker_kairos
       const positions = fetchResult.positions || [];
-      await env.HISTORY.prepare(
-        `DELETE FROM portfolio_positions WHERE uid = ? AND broker = ? AND account_id = ?`
-      ).bind(uid, conn.broker, conn.account_id).run();
+      const targetAccount = fetchResult.accountId || conn.account_id;
 
-      // TODO batch insert positions…
+      // Stratégie : DELETE puis INSERT batch (plus simple qu'un MERGE en SQLite,
+      // et le volume reste petit — typiquement <50 positions par user).
+      const stmts = [
+        env.HISTORY.prepare(
+          `DELETE FROM portfolio_positions WHERE uid = ? AND broker = ? AND account_id = ?`
+        ).bind(uid, conn.broker, targetAccount),
+      ];
 
-      // Update connection status + snapshot
-      await env.HISTORY.prepare(
+      // Pré-fetch des Kairos Scores pour les tickers détenus (1 query, plus efficace)
+      const tickersKairos = positions.map(p => p.ticker_kairos).filter(Boolean);
+      const scoreMap = {};
+      if (tickersKairos.length) {
+        try {
+          const placeholders = tickersKairos.map(() => '?').join(',');
+          const rows = (await env.HISTORY.prepare(
+            `SELECT ticker, total
+             FROM score_history
+             WHERE ticker IN (${placeholders})
+             AND date = (SELECT MAX(date) FROM score_history WHERE ticker = score_history.ticker)`
+          ).bind(...tickersKairos).all()).results || [];
+          for (const r of rows) scoreMap[r.ticker] = r.total;
+        } catch (e) {
+          // Best-effort : si le join échoue, on continue sans score
+        }
+      }
+
+      // Batch INSERT des positions
+      for (const p of positions) {
+        stmts.push(env.HISTORY.prepare(
+          `INSERT INTO portfolio_positions
+            (uid, broker, account_id, ticker, isin, ticker_kairos, quantity,
+             avg_cost_price, current_price, current_value_eur, currency,
+             unrealized_pnl, unrealized_pnl_pct, kairos_score, has_alerts, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+        ).bind(
+          uid,
+          conn.broker,
+          targetAccount,
+          String(p.ticker || '').slice(0, 20),
+          p.isin || null,
+          p.ticker_kairos || null,
+          p.quantity || 0,
+          p.avg_cost_price || null,
+          p.current_price || null,
+          p.current_value_eur || null,
+          (p.currency || 'EUR').slice(0, 3),
+          p.unrealized_pnl || null,
+          p.unrealized_pnl_pct || null,
+          p.ticker_kairos ? (scoreMap[p.ticker_kairos] ?? null) : null,
+          0,  // has_alerts : sera calculé en Phase 3 par un cron
+        ));
+      }
+
+      // Snapshot quotidien (pour le chart équité)
+      const today = new Date().toISOString().slice(0, 10);
+      stmts.push(env.HISTORY.prepare(
+        `INSERT INTO portfolio_snapshots
+          (uid, broker, snapshot_date, total_value_eur, positions_count)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(uid, broker, snapshot_date) DO UPDATE SET
+           total_value_eur = excluded.total_value_eur,
+           positions_count = excluded.positions_count`
+      ).bind(uid, conn.broker, today, fetchResult.totalValue || 0, positions.length));
+
+      // Update connection status
+      stmts.push(env.HISTORY.prepare(
         `UPDATE portfolio_connections
          SET last_sync_at = CURRENT_TIMESTAMP,
              last_error = NULL,
              status = 'active',
              positions_count = ?,
              total_value_eur = ?,
+             account_id = ?,
              updated_at = CURRENT_TIMESTAMP
          WHERE uid = ? AND broker = ? AND account_id = ?`
-      ).bind(positions.length, fetchResult.totalValue || 0, uid, conn.broker, conn.account_id).run();
+      ).bind(positions.length, fetchResult.totalValue || 0, targetAccount, uid, conn.broker, conn.account_id));
+
+      // Exécution batch (transaction atomique en D1)
+      await env.HISTORY.batch(stmts);
 
       results.push({
         broker: conn.broker,

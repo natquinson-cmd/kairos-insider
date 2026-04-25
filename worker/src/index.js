@@ -4589,20 +4589,23 @@ Analyse complète : kairosinsider.fr
 #bourse #smartmoney`
         );
       }
-      // Signal #2 : biggest insider cluster
+      // Signal #2 : biggest insider cluster (renomme "Vague d'initiés" pour la
+      // lisibilité francophone — terme plus parlant que "cluster" en anglais)
       const topCluster = (data.insiderClusters || [])[0];
       if (topCluster) {
         const fmtM = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? '$' + Math.round(v / 1e3) + 'K' : '$' + Math.round(v);
-        const dir = (topCluster.buyCount || 0) > (topCluster.sellCount || 0) ? '🟢 achats' : '🔴 ventes';
+        const isBuy = (topCluster.buyCount || 0) > (topCluster.sellCount || 0);
+        const dirEmoji = isBuy ? '🟢' : '🔴';
+        const dirLabel = isBuy ? 'achats' : 'ventes';
         tweets.push(
-`🔔 CLUSTER INSIDER DÉTECTÉ
+`${dirEmoji} VAGUE D'INITIÉS · $${topCluster.ticker}
 
-$${topCluster.ticker} : ${topCluster.buyCount || 0}🟢 / ${topCluster.sellCount || 0}🔴 ${dir} coordonnés.
-Total valeur : ${fmtM(topCluster.totalValue || 0)}
+${topCluster.buyCount || 0} achats · ${topCluster.sellCount || 0} ventes coordonnés en quelques jours.
+Volume total : ${fmtM(topCluster.totalValue || 0)}
 
-Historique : cluster 3+ insiders = +11% alpha sur 6 mois (Cohen-Malloy-Pomorski 2012).
+Quand 3+ dirigeants tradent dans le même sens en peu de temps, le signal est statistiquement fort : +11 % d'alpha sur 6 mois (étude Cohen-Malloy-Pomorski 2012).
 
-kairosinsider.fr`
+kairosinsider.fr/a/${topCluster.ticker}`
         );
       }
       // Signal #3 : fresh 13D activist
@@ -5451,7 +5454,7 @@ async function generateCommentDigest(env, { maxAgeHours = 24, forceFresh = false
             type: 'cluster',
             ticker: c.ticker,
             info: `${c.buyCount || 0}🟢 / ${c.sellCount || 0}🔴`,
-            comment: `Cluster insider détecté sur $${c.ticker} : ${c.buyCount || 0} achats / ${c.sellCount || 0} ventes (${fmtM(c.totalValue || 0)}). 3+ insiders = +11% alpha 6 mois (étude Cohen-Malloy). kairosinsider.fr/a/${c.ticker}`,
+            comment: `Vague d'initiés sur $${c.ticker} : ${c.buyCount || 0} achats / ${c.sellCount || 0} ventes coordonnés (${fmtM(c.totalValue || 0)}). 3+ insiders = +11 % d'alpha sur 6 mois (étude Cohen-Malloy). kairosinsider.fr/a/${c.ticker}`,
           });
         }
         // Top 3 activists frais
@@ -7021,7 +7024,7 @@ async function detectEventsForWatchlist(tickers, types, env) {
           pushEvt(tk, {
             type: 'cluster',
             severity: c.insiderCount >= 3 ? 'high' : 'medium',
-            title: `🚨 Nouveau cluster insider detecte`,
+            title: `🚨 Nouvelle vague d'initiés détectée`,
             summary: `${c.insiderCount} dirigeants de ${c.company || tk} ont depose une declaration recente${c.totalValue ? ' (total estime ~' + fmtUsdShort(c.totalValue) + ')' : ''}.`,
           });
         } else if (insidersChanged && c.insiderCount > prevC.insiderCount) {
