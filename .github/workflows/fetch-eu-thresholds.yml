@@ -13,6 +13,9 @@ on:
     # 5h UTC = 7h Paris : tourne AVANT update-13f (7h UTC) pour que les
     # nouveaux franchissements EU soient deja en KV quand les scores se
     # recalculent. Lundi-vendredi (week-end pas de declaration AMF/BaFin).
+    # NOTE : AMF + UK actuellement scrapers en panne (SPA tres protegees) -
+    # seul BaFin alimente reellement la KV. Les jobs AMF/UK tournent quand
+    # meme au cas ou (continue-on-error) pour collecter du HTML pour debug futur.
     - cron: '0 5 * * 1-5'
   workflow_dispatch:
 

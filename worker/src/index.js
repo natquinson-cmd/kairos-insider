@@ -1930,17 +1930,49 @@ async function computeTopSignals(env) {
     }));
   } catch (e) { console.warn('etfMovers failed:', e); }
 
-  // 4) Activists Fresh : derniers 13D/G depuis KV '13dg-recent'
+  // 4) Activists Fresh : derniers 13D/G depuis 4 KV (SEC + AMF + BaFin + FCA)
+  // NOTE : on merge dynamiquement les 4 sources pour faire ressortir les
+  // signaux EU dans le top du jour (pas seulement les SEC US).
   try {
-    const data13dg = await env.CACHE.get('13dg-recent', 'json');
-    const filings = Array.isArray(data13dg) ? data13dg : (data13dg?.filings || []);
-    result.activistsFresh = filings
-      .filter(f => f.ticker)
-      .slice(0, 5)
+    const [secData, amfData, bafinData, ukData] = await Promise.all([
+      env.CACHE.get('13dg-recent', 'json').catch(() => null),
+      env.CACHE.get('amf-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('bafin-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('uk-thresholds-recent', 'json').catch(() => null),
+    ]);
+
+    const allFilings = [];
+    if (secData?.filings) {
+      for (const f of secData.filings) allFilings.push({ ...f, country: f.country || 'US' });
+    }
+    if (amfData?.filings) {
+      for (const f of amfData.filings) allFilings.push({ ...f, country: f.country || 'FR' });
+    }
+    if (bafinData?.filings) {
+      for (const f of bafinData.filings) allFilings.push({ ...f, country: f.country || 'DE' });
+    }
+    if (ukData?.filings) {
+      for (const f of ukData.filings) allFilings.push({ ...f, country: f.country || 'UK' });
+    }
+
+    // Tri : prio aux activists puis par date DESC
+    allFilings.sort((a, b) => {
+      if (a.isActivist !== b.isActivist) return b.isActivist ? 1 : -1;
+      return (b.fileDate || '').localeCompare(a.fileDate || '');
+    });
+
+    result.activistsFresh = allFilings
+      .filter(f => f.ticker || f.targetName)  // accepte aussi sans ticker (EU souvent)
+      .slice(0, 8)
       .map(f => ({
         filer: f.filerName || 'Investisseur non résolu',
-        ticker: f.ticker, date: f.filingDate || f.date,
-        form: f.form, isActivist: !!f.isActivist,
+        ticker: f.ticker || '',
+        targetName: f.targetName || '',
+        date: f.fileDate || f.filingDate || f.date,
+        form: f.form,
+        isActivist: !!f.isActivist,
+        country: f.country || 'US',
+        regulator: f.regulator,
       }));
   } catch (e) { console.warn('activistsFresh failed:', e); }
 
@@ -4613,45 +4645,73 @@ Quand 3+ dirigeants tradent dans le même sens en peu de temps, le signal est st
 kairosinsider.fr/a/${topCluster.ticker}`
         );
       }
-      // Signal #3 : fresh 13D/13G filing (activists ou gros porteurs passifs).
-      // Reformulation pedagogique : on evite les codes SEC bruts (13D/A, 13G)
-      // et on explique le sens en francais clair.
+      // Signal #3 : fresh 13D/13G filing (US) ou Stimmrechte/franchissement (EU)
+      // Adaptation pedagogique selon le pays + activiste status.
       const topActivist = (data.activistsFresh || [])[0];
       if (topActivist) {
         const form = String(topActivist.form || '').toUpperCase();
         const is13D = form.includes('13D');
-        if (topActivist.isActivist) {
-          // Activiste reconnu (Elliott, Ackman, Icahn, etc.) → signal fort
+        const isEU = ['FR', 'DE', 'UK'].includes(topActivist.country);
+        const flag = { US: '🇺🇸', FR: '🇫🇷', DE: '🇩🇪', UK: '🇬🇧' }[topActivist.country] || '';
+        const tickerOrName = topActivist.ticker || topActivist.targetName || '';
+        const link = topActivist.ticker
+          ? `kairosinsider.fr/a/${topActivist.ticker}`
+          : 'kairosinsider.fr';
+
+        if (topActivist.isActivist && isEU) {
+          // Activiste EU reconnu (Cevian, Bluebell, TCI, Arnault, Bolloré...)
           tweets.push(
-`⚡ ACTIVISTE DÉTECTÉ · $${topActivist.ticker}
+`⚡ ACTIVISTE EUROPE ${flag} · ${tickerOrName}
+
+${topActivist.filer} vient de franchir un seuil > 5 % sur ${tickerOrName} (déclaration ${topActivist.regulator}).
+
+Les activistes en Europe sont rares mais quand ils déclarent, c'est sérieux : Cevian, TCI, Bluebell, Petrus Advisers ou les familles industrielles (Arnault, Bolloré) débouchent souvent sur du M&A ou du spin-off.
+
+${link}`
+          );
+        } else if (topActivist.isActivist) {
+          // Activiste US reconnu
+          tweets.push(
+`⚡ ACTIVISTE DÉTECTÉ ${flag} · $${topActivist.ticker}
 
 ${topActivist.filer} vient de prendre une position offensive supérieure à 5 % du capital (déclaration Schedule 13D à la SEC).
 
 Ce type de fonds débouche souvent sur une campagne : changement de board, rachats d'actions, spin-off, voire vente forcée.
 
-kairosinsider.fr/a/${topActivist.ticker}`
+${link}`
+          );
+        } else if (isEU) {
+          // Franchissement EU non-activiste (gros institutionnel, fonds passif)
+          tweets.push(
+`${flag} NOUVEAU GROS ACTIONNAIRE · ${tickerOrName}
+
+${topActivist.filer} a franchi un seuil de capital significatif sur ${tickerOrName} (déclaration ${topActivist.regulator}).
+
+Quand un fonds franchit ce seuil légal en Europe, c'est qu'il a une thèse forte sur la valeur — il faut le suivre.
+
+${link}`
           );
         } else if (is13D) {
-          // 13D mais filer non listé activiste → potentiel mais pas confirmé
+          // 13D US non-activiste
           tweets.push(
-`👀 PRISE OFFENSIVE · $${topActivist.ticker}
+`👀 PRISE OFFENSIVE 🇺🇸 · $${topActivist.ticker}
 
 ${topActivist.filer} dépose un Schedule 13D : il détient plus de 5 % du capital et se réserve le droit d'agir (campagne, demande de changements, etc.).
 
 Pas un activiste connu, mais à surveiller — beaucoup de campagnes commencent par un filer "inconnu".
 
-kairosinsider.fr/a/${topActivist.ticker}`
+${link}`
           );
         } else {
-          // 13G = position passive (pas de campagne prévue, juste >5 % et conviction long terme)
+          // 13G US passif
           tweets.push(
-`🎯 NOUVEAU GROS PORTEUR · $${topActivist.ticker}
+`🎯 NOUVEAU GROS PORTEUR 🇺🇸 · $${topActivist.ticker}
 
 ${topActivist.filer} détient maintenant plus de 5 % de $${topActivist.ticker} (déclaration Schedule 13G).
 
 Position passive (pas de campagne), mais franchir le seuil des 5 % = signal de conviction long terme. Ce sont les fonds qui voient quelque chose que le marché ignore.
 
-kairosinsider.fr/a/${topActivist.ticker}`
+${link}`
           );
         }
       }

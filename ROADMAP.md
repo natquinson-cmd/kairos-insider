@@ -41,22 +41,33 @@ local) · cron lun-ven 5h UTC.
 | 🇫🇷 **AMF** | ⚠️ scraper en place, **0 filing capturé** | 0 | Page AMF SPA très lente (>45s pour charger les filings via XHR) · le wait_for_load_state networkidle expire avant que les data arrivent |
 | 🇬🇧 **FCA** (via Investegate) | ⚠️ scraper en place, **0 filing capturé** | 0 | Investegate.co.uk est aussi une SPA (DataTable AJAX), seulement 5 annonces dans le HTML server-side |
 
-#### À raffiner dans un sprint futur
+#### Apprentissages techniques (sprints v3)
 
-`[ ]` **AMF scraper v3** : intercepter spécifiquement le XHR de search AMF
-(probablement `/api/recherche?...`) au lieu du DOM scraping. Augmenter timeout
-à 60s+. Tester avec `await page.wait_for_function('document.querySelectorAll("article").length > 5')`.
+**AMF + LSE + Investegate + FCA NSM** sont **TOUS des SPA Angular/React très
+bien protégées** contre le scraping headless :
+- AMF : DOM rendu après 60s reste vide (2k chars = juste menu/footer)
+- LSE : 0 XHR JSON capturé (anti-bot detection avancée)
+- Investegate : DataTable AJAX, seulement 5 announcements en HTML statique
+- FCA NSM : SPA Angular comme AMF, idem
 
-`[ ]` **UK scraper v3** : pivoter d'Investegate vers **LSE RNS via Playwright**
-(`londonstockexchange.com/news` est aussi une SPA Angular). OU utiliser
-**RNS via FCA NSM API direct** (`data.fca.org.uk` Angular également) :
-intercepter les XHR au moment de la recherche.
+**Solutions futures pour AMF + UK** :
+- **API tierce payante** : Refinitiv ($1k+/mois), S&P Capital IQ, FactSet
+- **Plugin stealth** : `puppeteer-extra-plugin-stealth` ou playwright-stealth
+  pour contourner la bot detection (pas testé)
+- **Demande d'accès partner** : AMF/FCA peuvent fournir un dataset partner
+  sur demande pour usage fintech (process administratif 2-4 semaines)
+- **Aggrégateur B2B** : openfigi.com, sharespro, RNS Wire (~$200/mois)
+
+#### Phase 4 + 5 — En attente
 
 `[ ]` **Phase 4 — Shorts publics EU** : AMF + BaFin + FCA UK (positions
-courtes nettes >0,5 %).
+courtes nettes >0,5 %). Sources CSV publiques à découvrir (les anciennes
+URLs 2018 ne marchent plus).
 
-`[ ]` **Phase 5 — Kairos Score extension EU** : signaux EU activist + short EU
-intégrés au pilier `smartMoney` ou nouveau pilier `activists`.
+`[ ]` **Phase 5 — Kairos Score extension EU** : ✅ partiel — `computeTopSignals`
+intègre maintenant les filings BaFin (DE) dans le feed `activistsFresh` du
+home dashboard et les tweets daily. Le pilier `smartMoney` du score numérique
+sera étendu quand AMF + UK seront alimentés (sinon biais sur les seuls tickers DE).
 
 ✅ **Phase 3 — UI dashboard merge** : helper `loadAllThresholdsFilings(env)` dans
 le worker · `/api/13dg/recent` accepte `?country=FR,DE,US` · table affiche un
