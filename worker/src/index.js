@@ -4608,20 +4608,47 @@ Quand 3+ dirigeants tradent dans le même sens en peu de temps, le signal est st
 kairosinsider.fr/a/${topCluster.ticker}`
         );
       }
-      // Signal #3 : fresh 13D activist
+      // Signal #3 : fresh 13D/13G filing (activists ou gros porteurs passifs).
+      // Reformulation pedagogique : on evite les codes SEC bruts (13D/A, 13G)
+      // et on explique le sens en francais clair.
       const topActivist = (data.activistsFresh || [])[0];
       if (topActivist) {
-        const form = String(topActivist.form || '').replace(/^SCHEDULE\s+/i, '');
-        tweets.push(
-`⚡ ${topActivist.isActivist ? 'FONDS OFFENSIF' : 'PRISE >5 %'} : ${topActivist.filer}
+        const form = String(topActivist.form || '').toUpperCase();
+        const is13D = form.includes('13D');
+        if (topActivist.isActivist) {
+          // Activiste reconnu (Elliott, Ackman, Icahn, etc.) → signal fort
+          tweets.push(
+`⚡ ACTIVISTE DÉTECTÉ · $${topActivist.ticker}
 
-$${topActivist.ticker} · ${form}
+${topActivist.filer} vient de prendre une position offensive supérieure à 5 % du capital (déclaration Schedule 13D à la SEC).
 
-${topActivist.isActivist ? 'Activiste reconnu → campagne probable (board, buybacks, spin-off).' : 'Prise passive >5 %.'}
+Ce type de fonds débouche souvent sur une campagne : changement de board, rachats d'actions, spin-off, voire vente forcée.
 
-Source : SEC EDGAR (public).
-kairosinsider.fr`
-        );
+kairosinsider.fr/a/${topActivist.ticker}`
+          );
+        } else if (is13D) {
+          // 13D mais filer non listé activiste → potentiel mais pas confirmé
+          tweets.push(
+`👀 PRISE OFFENSIVE · $${topActivist.ticker}
+
+${topActivist.filer} dépose un Schedule 13D : il détient plus de 5 % du capital et se réserve le droit d'agir (campagne, demande de changements, etc.).
+
+Pas un activiste connu, mais à surveiller — beaucoup de campagnes commencent par un filer "inconnu".
+
+kairosinsider.fr/a/${topActivist.ticker}`
+          );
+        } else {
+          // 13G = position passive (pas de campagne prévue, juste >5 % et conviction long terme)
+          tweets.push(
+`🎯 NOUVEAU GROS PORTEUR · $${topActivist.ticker}
+
+${topActivist.filer} détient maintenant plus de 5 % de $${topActivist.ticker} (déclaration Schedule 13G).
+
+Position passive (pas de campagne), mais franchir le seuil des 5 % = signal de conviction long terme. Ce sont les fonds qui voient quelque chose que le marché ignore.
+
+kairosinsider.fr/a/${topActivist.ticker}`
+          );
+        }
       }
     }
   } catch (e) {
@@ -5457,13 +5484,24 @@ async function generateCommentDigest(env, { maxAgeHours = 24, forceFresh = false
             comment: `Vague d'initiés sur $${c.ticker} : ${c.buyCount || 0} achats / ${c.sellCount || 0} ventes coordonnés (${fmtM(c.totalValue || 0)}). 3+ insiders = +11 % d'alpha sur 6 mois (étude Cohen-Malloy). kairosinsider.fr/a/${c.ticker}`,
           });
         }
-        // Top 3 activists frais
+        // Top 3 activists frais (reformulation pedagogique : on evite "PRISE >5 %"
+        // jargon SEC, on explique le sens en francais clair)
         for (const a of (topSignals.activistsFresh || []).slice(0, 3)) {
+          const form = String(a.form || '').toUpperCase();
+          const is13D = form.includes('13D');
+          const label = a.isActivist ? 'Activiste détecté'
+                      : is13D ? 'Prise offensive (>5 %)'
+                      : 'Nouveau gros porteur (>5 %)';
+          const comment = a.isActivist
+            ? `⚡ ${a.filer} prend une position offensive sur $${a.ticker} (Schedule 13D, >5 % du capital). Campagne probable : board, buybacks, spin-off. kairosinsider.fr/a/${a.ticker}`
+            : is13D
+              ? `👀 ${a.filer} dépose un Schedule 13D sur $${a.ticker} (>5 % avec intention d'agir). Pas un activiste connu, mais à surveiller. kairosinsider.fr/a/${a.ticker}`
+              : `🎯 ${a.filer} détient maintenant >5 % de $${a.ticker} (Schedule 13G : position passive, signal de conviction long terme). kairosinsider.fr/a/${a.ticker}`;
           ammo.push({
             type: 'activist',
             ticker: a.ticker,
-            info: `${a.isActivist ? 'FONDS OFFENSIF' : 'Prise >5 %'} · ${a.filer}`,
-            comment: `⚡ ${a.filer} dépose un ${a.form} sur $${a.ticker}. ${a.isActivist ? 'Activiste reconnu → campagne probable (board, buybacks, spin-off).' : 'Prise passive >5 %.'} kairosinsider.fr/a/${a.ticker}`,
+            info: `${label} · ${a.filer}`,
+            comment,
           });
         }
         out.ammo = ammo;
