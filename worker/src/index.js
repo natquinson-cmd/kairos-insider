@@ -6001,86 +6001,166 @@ function enrichFilingsWithDelta(filings, allFilings) {
   });
 }
 
-// GET /api/13dg/recent?days=30&activistOnly=0
-// Retourne les filings recents (max 300 items). Filtrable par periode + activists-only.
+// ============================================================
+// Helper unifie : charge SEC + AMF + BaFin et merge en 1 seul tableau
+// avec champ 'source' pour l'origine (pour drapeau pays cote UI).
+// Toutes les KV ont le meme schema, on annote juste les EU avec leur source.
+// ============================================================
+async function loadAllThresholdsFilings(env) {
+  // Fetch les 3 KV en parallele
+  const [secData, amfData, bafinData] = await Promise.all([
+    env.CACHE.get('13dg-recent', 'json').catch(() => null),
+    env.CACHE.get('amf-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('bafin-thresholds-recent', 'json').catch(() => null),
+  ]);
+
+  const all = [];
+  // SEC : default 'sec' / 'US' (champ pas present dans l'ancien schema)
+  if (secData?.filings) {
+    for (const f of secData.filings) {
+      all.push({
+        ...f,
+        source: f.source || 'sec',
+        country: f.country || 'US',
+        regulator: f.regulator || 'SEC EDGAR',
+      });
+    }
+  }
+  // AMF : champs source/country/regulator deja remplis par fetch-amf-thresholds.py
+  if (amfData?.filings) {
+    for (const f of amfData.filings) {
+      all.push({ ...f, source: f.source || 'amf', country: f.country || 'FR', regulator: f.regulator || 'AMF' });
+    }
+  }
+  // BaFin
+  if (bafinData?.filings) {
+    for (const f of bafinData.filings) {
+      all.push({ ...f, source: f.source || 'bafin', country: f.country || 'DE', regulator: f.regulator || 'BaFin' });
+    }
+  }
+
+  // Tri par date DESC
+  all.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
+
+  // Latest updatedAt (pour le badge "données fraîches")
+  const updates = [secData?.updatedAt, amfData?.updatedAt, bafinData?.updatedAt].filter(Boolean);
+  const updatedAt = updates.sort().reverse()[0] || null;
+
+  return {
+    filings: all,
+    updatedAt,
+    sources: {
+      sec: { count: secData?.filings?.length || 0, updatedAt: secData?.updatedAt || null },
+      amf: { count: amfData?.filings?.length || 0, updatedAt: amfData?.updatedAt || null },
+      bafin: { count: bafinData?.filings?.length || 0, updatedAt: bafinData?.updatedAt || null },
+    },
+  };
+}
+
+// GET /api/13dg/recent?days=30&activistOnly=0&country=FR
+// Retourne les filings recents (max 500). Filtres : periode, activists, pays.
 async function handleScheduleDGRecent(url, env, origin) {
-  const data = await env.CACHE.get('13dg-recent', 'json');
-  if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
+  const merged = await loadAllThresholdsFilings(env);
+  if (!merged.filings.length) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
   const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
   const activistOnly = url.searchParams.get('activistOnly') === '1';
   const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100', 10), 1), 500);
+  // Filtre pays : "US,FR,DE" ou vide = tous
+  const countryParam = (url.searchParams.get('country') || '').toUpperCase();
+  const countryFilter = countryParam ? new Set(countryParam.split(',').map(s => s.trim()).filter(Boolean)) : null;
 
   const cutoff = new Date(Date.now() - days * 86400 * 1000).toISOString().slice(0, 10);
-  let filings = (data.filings || []).filter(f => (f.fileDate || '') >= cutoff);
+  let filings = merged.filings.filter(f => (f.fileDate || '') >= cutoff);
   if (activistOnly) filings = filings.filter(f => f.isActivist);
+  if (countryFilter) filings = filings.filter(f => countryFilter.has(f.country || 'US'));
   const total = filings.length;
   filings = filings.slice(0, limit);
 
   // Enrichit avec le delta vs filing precedent (pour les /A principalement)
-  filings = enrichFilingsWithDelta(filings, data.filings || []);
+  filings = enrichFilingsWithDelta(filings, merged.filings);
 
   return jsonResponse({
-    updatedAt: data.updatedAt,
+    updatedAt: merged.updatedAt,
     lookbackDays: days,
     activistOnly,
+    countryFilter: countryParam || null,
     total,
     activistsCount: filings.filter(f => f.isActivist).length,
+    sources: merged.sources,         // pour debug + UI badge "Sources"
     filings,
   }, 200, origin);
 }
 
 // GET /api/13dg/ticker?ticker=AAPL
-// Retourne tous les filings recents sur un ticker precis.
+// Retourne tous les filings recents sur un ticker precis (SEC + AMF + BaFin).
+// Match : exact OU casefold sur ticker_kairos / targetName (utile pour MC.PA, SAP.DE)
 async function handleScheduleDGTicker(url, env, origin) {
   const ticker = (url.searchParams.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
-  const data = await env.CACHE.get('13dg-recent', 'json');
-  if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
+  const merged = await loadAllThresholdsFilings(env);
+  if (!merged.filings.length) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
-  let filings = (data.filings || []).filter(f => (f.ticker || '').toUpperCase() === ticker);
+  // Match strict sur ticker (US) OU sur ticker base (FR/DE qui ont des suffixes .PA, .DE)
+  const tickerBase = ticker.split('.')[0];
+  let filings = merged.filings.filter(f => {
+    const t = (f.ticker || '').toUpperCase();
+    return t === ticker || t === tickerBase || (t && t.split('.')[0] === tickerBase);
+  });
+
   // Enrichit avec le delta vs filing precedent du meme filer+ticker
-  filings = enrichFilingsWithDelta(filings, data.filings || []);
+  filings = enrichFilingsWithDelta(filings, merged.filings);
   return jsonResponse({
     ticker,
-    updatedAt: data.updatedAt,
+    updatedAt: merged.updatedAt,
     total: filings.length,
     activistsCount: filings.filter(f => f.isActivist).length,
     hasActivist: filings.some(f => f.isActivist),
     mostRecent: filings[0] || null,
+    sources: merged.sources,
     filings,
   }, 200, origin);
 }
 
-// GET /api/13dg/activists?days=30
-// Retourne uniquement les filings activists sur la periode, agrege par filer.
+// GET /api/13dg/activists?days=30&country=FR
+// Retourne uniquement les filings activists (US + EU mixed), agrege par filer.
 async function handleScheduleDGActivists(url, env, origin) {
   const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
-  const data = await env.CACHE.get('13dg-recent', 'json');
-  if (!data) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
+  const countryParam = (url.searchParams.get('country') || '').toUpperCase();
+  const countryFilter = countryParam ? new Set(countryParam.split(',').map(s => s.trim()).filter(Boolean)) : null;
+
+  const merged = await loadAllThresholdsFilings(env);
+  if (!merged.filings.length) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
   const cutoff = new Date(Date.now() - days * 86400 * 1000).toISOString().slice(0, 10);
-  const activistFilings = (data.filings || []).filter(f =>
+  let activistFilings = merged.filings.filter(f =>
     f.isActivist && (f.fileDate || '') >= cutoff
   );
+  if (countryFilter) activistFilings = activistFilings.filter(f => countryFilter.has(f.country || 'US'));
 
-  // Agrege par filer pour afficher "Elliott x5, Ackman x2..."
+  // Agrege par filer pour afficher "Elliott x5, TCI x3, Bernard Arnault x2..."
   const byFiler = {};
   for (const f of activistFilings) {
     const key = f.activistLabel || f.filerName || 'Unknown';
-    if (!byFiler[key]) byFiler[key] = { label: key, count: 0, tickers: [], filings: [] };
+    if (!byFiler[key]) byFiler[key] = { label: key, count: 0, tickers: [], countries: new Set(), filings: [] };
     byFiler[key].count++;
     if (f.ticker && !byFiler[key].tickers.includes(f.ticker)) {
       byFiler[key].tickers.push(f.ticker);
     }
+    byFiler[key].countries.add(f.country || 'US');
     byFiler[key].filings.push(f);
   }
-  const aggregated = Object.values(byFiler).sort((a, b) => b.count - a.count);
+  const aggregated = Object.values(byFiler).map(b => ({
+    ...b,
+    countries: Array.from(b.countries),
+  })).sort((a, b) => b.count - a.count);
 
   return jsonResponse({
-    updatedAt: data.updatedAt,
+    updatedAt: merged.updatedAt,
     lookbackDays: days,
+    countryFilter: countryParam || null,
     total: activistFilings.length,
+    sources: merged.sources,
     byFiler: aggregated,
     filings: activistFilings.slice(0, 100),
   }, 200, origin);

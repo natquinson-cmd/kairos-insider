@@ -1,0 +1,93 @@
+name: Fetch EU Thresholds (AMF + BaFin)
+
+# Recupere quotidiennement les franchissements de seuils EU (equivalent 13D/G US) :
+#   - AMF (France) via Playwright headless (page rendue cote client)
+#   - BaFin (Allemagne) via XML public officiel (structure)
+#
+# Push KV : amf-thresholds-recent + bafin-thresholds-recent
+# Le worker merge avec 13dg-recent (SEC) au moment de la lecture.
+
+on:
+  schedule:
+    # 5h UTC = 7h Paris : tourne AVANT update-13f (7h UTC) pour que les
+    # nouveaux franchissements EU soient deja en KV quand les scores se
+    # recalculent. Lundi-vendredi (week-end pas de declaration AMF/BaFin).
+    - cron: '0 5 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  amf-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright + Chromium
+        run: |
+          pip install playwright
+          # Install ONLY chromium (vs firefox + webkit qu'on n'utilise pas) -> 200MB au lieu de 600MB
+          playwright install chromium --with-deps
+
+      - name: Run AMF scraper
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python fetch-amf-thresholds.py --days 30
+        continue-on-error: true
+
+      - name: Upload AMF data artifact (debug)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: amf-thresholds-data
+          path: worker/amf_thresholds_data.json
+          retention-days: 7
+
+  bafin-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: amf-thresholds
+    if: always()  # tourne meme si AMF a foire (independants)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install requests lxml
+
+      - name: Run BaFin scraper
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          # Tourne seulement si le script existe (pour merge anticipe sans Phase 2)
+          if [ -f fetch-bafin-thresholds.py ]; then
+            python fetch-bafin-thresholds.py --days 30
+          else
+            echo "::warning::fetch-bafin-thresholds.py pas encore present, skip"
+          fi
+        continue-on-error: true
+
+      - name: Upload BaFin data artifact (debug)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bafin-thresholds-data
+          path: worker/bafin_thresholds_data.json
+          if-no-files-found: ignore
+          retention-days: 7
