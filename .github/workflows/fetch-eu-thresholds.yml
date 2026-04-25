@@ -1,11 +1,12 @@
-name: Fetch EU Thresholds (AMF + BaFin)
+name: Fetch EU + UK Thresholds (AMF + BaFin + FCA)
 
-# Recupere quotidiennement les franchissements de seuils EU (equivalent 13D/G US) :
+# Recupere quotidiennement les franchissements de seuils EU + UK :
 #   - AMF (France) via Playwright headless (page rendue cote client)
-#   - BaFin (Allemagne) via XML public officiel (structure)
+#   - BaFin (Allemagne) via CSV public officiel
+#   - FCA (UK) via Investegate.co.uk RNS aggregator
 #
-# Push KV : amf-thresholds-recent + bafin-thresholds-recent
-# Le worker merge avec 13dg-recent (SEC) au moment de la lecture.
+# Push KV : amf-thresholds-recent + bafin-thresholds-recent + uk-thresholds-recent
+# Le worker merge avec 13dg-recent (SEC) au moment de la lecture (4 marches).
 
 on:
   schedule:
@@ -92,5 +93,42 @@ jobs:
         with:
           name: bafin-thresholds-data
           path: worker/bafin_thresholds_data.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  uk-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run UK scraper (Investegate)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          if [ -f fetch-uk-thresholds.py ]; then
+            python fetch-uk-thresholds.py --days 30 --debug
+          else
+            echo "::warning::fetch-uk-thresholds.py pas encore present, skip"
+          fi
+        continue-on-error: true
+
+      - name: Upload UK data + HTML debug
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uk-thresholds-debug
+          path: |
+            worker/uk_thresholds_data.json
+            worker/uk_archive_full.html
           if-no-files-found: ignore
           retention-days: 7

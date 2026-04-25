@@ -6007,11 +6007,12 @@ function enrichFilingsWithDelta(filings, allFilings) {
 // Toutes les KV ont le meme schema, on annote juste les EU avec leur source.
 // ============================================================
 async function loadAllThresholdsFilings(env) {
-  // Fetch les 3 KV en parallele
-  const [secData, amfData, bafinData] = await Promise.all([
+  // Fetch les 4 KV en parallele (US + FR + DE + UK)
+  const [secData, amfData, bafinData, ukData] = await Promise.all([
     env.CACHE.get('13dg-recent', 'json').catch(() => null),
     env.CACHE.get('amf-thresholds-recent', 'json').catch(() => null),
     env.CACHE.get('bafin-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('uk-thresholds-recent', 'json').catch(() => null),
   ]);
 
   const all = [];
@@ -6026,16 +6027,22 @@ async function loadAllThresholdsFilings(env) {
       });
     }
   }
-  // AMF : champs source/country/regulator deja remplis par fetch-amf-thresholds.py
+  // AMF (FR)
   if (amfData?.filings) {
     for (const f of amfData.filings) {
       all.push({ ...f, source: f.source || 'amf', country: f.country || 'FR', regulator: f.regulator || 'AMF' });
     }
   }
-  // BaFin
+  // BaFin (DE)
   if (bafinData?.filings) {
     for (const f of bafinData.filings) {
       all.push({ ...f, source: f.source || 'bafin', country: f.country || 'DE', regulator: f.regulator || 'BaFin' });
+    }
+  }
+  // FCA (UK) via Investegate
+  if (ukData?.filings) {
+    for (const f of ukData.filings) {
+      all.push({ ...f, source: f.source || 'fca', country: f.country || 'UK', regulator: f.regulator || 'FCA' });
     }
   }
 
@@ -6043,7 +6050,7 @@ async function loadAllThresholdsFilings(env) {
   all.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
 
   // Latest updatedAt (pour le badge "données fraîches")
-  const updates = [secData?.updatedAt, amfData?.updatedAt, bafinData?.updatedAt].filter(Boolean);
+  const updates = [secData?.updatedAt, amfData?.updatedAt, bafinData?.updatedAt, ukData?.updatedAt].filter(Boolean);
   const updatedAt = updates.sort().reverse()[0] || null;
 
   return {
@@ -6053,6 +6060,7 @@ async function loadAllThresholdsFilings(env) {
       sec: { count: secData?.filings?.length || 0, updatedAt: secData?.updatedAt || null },
       amf: { count: amfData?.filings?.length || 0, updatedAt: amfData?.updatedAt || null },
       bafin: { count: bafinData?.filings?.length || 0, updatedAt: bafinData?.updatedAt || null },
+      fca: { count: ukData?.filings?.length || 0, updatedAt: ukData?.updatedAt || null },
     },
   };
 }
