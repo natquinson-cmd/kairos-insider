@@ -14,18 +14,49 @@ Objectif : devenir la **seule plateforme francophone smart money EU + US consoli
 WhaleWisdom est US-only, Sicavonline ne fait pas du smart money, Zonebourse n'a pas
 les insiders/franchissements. Avec ces ajouts, Kairos couvre 4 marchés majeurs.
 
-### Tier 1 — DONE ✅ (25 avril 2026, commit ab6eeb7)
+### Tier 1 + 2 — État au 25 avril 2026 (commits ab6eeb7 → 89b6698)
 
-✅ **Phase 1 — AMF Franchissements de seuils (FR)** : équivalent 13D/G français.
-Script `worker/fetch-amf-thresholds.py` (Playwright headless) · scrape la page
-de recherche AMF rendue côté client · KV `amf-thresholds-recent` · liste
-KNOWN_ACTIVISTS_EU étendue (Arnault, Bolloré, Pinault, Dassault, Peugeot,
-Bettencourt, Wertheimer, Perrodo).
+#### Code livré ✅ (worker, UI, infra)
 
-✅ **Phase 2 — BaFin Stimmrechtsmitteilungen (DE)** : équivalent 13D/G allemand.
-Script `worker/fetch-bafin-thresholds.py` · CSV public officiel découvert
-(`portal.mvp.bafin.de/.../zeigeGesamtExport`) · KV `bafin-thresholds-recent` ·
-liste KNOWN_ACTIVISTS_EU étendue DE (Quandt, Klatten, Henkel, Merck, Porsche/Piech).
+✅ **Worker `loadAllThresholdsFilings(env)`** : merge SEC + AMF + BaFin + FCA
+dans `/api/13dg/*` · paramètre `?country=US,FR,DE,UK` · sources stats par
+régulateur dans le payload.
+
+✅ **UI dashboard** : table avec drapeau pays · filtre Marché 7 options
+(All / US / FR / DE / UK / 4 marchés / Europe seulement) · filtre Direction
+`up`/`down` · badge "🇺🇸 🇫🇷 🇩🇪 🇬🇧 4 MARCHÉS" · description multi-source.
+
+✅ **GitHub Actions** : workflow `fetch-eu-thresholds.yml` (3 jobs parallèles
+AMF + BaFin + UK) · workflow `deploy-worker.yml` (deploy via CI sans wrangler
+local) · cron lun-ven 5h UTC.
+
+✅ **Landing page hero** : *"fonds offensifs (🇺🇸 🇫🇷 🇩🇪 🇬🇧)"* en FR + EN.
+
+#### État des 4 sources
+
+| Source | Statut | Volume | Notes |
+|---|:---:|:---:|---|
+| 🇺🇸 **SEC EDGAR** | ✅ live (préexistant) | 37 695 filings | Pipeline existant `update-13f.yml` · cron quotidien |
+| 🇩🇪 **BaFin** | ✅ **live** (premier run réussi) | 148 filings | CSV public officiel (`portal.mvp.bafin.de/AnteileInfo`) · pattern URL avec param hex `6578706f7274=1` découvert |
+| 🇫🇷 **AMF** | ⚠️ scraper en place, **0 filing capturé** | 0 | Page AMF SPA très lente (>45s pour charger les filings via XHR) · le wait_for_load_state networkidle expire avant que les data arrivent |
+| 🇬🇧 **FCA** (via Investegate) | ⚠️ scraper en place, **0 filing capturé** | 0 | Investegate.co.uk est aussi une SPA (DataTable AJAX), seulement 5 annonces dans le HTML server-side |
+
+#### À raffiner dans un sprint futur
+
+`[ ]` **AMF scraper v3** : intercepter spécifiquement le XHR de search AMF
+(probablement `/api/recherche?...`) au lieu du DOM scraping. Augmenter timeout
+à 60s+. Tester avec `await page.wait_for_function('document.querySelectorAll("article").length > 5')`.
+
+`[ ]` **UK scraper v3** : pivoter d'Investegate vers **LSE RNS via Playwright**
+(`londonstockexchange.com/news` est aussi une SPA Angular). OU utiliser
+**RNS via FCA NSM API direct** (`data.fca.org.uk` Angular également) :
+intercepter les XHR au moment de la recherche.
+
+`[ ]` **Phase 4 — Shorts publics EU** : AMF + BaFin + FCA UK (positions
+courtes nettes >0,5 %).
+
+`[ ]` **Phase 5 — Kairos Score extension EU** : signaux EU activist + short EU
+intégrés au pilier `smartMoney` ou nouveau pilier `activists`.
 
 ✅ **Phase 3 — UI dashboard merge** : helper `loadAllThresholdsFilings(env)` dans
 le worker · `/api/13dg/recent` accepte `?country=FR,DE,US` · table affiche un
