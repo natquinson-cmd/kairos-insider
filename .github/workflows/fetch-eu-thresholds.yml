@@ -22,7 +22,7 @@ on:
 jobs:
   amf-thresholds:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,29 +32,22 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Playwright + Chromium
-        run: |
-          pip install playwright
-          # Install ONLY chromium (vs firefox + webkit qu'on n'utilise pas) -> 200MB au lieu de 600MB
-          playwright install chromium --with-deps
-
-      - name: Run AMF scraper
+      # v4 : plus de Playwright. On utilise Google News RSS (HTTP simple).
+      - name: Run AMF scraper (Google News RSS)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-amf-thresholds.py --days 30 --debug
+          python fetch-amf-thresholds.py --days 30
         continue-on-error: true
 
-      - name: Upload AMF data + rendered HTML (debug)
+      - name: Upload AMF data
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: amf-thresholds-debug
-          path: |
-            worker/amf_thresholds_data.json
-            worker/amf_rendered.html
+          path: worker/amf_thresholds_data.json
           if-no-files-found: ignore
           retention-days: 7
 
@@ -112,18 +105,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Playwright + Chromium (LSE scraping)
-        run: |
-          pip install playwright
-          playwright install chromium --with-deps
-
-      - name: Run UK scraper (LSE Playwright)
+      # v4 : plus de Playwright. On utilise Google News RSS (HTTP simple).
+      - name: Run UK scraper (Google News RSS)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-uk-thresholds.py --days 30 --debug --source lse
+          python fetch-uk-thresholds.py --days 30
         continue-on-error: true
 
       - name: Upload UK data + HTML debug
