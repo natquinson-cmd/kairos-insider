@@ -37,7 +37,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260425-radar3"></script>
+  <script src="assets/i18n.js?v=20260425-radar4"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14564,6 +14564,21 @@
       const avgScore = positions.filter(p => p.kairos_score != null).reduce((s, p, _, a) => s + p.kairos_score / a.length, 0);
       document.getElementById('radarKpiScore').textContent = avgScore ? Math.round(avgScore) + ' / 100' : '—';
 
+      // Badge de classification (action / indice / forex / commodity / etc.)
+      const classBadge = (cls) => {
+        if (!cls || cls === 'action') return '';
+        const colors = {
+          indice: '#8B5CF6',
+          forex: '#F59E0B',
+          commodity: '#84CC16',
+          secteur: '#06B6D4',
+          binaire: '#EF4444',
+          autre: '#94A3B8',
+        };
+        const color = colors[cls] || '#94A3B8';
+        return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:${color}20;color:${color};font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;vertical-align:middle">${cls}</span>`;
+      };
+
       const rows = positions.map(p => {
         const score = p.kairos_score;
         const scoreColor = score == null ? 'var(--text-muted)'
@@ -14573,20 +14588,35 @@
         const alertsCell = (p.has_alerts && p.has_alerts > 0)
           ? `<span style="color:#F59E0B;font-weight:700">🔔 ${p.has_alerts}</span>`
           : '<span style="color:var(--text-muted)">—</span>';
+
+        // Affichage : si ticker_kairos existe (action mappable), on lien vers /a/TICKER
+        // Sinon (indice/forex/commodity), on affiche juste le nom de l'instrument sans lien
+        const isAction = !!p.ticker_kairos;
+        const displayName = p.instrument_name || p.ticker_kairos || p.ticker || '?';
+        const tickerCell = isAction
+          ? `<a href="/a/${escapeHtml(p.ticker_kairos)}" style="color:var(--accent-blue);text-decoration:none;font-weight:700">$${escapeHtml(p.ticker_kairos)}</a>${classBadge(p.instrument_class)}<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${escapeHtml(displayName)}</div>`
+          : `<span style="color:var(--text-primary);font-weight:600">${escapeHtml(displayName)}</span>${classBadge(p.instrument_class)}<div style="font-size:11px;color:var(--text-muted);margin-top:2px;font-family:monospace">${escapeHtml(p.ticker || '')}</div>`;
+
+        // Quantité : formatée avec direction (long/short)
+        const qtyDisplay = p.quantity != null ? (p.quantity >= 0 ? '+' + p.quantity : p.quantity) : '—';
+
         return `
           <tr>
-            <td><a href="/a/${escapeHtml(p.ticker_kairos || p.ticker)}" style="color:var(--accent-blue);text-decoration:none;font-weight:700;font-family:monospace">$${escapeHtml(p.ticker_kairos || p.ticker)}</a></td>
-            <td>${p.quantity ?? '—'}</td>
+            <td>${tickerCell}</td>
+            <td style="text-align:right;font-family:monospace">${qtyDisplay}</td>
             <td style="text-align:right">${fmtEur(p.current_value_eur)}</td>
             <td style="text-align:right;color:${pnlColor};font-weight:600">${pnlPct != null ? (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%' : '—'}</td>
-            <td style="text-align:center"><span class="radar-score-chip" style="background:${scoreColor}20;color:${scoreColor}">${score != null ? score : '—'}</span></td>
+            <td style="text-align:center">${isAction
+              ? `<span class="radar-score-chip" style="background:${scoreColor}20;color:${scoreColor}">${score != null ? score : '—'}</span>`
+              : '<span style="color:var(--text-muted);font-size:11px">N/A</span>'
+            }</td>
             <td style="text-align:center">${alertsCell}</td>
           </tr>`;
       }).join('');
       el.innerHTML = `
         <table class="radar-table">
           <thead><tr>
-            <th>Ticker</th><th>Qté</th><th style="text-align:right">Valeur</th>
+            <th>Instrument</th><th style="text-align:right">Qté</th><th style="text-align:right">Valeur</th>
             <th style="text-align:right">P&amp;L</th><th style="text-align:center">Kairos</th><th style="text-align:center">Alertes</th>
           </tr></thead>
           <tbody>${rows}</tbody>

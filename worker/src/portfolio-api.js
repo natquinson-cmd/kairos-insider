@@ -270,24 +270,47 @@ function convertToEur(amount, currency) {
   return amount * rate;
 }
 
-// Extrait le ticker "lisible" depuis l'EPIC IG
-// Patterns courants :
-//   UA.D.AAPL.CASH.IP        → AAPL (action US cash)
-//   UA.D.GS.CASH.IP          → GS
+// Extrait le ticker "lisible" depuis l'EPIC IG.
+// IG instrumentType possibles :
+//   SHARES, OPT_SHARES                 → action (mappable Kairos)
+//   INDICES, BUNGEE_INDICES, OPT_INDICES → indice (non mappable, mais position gardée)
+//   COMMODITIES, OPT_COMMODITIES, BUNGEE_COMMODITIES → matière première
+//   CURRENCIES, OPT_CURRENCIES, BUNGEE_CURRENCIES → forex
+//   RATES, OPT_RATES, SECTORS, BINARY, etc.
+// Patterns EPIC courants :
+//   UA.D.AAPL.CASH.IP        → AAPL (action US cash CFD)
+//   UA.D.AAPL.DAILY.IP       → AAPL (action DFB CFD)
 //   UC.D.NVDA.CASH.IP        → NVDA
-//   IX.D.SPTRD.IFD.IP        → SPTRD (indice — pas dans Kairos, on retourne null)
-//   CO.D.LCO.MONTH1.IP       → LCO (commodity — pas dans Kairos)
-//   CC.D.GBPUSD.TODAY.IP     → GBPUSD (forex — null)
-// Heuristique : on retourne le ticker seulement si l'instrument est SHARES.
+//   IX.D.SPTRD.IFD.IP        → SPTRD (indice — ticker_kairos=null)
+//   CC.D.GBPUSD.TODAY.IP     → GBPUSD (forex — ticker_kairos=null)
+//
+// On retourne le ticker_kairos UNIQUEMENT pour les actions (SHARES/OPT_SHARES),
+// car notre base de données Kairos Score ne contient que des actions cotées.
+// Pour les autres instruments, ticker_kairos = null mais la position EST conservée.
 function extractTickerFromEpic(epic, instrumentType) {
   if (!epic || typeof epic !== 'string') return null;
-  if (instrumentType !== 'SHARES') return null;     // on ne traite que les actions
+  // Mappable seulement pour les types ACTION
+  const isActionLike = instrumentType === 'SHARES' || instrumentType === 'OPT_SHARES';
+  if (!isActionLike) return null;
   const parts = epic.split('.');
   if (parts.length < 3) return null;
   const candidate = parts[2];
   // Le ticker doit être 1-6 chars alphanumériques majuscules
   if (!/^[A-Z0-9]{1,6}$/.test(candidate)) return null;
   return candidate;
+}
+
+// Détermine la "catégorie" de la position pour l'affichage (utile dans l'UI
+// pour grouper par type ou afficher un badge "Action / CFD / Indice / Forex").
+function classifyInstrument(instrumentType) {
+  if (!instrumentType) return 'autre';
+  if (instrumentType === 'SHARES' || instrumentType === 'OPT_SHARES') return 'action';
+  if (instrumentType.includes('INDICES')) return 'indice';
+  if (instrumentType.includes('COMMODITIES')) return 'commodity';
+  if (instrumentType.includes('CURRENCIES') || instrumentType === 'RATES') return 'forex';
+  if (instrumentType === 'SECTORS') return 'secteur';
+  if (instrumentType === 'BINARY') return 'binaire';
+  return 'autre';
 }
 
 const BROKER_ADAPTERS = {
@@ -436,8 +459,8 @@ const BROKER_ADAPTERS = {
 
         return {
           ticker: epic,                                 // EPIC raw IG (clé unique broker-side)
-          ticker_kairos: tickerKairos,                  // ticker simplifié pour join Kairos Score
-          isin: null,                                   // IG ne renvoie pas l'ISIN dans /positions (sera enrichi en Phase 3)
+          ticker_kairos: tickerKairos,                  // ticker simplifié pour join Kairos Score (null si non-action)
+          isin: null,                                   // IG ne renvoie pas l'ISIN dans /positions (Phase 3)
           quantity: direction === 'SELL' ? -Math.abs(size) : Math.abs(size),
           avg_cost_price: entryLevel,
           current_price: currentPrice,
@@ -445,13 +468,10 @@ const BROKER_ADAPTERS = {
           currency,
           unrealized_pnl: rawPnl,
           unrealized_pnl_pct: pnlPct,
-          // Meta supplémentaires (non stockées en D1 mais utiles pour debug)
-          _meta: {
-            instrumentName,
-            instrumentType,
-            direction,
-            createdDate: pos.createdDate,
-          },
+          // Meta retourné dans la response API (frontend l'affichera)
+          instrument_name: instrumentName,              // ex: "Apple Inc.", "EUR/USD", "France 40 (CAC 40)"
+          instrument_class: classifyInstrument(instrumentType), // 'action' | 'indice' | 'forex' | 'commodity' | etc.
+          direction,                                    // 'BUY' | 'SELL' (utile pour afficher long/short)
         };
       });
 
@@ -703,13 +723,14 @@ export async function handlePortfolioSync(uid, env) {
           `INSERT INTO portfolio_positions
             (uid, broker, account_id, ticker, isin, ticker_kairos, quantity,
              avg_cost_price, current_price, current_value_eur, currency,
-             unrealized_pnl, unrealized_pnl_pct, kairos_score, has_alerts, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+             unrealized_pnl, unrealized_pnl_pct, kairos_score, has_alerts,
+             instrument_name, instrument_class, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
         ).bind(
           uid,
           conn.broker,
           targetAccount,
-          String(p.ticker || '').slice(0, 20),
+          String(p.ticker || '').slice(0, 60),       // EPIC peut être long (ex: UA.D.AAPL.CASH.IP)
           p.isin || null,
           p.ticker_kairos || null,
           p.quantity || 0,
@@ -721,6 +742,8 @@ export async function handlePortfolioSync(uid, env) {
           p.unrealized_pnl_pct || null,
           p.ticker_kairos ? (scoreMap[p.ticker_kairos] ?? null) : null,
           0,  // has_alerts : sera calculé en Phase 3 par un cron
+          p.instrument_name ? String(p.instrument_name).slice(0, 200) : null,
+          p.instrument_class || null,
         ));
       }
 
@@ -774,6 +797,7 @@ export async function handlePortfolioPositions(uid, env) {
       `SELECT p.broker, p.ticker, p.isin, p.ticker_kairos, p.quantity,
               p.avg_cost_price, p.current_price, p.current_value_eur, p.currency,
               p.unrealized_pnl, p.unrealized_pnl_pct,
+              p.instrument_name, p.instrument_class,
               COALESCE(
                 (SELECT s.total FROM score_history s
                  WHERE s.ticker = p.ticker_kairos
