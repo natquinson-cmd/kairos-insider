@@ -282,22 +282,25 @@ def scrape_amf(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
 
         try:
             page.goto(SEARCH_URL, wait_until='domcontentloaded', timeout=PAGE_TIMEOUT_MS)
-            # Attend longuement pour laisser AMF charger les vrais filings
-            # (.result-search est present dans le shell, mais les resultats
-            # individuels arrivent via XHR async qui peut prendre 30+ sec)
+            # Strategie agressive : on dumpe TOUS les XHR JSON dans /tmp pour
+            # debug + on attend explicitement que le DOM contienne >=5 articles
+            # (sinon on passe les 60s a attendre dans le vide).
             try:
-                page.wait_for_load_state('networkidle', timeout=45000)
-                print('  [LOAD] networkidle atteint')
+                # Wait function : attend que le DOM ait des contenus reels
+                page.wait_for_function(
+                    'document.querySelectorAll("article, .search-result-item, [class*=\\"result\\"][class*=\\"search\\"]").length >= 3 || document.body.innerText.toLowerCase().includes("franchissement")',
+                    timeout=60000,
+                )
+                print('  [WAIT] DOM peuplé OK')
             except PlaywrightTimeoutError:
-                print('  [LOAD] networkidle timeout, on continue')
+                print('  [WAIT] DOM toujours vide après 60s')
 
-            # Sleep additionnel pour laisser les XHR de search terminer
-            page.wait_for_timeout(5000)
+            # Sleep additionnel pour laisser tous les XHR async terminer
+            page.wait_for_timeout(3000)
 
             # Compte combien de blocs de resultats sont dans le DOM finalise
-            for sel in ['article[class*="result"]', '.search-results-list article',
-                       'div[class*="search-result-item"]', '.publication-item',
-                       '[data-result-item]', 'article']:
+            for sel in ['article', '.search-result-item', '[class*="result"][class*="item"]',
+                        '.views-row', '[data-publication]']:
                 count = len(page.query_selector_all(sel))
                 if count > 0:
                     print(f'  [DOM] selector "{sel}" → {count} elements')
@@ -443,77 +446,123 @@ def extract_from_xhr_payload(body):
 
 
 def scrape_dom_pages(page, cutoff, debug=False, max_pages=MAX_PAGES):
-    """Fallback : DOM scraping de la page AMF avec pagination."""
+    """Fallback : DOM scraping de la page AMF avec pagination.
+    Strategie globale : on extrait via regex le texte de la page entiere
+    (plus robuste que selectors specifiques qui changent selon Drupal).
+    """
     filings = []
+
+    # 1) Strategie globale par regex sur le texte de la page complete.
+    # AMF affiche les declarations sous forme de blocs textuels avec
+    # "Société X - Déclaration de franchissement de seuils par Filer - DATE"
+    try:
+        full_text = page.evaluate('document.body.innerText') or ''
+        if debug:
+            print(f'  [DOM] body.innerText : {len(full_text):,} chars')
+
+        # Pattern : ligne contenant "franchissement" + date a proximite
+        # On split par paragraphes (double newline) puis on filtre
+        paragraphs = re.split(r'\n{2,}', full_text)
+        for para in paragraphs:
+            if 'franchissement' not in para.lower():
+                continue
+            if len(para) < 30 or len(para) > 500:
+                continue
+            # Cherche une date FR dans le paragraphe
+            date_match = re.search(r'(\d{1,2})[/.](\d{1,2})[/.](\d{4})|(\d{1,2})\s+(\S+)\s+(\d{4})', para)
+            iso_date = None
+            if date_match:
+                if date_match.group(1):  # DD/MM/YYYY
+                    dd, mm, yy = date_match.group(1), date_match.group(2), date_match.group(3)
+                    try: iso_date = f'{yy}-{int(mm):02d}-{int(dd):02d}'
+                    except: pass
+                elif date_match.group(4):  # DD month YYYY
+                    iso_date = parse_french_date(f'{date_match.group(4)} {date_match.group(5)} {date_match.group(6)}')
+
+            if iso_date and iso_date < cutoff.strftime('%Y-%m-%d'):
+                continue
+
+            parsed = parse_amf_title(para.strip())
+            threshold = parse_amf_threshold(para)
+            filer = parsed['filer'] or ''
+            target = parsed['target'] or ''
+
+            if not target:
+                continue
+
+            filings.append({
+                'fileDate': iso_date,
+                'form': f'FRANCHISSEMENT {threshold:g}%' if threshold else 'FRANCHISSEMENT DE SEUIL',
+                'accession': None,
+                'ticker': '',
+                'targetName': target,
+                'targetCik': None,
+                'filerName': filer,
+                'filerCik': None,
+                'isActivist': bool(is_known_activist(filer)),
+                'activistLabel': is_known_activist(filer),
+                'sharesOwned': None,
+                'percentOfClass': threshold,
+                'crossingDirection': parsed['direction'],
+                'crossingThreshold': threshold,
+                'source': 'amf',
+                'country': 'FR',
+                'regulator': 'AMF',
+                'sourceUrl': SEARCH_URL,
+                'rawTitle': para.strip()[:300],
+            })
+
+        if filings:
+            print(f'  [DOM] regex global : {len(filings)} declarations extraites')
+            return filings
+    except Exception as e:
+        if debug:
+            print(f'  [DOM regex error] {e}')
+
+    # 2) Fallback : ancien mode selectors (rare maintenant)
     seen_pages = 0
     while seen_pages < max_pages:
-        # Selectors candidats
-        items = page.query_selector_all('.result-search') or page.query_selector_all('.search-result') \
-                or page.query_selector_all('article') or []
+        items = page.query_selector_all('article') or page.query_selector_all('.search-result') or []
         if not items:
             break
-
         for el in items:
             try:
-                title_el = el.query_selector('h3') or el.query_selector('h2') or el.query_selector('.title')
-                title = title_el.inner_text().strip() if title_el else ''
-                date_el = el.query_selector('.date') or el.query_selector('time') or el.query_selector('.publication-date')
-                date_str = date_el.inner_text().strip() if date_el else ''
-                link_el = el.query_selector('a')
-                url = link_el.get_attribute('href') if link_el else None
-
-                if not title:
+                txt = el.inner_text().strip()
+                if 'franchissement' not in txt.lower():
                     continue
-
-                parsed_title = parse_amf_title(title)
-                threshold = parse_amf_threshold(title)
-                iso_date = parse_french_date(date_str)
-
-                # Si la date est avant le cutoff, on s'arrete
+                date_match = re.search(r'(\d{1,2})[/.](\d{1,2})[/.](\d{4})', txt)
+                iso_date = None
+                if date_match:
+                    dd, mm, yy = date_match.groups()
+                    try: iso_date = f'{yy}-{int(mm):02d}-{int(dd):02d}'
+                    except: pass
                 if iso_date and iso_date < cutoff.strftime('%Y-%m-%d'):
-                    return filings
-
-                filer = parsed_title['filer'] or ''
-                target = parsed_title['target'] or ''
-                accession = url.rstrip('/').split('/')[-1] if url else None
-
+                    continue
+                parsed = parse_amf_title(txt[:300])
+                threshold = parse_amf_threshold(txt)
+                target = parsed['target'] or ''
+                filer = parsed['filer'] or ''
+                if not target:
+                    continue
                 filings.append({
-                    'fileDate': iso_date,
-                    'form': f'FRANCHISSEMENT {threshold:g}%' if threshold else 'FRANCHISSEMENT DE SEUIL',
-                    'accession': accession,
-                    'ticker': '',
-                    'targetName': target,
-                    'targetCik': None,
-                    'filerName': filer,
-                    'filerCik': None,
+                    'fileDate': iso_date, 'form': f'FRANCHISSEMENT {threshold:g}%' if threshold else 'FRANCHISSEMENT DE SEUIL',
+                    'accession': None, 'ticker': '', 'targetName': target, 'targetCik': None,
+                    'filerName': filer, 'filerCik': None,
                     'isActivist': bool(is_known_activist(filer)),
                     'activistLabel': is_known_activist(filer),
-                    'sharesOwned': None,
-                    'percentOfClass': threshold,
-                    'crossingDirection': parsed_title['direction'],
-                    'crossingThreshold': threshold,
-                    'source': 'amf',
-                    'country': 'FR',
-                    'regulator': 'AMF',
-                    'sourceUrl': f'https://www.amf-france.org{url}' if url and url.startswith('/') else url,
-                    'rawTitle': title,
+                    'sharesOwned': None, 'percentOfClass': threshold,
+                    'crossingDirection': parsed['direction'], 'crossingThreshold': threshold,
+                    'source': 'amf', 'country': 'FR', 'regulator': 'AMF',
+                    'sourceUrl': SEARCH_URL, 'rawTitle': txt[:300],
                 })
-            except Exception as e:
-                if debug:
-                    print(f'    [parse error] {e}')
-
-        # Page suivante
+            except Exception:
+                pass
         seen_pages += 1
-        next_btn = page.query_selector('a.next, .pagination-next, [aria-label*="suivant" i], [class*="next"]')
-        if not next_btn:
-            break
-        cls = next_btn.get_attribute('class') or ''
-        if 'disabled' in cls or 'is-disabled' in cls:
-            break
+        next_btn = page.query_selector('a[rel="next"], .pagination-next, [aria-label*="suivant" i]')
+        if not next_btn: break
         try:
             next_btn.click()
-            page.wait_for_load_state('domcontentloaded', timeout=10000)
-            page.wait_for_timeout(800)  # petit delai pour laisser charger
+            page.wait_for_timeout(2000)
         except Exception:
             break
     return filings

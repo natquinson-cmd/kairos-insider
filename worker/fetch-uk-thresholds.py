@@ -2,15 +2,13 @@
 Fetch UK Major Shareholder notifications (TR-1) — equivalent 13D/G UK pour
 les positions >3% du capital (Article 19 MAR + DTR 5).
 
-Source : https://www.investegate.co.uk/announcement-archive
-(RNS aggregator gratuit, HTML server-side rendu, pas de Playwright requis).
+Sources testees :
+  1. Investegate.co.uk → SEULEMENT 5 announces dans HTML (DataTable AJAX)
+  2. LSE News (londonstockexchange.com/news) → SPA Angular, Playwright requis
+  3. FCA NSM (data.fca.org.uk) → SPA Angular aussi
 
-Pattern d'URL Investegate :
-  /announcement/<provider>/<company-slug>--<ticker>/<type>/<id>
-  Exemples :
-    /rns/jd-sports-fashion--jd./holding-s-in-company/9537995  (TR-1)
-    /rns/hvivo--hvo/director-pdmr-shareholding/9537995        (PDMR insider)
-    /prn/societe-x--abc/total-voting-rights/...               (TVR)
+Approche v3 : Playwright sur LSE News avec interception XHR ciblee.
+LSE expose une API REST cachee qu'on capture au moment du load.
 
 Output : KV 'uk-thresholds-recent' avec schema unifie SEC + AMF + BaFin.
 
@@ -27,12 +25,24 @@ import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+except ImportError:
+    print('ERREUR : playwright manquant. Installer avec : pip install playwright && playwright install chromium', file=sys.stderr)
+    sys.exit(1)
+
 UA = 'KairosInsider contact@kairosinsider.fr'
 NAMESPACE_ID = 'aca7ff9d2a244b06ae92d6a7129b4cc4'  # KV CACHE namespace
 KV_KEY = 'uk-thresholds-recent'
 
-ARCHIVE_URL = 'https://www.investegate.co.uk/announcement-archive'
+# LSE News : SPA Angular qui charge les news via API XHR
+# On filtre par newsCategory pour les Holdings + PDMR
+LSE_NEWS_URL_TR1 = 'https://www.londonstockexchange.com/news?headlinesPerPage=100&newsCategory=major-shareholding-notification'
+LSE_NEWS_URL_PDMR = 'https://www.londonstockexchange.com/news?headlinesPerPage=100&newsCategory=director-pdmr-shareholding'
+LSE_NEWS_URL_BUYBACK = 'https://www.londonstockexchange.com/news?headlinesPerPage=100&newsCategory=transaction-in-own-shares'
+
 DEFAULT_LOOKBACK_DAYS = 30
+PAGE_TIMEOUT_MS = 60000
 
 # Activistes UK reconnus + activistes US qui ciblent souvent des societes UK
 KNOWN_ACTIVISTS_UK = {
@@ -82,8 +92,129 @@ def is_known_activist(filer_name):
     return None
 
 
+def fetch_lse_news_via_playwright(category_url, type_label, type_short, lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
+    """Charge LSE News dans Playwright et capture les XHR JSON contenant
+    les news headlines. Parse les items et retourne les filings.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+    print(f'[LSE] Fetch {type_label} from {category_url[:80]}...')
+
+    captured = []
+    filings = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
+        context = browser.new_context(
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            viewport={'width': 1280, 'height': 900},
+            locale='en-GB',
+        )
+        page = context.new_page()
+
+        # Capture TOUS les XHR JSON contenant un tableau d'au moins 3 items
+        def on_response(response):
+            try:
+                if response.request.resource_type not in ('xhr', 'fetch'):
+                    return
+                if not response.ok:
+                    return
+                ctype = response.headers.get('content-type', '').lower()
+                if 'json' not in ctype:
+                    return
+                try:
+                    body = response.json()
+                except Exception:
+                    return
+                # Cherche un tableau dans les structures courantes
+                items = []
+                if isinstance(body, dict):
+                    for key in ('items', 'results', 'documents', 'docs', 'hits',
+                                'data', 'response', 'rows', 'newsItems', 'news'):
+                        v = body.get(key)
+                        if isinstance(v, list) and len(v) >= 3:
+                            items = v
+                            break
+                        if isinstance(v, dict):
+                            for k2 in ('items', 'results', 'rows', 'newsItems', 'data'):
+                                v2 = v.get(k2)
+                                if isinstance(v2, list) and len(v2) >= 3:
+                                    items = v2
+                                    break
+                            if items: break
+                elif isinstance(body, list) and len(body) >= 3:
+                    items = body
+
+                # Filtre : items doivent contenir un titre/date (sinon c'est metadata)
+                if items and any(isinstance(i, dict) and ('headline' in i or 'title' in i or 'description' in i) for i in items[:3]):
+                    captured.append({'url': response.url, 'items': items})
+                    if debug:
+                        print(f'  [XHR] {response.url[:120]} → {len(items)} items')
+            except Exception:
+                pass
+
+        page.on('response', on_response)
+
+        try:
+            page.goto(category_url, wait_until='domcontentloaded', timeout=PAGE_TIMEOUT_MS)
+            try:
+                page.wait_for_load_state('networkidle', timeout=30000)
+            except PlaywrightTimeoutError:
+                pass
+            page.wait_for_timeout(3000)
+
+            print(f'  [LSE] {len(captured)} XHR JSON captures')
+            # Parse tous les items captures
+            for cap in captured:
+                for item in cap['items']:
+                    if not isinstance(item, dict):
+                        continue
+                    headline = item.get('headline') or item.get('title') or item.get('description') or ''
+                    date_str = item.get('date') or item.get('publishedAt') or item.get('newsAnnouncementDate') or ''
+                    company = item.get('description') or item.get('company') or item.get('sourceName') or ''
+                    ticker = item.get('tidm') or item.get('ticker') or item.get('symbol') or ''
+                    url = item.get('url') or item.get('link') or ''
+                    iso_date = parse_uk_date(date_str) or (date_str.split('T')[0] if isinstance(date_str, str) and 'T' in date_str else None)
+
+                    if iso_date and iso_date < cutoff:
+                        continue
+
+                    if not headline:
+                        continue
+
+                    filings.append({
+                        'fileDate': iso_date,
+                        'form': type_label,
+                        'accession': str(item.get('id') or item.get('newsId') or ''),
+                        'ticker': str(ticker).upper(),
+                        'targetName': str(company),
+                        'targetCik': None,
+                        'filerName': '',  # pas dans le headline LSE
+                        'filerCik': None,
+                        'isActivist': False,
+                        'activistLabel': None,
+                        'sharesOwned': None,
+                        'percentOfClass': None,
+                        'crossingDirection': 'up',
+                        'crossingThreshold': None,
+                        'source': 'fca',
+                        'country': 'UK',
+                        'regulator': 'FCA',
+                        'sourceUrl': url if str(url).startswith('http') else f'https://www.londonstockexchange.com{url}',
+                        'announcementType': type_short,
+                        'rawTitle': str(headline)[:300],
+                    })
+
+            browser.close()
+        except Exception as e:
+            print(f'  [ERREUR] {e}')
+            try: browser.close()
+            except: pass
+
+    return filings
+
+
 def fetch_html(url, timeout=60):
-    """HTTP GET avec UA navigateur."""
+    """HTTP GET avec UA navigateur (legacy fallback)."""
     req = urllib.request.Request(url, headers={
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept-Language': 'en-GB,en;q=0.9',
@@ -258,25 +389,59 @@ def main():
     parser.add_argument('--days', type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--source', choices=['lse', 'investegate'], default='lse',
+                        help='Source primaire (lse = Playwright, investegate = HTTP simple)')
     args = parser.parse_args()
 
     t0 = time.time()
-    print(f'[UK] Fetch Investegate archive ({args.days}j)')
-    html = fetch_html(ARCHIVE_URL, timeout=90)
-    print(f'  → {len(html):,} chars HTML')
+    all_filings = []
 
-    if args.debug:
-        with open('uk_archive_full.html', 'w', encoding='utf-8') as f:
-            f.write(html)
-        print('  [DEBUG] HTML sauve dans uk_archive_full.html')
+    # Strategie 1 : LSE News via Playwright (interception XHR)
+    if args.source == 'lse':
+        print(f'[UK] Strategy LSE Playwright ({args.days}j)')
+        for url, label, short in [
+            (LSE_NEWS_URL_TR1, 'SHAREHOLDER >3% (TR-1)', 'tr1'),
+            (LSE_NEWS_URL_PDMR, 'DIRECTOR PDMR (insider)', 'pdmr'),
+            (LSE_NEWS_URL_BUYBACK, 'BUYBACK (transaction in own shares)', 'buyback'),
+        ]:
+            try:
+                f = fetch_lse_news_via_playwright(url, label, short,
+                                                   lookback_days=args.days, debug=args.debug)
+                print(f'  [{short}] → {len(f)} filings')
+                all_filings.extend(f)
+            except Exception as e:
+                print(f'  [{short}] ERREUR : {e}')
 
-    filings = parse_archive_html(html, lookback_days=args.days)
-    if not filings:
-        print('[FAIL] 0 filings parses')
+    # Strategie 2 : Investegate (legacy, HTTP simple - retourne peu de data)
+    if not all_filings or args.source == 'investegate':
+        print(f'[UK] Fallback Investegate archive ({args.days}j)')
+        try:
+            html = fetch_html('https://www.investegate.co.uk/announcement-archive', timeout=90)
+            print(f'  → {len(html):,} chars HTML')
+            if args.debug:
+                with open('uk_archive_full.html', 'w', encoding='utf-8') as f:
+                    f.write(html)
+            filings = parse_archive_html(html, lookback_days=args.days)
+            print(f'  [Investegate] → {len(filings)} filings')
+            all_filings.extend(filings)
+        except Exception as e:
+            print(f'  [Investegate] ERREUR : {e}')
+
+    if not all_filings:
+        print('[FAIL] 0 filings parses au total')
         sys.exit(1)
 
-    print(f'  → {len(filings)} filings parses')
-    push_to_kv(filings, dry_run=args.dry_run)
+    # Dedup par accession + targetName + form
+    seen = set()
+    unique = []
+    for f in all_filings:
+        key = (f.get('accession') or f"{f.get('targetName')}|{f.get('form')}|{f.get('fileDate')}")
+        if key in seen: continue
+        seen.add(key)
+        unique.append(f)
+    print(f'  → {len(unique)} filings uniques (dedup de {len(all_filings)})')
+
+    push_to_kv(unique, dry_run=args.dry_run)
     print(f'[DONE] {time.time()-t0:.1f}s')
 
 

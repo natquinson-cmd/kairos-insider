@@ -98,7 +98,7 @@ jobs:
 
   uk-thresholds:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     if: always()
     steps:
       - name: Checkout
@@ -109,17 +109,18 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run UK scraper (Investegate)
+      - name: Install Playwright + Chromium (LSE scraping)
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run UK scraper (LSE Playwright)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          if [ -f fetch-uk-thresholds.py ]; then
-            python fetch-uk-thresholds.py --days 30 --debug
-          else
-            echo "::warning::fetch-uk-thresholds.py pas encore present, skip"
-          fi
+          python fetch-uk-thresholds.py --days 30 --debug --source lse
         continue-on-error: true
 
       - name: Upload UK data + HTML debug
