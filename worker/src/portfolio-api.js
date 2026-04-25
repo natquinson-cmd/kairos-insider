@@ -435,38 +435,105 @@ const BROKER_ADAPTERS = {
 
       let sessionData = {};
       try { sessionData = await sessionResp.json(); } catch {}
-      const accountId = sessionData.currentAccountId || sessionData.accountId || 'default';
+      const defaultAccountId = sessionData.currentAccountId || sessionData.accountId || 'default';
       const userCurrency = sessionData.currencyIsoCode || 'EUR';
 
-      // ===== ETAPE 2 : Récupération des positions =====
-      let posResp;
+      // ===== ETAPE 2 : Lister TOUS les sous-comptes IG =====
+      // IG donne souvent plusieurs comptes par utilisateur :
+      //   - CFD (Spread CFD France, Standard CFD, etc.)
+      //   - PHYSICAL (Share Dealing)
+      //   - SPREADBET (UK only)
+      // Sans le switch, /positions ne renvoie QUE le compte par défaut, qui peut
+      // être vide alors que d'autres sous-comptes ont des positions.
+      let allAccounts = [];
       try {
-        posResp = await fetch(`${baseUrl}/positions`, {
+        const accountsResp = await fetch(`${baseUrl}/accounts`, {
           method: 'GET',
           headers: {
             'X-IG-API-KEY': creds.apiKey,
             'CST': cst,
             'X-SECURITY-TOKEN': xst,
-            'Version': '2',
+            'Version': '1',
             'Accept': 'application/json; charset=UTF-8',
           },
         });
+        if (accountsResp.ok) {
+          const accountsData = await accountsResp.json();
+          allAccounts = (accountsData.accounts || []).filter(a => a.status === 'ENABLED');
+        }
       } catch (e) {
-        // cleanup avant de retourner
-        await igLogout(baseUrl, creds.apiKey, cst, xst);
-        return { error: `IG : impossible de récupérer les positions (${e.message || e})`, positions: [], totalValue: 0 };
+        // best-effort, on tombe en fallback sur le defaultAccountId
       }
 
-      if (!posResp.ok) {
-        await igLogout(baseUrl, creds.apiKey, cst, xst);
-        return { error: `IG : positions failed (HTTP ${posResp.status})`, positions: [], totalValue: 0 };
+      if (!allAccounts.length) {
+        // Fallback : on traite seulement le compte par défaut
+        allAccounts = [{ accountId: defaultAccountId, accountName: 'Default', accountType: 'UNKNOWN' }];
       }
 
-      let posData = { positions: [] };
-      try { posData = await posResp.json(); } catch {}
-      const rawPositions = Array.isArray(posData.positions) ? posData.positions : [];
+      // ===== ETAPE 3 : Pour chaque compte, switch + fetch /positions =====
+      const rawPositions = [];
+      const accountResults = [];
 
-      // ===== ETAPE 3 : Parsing + mapping ticker_kairos =====
+      for (const account of allAccounts) {
+        let positionsForAccount = [];
+        try {
+          // Switch active account (si différent du current)
+          if (account.accountId !== defaultAccountId) {
+            const switchResp = await fetch(`${baseUrl}/session`, {
+              method: 'PUT',
+              headers: {
+                'X-IG-API-KEY': creds.apiKey,
+                'CST': cst,
+                'X-SECURITY-TOKEN': xst,
+                'Version': '1',
+                'Content-Type': 'application/json; charset=UTF-8',
+              },
+              body: JSON.stringify({ accountId: account.accountId }),
+            });
+            // Ignore les erreurs de switch (compte read-only par exemple) — on continue
+            if (!switchResp.ok) {
+              accountResults.push({ accountId: account.accountId, accountName: account.accountName, error: `switch failed HTTP ${switchResp.status}` });
+              continue;
+            }
+          }
+
+          // Fetch /positions pour ce compte
+          const posResp = await fetch(`${baseUrl}/positions`, {
+            method: 'GET',
+            headers: {
+              'X-IG-API-KEY': creds.apiKey,
+              'CST': cst,
+              'X-SECURITY-TOKEN': xst,
+              'Version': '2',
+              'Accept': 'application/json; charset=UTF-8',
+            },
+          });
+          if (!posResp.ok) {
+            accountResults.push({ accountId: account.accountId, accountName: account.accountName, error: `positions failed HTTP ${posResp.status}` });
+            continue;
+          }
+          const posData = await posResp.json();
+          positionsForAccount = Array.isArray(posData.positions) ? posData.positions : [];
+
+          // Tag chaque position avec son compte d'origine (utile pour multi-account display)
+          for (const p of positionsForAccount) {
+            p._accountId = account.accountId;
+            p._accountName = account.accountName || account.accountAlias || account.accountId;
+            p._accountType = account.accountType;
+            rawPositions.push(p);
+          }
+          accountResults.push({
+            accountId: account.accountId,
+            accountName: account.accountName,
+            accountType: account.accountType,
+            positionsCount: positionsForAccount.length,
+          });
+        } catch (e) {
+          accountResults.push({ accountId: account.accountId, accountName: account.accountName, error: String(e.message || e) });
+        }
+      }
+
+      // ===== ETAPE 4 : Parsing + mapping ticker_kairos =====
       const positions = rawPositions.map(p => {
         const pos = p.position || {};
         const mkt = p.market || {};
@@ -512,10 +579,13 @@ const BROKER_ADAPTERS = {
           instrument_name: instrumentName,              // ex: "Apple Inc.", "EUR/USD", "France 40 (CAC 40)"
           instrument_class: classifyInstrument(instrumentType), // 'action' | 'indice' | 'forex' | 'commodity' | etc.
           direction,                                    // 'BUY' | 'SELL' (utile pour afficher long/short)
+          account_id: p._accountId,                     // sous-compte IG (CFD vs Share Dealing vs ISA)
+          account_name: p._accountName,
+          account_type: p._accountType,                 // CFD | PHYSICAL | SPREADBET
         };
       });
 
-      // ===== ETAPE 4 : Logout (libère le quota daily login) =====
+      // ===== ETAPE 5 : Logout (libère le quota daily login) =====
       await igLogout(baseUrl, creds.apiKey, cst, xst);
 
       const totalValueEur = positions.reduce((s, p) => s + (p.current_value_eur || 0), 0);
@@ -524,7 +594,9 @@ const BROKER_ADAPTERS = {
         positions,
         totalValue: totalValueEur,
         currency: 'EUR',
-        accountId,
+        accountId: defaultAccountId,
+        accountResults,                              // détail par sous-compte (pour debug)
+        accountsScanned: allAccounts.length,
         broker: 'ig',
         environment: igEnv,
       };
@@ -861,6 +933,8 @@ export async function handlePortfolioSync(uid, env) {
         ok: true,
         positionsCount: positions.length,
         totalValue: fetchResult.totalValue,
+        accountResults: fetchResult.accountResults || null,   // détail par sous-compte (multi-IG)
+        accountsScanned: fetchResult.accountsScanned || 1,
       });
     } catch (e) {
       results.push({ broker: conn.broker, error: String(e && e.message || e) });

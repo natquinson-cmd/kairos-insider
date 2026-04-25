@@ -14709,8 +14709,16 @@
         // Sync result (resultats par broker)
         const syncHtml = (syncResult.results || []).map(r => {
           if (r.ok) {
+            // Sous-comptes IG si disponibles (multi-account)
+            const accountsBreakdown = (r.accountResults || []).map(a => {
+              if (a.error) {
+                return `<div style="margin-left:12px;font-size:10.5px;color:#FCA5A5">↳ ${escapeHtml(a.accountName || a.accountId)} (${escapeHtml(a.accountType || '?')}) : ❌ ${escapeHtml(a.error)}</div>`;
+              }
+              return `<div style="margin-left:12px;font-size:10.5px;color:var(--text-muted)">↳ ${escapeHtml(a.accountName || a.accountId)} (${escapeHtml(a.accountType || '?')}) : ${a.positionsCount} positions</div>`;
+            }).join('');
             return `<div style="padding:6px 10px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:11px;margin-bottom:4px">
-              ✓ <strong>${escapeHtml(r.broker)}</strong> : ${r.positionsCount} positions, ${r.totalValue ? Math.round(r.totalValue) + ' €' : '—'}
+              ✓ <strong>${escapeHtml(r.broker)}</strong> : ${r.positionsCount} positions au total, ${r.totalValue ? Math.round(r.totalValue) + ' €' : '—'}
+              ${accountsBreakdown}
             </div>`;
           }
           return `<div style="padding:6px 10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:11px;margin-bottom:4px;color:#FCA5A5">
