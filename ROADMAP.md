@@ -14,39 +14,63 @@ Objectif : devenir la **seule plateforme francophone smart money EU + US consoli
 WhaleWisdom est US-only, Sicavonline ne fait pas du smart money, Zonebourse n'a pas
 les insiders/franchissements. Avec ces ajouts, Kairos couvre 4 marchés majeurs.
 
-### Tier 1 — En cours d'implémentation
+### Tier 1 — DONE ✅ (25 avril 2026, commit ab6eeb7)
 
-🔄 **Phase 1 — AMF Franchissements de seuils (FR)** : équivalent 13D/G français.
-Source : AMF avis publics (BAR). Couvre tout l'Euronext Paris (CAC 40 + SBF 120).
-Push KV `amf-thresholds-recent`. Cron GitHub Actions quotidien. Schéma unifié avec
-SEC 13D/G (champ `source: 'amf' | 'sec' | 'bafin'`).
+✅ **Phase 1 — AMF Franchissements de seuils (FR)** : équivalent 13D/G français.
+Script `worker/fetch-amf-thresholds.py` (Playwright headless) · scrape la page
+de recherche AMF rendue côté client · KV `amf-thresholds-recent` · liste
+KNOWN_ACTIVISTS_EU étendue (Arnault, Bolloré, Pinault, Dassault, Peugeot,
+Bettencourt, Wertheimer, Perrodo).
 
-🔄 **Phase 2 — BaFin Stimmrechtsmitteilungen (DE)** : équivalent 13D/G allemand.
-Source : BaFin WpHG database (XML public). Couvre tout le DAX + MDAX.
+✅ **Phase 2 — BaFin Stimmrechtsmitteilungen (DE)** : équivalent 13D/G allemand.
+Script `worker/fetch-bafin-thresholds.py` · CSV public officiel découvert
+(`portal.mvp.bafin.de/.../zeigeGesamtExport`) · KV `bafin-thresholds-recent` ·
+liste KNOWN_ACTIVISTS_EU étendue DE (Quandt, Klatten, Henkel, Merck, Porsche/Piech).
 
-🔄 **Phase 3 — UI section "Activists/Fonds Offensifs"** : merge SEC + AMF + BaFin
-dans `/api/13dg/*` · drapeau pays par filing · filtre All/🇺🇸/🇫🇷/🇩🇪 ·
-liste KNOWN_ACTIVISTS étendue (TCI, Cevian, Bluebell, Petrus Advisers, Sherborne,
-Bolloré, Pinault, Arnault…)
+✅ **Phase 3 — UI dashboard merge** : helper `loadAllThresholdsFilings(env)` dans
+le worker · `/api/13dg/recent` accepte `?country=FR,DE,US` · table affiche un
+**drapeau pays** par filing + tooltip régulateur · filtre **Marché** dans la UI ·
+filtre **Direction** étendu (`up` / `down` pour FR/DE qui déclarent les deux
+sens) · cron GitHub Actions `.github/workflows/fetch-eu-thresholds.yml` lun-ven
+5h UTC.
 
-🔄 **Phase 4 — Shorts publics EU** : agrégation AMF + BaFin + FCA UK (positions
-courtes nettes >0.5%). Drill-down par fonds. Section "Short Interest" étendue
-avec filtre US/EU.
+✅ **Landing page** : hero subtitle mentionne *"fonds offensifs (US + 🇫🇷 + 🇩🇪)"* ·
+i18n FR + EN synchronisés.
 
-🔄 **Phase 5 — Kairos Score étendu EU** : nouveaux signaux pour les tickers FR/DE/UK
-(franchissement activist EU, short squeeze EU). Pilier `smartMoney` étendu.
+### Tier 1.5 — Phase 4 + 5 (mutualisée avec Tier 2 UK)
 
-### Tier 2 — High impact, à venir
+`[ ]` **Phase 4 — Shorts publics EU** : AMF + BaFin + FCA UK (positions courtes
+nettes >0,5 %). Sera mutualisée avec les sources UK (Tier 2) car même pattern.
 
-`[ ]` **FCA TR-1 (UK)** : équivalent 13D UK (FTSE 100 + 250). Source NSM API.
-Couvre Shell, BP, AstraZeneca, HSBC, BHP, Rio Tinto, Unilever.
+`[ ]` **Phase 5 — Kairos Score extension EU** : signaux EU activist + short EU
+intégrés au pilier `smartMoney` ou nouveau pilier `activists`. Effort 2j après
+ingestion shorts EU.
+
+### Tier 2 — UK (priorisé, à attaquer après Tier 1)
+
+`[ ]` **FCA TR-1 (UK)** : équivalent 13D UK (FTSE 100 + 250). Source : National
+Storage Mechanism (`data.fca.org.uk`). C'est une SPA Angular → **Playwright
+obligatoire** (même pattern qu'AMF). Couvre Shell, BP, AstraZeneca, HSBC, BHP,
+Rio Tinto, Unilever, Glencore, GSK, Diageo, ARM Holdings.
+Sources alternatives à considérer si NSM trop fragile :
+- Investegate.co.uk (RNS aggregator gratuit)
+- LSE RNS feed officiel (londonstockexchange.com/news)
+
+`[ ]` **PDMR notifications (UK)** : équivalent Form 4 SEC. Person Discharging
+Managerial Responsibility - dirigeants britanniques tradant leurs propres actions.
+Article 19 MAR appliqué post-Brexit. Source : RNS via FCA NSM ou Investegate.
 
 `[ ]` **Buybacks announcements EU (Article 5 MAR)** : programmes de rachat
-d'actions FR + DE. Signal positif fort. Source : déclarations AMF + BaFin.
+d'actions FR + DE + UK. Signal positif fort. Sources : déclarations AMF + BaFin
++ FCA NSM. Mutualise le pipeline TR-1.
 
-`[ ]` **Insider transactions élargies** : PDMR UK (FCA), Internal Dealing Italie
-(Consob), insiders Espagne (CNMV). Couverture insiders complète des 6 grands
-marchés européens.
+`[ ]` **Shorts publics UK (FCA Daily Disclosure)** : positions courtes >0,5 % du
+capital. Source : `fca.org.uk/markets/short-positions-daily-update`. CSV public
+quotidien. Mutualisable avec shorts EU (FR + DE).
+
+`[ ]` **Insider transactions élargies non-UK** : Internal Dealing Italie
+(Consob), insiders Espagne (CNMV), Pays-Bas (AFM). Couverture insiders complète
+des 6 grands marchés européens.
 
 ### Tier 3 — Différenciation forte
 

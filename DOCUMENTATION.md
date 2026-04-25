@@ -309,7 +309,9 @@ Le KV contient les données "chaudes" consultées à chaque requête. Namespace 
 | `13f-all-funds` | Tous les portefeuilles hedge funds (200 top) | 24 h | Écrit par le pipeline |
 | `13f-ticker-index` | Index inverse ticker → [fonds qui le détiennent] | 24 h | Pour la page "stock analysis" |
 | `13f-funds-list` | Liste des 200 top fonds (pour discovery) | 7 j | Écrit hebdo |
-| `13dg-recent` | 37k filings 13D/G des 2 dernières années | infini | Lu à chaque requête activists |
+| `13dg-recent` | 37k filings 13D/G SEC US (2 ans) | infini | Lu à chaque requête activists |
+| `amf-thresholds-recent` | Franchissements de seuils AMF France (30j-2 ans) | infini | Mergé avec 13dg-recent dans /api/13dg/* |
+| `bafin-thresholds-recent` | Stimmrechtsmitteilungen BaFin Allemagne | infini | Mergé idem |
 | `google-trends-data` | Indices Google Trends top 100 tickers | 24 h | Hot Stocks |
 | `google-trends-hot` | Top movers (intérêt retail qui explose) | 24 h | Home dashboard |
 | `lastRun:{job}` | Métadonnées dernier run d'un script Python | 30 j | Admin dashboard |
@@ -480,9 +482,9 @@ Toutes les routes `/api/*` et `/stripe/*` demandent un header `Authorization: Be
 - `GET /api/etf?symbol=NANC` — composition d'un ETF
 
 **13D/G (fonds offensifs)** :
-- `GET /api/13dg/recent?days=30&activistOnly=0&limit=100`
-- `GET /api/13dg/ticker?ticker=AAPL`
-- `GET /api/13dg/activists?days=30`
+- `GET /api/13dg/recent?days=30&activistOnly=0&limit=100&country=US,FR,DE` — merge SEC + AMF + BaFin (depuis 25 avr 2026, support multi-marchés)
+- `GET /api/13dg/ticker?ticker=AAPL` — match aussi sur ticker.split('.')[0] pour MC.PA → MC
+- `GET /api/13dg/activists?days=30&country=FR` — agrège par filer avec set des `countries` parcourus
 
 **Historique D1** :
 - `GET /api/history/insider?ticker=AAPL&days=365&type=buy`
@@ -1004,6 +1006,14 @@ Affiche les `console.log` en temps réel.
 Cf. `ROADMAP.md` pour le détail.
 
 ### Récemment terminé (avril 2026)
+
+**🌍 Extension Smart Money Europe (Tier 1, 25 avril 2026)** — DONE ✅
+- AMF Franchissements de seuils (FR) : `worker/fetch-amf-thresholds.py` Playwright headless · KV `amf-thresholds-recent`
+- BaFin Stimmrechtsmitteilungen (DE) : `worker/fetch-bafin-thresholds.py` CSV public officiel · KV `bafin-thresholds-recent`
+- Worker merge SEC + AMF + BaFin : helper `loadAllThresholdsFilings(env)` dans `/api/13dg/*` · paramètre `?country=US,FR,DE`
+- UI drapeau pays + filtre marché : table avec 🇺🇸 / 🇫🇷 / 🇩🇪 + tooltip régulateur · filtre direction (`up`/`down` pour FR/DE)
+- Cron GitHub Actions `fetch-eu-thresholds.yml` lun-ven 5h UTC
+- Liste KNOWN_ACTIVISTS_EU : 28+ fonds (Elliott, Ackman, Icahn, TCI, Cevian, Bluebell + familles industrielles FR/DE Arnault, Bolloré, Pinault, Quandt, Klatten, Henkel, Merck)
 
 **Sécurité & Conformité (Priorité 1)** — 100%
 - Signature webhook Stripe · rejet events test · rate limiting · CSP · SRI · HSTS · audit XSS
