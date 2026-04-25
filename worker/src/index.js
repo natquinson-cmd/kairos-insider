@@ -22,6 +22,7 @@ import {
   handlePortfolioPositions,
   handlePortfolioSnapshots,
   handlePortfolioAlerts,
+  handlePortfolioDiagnostic,
 } from './portfolio-api.js';
 
 const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
@@ -468,6 +469,10 @@ async function handleRequest(request, env, ctx) {
         }
         if (request.method === 'GET' && path === '/api/portfolio/alerts') {
           return jsonResponse(await handlePortfolioAlerts(user.uid, env), 200, origin);
+        }
+        // Diagnostic complet (schema, connexions, positions count) pour debug
+        if (request.method === 'GET' && path === '/api/portfolio/diagnostic') {
+          return jsonResponse(await handlePortfolioDiagnostic(user.uid, env), 200, origin);
         }
         return jsonResponse({ error: 'Not found' }, 404, origin);
       }

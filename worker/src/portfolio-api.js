@@ -758,34 +758,75 @@ export async function handlePortfolioSync(uid, env) {
         }
       }
 
-      // Batch INSERT des positions
+      // Détection one-shot des colonnes v2 (instrument_name + instrument_class)
+      // Permet de fonctionner même si la migration v2 n'a pas été appliquée
+      // (deploy en 1 clic puis migration en deuxième temps).
+      let hasV2Cols = false;
+      try {
+        const colInfo = (await env.HISTORY.prepare(
+          `PRAGMA table_info(portfolio_positions)`
+        ).all()).results || [];
+        const colNames = new Set(colInfo.map(r => r.name));
+        hasV2Cols = colNames.has('instrument_name') && colNames.has('instrument_class');
+      } catch (e) {
+        hasV2Cols = false;
+      }
+
+      // Batch INSERT des positions (v2 si colonnes existent, sinon v1)
       for (const p of positions) {
-        stmts.push(env.HISTORY.prepare(
-          `INSERT INTO portfolio_positions
-            (uid, broker, account_id, ticker, isin, ticker_kairos, quantity,
-             avg_cost_price, current_price, current_value_eur, currency,
-             unrealized_pnl, unrealized_pnl_pct, kairos_score, has_alerts,
-             instrument_name, instrument_class, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-        ).bind(
-          uid,
-          conn.broker,
-          targetAccount,
-          String(p.ticker || '').slice(0, 60),       // EPIC peut être long (ex: UA.D.AAPL.CASH.IP)
-          p.isin || null,
-          p.ticker_kairos || null,
-          p.quantity || 0,
-          p.avg_cost_price || null,
-          p.current_price || null,
-          p.current_value_eur || null,
-          (p.currency || 'EUR').slice(0, 3),
-          p.unrealized_pnl || null,
-          p.unrealized_pnl_pct || null,
-          p.ticker_kairos ? (scoreMap[p.ticker_kairos] ?? null) : null,
-          0,  // has_alerts : sera calculé en Phase 3 par un cron
-          p.instrument_name ? String(p.instrument_name).slice(0, 200) : null,
-          p.instrument_class || null,
-        ));
+        if (hasV2Cols) {
+          stmts.push(env.HISTORY.prepare(
+            `INSERT INTO portfolio_positions
+              (uid, broker, account_id, ticker, isin, ticker_kairos, quantity,
+               avg_cost_price, current_price, current_value_eur, currency,
+               unrealized_pnl, unrealized_pnl_pct, kairos_score, has_alerts,
+               instrument_name, instrument_class, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+          ).bind(
+            uid,
+            conn.broker,
+            targetAccount,
+            String(p.ticker || '').slice(0, 60),
+            p.isin || null,
+            p.ticker_kairos || null,
+            p.quantity || 0,
+            p.avg_cost_price || null,
+            p.current_price || null,
+            p.current_value_eur || null,
+            (p.currency || 'EUR').slice(0, 3),
+            p.unrealized_pnl || null,
+            p.unrealized_pnl_pct || null,
+            p.ticker_kairos ? (scoreMap[p.ticker_kairos] ?? null) : null,
+            0,
+            p.instrument_name ? String(p.instrument_name).slice(0, 200) : null,
+            p.instrument_class || null,
+          ));
+        } else {
+          // Fallback v1 : INSERT sans les 2 colonnes v2 (compat si migration pas appliquée)
+          stmts.push(env.HISTORY.prepare(
+            `INSERT INTO portfolio_positions
+              (uid, broker, account_id, ticker, isin, ticker_kairos, quantity,
+               avg_cost_price, current_price, current_value_eur, currency,
+               unrealized_pnl, unrealized_pnl_pct, kairos_score, has_alerts, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+          ).bind(
+            uid,
+            conn.broker,
+            targetAccount,
+            String(p.ticker || '').slice(0, 60),
+            p.isin || null,
+            p.ticker_kairos || null,
+            p.quantity || 0,
+            p.avg_cost_price || null,
+            p.current_price || null,
+            p.current_value_eur || null,
+            (p.currency || 'EUR').slice(0, 3),
+            p.unrealized_pnl || null,
+            p.unrealized_pnl_pct || null,
+            p.ticker_kairos ? (scoreMap[p.ticker_kairos] ?? null) : null,
+            0,
+          ));
+        }
       }
 
       // Snapshot quotidien (pour le chart équité)
@@ -834,11 +875,21 @@ export async function handlePortfolioPositions(uid, env) {
   if (!env.HISTORY) return { error: 'D1 not configured', positions: [] };
   try {
     // Join portfolio_positions + score_history (dernier score connu par ticker_kairos)
+    // Detection des colonnes v2 (idem batch INSERT, fallback gracieux)
+    let hasV2Cols = false;
+    try {
+      const colInfo = (await env.HISTORY.prepare(
+        `PRAGMA table_info(portfolio_positions)`
+      ).all()).results || [];
+      const colNames = new Set(colInfo.map(r => r.name));
+      hasV2Cols = colNames.has('instrument_name') && colNames.has('instrument_class');
+    } catch {}
+
+    const v2Cols = hasV2Cols ? ', p.instrument_name, p.instrument_class' : '';
     const rows = (await env.HISTORY.prepare(
       `SELECT p.broker, p.ticker, p.isin, p.ticker_kairos, p.quantity,
               p.avg_cost_price, p.current_price, p.current_value_eur, p.currency,
-              p.unrealized_pnl, p.unrealized_pnl_pct,
-              p.instrument_name, p.instrument_class,
+              p.unrealized_pnl, p.unrealized_pnl_pct${v2Cols},
               COALESCE(
                 (SELECT s.total FROM score_history s
                  WHERE s.ticker = p.ticker_kairos
@@ -850,7 +901,7 @@ export async function handlePortfolioPositions(uid, env) {
        WHERE p.uid = ?
        ORDER BY p.current_value_eur DESC NULLS LAST, p.ticker ASC`
     ).bind(uid).all()).results || [];
-    return { positions: rows, count: rows.length };
+    return { positions: rows, count: rows.length, schemaVersion: hasV2Cols ? 2 : 1 };
   } catch (e) {
     return { error: String(e && e.message || e), positions: [] };
   }
@@ -877,6 +928,68 @@ export async function handlePortfolioSnapshots(url, uid, env) {
   } catch (e) {
     return { error: String(e && e.message || e), snapshots: [] };
   }
+}
+
+// GET /api/portfolio/diagnostic : etat complet pour debug
+// Renvoie : schema version, connexions, last_error, count positions par
+// broker, sample EPIC, sample instrument_name, etc.
+export async function handlePortfolioDiagnostic(uid, env) {
+  if (!env.HISTORY) return { error: 'D1 not configured' };
+  const out = { uid: String(uid).slice(0, 8) + '...', timestamp: new Date().toISOString() };
+
+  // 1) Schema check
+  try {
+    const colInfo = (await env.HISTORY.prepare(
+      `PRAGMA table_info(portfolio_positions)`
+    ).all()).results || [];
+    out.schema = {
+      tableExists: colInfo.length > 0,
+      columns: colInfo.map(c => c.name),
+      schemaVersion: colInfo.some(c => c.name === 'instrument_name') ? 2 : 1,
+    };
+  } catch (e) {
+    out.schema = { error: String(e).slice(0, 200) };
+  }
+
+  // 2) Connexions
+  try {
+    const conns = (await env.HISTORY.prepare(
+      `SELECT broker, account_id, status, last_sync_at, last_error,
+              positions_count, total_value_eur, created_at, updated_at
+       FROM portfolio_connections WHERE uid = ?`
+    ).bind(uid).all()).results || [];
+    out.connections = conns;
+  } catch (e) {
+    out.connectionsError = String(e).slice(0, 200);
+  }
+
+  // 3) Positions par broker
+  try {
+    const counts = (await env.HISTORY.prepare(
+      `SELECT broker, COUNT(*) AS n,
+              SUM(CASE WHEN ticker_kairos IS NOT NULL THEN 1 ELSE 0 END) AS n_actions,
+              SUM(current_value_eur) AS total_eur
+       FROM portfolio_positions WHERE uid = ? GROUP BY broker`
+    ).bind(uid).all()).results || [];
+    out.positionsCounts = counts;
+  } catch (e) {
+    out.positionsCountsError = String(e).slice(0, 200);
+  }
+
+  // 4) Sample des 5 premières positions (anonymisé pour respect privacy)
+  try {
+    const sample = (await env.HISTORY.prepare(
+      `SELECT broker, ticker, ticker_kairos, currency,
+              CASE WHEN current_value_eur IS NULL THEN 0 ELSE 1 END AS has_value,
+              CASE WHEN kairos_score IS NULL THEN 0 ELSE 1 END AS has_score
+       FROM portfolio_positions WHERE uid = ? LIMIT 5`
+    ).bind(uid).all()).results || [];
+    out.positionsSample = sample;
+  } catch (e) {
+    out.positionsSampleError = String(e).slice(0, 200);
+  }
+
+  return out;
 }
 
 // GET /api/portfolio/alerts : alertes smart money sur les positions détenues (30 derniers jours)
