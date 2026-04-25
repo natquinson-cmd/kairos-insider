@@ -231,11 +231,38 @@ def scrape(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
         time.sleep(0.5)
     print(f'  → {len(raw_items)} items uniques (sur {len(GOOGLE_NEWS_QUERIES_UK)} requetes)')
 
+    # Filtre keywords RNS UK (relaxe : on garde tout ce qui ressemble a un RNS)
+    UK_RNS_KEYWORDS = re.compile(
+        r'(TR-?1|holdings?\s+in\s+company|major\s+shareholding|major\s+holding|'
+        r'PDMR|director\s+pdmr|director\s+shareholding|'
+        r'transaction\s+in\s+own\s+shares|buy.?back|own\s+share\s+purchase|'
+        r'total\s+voting\s+rights|notification\s+of\s+major)',
+        re.IGNORECASE,
+    )
+
     filings = []
     for it in raw_items:
-        info = classify_uk_title(it['title'])
+        title = it['title']
+
+        # Filtre relax : keyword RNS OU classify qui matche
+        info = classify_uk_title(title)
+        if not info['type_label'] and not UK_RNS_KEYWORDS.search(title):
+            continue
+
+        # Si pas classify mais keyword match : on assigne un type generique
         if not info['type_label']:
-            continue  # type non reconnu, skip
+            if re.search(r'TR-?1|holdings?\s+in\s+company|major\s+holding', title, re.IGNORECASE):
+                info['type_label'] = 'SHAREHOLDER >3% (TR-1)'
+                info['type_short'] = 'tr1'
+            elif re.search(r'PDMR|director.*shareholding', title, re.IGNORECASE):
+                info['type_label'] = 'DIRECTOR PDMR (insider)'
+                info['type_short'] = 'pdmr'
+            elif re.search(r'own\s+shares|buyback', title, re.IGNORECASE):
+                info['type_label'] = 'BUYBACK (own shares)'
+                info['type_short'] = 'buyback'
+            else:
+                info['type_label'] = 'UK RNS DECLARATION'
+                info['type_short'] = 'other'
 
         iso_date = parse_pubdate_to_iso(it['pubDate'])
         if iso_date and iso_date < cutoff:
@@ -245,7 +272,12 @@ def scrape(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
         ticker = info['ticker'] or ''
 
         if not company:
-            continue
+            # Fallback : prend les ~60 premiers chars avant ' - ' ou tag provider
+            fallback = re.split(r'\s*-\s*(Investegate|TradingView|Bolsamania|AD HOC NEWS)', title, flags=re.IGNORECASE)[0]
+            fallback = re.split(r'\s*-\s*', fallback)[0][:80].strip()
+            if len(fallback) < 4:
+                continue
+            company = fallback
 
         filer = extract_filer_from_uk_title(it['title'])
         threshold = None

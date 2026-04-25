@@ -227,27 +227,36 @@ def scrape(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
         time.sleep(0.5)  # politesse Google
     print(f'  → {len(raw_items)} items uniques (sur {len(GOOGLE_NEWS_QUERIES_FR)} requetes)')
 
-    # Filtre : on garde seulement les titres qui ressemblent a un franchissement
+    # Filtre relax : on garde tous les titres qui ressemblent a un franchissement
+    # OU qui mentionnent l'AMF + un % OU qui ont des mots cles de seuil
     THRESHOLD_KEYWORDS = re.compile(
-        r'(franchit|franchi|au-dessus|d[eé]passe|d[eé]passement|seuil|monte\s*[àa]|capital\s+de)',
+        r'(franchit|franchi|au-dessus|d[eé]passe|d[eé]passement|seuil|monte\s*[àa]|sous\s+le\s+seuil|passe\s+sous|cession|prise\s+de\s+participation|d[eé]clar[eé]\s+d[eé]tenir)',
         re.IGNORECASE,
     )
     filings = []
     for it in raw_items:
-        if not THRESHOLD_KEYWORDS.search(it['title']):
+        title = it['title']
+        has_keyword = bool(THRESHOLD_KEYWORDS.search(title))
+        has_pct = bool(re.search(r'\d+\s*%', title))
+        has_capital = 'capital' in title.lower()
+
+        # Garde si : keyword OU (mention capital + %)
+        if not (has_keyword or (has_capital and has_pct)):
             continue
-        if not re.search(r'\d+\s*%', it['title']):
-            continue  # pas de pourcentage = pas pertinent
 
         iso_date = parse_pubdate_to_iso(it['pubDate'])
         if iso_date and iso_date < cutoff:
             continue
 
-        parsed = parse_title_for_threshold(it['title'])
+        parsed = parse_title_for_threshold(title)
 
-        # Heuristique : enleve les annonces sans target identifiable
+        # Si pas de target identifié, fallback sur le titre tronqué
         if not parsed['target']:
-            continue
+            # Prend les premiers ~60 chars avant ' - ' ou ':'
+            fallback = re.split(r'\s*[-:]\s*', title)[0][:80].strip()
+            if len(fallback) < 4:
+                continue
+            parsed['target'] = fallback
 
         filer = parsed['filer'] or ''
         target = parsed['target'] or ''
