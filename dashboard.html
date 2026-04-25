@@ -14429,13 +14429,17 @@
 
       const fieldsHtml = (broker.authFields || []).map(f => {
         const id = `bf_${f.name}`;
+        const ph = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
         if (f.type === 'select') {
           const opts = (f.options || []).map(o => `<option value="${escapeHtml(o)}"${f.default === o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('');
           return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><select id="${id}" name="${escapeHtml(f.name)}">${opts}</select></div>`;
         }
-        return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><input id="${id}" name="${escapeHtml(f.name)}" type="${f.type || 'text'}" ${f.required ? 'required' : ''} autocomplete="off" /></div>`;
+        return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><input id="${id}" name="${escapeHtml(f.name)}" type="${f.type || 'text'}"${ph} ${f.required ? 'required' : ''} autocomplete="off" spellcheck="false" /></div>`;
       }).join('');
-      document.getElementById('brokerFormFields').innerHTML = fieldsHtml
+      // helpHtml provient du backend (ex: checklist 4 points pour IG)
+      // /!\ Trust : c'est nous qui le générons côté serveur, donc HTML safe
+      const helpHtml = broker.helpHtml || '';
+      document.getElementById('brokerFormFields').innerHTML = helpHtml + fieldsHtml
         + (broker.docsUrl ? `<p style="font-size:11px;color:var(--text-muted);margin-top:8px">📘 <a href="${broker.docsUrl}" target="_blank" rel="noopener" style="color:var(--accent-blue)">Doc officielle pour obtenir les identifiants</a></p>` : '');
     }
 

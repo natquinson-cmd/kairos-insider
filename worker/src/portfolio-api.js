@@ -48,12 +48,22 @@ export const SUPPORTED_BROKERS = [
     status: 'live',                           // ✅ Phase 2 : adapter IG actif
     description: 'API REST officielle · 17 000 produits · FR/UK/DE',
     authFields: [
-      { name: 'username', label: 'Nom d\'utilisateur IG', type: 'text', required: true },
+      { name: 'username', label: 'Nom d\'utilisateur IG', type: 'text', required: true, placeholder: 'Le même qu\'à la connexion sur ig.com' },
       { name: 'password', label: 'Mot de passe', type: 'password', required: true },
-      { name: 'apiKey',   label: 'Clé API (onglet "My API Keys" dans le compte IG)', type: 'text', required: true },
+      { name: 'apiKey',   label: 'Clé API', type: 'text', required: true, placeholder: 'Format : 32+ caractères alphanum' },
       { name: 'environment', label: 'Environnement', type: 'select', options: ['demo', 'live'], default: 'live', required: true },
     ],
     docsUrl: 'https://labs.ig.com/gettingstarted',
+    // Bloc d'aide affiché au-dessus du form (checklist 4 points)
+    helpHtml: `<div style="background:rgba(59,130,246,0.05);border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.55;color:var(--text-secondary)">
+      <strong style="color:var(--accent-blue);display:block;margin-bottom:6px">📋 Checklist avant connexion :</strong>
+      <ol style="margin:0;padding-left:18px">
+        <li><strong>Clé API distincte par environnement</strong> : la clé "live" ne marche pas en demo et vice-versa. Génère la bonne sur <a href="https://www.ig.com/uk/myig/settings/api-keys" target="_blank" rel="noopener" style="color:var(--accent-blue)">My IG → Settings → API Keys</a>.</li>
+        <li><strong>Active la clé après création</strong> (statut doit être "Enabled", pas "Disabled").</li>
+        <li><strong>Pas de 2FA bloquante</strong> : si tu as activé le 2FA SMS, l'API peut le contourner. Si tu as activé le 2FA app, ça marche aussi.</li>
+        <li><strong>Pas d'IP whitelist trop stricte</strong> : si tu as restreint la clé à une IP spécifique, le worker Kairos (Cloudflare edge, IP variable) ne pourra pas se connecter. <strong>Désactive la restriction IP</strong> sur la clé.</li>
+      </ol>
+    </div>`,
   },
   {
     id: 'ibkr',
@@ -335,14 +345,21 @@ const BROKER_ADAPTERS = {
     async validateCreds(creds) {
       const required = ['username', 'password', 'apiKey'];
       for (const f of required) {
-        if (!creds[f] || typeof creds[f] !== 'string' || creds[f].length < 3) {
-          return { ok: false, error: `Champ manquant ou invalide : ${f}` };
+        if (!creds[f] || typeof creds[f] !== 'string') {
+          return { ok: false, error: `Champ manquant : ${f}` };
+        }
+        // Trim côté serveur : élimine les espaces invisibles copiés-collés
+        // (ex: copier la clé depuis IG colle parfois un \r ou un espace en fin)
+        creds[f] = creds[f].trim();
+        if (creds[f].length < 3) {
+          return { ok: false, error: `Champ trop court : ${f}` };
         }
       }
       const env = (creds.environment || 'live').toLowerCase();
       if (!['live', 'demo'].includes(env)) {
         return { ok: false, error: 'Environnement doit être "live" ou "demo"' };
       }
+      creds.environment = env;
       return { ok: true };
     },
 
@@ -374,17 +391,40 @@ const BROKER_ADAPTERS = {
         let errBody = '';
         try { errBody = await sessionResp.text(); } catch {}
         const errCode = sessionResp.status;
-        let userMsg = `IG auth échouée (HTTP ${errCode})`;
-        if (errCode === 401 || errCode === 403) {
-          userMsg = 'IG : identifiants invalides. Vérifie nom d\'utilisateur, mot de passe et clé API (cf. Mes Préférences > API Keys).';
-        } else if (errCode === 404) {
-          userMsg = 'IG : compte inexistant. Vérifie l\'environnement (live ou demo).';
-        } else if (errBody.includes('error.security.api-key-invalid')) {
-          userMsg = 'IG : clé API invalide. Crée une nouvelle clé dans My IG > Settings > API Keys.';
-        } else if (errBody.includes('error.security.client-token-invalid')) {
-          userMsg = 'IG : token client invalide. Réessaie dans quelques minutes.';
+
+        // Tente d'extraire l'errorCode exact d'IG (au format JSON)
+        let igErrorCode = '';
+        try {
+          const parsed = JSON.parse(errBody);
+          if (parsed && parsed.errorCode) igErrorCode = parsed.errorCode;
+        } catch {}
+
+        // Mapping errorCode IG → message FR clair (issu de la doc IG)
+        const igErrorMap = {
+          'error.security.api-key-invalid': 'Clé API invalide. Vérifie qu\'elle correspond bien à l\'environnement (live OU demo) — elles sont distinctes.',
+          'error.security.api-key-disabled': 'Cette clé API est désactivée. Active-la dans My IG > Settings > API Keys.',
+          'error.security.api-key-revoked': 'Clé API révoquée. Génères-en une nouvelle.',
+          'error.security.api-key-restricted': 'Cette clé API est restreinte (IP whitelist activée chez IG ?). Vérifie My IG > Settings > API Keys.',
+          'error.security.invalid-details': 'Identifiants invalides : nom d\'utilisateur ou mot de passe incorrect.',
+          'error.security.account-suspended': 'Compte IG suspendu. Contacte le support IG.',
+          'error.security.client-token-invalid': 'Token client invalide. Patiente quelques minutes et réessaie.',
+          'error.security.account-temporarily-locked': 'Compte temporairement bloqué (trop de tentatives). Patiente 1h.',
+          'error.public-api.exceeded-account-allowance': 'Trop de tentatives de login (max 30/h). Patiente 1h.',
+          'error.security.account-permission-required': 'Permissions insuffisantes sur ce compte. Active l\'accès API dans My IG.',
+          'error.security.encrypted-password-required': 'Compte exigeant un mot de passe chiffré (V3 API). Non supporté actuellement.',
+        };
+
+        let userMsg = igErrorMap[igErrorCode];
+        if (!userMsg) {
+          if (errCode === 401 || errCode === 403) {
+            userMsg = `IG : authentification refusée (${igErrorCode || 'HTTP ' + errCode}). Vérifie : (1) clé API correspondant à l'environnement choisi, (2) nom d'utilisateur ET mot de passe, (3) que la clé API est activée dans My IG.`;
+          } else if (errCode === 404) {
+            userMsg = 'IG : compte inexistant. Vérifie l\'environnement (live ou demo).';
+          } else {
+            userMsg = `IG : erreur HTTP ${errCode}${igErrorCode ? ' (' + igErrorCode + ')' : ''}`;
+          }
         }
-        return { error: userMsg, positions: [], totalValue: 0, raw: errBody.slice(0, 200) };
+        return { error: userMsg, positions: [], totalValue: 0, igErrorCode, raw: errBody.slice(0, 300) };
       }
 
       const cst = sessionResp.headers.get('CST');
@@ -519,6 +559,7 @@ export function handlePortfolioBrokers(env, origin) {
     description: b.description,
     authFields: b.authFields,
     docsUrl: b.docsUrl,
+    helpHtml: b.helpHtml || null,            // checklist d'aide affichée dans le form
   }));
   return { brokers: publicBrokers };
 }
