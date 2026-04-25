@@ -40,15 +40,18 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-amf-thresholds.py --days 30
+          python fetch-amf-thresholds.py --days 30 --debug
         continue-on-error: true
 
-      - name: Upload AMF data artifact (debug)
+      - name: Upload AMF data + rendered HTML (debug)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: amf-thresholds-data
-          path: worker/amf_thresholds_data.json
+          name: amf-thresholds-debug
+          path: |
+            worker/amf_thresholds_data.json
+            worker/amf_rendered.html
+          if-no-files-found: ignore
           retention-days: 7
 
   bafin-thresholds:

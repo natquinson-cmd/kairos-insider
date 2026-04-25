@@ -235,21 +235,46 @@ def scrape_amf(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
         )
         page = context.new_page()
 
-        # Hook de capture des requetes XHR de recherche
+        # Hook de capture LARGE des requetes XHR/Fetch (pas filtre par URL)
         def on_response(response):
-            url = response.url
             try:
-                if response.request.resource_type in ('xhr', 'fetch') and (
-                    'search' in url.lower() or 'recherche' in url.lower() or 'api' in url.lower()
-                ):
-                    if response.ok:
-                        try:
-                            body = response.json()
-                            captured_xhr.append({'url': url, 'body': body})
-                            if debug:
-                                print(f'  [XHR captured] {url[:100]}...')
-                        except Exception:
-                            pass
+                if response.request.resource_type not in ('xhr', 'fetch'):
+                    return
+                if not response.ok:
+                    return
+                ctype = response.headers.get('content-type', '').lower()
+                if 'json' not in ctype:
+                    return
+                try:
+                    body = response.json()
+                except Exception:
+                    return
+                # Filtre : on garde les responses qui ressemblent a une liste de
+                # documents (heuristique : contient un tableau de >= 3 elements
+                # avec un champ titre ou date)
+                items = []
+                if isinstance(body, dict):
+                    for key in ('results', 'items', 'documents', 'docs', 'hits',
+                                'data', 'response', 'rows'):
+                        v = body.get(key)
+                        if isinstance(v, list) and len(v) >= 1:
+                            items = v
+                            break
+                        if isinstance(v, dict):
+                            for k2 in ('results', 'items', 'documents', 'docs', 'hits'):
+                                v2 = v.get(k2)
+                                if isinstance(v2, list) and len(v2) >= 1:
+                                    items = v2
+                                    break
+                            if items:
+                                break
+                elif isinstance(body, list):
+                    items = body
+
+                if items and len(items) >= 1:
+                    captured_xhr.append({'url': response.url, 'body': body, 'items_count': len(items)})
+                    if debug:
+                        print(f'  [XHR captured] {response.url[:120]} → {len(items)} items')
             except Exception:
                 pass
 
@@ -257,42 +282,52 @@ def scrape_amf(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
 
         try:
             page.goto(SEARCH_URL, wait_until='domcontentloaded', timeout=PAGE_TIMEOUT_MS)
-            # Attend que les resultats apparaissent (selecteurs candidates)
+            # Attente conjointe : DOM + network idle (laisse le JS finir)
+            try:
+                page.wait_for_load_state('networkidle', timeout=20000)
+            except PlaywrightTimeoutError:
+                pass
+
+            # Attend que les resultats apparaissent (selecteurs etendus)
             selectors = [
-                '.result-search', '.search-result', 'article[role="article"]',
-                '.views-row', '.search-results-list',
+                '.result-search', '.search-result', '[class*="result"]',
+                'article[role="article"]', '.views-row', '.search-results-list',
+                'main article', '[data-result]', '.list-item',
             ]
             seen = False
             for sel in selectors:
                 try:
-                    page.wait_for_selector(sel, timeout=RESULT_WAIT_MS)
+                    page.wait_for_selector(sel, timeout=4000)
                     seen = True
-                    if debug:
-                        print(f'  [DOM ready] selector trouve : {sel}')
+                    print(f'  [DOM ready] selector trouve : {sel}')
                     break
                 except PlaywrightTimeoutError:
                     continue
 
             if not seen:
-                print('  [WARN] Aucun selector de resultat trouve. Capture XHR a l\'aveugle.')
-                page.wait_for_load_state('networkidle', timeout=RESULT_WAIT_MS)
+                print('  [WARN] Aucun selector connu trouve. Sleep 3s et tente XHR...')
+                page.wait_for_timeout(3000)
 
-            # Sauvegarde le HTML pour debug post-mortem
-            if debug:
-                with open('/tmp/amf-rendered.html' if os.name != 'nt' else 'C:/tmp/amf-rendered.html', 'w', encoding='utf-8') as f:
-                    f.write(page.content())
-                print(f'  [DEBUG] HTML rendu sauve dans amf-rendered.html ({len(page.content())} chars)')
+            # Sauvegarde TOUJOURS le HTML rendu pour debug (artifact GitHub Actions)
+            html_path = 'amf_rendered.html'
+            try:
+                content = page.content()
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                print(f'  [HTML] {len(content):,} chars sauves dans {html_path}')
+            except Exception as e:
+                print(f'  [HTML] sauvegarde rate : {e}')
 
-            # ===== Strategie 1 : utiliser les XHR captures si on a trouve l'API =====
+            # ===== Strategie 1 : XHR captures =====
             if captured_xhr:
                 print(f'  [API] {len(captured_xhr)} XHR JSON captures, parse...')
                 for cap in captured_xhr:
                     extracted = extract_from_xhr_payload(cap['body'])
                     filings.extend(extracted)
 
-            # ===== Strategie 2 : DOM scraping (fallback) =====
+            # ===== Strategie 2 : DOM scraping fallback =====
             if not filings:
-                print('  [DOM] Pas de XHR exploitable, fallback DOM scraping...')
+                print('  [DOM] Pas de XHR exploitable ou pas de filings dans XHR, fallback DOM scraping...')
                 filings = scrape_dom_pages(page, cutoff, debug=debug)
 
             browser.close()
