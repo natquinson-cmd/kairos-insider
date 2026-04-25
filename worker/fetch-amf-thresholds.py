@@ -282,31 +282,25 @@ def scrape_amf(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
 
         try:
             page.goto(SEARCH_URL, wait_until='domcontentloaded', timeout=PAGE_TIMEOUT_MS)
-            # Attente conjointe : DOM + network idle (laisse le JS finir)
+            # Attend longuement pour laisser AMF charger les vrais filings
+            # (.result-search est present dans le shell, mais les resultats
+            # individuels arrivent via XHR async qui peut prendre 30+ sec)
             try:
-                page.wait_for_load_state('networkidle', timeout=20000)
+                page.wait_for_load_state('networkidle', timeout=45000)
+                print('  [LOAD] networkidle atteint')
             except PlaywrightTimeoutError:
-                pass
+                print('  [LOAD] networkidle timeout, on continue')
 
-            # Attend que les resultats apparaissent (selecteurs etendus)
-            selectors = [
-                '.result-search', '.search-result', '[class*="result"]',
-                'article[role="article"]', '.views-row', '.search-results-list',
-                'main article', '[data-result]', '.list-item',
-            ]
-            seen = False
-            for sel in selectors:
-                try:
-                    page.wait_for_selector(sel, timeout=4000)
-                    seen = True
-                    print(f'  [DOM ready] selector trouve : {sel}')
-                    break
-                except PlaywrightTimeoutError:
-                    continue
+            # Sleep additionnel pour laisser les XHR de search terminer
+            page.wait_for_timeout(5000)
 
-            if not seen:
-                print('  [WARN] Aucun selector connu trouve. Sleep 3s et tente XHR...')
-                page.wait_for_timeout(3000)
+            # Compte combien de blocs de resultats sont dans le DOM finalise
+            for sel in ['article[class*="result"]', '.search-results-list article',
+                       'div[class*="search-result-item"]', '.publication-item',
+                       '[data-result-item]', 'article']:
+                count = len(page.query_selector_all(sel))
+                if count > 0:
+                    print(f'  [DOM] selector "{sel}" → {count} elements')
 
             # Sauvegarde TOUJOURS le HTML rendu pour debug (artifact GitHub Actions)
             html_path = 'amf_rendered.html'
@@ -357,7 +351,8 @@ def scrape_amf(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
 
 def extract_from_xhr_payload(body):
     """Si le frontend AMF appelle un endpoint JSON, on parse la response.
-    Le format exact n'est pas documente, on essaie plusieurs structures connues."""
+    Le format exact n'est pas documente, on essaie plusieurs structures connues.
+    Defensif : type-check tous les fields avant strip()."""
     out = []
     # Structure typique : { "results": [...] } ou { "data": { "items": [...] } }
     candidates = []
@@ -378,13 +373,41 @@ def extract_from_xhr_payload(body):
     elif isinstance(body, list):
         candidates = body
 
+    # Filter : skip les payloads qui ne ressemblent pas a des declarations
+    # (ex: countries.json contient {code, name} → pas de title/date)
+    def is_declaration_like(item):
+        if not isinstance(item, dict):
+            return False
+        # Au moins un champ ressemblant à un titre + une date
+        has_text = any(k in item for k in ('title', 'label', 'name', 'document_title'))
+        has_date = any(k in item for k in ('date', 'publication_date', 'created_at', 'publishedDate'))
+        return has_text and has_date
+
+    if candidates and not any(is_declaration_like(c) for c in candidates[:5]):
+        return []  # ce XHR n'est pas une liste de declarations
+
+    def safe_str(v):
+        """Coerce a str safe pour strip()."""
+        if v is None:
+            return ''
+        if isinstance(v, str):
+            return v
+        if isinstance(v, dict):
+            # Parfois la value est {"value": "...", "format": "..."}
+            return str(v.get('value', '') or v.get('text', '') or '')
+        return str(v)
+
     for item in candidates:
         if not isinstance(item, dict):
             continue
-        title = item.get('title') or item.get('label') or item.get('name') or ''
-        date_str = item.get('date') or item.get('publication_date') or item.get('created_at') or ''
+        title = safe_str(item.get('title') or item.get('label') or item.get('name') or '')
+        date_str = safe_str(item.get('date') or item.get('publication_date') or item.get('created_at') or item.get('publishedDate') or '')
         url = item.get('url') or item.get('link') or item.get('path') or None
+        if isinstance(url, dict):
+            url = url.get('href') or url.get('value') or None
         accession = item.get('id') or item.get('uuid') or item.get('uri') or None
+        if isinstance(accession, dict):
+            accession = accession.get('value') or None
 
         parsed_title = parse_amf_title(title)
         threshold = parse_amf_threshold(title)
