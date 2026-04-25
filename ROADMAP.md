@@ -32,31 +32,35 @@ local) · cron lun-ven 5h UTC.
 
 ✅ **Landing page hero** : *"fonds offensifs (🇺🇸 🇫🇷 🇩🇪 🇬🇧)"* en FR + EN.
 
-#### État des 4 sources
+#### État des 4 sources (mis à jour 25 avril 2026 - v4)
 
-| Source | Statut | Volume | Notes |
+| Source | Statut | Volume | Méthode |
 |---|:---:|:---:|---|
 | 🇺🇸 **SEC EDGAR** | ✅ live (préexistant) | 37 695 filings | Pipeline existant `update-13f.yml` · cron quotidien |
-| 🇩🇪 **BaFin** | ✅ **live** (premier run réussi) | 148 filings | CSV public officiel (`portal.mvp.bafin.de/AnteileInfo`) · pattern URL avec param hex `6578706f7274=1` découvert |
-| 🇫🇷 **AMF** | ⚠️ scraper en place, **0 filing capturé** | 0 | Page AMF SPA très lente (>45s pour charger les filings via XHR) · le wait_for_load_state networkidle expire avant que les data arrivent |
-| 🇬🇧 **FCA** (via Investegate) | ⚠️ scraper en place, **0 filing capturé** | 0 | Investegate.co.uk est aussi une SPA (DataTable AJAX), seulement 5 annonces dans le HTML server-side |
+| 🇩🇪 **BaFin** | ✅ live | 148 filings | CSV public officiel (`AnteileInfo/zeigeGesamtExport`) |
+| 🇫🇷 **AMF** | ✅ **live** | 6 filings (peut grandir) | **Google News RSS multi-query** (Boursier, Fortuneo, AMF) |
+| 🇬🇧 **FCA** | ✅ **live** | 29 filings | **Google News RSS multi-query** (TradingView, Investegate, Bolsamania) |
 
-#### Apprentissages techniques (sprints v3)
+**Total : ~37 878 filings 4 marchés en prod**.
 
-**AMF + LSE + Investegate + FCA NSM** sont **TOUS des SPA Angular/React très
-bien protégées** contre le scraping headless :
-- AMF : DOM rendu après 60s reste vide (2k chars = juste menu/footer)
-- LSE : 0 XHR JSON capturé (anti-bot detection avancée)
-- Investegate : DataTable AJAX, seulement 5 announcements en HTML statique
-- FCA NSM : SPA Angular comme AMF, idem
+#### Apprentissages techniques
 
-**Solutions futures pour AMF + UK** :
-- **API tierce payante** : Refinitiv ($1k+/mois), S&P Capital IQ, FactSet
-- **Plugin stealth** : `puppeteer-extra-plugin-stealth` ou playwright-stealth
-  pour contourner la bot detection (pas testé)
-- **Demande d'accès partner** : AMF/FCA peuvent fournir un dataset partner
-  sur demande pour usage fintech (process administratif 2-4 semaines)
-- **Aggrégateur B2B** : openfigi.com, sharespro, RNS Wire (~$200/mois)
+Sprints v1-v3 (Playwright direct) **ÉCHEC** :
+- AMF + LSE + Investegate + FCA NSM = SPA Angular/React très bien protégées
+- DOM rendu vide après 60s, anti-bot avancé, 0 XHR JSON capturé
+
+Sprint v4 (Google News RSS) **SUCCÈS** :
+- Pivot vers agrégation Google News multi-query
+- Sources tierces (Boursier, Fortuneo, TradingView, Investegate via Google)
+- Pas de Playwright, pas de Chromium, pas de bot detection
+- Workflow réduit de 5min → 1min
+- Volume actuel : 6 FR + 29 UK (parser strict, peut grandir avec amélioration regex)
+
+**Améliorations futures sans rupture** :
+- Élargir KNOWN_ACTIVISTS_EU pour mieux flagger
+- Améliorer parser title (regex actuel rejette beaucoup d'items)
+- Suivre les links Google News pour récupérer le texte complet de l'article
+- Ajouter des requêtes Google News spécifiques (par grand fonds)
 
 #### Phase 4 + 5 — En attente
 
