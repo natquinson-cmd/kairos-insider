@@ -66,9 +66,13 @@ def is_known_activist(name):
     return None
 
 
-def fetch_page(types_info='SPDE', types_doc='Declarations', page=0, size=PAGE_SIZE, debug=False):
-    """Fetch une page de l'API BDIF."""
-    url = f'{API_BASE}?TypesInformation={types_info}&TypesDocument={types_doc}&page={page}&size={size}'
+def fetch_page(types_info='SPDE', types_doc='Declarations', from_offset=0, size=PAGE_SIZE, debug=False):
+    """Fetch une page de l'API BDIF.
+
+    NOTE: l'API BDIF utilise 'from' (offset Elasticsearch) PAS 'page' !
+    Le param 'page' est silencieusement ignoré (toujours retourne page 0).
+    """
+    url = f'{API_BASE}?TypesInformation={types_info}&TypesDocument={types_doc}&from={from_offset}&size={size}'
     req = urllib.request.Request(url, headers={
         'Accept': 'application/json',
         'Origin': 'https://bdif.amf-france.org',
@@ -183,27 +187,24 @@ def fetch_all_recent(lookback_days, debug=False):
 
     filings = []
     seen_numeros = set()
-    page = 0
-    max_pages = 50  # safety - 50*100 = 5000 max
+    from_offset = 0
+    max_iterations = 100  # safety - 100*100 = 10000 max
 
-    while page < max_pages:
-        data = fetch_page(page=page, size=PAGE_SIZE, debug=debug)
+    for page in range(max_iterations):
+        data = fetch_page(from_offset=from_offset, size=PAGE_SIZE, debug=debug)
         if not data or not data.get('result'):
-            if debug: print(f'  [PAGE {page}] no result, stop')
+            if debug: print(f'  [PAGE {page}/from={from_offset}] no result, stop')
             break
         results = data.get('result') or []
         page_keep = 0
         page_skip_old = 0
-        page_too_old_count = 0  # consecutif
         for r in results:
-            iso_date = parse_date_iso(r.get('dateAction')) or parse_date_iso(r.get('datePublication'))
+            iso_date = parse_date_iso(r.get('dateAction')) or parse_date_iso(r.get('datePublication')) or parse_date_iso(r.get('dateInformation'))
             if not iso_date:
                 continue
             if iso_date < cutoff:
                 page_skip_old += 1
-                page_too_old_count += 1
                 continue
-            page_too_old_count = 0  # reset (on a un valide)
             numero = r.get('numero') or ''
             if numero in seen_numeros: continue
             seen_numeros.add(numero)
@@ -213,14 +214,17 @@ def fetch_all_recent(lookback_days, debug=False):
             page_keep += 1
 
         if debug:
-            print(f'  [PAGE {page}] retenus={page_keep} skip_old={page_skip_old} total_filings={len(filings)}')
+            print(f'  [PAGE {page}/from={from_offset}] hits={len(results)} retenus={page_keep} skip_old={page_skip_old} total={len(filings)}')
 
-        # Si tous les items de la page sont trop vieux, on arrete (resultats triés par date DESC)
+        # Stop si tous trop vieux ou fin de stream
         if page_skip_old >= len(results) and len(results) > 0:
             if debug: print(f'  [PAGE {page}] tous trop vieux, stop')
             break
-        page += 1
-        time.sleep(0.3)  # rate limit politesse
+        if len(results) < PAGE_SIZE:
+            if debug: print(f'  [PAGE {page}] fin de stream ({len(results)} < {PAGE_SIZE})')
+            break
+        from_offset += PAGE_SIZE
+        time.sleep(0.3)
 
     return filings
 
