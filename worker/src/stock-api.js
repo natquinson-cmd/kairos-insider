@@ -77,9 +77,9 @@ async function fetchWithRetry(url, init = {}, opts = {}) {
 // ============================================================
 // ENTREE PRINCIPALE
 // ============================================================
-export async function handleStockAnalysis(ticker, env, options = {}) {
+export async function handleStockAnalysis(rawInput, env, options = {}) {
   const { publicView = false, chartRange = '1y' } = options;
-  const userInput = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
+  const userInput = String(rawInput || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!userInput || userInput.length > 60) {
     return { error: 'Invalid ticker', code: 'INVALID_TICKER' };
   }
