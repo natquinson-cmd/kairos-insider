@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Backtest Smart Money — Kairos Insider</title>
+  <meta name="description" content="Simulez le rendement que vous auriez fait en suivant Cevian, BlackRock, Norges Bank ou tout autre fonds activiste sur 1, 3 ou 5 ans. 100 % gratuit." />
+  <link rel="canonical" href="https://kairosinsider.fr/backtest" />
+  <meta property="og:title" content="Backtest Smart Money — Combien auriez-vous gagné en suivant les fonds ?" />
+  <meta property="og:description" content="Simulation gratuite : Cevian, BlackRock, Elliott, Bernard Arnault... voyez leur performance historique sur 12 marchés." />
+  <meta property="og:image" content="https://kairosinsider.fr/assets/og-backtest.png" />
+  <meta property="og:url" content="https://kairosinsider.fr/backtest" />
+  <link rel="icon" type="image/png" href="/assets/logo.png" />
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    :root {
+      --bg: #0B0F1A;
+      --surface: #131829;
+      --surface-2: #1A2138;
+      --border: #2A3149;
+      --border-strong: #3A4366;
+      --text-primary: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --accent: #3B82F6;
+      --accent-hover: #2563EB;
+      --green: #10B981;
+      --red: #EF4444;
+      --gold: #FBBF24;
+    }
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    header.topnav {
+      padding: 18px 32px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    header.topnav .logo {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    header.topnav .logo span { color: var(--accent); }
+    header.topnav nav a {
+      margin-left: 24px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    header.topnav nav a:hover { color: var(--text-primary); }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .hero h1 {
+      font-size: 42px;
+      margin: 0 0 16px;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+    }
+    .hero h1 span.gradient {
+      background: linear-gradient(135deg, #3B82F6, #10B981);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p { font-size: 18px; color: var(--text-secondary); margin: 0 auto; max-width: 720px; }
+    .hero .free-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      margin-bottom: 32px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: 16px;
+      align-items: end;
+    }
+    @media (max-width: 720px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+    .form-row label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .form-row select, .form-row input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+    .form-row select:focus, .form-row input:focus {
+      border-color: var(--accent);
+    }
+    .form-row button {
+      padding: 12px 28px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .form-row button:hover { background: var(--accent-hover); }
+    .form-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .results { margin-top: 32px; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .summary-card .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .summary-card .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .summary-card .value.positive { color: var(--green); }
+    .summary-card .value.negative { color: var(--red); }
+    .summary-card .sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .vs-bench {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .vs-bench h3 { margin: 0 0 12px; font-size: 16px; color: var(--text-primary); }
+    .vs-bench .bars { display: flex; flex-direction: column; gap: 8px; }
+    .vs-bench .bar-row { display: flex; align-items: center; gap: 12px; }
+    .vs-bench .bar-row .name { width: 130px; font-size: 13px; color: var(--text-secondary); }
+    .vs-bench .bar-row .bar-track { flex: 1; height: 24px; background: var(--surface-2); border-radius: 6px; position: relative; overflow: hidden; }
+    .vs-bench .bar-row .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #10B981);
+      transition: width 0.6s ease;
+    }
+    .vs-bench .bar-row .bar-fill.bench { background: linear-gradient(90deg, #64748B, #94A3B8); }
+    .vs-bench .bar-row .bar-fill.negative { background: linear-gradient(90deg, #EF4444, #DC2626); }
+    .vs-bench .bar-row .pct { width: 70px; text-align: right; font-weight: 600; }
+
+    table {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      border-collapse: collapse;
+    }
+    table th, table td { padding: 12px 16px; text-align: left; font-size: 14px; }
+    table th { background: var(--surface-2); color: var(--text-secondary); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    table tr { border-top: 1px solid var(--border); }
+    table .ticker { font-weight: 600; color: var(--accent); }
+    table .ret { font-weight: 700; }
+    table .ret.positive { color: var(--green); }
+    table .ret.negative { color: var(--red); }
+    .loading { text-align: center; padding: 48px; color: var(--text-secondary); }
+    .empty { text-align: center; padding: 48px; color: var(--text-muted); }
+    .cta-bottom {
+      margin-top: 64px;
+      padding: 32px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      text-align: center;
+    }
+    .cta-bottom h2 { margin: 0 0 12px; font-size: 24px; }
+    .cta-bottom p { color: var(--text-secondary); margin: 0 0 20px; }
+    .cta-bottom a {
+      display: inline-block;
+      padding: 12px 28px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .cta-bottom a:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <header class="topnav">
+    <a class="logo" href="/">Kairos<span>.</span>Insider</a>
+    <nav>
+      <a href="/">Accueil</a>
+      <a href="/backtest">Backtest <span style="font-size:10px;background:#10B981;color:#fff;padding:2px 6px;border-radius:8px;margin-left:4px;font-weight:700">FREE</span></a>
+      <a href="/dashboard">Dashboard</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <div class="hero">
+      <span class="free-badge">100 % GRATUIT — Pas de compte requis</span>
+      <h1>Combien auriez-vous gagné en suivant <span class="gradient">les fonds activistes</span> ?</h1>
+      <p>Sélectionnez un fonds (Cevian, BlackRock, Elliott, Bernard Arnault...) et la période. Nous calculons en direct le rendement moyen de ses positions sur 12 marchés (US 🇺🇸 + Europe 🇫🇷🇬🇧🇩🇪🇨🇭🇳🇱🇮🇹🇪🇸 + Nordics 🇸🇪🇳🇴🇩🇰🇫🇮).</p>
+    </div>
+
+    <div class="form-card">
+      <div class="form-row">
+        <div>
+          <label for="filer">Fonds smart money</label>
+          <select id="filer">
+            <option value="">Chargement...</option>
+          </select>
+        </div>
+        <div>
+          <label for="period">Période</label>
+          <select id="period">
+            <option value="1y">1 an</option>
+            <option value="3y" selected>3 ans</option>
+            <option value="5y">5 ans</option>
+          </select>
+        </div>
+        <button id="btn-run">▶ Lancer le backtest</button>
+      </div>
+    </div>
+
+    <div id="results"></div>
+
+    <div class="cta-bottom">
+      <h2>Envie d'être alerté en temps réel ?</h2>
+      <p>Recevez un email dès que ces fonds prennent une position sur une nouvelle action. Plan gratuit disponible.</p>
+      <a href="/#pricing">Créer mon compte gratuit</a>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.hostname === 'kairosinsider.fr' || window.location.hostname.endsWith('kairosinsider.fr')
+      ? '/api'
+      : 'https://kairos-insider-api.natquinson.workers.dev/api';
+
+    const filerSelect = document.getElementById('filer');
+    const periodSelect = document.getElementById('period');
+    const btnRun = document.getElementById('btn-run');
+    const resultsDiv = document.getElementById('results');
+
+    // Tag emoji selon catégorie
+    const tagEmoji = {
+      activist: '⚡',
+      institutional: '🏦',
+      hedgefund: '💰',
+      family: '👑',
+      state: '🏛️',
+    };
+
+    async function loadFilers() {
+      try {
+        const r = await fetch(`${API}/backtest/list`);
+        const data = await r.json();
+        if (!data.filers) throw new Error('Liste vide');
+        filerSelect.innerHTML = '<option value="">Choisir un fonds...</option>' +
+          data.filers.map(f =>
+            `<option value="${f.key}">${tagEmoji[f.tag] || ''} ${f.label} (${f.country})</option>`
+          ).join('');
+      } catch (e) {
+        filerSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+        console.error(e);
+      }
+    }
+
+    async function runBacktest() {
+      const filer = filerSelect.value;
+      if (!filer) { alert('Sélectionne un fonds'); return; }
+      const period = periodSelect.value;
+      btnRun.disabled = true;
+      btnRun.textContent = '⏳ Calcul en cours...';
+      resultsDiv.innerHTML = '<div class="loading">📊 Récupération des positions et des cours historiques (10-30 sec)…</div>';
+
+      try {
+        const r = await fetch(`${API}/backtest/${encodeURIComponent(filer)}?period=${period}`);
+        const data = await r.json();
+        if (data.error) {
+          resultsDiv.innerHTML = `<div class="empty">❌ Erreur : ${data.error}</div>`;
+          return;
+        }
+        renderResults(data);
+      } catch (e) {
+        resultsDiv.innerHTML = `<div class="empty">❌ Erreur : ${e.message}</div>`;
+      } finally {
+        btnRun.disabled = false;
+        btnRun.textContent = '▶ Lancer le backtest';
+      }
+    }
+
+    function fmtPct(n) {
+      if (n == null || isNaN(n)) return '—';
+      const sign = n > 0 ? '+' : '';
+      return sign + n.toFixed(1) + '%';
+    }
+
+    function renderResults(data) {
+      const s = data.summary || {};
+      const c = data.comparison || {};
+      const filerLabel = data.metadata?.filerLabel || data.filer;
+      const positions = data.positions || [];
+
+      if (s.totalPositions === 0) {
+        resultsDiv.innerHTML = `
+          <div class="empty">
+            <h3 style="color:#94A3B8">${filerLabel}</h3>
+            <p>Aucune position trouvée pour ce fonds sur la période ${data.period}.</p>
+            <p style="font-size:13px">Essaie un autre fonds ou une période plus longue (3 ans / 5 ans).</p>
+          </div>`;
+        return;
+      }
+
+      const avgClass = s.avgReturn > 0 ? 'positive' : (s.avgReturn < 0 ? 'negative' : '');
+      const alphaClass = c.alpha > 0 ? 'positive' : (c.alpha < 0 ? 'negative' : '');
+
+      const benchPctMax = Math.max(Math.abs(s.avgReturn || 0), Math.abs(c.benchmarkReturn || 0));
+      const widthFiler = benchPctMax > 0 ? Math.min(100, Math.abs(s.avgReturn || 0) / benchPctMax * 100) : 0;
+      const widthBench = benchPctMax > 0 ? Math.min(100, Math.abs(c.benchmarkReturn || 0) / benchPctMax * 100) : 0;
+      const filerBarClass = (s.avgReturn || 0) >= 0 ? '' : 'negative';
+      const benchBarClass = (c.benchmarkReturn || 0) >= 0 ? 'bench' : 'negative';
+
+      let html = `
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="label">Rendement moyen</div>
+            <div class="value ${avgClass}">${fmtPct(s.avgReturn)}</div>
+            <div class="sub">par position</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Win rate</div>
+            <div class="value">${(s.winRate || 0).toFixed(1)}%</div>
+            <div class="sub">positions gagnantes</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Alpha vs ${c.benchmark || '—'}</div>
+            <div class="value ${alphaClass}">${fmtPct(c.alpha)}</div>
+            <div class="sub">surperformance</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Positions analysées</div>
+            <div class="value">${s.validPositions}/${s.totalPositions}</div>
+            <div class="sub">avec cours dispo</div>
+          </div>
+        </div>
+
+        <div class="vs-bench">
+          <h3>📈 Performance ${filerLabel} vs benchmark ${c.benchmark}</h3>
+          <div class="bars">
+            <div class="bar-row">
+              <div class="name">${filerLabel}</div>
+              <div class="bar-track"><div class="bar-fill ${filerBarClass}" style="width:${widthFiler}%"></div></div>
+              <div class="pct ${avgClass}">${fmtPct(s.avgReturn)}</div>
+            </div>
+            <div class="bar-row">
+              <div class="name">Benchmark ${c.benchmark}</div>
+              <div class="bar-track"><div class="bar-fill ${benchBarClass}" style="width:${widthBench}%"></div></div>
+              <div class="pct">${fmtPct(c.benchmarkReturn)}</div>
+            </div>
+          </div>
+        </div>
+
+        <h3>Top 30 positions</h3>
+        <table>
+          <thead><tr>
+            <th>Société</th><th>Pays</th><th>Date entrée</th><th>Prix entrée</th><th>Prix actuel</th><th>Rendement</th>
+          </tr></thead>
+          <tbody>`;
+      for (const p of positions) {
+        const cls = p.returnPct > 0 ? 'positive' : (p.returnPct < 0 ? 'negative' : '');
+        html += `<tr>
+          <td><span class="ticker">${p.target || '—'}</span></td>
+          <td>${p.country || '—'}</td>
+          <td>${p.entryDate || p.firstDate || '—'}</td>
+          <td>${p.entryPrice ? p.entryPrice.toFixed(2) : '—'}</td>
+          <td>${p.currentPrice ? p.currentPrice.toFixed(2) : '—'}</td>
+          <td class="ret ${cls}">${fmtPct(p.returnPct)}</td>
+        </tr>`;
+      }
+      html += `</tbody></table>
+        <p style="font-size:12px;color:#64748B;margin-top:12px">
+          ℹ️ MVP : entrée = 1ère déclaration de seuil. Sortie = aujourd'hui (positions encore considérées comme actives).
+          ${data.metadata?.coverNote || ''}
+        </p>`;
+      resultsDiv.innerHTML = html;
+    }
+
+    btnRun.addEventListener('click', runBacktest);
+    loadFilers();
+  </script>
+</body>
+</html>

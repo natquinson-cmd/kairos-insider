@@ -891,6 +891,29 @@ async function handleApiRoute(path, url, env, origin) {
     return handleScheduleDGActivists(url, env, origin);
   }
 
+  // Backtest Smart Money — feature gratuite (acquisition)
+  // GET /api/backtest/list -> liste des filers connus
+  // GET /api/backtest/:filer?period=1y|3y|5y -> backtest d'un filer
+  if (path === '/api/backtest/list') {
+    try {
+      const { KNOWN_FILERS } = await import('./backtest.js');
+      return jsonResponse({ filers: KNOWN_FILERS }, 200, origin);
+    } catch (e) {
+      return jsonResponse({ error: 'Failed to load filers list', detail: String(e) }, 500, origin);
+    }
+  }
+  if (path.startsWith('/api/backtest/')) {
+    try {
+      const filerKey = decodeURIComponent(path.slice('/api/backtest/'.length));
+      const periodKey = url.searchParams.get('period') || '1y';
+      const { handleBacktest } = await import('./backtest.js');
+      const data = await handleBacktest(filerKey, periodKey, env);
+      return jsonResponse(data, 200, origin);
+    } catch (e) {
+      return jsonResponse({ error: 'Backtest failed', detail: String(e) }, 500, origin);
+    }
+  }
+
   // Google Trends : top risers + hot tickers (pour la section Hot Stocks)
   if (path === '/api/trends-hot') {
     const data = await env.CACHE.get('google-trends-hot', 'json');
