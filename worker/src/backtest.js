@@ -37,9 +37,10 @@ const PERIOD_TO_DAYS = { '1y': 365, '3y': 1095, '5y': 1825 };
 
 // Fonds vedettes pour la landing : 5 fonds tres reconnaissables qui resonnent
 // avec le grand public. Cache 24h pour eviter recalcul a chaque load page.
-// Note : ARNAULT vire car LVMH ne se declare pas a l'AMF (uniquement target).
-// Remplace par BOLLORE qui a des positions actives.
-export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'BPIFRANCE', 'BOLLORE'];
+// Note : ARNAULT et BOLLORE viennent rarement comme filer dans les KV.
+// Selection : 1 activist EU + 1 institutional global + 1 sovereign +
+//             1 activist US + 1 state FR
+export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'ELLIOTT', 'BPIFRANCE'];
 
 // Liste des grands smart money pour autocomplete + acquisition
 export const KNOWN_FILERS = [
