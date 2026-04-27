@@ -3691,7 +3691,7 @@
         <div style="margin-bottom:16px">
           <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
         </div>
-        <h2>⚡ Fonds Offensifs <span style="font-size:16px;color:var(--text-muted);font-weight:400">(Activistes)</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#3B82F6,#10B981);color:#fff;border-radius:12px;letter-spacing:0.5px">🇺🇸 🇫🇷 🇩🇪 🇬🇧 4 MARCHÉS</span></h2>
+        <h2>⚡ Fonds Offensifs <span style="font-size:16px;color:var(--text-muted);font-weight:400">(Activistes)</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#3B82F6,#10B981);color:#fff;border-radius:12px;letter-spacing:0.5px">🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 +Nordics 12 MARCHÉS</span></h2>
         <p class="section-desc">Les fonds qui prennent <strong>plus de 3-5 % du capital d'une entreprise pour forcer un changement</strong> (vente d'une division, changement de CEO, rachats d'actions…). Signal quasi-imminent, détecté 35 jours avant les 13F. Données <strong>SEC EDGAR (US)</strong>, <strong>AMF (France)</strong>, <strong>BaFin (Allemagne)</strong> et <strong>FCA via Investegate (UK)</strong>.</p>
 
         <!-- EXPLAINERS PLIABLES (collapsed par defaut pour ne pas surcharger) -->
@@ -15435,7 +15435,16 @@
         return '<span style="color:var(--text-secondary)">● ' + (t || '—') + '</span>';
       };
       const fmtSource = (s) => {
-        const flag = { 'SEC': '🇺🇸', 'AMF': '🇫🇷', 'BAFIN': '🇩🇪', 'FCA': '🇬🇧', 'SEDI': '🇨🇦' }[s] || '🌐';
+        const flag = {
+          'SEC': '🇺🇸', 'AMF': '🇫🇷', 'BAFIN': '🇩🇪', 'FCA': '🇬🇧',
+          'AFM': '🇳🇱', 'SIX-DISCLOSURE': '🇨🇭', 'SIX': '🇨🇭',
+          'CONSOB': '🇮🇹', 'CNMV': '🇪🇸',
+          'FINANSINSPEKTIONEN': '🇸🇪', 'FI': '🇸🇪', 'FI-SE': '🇸🇪',
+          'FINANSTILSYNET (NO)': '🇳🇴', 'FT-NO': '🇳🇴',
+          'FINANSTILSYNET (DK)': '🇩🇰', 'FT-DK': '🇩🇰',
+          'FINANSSIVALVONTA': '🇫🇮', 'FIVA': '🇫🇮',
+          'SEDI': '🇨🇦'
+        }[s] || '🌐';
         return `<span title="${s}">${flag}</span>`;
       };
       const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
