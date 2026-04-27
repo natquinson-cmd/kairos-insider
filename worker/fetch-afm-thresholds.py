@@ -72,19 +72,37 @@ def parse_date_nl(s):
     return None
 
 
-def fetch_csv(debug=False):
-    """Telecharge le CSV AFM public."""
+def fetch_csv(debug=False, max_attempts=3):
+    """Telecharge le CSV AFM public avec retry + streaming."""
     print(f'[AFM] Fetch CSV {CSV_URL[:80]}...')
-    req = urllib.request.Request(CSV_URL, headers={
-        'User-Agent': 'Mozilla/5.0 (KairosInsider) contact@kairosinsider.fr',
-        'Accept': 'text/csv,application/csv,*/*',
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            content_type = resp.headers.get('content-type', '')
-            raw = resp.read()
-            # AFM CSV peut etre en UTF-8 ou ISO-8859-1
-            for enc in ('utf-8', 'utf-8-sig', 'iso-8859-1', 'cp1252'):
+    last_err = None
+    for attempt in range(1, max_attempts + 1):
+        req = urllib.request.Request(CSV_URL, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; KairosInsider/1.0; +https://kairosinsider.fr)',
+            'Accept': 'text/csv,application/csv,*/*;q=0.9',
+            'Accept-Language': 'nl,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+        })
+        try:
+            # Timeout augmente a 180s (AFM serveur peut etre lent sur 21k lignes)
+            # Streaming par chunks de 64k pour eviter timeout sur la lecture
+            t0 = time.time()
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                # Gestion gzip si applicable
+                import gzip
+                content_encoding = resp.headers.get('content-encoding', '').lower()
+                chunks = []
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk: break
+                    chunks.append(chunk)
+                raw = b''.join(chunks)
+                if 'gzip' in content_encoding:
+                    try: raw = gzip.decompress(raw)
+                    except Exception: pass
+            print(f'  [CSV] downloaded {len(raw)} bytes en {time.time()-t0:.1f}s (tentative {attempt})')
+            for enc in ('utf-8-sig', 'utf-8', 'iso-8859-1', 'cp1252'):
                 try:
                     text = raw.decode(enc)
                     if debug: print(f'  [CSV] decode={enc} taille={len(text)}')
@@ -92,9 +110,15 @@ def fetch_csv(debug=False):
                 except UnicodeDecodeError:
                     continue
             return raw.decode('utf-8', errors='replace')
-    except Exception as e:
-        print(f'[AFM] ERREUR fetch : {e}')
-        return None
+        except Exception as e:
+            last_err = e
+            print(f'[AFM] ERREUR fetch tentative {attempt}/{max_attempts} : {e}')
+            if attempt < max_attempts:
+                wait = 5 * attempt
+                print(f'  [RETRY] attente {wait}s...')
+                time.sleep(wait)
+    print(f'[AFM] ERREUR finale apres {max_attempts} tentatives : {last_err}')
+    return None
 
 
 def parse_csv(text, lookback_days, debug=False):

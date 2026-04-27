@@ -4,15 +4,60 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 25 avril 2026 (Radar Portefeuille IG + extension EU smart money)
+**Dernière mise à jour** : 27 avril 2026 (Tier 3 livré : 12 marchés au total)
 
 ---
 
-## 🌍 Extension Smart Money Europe (25 avr 2026) — EN COURS
+## 🌍 Extension Smart Money Europe — Tier 1 + 2 + **Tier 3** (avril 2026)
 
 Objectif : devenir la **seule plateforme francophone smart money EU + US consolidée**.
 WhaleWisdom est US-only, Sicavonline ne fait pas du smart money, Zonebourse n'a pas
-les insiders/franchissements. Avec ces ajouts, Kairos couvre 4 marchés majeurs.
+les insiders/franchissements. Avec Tier 3, Kairos couvre **12 marchés majeurs**.
+
+### Tier 3 — État au 27 avril 2026 (commit 63ab392) ✅
+
+12 marchés en prod : 🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 🇸🇪 🇳🇴 🇩🇰 🇫🇮
+
+#### Code livré
+- `worker/fetch-afm-thresholds.py` — Pays-Bas via **CSV officiel public** AFM
+  (~21k entrées registre complet, pas d'auth, pas d'anti-bot). KV `nl-thresholds-recent`.
+- `worker/fetch-tier3-thresholds.py` — 7 pays en un script (CH/IT/ES/SE/NO/DK/FI)
+  via Google News RSS multi-query (10-15 requêtes par pays ciblées sur indices
+  locaux + grandes capitalisations + investisseurs activistes/institutionnels).
+- `worker/src/index.js` — `loadAllThresholdsFilings(env)` étendu : merge **12 KV**
+  parallèle (vs 4 avant), drapeaux + régulateurs auto-tagged par pays.
+- `dashboard.html` — dropdown filtre Marché étendu : 12 options individuelles +
+  optgroups Tier 1+2 / Tier 3 / Combinaisons (Eurozone core, Nordics, etc.).
+- `.github/workflows/fetch-eu-thresholds.yml` — 5 jobs parallèles (AMF + BaFin
+  + UK + Tier 3 + AFM), **cron quotidien** (`0 5 * * *`, 7j/7) pour capter les
+  déclarations retardées et l'indexation Google News du week-end.
+
+#### Volumes premier run
+| Pays | Méthode | Volume initial | KV |
+|---|---|:---:|---|
+| 🇺🇸 SEC | EDGAR pipeline existant | ~50 | `13dg-recent` |
+| 🇫🇷 AMF | Google News RSS v6 (27 queries) | **34** | `amf-thresholds-recent` |
+| 🇩🇪 BaFin | CSV officiel public | **137** | `bafin-thresholds-recent` |
+| 🇬🇧 UK FCA | Google News RSS v6 (28 queries) | **42** | `uk-thresholds-recent` |
+| 🇳🇱 AFM | **CSV officiel public AFM** | TBD (target ~50-100) | `nl-thresholds-recent` |
+| 🇨🇭 SIX | Google News RSS (13 queries) | TBD | `ch-thresholds-recent` |
+| 🇮🇹 CONSOB | Google News RSS (16 queries) | TBD | `it-thresholds-recent` |
+| 🇪🇸 CNMV | Google News RSS (15 queries) | TBD | `es-thresholds-recent` |
+| 🇸🇪 FI | Google News RSS (14 queries) | TBD | `se-thresholds-recent` |
+| 🇳🇴 Finanstilsynet | Google News RSS (12 queries) | TBD | `no-thresholds-recent` |
+| 🇩🇰 Finanstilsynet | Google News RSS (13 queries) | TBD | `dk-thresholds-recent` |
+| 🇫🇮 Finanssivalvonta | Google News RSS (12 queries) | TBD | `fi-thresholds-recent` |
+
+#### Différentiation marketing
+- **WhaleWisdom** : 🇺🇸 US only, $400/an
+- **Kairos Insider** : 🇺🇸 + 🇪🇺 (12 marchés) + UI FR, à partir de €5/mois
+- Aucune autre plateforme ne consolide US + Europe + Nordics dans un seul dashboard
+
+---
+
+## 🌍 Extension Smart Money Europe (25 avr 2026) — Tier 1 + 2
+
+Objectif initial : Kairos sur 4 marchés. **Atteint ✅** puis dépassé avec Tier 3 (12).
 
 ### Tier 1 + 2 — État au 25 avril 2026 (commits ab6eeb7 → 89b6698)
 

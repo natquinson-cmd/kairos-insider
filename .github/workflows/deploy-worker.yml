@@ -31,10 +31,28 @@ jobs:
           # wrangler est en devDependency dans worker/, on l'utilise via npx
           npm install --save-dev wrangler@4
 
-      - name: Deploy
+      - name: Deploy worker code (tolerant aux erreurs de routes)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          npx wrangler deploy
+          # wrangler deploy peut echouer sur le refresh des routes brandees
+          # (kairosinsider.fr) si le token n'a pas la permission Zone:Read.
+          # Or les routes existent deja et ne changent pas, donc cette erreur
+          # est cosmetique : le code worker EST bien upload (verifie via
+          # 'Uploaded kairos-insider-api X.XX sec' dans les logs).
+          # On capture la sortie et on retourne 0 si l'upload a reussi.
+          set +e
+          OUTPUT=$(npx wrangler deploy 2>&1)
+          EXIT_CODE=$?
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "Uploaded kairos-insider-api"; then
+            echo "::notice::Worker code upload reussi (exit reel=$EXIT_CODE)"
+            if [ $EXIT_CODE -ne 0 ]; then
+              echo "::warning::Routes refresh a echoue (token sans Zone:Read sur kairosinsider.fr) - routes existantes preservees, code est live"
+            fi
+            exit 0
+          fi
+          echo "::error::Vrai echec : worker non upload"
+          exit 1

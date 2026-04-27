@@ -3749,13 +3749,29 @@
           <div>
             <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Marché</label>
             <select id="actCountry" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:170px">
-              <option value="">🌍 Tous les marchés</option>
-              <option value="US">🇺🇸 États-Unis (SEC)</option>
-              <option value="FR">🇫🇷 France (AMF)</option>
-              <option value="DE">🇩🇪 Allemagne (BaFin)</option>
-              <option value="UK">🇬🇧 Royaume-Uni (FCA)</option>
-              <option value="US,FR,DE,UK">🇺🇸🇫🇷🇩🇪🇬🇧 Tous (4 marchés)</option>
-              <option value="FR,DE,UK">🇫🇷🇩🇪🇬🇧 Europe seulement</option>
+              <option value="">🌍 Tous les marchés (12)</option>
+              <optgroup label="🌎 Tier 1+2 (donnees riches)">
+                <option value="US">🇺🇸 États-Unis (SEC)</option>
+                <option value="FR">🇫🇷 France (AMF)</option>
+                <option value="DE">🇩🇪 Allemagne (BaFin)</option>
+                <option value="UK">🇬🇧 Royaume-Uni (FCA)</option>
+                <option value="NL">🇳🇱 Pays-Bas (AFM)</option>
+              </optgroup>
+              <optgroup label="🌍 Tier 3 (Google News)">
+                <option value="CH">🇨🇭 Suisse (SIX)</option>
+                <option value="IT">🇮🇹 Italie (CONSOB)</option>
+                <option value="ES">🇪🇸 Espagne (CNMV)</option>
+                <option value="SE">🇸🇪 Suède (FI)</option>
+                <option value="NO">🇳🇴 Norvège (Finanstilsynet)</option>
+                <option value="DK">🇩🇰 Danemark (Finanstilsynet)</option>
+                <option value="FI">🇫🇮 Finlande (Finanssivalvonta)</option>
+              </optgroup>
+              <optgroup label="📦 Combinaisons">
+                <option value="US,FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">🌍 Tous (12 marchés)</option>
+                <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">🌍 Europe seulement (11)</option>
+                <option value="FR,DE,IT,ES,NL">🇪🇺 Eurozone core (5)</option>
+                <option value="SE,NO,DK,FI">🇸🇪🇳🇴🇩🇰🇫🇮 Nordics (4)</option>
+              </optgroup>
             </select>
           </div>
           <div>
