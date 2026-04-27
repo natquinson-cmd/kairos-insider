@@ -316,19 +316,21 @@ async function runWithConcurrency(items, concurrency, asyncFn) {
  * Featured filers handler : retourne les stats backtest 3y des 5 fonds
  * vedettes pour affichage landing page. Cache 24h dans KV.
  *
- * GET /api/backtest/featured
+ * GET /api/backtest/featured[?refresh=1]
  */
-export async function handleBacktestFeatured(env) {
+export async function handleBacktestFeatured(env, opts = {}) {
   const cacheKey = 'backtest-featured-3y';
-  try {
-    const cached = await env.CACHE.get(cacheKey, 'json');
-    if (cached && cached.computedAt) {
-      const age = (Date.now() - new Date(cached.computedAt).getTime()) / 1000;
-      if (age < 86400) {  // 24h
-        return cached;
+  if (!opts.refresh) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.computedAt) {
+        const age = (Date.now() - new Date(cached.computedAt).getTime()) / 1000;
+        if (age < 86400) {  // 24h
+          return cached;
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   // Compute en parallele les 5 fonds (3y period)
   const results = await Promise.all(

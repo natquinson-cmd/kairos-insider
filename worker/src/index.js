@@ -372,7 +372,8 @@ async function handleRequest(request, env, ctx) {
     if (request.method === 'GET' && path === '/api/backtest/featured') {
       try {
         const { handleBacktestFeatured } = await import('./backtest.js');
-        const data = await handleBacktestFeatured(env);
+        const refresh = url.searchParams.get('refresh') === '1';
+        const data = await handleBacktestFeatured(env, { refresh });
         return jsonResponse(data, 200, origin);
       } catch (e) {
         return jsonResponse({ error: 'Featured backtest failed', detail: String(e) }, 500, origin);
