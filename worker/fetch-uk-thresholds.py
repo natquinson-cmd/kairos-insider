@@ -33,13 +33,37 @@ FCA_NSM_URL = 'https://data.fca.org.uk/'
 PAGE_TIMEOUT_MS = 60000
 DEFAULT_LOOKBACK_DAYS = 30
 
-# Multi-requetes Google News (fallback)
+# Multi-requetes Google News (fallback) — v6 ELARGI x4 volumes
 GOOGLE_NEWS_QUERIES_UK = [
+    # TR-1 / holdings / shareholding
     'TR-1+holdings+notification+UK', 'major+shareholding+notification',
     '%22holdings+in+company%22+RNS', '%22TR-1%22+notification',
-    '%22notification+of+major+holdings%22', 'PDMR+director+shareholding+RNS',
-    '%22director+pdmr+shareholding%22+RNS',
+    '%22notification+of+major+holdings%22', '%22major+shareholding%22+RNS',
+    '%22disclosure+of+holdings%22+UK', '%22position+disclosure%22+UK',
+    # PDMR / directors
+    'PDMR+director+shareholding+RNS', '%22director+pdmr+shareholding%22+RNS',
+    '%22directors+dealings%22+RNS', '%22director+share+dealings%22+RNS',
+    # Buybacks
     '%22transaction+in+own+shares%22+RNS+UK', 'buyback+RNS+UK+plc',
+    '%22share+buyback%22+RNS+plc', '%22own+share+purchase%22+RNS',
+    # Activistes / institutions sur UK
+    'BlackRock+%22stake%22+plc+UK',
+    'Vanguard+%22stake%22+plc+UK',
+    'Norges+Bank+UK+%22stake%22',
+    'Schroders+%22holding%22+UK+plc',
+    '%22Aberdeen+Standard%22+UK+stake',
+    '%22Legal+%26+General%22+UK+stake',
+    '%22M%26G%22+UK+stake',
+    'Cevian+UK+%22stake%22',
+    'Elliott+UK+%22stake%22+plc',
+    'TCI+%22stake%22+UK+plc',
+    # Indices FTSE
+    'FTSE+100+%22stake%22+%22acquired%22',
+    'FTSE+250+%22stake%22+%22acquired%22',
+    # Operations
+    '%22tender+offer%22+UK+plc',
+    '%22cash+offer%22+UK+plc+RNS',
+    '%22possible+offer%22+UK+plc',
 ]
 
 KNOWN_ACTIVISTS_UK = {
@@ -242,22 +266,52 @@ def scrape_google_news_uk(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
     print(f'  [FALLBACK] {len(raw)} items uniques Google News')
 
     filings = []
-    UK_KEYWORDS = re.compile(r'(TR-?1|holdings?\s+in\s+company|major\s+shareholding|major\s+holding|PDMR|director.*shareholding|transaction.*own\s+shares|buy.?back|notification\s+of\s+major)', re.IGNORECASE)
+    # v6 : keywords elargis pour capter +/- de hits
+    UK_KEYWORDS = re.compile(
+        r'(TR-?1|holdings?\s+in\s+company|major\s+shareholding|major\s+holding|'
+        r'PDMR|director.*shareholding|directors?\s+dealings?|transaction.*own\s+shares|'
+        r'buy.?back|notification\s+of\s+major|stake\s+in|stake\s+of|disclosure\s+of\s+holdings|'
+        r'share\s+buyback|tender\s+offer|cash\s+offer|possible\s+offer|acquired\s+a\s+stake|'
+        r'increased\s+(?:its|their)\s+(?:stake|holding)|reduced\s+(?:its|their)\s+(?:stake|holding))',
+        re.IGNORECASE,
+    )
+    PERCENT_REGEX = re.compile(r'\d+(?:\.\d+)?\s*%')
+    skipped_no_kw = 0
+    skipped_old = 0
     for it in raw:
-        info = classify_uk_title(it['title'])
-        if not info['type_label'] and not UK_KEYWORDS.search(it['title']): continue
+        title = it['title']
+        info = classify_uk_title(title)
+        has_kw = bool(UK_KEYWORDS.search(title))
+        has_pct = bool(PERCENT_REGEX.search(title))
+        title_lower = title.lower()
+        looks_uk = any(k in title_lower for k in ['plc', 'rns', 'lse', 'london stock', 'ftse', 'aim '])
+        if not info['type_label'] and not has_kw and not (has_pct and looks_uk):
+            skipped_no_kw += 1
+            continue
         if not info['type_label']:
-            t = it['title'].lower()
-            if 'tr-1' in t or 'tr1' in t or 'major hold' in t: info['type_label'], info['type_short'] = 'SHAREHOLDER >3% (TR-1)', 'tr1'
-            elif 'pdmr' in t or 'director' in t: info['type_label'], info['type_short'] = 'DIRECTOR PDMR', 'pdmr'
-            elif 'buyback' in t or 'own shares' in t: info['type_label'], info['type_short'] = 'BUYBACK', 'buyback'
-            else: info['type_label'], info['type_short'] = 'UK RNS', 'other'
+            t = title_lower
+            if 'tr-1' in t or 'tr1' in t or 'major hold' in t:
+                info['type_label'], info['type_short'] = 'SHAREHOLDER >3% (TR-1)', 'tr1'
+            elif 'pdmr' in t or 'director' in t:
+                info['type_label'], info['type_short'] = 'DIRECTOR PDMR', 'pdmr'
+            elif 'buyback' in t or 'own shares' in t or 'buy-back' in t:
+                info['type_label'], info['type_short'] = 'BUYBACK', 'buyback'
+            elif 'stake' in t or 'holding' in t:
+                info['type_label'], info['type_short'] = 'STAKE / HOLDING', 'stake'
+            elif 'tender offer' in t or 'cash offer' in t or 'possible offer' in t:
+                info['type_label'], info['type_short'] = 'TAKEOVER OFFER', 'offer'
+            else:
+                info['type_label'], info['type_short'] = 'UK RNS', 'other'
         iso_date = parse_uk_date_any(it['pubDate'])
-        if iso_date and iso_date < cutoff: continue
-        company = info['company'] or re.split(r'\s*-\s*', it['title'])[0][:80].strip()
+        if iso_date and iso_date < cutoff:
+            skipped_old += 1
+            continue
+        company = info['company'] or re.split(r'\s*-\s*', title)[0][:80].strip()
         if not company: continue
-        filings.append(make_uk_filing(it['title'], iso_date, info, company, info['ticker'] or '',
+        filings.append(make_uk_filing(title, iso_date, info, company, info['ticker'] or '',
                                        extra={'url': it['link'], 'source': it['source']}))
+    if debug:
+        print(f'  [PARSER] retenus={len(filings)} skip_no_kw={skipped_no_kw} skip_old={skipped_old}')
     return filings
 
 

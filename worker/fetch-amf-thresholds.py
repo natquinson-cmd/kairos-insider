@@ -42,13 +42,38 @@ SEARCH_URL = (
 DEFAULT_LOOKBACK_DAYS = 30
 PAGE_TIMEOUT_MS = 60000
 
-# Multi-requetes Google News (fallback si stealth echoue)
+# Multi-requetes Google News (fallback si stealth echoue) — v6 ELARGI x4 volumes
+# Strategie : combinaison action/seuil + investisseurs connus + indices CAC/SBF
 GOOGLE_NEWS_QUERIES_FR = [
+    # Generales franchissement
     'AMF+franchissement', 'AMF+seuils+capital',
     '%22franchissement+de+seuils%22+AMF',
-    'BlackRock+capital+%22a+franchi%22',
-    'Norges+Bank+capital+%22a+franchi%22',
     'AMF+225C', 'AMF+communiqu%C3%A9+capital+seuil',
+    '%22a+franchi%22+%22du+capital%22',
+    '%22a+d%C3%A9clar%C3%A9+avoir+franchi%22',
+    '%22d%C3%A9tient+d%C3%A9sormais%22+%22capital%22',
+    '%22monte+au+capital%22',
+    # Activistes / institutionnels (FR + EN)
+    'BlackRock+capital+%22a+franchi%22',
+    'BlackRock+France+%22du+capital%22',
+    'Norges+Bank+capital+%22a+franchi%22',
+    'Norges+Bank+France+stake',
+    'Vanguard+France+%22du+capital%22',
+    'Amundi+%22du+capital%22+franchissement',
+    'Bpifrance+%22du+capital%22',
+    'Bollore+%22du+capital%22',
+    'Arnault+%22du+capital%22',
+    'Pinault+Artemis+%22du+capital%22',
+    # Operations strategiques / OPA
+    '%22offre+publique%22+France+AMF',
+    'OPA+France+%22du+capital%22+AMF',
+    '%22acquisition+de+bloc%22+France',
+    # Indices / CAC40
+    'CAC40+%22du+capital%22+%22a+franchi%22',
+    'SBF120+%22du+capital%22+%22a+franchi%22',
+    # Cessions / sorties
+    '%22cession%22+%22du+capital%22+AMF',
+    '%22a+r%C3%A9duit%22+%22du+capital%22+AMF',
 ]
 
 # Activistes EU connus (flag isActivist=true si match)
@@ -287,20 +312,40 @@ def scrape_google_news_fallback(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False
         time.sleep(0.4)
     print(f'  [FALLBACK] {len(raw_items)} items uniques Google News')
 
-    THRESHOLD_KEYWORDS = re.compile(r'(franchit|franchi|au-dessus|d[eé]passe|seuil|capital\s+de)', re.IGNORECASE)
+    # v6 : keywords elargis pour capter +/- de hits
+    THRESHOLD_KEYWORDS = re.compile(
+        r'(franchit|franchi|d[eé]tient|d[eé]tenir|monte|c[eé]de|c[eé]d[eé]|'
+        r'r[eé]duit|augmente|porte|sa\s+participation|au-dessus|en-dessous|'
+        r'd[eé]passe|seuil|capital|stake|holding|acqui[sè]re|acquis|prise\s+de\s+participation|'
+        r'OPA|offre\s+publique|cession|bloc)',
+        re.IGNORECASE,
+    )
+    PERCENT_REGEX = re.compile(r'\d+(?:[.,]\d+)?\s*%')
     filings = []
+    skipped_no_kw = 0
+    skipped_old = 0
     for it in raw_items:
-        if not THRESHOLD_KEYWORDS.search(it['title']) and 'capital' not in it['title'].lower():
+        title = it['title']
+        # Match si keyword OU si titre contient % ET un mot lie au capital
+        has_keyword = bool(THRESHOLD_KEYWORDS.search(title))
+        has_pct = bool(PERCENT_REGEX.search(title))
+        looks_capital = 'capital' in title.lower() or 'stake' in title.lower() or 'AMF' in title
+        if not has_keyword and not (has_pct and looks_capital):
+            skipped_no_kw += 1
             continue
         iso_date = parse_pubdate_to_iso(it['pubDate'])
-        if iso_date and iso_date < cutoff: continue
-        parsed = parse_title_for_threshold(it['title'])
+        if iso_date and iso_date < cutoff:
+            skipped_old += 1
+            continue
+        parsed = parse_title_for_threshold(title)
         if not parsed['target']:
-            fallback = re.split(r'\s*[-:]\s*', it['title'])[0][:80].strip()
+            fallback = re.split(r'\s*[-:|–]\s*', title)[0][:80].strip()
             if len(fallback) < 4: continue
             parsed['target'] = fallback
-        filings.append(make_filing(it['title'], iso_date, parsed,
+        filings.append(make_filing(title, iso_date, parsed,
                                     extra={'url': it['link'], 'source': it['source']}))
+    if debug:
+        print(f'  [PARSER] retenus={len(filings)} skip_no_kw={skipped_no_kw} skip_old={skipped_old}')
     return filings
 
 
