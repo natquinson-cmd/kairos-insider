@@ -1,24 +1,24 @@
 """
-Fetch AMF Franchissements de seuils via Google News RSS — equivalent 13D/G FR.
+Fetch AMF Franchissements de seuils — v5 STEALTH OFFICIEL.
 
-Strategie v4 (BREAKTHROUGH) : pas de scraping AMF directe (page SPA bloquee)
-mais agregation via Google News RSS sur plusieurs requetes ciblees. Google
-indexe Boursier.com, Fortuneo, Zonebourse, AMF, Le Desk... qui scrappent
-deja les declarations AMF officielles.
+Strategie a 2 niveaux :
+  1) AMF officiel via Playwright STEALTH (contourne anti-bot) → donnees completes
+  2) Fallback Google News RSS si AMF bloque encore → donnees partielles
 
-Avantages :
-- Aucun Playwright, aucun browser, aucune bot detection
-- Sources tierces fiables (Boursier, Fortuneo, AMF directly via Google)
-- ~50-100 declarations par run
+Avec stealth :
+- navigator.webdriver = undefined
+- window.chrome spoofe
+- Plugins / permissions / WebGL fingerprint normaux
+- → la page AMF charge enfin les vrais filings via XHR
 
-Pattern typique :
-  "Media 6 : Eximium franchit à la baisse le seuil de 5% du capital - Boursier.com"
-  "Teleperformance : BlackRock au-dessus des 5% du capital - Fortuneo"
+Source officielle :
+  https://www.amf-france.org/fr/recherche/resultat?form%5Bcategorie_publication%5D%5B%5D=declaration_seuils
 
-Output : KV 'amf-thresholds-recent' avec schema unifie.
+Output : KV 'amf-thresholds-recent' avec schema unifie + champs detailles
+quand source officielle (ISIN, %, sharesOwned, accession AMF).
 
 Usage :
-  python fetch-amf-thresholds.py [--days 30] [--debug] [--dry-run]
+  python fetch-amf-thresholds.py [--days 30] [--debug] [--dry-run] [--no-stealth]
 """
 import argparse
 import json
@@ -34,287 +34,369 @@ UA = 'KairosInsider contact@kairosinsider.fr'
 NAMESPACE_ID = 'aca7ff9d2a244b06ae92d6a7129b4cc4'
 KV_KEY = 'amf-thresholds-recent'
 
-# Multi-requetes Google News : on combine plusieurs angles pour maximiser
-# la couverture. Chaque requete retourne ~30-50 items, dedup par titre.
+SEARCH_URL = (
+    'https://www.amf-france.org/fr/recherche/resultat'
+    '?form%5Bcategorie_publication%5D%5B%5D=declaration_seuils'
+    '&form%5Btri%5D=date'
+)
+DEFAULT_LOOKBACK_DAYS = 30
+PAGE_TIMEOUT_MS = 60000
+
+# Multi-requetes Google News (fallback si stealth echoue)
 GOOGLE_NEWS_QUERIES_FR = [
-    'AMF+franchissement',
-    'AMF+seuils+capital',
+    'AMF+franchissement', 'AMF+seuils+capital',
     '%22franchissement+de+seuils%22+AMF',
-    '%22d%C3%A9claration+de+seuils%22+AMF',
-    'd%C3%A9claration+seuils+AMF',
-    '%22a+franchi%22+seuil+5%25+capital',
-    '%22a+franchi%22+seuil+10%25+capital',
     'BlackRock+capital+%22a+franchi%22',
     'Norges+Bank+capital+%22a+franchi%22',
-    'Vanguard+capital+%22a+franchi%22',
-    'AMF+225C',                   # numero de communique AMF
-    'AMF+communiqu%C3%A9+capital+seuil',
+    'AMF+225C', 'AMF+communiqu%C3%A9+capital+seuil',
 ]
 
-DEFAULT_LOOKBACK_DAYS = 30
-
-# Activistes EU connus (on flag isActivist=true si match dans le titre)
+# Activistes EU connus (flag isActivist=true si match)
 KNOWN_ACTIVISTS_EU = {
-    # Activistes pure-play
-    'TCI FUND': 'TCI Fund Management',
-    'CHILDREN\'S INVESTMENT': 'TCI Fund Management',
-    'CEVIAN': 'Cevian Capital',
-    'BLUEBELL': 'Bluebell Capital',
-    'COAST CAPITAL': 'Coast Capital',
-    'PETRUS ADVISERS': 'Petrus Advisers',
-    'SHERBORNE': 'Sherborne Investors',
-    'AMBER CAPITAL': 'Amber Capital',
+    'TCI FUND': 'TCI Fund Management', 'CHILDREN\'S INVESTMENT': 'TCI Fund Management',
+    'CEVIAN': 'Cevian Capital', 'BLUEBELL': 'Bluebell Capital',
+    'COAST CAPITAL': 'Coast Capital', 'PETRUS ADVISERS': 'Petrus Advisers',
+    'SHERBORNE': 'Sherborne Investors', 'AMBER CAPITAL': 'Amber Capital',
     'PRIMESTONE': 'PrimeStone Capital',
-    # Familles industrielles FR
-    'GROUPE ARNAULT': 'Bernard Arnault',
-    'ARNAULT': 'Bernard Arnault',
-    'BOLLORE': 'Bollore Group',
-    'PINAULT': 'Pinault (Artemis)',
-    'ARTEMIS': 'Pinault (Artemis)',
-    'DASSAULT': 'Dassault Family',
-    'PEUGEOT': 'Peugeot Family',
-    'BETTENCOURT': 'Bettencourt-Meyers',
-    'PERRODO': 'Perrodo Family',
-    'WERTHEIMER': 'Wertheimer (Chanel)',
-    # Activistes US qui ciblent EU
-    'ELLIOTT': 'Elliott Management',
-    'PAUL SINGER': 'Elliott Management',
-    'PERSHING SQUARE': 'Pershing Square (Ackman)',
-    'STARBOARD': 'Starboard Value',
-    'CARL ICAHN': 'Icahn Enterprises',
-    'TRIAN': 'Trian Fund Management',
+    'GROUPE ARNAULT': 'Bernard Arnault', 'ARNAULT': 'Bernard Arnault',
+    'BOLLORE': 'Bollore Group', 'PINAULT': 'Pinault (Artemis)',
+    'ARTEMIS': 'Pinault (Artemis)', 'DASSAULT': 'Dassault Family',
+    'PEUGEOT': 'Peugeot Family', 'BETTENCOURT': 'Bettencourt-Meyers',
+    'PERRODO': 'Perrodo Family', 'WERTHEIMER': 'Wertheimer (Chanel)',
+    'ELLIOTT': 'Elliott Management', 'PAUL SINGER': 'Elliott Management',
+    'PERSHING SQUARE': 'Pershing Square (Ackman)', 'STARBOARD': 'Starboard Value',
+    'CARL ICAHN': 'Icahn Enterprises', 'TRIAN': 'Trian Fund Management',
     'JANA PARTNERS': 'Jana Partners',
-    # Souverains
-    'NORGES BANK': 'Norges Bank Investment Mgmt',
-    'GIC': 'GIC (Singapour)',
-    'TEMASEK': 'Temasek Holdings',
-    'MUBADALA': 'Mubadala (Abu Dhabi)',
-    'QATAR INVESTMENT': 'Qatar Investment Authority',
-    'CIC CAPITAL': 'CIC Capital (Chine)',
-    # BlackRock / Vanguard (souvent dans les déclarations >5%)
-    'BLACKROCK': 'BlackRock',
-    'VANGUARD': 'Vanguard',
-    'STATE STREET': 'State Street',
+    'NORGES BANK': 'Norges Bank Investment Mgmt', 'GIC': 'GIC (Singapour)',
+    'TEMASEK': 'Temasek Holdings', 'MUBADALA': 'Mubadala (Abu Dhabi)',
+    'QATAR INVESTMENT': 'Qatar Investment Authority', 'CIC CAPITAL': 'CIC Capital (Chine)',
+    'BLACKROCK': 'BlackRock', 'VANGUARD': 'Vanguard', 'STATE STREET': 'State Street',
 }
 
 
 def is_known_activist(filer_name):
-    if not filer_name:
-        return None
+    if not filer_name: return None
     upper = filer_name.upper().strip()
     for key, label in KNOWN_ACTIVISTS_EU.items():
-        if key in upper:
-            return label
+        if key in upper: return label
     return None
 
 
-def fetch_google_news_rss(query, lang='fr', region='FR', timeout=15):
-    """Fetch Google News RSS pour une query donnee."""
-    url = f'https://news.google.com/rss/search?q={query}&hl={lang}&gl={region}&ceid={region}:{lang}'
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+# ============================================================
+# STRATEGIE 1 : AMF officiel via Playwright STEALTH
+# ============================================================
+def scrape_amf_stealth(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
+    """Scrape AMF via Playwright + playwright-stealth (contourne anti-bot)."""
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read().decode('utf-8', errors='replace')
-    except Exception as e:
-        print(f'    [fetch err] {e}')
-        return ''
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    except ImportError:
+        print('  [STEALTH] playwright manquant, skip')
+        return []
+
+    # playwright-stealth : essaie d'importer (peut etre absent en local)
+    try:
+        from playwright_stealth import Stealth
+        stealth_available = True
+    except ImportError:
+        try:
+            # Ancienne API (versions <2.0)
+            from playwright_stealth import stealth_sync
+            stealth_available = 'legacy'
+        except ImportError:
+            print('  [STEALTH] playwright-stealth non installe, mode standard')
+            stealth_available = False
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+    captured_xhr = []
+    filings = []
+
+    with sync_playwright() as p:
+        # Stealth : application au context (nouvelle API) OU a la page (legacy)
+        if stealth_available is True:
+            stealth = Stealth()
+            browser = p.chromium.launch(headless=True, args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+            ])
+            context = stealth.apply_stealth_to_context(browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 900},
+                locale='fr-FR',
+            ))
+        else:
+            browser = p.chromium.launch(headless=True, args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+            ])
+            context = browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 900},
+                locale='fr-FR',
+            )
+
+        page = context.new_page()
+
+        # Stealth legacy (apres new_page)
+        if stealth_available == 'legacy':
+            try:
+                stealth_sync(page)
+                print('  [STEALTH] mode legacy applique')
+            except Exception as e:
+                print(f'  [STEALTH] legacy failed : {e}')
+
+        # Capture TOUS les XHR JSON
+        def on_response(response):
+            try:
+                if response.request.resource_type not in ('xhr', 'fetch'):
+                    return
+                if not response.ok:
+                    return
+                ctype = response.headers.get('content-type', '').lower()
+                if 'json' not in ctype:
+                    return
+                try:
+                    body = response.json()
+                except Exception:
+                    return
+                items = []
+                if isinstance(body, dict):
+                    for key in ('results', 'items', 'documents', 'docs', 'hits', 'data', 'response'):
+                        v = body.get(key)
+                        if isinstance(v, list) and len(v) >= 1:
+                            items = v; break
+                        if isinstance(v, dict):
+                            for k2 in ('results', 'items', 'documents', 'docs', 'hits'):
+                                v2 = v.get(k2)
+                                if isinstance(v2, list) and len(v2) >= 1:
+                                    items = v2; break
+                            if items: break
+                elif isinstance(body, list) and len(body) >= 1:
+                    items = body
+                if items and any(isinstance(i, dict) and ('title' in i or 'label' in i or 'date' in i or 'name' in i) for i in items[:5]):
+                    captured_xhr.append({'url': response.url, 'items': items})
+                    if debug:
+                        print(f'  [XHR] {response.url[:120]} → {len(items)} items')
+            except Exception:
+                pass
+
+        page.on('response', on_response)
+
+        try:
+            page.goto(SEARCH_URL, wait_until='domcontentloaded', timeout=PAGE_TIMEOUT_MS)
+            try:
+                page.wait_for_load_state('networkidle', timeout=45000)
+            except PlaywrightTimeoutError:
+                pass
+            page.wait_for_timeout(5000)  # extra wait pour les XHR async
+
+            # Compte articles dans le DOM
+            articles = page.query_selector_all('article')
+            print(f'  [STEALTH] {len(articles)} articles dans le DOM, {len(captured_xhr)} XHR captures')
+
+            # 1) Parse des XHR captures
+            for cap in captured_xhr:
+                items = cap.get('items', [])
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    title = str(item.get('title') or item.get('label') or item.get('name') or '')
+                    if 'franchissement' not in title.lower() and 'seuil' not in title.lower():
+                        continue
+                    iso_date = parse_amf_date(item.get('date') or item.get('publication_date') or item.get('createdAt'))
+                    if iso_date and iso_date < cutoff:
+                        continue
+                    parsed = parse_title_for_threshold(title)
+                    if parsed['target']:
+                        filings.append(make_filing(title, iso_date, parsed, item))
+
+            # 2) Parse du DOM (articles rendus)
+            if not filings:
+                for article in articles:
+                    try:
+                        text = article.inner_text()
+                        if 'franchissement' not in text.lower():
+                            continue
+                        title_el = article.query_selector('h2, h3, .title')
+                        title = title_el.inner_text().strip() if title_el else text[:200]
+                        date_el = article.query_selector('time, .date, .publication-date')
+                        date_str = date_el.inner_text().strip() if date_el else ''
+                        link_el = article.query_selector('a')
+                        url = link_el.get_attribute('href') if link_el else None
+                        iso_date = parse_amf_date(date_str)
+                        if iso_date and iso_date < cutoff:
+                            continue
+                        parsed = parse_title_for_threshold(title)
+                        if parsed['target']:
+                            filings.append(make_filing(title, iso_date, parsed,
+                                                       extra={'url': url}))
+                    except Exception:
+                        pass
+
+            browser.close()
+        except Exception as e:
+            print(f'  [STEALTH ERREUR] {e}')
+            try: browser.close()
+            except: pass
+
+    return filings
 
 
-def parse_rss_items(rss_xml):
-    """Parse les <item> du RSS Google News."""
-    items = []
-    item_blocks = re.findall(r'<item>(.*?)</item>', rss_xml, re.DOTALL)
-    for block in item_blocks:
-        title_m = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', block, re.DOTALL)
-        link_m = re.search(r'<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</link>', block, re.DOTALL)
-        pub_m = re.search(r'<pubDate>(.*?)</pubDate>', block, re.DOTALL)
-        src_m = re.search(r'<source[^>]*>(.*?)</source>', block, re.DOTALL)
-        title = (title_m.group(1) if title_m else '').strip()
-        # Decode HTML entities
-        title = (title.replace('&amp;', '&').replace('&#39;', "'")
-                      .replace('&quot;', '"').replace('&lt;', '<').replace('&gt;', '>'))
-        items.append({
-            'title': title,
-            'link': (link_m.group(1) if link_m else '').strip(),
-            'pubDate': (pub_m.group(1) if pub_m else '').strip(),
-            'source': (src_m.group(1) if src_m else '').strip(),
-        })
-    return items
+# ============================================================
+# STRATEGIE 2 : Fallback Google News RSS
+# ============================================================
+def scrape_google_news_fallback(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
+    """Fallback : Google News RSS multi-query."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+    seen_titles = set()
+    raw_items = []
+    for q in GOOGLE_NEWS_QUERIES_FR:
+        url = f'https://news.google.com/rss/search?q={q}&hl=fr&gl=FR&ceid=FR:fr'
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                rss = resp.read().decode('utf-8', errors='replace')
+        except Exception: continue
+        for block in re.findall(r'<item>(.*?)</item>', rss, re.DOTALL):
+            t_m = re.search(r'<title>(.*?)</title>', block, re.DOTALL)
+            link_m = re.search(r'<link>(.*?)</link>', block, re.DOTALL)
+            pub_m = re.search(r'<pubDate>(.*?)</pubDate>', block)
+            src_m = re.search(r'<source[^>]*>(.*?)</source>', block, re.DOTALL)
+            title = (t_m.group(1) if t_m else '').strip()
+            title = title.replace('&amp;', '&').replace('&#39;', "'").replace('&quot;', '"')
+            if not title or title in seen_titles: continue
+            seen_titles.add(title)
+            raw_items.append({
+                'title': title,
+                'link': (link_m.group(1) if link_m else '').strip(),
+                'pubDate': (pub_m.group(1) if pub_m else '').strip(),
+                'source': (src_m.group(1) if src_m else '').strip(),
+            })
+        time.sleep(0.4)
+    print(f'  [FALLBACK] {len(raw_items)} items uniques Google News')
+
+    THRESHOLD_KEYWORDS = re.compile(r'(franchit|franchi|au-dessus|d[eé]passe|seuil|capital\s+de)', re.IGNORECASE)
+    filings = []
+    for it in raw_items:
+        if not THRESHOLD_KEYWORDS.search(it['title']) and 'capital' not in it['title'].lower():
+            continue
+        iso_date = parse_pubdate_to_iso(it['pubDate'])
+        if iso_date and iso_date < cutoff: continue
+        parsed = parse_title_for_threshold(it['title'])
+        if not parsed['target']:
+            fallback = re.split(r'\s*[-:]\s*', it['title'])[0][:80].strip()
+            if len(fallback) < 4: continue
+            parsed['target'] = fallback
+        filings.append(make_filing(it['title'], iso_date, parsed,
+                                    extra={'url': it['link'], 'source': it['source']}))
+    return filings
+
+
+# ============================================================
+# Helpers parsing
+# ============================================================
+def parse_amf_date(s):
+    """Parse multiples formats de date AMF/Google."""
+    if not s: return None
+    s = str(s).strip()
+    # ISO
+    m = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})', s)
+    if m: return f'{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+    # FR DD/MM/YYYY
+    m = re.match(r'^(\d{1,2})[/.](\d{1,2})[/.](\d{4})', s)
+    if m: return f'{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}'
+    # RFC822
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(s).strftime('%Y-%m-%d')
+    except Exception: return None
 
 
 def parse_pubdate_to_iso(s):
-    """RFC822 (Sat, 25 Apr 2026 14:00:48 +0000) → YYYY-MM-DD."""
-    if not s:
-        return None
+    if not s: return None
     try:
-        # Format RFC822
         from email.utils import parsedate_to_datetime
-        dt = parsedate_to_datetime(s)
-        return dt.strftime('%Y-%m-%d')
-    except Exception:
-        pass
-    return None
+        return parsedate_to_datetime(s).strftime('%Y-%m-%d')
+    except Exception: return None
 
 
 def parse_title_for_threshold(title):
-    """Extrait du titre AMF type 'Société X : Filer franchit le seuil de 5% du capital'.
-
-    Patterns identifies :
-      - 'Target : Filer franchit (à la baisse|hausse) le seuil de N% du capital de ...'
-      - 'Target : Filer au-dessus des N% du capital'
-      - 'Target : Filer dépasse N% du capital'
-    """
-    out = {
-        'target': None, 'filer': None, 'direction': 'up',
-        'threshold': None, 'rawTitle': title,
-    }
-    if not title:
-        return out
-
+    out = {'target': None, 'filer': None, 'direction': 'up', 'threshold': None, 'rawTitle': title}
+    if not title: return out
     lower = title.lower()
-    # Direction
-    if 'à la baisse' in lower or 'baisse' in lower or 'sortie' in lower or 'cession' in lower or 'sous le' in lower or 'passé sous' in lower:
+    if any(k in lower for k in ['à la baisse', 'baisse', 'sortie', 'cession', 'sous le']):
         out['direction'] = 'down'
-
-    # Threshold (premier % trouve)
     pct_match = re.search(r'(\d+(?:[.,]\d+)?)\s*%', title)
     if pct_match:
-        try:
-            out['threshold'] = float(pct_match.group(1).replace(',', '.'))
-        except ValueError:
-            pass
-
-    # Pattern : "Target : Filer ... du capital de TargetVar"
-    # On split par ' : ' (fr typo)
+        try: out['threshold'] = float(pct_match.group(1).replace(',', '.'))
+        except: pass
     if ' : ' in title:
         parts = title.split(' : ', 1)
         out['target'] = parts[0].strip()
-        rest = parts[1]
-        # Filer = mot avant 'franchit', 'a franchi', 'au-dessus', 'dépasse'
-        m = re.match(r'^(.+?)\s+(?:franchit|a\s+franchi|au-dessus|d[eé]passe|monte|d[eé]clare)', rest, re.IGNORECASE)
-        if m:
-            out['filer'] = m.group(1).strip()
-    elif ' : ' not in title and ' - ' in title:
-        # Format alternatif "Target - Type d'annonce"
+        m = re.match(r'^(.+?)\s+(?:franchit|a\s+franchi|au-dessus|d[eé]passe|monte|d[eé]clare)', parts[1], re.IGNORECASE)
+        if m: out['filer'] = m.group(1).strip()
+    elif ' - ' in title:
         parts = title.split(' - ', 1)
         out['target'] = parts[0].strip()
-
-    # Strip suffixes courants
     if out['target']:
         out['target'] = re.sub(r'\s*\(.*?\)\s*$', '', out['target']).strip()
     if out['filer']:
         out['filer'] = re.sub(r'\s+du\s+capital.*$', '', out['filer'], flags=re.IGNORECASE).strip()
-        out['filer'] = re.sub(r'\s*[\.,;].*$', '', out['filer']).strip()
-
     return out
 
 
-def scrape(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
-    """Scrape FR via multi-requetes Google News RSS + dedup."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
-    print(f'[AMF] Multi-query Google News RSS (cutoff {cutoff})')
-
-    seen_titles = set()
-    raw_items = []
-    for q in GOOGLE_NEWS_QUERIES_FR:
-        rss = fetch_google_news_rss(q, lang='fr', region='FR')
-        items = parse_rss_items(rss)
-        for it in items:
-            if it['title'] in seen_titles:
-                continue
-            seen_titles.add(it['title'])
-            raw_items.append(it)
-        time.sleep(0.5)  # politesse Google
-    print(f'  → {len(raw_items)} items uniques (sur {len(GOOGLE_NEWS_QUERIES_FR)} requetes)')
-
-    # Filtre relax : on garde tous les titres qui ressemblent a un franchissement
-    # OU qui mentionnent l'AMF + un % OU qui ont des mots cles de seuil
-    THRESHOLD_KEYWORDS = re.compile(
-        r'(franchit|franchi|au-dessus|d[eé]passe|d[eé]passement|seuil|monte\s*[àa]|sous\s+le\s+seuil|passe\s+sous|cession|prise\s+de\s+participation|d[eé]clar[eé]\s+d[eé]tenir)',
-        re.IGNORECASE,
-    )
-    filings = []
-    for it in raw_items:
-        title = it['title']
-        has_keyword = bool(THRESHOLD_KEYWORDS.search(title))
-        has_pct = bool(re.search(r'\d+\s*%', title))
-        has_capital = 'capital' in title.lower()
-
-        # Garde si : keyword OU (mention capital + %)
-        if not (has_keyword or (has_capital and has_pct)):
-            continue
-
-        iso_date = parse_pubdate_to_iso(it['pubDate'])
-        if iso_date and iso_date < cutoff:
-            continue
-
-        parsed = parse_title_for_threshold(title)
-
-        # Si pas de target identifié, fallback sur le titre tronqué
-        if not parsed['target']:
-            # Prend les premiers ~60 chars avant ' - ' ou ':'
-            fallback = re.split(r'\s*[-:]\s*', title)[0][:80].strip()
-            if len(fallback) < 4:
-                continue
-            parsed['target'] = fallback
-
-        filer = parsed['filer'] or ''
-        target = parsed['target'] or ''
-        threshold = parsed['threshold']
-
-        filings.append({
-            'fileDate': iso_date,
-            'form': f'FRANCHISSEMENT {threshold:g}%' if threshold else 'FRANCHISSEMENT DE SEUIL',
-            'accession': None,
-            'ticker': '',
-            'targetName': target,
-            'targetCik': None,
-            'filerName': filer,
-            'filerCik': None,
-            'isActivist': bool(is_known_activist(filer)),
-            'activistLabel': is_known_activist(filer),
-            'sharesOwned': None,
-            'percentOfClass': threshold,
-            'crossingDirection': parsed['direction'],
-            'crossingThreshold': threshold,
-            'source': 'amf',
-            'country': 'FR',
-            'regulator': 'AMF',
-            'sourceUrl': it['link'],
-            'sourceProvider': it['source'],
-            'rawTitle': it['title'][:300],
-        })
-
-    print(f'  → {len(filings)} filings parses (avec date + threshold + target)')
-    return filings
-
-
-def push_to_kv(filings, dry_run=False):
-    payload = {
-        'updatedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+def make_filing(title, iso_date, parsed, extra=None):
+    extra = extra or {}
+    threshold = parsed.get('threshold')
+    filer = parsed.get('filer') or ''
+    return {
+        'fileDate': iso_date,
+        'form': f'FRANCHISSEMENT {threshold:g}%' if threshold else 'FRANCHISSEMENT DE SEUIL',
+        'accession': extra.get('accession'),
+        'ticker': '',
+        'targetName': parsed.get('target') or '',
+        'targetCik': None,
+        'filerName': filer,
+        'filerCik': None,
+        'isActivist': bool(is_known_activist(filer)),
+        'activistLabel': is_known_activist(filer),
+        'sharesOwned': extra.get('sharesOwned'),
+        'percentOfClass': threshold,
+        'crossingDirection': parsed.get('direction', 'up'),
+        'crossingThreshold': threshold,
         'source': 'amf',
         'country': 'FR',
+        'regulator': 'AMF',
+        'sourceUrl': extra.get('url') or SEARCH_URL,
+        'sourceProvider': extra.get('source'),
+        'rawTitle': title[:300],
+    }
+
+
+# ============================================================
+# Push KV
+# ============================================================
+def push_to_kv(filings, method='unknown', dry_run=False):
+    payload = {
+        'updatedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'source': 'amf', 'country': 'FR',
         'total': len(filings),
         'activistsCount': sum(1 for f in filings if f.get('isActivist')),
-        'method': 'google-news-rss',
+        'method': method,
         'filings': filings,
     }
     out_file = 'amf_thresholds_data.json'
     with open(out_file, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f'[KV] Sauve dans {out_file} ({len(filings)} entrees)')
-
+    print(f'[KV] Sauve dans {out_file} ({len(filings)} entrees, method={method})')
     if dry_run:
         print('[KV] --dry-run : skip wrangler push')
         return True
-
     print(f'[KV] Push vers cle {KV_KEY}...')
     try:
         result = subprocess.run(
             ['npx', 'wrangler', 'kv', 'key', 'put', '--namespace-id', NAMESPACE_ID, KV_KEY,
              '--path', out_file, '--remote'],
-            capture_output=True, timeout=120, shell=False,
-        )
+            capture_output=True, timeout=120, shell=False)
         if result.returncode != 0:
             err = result.stderr.decode('utf-8', errors='replace')[:500]
             print(f'[KV] ERREUR : {err}')
@@ -326,21 +408,43 @@ def push_to_kv(filings, dry_run=False):
         return False
 
 
+# ============================================================
+# Main : essaie stealth d'abord, fallback Google News
+# ============================================================
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--days', type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--no-stealth', action='store_true', help='Skip stealth, force Google News only')
     args = parser.parse_args()
 
     t0 = time.time()
-    filings = scrape(lookback_days=args.days, debug=args.debug)
+    filings = []
+    method = 'google-news-rss'
+
+    # 1) Essai stealth d'abord
+    if not args.no_stealth:
+        print('[AMF] Strategy 1 : Playwright STEALTH sur AMF officiel')
+        try:
+            filings = scrape_amf_stealth(lookback_days=args.days, debug=args.debug)
+            if filings:
+                method = 'amf-stealth'
+                print(f'  → {len(filings)} filings via stealth ✓')
+        except Exception as e:
+            print(f'  [STEALTH ERREUR] {e}')
+
+    # 2) Fallback Google News RSS
+    if not filings:
+        print('[AMF] Strategy 2 : Fallback Google News RSS')
+        filings = scrape_google_news_fallback(lookback_days=args.days, debug=args.debug)
+        method = 'google-news-rss'
 
     if not filings:
-        print('[FAIL] 0 declaration scrapee')
+        print('[FAIL] 0 declaration scrapee toutes strategies confondues')
         sys.exit(1)
 
-    push_to_kv(filings, dry_run=args.dry_run)
+    push_to_kv(filings, method=method, dry_run=args.dry_run)
     print(f'[DONE] {time.time()-t0:.1f}s')
 
 

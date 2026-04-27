@@ -1,25 +1,18 @@
 """
-Fetch UK Major Shareholder notifications via Google News RSS — equivalent 13D/G UK.
+Fetch UK Major Shareholder notifications — v5 STEALTH OFFICIEL.
 
-Strategie v4 (BREAKTHROUGH) : pas de scraping LSE/Investegate (toutes des SPA
-bloquees) mais agregation via Google News RSS sur plusieurs requetes ciblees.
-Google indexe TradingView, Investegate, Bolsamania, AD HOC NEWS... qui scrappent
-deja les RNS UK officiels.
+Strategie a 2 niveaux :
+  1) FCA NSM officiel via Playwright STEALTH → donnees completes
+  2) Fallback Google News RSS si NSM bloque encore → donnees partielles
 
-Avantages :
-- Aucun Playwright, aucun browser, aucune bot detection
-- ~150-220 declarations par run (volume UK enorme)
-- Sources tierces fiables
-
-Pattern typique :
-  "TR-1 Notification of Major Holdings - Investegate"
-  "BlackRock Smaller Companies Trust Plc - Holding(s) in Company - Bolsamania"
-  "Mkango Resources Limited Announces TR1 Standard Form Notification"
+Source officielle : https://data.fca.org.uk/#/nsm/transparencyfilings
+(National Storage Mechanism - registre obligatoire de toutes les disclosures
+financiers UK : TR-1, PDMR, buybacks, etc.)
 
 Output : KV 'uk-thresholds-recent' avec schema unifie.
 
 Usage :
-  python fetch-uk-thresholds.py [--days 30] [--debug] [--dry-run]
+  python fetch-uk-thresholds.py [--days 30] [--debug] [--dry-run] [--no-stealth]
 """
 import argparse
 import json
@@ -35,323 +28,317 @@ UA = 'KairosInsider contact@kairosinsider.fr'
 NAMESPACE_ID = 'aca7ff9d2a244b06ae92d6a7129b4cc4'
 KV_KEY = 'uk-thresholds-recent'
 
-# Multi-requetes Google News UK
-GOOGLE_NEWS_QUERIES_UK = [
-    # TR-1 (Major Shareholding)
-    'TR-1+holdings+notification+UK',
-    'major+shareholding+notification',
-    '%22holdings+in+company%22+RNS',
-    '%22TR-1%22+notification',
-    '%22notification+of+major+holdings%22',
-    'FCA+disclosure+holdings',
-    'shareholder+notification+UK+%22%25%22',
-    # PDMR (insiders)
-    'PDMR+director+shareholding+RNS',
-    '%22director+pdmr+shareholding%22+RNS',
-    'PDMR+notification+UK',
-    # Buybacks (transaction in own shares)
-    '%22transaction+in+own+shares%22+RNS+UK',
-    'buyback+RNS+UK+plc',
-]
-
-# Activistes UK + activistes US qui ciblent UK
-KNOWN_ACTIVISTS_UK = {
-    'CEVIAN': 'Cevian Capital',
-    'BLUEBELL': 'Bluebell Capital',
-    'COAST CAPITAL': 'Coast Capital',
-    'PETRUS ADVISERS': 'Petrus Advisers',
-    'SHERBORNE': 'Sherborne Investors',
-    'TCI FUND': 'TCI Fund Management',
-    'CHILDREN\'S INVESTMENT': 'TCI Fund Management',
-    'AMBER CAPITAL': 'Amber Capital',
-    'PRIMESTONE': 'PrimeStone Capital',
-    # US activists actifs UK
-    'ELLIOTT': 'Elliott Management',
-    'PERSHING SQUARE': 'Pershing Square (Ackman)',
-    'STARBOARD': 'Starboard Value',
-    'CARL ICAHN': 'Icahn Enterprises',
-    'TRIAN': 'Trian Fund Management',
-    'JANA PARTNERS': 'Jana Partners',
-    # Souverains
-    'NORGES BANK': 'Norges Bank Investment Mgmt',
-    'GIC': 'GIC (Singapour)',
-    'TEMASEK': 'Temasek Holdings',
-    'MUBADALA': 'Mubadala (Abu Dhabi)',
-    'QATAR INVESTMENT': 'Qatar Investment Authority',
-    'CIC CAPITAL': 'CIC Capital (Chine)',
-    # Fonds passifs >5% courants
-    'BLACKROCK': 'BlackRock',
-    'VANGUARD': 'Vanguard',
-    'STATE STREET': 'State Street',
-}
-
-# Mapping type d'annonce → labels lisibles
-ANNOUNCEMENT_TYPE_RE = [
-    (re.compile(r'TR-?1|Major Holding|Holdings? in Company', re.IGNORECASE), 'SHAREHOLDER >3% (TR-1)', 'tr1'),
-    (re.compile(r'PDMR|Director.*Shareholding', re.IGNORECASE), 'DIRECTOR PDMR (insider)', 'pdmr'),
-    (re.compile(r'Transaction.*Own Shares|Buyback', re.IGNORECASE), 'BUYBACK (own shares)', 'buyback'),
-    (re.compile(r'Voting Rights|Total Voting', re.IGNORECASE), 'TOTAL VOTING RIGHTS', 'tvr'),
-]
-
+# FCA NSM officiel (SPA Angular avec anti-bot)
+FCA_NSM_URL = 'https://data.fca.org.uk/'
+PAGE_TIMEOUT_MS = 60000
 DEFAULT_LOOKBACK_DAYS = 30
 
+# Multi-requetes Google News (fallback)
+GOOGLE_NEWS_QUERIES_UK = [
+    'TR-1+holdings+notification+UK', 'major+shareholding+notification',
+    '%22holdings+in+company%22+RNS', '%22TR-1%22+notification',
+    '%22notification+of+major+holdings%22', 'PDMR+director+shareholding+RNS',
+    '%22director+pdmr+shareholding%22+RNS',
+    '%22transaction+in+own+shares%22+RNS+UK', 'buyback+RNS+UK+plc',
+]
 
-def is_known_activist(filer_name):
-    if not filer_name:
-        return None
-    upper = filer_name.upper().strip()
+KNOWN_ACTIVISTS_UK = {
+    'CEVIAN': 'Cevian Capital', 'BLUEBELL': 'Bluebell Capital',
+    'COAST CAPITAL': 'Coast Capital', 'PETRUS ADVISERS': 'Petrus Advisers',
+    'SHERBORNE': 'Sherborne Investors', 'TCI FUND': 'TCI Fund Management',
+    'CHILDREN\'S INVESTMENT': 'TCI Fund Management', 'AMBER CAPITAL': 'Amber Capital',
+    'PRIMESTONE': 'PrimeStone Capital',
+    'ELLIOTT': 'Elliott Management', 'PERSHING SQUARE': 'Pershing Square (Ackman)',
+    'STARBOARD': 'Starboard Value', 'CARL ICAHN': 'Icahn Enterprises',
+    'TRIAN': 'Trian Fund Management', 'JANA PARTNERS': 'Jana Partners',
+    'NORGES BANK': 'Norges Bank Investment Mgmt', 'GIC': 'GIC (Singapour)',
+    'TEMASEK': 'Temasek Holdings', 'MUBADALA': 'Mubadala (Abu Dhabi)',
+    'QATAR INVESTMENT': 'Qatar Investment Authority', 'CIC CAPITAL': 'CIC Capital (Chine)',
+    'BLACKROCK': 'BlackRock', 'VANGUARD': 'Vanguard', 'STATE STREET': 'State Street',
+}
+
+
+def is_known_activist(filer):
+    if not filer: return None
+    upper = filer.upper().strip()
     for key, label in KNOWN_ACTIVISTS_UK.items():
-        if key in upper:
-            return label
+        if key in upper: return label
     return None
 
 
-def fetch_google_news_rss(query, lang='en', region='GB', timeout=15):
-    url = f'https://news.google.com/rss/search?q={query}&hl={lang}&gl={region}&ceid={region}:{lang}'
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+# ============================================================
+# STRATEGIE 1 : FCA NSM officiel via Playwright STEALTH
+# ============================================================
+def scrape_fca_nsm_stealth(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read().decode('utf-8', errors='replace')
-    except Exception as e:
-        print(f'    [fetch err] {e}')
-        return ''
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    except ImportError:
+        print('  [STEALTH] playwright manquant, skip')
+        return []
 
-
-def parse_rss_items(rss_xml):
-    items = []
-    item_blocks = re.findall(r'<item>(.*?)</item>', rss_xml, re.DOTALL)
-    for block in item_blocks:
-        title_m = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', block, re.DOTALL)
-        link_m = re.search(r'<link>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</link>', block, re.DOTALL)
-        pub_m = re.search(r'<pubDate>(.*?)</pubDate>', block, re.DOTALL)
-        src_m = re.search(r'<source[^>]*>(.*?)</source>', block, re.DOTALL)
-        title = (title_m.group(1) if title_m else '').strip()
-        title = (title.replace('&amp;', '&').replace('&#39;', "'")
-                      .replace('&quot;', '"').replace('&lt;', '<').replace('&gt;', '>'))
-        items.append({
-            'title': title,
-            'link': (link_m.group(1) if link_m else '').strip(),
-            'pubDate': (pub_m.group(1) if pub_m else '').strip(),
-            'source': (src_m.group(1) if src_m else '').strip(),
-        })
-    return items
-
-
-def parse_pubdate_to_iso(s):
-    if not s:
-        return None
     try:
-        from email.utils import parsedate_to_datetime
-        dt = parsedate_to_datetime(s)
-        return dt.strftime('%Y-%m-%d')
-    except Exception:
-        return None
+        from playwright_stealth import Stealth
+        stealth_available = True
+    except ImportError:
+        try:
+            from playwright_stealth import stealth_sync
+            stealth_available = 'legacy'
+        except ImportError:
+            print('  [STEALTH] playwright-stealth non installe')
+            stealth_available = False
 
-
-def classify_uk_title(title):
-    """Identifie le type d'annonce + extract company name + ticker.
-
-    Pattern typique :
-      "Mkango Resources Limited Announces TR1 ..."
-      "Bodycote Plc - Holding(s) in Company - Bolsamania"
-      "REG - B&M European Barclays PLC - Major Holding"
-    """
-    out = {
-        'type_label': None, 'type_short': None,
-        'company': None, 'ticker': None,
-        'rawTitle': title,
-    }
-    if not title:
-        return out
-
-    # Type
-    for re_pat, label, short in ANNOUNCEMENT_TYPE_RE:
-        if re_pat.search(title):
-            out['type_label'] = label
-            out['type_short'] = short
-            break
-
-    # Company name : prend le segment le plus 'corporatif'
-    # Heuristique : entre debut et 'Announces' OU entre les 2 premiers ' - '
-    # OU avant 'plc'/'Plc'/'PLC'/'Limited'/'Ltd'/'Inc'
-    # Strip provider suffix (- Investegate, - TradingView, etc.)
-    cleaned = re.sub(r'\s*-\s*(Investegate|TradingView|Bolsamania|AD HOC NEWS|The Globe and Mail|Stocknews\.com|Yahoo Finance.*).*$', '', title, flags=re.IGNORECASE)
-
-    m = re.match(r'^(REG\s*-\s*)?(.+?)\s+(?:-\s+|Announces|plc[\s\-]|PLC[\s\-]|Limited[\s\-]|Ltd[\s\-]|Inc[\s\-])', cleaned, re.IGNORECASE)
-    if m:
-        out['company'] = m.group(2).strip()
-    else:
-        # Fallback : split par ' - ' et prend le premier
-        parts = cleaned.split(' - ')
-        if len(parts) >= 2:
-            out['company'] = parts[0].strip()
-        else:
-            out['company'] = cleaned[:80].strip()
-
-    # Si le titre commence par "REG - X PLC", company = X PLC
-    reg_m = re.match(r'^REG\s*-\s*(.+?)\s*-', title, re.IGNORECASE)
-    if reg_m:
-        out['company'] = reg_m.group(1).strip()
-
-    # Ticker : cherche un pattern de ticker UK (3-5 lettres maj a la fin du nom)
-    # Pattern : "Company Plc (XYZ) -" ou "Company Plc XYZ.L"
-    ticker_m = re.search(r'\(([A-Z]{2,5})\)|\b([A-Z]{2,5})\.L\b', title)
-    if ticker_m:
-        out['ticker'] = (ticker_m.group(1) or ticker_m.group(2) or '').upper()
-
-    return out
-
-
-def extract_filer_from_uk_title(title):
-    """Tente d'extraire le filer (BlackRock, Norges Bank, etc.) du titre UK."""
-    if not title:
-        return ''
-    # Pattern : "X Plc - Holding(s) in Company by Y" ou "X reports holdings of Y"
-    # Ou direct : "BlackRock Inc files TR-1"
-    m = re.search(r'(?:by|from|de)\s+(.+?)(?:\s*-\s*|\s+plc\s*$|\s*$)', title, re.IGNORECASE)
-    if m:
-        return m.group(1).strip()
-    return ''
-
-
-def scrape(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
-    print(f'[UK] Multi-query Google News RSS (cutoff {cutoff})')
-
-    seen_titles = set()
-    raw_items = []
-    for q in GOOGLE_NEWS_QUERIES_UK:
-        rss = fetch_google_news_rss(q, lang='en', region='GB')
-        items = parse_rss_items(rss)
-        for it in items:
-            if it['title'] in seen_titles:
-                continue
-            seen_titles.add(it['title'])
-            raw_items.append(it)
-        time.sleep(0.5)
-    print(f'  → {len(raw_items)} items uniques (sur {len(GOOGLE_NEWS_QUERIES_UK)} requetes)')
-
-    # Filtre keywords RNS UK (relaxe : on garde tout ce qui ressemble a un RNS)
-    UK_RNS_KEYWORDS = re.compile(
-        r'(TR-?1|holdings?\s+in\s+company|major\s+shareholding|major\s+holding|'
-        r'PDMR|director\s+pdmr|director\s+shareholding|'
-        r'transaction\s+in\s+own\s+shares|buy.?back|own\s+share\s+purchase|'
-        r'total\s+voting\s+rights|notification\s+of\s+major)',
-        re.IGNORECASE,
-    )
-
+    captured_xhr = []
     filings = []
-    for it in raw_items:
-        title = it['title']
 
-        # Filtre relax : keyword RNS OU classify qui matche
-        info = classify_uk_title(title)
-        if not info['type_label'] and not UK_RNS_KEYWORDS.search(title):
-            continue
+    with sync_playwright() as p:
+        if stealth_available is True:
+            stealth = Stealth()
+            browser = p.chromium.launch(headless=True, args=[
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=IsolateOrigins,site-per-process',
+            ])
+            context = stealth.apply_stealth_to_context(browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 900},
+                locale='en-GB',
+            ))
+        else:
+            browser = p.chromium.launch(headless=True, args=[
+                '--disable-blink-features=AutomationControlled',
+            ])
+            context = browser.new_context(
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                viewport={'width': 1280, 'height': 900},
+                locale='en-GB',
+            )
 
-        # Si pas classify mais keyword match : on assigne un type generique
-        if not info['type_label']:
-            if re.search(r'TR-?1|holdings?\s+in\s+company|major\s+holding', title, re.IGNORECASE):
-                info['type_label'] = 'SHAREHOLDER >3% (TR-1)'
-                info['type_short'] = 'tr1'
-            elif re.search(r'PDMR|director.*shareholding', title, re.IGNORECASE):
-                info['type_label'] = 'DIRECTOR PDMR (insider)'
-                info['type_short'] = 'pdmr'
-            elif re.search(r'own\s+shares|buyback', title, re.IGNORECASE):
-                info['type_label'] = 'BUYBACK (own shares)'
-                info['type_short'] = 'buyback'
-            else:
-                info['type_label'] = 'UK RNS DECLARATION'
-                info['type_short'] = 'other'
-
-        iso_date = parse_pubdate_to_iso(it['pubDate'])
-        if iso_date and iso_date < cutoff:
-            continue
-
-        company = info['company'] or ''
-        ticker = info['ticker'] or ''
-
-        if not company:
-            # Fallback : prend les ~60 premiers chars avant ' - ' ou tag provider
-            fallback = re.split(r'\s*-\s*(Investegate|TradingView|Bolsamania|AD HOC NEWS)', title, flags=re.IGNORECASE)[0]
-            fallback = re.split(r'\s*-\s*', fallback)[0][:80].strip()
-            if len(fallback) < 4:
-                continue
-            company = fallback
-
-        filer = extract_filer_from_uk_title(it['title'])
-        threshold = None
-        pct_match = re.search(r'(\d+(?:\.\d+)?)\s*%', it['title'])
-        if pct_match:
-            try: threshold = float(pct_match.group(1))
+        page = context.new_page()
+        if stealth_available == 'legacy':
+            try:
+                stealth_sync(page)
+                print('  [STEALTH] mode legacy applique')
             except: pass
 
-        filings.append({
-            'fileDate': iso_date,
-            'form': info['type_label'],
-            'accession': None,
-            'ticker': ticker,
-            'targetName': company,
-            'targetCik': None,
-            'filerName': filer,
-            'filerCik': None,
-            'isActivist': bool(is_known_activist(filer)) if filer else False,
-            'activistLabel': is_known_activist(filer) if filer else None,
-            'sharesOwned': None,
-            'percentOfClass': threshold,
-            'crossingDirection': 'up',  # par defaut
-            'crossingThreshold': threshold,
-            'source': 'fca',
-            'country': 'UK',
-            'regulator': 'FCA',
-            'sourceUrl': it['link'],
-            'sourceProvider': it['source'],
-            'announcementType': info['type_short'],
-            'rawTitle': it['title'][:300],
-        })
+        # Capture XHR JSON (FCA NSM utilise un endpoint REST sous-jacent)
+        def on_response(response):
+            try:
+                if response.request.resource_type not in ('xhr', 'fetch'): return
+                if not response.ok: return
+                ctype = response.headers.get('content-type', '').lower()
+                if 'json' not in ctype: return
+                try: body = response.json()
+                except: return
+                items = []
+                if isinstance(body, dict):
+                    for key in ('results', 'items', 'documents', 'docs', 'hits', 'data', 'response'):
+                        v = body.get(key)
+                        if isinstance(v, list) and len(v) >= 1: items = v; break
+                        if isinstance(v, dict):
+                            for k2 in ('results', 'items', 'documents', 'docs', 'hits'):
+                                v2 = v.get(k2)
+                                if isinstance(v2, list) and len(v2) >= 1: items = v2; break
+                            if items: break
+                elif isinstance(body, list) and len(body) >= 1:
+                    items = body
+                if items:
+                    captured_xhr.append({'url': response.url, 'items': items})
+                    if debug:
+                        print(f'  [XHR] {response.url[:120]} → {len(items)} items')
+            except: pass
 
-    by_type = {}
-    for f in filings:
-        t = f.get('announcementType', 'other')
-        by_type[t] = by_type.get(t, 0) + 1
-    print(f'  → {len(filings)} filings parses')
-    print(f'  By type : {by_type}')
+        page.on('response', on_response)
+
+        try:
+            page.goto(FCA_NSM_URL, wait_until='domcontentloaded', timeout=PAGE_TIMEOUT_MS)
+            try:
+                page.wait_for_load_state('networkidle', timeout=45000)
+            except PlaywrightTimeoutError: pass
+            page.wait_for_timeout(5000)
+
+            tables = page.query_selector_all('table tr')
+            print(f'  [STEALTH] {len(tables)} table rows, {len(captured_xhr)} XHR captures')
+
+            # 1) Parse XHR
+            for cap in captured_xhr:
+                for item in cap.get('items', []):
+                    if not isinstance(item, dict): continue
+                    title = str(item.get('headline') or item.get('title') or item.get('name') or '')
+                    if not title: continue
+                    iso_date = parse_uk_date_any(item.get('publishedDate') or item.get('date') or item.get('publishedAt'))
+                    if iso_date and iso_date < cutoff: continue
+                    info = classify_uk_title(title)
+                    if not info['type_label']: continue
+                    company = info['company'] or item.get('company') or ''
+                    ticker = info['ticker'] or item.get('ticker') or item.get('tidm') or ''
+                    if not company: continue
+                    filings.append(make_uk_filing(title, iso_date, info, company, ticker, extra=item))
+
+            # 2) Parse table rows si XHR vide
+            if not filings and tables:
+                for row in tables:
+                    try:
+                        text = row.inner_text()
+                        if not text or len(text) < 20: continue
+                        info = classify_uk_title(text)
+                        if not info['type_label']: continue
+                        # Date
+                        date_m = re.search(r'(\d{1,2}\s+\w+\s+\d{4}|\d{4}-\d{2}-\d{2})', text)
+                        iso_date = parse_uk_date_any(date_m.group(1) if date_m else None)
+                        if iso_date and iso_date < cutoff: continue
+                        company = info['company'] or text[:60].strip()
+                        filings.append(make_uk_filing(text[:200], iso_date, info, company, info['ticker'] or '', extra={}))
+                    except: pass
+
+            browser.close()
+        except Exception as e:
+            print(f'  [STEALTH ERREUR] {e}')
+            try: browser.close()
+            except: pass
+
     return filings
 
 
-def push_to_kv(filings, dry_run=False):
+# ============================================================
+# STRATEGIE 2 : Google News RSS fallback
+# ============================================================
+def scrape_google_news_uk(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+    seen = set()
+    raw = []
+    for q in GOOGLE_NEWS_QUERIES_UK:
+        url = f'https://news.google.com/rss/search?q={q}&hl=en&gl=GB&ceid=GB:en'
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                rss = resp.read().decode('utf-8', errors='replace')
+        except: continue
+        for block in re.findall(r'<item>(.*?)</item>', rss, re.DOTALL):
+            t_m = re.search(r'<title>(.*?)</title>', block, re.DOTALL)
+            link_m = re.search(r'<link>(.*?)</link>', block, re.DOTALL)
+            pub_m = re.search(r'<pubDate>(.*?)</pubDate>', block)
+            src_m = re.search(r'<source[^>]*>(.*?)</source>', block, re.DOTALL)
+            title = (t_m.group(1) if t_m else '').strip()
+            title = title.replace('&amp;', '&').replace('&#39;', "'").replace('&quot;', '"')
+            if not title or title in seen: continue
+            seen.add(title)
+            raw.append({'title': title, 'link': (link_m.group(1) if link_m else '').strip(),
+                        'pubDate': (pub_m.group(1) if pub_m else '').strip(),
+                        'source': (src_m.group(1) if src_m else '').strip()})
+        time.sleep(0.4)
+    print(f'  [FALLBACK] {len(raw)} items uniques Google News')
+
+    filings = []
+    UK_KEYWORDS = re.compile(r'(TR-?1|holdings?\s+in\s+company|major\s+shareholding|major\s+holding|PDMR|director.*shareholding|transaction.*own\s+shares|buy.?back|notification\s+of\s+major)', re.IGNORECASE)
+    for it in raw:
+        info = classify_uk_title(it['title'])
+        if not info['type_label'] and not UK_KEYWORDS.search(it['title']): continue
+        if not info['type_label']:
+            t = it['title'].lower()
+            if 'tr-1' in t or 'tr1' in t or 'major hold' in t: info['type_label'], info['type_short'] = 'SHAREHOLDER >3% (TR-1)', 'tr1'
+            elif 'pdmr' in t or 'director' in t: info['type_label'], info['type_short'] = 'DIRECTOR PDMR', 'pdmr'
+            elif 'buyback' in t or 'own shares' in t: info['type_label'], info['type_short'] = 'BUYBACK', 'buyback'
+            else: info['type_label'], info['type_short'] = 'UK RNS', 'other'
+        iso_date = parse_uk_date_any(it['pubDate'])
+        if iso_date and iso_date < cutoff: continue
+        company = info['company'] or re.split(r'\s*-\s*', it['title'])[0][:80].strip()
+        if not company: continue
+        filings.append(make_uk_filing(it['title'], iso_date, info, company, info['ticker'] or '',
+                                       extra={'url': it['link'], 'source': it['source']}))
+    return filings
+
+
+# ============================================================
+# Helpers
+# ============================================================
+def parse_uk_date_any(s):
+    if not s: return None
+    s = str(s).strip()
+    m = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})', s)
+    if m: return f'{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+    months = {'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,'jul':7,'aug':8,'sep':9,'sept':9,'oct':10,'nov':11,'dec':12}
+    m = re.match(r'^(\d{1,2})\s+([A-Za-z]{3,4})\s+(\d{4})', s)
+    if m:
+        mm = months.get(m.group(2).lower())
+        if mm: return f'{m.group(3)}-{mm:02d}-{int(m.group(1)):02d}'
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(s).strftime('%Y-%m-%d')
+    except: return None
+
+
+def classify_uk_title(title):
+    out = {'type_label': None, 'type_short': None, 'company': None, 'ticker': None}
+    if not title: return out
+    rules = [
+        (re.compile(r'TR-?1|Major Holding|Holdings? in Company', re.I), 'SHAREHOLDER >3% (TR-1)', 'tr1'),
+        (re.compile(r'PDMR|Director.*Shareholding', re.I), 'DIRECTOR PDMR (insider)', 'pdmr'),
+        (re.compile(r'Transaction.*Own Shares|Buy.?back', re.I), 'BUYBACK (own shares)', 'buyback'),
+        (re.compile(r'Voting Rights|Total Voting', re.I), 'TOTAL VOTING RIGHTS', 'tvr'),
+    ]
+    for rx, label, short in rules:
+        if rx.search(title):
+            out['type_label'], out['type_short'] = label, short; break
+    cleaned = re.sub(r'\s*-\s*(Investegate|TradingView|Bolsamania|AD HOC NEWS|The Globe and Mail).*$', '', title, flags=re.I)
+    m = re.match(r'^(REG\s*-\s*)?(.+?)\s+(?:-\s+|Announces|plc[\s\-]|PLC[\s\-]|Limited[\s\-]|Ltd[\s\-])', cleaned, re.I)
+    if m: out['company'] = m.group(2).strip()
+    else:
+        parts = cleaned.split(' - ')
+        out['company'] = parts[0].strip() if len(parts) >= 2 else cleaned[:80].strip()
+    reg_m = re.match(r'^REG\s*-\s*(.+?)\s*-', title, re.I)
+    if reg_m: out['company'] = reg_m.group(1).strip()
+    ticker_m = re.search(r'\(([A-Z]{2,5})\)|\b([A-Z]{2,5})\.L\b', title)
+    if ticker_m: out['ticker'] = (ticker_m.group(1) or ticker_m.group(2) or '').upper()
+    return out
+
+
+def make_uk_filing(title, iso_date, info, company, ticker, extra=None):
+    extra = extra or {}
+    threshold = None
+    pct_m = re.search(r'(\d+(?:\.\d+)?)\s*%', title)
+    if pct_m:
+        try: threshold = float(pct_m.group(1))
+        except: pass
+    filer = ''
+    m = re.search(r'(?:by|from)\s+(.+?)(?:\s*-\s*|\s+plc\s*$|\s*$)', title, re.I)
+    if m: filer = m.group(1).strip()
+    return {
+        'fileDate': iso_date, 'form': info.get('type_label') or 'UK RNS',
+        'accession': str(extra.get('id') or ''),
+        'ticker': ticker.upper() if ticker else '', 'targetName': company, 'targetCik': None,
+        'filerName': filer, 'filerCik': None,
+        'isActivist': bool(is_known_activist(filer)) if filer else False,
+        'activistLabel': is_known_activist(filer) if filer else None,
+        'sharesOwned': extra.get('shares'), 'percentOfClass': threshold,
+        'crossingDirection': 'up', 'crossingThreshold': threshold,
+        'source': 'fca', 'country': 'UK', 'regulator': 'FCA',
+        'sourceUrl': extra.get('url') or FCA_NSM_URL,
+        'sourceProvider': extra.get('source'), 'announcementType': info.get('type_short'),
+        'rawTitle': title[:300],
+    }
+
+
+def push_to_kv(filings, method='unknown', dry_run=False):
     payload = {
         'updatedAt': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'source': 'fca',
-        'country': 'UK',
-        'total': len(filings),
+        'source': 'fca', 'country': 'UK', 'total': len(filings),
         'activistsCount': sum(1 for f in filings if f.get('isActivist')),
-        'method': 'google-news-rss',
-        'byType': {
-            t: sum(1 for f in filings if f.get('announcementType') == t)
-            for t in {'tr1', 'pdmr', 'tvr', 'buyback'}
-        },
+        'method': method,
+        'byType': {t: sum(1 for f in filings if f.get('announcementType') == t)
+                   for t in {'tr1', 'pdmr', 'tvr', 'buyback', 'other'}},
         'filings': filings,
     }
     out_file = 'uk_thresholds_data.json'
     with open(out_file, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f'[KV] Sauve dans {out_file} ({len(filings)} entrees)')
-
-    if dry_run:
-        print('[KV] --dry-run : skip wrangler push')
-        return True
-
-    print(f'[KV] Push vers cle {KV_KEY}...')
+    print(f'[KV] Sauve dans {out_file} ({len(filings)} entrees, method={method})')
+    if dry_run: return True
     try:
-        result = subprocess.run(
-            ['npx', 'wrangler', 'kv', 'key', 'put', '--namespace-id', NAMESPACE_ID, KV_KEY,
-             '--path', out_file, '--remote'],
-            capture_output=True, timeout=120, shell=False,
-        )
+        result = subprocess.run(['npx', 'wrangler', 'kv', 'key', 'put', '--namespace-id', NAMESPACE_ID,
+                                  KV_KEY, '--path', out_file, '--remote'],
+                                 capture_output=True, timeout=120, shell=False)
         if result.returncode != 0:
-            err = result.stderr.decode('utf-8', errors='replace')[:500]
-            print(f'[KV] ERREUR : {err}')
+            print(f'[KV] ERREUR : {result.stderr.decode("utf-8", errors="replace")[:500]}')
             return False
         print('[KV] Push reussi.')
         return True
@@ -365,16 +352,30 @@ def main():
     parser.add_argument('--days', type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--no-stealth', action='store_true')
     args = parser.parse_args()
 
     t0 = time.time()
-    filings = scrape(lookback_days=args.days, debug=args.debug)
+    filings = []
+    method = 'google-news-rss'
+
+    if not args.no_stealth:
+        print('[UK] Strategy 1 : Playwright STEALTH sur FCA NSM')
+        try:
+            filings = scrape_fca_nsm_stealth(lookback_days=args.days, debug=args.debug)
+            if filings: method = 'fca-stealth'; print(f'  → {len(filings)} filings via stealth ✓')
+        except Exception as e:
+            print(f'  [STEALTH ERREUR] {e}')
 
     if not filings:
-        print('[FAIL] 0 filings parses')
-        sys.exit(1)
+        print('[UK] Strategy 2 : Fallback Google News RSS')
+        filings = scrape_google_news_uk(lookback_days=args.days, debug=args.debug)
+        method = 'google-news-rss'
 
-    push_to_kv(filings, dry_run=args.dry_run)
+    if not filings:
+        print('[FAIL] 0 filings'); sys.exit(1)
+
+    push_to_kv(filings, method=method, dry_run=args.dry_run)
     print(f'[DONE] {time.time()-t0:.1f}s')
 
 

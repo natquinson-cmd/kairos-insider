@@ -1,9 +1,11 @@
 name: Fetch EU + UK Thresholds (AMF + BaFin + FCA)
 
 # Recupere quotidiennement les franchissements de seuils EU + UK :
-#   - AMF (France) via Playwright headless (page rendue cote client)
+#   - AMF (France) v5 STEALTH : Playwright + playwright-stealth sur AMF officiel
+#                               + fallback Google News RSS si stealth bloque
 #   - BaFin (Allemagne) via CSV public officiel
-#   - FCA (UK) via Investegate.co.uk RNS aggregator
+#   - FCA (UK) v5 STEALTH : Playwright + playwright-stealth sur FCA NSM officiel
+#                          + fallback Google News RSS si stealth bloque
 #
 # Push KV : amf-thresholds-recent + bafin-thresholds-recent + uk-thresholds-recent
 # Le worker merge avec 13dg-recent (SEC) au moment de la lecture (4 marches).
@@ -13,16 +15,13 @@ on:
     # 5h UTC = 7h Paris : tourne AVANT update-13f (7h UTC) pour que les
     # nouveaux franchissements EU soient deja en KV quand les scores se
     # recalculent. Lundi-vendredi (week-end pas de declaration AMF/BaFin).
-    # NOTE : AMF + UK actuellement scrapers en panne (SPA tres protegees) -
-    # seul BaFin alimente reellement la KV. Les jobs AMF/UK tournent quand
-    # meme au cas ou (continue-on-error) pour collecter du HTML pour debug futur.
     - cron: '0 5 * * 1-5'
   workflow_dispatch:
 
 jobs:
   amf-thresholds:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,14 +31,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      # v4 : plus de Playwright. On utilise Google News RSS (HTTP simple).
-      - name: Run AMF scraper (Google News RSS)
+      # v5 STEALTH : Playwright + playwright-stealth pour bypass anti-bot AMF
+      - name: Install Playwright + stealth
+        run: |
+          pip install playwright playwright-stealth requests
+          playwright install chromium --with-deps
+
+      - name: Run AMF scraper (v5 STEALTH + Google News fallback)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-amf-thresholds.py --days 30
+          python fetch-amf-thresholds.py --days 30 --debug
         continue-on-error: true
 
       - name: Upload AMF data
@@ -47,7 +51,10 @@ jobs:
         if: always()
         with:
           name: amf-thresholds-debug
-          path: worker/amf_thresholds_data.json
+          path: |
+            worker/amf_thresholds_data.json
+            worker/amf_debug_*.html
+            worker/amf_debug_*.png
           if-no-files-found: ignore
           retention-days: 7
 
@@ -94,7 +101,7 @@ jobs:
 
   uk-thresholds:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     if: always()
     steps:
       - name: Checkout
@@ -105,14 +112,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      # v4 : plus de Playwright. On utilise Google News RSS (HTTP simple).
-      - name: Run UK scraper (Google News RSS)
+      # v5 STEALTH : Playwright + playwright-stealth pour bypass anti-bot FCA NSM
+      - name: Install Playwright + stealth
+        run: |
+          pip install playwright playwright-stealth requests
+          playwright install chromium --with-deps
+
+      - name: Run UK scraper (v5 STEALTH + Google News fallback)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-uk-thresholds.py --days 30
+          python fetch-uk-thresholds.py --days 30 --debug
         continue-on-error: true
 
       - name: Upload UK data + HTML debug
@@ -122,6 +134,8 @@ jobs:
           name: uk-thresholds-debug
           path: |
             worker/uk_thresholds_data.json
+            worker/uk_debug_*.html
+            worker/uk_debug_*.png
             worker/uk_archive_full.html
           if-no-files-found: ignore
           retention-days: 7
