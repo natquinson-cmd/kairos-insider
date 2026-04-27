@@ -13,6 +13,7 @@
 
 import { handleStockAnalysis } from './stock-api.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
+import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 import {
   handlePortfolioBrokers,
   handlePortfolioConnections,
@@ -1972,16 +1973,27 @@ async function computeTopSignals(env) {
     result.activistsFresh = allFilings
       .filter(f => f.ticker || f.targetName)  // accepte aussi sans ticker (EU souvent)
       .slice(0, 8)
-      .map(f => ({
-        filer: f.filerName || 'Investisseur non résolu',
-        ticker: f.ticker || '',
-        targetName: f.targetName || '',
-        date: f.fileDate || f.filingDate || f.date,
-        form: f.form,
-        isActivist: !!f.isActivist,
-        country: f.country || 'US',
-        regulator: f.regulator,
-      }));
+      .map(f => {
+        const country = f.country || 'US';
+        // Pour EU : enrichir avec yahooSymbol (ticker + suffix Yahoo) depuis le mapping
+        // Ex: "LVMH MOET HENNESSY-LOUIS VUITTON" + "FR" -> "MC.PA"
+        let yahooSymbol = f.ticker || '';
+        if (country !== 'US') {
+          const looked = lookupEuYahooSymbol(f.targetName, country);
+          if (looked) yahooSymbol = looked;
+        }
+        return {
+          filer: f.filerName || 'Investisseur non résolu',
+          ticker: f.ticker || '',
+          yahooSymbol,  // ticker formate pour Yahoo Finance (avec suffix marche EU)
+          targetName: f.targetName || '',
+          date: f.fileDate || f.filingDate || f.date,
+          form: f.form,
+          isActivist: !!f.isActivist,
+          country,
+          regulator: f.regulator,
+        };
+      });
   } catch (e) { console.warn('activistsFresh failed:', e); }
 
   result.generatedAt = new Date().toISOString();
@@ -6162,6 +6174,19 @@ async function loadAllThresholdsFilings(env) {
   if (fiData?.filings) {
     for (const f of fiData.filings) {
       all.push({ ...f, source: f.source || 'fiva', country: f.country || 'FI', regulator: f.regulator || 'Finanssivalvonta' });
+    }
+  }
+
+  // Enrichissement EU : ajouter yahooSymbol pour permettre fetch des cours Yahoo
+  // (LVMH -> MC.PA, BARCLAYS -> BARC.L, NESTLE -> NESN.SW, etc.)
+  for (const f of all) {
+    if (f.country && f.country !== 'US' && !f.yahooSymbol) {
+      const looked = lookupEuYahooSymbol(f.targetName, f.country);
+      if (looked) f.yahooSymbol = looked;
+    }
+    // Pour US, le ticker est deja le symbole Yahoo
+    if (f.country === 'US' && !f.yahooSymbol && f.ticker) {
+      f.yahooSymbol = f.ticker;
     }
   }
 
