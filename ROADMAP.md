@@ -4,7 +4,93 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 27 avril 2026 (v9 - PDF parsing AMF + Backtest v2 + Featured landing)
+**Dernière mise à jour** : 27 avril 2026 (v10 - ES CNMV + IT Borsa Italiana officiels)
+
+---
+
+## 🎯 v10 — Sources officielles ES + IT (27 avril 2026, commit 43f1748)
+
+Pivot final pour Espagne et Italie : abandon de Google News tier3 au profit de
+**sources officielles**, malgré l'anti-bot CONSOB et l'absence de RSS dédié
+sur participaciones significativas CNMV.
+
+### 🇪🇸 ES CNMV — RSS Otra Información Relevante (OIR)
+**Endpoint** : `https://www.cnmv.es/portal/Otra-Informacion-Relevante/RSS.asmx/GetNoticiasCNMV`
+- RSS officiel public, pas d'auth, pas d'anti-bot
+- Retourne les **19-21 derniers events du jour** sur le site CNMV
+- Champs structurés : `<Title>` (société), `<description>` (type + détail),
+  `<link>` avec `nreg=N` pour identifier l'event
+
+**Stratégie cumulative** : le scraper accumule dans le KV existant + dedup
+par `nreg`. Après 30 jours de runs quotidiens : ~600 items propres.
+
+**Types classifiés** (regex sur description) :
+- `BUYBACK` (recompra/autocartera) — Endesa, IAG, Sabadell, eDreams, HBX, Banco Santander
+- `PARTICIPATION` (TR-1) — rare en OIR
+- `AGM` (convocatoria/asamblea)
+- `M&A` (fusión/adquisición)
+- `TENDER OFFER` (oferta pública / OPA / OPV)
+- `BUSINESS UPDATE`, `FINANCIAL REPORT`, `GOVERNANCE`, `COMPENSATION`
+
+**Test live** (run 25009326759) :
+- 21 items du jour récupérés
+- 22 filings final après merge KV existant
+- byType : 7 buybacks, 4 OIR, 3 biz, 2 AGM, 2 gov, 1 M&A, 1 fin, 1 comp
+
+### 🇮🇹 IT Borsa Italiana — Radiocor PARTECIPAZIONI_RILEVANTI
+CONSOB Internet OAM est protégé par anti-bot Radware (impossible à scraper).
+**Alternative** : Borsa Italiana Radiocor avec semantic code dédié.
+
+**Endpoint** : `https://www.borsaitaliana.it/borsa/notizie/radiocor/ricerca-semantica.html?semanticCode=PARTECIPAZIONI_RILEVANTI`
+- HTML scraping pas d'anti-bot
+- Retourne ~25 articles dont 3-5 vraies déclarations + 20 bruit
+
+**Filtres stricts** :
+- Keywords positifs : `ha aumentato/ridotto`, `sale/scende`, `supera`, `quota in`,
+  `partecipazione del`, `comunica di detenere`, `soglia del N%`
+- Rejet bruit : `gli orari del Senato`, `Hormuz`, `FOCUS`, `Borsa: chiusura`,
+  `Reuters chart`, `tabella settimanale`, etc.
+
+**Activists IT étendus** : Exor (Agnelli), Fininvest (Berlusconi), Edizione
+(Benetton), Delfin (Del Vecchio), Caltagirone, CDP (Cassa Depositi e Prestiti)
+
+**Test live** :
+- 18 articles uniques récupérés
+- Filtres : 3 retenus, 3 noise, 12 sans pattern declaration
+- 11 filings final après merge KV (8 anciens Google News conservés)
+
+### Workflow & infra
+- 2 nouveaux jobs : `es-thresholds` + `it-thresholds` (5 min timeout chacun)
+- Tournent en parallèle des autres (cron `0 5 * * *`, 7j/7)
+- Tier 3 multi-pays continue à servir Nordics (SE/NO/DK/FI) en Google News
+- `_ES_DEPRECATED` et `_IT_DEPRECATED` dans tier3 config (gardé pour archive)
+
+### Bilan v10 — couverture totale 12 marchés smart money
+
+| Pays | Source | Méthode | Volume |
+|---|---|---|:---:|
+| 🇺🇸 SEC | EDGAR | RSS officiel | ~50 |
+| 🇫🇷 AMF | BDIF API REST | API officielle + PDF parse | **309** |
+| 🇩🇪 BaFin | CSV public | CSV officiel | 137 |
+| 🇬🇧 FCA | NSM API Elasticsearch | API officielle | **466** |
+| 🇳🇱 AFM | CSV public | CSV officiel (~21k registre) | 5 678 |
+| 🇨🇭 SIX | SER API REST | API officielle (sheldon) | **31 617** |
+| 🇪🇸 CNMV | RSS OIR | RSS officiel (cumulative) | 22 (→ ~600/30j) |
+| 🇮🇹 Borsa Italiana | Radiocor scraping | HTML officiel | 11 (→ ~150/30j) |
+| 🇸🇪 FI | Google News | Tier 3 (officiel à investiguer) | ~7 |
+| 🇳🇴 Finanstilsynet | Google News | Tier 3 | ~10 |
+| 🇩🇰 Finanstilsynet | Google News | Tier 3 | ~5 |
+| 🇫🇮 Finanssivalvonta | Google News | Tier 3 | ~2 |
+
+**8/12 marchés en sources officielles** (66%). Les 4 Nordics restent en Google News
+tier3 mais représentent un volume mineur (~20% du total combiné).
+
+### Reste à faire (v11+)
+- Nordics : sources officielles SE Insynsregistret (lib PyPI), NO Oslo Børs API
+- AMF PDF parsing : améliorer regex pour les 31 PDFs scan/image (option OCR tesseract)
+- Backtest : detect benchmark plus précisément selon dominant country
+- Alertes custom temps réel (email/push si BlackRock prend stake nouveau)
+- Mobile PWA, API publique payante
 
 ---
 
