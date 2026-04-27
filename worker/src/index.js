@@ -41,6 +41,12 @@ const FREE_ROUTES = [
   '/api/13dg/ticker',           // gros actionnaires sur 1 ticker
   '/api/history/ticker-activity', // widget 'Activite recente 7j' (ETF+insiders+score delta)
   '/api/history/etf',             // ETF historique 180j pour 1 ticker
+  '/api/backtest/list',           // BACKTEST (gratuit, acquisition) - liste des fonds
+];
+
+// Routes prefixes publiques (matchent path.startsWith)
+const FREE_PREFIXES = [
+  '/api/backtest/',  // BACKTEST (gratuit, acquisition) - simulation rendement
 ];
 
 // ============================================================
@@ -353,6 +359,29 @@ async function handleRequest(request, env, ctx) {
     }
 
     // ==========================================
+    // BACKTEST PUBLIC (gratuit, acquisition - pas d'auth requise)
+    // ==========================================
+    if (request.method === 'GET' && path === '/api/backtest/list') {
+      try {
+        const { KNOWN_FILERS } = await import('./backtest.js');
+        return jsonResponse({ filers: KNOWN_FILERS }, 200, origin);
+      } catch (e) {
+        return jsonResponse({ error: 'Failed to load filers list', detail: String(e) }, 500, origin);
+      }
+    }
+    if (request.method === 'GET' && path.startsWith('/api/backtest/')) {
+      try {
+        const filerKey = decodeURIComponent(path.slice('/api/backtest/'.length));
+        const periodKey = url.searchParams.get('period') || '1y';
+        const { handleBacktest } = await import('./backtest.js');
+        const data = await handleBacktest(filerKey, periodKey, env);
+        return jsonResponse(data, 200, origin);
+      } catch (e) {
+        return jsonResponse({ error: 'Backtest failed', detail: String(e) }, 500, origin);
+      }
+    }
+
+    // ==========================================
     // ROUTES AUTHENTIFIÉES (Firebase JWT requis)
     // ==========================================
     if (path.startsWith('/api/') || path.startsWith('/stripe/') || path.startsWith('/account/') || path.startsWith('/support/')) {
@@ -594,7 +623,8 @@ async function handleRequest(request, env, ctx) {
       // --- Routes API ---
       if (request.method === 'GET' && path.startsWith('/api/')) {
         // Routes gratuites (pas besoin d'abonnement)
-        const isFree = FREE_ROUTES.includes(path);
+        const isFree = FREE_ROUTES.includes(path)
+          || FREE_PREFIXES.some(prefix => path.startsWith(prefix));
 
         if (!isFree) {
           // Vérifier l'abonnement premium
