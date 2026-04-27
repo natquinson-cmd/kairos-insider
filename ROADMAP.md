@@ -4,7 +4,87 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 27 avril 2026 (Tier 3 livré : 12 marchés au total)
+**Dernière mise à jour** : 27 avril 2026 (v7 OFFICIEL - APIs régulateurs + cours EU)
+
+---
+
+## 🚀 v7 OFFICIEL — Sources régulateurs vraies (27 avril 2026)
+
+Pivot stratégique majeur : abandon de Google News (bruit, doublons, articles
+éditoriaux) au profit des **APIs REST officielles** des régulateurs eux-mêmes.
+
+### 🇫🇷 AMF BDIF — API REST officielle (commit df2c7db)
+- **Endpoint** : `GET https://bdif.amf-france.org/back/api/v1/informations`
+- **Reverse engineering** : reconstitution de la signature `search()` à partir
+  du bundle Angular `chunk-KJITPICD.js` (582 KB minified). 14 paramètres
+  identifiés (Jetons, Numeros, RechercheTexte, DateDebut, DateFin,
+  TypesInformation, TypesDocument, etc.)
+- **Filtre franchissements** : `TypesInformation=SPDE&TypesDocument=Declarations`
+- **Pagination** : `from=` (offset Elasticsearch), PAS `page=` (param ignoré
+  silencieusement par l'API)
+- **Volume** : 35 (Google News bruit) → **306 vraies déclarations sur 90j**
+- **Couverture CAC40 + SBF120** : LVMH ✅, TotalEnergies ✅, Vivendi, Carrefour,
+  Engie, Renault, Michelin, Orange, Publicis, Bureau Veritas... (79 sociétés
+  uniques)
+- **Source** : `worker/fetch-amf-bdif.py`
+
+### 🇬🇧 FCA NSM — API REST Elasticsearch officielle (commit daef2ef)
+- **Endpoint** : `POST https://api.data.fca.org.uk/search?index=fca-nsm-searchdata`
+- **Body** : `{"from":N,"size":100,"sort":"submitted_date","sortorder":"desc"}`
+- **Total disponible** : 5.2 millions de filings (5 ans d'historique)
+- **Types retenus** : Holding(s) in Company (TR-1), Director/PDMR Shareholding,
+  Transaction in Own Shares (buybacks), Total Voting Rights
+- **Volume** : 42 (Google News) → **466 filings smart money sur 90j**
+  (114 TR-1 + 62 PDMR + 284 buybacks + 6 TVR)
+- **Source** : `worker/fetch-uk-fca.py`
+
+### 💰 Cours d'actions européens — Yahoo Finance mapping (commit 2c135fb)
+- **Nouveau fichier** : `worker/src/eu_yahoo_symbols.js` (~280 entrées)
+- Mapping nom de société → ticker Yahoo avec suffix marché :
+  - `.PA` Paris : LVMH→MC.PA, TotalEnergies→TTE.PA, Vivendi→VIV.PA
+  - `.L` London : Barclays→BARC.L, Shell→SHEL.L, AstraZeneca→AZN.L
+  - `.DE` Frankfurt : SAP→SAP.DE, Siemens→SIE.DE, BMW→BMW.DE
+  - `.AS` Amsterdam : ASML→ASML.AS, Adyen→ADYEN.AS, Heineken→HEIA.AS
+  - `.SW` Switzerland : Nestlé→NESN.SW, Roche→ROG.SW, UBS→UBSG.SW
+  - `.MI` Milan : Enel→ENEL.MI, Ferrari→RACE.MI, Generali→G.MI
+  - `.MC` Madrid : Santander→SAN.MC, Telefonica→TEF.MC, Inditex→ITX.MC
+  - `.ST` Stockholm : Volvo→VOLV-B.ST, Ericsson→ERIC-B.ST
+  - `.OL` Oslo : Equinor→EQNR.OL, Telenor→TEL.OL, Yara→YAR.OL
+  - `.CO` Copenhagen : Novo Nordisk→NOVO-B.CO, Maersk→MAERSK-B.CO
+  - `.HE` Helsinki : Nokia→NOKIA.HE, KONE→KNEBV.HE, Neste→NESTE.HE
+- Worker enrichit automatiquement chaque filing EU avec un champ `yahooSymbol`
+  pour permettre le fetch des cours via `query1.finance.yahoo.com`
+
+### Jobs journaliers — État 27/04/2026 ✅
+| Workflow | Cron | Dernière exécution auto | Status |
+|---|---|---|---|
+| `fetch-eu-thresholds` (12 marchés) | `0 5 * * *` (7j/7) | 2026-04-27 07:32 UTC | ✅ success |
+| `update-13f` (SEC US + ETF) | `0 5 * * *` (7j/7) | 2026-04-27 07:34 UTC | ✅ success |
+| `daily-tweets` (X auto-tweet) | `30 6 * * *` (7j/7) | 2026-04-27 09:04 UTC | ✅ success |
+| `backup` (D1 + KV → R2) | `0 7 * * *` (7j/7) | 2026-04-27 09:12 UTC | ✅ success |
+| `daily-comment-digest` (X comments) | `45 5 * * 1-5` | Lun-Ven uniquement | ✅ |
+
+### Concurrence belge identifiée
+- **Insiderwatch.be** : insider transactions FSMA Belgique (dirigeants seulement)
+- **Insiderscreener.com** : multi-pays mais focalisé insider trading des
+  dirigeants, pas de smart money/franchissements
+- **Différenciateur Kairos** : smart money (fonds activistes/institutionnels +
+  dirigeants) sur 12 marchés EU+US avec UI FR. Pas d'équivalent.
+
+### Reste à upgrader (Tier 3 → sources officielles)
+- 🇨🇭 **SIX** : disclosure portal `disclosure.six-exchange-regulation.com` à
+  reverse engineer (Angular SPA) — actuellement Google News
+- 🇮🇹 **CONSOB Internet OAM** — actuellement Google News (anti-bot Radware)
+- 🇪🇸 **CNMV hechos relevantes** — RSS officiel disponible (datos.gob.es)
+- 🇸🇪 **FI Insynsregistret** — librairie PyPI `insynsregistret` existe (à utiliser)
+- 🇳🇴🇩🇰🇫🇮 **Nordics** — sources officielles à investiguer
+
+### Limites actuelles connues
+- AMF BDIF : `filer` (déclarant) vide (info uniquement dans le PDF). À enrichir
+  v8 via parsing PDF avec `pdfplumber`. Impact : `isActivist` flag toujours
+  false sur AMF actuellement (mais target nominal correct).
+- FCA NSM : `filer` extrait par heuristique du headline (regex), peut manquer
+  certains. À enrichir v8 via parsing du HTML lié.
 
 ---
 
