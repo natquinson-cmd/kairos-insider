@@ -183,6 +183,40 @@ jobs:
           retention-days: 7
 
   # ===========================================================
+  # CH (Suisse) SIX SER : API REST officielle (~31k notifications)
+  # ===========================================================
+  ch-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run CH SIX scraper (API officielle SER)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python fetch-ch-six.py --days 90 --debug
+        continue-on-error: true
+
+      - name: Upload CH data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ch-thresholds-debug
+          path: worker/ch_thresholds_data.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================
   # AFM (Pays-Bas) : CSV public officiel - separate job (rapide)
   # ===========================================================
   afm-thresholds:

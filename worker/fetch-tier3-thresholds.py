@@ -63,7 +63,8 @@ KNOWN_ACTIVISTS = {
 # Configuration par pays
 # ============================================================
 COUNTRY_CONFIG = {
-    'CH': {
+    # NOTE: CH retire de Tier 3 - utilise maintenant fetch-ch-six.py (API officielle SIX SER)
+    '_CH_DEPRECATED': {
         'name': 'Suisse',
         'kv_key': 'ch-thresholds-recent',
         'regulator': 'SIX-Disclosure',
