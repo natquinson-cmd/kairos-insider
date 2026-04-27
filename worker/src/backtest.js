@@ -34,6 +34,10 @@ const SUFFIX_TO_BENCHMARK = {
 
 const PERIOD_TO_DAYS = { '1y': 365, '3y': 1095, '5y': 1825 };
 
+// Fonds vedettes pour la landing : 5 fonds tres reconnaissables qui resonnent
+// avec le grand public. Cache 24h pour eviter recalcul a chaque load page.
+export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'BPIFRANCE', 'ARNAULT'];
+
 // Liste des grands smart money pour autocomplete + acquisition
 export const KNOWN_FILERS = [
   // Activists US
@@ -302,6 +306,67 @@ async function runWithConcurrency(items, concurrency, asyncFn) {
   const workers = Array(Math.min(concurrency, items.length)).fill(0).map(() => worker());
   await Promise.all(workers);
   return results;
+}
+
+
+/**
+ * Featured filers handler : retourne les stats backtest 3y des 5 fonds
+ * vedettes pour affichage landing page. Cache 24h dans KV.
+ *
+ * GET /api/backtest/featured
+ */
+export async function handleBacktestFeatured(env) {
+  const cacheKey = 'backtest-featured-3y';
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached.computedAt) {
+      const age = (Date.now() - new Date(cached.computedAt).getTime()) / 1000;
+      if (age < 86400) {  // 24h
+        return cached;
+      }
+    }
+  } catch {}
+
+  // Compute en parallele les 5 fonds (3y period)
+  const results = await Promise.all(
+    FEATURED_FILERS.map(async (filerKey) => {
+      try {
+        const data = await handleBacktest(filerKey, '3y', env);
+        const s = data.summary || {};
+        const c = data.comparison || {};
+        const filerInfo = KNOWN_FILERS.find(f => f.key === filerKey) || {};
+        return {
+          key: filerKey,
+          label: filerInfo.label || filerKey,
+          tag: filerInfo.tag || 'unknown',
+          country: filerInfo.country || 'GLOBAL',
+          totalPositions: s.totalPositions || 0,
+          validPositions: s.validPositions || 0,
+          avgReturn: s.avgReturn,
+          winRate: s.winRate,
+          alpha: c.alpha,
+          benchmark: c.benchmark,
+          bestPosition: s.bestPosition || null,
+          openPositions: s.openPositions || 0,
+          closedPositions: s.closedPositions || 0,
+        };
+      } catch (e) {
+        return { key: filerKey, error: String(e) };
+      }
+    })
+  );
+
+  const payload = {
+    period: '3y',
+    computedAt: new Date().toISOString(),
+    filers: results,
+  };
+
+  try {
+    await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 86400 + 3600 });
+  } catch {}
+
+  return payload;
 }
 
 

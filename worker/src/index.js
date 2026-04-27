@@ -369,6 +369,15 @@ async function handleRequest(request, env, ctx) {
         return jsonResponse({ error: 'Failed to load filers list', detail: String(e) }, 500, origin);
       }
     }
+    if (request.method === 'GET' && path === '/api/backtest/featured') {
+      try {
+        const { handleBacktestFeatured } = await import('./backtest.js');
+        const data = await handleBacktestFeatured(env);
+        return jsonResponse(data, 200, origin);
+      } catch (e) {
+        return jsonResponse({ error: 'Featured backtest failed', detail: String(e) }, 500, origin);
+      }
+    }
     if (request.method === 'GET' && path.startsWith('/api/backtest/')) {
       try {
         const filerKey = decodeURIComponent(path.slice('/api/backtest/'.length));

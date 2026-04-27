@@ -1500,6 +1500,31 @@
 
   <!-- ===== SOURCES DE DONNEES (bandeau "As seen on" version honnete) ===== -->
   <!--
+    Section Backtest preview : 5 fonds vedettes pre-calcules pour
+    demontrer la valeur immediate du produit sans inscription requise.
+  -->
+  <section class="section" id="backtest-preview" style="padding-top:60px;padding-bottom:40px">
+    <div class="container">
+      <div style="text-align:center;margin-bottom:32px">
+        <span class="section-badge" style="background:rgba(16, 185, 129, 0.15);color:#10B981;border:1px solid rgba(16, 185, 129, 0.3)">📊 BACKTEST GRATUIT</span>
+        <h2 style="font-size:32px;margin:12px 0 8px">Combien auriez-vous gagné <span style="background:linear-gradient(135deg,#3B82F6,#10B981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en suivant les fonds activistes ?</span></h2>
+        <p style="color:var(--text-secondary);max-width:700px;margin:0 auto;font-size:16px">
+          Performance réelle des positions de 5 grands fonds smart money sur les 3 dernières années.
+          Pas de compte requis, données 100% officielles (SEC + AMF + FCA + SIX + AFM + BaFin).
+        </p>
+      </div>
+      <div id="backtest-featured-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">
+        <div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1">⏳ Chargement des stats...</div>
+      </div>
+      <div style="text-align:center;margin-top:24px">
+        <a href="/backtest.html" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#3B82F6,#10B981);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px">
+          📊 Tester avec 30 fonds différents (gratuit, sans compte) →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!--
     Plutot qu'un faux "Vu dans Yahoo Finance" (qu'on ne peut pas prouver),
     on affiche les 7 SOURCES officielles qu'on agrege. Ca cree la credibilite
     institutionnelle sans mensonge.
@@ -2407,5 +2432,113 @@
   </script>
   <script src="assets/toast.js?v=20260420" defer></script>
   <script src="assets/cookie-consent.js?v=20260420" defer></script>
+
+  <!-- Backtest featured cards : load 5 funds stats from API + render on hero strip -->
+  <script>
+    (function() {
+      const TAG_LABELS = {
+        activist: { emoji: '⚡', label: 'Activist' },
+        institutional: { emoji: '🏦', label: 'Institutionnel' },
+        family: { emoji: '👑', label: 'Famille' },
+        state: { emoji: '🏛️', label: 'Souverain' },
+        hedgefund: { emoji: '💰', label: 'Hedge Fund' },
+      };
+      const COUNTRY_FLAG = { US: '🇺🇸', FR: '🇫🇷', UK: '🇬🇧', GLOBAL: '🌍', EU: '🇪🇺' };
+
+      function fmtPct(n) {
+        if (n == null || isNaN(n)) return '—';
+        const sign = n > 0 ? '+' : '';
+        return sign + Number(n).toFixed(1) + '%';
+      }
+
+      async function loadFeaturedBacktest() {
+        const container = document.getElementById('backtest-featured-cards');
+        if (!container) return;
+        try {
+          const apiBase = (location.hostname.endsWith('kairosinsider.fr') || location.hostname === 'localhost')
+            ? '/api'
+            : 'https://kairos-insider-api.natquinson.workers.dev/api';
+          const r = await fetch(`${apiBase}/backtest/featured`);
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          const data = await r.json();
+          if (!data.filers || data.filers.length === 0) throw new Error('No filers');
+          renderCards(data.filers, container);
+        } catch (e) {
+          // Fallback : afficher des stats statiques pour ne pas casser l'experience
+          container.innerHTML = `
+            <div style="text-align:center;padding:32px;grid-column:1/-1;color:var(--text-muted)">
+              <p>📊 Chargement temporairement indisponible</p>
+              <a href="/backtest.html" style="color:#3B82F6">Aller au backtest complet →</a>
+            </div>`;
+        }
+      }
+
+      function renderCards(filers, container) {
+        container.innerHTML = filers.map(f => {
+          if (f.error || f.avgReturn == null) {
+            return ''; // skip
+          }
+          const tag = TAG_LABELS[f.tag] || { emoji: '', label: f.tag };
+          const flag = COUNTRY_FLAG[f.country] || '🌍';
+          const retClass = f.avgReturn > 0 ? 'positive' : (f.avgReturn < 0 ? 'negative' : '');
+          const retColor = f.avgReturn > 0 ? '#10B981' : (f.avgReturn < 0 ? '#EF4444' : '#94A3B8');
+          const alphaColor = (f.alpha || 0) > 0 ? '#10B981' : ((f.alpha || 0) < 0 ? '#EF4444' : '#94A3B8');
+          const top = f.bestPosition || {};
+          return `
+            <a href="/backtest.html#filer=${encodeURIComponent(f.key)}" style="
+              display:block;text-decoration:none;color:inherit;
+              background:var(--surface);border:1px solid var(--border);border-radius:14px;
+              padding:20px;transition:transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            " onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#3B82F6';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.2)'" onmouseout="this.style.transform='';this.style.borderColor='';this.style.boxShadow=''">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="font-size:18px">${flag}</span>
+                <span style="font-size:11px;text-transform:uppercase;color:#94A3B8;letter-spacing:0.5px">${tag.emoji} ${tag.label}</span>
+              </div>
+              <div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:14px;min-height:38px">${f.label}</div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
+                <span style="font-size:32px;font-weight:800;color:${retColor}">${fmtPct(f.avgReturn)}</span>
+                <span style="font-size:12px;color:#94A3B8">rendement moyen</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding-top:10px;border-top:1px solid var(--border)">
+                <span>${(f.winRate || 0).toFixed(0)}% win rate</span>
+                <span style="color:${alphaColor};font-weight:600">α ${fmtPct(f.alpha)} vs ${f.benchmark || 'idx'}</span>
+              </div>
+              ${top.target ? `
+                <div style="margin-top:8px;font-size:11px;color:#64748B">
+                  Top : <strong style="color:var(--text-primary)">${top.target.length > 22 ? top.target.slice(0,22)+'…' : top.target}</strong> ${fmtPct(top.returnPct)}
+                </div>
+              ` : ''}
+            </a>`;
+        }).filter(Boolean).join('');
+
+        if (container.innerHTML.trim() === '') {
+          container.innerHTML = `<div style="text-align:center;padding:32px;grid-column:1/-1;color:var(--text-muted)">
+            <p>📊 Données en cours de génération, revenez dans quelques minutes</p>
+            <a href="/backtest.html" style="color:#3B82F6">Aller au backtest complet →</a>
+          </div>`;
+        }
+      }
+
+      // Lazy-load : déclenche quand la section est près du viewport
+      if ('IntersectionObserver' in window) {
+        const target = document.getElementById('backtest-featured-cards');
+        if (target) {
+          const obs = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                obs.disconnect();
+                loadFeaturedBacktest();
+                break;
+              }
+            }
+          }, { rootMargin: '200px' });
+          obs.observe(target);
+        }
+      } else {
+        // Fallback : load immediately
+        document.addEventListener('DOMContentLoaded', loadFeaturedBacktest);
+      }
+    })();
+  </script>
 </body>
 </html>
