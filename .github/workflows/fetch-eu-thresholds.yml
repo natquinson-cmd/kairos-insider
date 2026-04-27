@@ -43,10 +43,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      # v7 BDIF OFFICIEL : API REST publique de l'AMF (pas de Playwright!)
+      # v8 BDIF OFFICIEL + PDF enrich : API REST AMF + parsing PDF pour activists
       # Endpoint: https://bdif.amf-france.org/back/api/v1/informations
       # Filtre TypesInformation=SPDE&TypesDocument=Declarations
-      - name: Run AMF BDIF scraper (API officielle AMF)
+      # Bonus : parse les top 80 PDFs pour extraire filer + flag isActivist
+      - name: Install pdfplumber pour parsing PDF AMF
+        run: pip install pdfplumber
+
+      - name: Run AMF BDIF scraper (API officielle + PDF enrich)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -54,7 +58,10 @@ jobs:
           cd worker
           # 90 jours : capture les declarations sur grandes caps qui bougent peu
           # (ex: LVMH, FDJ - franchissements rares mais a montrer)
-          python fetch-amf-bdif.py --days 90 --debug
+          # --max-pdf-enrich 80 : parse les 80 PDFs les plus recents pour
+          # extraire le filer (Goldman Sachs, BlackRock, Norges, etc.)
+          # et activer le flag isActivist
+          python fetch-amf-bdif.py --days 90 --debug --max-pdf-enrich 80
         continue-on-error: true
 
       - name: Upload AMF data

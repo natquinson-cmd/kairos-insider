@@ -117,6 +117,190 @@ def parse_date_iso(s):
     return None
 
 
+# ============================================================
+# PDF PARSING : extrait filer + direction + % depuis le PDF AMF officiel
+# Le PDF type contient :
+#   "Par courrier reçu le DATE, FILER (...) a déclaré avoir franchi
+#    (en hausse|en baisse) le DATE, ... les seuils de N% du capital..."
+#   "et détenir, ... N,N% du capital et des droits de vote"
+# ============================================================
+FRENCH_MONTHS = {
+    'janvier': 1, 'février': 2, 'fevrier': 2, 'mars': 3, 'avril': 4,
+    'mai': 5, 'juin': 6, 'juillet': 7, 'août': 8, 'aout': 8,
+    'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12, 'decembre': 12,
+}
+
+
+def _parse_french_date(s):
+    """Parse 'DD mois YYYY' -> 'YYYY-MM-DD'. Tolere accents casses."""
+    if not s: return None
+    s = str(s).lower().strip()
+    m = re.match(r'(\d{1,2})\s+([a-zéèêûôàâ]+)\s+(\d{4})', s, re.I)
+    if not m: return None
+    day = int(m.group(1))
+    month_name = m.group(2).strip()
+    year = int(m.group(3))
+    # Normalise les caracteres casses (PDF extract)
+    month_name = (month_name.replace('é', 'e').replace('è', 'e')
+                  .replace('û', 'u').replace('ô', 'o').replace('�', 'e'))
+    month = FRENCH_MONTHS.get(month_name.lower())
+    if not month: return None
+    return f'{year:04d}-{month:02d}-{day:02d}'
+
+
+def parse_amf_pdf(pdf_bytes, debug=False):
+    """Extract {filer, direction, threshold, currentPercent, transactionDate}
+    from an AMF threshold PDF.
+
+    Retourne None si parsing failed.
+    """
+    try:
+        import pdfplumber
+        import io
+    except ImportError:
+        return None
+
+    try:
+        text = ''
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages[:3]:  # max 3 pages pour vitesse
+                t = page.extract_text() or ''
+                text += t + '\n'
+    except Exception as e:
+        if debug: print(f'    [PDF] extract_text error: {e}')
+        return None
+
+    # Normalise le texte (l'extract pdfplumber peut introduire � pour accents casses)
+    text_norm = text.replace('�', '').replace('ï¿½', '')
+
+    result = {
+        'filer': None, 'direction': None, 'threshold': None,
+        'currentPercent': None, 'transactionDate': None,
+    }
+
+    # 1. FILER : "Par courrier recu le DATE, FILER (...) a declare"
+    m = re.search(
+        r'[Pp]ar\s+courrier[^,]+,\s+([^(]+?)\s*\([^)]*\)\s*a\s+d[ée]?clar[ée]?\s+avoir\s+franchi',
+        text_norm,
+    )
+    if m:
+        result['filer'] = m.group(1).strip()
+    else:
+        # Fallback : chercher "FILER a declare avoir franchi"
+        m2 = re.search(
+            r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s+a\s+d[ée]?clar[ée]?\s+avoir\s+franchi',
+            text_norm,
+        )
+        if m2: result['filer'] = m2.group(1).strip()
+
+    # 2. DIRECTION : "franchi en (hausse|baisse)"
+    m = re.search(r'franchi\s+en\s+(hausse|baisse)', text_norm, re.I)
+    if m:
+        direction = m.group(1).lower()
+        result['direction'] = 'up' if direction == 'hausse' else 'down'
+
+    # 3. SEUIL FRANCHI : "les seuils de N%" ou "le seuil de N%"
+    m = re.search(r'(?:les\s+)?seuils?\s+de\s+(\d+(?:[,.]\d+)?)\s*%', text_norm, re.I)
+    if m:
+        try:
+            result['threshold'] = float(m.group(1).replace(',', '.'))
+        except: pass
+
+    # 4. % CURRENT : "soit N,N% du capital" ou "detenir...N,N%"
+    pct_matches = re.findall(r'(\d+(?:[,.]\d+)?)\s*%\s*(?:du\s+capital|des?\s+droits)', text_norm, re.I)
+    if pct_matches:
+        # Le % "actuel" est typiquement plus precis (avec virgule). Prefere derniers.
+        try:
+            result['currentPercent'] = float(pct_matches[-1].replace(',', '.'))
+        except: pass
+
+    # 5. TRANSACTION DATE : "franchi en (hausse|baisse), le DATE,"
+    m = re.search(
+        r'franchi\s+en\s+(?:hausse|baisse)\s*,?\s*(?:le|directement)?\s*,?\s*'
+        r'(\d{1,2}\s+[A-Za-zéèêûôàâ]+\s+\d{4})',
+        text_norm, re.I,
+    )
+    if m:
+        result['transactionDate'] = _parse_french_date(m.group(1))
+    else:
+        # Fallback : "le DATE, indirectement"
+        m2 = re.search(
+            r'\s,\s*le\s+(\d{1,2}\s+[A-Za-zéèêûôàâ]+\s+\d{4})\s*,',
+            text_norm, re.I,
+        )
+        if m2:
+            result['transactionDate'] = _parse_french_date(m2.group(1))
+
+    if debug and result.get('filer'):
+        print(f'    [PDF] filer={result["filer"]!r} direction={result["direction"]} '
+              f'seuil={result["threshold"]}% courant={result["currentPercent"]}% txDate={result["transactionDate"]}')
+
+    return result
+
+
+def download_pdf(url, debug=False):
+    """Download PDF bytes from BDIF URL."""
+    req = urllib.request.Request(url, headers={
+        'Accept': 'application/pdf',
+        'Origin': 'https://bdif.amf-france.org',
+        'User-Agent': UA,
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return resp.read()
+    except Exception as e:
+        if debug: print(f'    [PDF] download error: {e}')
+        return None
+
+
+def enrich_filings_with_pdf(filings, max_enrich=80, debug=False):
+    """Enrichit les top N filings avec les donnees PDF (filer, %, direction, txDate).
+
+    Retourne le nombre d'enrichissements reussis.
+    """
+    enriched = 0
+    pdf_failed = 0
+    parse_failed = 0
+    for i, f in enumerate(filings[:max_enrich]):
+        pdf_url = f.get('sourceUrl', '')
+        if not pdf_url or '.pdf' not in pdf_url.lower():
+            continue
+        pdf_bytes = download_pdf(pdf_url, debug=False)
+        if not pdf_bytes:
+            pdf_failed += 1
+            continue
+        parsed = parse_amf_pdf(pdf_bytes, debug=debug)
+        if not parsed or not parsed.get('filer'):
+            parse_failed += 1
+            continue
+        # Enrichir le filing en place
+        filer = parsed['filer']
+        f['filerName'] = filer
+        f['isActivist'] = bool(is_known_activist(filer))
+        f['activistLabel'] = is_known_activist(filer)
+        if parsed.get('threshold') is not None:
+            f['crossingThreshold'] = parsed['threshold']
+        if parsed.get('currentPercent') is not None:
+            f['percentOfClass'] = parsed['currentPercent']
+        if parsed.get('direction'):
+            f['crossingDirection'] = parsed['direction']
+        if parsed.get('transactionDate'):
+            f['transactionDate'] = parsed['transactionDate']
+        # Mettre a jour rawTitle pour etre plus parlant
+        target = f.get('targetName', '')
+        threshold = f.get('crossingThreshold')
+        direction_str = '↗' if parsed.get('direction') == 'up' else ('↘' if parsed.get('direction') == 'down' else '→')
+        if threshold:
+            f['rawTitle'] = f'{filer} {direction_str} {target} (seuil {threshold:g}%)'
+        enriched += 1
+        # Rate limit poli envers AMF
+        time.sleep(0.15)
+
+    if debug:
+        print(f'  [PDF ENRICH] {enriched} enrichis / {pdf_failed} PDF DL fail / {parse_failed} parse fail')
+    return enriched
+
+
 def extract_target_filer(record):
     """Extract target (SocieteConcernee) and filer (Declarant) from societes[]."""
     societes = record.get('societes') or []
@@ -267,6 +451,8 @@ def main():
     parser.add_argument('--days', type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--no-pdf-enrich', action='store_true', help='Skip PDF parsing pour activists flag')
+    parser.add_argument('--max-pdf-enrich', type=int, default=80, help='Nb max de PDFs a parser (default: 80)')
     args = parser.parse_args()
 
     t0 = time.time()
@@ -279,7 +465,21 @@ def main():
         print('[FAIL] 0 filing recupere')
         sys.exit(1)
 
-    print(f'[AMF] {len(filings)} declarations recuperees ({len([f for f in filings if f.get("isActivist")])} activists)')
+    print(f'[AMF] {len(filings)} declarations recuperees (avant PDF enrich)')
+
+    # Enrichissement PDF : extrait filer + % + direction depuis les PDFs officiels
+    # Active flag isActivist quand le declarant est dans KNOWN_ACTIVISTS_EU
+    if not args.no_pdf_enrich:
+        try:
+            print(f'[AMF] PDF enrichissement (max {args.max_pdf_enrich} PDFs)...')
+            enriched = enrich_filings_with_pdf(filings, max_enrich=args.max_pdf_enrich, debug=args.debug)
+            activists_after = len([f for f in filings if f.get('isActivist')])
+            print(f'[AMF] PDF enrich: {enriched} filings enrichis, {activists_after} activists detectes')
+        except Exception as e:
+            print(f'[AMF] PDF enrich SKIP (erreur): {e}')
+
+    activists_final = len([f for f in filings if f.get("isActivist")])
+    print(f'[AMF] {len(filings)} declarations finales ({activists_final} activists)')
     push_to_kv(filings, dry_run=args.dry_run)
     print(f'[DONE] {time.time()-t0:.1f}s')
 
