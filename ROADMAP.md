@@ -4,7 +4,91 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 27 avril 2026 (v7 OFFICIEL - APIs régulateurs + cours EU)
+**Dernière mise à jour** : 27 avril 2026 (v8 - SIX + Kairos Score EU + Backtest gratuit)
+
+---
+
+## 🎯 v8 — Kairos Score EU + Backtest gratuit (27 avril 2026)
+
+### 🇨🇭 SIX Suisse SER — API REST officielle (commit e3ad3db)
+- **Endpoint** : `GET https://www.ser-ag.com/sheldon/significant_shareholders/v1/`
+  - `/issuers.json` : tous les émetteurs Suisse listés
+  - `/overview.json?pageSize=100&pageNumber=N&sortAttribute=byDate`
+- **Reverse engineering** : bundle React `clientlibs.min.ACSHASHeabef3e452626fb1665c7b3f967afa1e.js`
+  (~680 KB) — fonction `nM({page, pageSize, dateFrom, dateTo, issuer, ...})` reconstituée
+- **Données structurées TOUTES dans le payload** (pas besoin PDF parsing) :
+  - `publication.notificationSubmitter` (target = société listée)
+  - `publication.publicationDate` (YYYYMMDD int)
+  - `publication.belowThresholdVotingRate` (seuil franchi en %)
+  - `publication.purchaseTotalVotingRate` / `saleTotalVotingRate` (direction)
+  - `shareholderNames[]` (filer = déclarant officiel)
+  - `beneficialNames[]` (beneficial owner)
+- **Volume** : Google News → **31 617 notifications historiques live**
+- Couverture : ABB, Adecco, Allreal, Lindt, Galenica, DocMorris... avec filers
+  réels (BlackRock, Millennium Partners/Englander, Swisscanto, Alecta, etc.)
+- **Source** : `worker/fetch-ch-six.py`
+
+### 🧠 Kairos Score EU enrichi (commit e357379)
+**Fichier nouveau** : `worker/src/eu_thresholds_aggregator.js`
+
+Le pilier `smartMoney` (20% du score) ne dépendait que des 13F US. Pour les
+actions européennes, il était systématiquement à zéro.
+
+**Solution** : `aggregateEuThresholds(ticker, env)` qui :
+1. Détecte le pays via suffix Yahoo (`.PA`→FR, `.L`→UK, `.SW`→CH, etc.)
+2. Reverse-mapping `yahooSymbol → companyName` via `eu_yahoo_symbols.js`
+3. Fuzzy match dans les 5 KV thresholds-recent (AMF/FCA/SIX/AFM/BaFin)
+4. Aggrège `{fundCount, activistsCount, totalFilings, recentFilings, topFilers, biggestFiler}`
+
+**Score boost smartMoney** :
+- +0.3/filing (jusqu'à +4)
+- +1/activist confirmé (jusqu'à +3)
+- +2 si 3+ filings récents (30j)
+
+Désormais : LVMH/Vivendi/Barclays/Nestlé... ont un score smartMoney pertinent.
+
+### 📊 Backtest gratuit — feature acquisition (commit b0e264c)
+**Fichiers** : `worker/src/backtest.js` + `backtest.html`
+
+**Endpoint public** (pas d'auth) :
+- `GET /api/backtest/list` → 30 fonds connus
+- `GET /api/backtest/:filer?period=1y|3y|5y` → simulation rendement
+
+**Méthodologie MVP** :
+1. Cherche tous les filings du fonds dans 12 KV (US + 11 EU)
+2. Group par target → entrée = 1ère déclaration, sortie = aujourd'hui
+3. Fetch Yahoo prix entry + current → calcule `returnPct`
+4. Aggrège : avgReturn, winRate, alpha vs benchmark adapté (S&P/CAC/FTSE/DAX/SMI/MIB/IBEX...)
+
+**Test live BlackRock 3y** :
+- 1 879 positions trouvées (12 marchés)
+- 29 positions avec prix (rate-limit Yahoo)
+- **+63 % rendement moyen, 48 % win rate**
+- Top : TTM Technologies +635 %, Arrowhead +498 %, Century Aluminum +285 %
+
+**KNOWN_FILERS** (30 fonds) :
+- Activists : Cevian, Bluebell, Elliott, Pershing Square, Starboard, Trian,
+  Icahn, TCI, Jana Partners
+- Institutionnels : BlackRock, Vanguard, State Street, Norges Bank, GIC,
+  Temasek, Capital Group, Fidelity, Wellington
+- Hedge funds : Citadel, Bridgewater, Millennium Partners, Renaissance
+- FR : Bpifrance, Amundi, Bolloré, Arnault, Pinault
+
+**UI** : page `/backtest.html`
+- Hero avec gradient + "100% gratuit, pas de compte requis"
+- Form selecteur fonds + période + bouton run
+- Résultats : 4 cards summary + bars vs benchmark + table top 30 positions
+- CTA bottom : créer compte gratuit pour alertes temps réel
+
+**Lien** : Bouton "📊 Backtest gratuit" ajouté dans hero landing page.
+
+### Reste à améliorer (v9+)
+- AMF BDIF : enrichir `filer` via parsing PDF (pour `isActivist` plus précis)
+- FCA NSM : enrichir `filer` via parsing du HTML lié
+- Backtest : détection sortie réelle (filer franchit en baisse), graphique
+  equity curve, comparaison multi-fonds
+- IT/ES : remplacer Google News par sources officielles (CONSOB anti-bot)
+- Mobile PWA, alertes custom, API publique payante
 
 ---
 
