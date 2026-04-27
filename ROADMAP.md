@@ -4,7 +4,97 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 27 avril 2026 (v8 - SIX + Kairos Score EU + Backtest gratuit)
+**Dernière mise à jour** : 27 avril 2026 (v9 - PDF parsing AMF + Backtest v2 + Featured landing)
+
+---
+
+## 🎯 v9 — PDF parsing AMF + Backtest v2 + Featured landing (27 avril 2026)
+
+### 🇫🇷 AMF PDF parsing (commit 3c41d10)
+**Fichier** : `worker/fetch-amf-bdif.py` enrichi avec `parse_amf_pdf()`
+
+Le payload de l'API BDIF n'expose pas le `filer` (déclarant) — il est uniquement
+dans le PDF officiel. Sans `filer` extrait, impossible d'activer
+`isActivist=true` pour les filings français.
+
+**Solution** : `parse_amf_pdf(pdf_bytes)` télécharge et parse les top 80 PDFs
+les plus récents avec `pdfplumber`. Regex tolérantes aux accents cassés :
+- `"Par courrier reçu le DATE, FILER (...) a déclaré avoir franchi"` → filer
+- `"franchi en (hausse|baisse)"` → direction
+- `"seuils de N%"` → threshold franchi
+- `"N,N% du capital"` → percent actuel
+- `"le DATE,"` après "franchi en X" → transactionDate
+
+**Nettoyage** : footnote indicator (`Norges Bank1` → `Norges Bank`),
+préfixes `"la société anonyme"` → enlevés.
+
+**Test live** (run 25002202956) :
+- 309 filings AMF récupérés via API
+- **49 enrichis** via PDF parsing (sur 80 essais, 31 fail = PDFs scan/image)
+- **6 activists détectés** (vs 0 avant) :
+  - Norges Bank sur Téléperformance (3 filings yoyo : up 5%, down 5%, down 5%)
+  - Capital Group sur TotalEnergies (5%) et Soitec (5% baisse)
+  - Bpifrance sur Worldline (10%)
+- **Filers extraits non-activists ajoutés à KNOWN_ACTIVISTS_EU** :
+  Goldman Sachs, JP Morgan, Morgan Stanley, BNP Paribas, UBS Group,
+  Deutsche Bank, Citigroup, HSBC, Bank of America, Schroders, etc.
+  (60+ entrées vs 35 avant)
+
+### 📊 Backtest v2 — exit detection + equity curve (commit d56d1be)
+**Fichier** : `worker/src/backtest.js` réécrit
+
+**Améliorations** :
+1. **Détection sortie réelle** : si un filing 'down' suit un 'up' = exit point.
+   `exitDate` renseigné, `isStillOpen=false`. Sinon position encore active.
+2. **Optimisation Yahoo rate-limit** : `fetchPriceTimeline()` 1 seul fetch
+   range par ticker unique (vs 2 fetch par position en v1) +
+   `runWithConcurrency(5)` pour respecter rate-limits.
+   → Permet **100 positions** analysées (vs 30 en v1)
+3. **Equity curve** : portfolio équipondéré simulé sur la période,
+   ~50 points sur la timeline, exposé dans le payload `data.equityCurve`
+4. **Stats étendues** : `closedPositions`, `openPositions`,
+   `avgReturnClosed`, `bestPosition.exitDate`, `bestPosition.isStillOpen`
+
+**UI** (`backtest.html`) :
+- Nouvelle colonne "Sortie" avec badge "⚡ Active" si encore en position
+- Equity curve SVG inline (line chart, axe %)
+- Sub-stats : "X actives + Y fermées" + "N tickers uniques"
+
+### 🎯 Backtest Featured Landing (commit 0fa214f)
+**Endpoint** : `GET /api/backtest/featured[?refresh=1]`
+- Pre-compute en parallèle 5 fonds vedettes (3y) avec `runWithConcurrency`
+- Cache 24h dans KV `backtest-featured-3y`
+- Param `?refresh=1` pour invalidation manuelle
+
+**Section landing** (`index.html` après hero) :
+- Section dédiée "Combien auriez-vous gagné en suivant les fonds activistes ?"
+- 5 cards en grid responsive avec rendement BIG (32px) + win rate + alpha
+- IntersectionObserver lazy-load (charge quand section approche viewport)
+- Cards cliquables → `/backtest.html#filer=X`
+- CTA bottom : "Tester avec 30 fonds (gratuit, sans compte) →"
+
+**Test live** :
+| Fonds vedette | Positions | Rendement | Win Rate | Alpha vs S&P | Top position |
+|---|:---:|:---:|:---:|:---:|---|
+| Cevian Capital | 3/3 | +15% | 67% | -5% | Smith & Nephew +37% |
+| **BlackRock** | 98/1879 | **+49%** | 55% | **+39%** | Bloom Energy **+825%** |
+| Norges Bank | 31/35 | +13% | 55% | -8% | BrightSpring +104% |
+| **Elliott Management** | 4/5 | +40% | **100%** | +29% | Uniti Group +71% |
+| **Bpifrance** | 7/7 | **+71%** | 57% | **+51%** | DBV Tech **+447%** |
+
+**Marketing impact** :
+- Visiteur voit valeur immédiate sans cliquer (preuve sociale)
+- Pas de friction (pas de form/auth pour voir résultat)
+- Cards click-through pré-sélectionnent le filer
+- Différenciateur unique vs concurrence (WhaleWisdom payant + US-only)
+
+### Reste à faire (v10+)
+- AMF PDF : améliorer regex pour les 31 PDFs qui ratent le parse (probablement
+  PDFs scannés - OCR via tesseract en option)
+- Backtest : detect benchmark plus précisément selon dominant country des
+  positions (Bpifrance devrait avoir CAC 40, pas S&P 500)
+- Alertes custom temps réel (email/push si BlackRock prend stake nouveau)
+- Mobile PWA, API publique payante
 
 ---
 
