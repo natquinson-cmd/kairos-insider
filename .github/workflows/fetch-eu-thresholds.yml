@@ -52,7 +52,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-amf-bdif.py --days 30 --debug
+          # 90 jours : capture les declarations sur grandes caps qui bougent peu
+          # (ex: LVMH, FDJ - franchissements rares mais a montrer)
+          python fetch-amf-bdif.py --days 90 --debug
         continue-on-error: true
 
       - name: Upload AMF data
@@ -107,7 +109,7 @@ jobs:
 
   uk-thresholds:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     if: always()
     steps:
       - name: Checkout
@@ -118,31 +120,23 @@ jobs:
         with:
           python-version: '3.12'
 
-      # v5 STEALTH : Playwright + playwright-stealth pour bypass anti-bot FCA NSM
-      - name: Install Playwright + stealth
-        run: |
-          pip install playwright playwright-stealth requests
-          playwright install chromium --with-deps
-
-      - name: Run UK scraper (v5 STEALTH + Google News fallback)
+      # v7 OFFICIEL : FCA NSM API publique (api.data.fca.org.uk)
+      # ~5.2M filings indexes Elasticsearch, pas d'auth, pas de Playwright
+      - name: Run UK FCA NSM scraper (API officielle FCA)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           cd worker
-          python fetch-uk-thresholds.py --days 30 --debug
+          python fetch-uk-fca.py --days 90 --debug
         continue-on-error: true
 
-      - name: Upload UK data + HTML debug
+      - name: Upload UK data
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: uk-thresholds-debug
-          path: |
-            worker/uk_thresholds_data.json
-            worker/uk_debug_*.html
-            worker/uk_debug_*.png
-            worker/uk_archive_full.html
+          path: worker/uk_thresholds_data.json
           if-no-files-found: ignore
           retention-days: 7
 
