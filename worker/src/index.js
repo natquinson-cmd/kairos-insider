@@ -1934,26 +1934,34 @@ async function computeTopSignals(env) {
   // NOTE : on merge dynamiquement les 4 sources pour faire ressortir les
   // signaux EU dans le top du jour (pas seulement les SEC US).
   try {
-    const [secData, amfData, bafinData, ukData] = await Promise.all([
+    const [secData, amfData, bafinData, ukData, nlData, chData, itData, esData, seData, noData, dkData, fiData] = await Promise.all([
       env.CACHE.get('13dg-recent', 'json').catch(() => null),
       env.CACHE.get('amf-thresholds-recent', 'json').catch(() => null),
       env.CACHE.get('bafin-thresholds-recent', 'json').catch(() => null),
       env.CACHE.get('uk-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('nl-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('ch-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('it-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('es-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('se-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('no-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('dk-thresholds-recent', 'json').catch(() => null),
+      env.CACHE.get('fi-thresholds-recent', 'json').catch(() => null),
     ]);
 
     const allFilings = [];
-    if (secData?.filings) {
-      for (const f of secData.filings) allFilings.push({ ...f, country: f.country || 'US' });
-    }
-    if (amfData?.filings) {
-      for (const f of amfData.filings) allFilings.push({ ...f, country: f.country || 'FR' });
-    }
-    if (bafinData?.filings) {
-      for (const f of bafinData.filings) allFilings.push({ ...f, country: f.country || 'DE' });
-    }
-    if (ukData?.filings) {
-      for (const f of ukData.filings) allFilings.push({ ...f, country: f.country || 'UK' });
-    }
+    if (secData?.filings) for (const f of secData.filings) allFilings.push({ ...f, country: f.country || 'US' });
+    if (amfData?.filings) for (const f of amfData.filings) allFilings.push({ ...f, country: f.country || 'FR' });
+    if (bafinData?.filings) for (const f of bafinData.filings) allFilings.push({ ...f, country: f.country || 'DE' });
+    if (ukData?.filings) for (const f of ukData.filings) allFilings.push({ ...f, country: f.country || 'UK' });
+    if (nlData?.filings) for (const f of nlData.filings) allFilings.push({ ...f, country: f.country || 'NL' });
+    if (chData?.filings) for (const f of chData.filings) allFilings.push({ ...f, country: f.country || 'CH' });
+    if (itData?.filings) for (const f of itData.filings) allFilings.push({ ...f, country: f.country || 'IT' });
+    if (esData?.filings) for (const f of esData.filings) allFilings.push({ ...f, country: f.country || 'ES' });
+    if (seData?.filings) for (const f of seData.filings) allFilings.push({ ...f, country: f.country || 'SE' });
+    if (noData?.filings) for (const f of noData.filings) allFilings.push({ ...f, country: f.country || 'NO' });
+    if (dkData?.filings) for (const f of dkData.filings) allFilings.push({ ...f, country: f.country || 'DK' });
+    if (fiData?.filings) for (const f of fiData.filings) allFilings.push({ ...f, country: f.country || 'FI' });
 
     // Tri : prio aux activists puis par date DESC
     allFilings.sort((a, b) => {
@@ -6067,24 +6075,27 @@ function enrichFilingsWithDelta(filings, allFilings) {
 // Toutes les KV ont le meme schema, on annote juste les EU avec leur source.
 // ============================================================
 async function loadAllThresholdsFilings(env) {
-  // Fetch les 4 KV en parallele (US + FR + DE + UK)
-  const [secData, amfData, bafinData, ukData] = await Promise.all([
+  // Fetch les 11 KV en parallele (Tier 1+2 : US/FR/DE/UK + Tier 3 : NL/CH/IT/ES/SE/NO/DK/FI)
+  const [secData, amfData, bafinData, ukData, nlData, chData, itData, esData, seData, noData, dkData, fiData] = await Promise.all([
     env.CACHE.get('13dg-recent', 'json').catch(() => null),
     env.CACHE.get('amf-thresholds-recent', 'json').catch(() => null),
     env.CACHE.get('bafin-thresholds-recent', 'json').catch(() => null),
     env.CACHE.get('uk-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('nl-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('ch-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('it-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('es-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('se-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('no-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('dk-thresholds-recent', 'json').catch(() => null),
+    env.CACHE.get('fi-thresholds-recent', 'json').catch(() => null),
   ]);
 
   const all = [];
-  // SEC : default 'sec' / 'US' (champ pas present dans l'ancien schema)
+  // SEC : default 'sec' / 'US'
   if (secData?.filings) {
     for (const f of secData.filings) {
-      all.push({
-        ...f,
-        source: f.source || 'sec',
-        country: f.country || 'US',
-        regulator: f.regulator || 'SEC EDGAR',
-      });
+      all.push({ ...f, source: f.source || 'sec', country: f.country || 'US', regulator: f.regulator || 'SEC EDGAR' });
     }
   }
   // AMF (FR)
@@ -6099,10 +6110,58 @@ async function loadAllThresholdsFilings(env) {
       all.push({ ...f, source: f.source || 'bafin', country: f.country || 'DE', regulator: f.regulator || 'BaFin' });
     }
   }
-  // FCA (UK) via Investegate
+  // FCA (UK)
   if (ukData?.filings) {
     for (const f of ukData.filings) {
       all.push({ ...f, source: f.source || 'fca', country: f.country || 'UK', regulator: f.regulator || 'FCA' });
+    }
+  }
+  // AFM (NL) - CSV officiel
+  if (nlData?.filings) {
+    for (const f of nlData.filings) {
+      all.push({ ...f, source: f.source || 'afm', country: f.country || 'NL', regulator: f.regulator || 'AFM' });
+    }
+  }
+  // SIX (CH) - Google News
+  if (chData?.filings) {
+    for (const f of chData.filings) {
+      all.push({ ...f, source: f.source || 'six', country: f.country || 'CH', regulator: f.regulator || 'SIX-Disclosure' });
+    }
+  }
+  // CONSOB (IT) - Google News
+  if (itData?.filings) {
+    for (const f of itData.filings) {
+      all.push({ ...f, source: f.source || 'consob', country: f.country || 'IT', regulator: f.regulator || 'CONSOB' });
+    }
+  }
+  // CNMV (ES) - Google News
+  if (esData?.filings) {
+    for (const f of esData.filings) {
+      all.push({ ...f, source: f.source || 'cnmv', country: f.country || 'ES', regulator: f.regulator || 'CNMV' });
+    }
+  }
+  // FI Sweden (SE) - Google News
+  if (seData?.filings) {
+    for (const f of seData.filings) {
+      all.push({ ...f, source: f.source || 'fi-se', country: f.country || 'SE', regulator: f.regulator || 'Finansinspektionen' });
+    }
+  }
+  // Finanstilsynet Norway (NO)
+  if (noData?.filings) {
+    for (const f of noData.filings) {
+      all.push({ ...f, source: f.source || 'ft-no', country: f.country || 'NO', regulator: f.regulator || 'Finanstilsynet (NO)' });
+    }
+  }
+  // Finanstilsynet Denmark (DK)
+  if (dkData?.filings) {
+    for (const f of dkData.filings) {
+      all.push({ ...f, source: f.source || 'ft-dk', country: f.country || 'DK', regulator: f.regulator || 'Finanstilsynet (DK)' });
+    }
+  }
+  // Finanssivalvonta Finland (FI)
+  if (fiData?.filings) {
+    for (const f of fiData.filings) {
+      all.push({ ...f, source: f.source || 'fiva', country: f.country || 'FI', regulator: f.regulator || 'Finanssivalvonta' });
     }
   }
 
@@ -6110,17 +6169,26 @@ async function loadAllThresholdsFilings(env) {
   all.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
 
   // Latest updatedAt (pour le badge "données fraîches")
-  const updates = [secData?.updatedAt, amfData?.updatedAt, bafinData?.updatedAt, ukData?.updatedAt].filter(Boolean);
+  const updates = [secData, amfData, bafinData, ukData, nlData, chData, itData, esData, seData, noData, dkData, fiData]
+    .map(d => d?.updatedAt).filter(Boolean);
   const updatedAt = updates.sort().reverse()[0] || null;
 
   return {
     filings: all,
     updatedAt,
     sources: {
-      sec: { count: secData?.filings?.length || 0, updatedAt: secData?.updatedAt || null },
-      amf: { count: amfData?.filings?.length || 0, updatedAt: amfData?.updatedAt || null },
-      bafin: { count: bafinData?.filings?.length || 0, updatedAt: bafinData?.updatedAt || null },
-      fca: { count: ukData?.filings?.length || 0, updatedAt: ukData?.updatedAt || null },
+      sec:    { count: secData?.filings?.length    || 0, updatedAt: secData?.updatedAt    || null },
+      amf:    { count: amfData?.filings?.length    || 0, updatedAt: amfData?.updatedAt    || null },
+      bafin:  { count: bafinData?.filings?.length  || 0, updatedAt: bafinData?.updatedAt  || null },
+      fca:    { count: ukData?.filings?.length     || 0, updatedAt: ukData?.updatedAt     || null },
+      afm:    { count: nlData?.filings?.length     || 0, updatedAt: nlData?.updatedAt     || null },
+      six:    { count: chData?.filings?.length     || 0, updatedAt: chData?.updatedAt     || null },
+      consob: { count: itData?.filings?.length     || 0, updatedAt: itData?.updatedAt     || null },
+      cnmv:   { count: esData?.filings?.length     || 0, updatedAt: esData?.updatedAt     || null },
+      'fi-se':  { count: seData?.filings?.length || 0, updatedAt: seData?.updatedAt || null },
+      'ft-no':  { count: noData?.filings?.length || 0, updatedAt: noData?.updatedAt || null },
+      'ft-dk':  { count: dkData?.filings?.length || 0, updatedAt: dkData?.updatedAt || null },
+      fiva:     { count: fiData?.filings?.length || 0, updatedAt: fiData?.updatedAt || null },
     },
   };
 }

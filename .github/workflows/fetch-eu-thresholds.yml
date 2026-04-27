@@ -1,21 +1,33 @@
-name: Fetch EU + UK Thresholds (AMF + BaFin + FCA)
+name: Fetch EU + UK + Tier 3 Thresholds (9 marches)
 
-# Recupere quotidiennement les franchissements de seuils EU + UK :
-#   - AMF (France) v5 STEALTH : Playwright + playwright-stealth sur AMF officiel
-#                               + fallback Google News RSS si stealth bloque
-#   - BaFin (Allemagne) via CSV public officiel
-#   - FCA (UK) v5 STEALTH : Playwright + playwright-stealth sur FCA NSM officiel
-#                          + fallback Google News RSS si stealth bloque
+# Recupere quotidiennement les franchissements de seuils EU + UK + Tier 3 :
+#   Tier 1+2 :
+#     - AMF (France) v6 : Google News RSS (parsers elargis x4 volumes)
+#     - BaFin (Allemagne) : CSV public officiel
+#     - FCA (UK) v6 : Google News RSS (parsers elargis x4 volumes)
+#   Tier 3 (nouveaux) :
+#     - AFM (Pays-Bas) : CSV public officiel
+#     - SIX (Suisse) : Google News RSS
+#     - CONSOB (Italie) : Google News RSS
+#     - CNMV (Espagne) : Google News RSS
+#     - Nordics SE+NO+DK+FI : Google News RSS
 #
 # Push KV : amf-thresholds-recent + bafin-thresholds-recent + uk-thresholds-recent
-# Le worker merge avec 13dg-recent (SEC) au moment de la lecture (4 marches).
+#         + nl-thresholds-recent + ch-thresholds-recent + it-thresholds-recent
+#         + es-thresholds-recent + se-thresholds-recent + no-thresholds-recent
+#         + dk-thresholds-recent + fi-thresholds-recent
+# Le worker merge avec 13dg-recent (SEC) au moment de la lecture (10 marches).
 
 on:
   schedule:
     # 5h UTC = 7h Paris : tourne AVANT update-13f (7h UTC) pour que les
-    # nouveaux franchissements EU soient deja en KV quand les scores se
-    # recalculent. Lundi-vendredi (week-end pas de declaration AMF/BaFin).
-    - cron: '0 5 * * 1-5'
+    # nouveaux franchissements EU + UK + Tier 3 soient deja en KV quand les
+    # scores se recalculent.
+    # TOUS LES JOURS (incluant week-end) : Google News indexe en continu
+    # (articles publies tardivement le vendredi soir / dimanche soir),
+    # et CSV officiels (BaFin, AFM) sont mis a jour en temps reel — donc
+    # tourner aussi le week-end capture les declarations retardees.
+    - cron: '0 5 * * *'
   workflow_dispatch:
 
 jobs:
@@ -137,5 +149,81 @@ jobs:
             worker/uk_debug_*.html
             worker/uk_debug_*.png
             worker/uk_archive_full.html
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================
+  # TIER 3 : 5 nouveaux marches en un seul script Google News
+  # CH (Suisse) + IT (Italie) + ES (Espagne) + SE/NO/DK/FI (Nordics)
+  # ===========================================================
+  tier3-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Tier 3 multi-pays scraper (Google News RSS)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python fetch-tier3-thresholds.py --days 30 --debug
+        continue-on-error: true
+
+      - name: Upload Tier 3 data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tier3-thresholds-data
+          path: |
+            worker/ch_thresholds_data.json
+            worker/it_thresholds_data.json
+            worker/es_thresholds_data.json
+            worker/se_thresholds_data.json
+            worker/no_thresholds_data.json
+            worker/dk_thresholds_data.json
+            worker/fi_thresholds_data.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================
+  # AFM (Pays-Bas) : CSV public officiel - separate job (rapide)
+  # ===========================================================
+  afm-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run AFM scraper (CSV officiel)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python fetch-afm-thresholds.py --days 30 --debug
+        continue-on-error: true
+
+      - name: Upload AFM data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: afm-thresholds-data
+          path: worker/afm_thresholds_data.json
           if-no-files-found: ignore
           retention-days: 7
