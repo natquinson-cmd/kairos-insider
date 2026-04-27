@@ -224,6 +224,69 @@ jobs:
           retention-days: 7
 
   # ===========================================================
+  # ES (Espagne) CNMV : RSS officiel Otra Informacion Relevante
+  # Cumulative KV (19 items/jour, accumule sur 30j)
+  # ===========================================================
+  es-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run ES CNMV scraper
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python fetch-es-cnmv.py --days 30 --debug
+        continue-on-error: true
+      - name: Upload ES data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: es-thresholds-debug
+          path: worker/es_thresholds_data.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================
+  # IT (Italie) CONSOB / Borsa Italiana Radiocor PARTECIPAZIONI_RILEVANTI
+  # ===========================================================
+  it-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run IT Borsa Italiana scraper
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          python fetch-it-borsa.py --days 30 --debug
+        continue-on-error: true
+      - name: Upload IT data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: it-thresholds-debug
+          path: worker/it_thresholds_data.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ===========================================================
   # AFM (Pays-Bas) : CSV public officiel - separate job (rapide)
   # ===========================================================
   afm-thresholds:

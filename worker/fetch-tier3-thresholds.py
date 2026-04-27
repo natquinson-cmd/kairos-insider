@@ -88,7 +88,8 @@ COUNTRY_CONFIG = {
         'keywords': r'(significant\s+shareholder|disclosure\s+of\s+shareholding|stake\s+in|shareholding\s+notification|meldepflicht|participation\s+(?:significative|qualifi)|gesch[a]?ftsf[u]?hrer|[a-z]+\s+shareholder|disclosure\s+notice)',
         'list_keywords': ['nestle', 'roche', 'novartis', 'ubs', 'zurich', 'swiss re', 'abb', 'glencore', 'lonza', 'richemont', 'sika', 'six swiss'],
     },
-    'IT': {
+    # NOTE: IT retire de Tier 3 - utilise maintenant fetch-it-borsa.py (Borsa Italiana Radiocor)
+    '_IT_DEPRECATED': {
         'name': 'Italie',
         'kv_key': 'it-thresholds-recent',
         'regulator': 'CONSOB',
@@ -115,7 +116,8 @@ COUNTRY_CONFIG = {
         'keywords': r'(partecipazione|rilevante|soglia|stake|shareholding|CONSOB|major\s+holding|comunicazione)',
         'list_keywords': ['ftse mib', 'borsa italiana', 'milan', 'spa ', 's\\.p\\.a', 'piazza affari'],
     },
-    'ES': {
+    # NOTE: ES retire de Tier 3 - utilise maintenant fetch-es-cnmv.py (CNMV RSS officiel)
+    '_ES_DEPRECATED': {
         'name': 'Espagne',
         'kv_key': 'es-thresholds-recent',
         'regulator': 'CNMV',
