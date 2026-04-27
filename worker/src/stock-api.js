@@ -79,9 +79,39 @@ async function fetchWithRetry(url, init = {}, opts = {}) {
 // ============================================================
 export async function handleStockAnalysis(ticker, env, options = {}) {
   const { publicView = false, chartRange = '1y' } = options;
-  ticker = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
-  if (!ticker || ticker.length > 12) {
+  const userInput = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
+  if (!userInput || userInput.length > 60) {
     return { error: 'Invalid ticker', code: 'INVALID_TICKER' };
+  }
+
+  // ============================================================
+  // RESOLUTION INTELLIGENTE DU TICKER (v2)
+  // L'utilisateur peut taper : LVMH, BARCLAYS, NESTLE, SAP, etc.
+  // -> on doit les mapper vers leur ticker Yahoo (MC.PA, BARC.L, NESN.SW, SAP.DE)
+  // Sinon Yahoo retourne null et on affiche "small cap regional" pour LVMH
+  // qui est UNE DES PLUS GRANDES CAP MONDIALES.
+  // ============================================================
+  let ticker = userInput;
+  let originalInput = userInput;
+  let resolvedFromName = false;
+
+  // Si pas de suffix Yahoo (.PA, .L, .DE, etc.) ET pas un ticker US connu,
+  // tenter de resolver via le mapping nom -> Yahoo symbol
+  const hasYahooSuffix = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE|TO|AX|HK|SG)$/i.test(ticker);
+  const looksLikeUsTicker = /^[A-Z]{1,5}$/.test(ticker);  // 1-5 lettres = potentiel ticker US
+
+  if (!hasYahooSuffix) {
+    try {
+      const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
+      const looked = lookupEuYahooSymbol(userInput, null);
+      if (looked && looked !== userInput) {
+        ticker = looked;
+        resolvedFromName = true;
+        console.log(`[STOCK] User input "${userInput}" resolved to Yahoo symbol "${ticker}"`);
+      }
+    } catch (e) {
+      // mapping non disponible, garder ticker original
+    }
   }
 
   // Valide le range (Yahoo supporte : 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
@@ -102,7 +132,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
   // Sources stockanalysis.com en parallele : overview + statistics + earnings + employees (peers)
   // + euThresholds : aggregateur cross-KV (AMF/FCA/SIX/AFM/BaFin) pour les actions EU
-  const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends, euThresholds] = await Promise.all([
+  let [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends, euThresholds] = await Promise.all([
     fetchYahooQuote(ticker, effectiveRange),
     fetchStockAnalysisOverview(ticker),
     fetchStockAnalysisStatistics(ticker),
@@ -114,6 +144,35 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
     fetchGoogleTrends(ticker, env),
     aggregateEuThresholds(ticker, env),
   ]);
+
+  // FALLBACK FILET DE SECURITE : si Yahoo a echoue (price.current null) ET
+  // qu'on n'a pas deja resolu via mapping en debut, tenter le mapping ici.
+  // Couvre le cas ou un ticker court (ex: "ENI") matche un ticker US-like
+  // mais devrait en fait aller vers ENI.MI, etc.
+  if ((!quote || !quote.price || !quote.price.current) && !resolvedFromName && !hasYahooSuffix) {
+    try {
+      const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
+      const looked = lookupEuYahooSymbol(userInput, null);
+      if (looked && looked !== ticker) {
+        console.log(`[STOCK] Fallback retry "${ticker}" -> "${looked}" after Yahoo null`);
+        ticker = looked;
+        resolvedFromName = true;
+        // Refetch les sources qui dependent du ticker (Yahoo + stockanalysis)
+        [quote, overview, statistics, earningsData, employeesData, news] = await Promise.all([
+          fetchYahooQuote(ticker, effectiveRange),
+          fetchStockAnalysisOverview(ticker),
+          fetchStockAnalysisStatistics(ticker),
+          fetchStockAnalysisEarnings(ticker),
+          fetchStockAnalysisEmployees(ticker),
+          fetchYahooNews(ticker),
+        ]);
+        // Re-fetch euThresholds avec le nouveau ticker (yahooSymbol detect)
+        euThresholds = await aggregateEuThresholds(ticker, env);
+      }
+    } catch (e) {
+      // mapping fail - garder le ticker initial
+    }
+  }
   // Fusion : overview + statistics pour les fondamentaux (statistics = plus complet)
   const fundamentals = {
     ...overview.fundamentals,
@@ -139,6 +198,8 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
 
   const result = {
     ticker,
+    originalInput,                  // ce qu'a tape l'utilisateur (ex: "LVMH")
+    resolvedFromName,               // true si on a fait LVMH -> MC.PA
     updatedAt: new Date().toISOString(),
     _cachedAt: Date.now(),
     company: {

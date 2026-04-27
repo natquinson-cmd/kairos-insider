@@ -9841,13 +9841,23 @@
       const coverageCount = Object.values(coverage).filter(Boolean).length;
       const isSparse = coverageCount <= 2 && !coverage.price && !coverage.fundamentals;
 
-      const coverageBanner = isSparse ? `
+      // Si l'utilisateur a tape "LVMH" mais on a resolu vers MC.PA, on n'affiche
+      // PAS le banner "couverture limitee" car en fait on a tout. On affiche
+      // a la place une info "Ticker resolu LVMH -> MC.PA (Paris)".
+      const wasResolvedFromName = !!data.resolvedFromName;
+      const resolvedNotice = wasResolvedFromName ? `
+        <div style="padding:12px 18px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;margin-bottom:16px;font-size:13px;color:var(--text-secondary)">
+          🔎 Tu as cherche <strong style="color:var(--text-primary)">${data.originalInput || ''}</strong> — affichage du ticker Yahoo correspondant : <strong style="color:#3B82F6">${data.ticker}</strong>
+        </div>` : '';
+
+      const coverageBanner = (isSparse && !wasResolvedFromName) ? `
         <div style="padding:16px 20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1px solid rgba(245,158,11,0.25);border-radius:12px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
           <div style="font-size:22px;flex-shrink:0">ℹ️</div>
           <div style="flex:1">
             <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">Couverture de données limitee pour ce ticker</div>
             <div style="font-size:13px;opacity:0.85;line-height:1.5;margin-bottom:8px">
-              Ce titre est probablement une <strong>small cap europeenne regionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases de données gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.
+              Ce titre est probablement une <strong>small cap europeenne regionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases de données gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.<br>
+              💡 <strong>Astuce</strong> : pour les grandes EU, essaie le ticker Yahoo : LVMH → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">MC.PA</code>, Barclays → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">BARC.L</code>, Nestlé → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">NESN.SW</code>.
             </div>
             <div style="font-size:12px;opacity:0.8">
               <strong>Disponible :</strong>
@@ -9880,6 +9890,7 @@
       const infoRow = (label, value) => value ? `<div style="font-size:12px"><span style="opacity:0.55">${label} :</span> <strong style="opacity:0.95">${value}</strong></div>` : '';
 
       body.innerHTML = `
+        ${resolvedNotice}
         ${coverageBanner}
         <!-- HERO -->
         <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:24px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:14px;margin-bottom:24px">
