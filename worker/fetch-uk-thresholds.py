@@ -91,34 +91,47 @@ def scrape_fca_nsm_stealth(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
     captured_xhr = []
     filings = []
 
-    with sync_playwright() as p:
-        if stealth_available is True:
-            stealth = Stealth()
-            browser = p.chromium.launch(headless=True, args=[
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
-            ])
-            context = stealth.apply_stealth_to_context(browser.new_context(
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                viewport={'width': 1280, 'height': 900},
-                locale='en-GB',
-            ))
-        else:
-            browser = p.chromium.launch(headless=True, args=[
-                '--disable-blink-features=AutomationControlled',
-            ])
-            context = browser.new_context(
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                viewport={'width': 1280, 'height': 900},
-                locale='en-GB',
-            )
+    def _build_browser_context_page(playwright_instance):
+        browser = playwright_instance.chromium.launch(headless=True, args=[
+            '--disable-blink-features=AutomationControlled',
+            '--disable-features=IsolateOrigins,site-per-process',
+        ])
+        context = browser.new_context(
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            viewport={'width': 1280, 'height': 900},
+            locale='en-GB',
+        )
+        return browser, context
 
+    with sync_playwright() as p:
+        # Nouvelle API : Stealth().use_sync(p) injecte le hook globalement
+        if stealth_available is True:
+            try:
+                stealth_ctx_mgr = Stealth().use_sync(p)
+                stealth_ctx_mgr.__enter__()
+                stealth_active = True
+                print('  [STEALTH] nouvelle API Stealth().use_sync(p) activee')
+            except Exception as e:
+                print(f'  [STEALTH] use_sync failed : {e}, fallback page-level')
+                stealth_active = False
+        else:
+            stealth_active = False
+
+        browser, context = _build_browser_context_page(p)
         page = context.new_page()
+
         if stealth_available == 'legacy':
             try:
                 stealth_sync(page)
                 print('  [STEALTH] mode legacy applique')
             except: pass
+        elif stealth_available is True and not stealth_active:
+            # Tentative new API per-page si context manager a foire
+            try:
+                Stealth().apply_stealth_sync(page)
+                print('  [STEALTH] new API per-page applique')
+            except Exception as e:
+                print(f'  [STEALTH] new API per-page failed : {e}')
 
         # Capture XHR JSON (FCA NSM utilise un endpoint REST sous-jacent)
         def on_response(response):
