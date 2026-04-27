@@ -24,6 +24,8 @@
  *   - Earnings surprises history
  */
 
+import { aggregateEuThresholds } from './eu_thresholds_aggregator.js';
+
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
 
@@ -99,7 +101,8 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
 
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
   // Sources stockanalysis.com en parallele : overview + statistics + earnings + employees (peers)
-  const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends] = await Promise.all([
+  // + euThresholds : aggregateur cross-KV (AMF/FCA/SIX/AFM/BaFin) pour les actions EU
+  const [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends, euThresholds] = await Promise.all([
     fetchYahooQuote(ticker, effectiveRange),
     fetchStockAnalysisOverview(ticker),
     fetchStockAnalysisStatistics(ticker),
@@ -109,6 +112,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
     aggregate13F(ticker, env, companyNameFromInsiders),
     aggregateGovEtf(ticker, env),
     fetchGoogleTrends(ticker, env),
+    aggregateEuThresholds(ticker, env),
   ]);
   // Fusion : overview + statistics pour les fondamentaux (statistics = plus complet)
   const fundamentals = {
@@ -129,6 +133,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
   const score = computeKairosScore({
     insiders, smartMoney, govEtf, quote, fundamentals, consensus,
     health: statistics.health, earnings: earningsData,
+    euThresholds,  // EU activists/holdings (AMF/FCA/SIX/AFM/BaFin)
     weights: scoreWeights,
   });
 
@@ -168,6 +173,7 @@ export async function handleStockAnalysis(ticker, env, options = {}) {
     score,
     insiders,
     smartMoney,
+    euThresholds,  // Filings EU (AMF/FCA/SIX/AFM/BaFin) sur ce ticker
     govEtf,
     googleTrends,
     news,
@@ -1147,7 +1153,7 @@ const SCORE_BASE_MAX = {
 };
 const SCORE_DEFAULT_WEIGHTS = { ...SCORE_BASE_MAX }; // somme = 100
 
-function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, weights }) {
+function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, euThresholds, weights }) {
   // weights custom OU defaults (meme repartition que BASE_MAX)
   const W = { ...SCORE_DEFAULT_WEIGHTS, ...(weights || {}) };
 
@@ -1206,14 +1212,46 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   breakdown.insider.detail = `${insiders.buyCount} achats / ${insiders.sellCount} ventes, ${insiders.uniqueInsiders} initiés uniques${insiders.clusterSignal ? ', CLUSTER DÉTECTÉ' : ''}`;
 
   // --- SMART MONEY (0-20) ---
+  // 13F US (existing) + boost EU thresholds (BlackRock/Norges/etc. franchissant
+  // un seuil sur ce ticker EU). Pour les actions EU, le 13F est souvent vide
+  // mais les filings AMF/FCA/SIX/AFM/BaFin remontent les positions des grands
+  // institutionnels et activists - même valeur informationnelle.
   let smScore = 10;
   if (smartMoney.fundCount >= 1) smScore += Math.min(6, smartMoney.fundCount * 0.5);
   if (smartMoney.avgDeltaPct > 5) smScore += 4;
   else if (smartMoney.avgDeltaPct > 0) smScore += 2;
   else if (smartMoney.avgDeltaPct < -5) smScore -= 4;
   else if (smartMoney.avgDeltaPct < 0) smScore -= 2;
+
+  // EU thresholds boost
+  const euData = euThresholds || {};
+  const euTotal = euData.totalFilings || 0;
+  const euActivists = euData.activistsCount || 0;
+  const euRecent = euData.recentFilings || 0;
+  if (euTotal > 0) {
+    // Smart money EU detection : presence de filings + filers connus = boost
+    smScore += Math.min(4, euTotal * 0.3);  // jusqu'a +4 si beaucoup de filings
+    if (euActivists > 0) smScore += Math.min(3, euActivists);  // boost activists
+    if (euRecent >= 3) smScore += 2;  // momentum recent
+  }
   breakdown.smartMoney.score = applyWeight('smartMoney', smScore);
-  breakdown.smartMoney.detail = `${smartMoney.fundCount} fonds, évolution moyenne ${smartMoney.avgDeltaPct.toFixed(1)}%`;
+
+  // Detail enrichi : 13F US + EU filings + biggest filer
+  const detailParts = [];
+  if (smartMoney.fundCount > 0) {
+    detailParts.push(`${smartMoney.fundCount} fonds 13F (Δ ${smartMoney.avgDeltaPct.toFixed(1)}%)`);
+  }
+  if (euTotal > 0) {
+    const filerLabel = euData.biggestFiler
+      ? ` — top: ${euData.biggestFiler.name}${euData.biggestFiler.isActivist ? ' ⚡' : ''}`
+      : '';
+    detailParts.push(`${euTotal} filings EU (${euActivists} activists)${filerLabel}`);
+  }
+  breakdown.smartMoney.detail = detailParts.length > 0
+    ? detailParts.join(' · ')
+    : 'Aucune position smart money détectée';
+  // Mark dataOk si on a au moins une source qui a remonte des donnees
+  breakdown.smartMoney.dataOk = (smartMoney.fundCount || 0) > 0 || euTotal > 0;
 
   // --- GOV/GURU (0-10) ---
   let ggScore = 5;
