@@ -17,26 +17,29 @@
  * Response : { filer, period, positions, summary, comparison }
  */
 
+// Benchmarks par pays - brut (PAS pre-encode, encodeURIComponent ferait double-encode)
 const SUFFIX_TO_BENCHMARK = {
-  'US': '%5EGSPC',  // S&P 500
-  'FR': '%5EFCHI',  // CAC 40
-  'UK': '%5EFTSE',  // FTSE 100
-  'DE': '%5EGDAXI', // DAX
-  'NL': '%5EAEX',   // AEX
-  'CH': '%5ESSMI',  // SMI
-  'IT': 'FTSEMIB.MI', // FTSE MIB
-  'ES': '%5EIBEX',  // IBEX 35
-  'SE': '%5EOMX',   // OMXS30
-  'NO': '%5EOSEAX', // OBX
-  'DK': '%5EOMXC25',// OMXC25
-  'FI': '%5EOMXH25',// OMXH25
+  'US': '^GSPC',    // S&P 500
+  'FR': '^FCHI',    // CAC 40
+  'UK': '^FTSE',    // FTSE 100
+  'DE': '^GDAXI',   // DAX
+  'NL': '^AEX',     // AEX
+  'CH': '^SSMI',    // SMI
+  'IT': 'FTSEMIB.MI', // FTSE MIB (pas de ^)
+  'ES': '^IBEX',    // IBEX 35
+  'SE': '^OMX',     // OMXS30
+  'NO': '^OSEAX',   // OBX
+  'DK': '^OMXC25',  // OMXC25
+  'FI': '^OMXH25',  // OMXH25
 };
 
 const PERIOD_TO_DAYS = { '1y': 365, '3y': 1095, '5y': 1825 };
 
 // Fonds vedettes pour la landing : 5 fonds tres reconnaissables qui resonnent
 // avec le grand public. Cache 24h pour eviter recalcul a chaque load page.
-export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'BPIFRANCE', 'ARNAULT'];
+// Note : ARNAULT vire car LVMH ne se declare pas a l'AMF (uniquement target).
+// Remplace par BOLLORE qui a des positions actives.
+export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'BPIFRANCE', 'BOLLORE'];
 
 // Liste des grands smart money pour autocomplete + acquisition
 export const KNOWN_FILERS = [
