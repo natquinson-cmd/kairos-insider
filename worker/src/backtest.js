@@ -71,8 +71,8 @@ export const KNOWN_FILERS = [
 
 
 /**
- * Cherche tous les filings d'un filer dans toutes les KV thresholds
- * Retourne une liste de positions [{target, ticker, entryDate, exitDate, percent, kvSource}]
+ * Cherche tous les filings d'un filer dans toutes les KV thresholds.
+ * v2 : detection sortie reelle - si un filing 'down' suit un 'up' = exit point.
  */
 async function gatherFilerPositions(filerKey, periodDays, env) {
   const cutoffDate = new Date(Date.now() - periodDays * 24 * 3600 * 1000)
@@ -113,7 +113,10 @@ async function gatherFilerPositions(filerKey, periodDays, env) {
     }
   }
 
-  // Group by target : 1ère apparition = entry, dernière = exit (peut être same)
+  // Group by target : detection entry/exit reelle
+  // - 1er filing 'up' = entry
+  // - 1er filing 'down' apres = exit (close position)
+  // - Si seulement des 'up' = encore en position
   const byTarget = new Map();
   for (const m of matches) {
     const targetKey = (m.targetName || m.ticker || '').toUpperCase();
@@ -123,36 +126,70 @@ async function gatherFilerPositions(filerKey, periodDays, env) {
         target: m.targetName || m.ticker,
         ticker: m.ticker || '',
         country: m.country || 'US',
-        firstDate: m.fileDate,
-        lastDate: m.fileDate,
-        percent: m.percentOfClass || m.crossingThreshold || null,
-        direction: m.crossingDirection || 'up',
-        filings: [m],
+        filings: [],
         kvSource: m._kvSource,
         regulator: m.regulator || '',
       });
-    } else {
-      const e = byTarget.get(targetKey);
-      e.filings.push(m);
-      if (m.fileDate < e.firstDate) e.firstDate = m.fileDate;
-      if (m.fileDate > e.lastDate) e.lastDate = m.fileDate;
-      if (m.percentOfClass) e.percent = m.percentOfClass;
     }
+    byTarget.get(targetKey).filings.push(m);
   }
 
-  return Array.from(byTarget.values());
+  // Pour chaque target, trie filings par date asc, identifie entry/exit
+  const positions = [];
+  for (const [targetKey, group] of byTarget) {
+    const sorted = group.filings.slice().sort((a, b) =>
+      (a.fileDate || '').localeCompare(b.fileDate || ''));
+
+    // Detection entry/exit : on cherche le 1er 'up' puis le 1er 'down' apres
+    const upFilings = sorted.filter(f => (f.crossingDirection || 'up') === 'up');
+    const downFilings = sorted.filter(f => (f.crossingDirection || '') === 'down');
+    const entryFiling = upFilings[0] || sorted[0];  // fallback : 1ère apparition
+    let exitFiling = null;
+    if (entryFiling) {
+      exitFiling = downFilings.find(d => (d.fileDate || '') > (entryFiling.fileDate || '')) || null;
+    }
+
+    // % maximum atteint pendant la période
+    let maxPercent = 0;
+    for (const f of sorted) {
+      const p = f.percentOfClass || f.crossingThreshold || 0;
+      if (p > maxPercent) maxPercent = p;
+    }
+
+    positions.push({
+      target: group.target,
+      ticker: group.ticker,
+      country: group.country,
+      regulator: group.regulator,
+      firstDate: entryFiling?.fileDate || sorted[0]?.fileDate,
+      entryDate: entryFiling?.fileDate || sorted[0]?.fileDate,  // alias
+      exitDate: exitFiling?.fileDate || null,  // null = encore en position
+      maxPercent,
+      filingsCount: sorted.length,
+      isClosed: !!exitFiling,
+      filings: sorted,
+      kvSource: group.kvSource,
+    });
+  }
+
+  return positions;
 }
 
 
 /**
- * Fetch close price Yahoo at a given date (approximate - returns nearest trading day)
+ * Fetch full price timeline for a Yahoo symbol from start date to today.
+ * Returns { timestamps: [unix], closes: [number], currency, marketPrice }
+ *
+ * Une seule requete par ticker - on lookup les dates entry/exit localement
+ * (au lieu de 2 requetes par position). Optimisation cle vs v1.
  */
-async function fetchPriceAtDate(yahooSymbol, isoDate) {
-  if (!yahooSymbol || !isoDate) return null;
-  // Yahoo period1/period2 in seconds, fetch ±5 days range
-  const date = new Date(isoDate + 'T00:00:00Z');
-  const period1 = Math.floor((date.getTime() - 5 * 24 * 3600 * 1000) / 1000);
-  const period2 = Math.floor((date.getTime() + 5 * 24 * 3600 * 1000) / 1000);
+async function fetchPriceTimeline(yahooSymbol, startIso) {
+  if (!yahooSymbol) return null;
+  const startMs = startIso
+    ? new Date(startIso + 'T00:00:00Z').getTime() - 7 * 24 * 3600 * 1000  // 7d buffer
+    : Date.now() - 365 * 24 * 3600 * 1000;
+  const period1 = Math.floor(startMs / 1000);
+  const period2 = Math.floor(Date.now() / 1000);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?period1=${period1}&period2=${period2}&interval=1d`;
   try {
     const resp = await fetch(url, {
@@ -165,21 +202,12 @@ async function fetchPriceAtDate(yahooSymbol, isoDate) {
     const json = await resp.json();
     const r = json?.chart?.result?.[0];
     if (!r || !r.timestamp || !r.indicators?.quote?.[0]?.close) return null;
-    const closes = r.indicators.quote[0].close;
-    const target = date.getTime() / 1000;
-    let bestIdx = 0;
-    let bestDiff = Infinity;
-    for (let i = 0; i < r.timestamp.length; i++) {
-      const diff = Math.abs(r.timestamp[i] - target);
-      if (closes[i] != null && diff < bestDiff) {
-        bestDiff = diff;
-        bestIdx = i;
-      }
-    }
     return {
-      price: closes[bestIdx],
-      date: new Date(r.timestamp[bestIdx] * 1000).toISOString().slice(0, 10),
+      timestamps: r.timestamp,
+      closes: r.indicators.quote[0].close,
       currency: r.meta?.currency || 'USD',
+      marketPrice: r.meta?.regularMarketPrice || null,
+      marketTime: r.meta?.regularMarketTime || null,
     };
   } catch {
     return null;
@@ -188,7 +216,32 @@ async function fetchPriceAtDate(yahooSymbol, isoDate) {
 
 
 /**
- * Fetch current price (latest close)
+ * Lookup nearest trading day price within a fetched timeline.
+ */
+function priceAtDateLocal(timeline, isoDate) {
+  if (!timeline || !timeline.timestamps || !isoDate) return null;
+  const target = new Date(isoDate + 'T00:00:00Z').getTime() / 1000;
+  let bestIdx = -1;
+  let bestDiff = Infinity;
+  for (let i = 0; i < timeline.timestamps.length; i++) {
+    if (timeline.closes[i] == null) continue;
+    const diff = Math.abs(timeline.timestamps[i] - target);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx < 0) return null;
+  return {
+    price: timeline.closes[bestIdx],
+    date: new Date(timeline.timestamps[bestIdx] * 1000).toISOString().slice(0, 10),
+    currency: timeline.currency,
+  };
+}
+
+
+/**
+ * Fetch current price (latest close) - for benchmarks (no need for full timeline).
  */
 async function fetchCurrentPrice(yahooSymbol) {
   if (!yahooSymbol) return null;
@@ -220,6 +273,39 @@ async function fetchCurrentPrice(yahooSymbol) {
 
 
 /**
+ * Fetch a price-at-date (for benchmark) using the fetchPriceTimeline helper.
+ */
+async function fetchPriceAtDate(yahooSymbol, isoDate) {
+  const tl = await fetchPriceTimeline(yahooSymbol, isoDate);
+  if (!tl) return null;
+  return priceAtDateLocal(tl, isoDate);
+}
+
+
+/**
+ * Run promises in batches of `concurrency` to respect Yahoo rate-limits.
+ */
+async function runWithConcurrency(items, concurrency, asyncFn) {
+  const results = new Array(items.length);
+  let nextIdx = 0;
+  async function worker() {
+    while (true) {
+      const i = nextIdx++;
+      if (i >= items.length) return;
+      try {
+        results[i] = await asyncFn(items[i], i);
+      } catch (e) {
+        results[i] = { error: String(e) };
+      }
+    }
+  }
+  const workers = Array(Math.min(concurrency, items.length)).fill(0).map(() => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+
+/**
  * Main backtest endpoint handler.
  * GET /api/backtest/:filer?period=1y|3y|5y
  */
@@ -240,37 +326,97 @@ export async function handleBacktest(filerKey, periodKey, env) {
     };
   }
 
-  // 2. Pour chaque position, fetch prix entry et current
-  // Lookup yahooSymbol via mapping (utilise eu_yahoo_symbols)
+  // 2. Pour chaque position, fetch UN SEUL timeline complet par ticker
+  // (vs v1 : 2 fetch par position). Avec runWithConcurrency(5) pour
+  // respecter rate-limit Yahoo. Beaucoup plus rapide -> permet 100+ positions.
   const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
-  const positions = await Promise.all(rawPositions.slice(0, 30).map(async (p) => {
+
+  // Etape 2a : assigne yahooSymbol a chaque position
+  const positionsWithSymbol = rawPositions.slice(0, 100).map(p => {
     let yahooSymbol = p.ticker;
     if (p.country !== 'US' || !yahooSymbol) {
       const looked = lookupEuYahooSymbol(p.target, p.country);
       if (looked) yahooSymbol = looked;
     }
-    if (!yahooSymbol) {
-      return { ...p, yahooSymbol: null, returnPct: null, _skipReason: 'no_yahoo_symbol' };
+    return { ...p, yahooSymbol };
+  });
+
+  // Etape 2b : group by yahooSymbol pour 1 fetch par ticker unique
+  const symbolGroups = new Map();
+  for (const p of positionsWithSymbol) {
+    if (!p.yahooSymbol) continue;
+    if (!symbolGroups.has(p.yahooSymbol)) {
+      symbolGroups.set(p.yahooSymbol, { symbol: p.yahooSymbol, positions: [], minDate: p.firstDate });
     }
-    const [entryPrice, currentPrice] = await Promise.all([
-      fetchPriceAtDate(yahooSymbol, p.firstDate),
-      fetchCurrentPrice(yahooSymbol),
-    ]);
-    if (!entryPrice || !currentPrice || !entryPrice.price || !currentPrice.price) {
-      return { ...p, yahooSymbol, returnPct: null, _skipReason: 'no_price_data' };
+    const g = symbolGroups.get(p.yahooSymbol);
+    g.positions.push(p);
+    if (p.firstDate && p.firstDate < g.minDate) g.minDate = p.firstDate;
+  }
+  const uniqueSymbols = Array.from(symbolGroups.values());
+
+  // Etape 2c : fetch timeline pour chaque ticker unique (concurrence = 5)
+  const timelines = await runWithConcurrency(uniqueSymbols, 5, async (g) => {
+    const tl = await fetchPriceTimeline(g.symbol, g.minDate);
+    return { symbol: g.symbol, timeline: tl };
+  });
+  const timelineBySymbol = new Map();
+  for (const t of timelines) {
+    if (t && t.timeline) timelineBySymbol.set(t.symbol, t.timeline);
+  }
+
+  // Etape 2d : compute returns pour chaque position
+  const positions = positionsWithSymbol.map(p => {
+    if (!p.yahooSymbol) {
+      return { ...p, returnPct: null, _skipReason: 'no_yahoo_symbol' };
     }
-    const returnPct = ((currentPrice.price - entryPrice.price) / entryPrice.price) * 100;
+    const tl = timelineBySymbol.get(p.yahooSymbol);
+    if (!tl) {
+      return { ...p, returnPct: null, _skipReason: 'no_timeline' };
+    }
+    const entryPrice = priceAtDateLocal(tl, p.firstDate);
+    // Exit price : si position fermée (filer franchit en baisse) -> prix au exitDate
+    //              sinon -> prix actuel (latest close)
+    let exitPrice = null;
+    let exitDateUsed = null;
+    let isStillOpen = true;
+    if (p.exitDate) {
+      exitPrice = priceAtDateLocal(tl, p.exitDate);
+      exitDateUsed = p.exitDate;
+      isStillOpen = false;
+    } else {
+      // Position encore active : utiliser dernier prix du timeline
+      const lastIdx = tl.timestamps.length - 1;
+      if (tl.closes[lastIdx] != null) {
+        exitPrice = {
+          price: tl.closes[lastIdx],
+          date: new Date(tl.timestamps[lastIdx] * 1000).toISOString().slice(0, 10),
+          currency: tl.currency,
+        };
+        exitDateUsed = exitPrice.date;
+      } else {
+        exitPrice = { price: tl.marketPrice, date: new Date().toISOString().slice(0, 10), currency: tl.currency };
+        exitDateUsed = exitPrice.date;
+      }
+    }
+
+    if (!entryPrice || !exitPrice || !entryPrice.price || !exitPrice.price) {
+      return { ...p, returnPct: null, _skipReason: 'no_price_data', isStillOpen };
+    }
+    const returnPct = ((exitPrice.price - entryPrice.price) / entryPrice.price) * 100;
     return {
       ...p,
-      yahooSymbol,
+      yahooSymbol: p.yahooSymbol,
       entryPrice: entryPrice.price,
       entryDate: entryPrice.date,
-      currentPrice: currentPrice.price,
-      currentDate: currentPrice.date,
-      currency: currentPrice.currency,
+      exitPrice: exitPrice.price,
+      exitDate: exitDateUsed,
+      currentPrice: exitPrice.price,  // alias for backward compat
+      currentDate: exitDateUsed,       // alias
+      currency: exitPrice.currency,
       returnPct: Math.round(returnPct * 100) / 100,
+      isStillOpen,
     };
-  }));
+  });
 
   // 3. Aggregate stats
   const validPositions = positions.filter(p => p.returnPct != null);
@@ -313,6 +459,20 @@ export async function handleBacktest(filerKey, periodKey, env) {
     }
   }
 
+  // Equity curve : portfolio simule equipondere des positions actives
+  // Pour chaque position avec timeline, on lookup les prix par decade de jours
+  // et on cumule le ratio (price_t / price_entry) - 1 normalise.
+  // Resultat : tableau { date, totalReturnPct } sur la periode.
+  const equityCurve = computeEquityCurve(validPositions, timelineBySymbol, periodDays);
+
+  // Stats supplementaires v2
+  const closedPositions = validPositions.filter(p => !p.isStillOpen);
+  const openPositions = validPositions.filter(p => p.isStillOpen);
+  const closedReturns = closedPositions.map(p => p.returnPct);
+  const avgReturnClosed = closedReturns.length > 0
+    ? closedReturns.reduce((s, x) => s + x, 0) / closedReturns.length
+    : null;
+
   return {
     filer: filerKey,
     period: periodKey,
@@ -320,15 +480,22 @@ export async function handleBacktest(filerKey, periodKey, env) {
     summary: {
       totalPositions: rawPositions.length,
       validPositions: validPositions.length,
+      closedPositions: closedPositions.length,
+      openPositions: openPositions.length,
       avgReturn: Math.round(avgReturn * 100) / 100,
+      avgReturnClosed: avgReturnClosed != null ? Math.round(avgReturnClosed * 100) / 100 : null,
       winRate: Math.round(winRate * 10) / 10,
       bestPosition: bestPosition ? {
         target: bestPosition.target, ticker: bestPosition.yahooSymbol,
         returnPct: bestPosition.returnPct, country: bestPosition.country,
+        entryDate: bestPosition.entryDate, exitDate: bestPosition.exitDate,
+        isStillOpen: bestPosition.isStillOpen,
       } : null,
       worstPosition: worstPosition ? {
         target: worstPosition.target, ticker: worstPosition.yahooSymbol,
         returnPct: worstPosition.returnPct, country: worstPosition.country,
+        entryDate: worstPosition.entryDate, exitDate: worstPosition.exitDate,
+        isStillOpen: worstPosition.isStillOpen,
       } : null,
     },
     comparison: {
@@ -337,10 +504,57 @@ export async function handleBacktest(filerKey, periodKey, env) {
       benchmarkReturn,
       alpha: benchmarkReturn != null ? Math.round((avgReturn - benchmarkReturn) * 100) / 100 : null,
     },
+    equityCurve,
     metadata: {
       computedAt: new Date().toISOString(),
       filerLabel: KNOWN_FILERS.find(f => f.key === filerKey.toUpperCase())?.label || filerKey,
-      coverNote: 'MVP : entry = 1ère déclaration, exit = aujourd\'hui. À enrichir v9 avec exits réels.',
+      uniqueTickers: uniqueSymbols.length,
+      symbolsWithTimeline: timelineBySymbol.size,
+      coverNote: 'v2 : detection sortie reelle (filer franchit en baisse). Position encore active = exit = aujourd\'hui.',
     },
   };
+}
+
+
+/**
+ * Build equity curve : evolution % portfolio equipondere des positions actives
+ * sur la periode. Sample 1 point par 7 jours.
+ */
+function computeEquityCurve(positions, timelineBySymbol, periodDays) {
+  if (!positions || positions.length === 0) return [];
+
+  const now = Date.now();
+  const start = now - periodDays * 24 * 3600 * 1000;
+  const samplingDays = Math.max(7, Math.floor(periodDays / 50));  // ~50 points sur la courbe
+
+  // Indexer les positions actives par ticker pour lookup rapide
+  const activePositions = positions.filter(p => p.yahooSymbol && p.firstDate);
+  if (activePositions.length === 0) return [];
+
+  const points = [];
+  for (let t = start; t <= now; t += samplingDays * 24 * 3600 * 1000) {
+    const dateStr = new Date(t).toISOString().slice(0, 10);
+    let totalRet = 0;
+    let count = 0;
+    for (const p of activePositions) {
+      if (p.firstDate > dateStr) continue;  // pas encore entré
+      // Si position fermée et date après exit, on garde le rendement à exit (frozen)
+      const cutoffDate = (p.exitDate && dateStr > p.exitDate) ? p.exitDate : dateStr;
+      const tl = timelineBySymbol.get(p.yahooSymbol);
+      if (!tl) continue;
+      const px = priceAtDateLocal(tl, cutoffDate);
+      if (!px || !px.price || !p.entryPrice) continue;
+      const ret = ((px.price - p.entryPrice) / p.entryPrice) * 100;
+      totalRet += ret;
+      count++;
+    }
+    if (count > 0) {
+      points.push({
+        date: dateStr,
+        totalReturnPct: Math.round((totalRet / count) * 100) / 100,
+        positions: count,
+      });
+    }
+  }
+  return points;
 }

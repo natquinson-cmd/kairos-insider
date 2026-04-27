@@ -34,27 +34,59 @@ PAGE_SIZE = 100
 
 # Activists / institutions connus (pour flag isActivist)
 KNOWN_ACTIVISTS_EU = {
+    # Activistes
     'TCI FUND': 'TCI Fund Management', "CHILDREN'S INVESTMENT": 'TCI Fund Management',
     'CEVIAN': 'Cevian Capital', 'BLUEBELL': 'Bluebell Capital',
     'COAST CAPITAL': 'Coast Capital', 'PETRUS ADVISERS': 'Petrus Advisers',
     'SHERBORNE': 'Sherborne Investors', 'AMBER CAPITAL': 'Amber Capital',
     'PRIMESTONE': 'PrimeStone Capital',
+    'ELLIOTT': 'Elliott Management', 'PAUL SINGER': 'Elliott Management',
+    'PERSHING SQUARE': 'Pershing Square (Ackman)', 'STARBOARD': 'Starboard Value',
+    'CARL ICAHN': 'Icahn Enterprises', 'TRIAN': 'Trian Fund Management',
+    'JANA PARTNERS': 'Jana Partners',
+    # Familles FR
     'GROUPE ARNAULT': 'Bernard Arnault', 'ARNAULT': 'Bernard Arnault',
     'BOLLORE': 'Bollore Group', 'PINAULT': 'Pinault (Artemis)',
     'ARTEMIS': 'Pinault (Artemis)', 'DASSAULT': 'Dassault Family',
     'PEUGEOT': 'Peugeot Family', 'BETTENCOURT': 'Bettencourt-Meyers',
     'PERRODO': 'Perrodo Family', 'WERTHEIMER': 'Wertheimer (Chanel)',
-    'ELLIOTT': 'Elliott Management', 'PAUL SINGER': 'Elliott Management',
-    'PERSHING SQUARE': 'Pershing Square (Ackman)', 'STARBOARD': 'Starboard Value',
-    'CARL ICAHN': 'Icahn Enterprises', 'TRIAN': 'Trian Fund Management',
-    'JANA PARTNERS': 'Jana Partners',
+    # Sovereign / Etat
     'NORGES BANK': 'Norges Bank Investment Mgmt', 'GIC': 'GIC (Singapour)',
     'TEMASEK': 'Temasek Holdings', 'MUBADALA': 'Mubadala (Abu Dhabi)',
     'QATAR INVESTMENT': 'Qatar Investment Authority', 'CIC CAPITAL': 'CIC Capital (Chine)',
+    'BPIFRANCE': 'Bpifrance', 'CDC': 'Caisse des Depots',
+    'KIA AUTHORITY': 'Kuwait Investment Authority',
+    # Institutionnels (gros gestionnaires)
     'BLACKROCK': 'BlackRock', 'VANGUARD': 'Vanguard', 'STATE STREET': 'State Street',
-    'BPIFRANCE': 'Bpifrance', 'AMUNDI': 'Amundi', 'CDC': 'Caisse des Depots',
-    'CAPITAL GROUP': 'Capital Group', 'FIDELITY': 'Fidelity',
-    'WELLINGTON': 'Wellington Management', 'INVESCO': 'Invesco',
+    'AMUNDI': 'Amundi',
+    'CAPITAL GROUP': 'Capital Group', 'CAPITAL RESEARCH': 'Capital Group',
+    'FIDELITY': 'Fidelity', 'WELLINGTON': 'Wellington Management',
+    'INVESCO': 'Invesco', 'T. ROWE PRICE': 'T. Rowe Price', 'T ROWE PRICE': 'T. Rowe Price',
+    'PIMCO': 'PIMCO', 'SCHRODERS': 'Schroders', 'JANUS HENDERSON': 'Janus Henderson',
+    'M&G': 'M&G Investments', 'LEGAL & GENERAL': 'Legal & General',
+    'ABERDEEN': 'Aberdeen Standard', 'ALLIANCE BERNSTEIN': 'AllianceBernstein',
+    # Banques d'investissement (positions souvent dérivées mais signal smart money)
+    'GOLDMAN SACHS': 'Goldman Sachs',
+    'JPMORGAN': 'JPMorgan', 'JP MORGAN': 'JPMorgan', 'J.P. MORGAN': 'JPMorgan', 'J. P. MORGAN': 'JPMorgan',
+    'MORGAN STANLEY': 'Morgan Stanley',
+    'BNP PARIBAS': 'BNP Paribas',
+    'CREDIT AGRICOLE': 'Credit Agricole',
+    'SOCIETE GENERALE': 'Société Générale',
+    'BARCLAYS': 'Barclays',
+    'UBS GROUP': 'UBS Group', 'UBS AG': 'UBS Group',
+    'DEUTSCHE BANK': 'Deutsche Bank',
+    'CITIGROUP': 'Citigroup', 'CITI ': 'Citigroup',
+    'HSBC': 'HSBC',
+    'BANK OF AMERICA': 'Bank of America', 'MERRILL LYNCH': 'Bank of America',
+    # Hedge funds notables
+    'MILLENNIUM': 'Millennium Partners', 'CITADEL': 'Citadel',
+    'BRIDGEWATER': 'Bridgewater', 'RENAISSANCE': 'Renaissance Technologies',
+    'TWO SIGMA': 'Two Sigma', 'D.E. SHAW': 'D.E. Shaw', 'DE SHAW': 'D.E. Shaw',
+    'POINT72': 'Point72 (Steve Cohen)',
+    # Family offices grands acteurs
+    'WALLENBERG': 'Wallenberg (Investor AB)', 'INVESTOR AB': 'Wallenberg (Investor AB)',
+    'EXOR': 'Exor (Agnelli)', 'AGNELLI': 'Exor (Agnelli)',
+    'AMANCIO ORTEGA': 'Pontegadea (Ortega)', 'PONTEGADEA': 'Pontegadea (Ortega)',
 }
 
 
@@ -192,6 +224,22 @@ def parse_amf_pdf(pdf_bytes, debug=False):
             text_norm,
         )
         if m2: result['filer'] = m2.group(1).strip()
+
+    # NETTOYAGE du filer extrait : enlever artefacts du PDF parsing
+    if result['filer']:
+        f = result['filer']
+        # Enlever footnote indicateur "1" ou "2" colle au nom (artefact pdfplumber)
+        f = re.sub(r'\s*\d+$', '', f).strip()
+        # Enlever prefixes "la societe", "la societe anonyme", "la societe civile"
+        f = re.sub(r'^la\s+soci[ée]?t[ée]?\s+(anonyme\s+|civile\s+|en\s+commandite\s+|à\s+responsabilité\s+limit[ée]?e\s+)?',
+                   '', f, flags=re.IGNORECASE).strip()
+        # Enlever "Inc", "Corp", "Ltd" trailing si seulement ca
+        # Mais garder si fait partie du nom (ex: Goldman Sachs Group, Inc.)
+        # Donc on ne fait que cleanup whitespace
+        f = re.sub(r'\s+', ' ', f).strip()
+        # Enlever virgules trailing
+        f = f.rstrip(',').strip()
+        result['filer'] = f if f else None
 
     # 2. DIRECTION : "franchi en (hausse|baisse)"
     m = re.search(r'franchi\s+en\s+(hausse|baisse)', text_norm, re.I)

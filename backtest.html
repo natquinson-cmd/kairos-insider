@@ -351,6 +351,61 @@
       return sign + n.toFixed(1) + '%';
     }
 
+    function renderEquityCurve(curve, benchmark) {
+      if (!curve || curve.length < 2) return '';
+      // SVG line chart simple, equipondere des positions
+      const W = 800, H = 240, padL = 60, padR = 20, padT = 20, padB = 40;
+      const innerW = W - padL - padR;
+      const innerH = H - padT - padB;
+      const vals = curve.map(p => p.totalReturnPct);
+      const minVal = Math.min(0, ...vals);
+      const maxVal = Math.max(0, ...vals);
+      const range = (maxVal - minVal) || 1;
+      const scaleY = v => padT + innerH - ((v - minVal) / range) * innerH;
+      const scaleX = i => padL + (i / (curve.length - 1)) * innerW;
+
+      // Path filer
+      const path = curve.map((p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)} ${scaleY(p.totalReturnPct).toFixed(1)}`).join(' ');
+      // Zero line
+      const zeroY = scaleY(0).toFixed(1);
+      // X axis ticks (5 dates)
+      const tickCount = 5;
+      const ticks = [];
+      for (let i = 0; i < tickCount; i++) {
+        const idx = Math.floor((i / (tickCount - 1)) * (curve.length - 1));
+        ticks.push({ x: scaleX(idx), label: curve[idx].date });
+      }
+      // Y axis ticks
+      const yTicks = [];
+      const yStep = Math.ceil(range / 4 / 5) * 5 || 5;
+      for (let v = Math.ceil(minVal / yStep) * yStep; v <= maxVal; v += yStep) {
+        yTicks.push({ y: scaleY(v), label: (v > 0 ? '+' : '') + v.toFixed(0) + '%' });
+      }
+
+      const finalReturn = vals[vals.length - 1];
+      const finalClass = finalReturn > 0 ? '#10B981' : (finalReturn < 0 ? '#EF4444' : '#94A3B8');
+
+      return `
+        <div class="vs-bench" style="margin-bottom:32px">
+          <h3>📈 Équity curve — ${curve.length} points sur ${curve[0].date} → ${curve[curve.length-1].date}</h3>
+          <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+            <!-- grid + zero line -->
+            ${yTicks.map(t => `<line x1="${padL}" x2="${W-padR}" y1="${t.y.toFixed(1)}" y2="${t.y.toFixed(1)}" stroke="#1A2138" stroke-width="1" />`).join('')}
+            <line x1="${padL}" x2="${W-padR}" y1="${zeroY}" y2="${zeroY}" stroke="#3A4366" stroke-width="1" stroke-dasharray="2,2" />
+            <!-- ticks Y -->
+            ${yTicks.map(t => `<text x="${padL-8}" y="${t.y+4}" text-anchor="end" font-size="10" fill="#64748B">${t.label}</text>`).join('')}
+            <!-- ticks X -->
+            ${ticks.map(t => `<text x="${t.x}" y="${H-padB+18}" text-anchor="middle" font-size="10" fill="#64748B">${t.label}</text>`).join('')}
+            <!-- Path principal -->
+            <path d="${path}" stroke="${finalClass}" stroke-width="2" fill="none" />
+            <!-- Final point label -->
+            <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalReturn).toFixed(1)}" r="4" fill="${finalClass}" />
+            <text x="${(scaleX(curve.length-1) - 8).toFixed(1)}" y="${(scaleY(finalReturn) - 8).toFixed(1)}" text-anchor="end" font-size="14" font-weight="700" fill="${finalClass}">${fmtPct(finalReturn)}</text>
+          </svg>
+          <p style="font-size:12px;color:#64748B;margin:8px 0 0">Portfolio équipondéré simulé (entry = 1ère déclaration, exit = filing baisse ou aujourd'hui)</p>
+        </div>`;
+    }
+
     function renderResults(data) {
       const s = data.summary || {};
       const c = data.comparison || {};
@@ -381,7 +436,7 @@
           <div class="summary-card">
             <div class="label">Rendement moyen</div>
             <div class="value ${avgClass}">${fmtPct(s.avgReturn)}</div>
-            <div class="sub">par position</div>
+            <div class="sub">${s.openPositions || 0} actives + ${s.closedPositions || 0} fermées</div>
           </div>
           <div class="summary-card">
             <div class="label">Win rate</div>
@@ -396,9 +451,11 @@
           <div class="summary-card">
             <div class="label">Positions analysées</div>
             <div class="value">${s.validPositions}/${s.totalPositions}</div>
-            <div class="sub">avec cours dispo</div>
+            <div class="sub">${data.metadata?.uniqueTickers || 0} tickers uniques</div>
           </div>
         </div>
+
+        ${renderEquityCurve(data.equityCurve, c.benchmark)}
 
         <div class="vs-bench">
           <h3>📈 Performance ${filerLabel} vs benchmark ${c.benchmark}</h3>
@@ -419,23 +476,27 @@
         <h3>Top 30 positions</h3>
         <table>
           <thead><tr>
-            <th>Société</th><th>Pays</th><th>Date entrée</th><th>Prix entrée</th><th>Prix actuel</th><th>Rendement</th>
+            <th>Société</th><th>Pays</th><th>Entrée</th><th>Sortie</th><th>Prix entrée</th><th>Prix sortie</th><th>Rendement</th>
           </tr></thead>
           <tbody>`;
-      for (const p of positions) {
+      for (const p of positions.slice(0, 30)) {
         const cls = p.returnPct > 0 ? 'positive' : (p.returnPct < 0 ? 'negative' : '');
+        const exitLabel = p.isStillOpen
+          ? `<span style="color:#10B981;font-size:11px">⚡ Active</span>`
+          : `<span style="color:#94A3B8">${p.exitDate || '—'}</span>`;
         html += `<tr>
           <td><span class="ticker">${p.target || '—'}</span></td>
           <td>${p.country || '—'}</td>
           <td>${p.entryDate || p.firstDate || '—'}</td>
+          <td>${exitLabel}</td>
           <td>${p.entryPrice ? p.entryPrice.toFixed(2) : '—'}</td>
-          <td>${p.currentPrice ? p.currentPrice.toFixed(2) : '—'}</td>
+          <td>${p.exitPrice ? p.exitPrice.toFixed(2) : (p.currentPrice ? p.currentPrice.toFixed(2) : '—')}</td>
           <td class="ret ${cls}">${fmtPct(p.returnPct)}</td>
         </tr>`;
       }
       html += `</tbody></table>
         <p style="font-size:12px;color:#64748B;margin-top:12px">
-          ℹ️ MVP : entrée = 1ère déclaration de seuil. Sortie = aujourd'hui (positions encore considérées comme actives).
+          ℹ️ <strong>v2</strong> : entrée = 1ère déclaration de franchissement. Sortie = filing en baisse si détecté, sinon aujourd'hui (position encore active).
           ${data.metadata?.coverNote || ''}
         </p>`;
       resultsDiv.innerHTML = html;
