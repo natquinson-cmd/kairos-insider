@@ -10,7 +10,7 @@
   <meta property="og:description" content="Simulation gratuite : Cevian, BlackRock, Elliott, Bernard Arnault... voyez leur performance historique sur 12 marchés." />
   <meta property="og:image" content="https://kairosinsider.fr/assets/og-backtest.png" />
   <meta property="og:url" content="https://kairosinsider.fr/backtest" />
-  <link rel="icon" type="image/png" href="/assets/logo.png" />
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
   <link rel="stylesheet" href="/assets/styles.css" />
   <style>
     :root {
@@ -272,10 +272,31 @@
             <option value="1y">1 an</option>
             <option value="3y" selected>3 ans</option>
             <option value="5y">5 ans</option>
+            <option value="10y">10 ans</option>
+            <option value="20y">20 ans</option>
           </select>
         </div>
         <button id="btn-run">▶ Lancer le backtest</button>
       </div>
+
+      <!-- Slider patrimoine de depart -->
+      <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+        <label for="capital" style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:10px">
+          Patrimoine de départ : <span id="capitalDisplay" style="color:#3B82F6;font-size:16px;font-weight:800;text-transform:none">5 000 €</span>
+        </label>
+        <input type="range" id="capital" min="5000" max="100000" step="1000" value="5000"
+               style="width:100%;height:6px;border-radius:3px;background:var(--surface-2);outline:none;-webkit-appearance:none;appearance:none;cursor:pointer"
+               oninput="document.getElementById('capitalDisplay').textContent = parseInt(this.value).toLocaleString('fr-FR') + ' €'" />
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px">
+          <span>5 000 €</span><span>50 000 €</span><span>100 000 €</span>
+        </div>
+      </div>
+
+      <p style="font-size:11px;color:var(--text-muted);margin:14px 0 0;line-height:1.5">
+        ℹ️ <strong>Note historique</strong> : pour les fonds 13F US (Berkshire, BlackRock, etc.), l'historique remonte
+        à plusieurs trimestres. Pour les filings européens (AMF/FCA/SIX), l'historique est limité aux 90 derniers jours
+        — un build d'archives sur 10 ans est en roadmap.
+      </p>
     </div>
 
     <div id="results"></div>
@@ -446,7 +467,38 @@
       const filerBarClass = (s.avgReturn || 0) >= 0 ? '' : 'negative';
       const benchBarClass = (c.benchmarkReturn || 0) >= 0 ? 'bench' : 'negative';
 
+      // Patrimoine de depart (slider)
+      const capital = parseInt(document.getElementById('capital').value, 10) || 5000;
+      const fmtEur = (n) => Math.round(n).toLocaleString('fr-FR') + ' €';
+      const finalCapital = capital * (1 + (s.avgReturn || 0) / 100);
+      const gainAbsolu = finalCapital - capital;
+      const gainClass = gainAbsolu > 0 ? 'positive' : (gainAbsolu < 0 ? 'negative' : '');
+      const benchFinal = capital * (1 + (c.benchmarkReturn || 0) / 100);
+      const alphaEur = finalCapital - benchFinal;
+
       let html = `
+        <!-- BLOC PATRIMOINE : combien tu aurais avec X eur de depart -->
+        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(16,185,129,0.06));border:1px solid rgba(59,130,246,0.25);border-radius:14px;padding:20px;margin-bottom:24px">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:8px">💰 Avec ${fmtEur(capital)} de patrimoine de départ</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Patrimoine final</div>
+              <div style="font-size:32px;font-weight:800;color:${gainAbsolu >= 0 ? '#10B981' : '#EF4444'}">${fmtEur(finalCapital)}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Gain absolu</div>
+              <div style="font-size:32px;font-weight:800;color:${gainAbsolu >= 0 ? '#10B981' : '#EF4444'}">${gainAbsolu >= 0 ? '+' : ''}${fmtEur(gainAbsolu)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fmtPct(s.avgReturn)} sur ${data.period}</div>
+            </div>
+            ${c.benchmarkReturn != null ? `
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">vs ${c.benchmark || 'index'}</div>
+              <div style="font-size:32px;font-weight:800;color:${alphaEur >= 0 ? '#10B981' : '#EF4444'}">${alphaEur >= 0 ? '+' : ''}${fmtEur(alphaEur)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">α ${fmtPct(c.alpha)} surperformance</div>
+            </div>` : ''}
+          </div>
+        </div>
+
         <div class="summary-grid">
           <div class="summary-card">
             <div class="label">Rendement moyen</div>

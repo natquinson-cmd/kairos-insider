@@ -33,7 +33,10 @@ const SUFFIX_TO_BENCHMARK = {
   'FI': '^OMXH25',  // OMXH25
 };
 
-const PERIOD_TO_DAYS = { '1y': 365, '3y': 1095, '5y': 1825 };
+const PERIOD_TO_DAYS = {
+  '1y': 365, '3y': 1095, '5y': 1825,
+  '10y': 3650, '20y': 7300,  // historique etendu (limite par les filings dispos)
+};
 
 // Fonds vedettes pour la landing : 5 fonds tres reconnaissables qui resonnent
 // avec le grand public. Cache 24h pour eviter recalcul a chaque load page.
