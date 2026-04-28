@@ -1439,6 +1439,64 @@ async function handleSmartMoneyConsensus(env, origin) {
 // par fond (basee sur le champ "status" et "sharesChange" deja calcules par
 // prefetch-13f.py).
 // ============================================================
+// Lookup ticker via Yahoo Search avec cache KV 30 jours.
+// Utilise pour resoudre les holdings 13F sans ticker (ex: Allied Gold Corp -> AAUC.TO).
+async function lookupTickerCached(name, env) {
+  if (!name) return null;
+  const cleanName = String(name).toUpperCase().trim().slice(0, 80);
+  const cacheKey = `ticker-by-name:${cleanName}`;
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached.ticker !== undefined) return cached.ticker || null;  // null = miss memorise
+  } catch {}
+  try {
+    // Cleanup query (enlever Inc/Corp/Trust/etc.)
+    const query = cleanName.replace(/\s+(INC|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|SA|SE|AG|NV|PLC|HOLDINGS?|GROUP|TRUST|LP|LLC|LLP|FDS|FUND)$/i, '').trim();
+    if (!query) return null;
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=5`;
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+      },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const quotes = (data?.quotes || []).filter(q => q.symbol);
+    const equityQuotes = quotes.filter(q => (q.quoteType || '').toLowerCase() === 'equity');
+    const eligible = equityQuotes.length > 0 ? equityQuotes : quotes;
+    // Prefere US (sans suffix), puis .L .DE .PA .SW etc.
+    let pick = eligible.find(q => !q.symbol.includes('.'));
+    if (!pick) pick = eligible.find(q => /\.(L|DE|PA|AS|SW|TO|NE|MI|MC|HK|AX|MU)$/i.test(q.symbol));
+    if (!pick) pick = eligible[0];
+    const ticker = pick?.symbol || null;
+    // Cache 30 jours (positifs et negatifs)
+    try {
+      await env.CACHE.put(cacheKey, JSON.stringify({ ticker, fetchedAt: new Date().toISOString() }),
+        { expirationTtl: 30 * 86400 });
+    } catch {}
+    return ticker;
+  } catch {
+    return null;
+  }
+}
+
+// Run promises in batches pour respecter rate-limit
+async function runWithConcurrencyBatched(items, concurrency, asyncFn) {
+  const results = new Array(items.length);
+  let nextIdx = 0;
+  async function worker() {
+    while (true) {
+      const i = nextIdx++;
+      if (i >= items.length) return;
+      try { results[i] = await asyncFn(items[i], i); } catch { results[i] = null; }
+    }
+  }
+  const workers = Array(Math.min(concurrency, items.length)).fill(0).map(() => worker());
+  await Promise.all(workers);
+  return results;
+}
+
 async function handleQuarterActivity(env, origin) {
   try {
     const funds = await env.CACHE.get('13f-all-funds', 'json');
@@ -1497,6 +1555,36 @@ async function handleQuarterActivity(env, origin) {
     increased.sort((a, b) => b.value - a.value);
     decreased.sort((a, b) => b.value - a.value);
 
+    // Slice top 50 par categorie
+    const topNew = newPositions.slice(0, 50);
+    const topSold = soldPositions.slice(0, 50);
+    const topInc = increased.slice(0, 50);
+    const topDec = decreased.slice(0, 50);
+
+    // ENRICHIR LES TICKERS MANQUANTS via Yahoo Search avec cache KV 30j
+    // Pour les holdings sans ticker (Allied Gold Corp, Grayscale Bitcoin Trust, etc.)
+    // Concurrence 5 pour respecter rate-limit Yahoo. Cache hit = instant.
+    const allTopEntries = [...topNew, ...topSold, ...topInc, ...topDec];
+    const needsEnrich = allTopEntries.filter(e => !e.ticker && e.name);
+    if (needsEnrich.length > 0) {
+      // Dedup par name pour eviter lookups dupliques
+      const uniqueNames = [...new Set(needsEnrich.map(e => e.name))];
+      const tickerMap = new Map();
+      const results = await runWithConcurrencyBatched(uniqueNames, 5, async (name) => {
+        const ticker = await lookupTickerCached(name, env);
+        return { name, ticker };
+      });
+      for (const r of results) {
+        if (r && r.ticker) tickerMap.set(r.name, r.ticker);
+      }
+      // Apply back to entries
+      for (const e of allTopEntries) {
+        if (!e.ticker && e.name && tickerMap.has(e.name)) {
+          e.ticker = tickerMap.get(e.name);
+        }
+      }
+    }
+
     return jsonResponse({
       updatedAt: new Date().toISOString(),
       summary: {
@@ -1505,10 +1593,10 @@ async function handleQuarterActivity(env, origin) {
         increasedCount: increased.length,
         decreasedCount: decreased.length,
       },
-      newPositions: newPositions.slice(0, 50),
-      soldPositions: soldPositions.slice(0, 50),
-      increased: increased.slice(0, 50),
-      decreased: decreased.slice(0, 50),
+      newPositions: topNew,
+      soldPositions: topSold,
+      increased: topInc,
+      decreased: topDec,
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'Activity computation failed', detail: String(e && e.message || e) }, 500, origin);
