@@ -172,33 +172,42 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   } catch {}
 
   // FALLBACK SOUS-DONNEES EU : si stockanalysis.com est vide (action EU),
-  // utiliser les data Zonebourse pour fundamentals + consensus
-  if (zonebourseConsensus) {
-    // Fundamentals : merger les valeurs ZB si stockanalysis manque
-    const zbF = zonebourseConsensus.fundamentals || {};
-    if (zbF) {
-      if (!overview.fundamentals) overview.fundamentals = {};
-      if (!statistics.fundamentals) statistics.fundamentals = {};
-      const merged = overview.fundamentals;
-      if (!merged.marketCap && zbF.marketCap) merged.marketCap = zbF.marketCap * 1_000_000;  // M EUR -> raw
-      if (!merged.peRatio && zbF.peRatio) merged.peRatio = zbF.peRatio;
-      if (!merged.eps && zbF.eps) merged.eps = zbF.eps;
-      if (!merged.dividendYield && zbF.dividendYield) merged.dividendYield = zbF.dividendYield / 100;
-      if (zbF.nextEarningsDate) merged.nextEarningsDate = zbF.nextEarningsDate;
+  // utiliser les data Zonebourse pour fundamentals + consensus.
+  // Defensive : overview/statistics peuvent être {} si fetchStockAnalysis* a foire.
+  try {
+    if (zonebourseConsensus) {
+      // Garantir overview/statistics existent (fetchStockAnalysis* retourne {} sur EU)
+      if (!overview || typeof overview !== 'object') overview = {};
+      if (!overview.fundamentals || typeof overview.fundamentals !== 'object') overview.fundamentals = {};
+      if (!overview.consensus || typeof overview.consensus !== 'object') overview.consensus = null;
+
+      // Merge fundamentals ZB
+      const zbF = zonebourseConsensus.fundamentals || null;
+      if (zbF) {
+        const merged = overview.fundamentals;
+        if (!merged.marketCap && zbF.marketCap) merged.marketCap = zbF.marketCap * 1_000_000;
+        if (!merged.peRatio && zbF.peRatio) merged.peRatio = zbF.peRatio;
+        if (!merged.eps && zbF.eps) merged.eps = zbF.eps;
+        if (!merged.dividendYield && zbF.dividendYield) merged.dividendYield = zbF.dividendYield / 100;
+        if (zbF.nextEarningsDate) merged.nextEarningsDate = zbF.nextEarningsDate;
+      }
+
+      // Consensus si stockanalysis vide
+      if (!overview.consensus || !overview.consensus.total) {
+        overview.consensus = {
+          strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0,
+          total: zonebourseConsensus.analystCount || 0,
+          targetMean: zonebourseConsensus.targetMean || null,
+          targetMeanCurrency: zonebourseConsensus.targetCurrency || null,
+          recommendationLabel: zonebourseConsensus.recommendationMean || null,
+          consensusLabel: zonebourseConsensus.consensus || null,
+          source: 'zonebourse',
+          sourceUrl: zonebourseConsensus.sourceUrl || null,
+        };
+      }
     }
-    // Consensus : si stockanalysis n'a rien, utiliser ZB
-    if (!overview.consensus || !overview.consensus.total) {
-      overview.consensus = {
-        strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0,  // ZB n'expose pas le breakdown
-        total: zonebourseConsensus.analystCount || 0,
-        targetMean: zonebourseConsensus.targetMean,
-        targetMeanCurrency: zonebourseConsensus.targetCurrency,
-        recommendationLabel: zonebourseConsensus.recommendationMean,
-        consensusLabel: zonebourseConsensus.consensus,
-        source: 'zonebourse',
-        sourceUrl: zonebourseConsensus.sourceUrl,
-      };
-    }
+  } catch (e) {
+    console.error('[STOCK] ZB merge error:', e?.message || e);
   }
 
   // FALLBACK FILET DE SECURITE : si Yahoo a echoue (price.current null) ET
