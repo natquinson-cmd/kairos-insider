@@ -405,23 +405,34 @@ async function resolveTickerViaYahooSearch(query, env) {
     const euSuffixes = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i;
 
     // Filtrer pour preferer les EQUITY (actions) sur les MUTUALFUND/ETF/INDEX
-    // Sinon "UBS AG" peut renvoyer un fonds 0P00018KHX.L au lieu de UBSG.SW
     const isEquity = q => (q.quoteType || '').toLowerCase() === 'equity';
     const equityQuotes = quotes.filter(isEquity);
     const eligibles = equityQuotes.length > 0 ? equityQuotes : quotes;
 
+    // Marches principaux (par ordre de priorite) :
+    //  - .PA Paris (CAC), .L London (FTSE), .DE Frankfurt (DAX),
+    //  - .AS Amsterdam (AEX), .SW Switzerland (SMI), .MI Milan (FTSE MIB),
+    //  - .MC Madrid (IBEX), .ST Stockholm, .OL Oslo, .CO Copenhagen, .HE Helsinki
+    //  - sans suffix = US (NYSE, NASDAQ)
+    // EVITER : .JO (Johannesburg), .HK (HKex), .TO (Toronto), .SS (Shanghai), etc.
+    //         = exchanges secondaires qui peuvent matcher "UBS AG" -> SAALG.JO
+
+    const MAJOR_SUFFIXES = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i;
+    const NO_SUFFIX = /^[A-Z][A-Z0-9.\-]*$/;  // tickers US sans suffix
+    const isUsTicker = q => !!(q.symbol && !q.symbol.includes('.') && /^[A-Z]/.test(q.symbol));
+
     let pick = null;
-    // 1. Si requete clairement FR, preferer .PA equity
+    // 1. Requete FR -> preferer .PA equity
     if (looksFrench) {
       pick = eligibles.find(q => /\.PA$/i.test(q.symbol || ''));
     }
-    // 2. Sinon preferer un suffix EU equity
-    if (!pick) {
-      pick = eligibles.find(q => euSuffixes.test(q.symbol || ''));
-    }
-    // 3. Fallback : premiere equity (sans .US suffix bizarre)
+    // 2. Equity sur major EU exchange
+    if (!pick) pick = eligibles.find(q => MAJOR_SUFFIXES.test(q.symbol || ''));
+    // 3. Equity US (sans suffix)
+    if (!pick) pick = eligibles.find(q => isUsTicker(q));
+    // 4. Premiere equity
     if (!pick) pick = eligibles[0];
-    // 4. Dernier recours : premier resultat tout type
+    // 5. Dernier recours
     if (!pick) pick = quotes[0];
 
     const symbol = pick?.symbol || null;

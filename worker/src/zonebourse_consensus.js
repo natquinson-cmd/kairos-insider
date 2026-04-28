@@ -257,13 +257,15 @@ async function searchZonebourseSlug(companyName, env) {
 }
 
 
-// Lookup hybride : local mapping (instant) puis search dynamique (1 hit)
+// Lookup hybride : on PRIORISE la search dynamique car les IDs Zonebourse
+// changent souvent (les slugs locaux deviennent 301 = obsoletes).
+// Le cache search 7j absorbe le cout d'une requete supplementaire.
 async function lookupSlug(companyName, env) {
-  // 1. Mapping local
-  const local = lookupSlugLocal(companyName);
-  if (local) return local;
-  // 2. Search dynamique
-  return await searchZonebourseSlug(companyName, env);
+  // 1. Search dynamique (priorite - slug actuel garanti)
+  const dynamic = await searchZonebourseSlug(companyName, env);
+  if (dynamic) return dynamic;
+  // 2. Fallback : mapping local (peut etre obsolete mais mieux que rien)
+  return lookupSlugLocal(companyName);
 }
 
 
