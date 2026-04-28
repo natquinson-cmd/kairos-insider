@@ -235,22 +235,43 @@ async function searchZonebourseSlug(companyName, env) {
       if (env && env.CACHE) {
         try {
           await env.CACHE.put(cacheKey, JSON.stringify({ notFound: true, fetchedAt: new Date().toISOString() }),
-            { expirationTtl: 86400 });  // misses cachees 1j seulement
+            { expirationTtl: 86400 });
         } catch {}
       }
       return null;
     }
 
-    // Heuristique : preferer le slug qui matche le mieux le nom recherche
-    // (premier resultat = plus pertinent selon Zonebourse)
-    const best = unique[0];
+    // VALIDATION : verifier que le slug match REELLEMENT le nom recherche.
+    // Sans cette validation, la search Zonebourse retourne ses resultats
+    // 'trending' par defaut (KALRAY, NOKIA, VUSION) meme quand la query
+    // ne match pas du tout.
+    const queryStripped = stripAccents(cleanQuery.toUpperCase()).replace(/[^A-Z0-9]/g, '');
+    if (queryStripped.length < 3) return null;
+    const validMatch = unique.find(slug => {
+      const slugStripped = slug.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      // Le slug doit contenir au moins 3 chars consecutifs du query
+      // (ex: "LVMH" dans "LVMH-MOET-HENNESSY..." ou "NESTLE" dans "NESTLE-S-A-...")
+      return slugStripped.includes(queryStripped.slice(0, Math.min(6, queryStripped.length)));
+    });
+
+    if (!validMatch) {
+      // Search ne match pas la query -> on memorise le miss
+      if (env && env.CACHE) {
+        try {
+          await env.CACHE.put(cacheKey, JSON.stringify({ notFound: true, fetchedAt: new Date().toISOString() }),
+            { expirationTtl: 86400 });
+        } catch {}
+      }
+      return null;
+    }
+
     if (env && env.CACHE) {
       try {
-        await env.CACHE.put(cacheKey, JSON.stringify({ slug: best, fetchedAt: new Date().toISOString() }),
+        await env.CACHE.put(cacheKey, JSON.stringify({ slug: validMatch, fetchedAt: new Date().toISOString() }),
           { expirationTtl: 7 * 86400 });
       } catch {}
     }
-    return best;
+    return validMatch;
   } catch {
     return null;
   }
@@ -509,8 +530,8 @@ async function fetchZonebourseFundamentals(slug, env) {
 export async function fetchZonebourseConsensus(companyName, env) {
   if (!companyName) return null;
 
-  // v4 : bump apres ajout dynamic slug search via Zonebourse search engine
-  const cacheKey = `zb-consensus:v4:${String(companyName).toUpperCase().trim()}`;
+  // v5 : bump apres ajout validation match query/slug (eviter KALRAY pour LVMH)
+  const cacheKey = `zb-consensus:v5:${String(companyName).toUpperCase().trim()}`;
 
   // Check cache 24h
   try {

@@ -147,8 +147,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
   // Cache : 2 variantes (public tronque / premium complet) x range
-  // v4 : bump apres preference equity dans Yahoo Search + ZB dynamic slug
-  const cacheKey = `stock-analysis:v4:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v5 : bump apres validation slug ZB (eviter false match KALRAY/NOKIA)
+  const cacheKey = `stock-analysis:v5:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
