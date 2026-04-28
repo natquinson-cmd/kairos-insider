@@ -72,6 +72,45 @@ const KNOWN_SLUGS = {
   'ICADE': 'ICADE-4664',
   'UBISOFT': 'UBISOFT-ENTERTAINMENT-4717280',
   'IPSEN': 'IPSEN-4647',
+  'THALES': 'THALES-4709',
+  'AIR FRANCE-KLM': 'AIR-FRANCE-KLM-4634',
+  'AIR FRANCE': 'AIR-FRANCE-KLM-4634',
+  'BNPP': 'BNP-PARIBAS-4644',
+  'CREDIT AGRICOLE': 'CREDIT-AGRICOLE-S-A-4639',
+  'SOCIETE GENERALE': 'SOCIETE-GENERALE-4690',
+  'SOGEN': 'SOCIETE-GENERALE-4690',
+  'EUROAPI': 'EUROAPI-117432569',
+  'GETLINK': 'GETLINK-SE-4661',
+  'EUROTUNNEL': 'GETLINK-SE-4661',
+  'CREDIT MUTUEL': 'CREDIT-MUTUEL-ARKEA-4640',
+  'PUBLICIS GROUPE': 'PUBLICIS-GROUPE-SA-4682',
+  'BIC': 'SOCIETE-BIC-4687',
+  'ALSTOM': 'ALSTOM-4638',
+  'ARKEMA': 'ARKEMA-4639',
+  'CARMILA': 'CARMILA-22538103',
+  'CASINO': 'CASINO-GUICHARD-PERRACHON-4651',
+  'GROUPE LDLC': 'GROUPE-LDLC-65888',
+  'IMERYS': 'IMERYS-4664',
+  'IPSOS': 'IPSOS-4647',
+  'JCDECAUX': 'JCDECAUX-S-A-4665',
+  'KORIAN': 'KORIAN-31754',
+  'LAGARDERE': 'LAGARDERE-S-A-4661',
+  'NEOEN': 'NEOEN-71033927',
+  'NEXANS': 'NEXANS-4671',
+  'NEXITY': 'NEXITY-22538100',
+  'PEUGEOT INVEST': 'PEUGEOT-INVEST-22557547',
+  'RUBIS': 'RUBIS-4683',
+  'SCOR': 'SCOR-SE-4685',
+  'SOPRA': 'SOPRA-STERIA-GROUP-23117',
+  'SPIE': 'SPIE-23093110',
+  'SUEZ': 'SUEZ-4707',
+  'TF1': 'TF1-4717',
+  'UNIBAIL': 'UNIBAIL-RODAMCO-WESTFIELD-SE-110049311',
+  'URW': 'UNIBAIL-RODAMCO-WESTFIELD-SE-110049311',
+  'VALEO': 'VALEO-4717',
+  'VALLOUREC': 'VALLOUREC-4716',
+  'VEOLIA ENVIRONNEMENT': 'VEOLIA-ENVIRONNEMENT-4719',
+  'WENDEL': 'WENDEL-4720',
   // FTSE 100 / FTSE 250 (UK)
   'BARCLAYS': 'BARCLAYS-9583',
   'BP': 'BP-PLC-9590',
@@ -135,14 +174,22 @@ const KNOWN_SLUGS = {
 };
 
 
+// Normalise les accents : 'Nestlé S.A.' -> 'NESTLE S.A.'
+function stripAccents(s) {
+  if (!s) return '';
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function lookupSlug(companyName, ticker) {
   if (!companyName) return null;
-  const upper = String(companyName).toUpperCase().trim();
-  // Direct match
+  const upperRaw = String(companyName).toUpperCase().trim();
+  const upper = stripAccents(upperRaw);  // NESTLÉ -> NESTLE, MOËT -> MOET
+  // Direct match (avec ou sans accents)
+  if (KNOWN_SLUGS[upperRaw]) return KNOWN_SLUGS[upperRaw];
   if (KNOWN_SLUGS[upper]) return KNOWN_SLUGS[upper];
   // Partial match : si le nom contient un de nos keys
   for (const [key, slug] of Object.entries(KNOWN_SLUGS)) {
-    if (upper.includes(key)) return slug;
+    if (upper.includes(stripAccents(key))) return slug;
   }
   return null;
 }
@@ -188,16 +235,17 @@ function parseConsensusHtml(html) {
   m = html.match(/Nombre\s+d[&#0-9]*;?\s*Analystes\s*<\/div>\s*<div[^>]*>\s*([0-9]+)\s*<\/div>/i);
   if (m) result.analystCount = parseInt(m[1], 10);
 
-  // 4. Dernier Cours de Cloture - pattern reel :
-  // 'Cloture</div><div class="c-auto ..."><span class="last">467,45</span>EUR</div>'
-  m = html.match(/Dernier\s+Cours\s+de\s+Cloture[\s\S]*?<span[^>]*class="last[^"]*"[^>]*>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<\/span>\s*([A-Z]{3})/i);
+  // 4. Dernier Cours de Cloture - pattern SPECIFIQUE
+  m = html.match(/Dernier\s+Cours\s+de\s+Cloture\s*<\/div>\s*<div[^>]{0,150}>\s*<span[^>]*class="last[^"]*"[^>]*>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<\/span>\s*([A-Z]{3})/i);
   if (m) {
     result.lastClose = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
     result.lastCloseCurrency = m[2];
   }
 
-  // 5. Objectif de cours Moyen - meme pattern
-  m = html.match(/Objectif\s+de\s+cours\s+Moyen[\s\S]*?<span[^>]*class="last[^"]*"[^>]*>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<\/span>\s*([A-Z]{3})/i);
+  // 5. Objectif de cours Moyen - pattern reel SPECIFIQUE
+  // Le HTML a 'Objectif de cours Moyen' suivi DIRECTEMENT par la valeur dans
+  // un span class="last". On limite la distance pour eviter de matcher autre chose.
+  m = html.match(/Objectif\s+de\s+cours\s+Moyen\s*<\/div>\s*<div[^>]{0,150}>\s*<span[^>]*class="last[^"]*"[^>]*>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<\/span>\s*([A-Z]{3})/i);
   if (m) {
     result.targetMean = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
     result.targetCurrency = m[2];
@@ -387,8 +435,8 @@ async function fetchZonebourseFundamentals(slug, env) {
 export async function fetchZonebourseConsensus(companyName, env) {
   if (!companyName) return null;
 
-  // v2 : bump apres fix regex parser pour invalider les NULL caches v1
-  const cacheKey = `zb-consensus:v2:${String(companyName).toUpperCase().trim()}`;
+  // v3 : bump apres fix regex Cloture/Objectif (eviter match Sanofi 1.69 EUR)
+  const cacheKey = `zb-consensus:v3:${String(companyName).toUpperCase().trim()}`;
 
   // Check cache 24h
   try {

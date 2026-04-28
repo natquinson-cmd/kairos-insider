@@ -131,8 +131,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
   // Cache : 2 variantes (public tronque / premium complet) x range
-  // v2 : bump apres ajout Zonebourse consensus + fundamentals merge
-  const cacheKey = `stock-analysis:v2:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v3 : bump apres fix regex Zonebourse + accents normalisation
+  const cacheKey = `stock-analysis:v3:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
