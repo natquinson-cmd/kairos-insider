@@ -9844,10 +9844,10 @@
       // Si l'utilisateur a tape "LVMH" mais on a resolu vers MC.PA, on n'affiche
       // PAS le banner "couverture limitee" car en fait on a tout. On affiche
       // a la place une info "Ticker resolu LVMH -> MC.PA (Paris)".
-      const wasResolvedFromName = !!data.resolvedFromName;
+      const wasResolvedFromName = !!d.resolvedFromName;
       const resolvedNotice = wasResolvedFromName ? `
         <div style="padding:12px 18px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;margin-bottom:16px;font-size:13px;color:var(--text-secondary)">
-          🔎 Tu as cherche <strong style="color:var(--text-primary)">${data.originalInput || ''}</strong> — affichage du ticker Yahoo correspondant : <strong style="color:#3B82F6">${data.ticker}</strong>
+          🔎 Tu as cherche <strong style="color:var(--text-primary)">${d.originalInput || ''}</strong> — affichage du ticker Yahoo correspondant : <strong style="color:#3B82F6">${d.ticker}</strong>
         </div>` : '';
 
       const coverageBanner = (isSparse && !wasResolvedFromName) ? `
