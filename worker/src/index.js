@@ -5659,14 +5659,20 @@ async function generateCommentDigest(env, { maxAgeHours = 24, forceFresh = false
           const label = a.isActivist ? 'Activiste détecté'
                       : is13D ? 'Prise offensive (>5 %)'
                       : 'Nouveau gros porteur (>5 %)';
+          // Pour les filings EU (AMF/FCA/SIX/AFM/BaFin), ticker est souvent vide.
+          // On utilise targetName comme nom en clair (sans $) si pas de ticker.
+          // Ex: '$LVMH' (US ADR has ticker) vs 'LVMH Moet Hennessy' (EU sans ticker)
+          const ticker = a.ticker || '';
+          const targetDisplay = ticker ? `$${ticker}` : (a.targetName || a.target || a.filer || 'la societe');
+          const linkSlug = ticker || encodeURIComponent(a.targetName || a.target || a.filer || '');
           const comment = a.isActivist
-            ? `⚡ ${a.filer} prend une position offensive sur $${a.ticker} (Schedule 13D, >5 % du capital). Campagne probable : board, buybacks, spin-off. kairosinsider.fr/a/${a.ticker}`
+            ? `⚡ ${a.filer} prend une position offensive sur ${targetDisplay} (Schedule 13D, >5 % du capital). Campagne probable : board, buybacks, spin-off. kairosinsider.fr/a/${linkSlug}`
             : is13D
-              ? `👀 ${a.filer} dépose un Schedule 13D sur $${a.ticker} (>5 % avec intention d'agir). Pas un activiste connu, mais à surveiller. kairosinsider.fr/a/${a.ticker}`
-              : `🎯 ${a.filer} détient maintenant >5 % de $${a.ticker} (Schedule 13G : position passive, signal de conviction long terme). kairosinsider.fr/a/${a.ticker}`;
+              ? `👀 ${a.filer} dépose un Schedule 13D sur ${targetDisplay} (>5 % avec intention d'agir). Pas un activiste connu, mais à surveiller. kairosinsider.fr/a/${linkSlug}`
+              : `🎯 ${a.filer} détient maintenant >5 % de ${targetDisplay} (Schedule 13G : position passive, signal de conviction long terme). kairosinsider.fr/a/${linkSlug}`;
           ammo.push({
             type: 'activist',
-            ticker: a.ticker,
+            ticker: ticker || a.targetName || a.target || '',
             info: `${label} · ${a.filer}`,
             comment,
           });
