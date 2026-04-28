@@ -343,7 +343,7 @@ function parseFundamentalsAndAgenda(html) {
 
 async function fetchZonebourseFundamentals(slug, env) {
   if (!slug) return null;
-  const cacheKey = `zb-fund:${slug}`;
+  const cacheKey = `zb-fund:v2:${slug}`;
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached.fetchedAt) {
@@ -387,7 +387,8 @@ async function fetchZonebourseFundamentals(slug, env) {
 export async function fetchZonebourseConsensus(companyName, env) {
   if (!companyName) return null;
 
-  const cacheKey = `zb-consensus:${String(companyName).toUpperCase().trim()}`;
+  // v2 : bump apres fix regex parser pour invalider les NULL caches v1
+  const cacheKey = `zb-consensus:v2:${String(companyName).toUpperCase().trim()}`;
 
   // Check cache 24h
   try {
