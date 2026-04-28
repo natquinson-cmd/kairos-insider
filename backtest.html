@@ -283,7 +283,7 @@
     <div class="cta-bottom">
       <h2>Envie d'être alerté en temps réel ?</h2>
       <p>Recevez un email dès que ces fonds prennent une position sur une nouvelle action. Plan gratuit disponible.</p>
-      <a href="/#pricing">Créer mon compte gratuit</a>
+      <a href="/dashboard.html?action=signup">Créer mon compte gratuit</a>
     </div>
   </div>
 
@@ -298,6 +298,7 @@
 
     // Tag emoji selon catégorie
     const tagEmoji = {
+      legend: '⭐',
       activist: '⚡',
       institutional: '🏦',
       hedgefund: '💰',
@@ -311,9 +312,24 @@
         const data = await r.json();
         if (!data.filers) throw new Error('Liste vide');
         filerSelect.innerHTML = '<option value="">Choisir un fonds...</option>' +
-          data.filers.map(f =>
-            `<option value="${f.key}">${tagEmoji[f.tag] || ''} ${f.label} (${f.country})</option>`
-          ).join('');
+          data.filers.map(f => {
+            const emoji = tagEmoji[f.tag] || '🔹';  // fallback emoji pour tag inconnu
+            return `<option value="${f.key}">${emoji} ${f.label} (${f.country})</option>`;
+          }).join('');
+
+        // Si on a un hash #filer=XXX dans l'URL (depuis cards landing),
+        // preselectionne ce fonds + lance le backtest automatiquement
+        const hashMatch = window.location.hash.match(/filer=([^&]+)/);
+        if (hashMatch) {
+          const filerFromHash = decodeURIComponent(hashMatch[1]).toUpperCase();
+          // Cherche le filer (avec ou sans alias)
+          const found = Array.from(filerSelect.options).find(opt => opt.value === filerFromHash);
+          if (found) {
+            filerSelect.value = filerFromHash;
+            // Auto-run apres petit delai (UX fluide)
+            setTimeout(() => runBacktest(), 200);
+          }
+        }
       } catch (e) {
         filerSelect.innerHTML = '<option value="">Erreur de chargement</option>';
         console.error(e);

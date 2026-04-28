@@ -37,24 +37,53 @@ const PERIOD_TO_DAYS = { '1y': 365, '3y': 1095, '5y': 1825 };
 
 // Fonds vedettes pour la landing : 5 fonds tres reconnaissables qui resonnent
 // avec le grand public. Cache 24h pour eviter recalcul a chaque load page.
-// Note : ARNAULT et BOLLORE viennent rarement comme filer dans les KV.
-// Selection : 1 activist EU + 1 institutional global + 1 sovereign +
-//             1 activist US + 1 state FR
-export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'ELLIOTT', 'BPIFRANCE'];
+// Selection : 1 legend (Buffett) + 1 activist EU + 1 institutional global + 1 activist US + 1 state FR
+export const FEATURED_FILERS = ['BERKSHIRE', 'CEVIAN', 'BLACKROCK', 'ELLIOTT', 'BPIFRANCE'];
+
+// Aliases : pour chaque filer key, liste des sous-strings a chercher dans les
+// filerName / beneficialOwner des filings KV. Permet de matcher Berkshire avec
+// 'Berkshire Hathaway' / 'Warren Buffett' / 'WARREN E BUFFETT' / 'BUFFETT' etc.
+const FILER_ALIASES = {
+  'BERKSHIRE': ['BERKSHIRE', 'BUFFETT', 'WARREN BUFFETT', 'WARREN E. BUFFETT'],
+  'MUNGER': ['MUNGER', 'CHARLIE MUNGER', 'CHARLES MUNGER', 'DAILY JOURNAL'],
+  'BAUPOST': ['BAUPOST', 'KLARMAN', 'SETH KLARMAN'],
+  'OAKMARK': ['OAKMARK', 'NYGREN', 'BILL NYGREN', 'HARRIS ASSOCIATES'],
+  'TUDOR INVESTMENT': ['TUDOR INVESTMENT', 'PAUL TUDOR JONES', 'TUDOR'],
+  'SOROS': ['SOROS', 'GEORGE SOROS', 'QUANTUM FUND'],
+  'GREENLIGHT': ['GREENLIGHT', 'EINHORN', 'DAVID EINHORN'],
+  'COATUE': ['COATUE', 'LAFFONT', 'PHILIPPE LAFFONT'],
+  'TIGER GLOBAL': ['TIGER GLOBAL', 'CHASE COLEMAN', 'TIGERGLOBAL'],
+  'BLACKROCK': ['BLACKROCK', 'BLACK ROCK'],
+  'VANGUARD': ['VANGUARD'],
+  'NORGES BANK': ['NORGES BANK', 'NORGES BANK INVESTMENT'],
+  'CEVIAN': ['CEVIAN'],
+  'BLUEBELL': ['BLUEBELL'],
+  'ELLIOTT': ['ELLIOTT MANAGEMENT', 'ELLIOTT INVESTMENT', 'PAUL SINGER'],
+  'PERSHING SQUARE': ['PERSHING SQUARE', 'BILL ACKMAN', 'ACKMAN'],
+  'STARBOARD': ['STARBOARD'],
+  'TRIAN': ['TRIAN', 'NELSON PELTZ', 'PELTZ'],
+  'CARL ICAHN': ['ICAHN', 'CARL ICAHN'],
+  'TCI FUND': ['TCI FUND', 'CHILDREN\'S INVESTMENT', 'CHRISTOPHER HOHN'],
+  'JANA PARTNERS': ['JANA PARTNERS', 'BARRY ROSENSTEIN'],
+  'BPIFRANCE': ['BPIFRANCE', 'BPI FRANCE', 'BANQUE PUBLIQUE D\'INVESTISSEMENT'],
+  'AMUNDI': ['AMUNDI'],
+  'ARNAULT': ['ARNAULT', 'GROUPE ARNAULT', 'BERNARD ARNAULT'],
+  'PINAULT': ['PINAULT', 'ARTEMIS', 'FRANCOIS PINAULT'],
+  'BOLLORE': ['BOLLORE', 'BOLLORÉ', 'VINCENT BOLLORE'],
+};
 
 // Liste des grands smart money pour autocomplete + acquisition
+// Les aliases (BUFFETT, WARREN BUFFETT, BERKSHIRE HATHAWAY) sont geres dans
+// FILER_ALIASES ci-dessous : ils permettent de matcher dans les filings KV
+// mais NE sont PAS exposes dans la liste publique (sinon doublons UI).
 export const KNOWN_FILERS = [
-  // Légendes
+  // Légendes (1 entree = 1 filer affiche, alias geres en backend)
   { key: 'BERKSHIRE', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
-  { key: 'BERKSHIRE HATHAWAY', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
-  { key: 'BUFFETT', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
-  { key: 'WARREN BUFFETT', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
   { key: 'MUNGER', label: 'Charlie Munger (Berkshire/Daily Journal)', country: 'US', tag: 'legend' },
   { key: 'BAUPOST', label: 'Baupost Group (Seth Klarman)', country: 'US', tag: 'legend' },
   { key: 'OAKMARK', label: 'Oakmark Funds (Bill Nygren)', country: 'US', tag: 'legend' },
   { key: 'TUDOR INVESTMENT', label: 'Tudor Investment (Paul Tudor Jones)', country: 'US', tag: 'legend' },
   { key: 'SOROS', label: 'Soros Fund Management (George Soros)', country: 'US', tag: 'legend' },
-  { key: 'EINHORN', label: 'Greenlight Capital (David Einhorn)', country: 'US', tag: 'legend' },
   { key: 'GREENLIGHT', label: 'Greenlight Capital (David Einhorn)', country: 'US', tag: 'legend' },
   { key: 'COATUE', label: 'Coatue Management (Philippe Laffont)', country: 'US', tag: 'legend' },
   { key: 'TIGER GLOBAL', label: 'Tiger Global (Chase Coleman)', country: 'US', tag: 'legend' },
@@ -101,6 +130,11 @@ async function gatherFilerPositions(filerKey, periodDays, env) {
     .toISOString().slice(0, 10);
   const filerUpper = filerKey.toUpperCase();
 
+  // Si le filer a des aliases connus (ex: BERKSHIRE -> [BERKSHIRE, BUFFETT, WARREN BUFFETT]),
+  // on cherche n'importe lequel de ces termes dans les filings.
+  const aliasList = FILER_ALIASES[filerUpper] || [filerUpper];
+  const aliasUppers = aliasList.map(a => a.toUpperCase());
+
   const KV_KEYS = [
     '13dg-recent',         // SEC US
     'amf-thresholds-recent', // FR
@@ -126,7 +160,9 @@ async function gatherFilerPositions(filerKey, periodDays, env) {
       if (!f.fileDate || f.fileDate < cutoffDate) continue;
       const filer = String(f.filerName || f.activistLabel || '').toUpperCase();
       const beneficial = String(f.beneficialOwner || '').toUpperCase();
-      if (filer.includes(filerUpper) || beneficial.includes(filerUpper)) {
+      // Match si un alias est inclus dans le filer ou beneficial
+      const matched = aliasUppers.some(alias => filer.includes(alias) || beneficial.includes(alias));
+      if (matched) {
         matches.push({
           ...f,
           _kvSource: kvKey,

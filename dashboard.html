@@ -5752,6 +5752,28 @@
       document.getElementById('authSignup').style.display = 'none';
     }
 
+    // Auto-show signup si ?action=signup dans l'URL (depuis backtest.html CTA)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('action') === 'signup') {
+        // Attendre que le DOM soit pret pour s'assurer que les elements existent
+        const trySignup = () => {
+          const loginEl = document.getElementById('authLogin');
+          const signupEl = document.getElementById('authSignup');
+          if (loginEl && signupEl) {
+            showSignup();
+          } else {
+            setTimeout(trySignup, 100);
+          }
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', trySignup);
+        } else {
+          trySignup();
+        }
+      }
+    } catch {}
+
     async function handleLogin(e) {
       e.preventDefault();
       const email = document.getElementById('loginEmail').value;
