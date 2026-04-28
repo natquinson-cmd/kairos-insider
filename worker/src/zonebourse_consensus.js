@@ -200,7 +200,8 @@ function lookupSlugLocal(companyName) {
  */
 async function searchZonebourseSlug(companyName, env) {
   if (!companyName) return null;
-  const cacheKey = `zb-slug:v1:${stripAccents(companyName.toUpperCase()).trim()}`;
+  // v2 : bump apres ajout validation match (eviter caches stale slugs faux)
+  const cacheKey = `zb-slug:v2:${stripAccents(companyName.toUpperCase()).trim()}`;
 
   // Cache 7 jours
   if (env && env.CACHE) {
