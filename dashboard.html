@@ -3973,6 +3973,14 @@
           <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
+        <!-- SEARCH BAR FONDS : trouve Berkshire Hathaway, Pershing Square, Tiger Global... -->
+        <div style="position:relative;margin:16px 0 20px;max-width:560px">
+          <input id="hedgeFundsSearch" type="text" placeholder="🔍 Rechercher un fonds (ex: Berkshire, Pershing, Buffett, Soros)..." autocomplete="off"
+                 style="width:100%;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;font-size:14px;font-family:inherit"
+                 oninput="filterHedgeFunds(this.value)" />
+          <div id="hedgeFundsSearchHint" style="position:absolute;right:14px;top:14px;font-size:11px;color:var(--text-muted);pointer-events:none">Tape pour filtrer</div>
+        </div>
+
         <!-- Bloc résumé : Activité du dernier trimestre -->
         <div id="quarterActivityArea" style="margin-bottom:24px"></div>
 
@@ -11288,6 +11296,36 @@
       }
     }
 
+    // Filtre le tableau Hedge Funds par nom (Berkshire, Pershing, Buffett, Soros...)
+    // Utilise les data-fund-search attributes ajoutes a chaque row
+    function filterHedgeFunds(query) {
+      const area = document.getElementById('thirteenFArea');
+      if (!area) return;
+      const q = String(query || '').toLowerCase().trim();
+      const hint = document.getElementById('hedgeFundsSearchHint');
+      const rows = area.querySelectorAll('tr.fund-row');
+      let visible = 0;
+      rows.forEach(row => {
+        const searchableText = (row.dataset.fundSearch || '').toLowerCase();
+        const matches = !q || searchableText.includes(q);
+        // On cache aussi les ligne details (qui ont id="fund-detail-X")
+        const idx = row.dataset.fundIdx;
+        const detailRow = idx ? area.querySelector(`#fund-detail-${idx}`) : null;
+        if (matches) {
+          row.style.display = '';
+          if (detailRow && detailRow.classList.contains('expanded')) detailRow.style.display = '';
+          visible++;
+        } else {
+          row.style.display = 'none';
+          if (detailRow) detailRow.style.display = 'none';
+        }
+      });
+      if (hint) {
+        hint.textContent = q ? `${visible} fonds trouvé${visible > 1 ? 's' : ''}` : 'Tape pour filtrer';
+        hint.style.color = q && visible === 0 ? '#EF4444' : 'var(--text-muted)';
+      }
+    }
+
     async function load13FFunds() {
       const area = document.getElementById('thirteenFArea');
       try {
@@ -11320,7 +11358,9 @@
           const categoryTxt = f.category || '';
           const subline = [fundTxt, categoryTxt].filter(Boolean).join(' · ');
 
-          rows += `<tr class="fund-row" onclick="toggleFund(${i})">
+          // Searchable text : label + fundName + category - utilise pour filterHedgeFunds()
+          const searchableText = [labelTxt, fundTxt, categoryTxt].filter(Boolean).join(' ').toLowerCase();
+          rows += `<tr class="fund-row" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
             <td style="opacity:0.6">${i + 1}</td>
             <td>
               <div style="font-weight:600;color:var(--text-primary)">${labelTxt} <span class="chevron">&#9654;</span></div>
@@ -16900,17 +16940,19 @@
           }
         }
 
-        // Render top card (activists agreges sur la période)
+        // Render top card (activists agreges sur la période) - VERSION COMPACTE
+        // Avant : grid de 8 cards full, prenait ~280px de hauteur
+        // Apres : ligne horizontale scrollable de chips, ~50px de hauteur (-83%)
         if (topCard && activistsAggregated && activistsAggregated.byFiler?.length && !ticker) {
-          const topActivists = activistsAggregated.byFiler.slice(0, 8);
+          const topActivists = activistsAggregated.byFiler.slice(0, 12);  // 12 max (vs 8 avant)
           topCard.innerHTML = `
-            <div style="background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(236,72,153,0.06));border:1px solid rgba(245,158,11,0.25);border-radius:14px;padding:20px;margin-bottom:20px">
-              <div style="font-size:13px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">🔥 Fonds offensifs les plus actifs (${days}j)</div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+            <div style="background:linear-gradient(90deg,rgba(245,158,11,0.08),rgba(236,72,153,0.04));border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:10px 14px;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:12px;overflow-x:auto;scroll-behavior:smooth">
+                <div style="font-size:11px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;white-space:nowrap;flex-shrink:0">🔥 Top ${days}j :</div>
                 ${topActivists.map(a => `
-                  <div style="padding:12px 14px;background:var(--surface-2);border-radius:10px">
-                    <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">${escapeHtmlClient(a.label)}</div>
-                    <div style="font-size:11px;color:var(--text-muted)">${a.count} déclaration${a.count > 1 ? 's' : ''} · ${(a.tickers || []).slice(0, 4).join(', ')}${a.tickers && a.tickers.length > 4 ? ` +${a.tickers.length - 4}` : ''}</div>
+                  <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;white-space:nowrap;flex-shrink:0;font-size:12px" title="${escapeHtmlClient((a.tickers || []).slice(0, 8).join(', '))}">
+                    <strong style="color:var(--text-primary)">${escapeHtmlClient(a.label)}</strong>
+                    <span style="background:rgba(245,158,11,0.2);color:#F59E0B;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700">${a.count}</span>
                   </div>
                 `).join('')}
               </div>
