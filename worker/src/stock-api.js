@@ -301,6 +301,52 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
 }
 
 // ============================================================
+// YAHOO SEARCH : autocomplete multi-resultats (pour dropdown UI)
+// Retourne plusieurs candidats {symbol, shortname, exchange, type}
+// ============================================================
+export async function searchTickersAutocomplete(query, env, limit = 10) {
+  if (!query || query.length < 1) return [];
+  const cacheKey = `yahoo-autocomplete:${String(query).toLowerCase().trim()}`;
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && Array.isArray(cached.results)) return cached.results;
+    } catch {}
+  }
+  try {
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=${limit}&newsCount=0`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' },
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const quotes = (data?.quotes || []).filter(q => q.symbol && (q.shortname || q.longname));
+
+    // Normalize : retourne juste les champs utiles UI
+    const results = quotes.slice(0, limit).map(q => ({
+      symbol: q.symbol,
+      name: q.longname || q.shortname,
+      exchange: q.exchange || q.exchDisp || '',
+      exchangeFull: q.exchDisp || q.exchange || '',
+      type: q.quoteType || q.typeDisp || '',
+      industry: q.industry || null,
+      sector: q.sector || null,
+    }));
+
+    if (env && env.CACHE) {
+      try {
+        await env.CACHE.put(cacheKey, JSON.stringify({ results, fetchedAt: new Date().toISOString() }),
+          { expirationTtl: 7 * 86400 });
+      } catch {}
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+
+// ============================================================
 // YAHOO SEARCH : resolution universelle ticker (LVMH -> MC.PA, FDJ -> FDJU.PA)
 // Suit automatiquement les renames de ticker (LFD -> FDJU recently).
 // Cache 7 jours (les tickers ne changent pas tous les jours).

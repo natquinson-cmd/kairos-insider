@@ -359,6 +359,24 @@ async function handleRequest(request, env, ctx) {
     }
 
     // ==========================================
+    // SEARCH TICKER PUBLIC (autocomplete pour Analyse Action)
+    // GET /api/search-ticker?q=Thales -> liste de candidats
+    // ==========================================
+    if (request.method === 'GET' && path === '/api/search-ticker') {
+      const q = url.searchParams.get('q') || '';
+      if (!q || q.length < 1) {
+        return jsonResponse({ results: [] }, 200, origin);
+      }
+      try {
+        const { searchTickersAutocomplete } = await import('./stock-api.js');
+        const results = await searchTickersAutocomplete(q, env, 10);
+        return jsonResponse({ q, results }, 200, origin);
+      } catch (e) {
+        return jsonResponse({ error: 'Search failed', detail: String(e) }, 500, origin);
+      }
+    }
+
+    // ==========================================
     // BACKTEST PUBLIC (gratuit, acquisition - pas d'auth requise)
     // ==========================================
     if (request.method === 'GET' && path === '/api/backtest/list') {

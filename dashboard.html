@@ -8575,30 +8575,48 @@
 
     // Helper generique : cable autocomplete sur un input + dropdown, callback onChoose(ticker)
     // Stocke l'etat "wired" dans dataset pour ne le brancher qu'une fois par input.
+    //
+    // STRATEGIE 2 SOURCES :
+    //   1. stockTickerList LOCAL (filings SEC + AMF + BaFin + insiders) - instantane
+    //   2. Yahoo Search API (Thales, LVMH, Nestle, ASML, ...) - debounce 300ms
+    //   On affiche les locaux en premier puis on fusionne les Yahoo results dedoublonnes.
+    async function searchYahooTickers(query) {
+      if (!query || query.length < 2) return [];
+      try {
+        const apiBase = (location.hostname.endsWith('kairosinsider.fr') || location.hostname === 'localhost')
+          ? '/api' : 'https://kairos-insider-api.natquinson.workers.dev/api';
+        const r = await fetch(`${apiBase}/search-ticker?q=${encodeURIComponent(query)}`);
+        if (!r.ok) return [];
+        const d = await r.json();
+        return Array.isArray(d.results) ? d.results : [];
+      } catch { return []; }
+    }
+
     function wireTickerAutocomplete(input, suggest, onChoose) {
       if (!input || !suggest) return;
       if (input.dataset.autocompleteWired === '1') return;
       input.dataset.autocompleteWired = '1';
 
       let selectedIdx = -1;
-      input.addEventListener('input', () => {
-        const q = input.value.trim().toUpperCase();
-        selectedIdx = -1;
-        if (!stockTickerList || q.length < 1) { suggest.style.display = 'none'; return; }
-        const matches = stockTickerList
-          .filter(t => t.ticker.startsWith(q) || (t.name && t.name.toUpperCase().includes(q)))
-          .slice(0, 10);
+      let lastQuery = '';
+      let yahooDebounce = null;
+
+      const renderSuggestions = (matches) => {
         if (matches.length === 0) { suggest.style.display = 'none'; return; }
-        suggest.innerHTML = matches.map((t, i) => `
+        suggest.innerHTML = matches.map((t, i) => {
+          const market = t.market || t.region || t.exchange || t.exchangeFull || '';
+          const sourceTag = t._source === 'yahoo'
+            ? '<span style="font-size:10px;background:rgba(59,130,246,0.15);color:#3B82F6;padding:1px 6px;border-radius:8px;margin-left:6px">Yahoo</span>'
+            : '';
+          return `
           <div class="ticker-suggest-item" data-idx="${i}" data-ticker="${t.ticker}" style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--divider)">
             <div>
-              <strong style="color:var(--accent-blue)">${t.ticker}</strong>
-              <span style="opacity:0.7;font-size:13px;margin-left:10px">${(t.name||'').slice(0,50)}</span>
+              <strong style="color:var(--accent-blue)">${t.ticker}</strong>${sourceTag}
+              <span style="opacity:0.7;font-size:13px;margin-left:10px">${(t.name||'').slice(0,55)}</span>
             </div>
-            <div style="font-size:12px;opacity:0.5">${t.market || t.region}</div>
-          </div>
-        `).join('');
-        // Bind clics sur les items fraichement crees
+            <div style="font-size:12px;opacity:0.5">${market}</div>
+          </div>`;
+        }).join('');
         suggest.querySelectorAll('.ticker-suggest-item').forEach(el => {
           el.addEventListener('click', () => {
             suggest.style.display = 'none';
@@ -8606,6 +8624,51 @@
           });
         });
         suggest.style.display = 'block';
+      };
+
+      const updateSuggestions = (q) => {
+        // 1. Resultats LOCAUX (instantanes, prioritaires)
+        const localMatches = (stockTickerList || [])
+          .filter(t => t.ticker.startsWith(q) || (t.name && t.name.toUpperCase().includes(q)))
+          .slice(0, 10);
+
+        // Render immediat avec les locaux
+        renderSuggestions(localMatches);
+
+        // 2. Yahoo Search (debounce 300ms) si peu de resultats locaux ou >=2 chars
+        if (yahooDebounce) clearTimeout(yahooDebounce);
+        if (q.length < 2) return;
+        yahooDebounce = setTimeout(async () => {
+          if (input.value.trim().toUpperCase() !== q) return; // user a continue de taper
+          const yahooResults = await searchYahooTickers(q);
+          if (yahooResults.length === 0) return;
+          if (input.value.trim().toUpperCase() !== q) return;
+
+          // Fusion : on dedup par ticker (les locaux gardent la priorite)
+          const localTickers = new Set(localMatches.map(m => m.ticker));
+          const yahooDedup = yahooResults
+            .filter(y => !localTickers.has(y.symbol))
+            .slice(0, Math.max(0, 10 - localMatches.length))
+            .map(y => ({
+              ticker: y.symbol,
+              name: y.name,
+              market: y.exchangeFull || y.exchange,
+              region: y.exchange,
+              _source: 'yahoo',
+            }));
+          if (yahooDedup.length === 0) return;
+          const combined = [...localMatches, ...yahooDedup];
+          renderSuggestions(combined);
+        }, 300);
+      };
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toUpperCase();
+        selectedIdx = -1;
+        if (q.length < 1) { suggest.style.display = 'none'; return; }
+        if (q === lastQuery) return;
+        lastQuery = q;
+        updateSuggestions(q);
       });
 
       input.addEventListener('keydown', (e) => {
