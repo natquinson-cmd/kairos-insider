@@ -7832,13 +7832,17 @@
           const formColor = /13D/.test(a.form || '') ? '#F59E0B' : '#10B981';
           const form = shortForm(a.form);
           const date = fmtD(a.date);
-          // Affiche 'form · date' si les deux sont presents, sinon l'un des deux
-          // (jamais 'form · ' avec un separateur orphelin comme avant).
           const rightText = [form, date].filter(Boolean).join(' · ');
+          // Pour les filings EU (AMF/FCA/SIX/AFM/BaFin), ticker est souvent vide.
+          // On utilise targetName comme query qui sera resolue par le backend
+          // (Yahoo Search resolver : UBS AG -> UBSG.SW, LVMH -> MC.PA, etc.)
+          const queryForAnalysis = a.ticker || a.targetName || '';
+          // Texte affiche : ticker s'il existe, sinon targetName (raison sociale officielle)
+          const displayLabel = a.ticker || a.targetName || '?';
           return `
-            <div class="signal-row" ${goTicker(a.ticker)}>
+            <div class="signal-row" ${queryForAnalysis ? goTicker(queryForAnalysis) : ''}>
               <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
-                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient(a.ticker)}</strong>
+                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient((displayLabel || '').slice(0, 18))}</strong>
                 <span style="color:var(--text-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient((a.filer || '').slice(0, 24))}</span>
               </div>
               <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0">${escapeHtmlClient(rightText)}</div>

@@ -80,10 +80,17 @@ async function fetchWithRetry(url, init = {}, opts = {}) {
 // ============================================================
 export async function handleStockAnalysis(rawInput, env, options = {}) {
   const { publicView = false, chartRange = '1y' } = options;
-  const userInput = String(rawInput || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
-  if (!userInput || userInput.length > 60) {
+  // userInputRaw : garde les espaces et accents pour Yahoo Search
+  // (UBS AG, BlackRock Inc., LVMH Moet Hennessy, etc.)
+  const userInputRaw = String(rawInput || '').toUpperCase().trim().slice(0, 80);
+  // userInput : version sanitised pour Yahoo direct ticker (sans espaces/special)
+  const userInput = userInputRaw.replace(/[^A-Z0-9.\-]/g, '');
+  if (!userInputRaw || userInputRaw.length === 0) {
     return { error: 'Invalid ticker', code: 'INVALID_TICKER' };
   }
+  // Si l'input contient des espaces/caracteres specials, c'est une RECHERCHE par nom
+  // -> on force Yahoo Search resolver. Sinon on utilise le ticker direct.
+  const isSearchByName = userInputRaw !== userInput || userInputRaw.length > 12;
 
   // ============================================================
   // RESOLUTION INTELLIGENTE DU TICKER (v2)
@@ -92,23 +99,22 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Sinon Yahoo retourne null et on affiche "small cap regional" pour LVMH
   // qui est UNE DES PLUS GRANDES CAP MONDIALES.
   // ============================================================
-  let ticker = userInput;
-  let originalInput = userInput;
+  let ticker = userInput || userInputRaw;
+  let originalInput = userInputRaw;  // ce que l'user a tape (avec espaces pour search by name)
   let resolvedFromName = false;
 
   // Si pas de suffix Yahoo (.PA, .L, .DE, etc.) ET pas un ticker US connu,
   // tenter de resolver via 1) Yahoo Search (universel) 2) mapping local
   const hasYahooSuffix = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE|TO|AX|HK|SG)$/i.test(ticker);
-  const looksLikeUsTicker = /^[A-Z]{1,5}$/.test(ticker);  // 1-5 lettres = potentiel ticker US
 
-  if (!hasYahooSuffix) {
-    // STRATEGIE 1 : Yahoo Search (universel, suit auto les renames type FDJ -> FDJU)
+  if (!hasYahooSuffix || isSearchByName) {
+    // STRATEGIE 1 : Yahoo Search (universel, accepte espaces et nom complet)
     try {
-      const yahooResolved = await resolveTickerViaYahooSearch(userInput, env);
-      if (yahooResolved && yahooResolved !== userInput) {
+      const yahooResolved = await resolveTickerViaYahooSearch(userInputRaw, env);
+      if (yahooResolved && yahooResolved !== userInputRaw && yahooResolved !== ticker) {
         ticker = yahooResolved;
         resolvedFromName = true;
-        console.log(`[STOCK] Yahoo Search "${userInput}" -> "${ticker}"`);
+        console.log(`[STOCK] Yahoo Search "${userInputRaw}" -> "${ticker}"`);
       }
     } catch {}
 
@@ -116,14 +122,24 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     if (!resolvedFromName) {
       try {
         const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
-        const looked = lookupEuYahooSymbol(userInput, null);
-        if (looked && looked !== userInput) {
+        const looked = lookupEuYahooSymbol(userInputRaw, null);
+        if (looked && looked !== userInputRaw) {
           ticker = looked;
           resolvedFromName = true;
-          console.log(`[STOCK] Local mapping "${userInput}" -> "${ticker}"`);
+          console.log(`[STOCK] Local mapping "${userInputRaw}" -> "${ticker}"`);
         }
       } catch {}
     }
+  }
+
+  // Si on n'a toujours pas resolu et que l'input n'est pas un ticker valide,
+  // on retourne une erreur claire (pas 400 silencieux)
+  if (!ticker || ticker.length === 0 || (isSearchByName && !resolvedFromName)) {
+    return {
+      error: `Aucun ticker trouve pour "${userInputRaw}"`,
+      code: 'TICKER_NOT_FOUND',
+      originalInput: userInputRaw,
+    };
   }
 
   // Valide le range (Yahoo supporte : 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)

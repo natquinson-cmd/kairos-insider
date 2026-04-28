@@ -180,18 +180,90 @@ function stripAccents(s) {
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-function lookupSlug(companyName, ticker) {
+function lookupSlugLocal(companyName) {
   if (!companyName) return null;
   const upperRaw = String(companyName).toUpperCase().trim();
-  const upper = stripAccents(upperRaw);  // NESTLÉ -> NESTLE, MOËT -> MOET
-  // Direct match (avec ou sans accents)
+  const upper = stripAccents(upperRaw);
   if (KNOWN_SLUGS[upperRaw]) return KNOWN_SLUGS[upperRaw];
   if (KNOWN_SLUGS[upper]) return KNOWN_SLUGS[upper];
-  // Partial match : si le nom contient un de nos keys
   for (const [key, slug] of Object.entries(KNOWN_SLUGS)) {
     if (upper.includes(stripAccents(key))) return slug;
   }
   return null;
+}
+
+
+/**
+ * Recherche dynamique du slug Zonebourse via leur moteur de recherche.
+ * Cache 7 jours dans KV (le slug ne change pas souvent).
+ * Plus fiable que le mapping statique qui devient obsolete avec les IDs Zonebourse.
+ */
+async function searchZonebourseSlug(companyName, env) {
+  if (!companyName) return null;
+  const cacheKey = `zb-slug:v1:${stripAccents(companyName.toUpperCase()).trim()}`;
+
+  // Cache 7 jours
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.slug) return cached.slug;
+      if (cached && cached.notFound) return null;  // memorise les misses
+    } catch {}
+  }
+
+  try {
+    // Cleanup company name : enlever 'S.A.', 'PLC', 'AG', etc. pour mieux searcher
+    const cleanQuery = String(companyName)
+      .replace(/[,.]?\s*(S\.?A\.?|S\.?A\.?S\.?|PLC|N\.?V\.?|AG|SE|SPA|S\.?p\.?A\.?|LTD|GROUP|GROUPE|HOLDING|HOLDINGS).*$/i, '')
+      .trim()
+      .slice(0, 60);
+    if (!cleanQuery) return null;
+
+    const url = `${ZB_BASE}/recherche/?q=${encodeURIComponent(cleanQuery)}&type=cours`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': ZB_UA, 'Accept': 'text/html', 'Accept-Language': 'fr-FR,fr;q=0.9' },
+    });
+    if (!resp.ok) return null;
+    const html = await resp.text();
+
+    // Extraire les premiers liens /cours/action/SLUG/
+    const links = Array.from(html.matchAll(/href="(\/cours\/action\/([A-Z0-9-]+))\/?"/gi))
+      .map(m => ({ path: m[1], slug: m[2] }));
+    const unique = Array.from(new Set(links.map(l => l.slug)));
+
+    if (unique.length === 0) {
+      if (env && env.CACHE) {
+        try {
+          await env.CACHE.put(cacheKey, JSON.stringify({ notFound: true, fetchedAt: new Date().toISOString() }),
+            { expirationTtl: 86400 });  // misses cachees 1j seulement
+        } catch {}
+      }
+      return null;
+    }
+
+    // Heuristique : preferer le slug qui matche le mieux le nom recherche
+    // (premier resultat = plus pertinent selon Zonebourse)
+    const best = unique[0];
+    if (env && env.CACHE) {
+      try {
+        await env.CACHE.put(cacheKey, JSON.stringify({ slug: best, fetchedAt: new Date().toISOString() }),
+          { expirationTtl: 7 * 86400 });
+      } catch {}
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
+
+// Lookup hybride : local mapping (instant) puis search dynamique (1 hit)
+async function lookupSlug(companyName, env) {
+  // 1. Mapping local
+  const local = lookupSlugLocal(companyName);
+  if (local) return local;
+  // 2. Search dynamique
+  return await searchZonebourseSlug(companyName, env);
 }
 
 
@@ -447,10 +519,9 @@ export async function fetchZonebourseConsensus(companyName, env) {
     }
   } catch {}
 
-  // Lookup slug
-  const slug = lookupSlug(companyName);
+  // Lookup slug : local mapping puis search dynamique
+  const slug = await lookupSlug(companyName, env);
   if (!slug) {
-    // No slug found - return null (could implement search fallback later)
     return null;
   }
 
