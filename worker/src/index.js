@@ -42,6 +42,7 @@ const FREE_ROUTES = [
   '/api/history/ticker-activity', // widget 'Activite recente 7j' (ETF+insiders+score delta)
   '/api/history/etf',             // ETF historique 180j pour 1 ticker
   '/api/backtest/list',           // BACKTEST (gratuit, acquisition) - liste des fonds
+  '/api/search-ticker',           // AUTOCOMPLETE (gratuit, UX)
 ];
 
 // Routes prefixes publiques (matchent path.startsWith)

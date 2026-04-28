@@ -161,15 +161,44 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Utile car stockanalysis.com ne couvre pas .PA, .DE, .SW, .MI, .MC, .AS
   // Donne : consensus (Achat/Conserver), recommendationMean (ACCUMULER),
   // analystCount (nb), targetMean (objectif moyen), ecartTargetPct (% upside)
+  // + fundamentals : marketCap, PER, EPS, dividendYield, high/low 52w
   let zonebourseConsensus = null;
   try {
-    // Determine si c'est une action EU (suffix Yahoo) -> on cherche
     if (hasYahooSuffix || /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i.test(ticker)) {
-      // Utiliser le nom de la societe issu du Yahoo ou du userInput
       const companyForLookup = (quote?.company?.name) || userInput;
       zonebourseConsensus = await fetchZonebourseConsensus(companyForLookup, env);
     }
   } catch {}
+
+  // FALLBACK SOUS-DONNEES EU : si stockanalysis.com est vide (action EU),
+  // utiliser les data Zonebourse pour fundamentals + consensus
+  if (zonebourseConsensus) {
+    // Fundamentals : merger les valeurs ZB si stockanalysis manque
+    const zbF = zonebourseConsensus.fundamentals || {};
+    if (zbF) {
+      if (!overview.fundamentals) overview.fundamentals = {};
+      if (!statistics.fundamentals) statistics.fundamentals = {};
+      const merged = overview.fundamentals;
+      if (!merged.marketCap && zbF.marketCap) merged.marketCap = zbF.marketCap * 1_000_000;  // M EUR -> raw
+      if (!merged.peRatio && zbF.peRatio) merged.peRatio = zbF.peRatio;
+      if (!merged.eps && zbF.eps) merged.eps = zbF.eps;
+      if (!merged.dividendYield && zbF.dividendYield) merged.dividendYield = zbF.dividendYield / 100;
+      if (zbF.nextEarningsDate) merged.nextEarningsDate = zbF.nextEarningsDate;
+    }
+    // Consensus : si stockanalysis n'a rien, utiliser ZB
+    if (!overview.consensus || !overview.consensus.total) {
+      overview.consensus = {
+        strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0,  // ZB n'expose pas le breakdown
+        total: zonebourseConsensus.analystCount || 0,
+        targetMean: zonebourseConsensus.targetMean,
+        targetMeanCurrency: zonebourseConsensus.targetCurrency,
+        recommendationLabel: zonebourseConsensus.recommendationMean,
+        consensusLabel: zonebourseConsensus.consensus,
+        source: 'zonebourse',
+        sourceUrl: zonebourseConsensus.sourceUrl,
+      };
+    }
+  }
 
   // FALLBACK FILET DE SECURITE : si Yahoo a echoue (price.current null) ET
   // qu'on n'a pas deja resolu via mapping en debut, tenter le mapping ici.

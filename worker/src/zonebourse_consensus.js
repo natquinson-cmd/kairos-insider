@@ -151,6 +151,14 @@ function lookupSlug(companyName, ticker) {
 /**
  * Parse les donnees consensus depuis le HTML Zonebourse /consensus/
  * Retourne null si pas trouve.
+ *
+ * Structure HTML observee :
+ *   alt="Consensus"></div>Achat</div>
+ *   <div>Recommandation moyenne</div><div ...>ACCUMULER</div>
+ *   <div>Nombre d&#039;Analystes</div><div ...>27</div>
+ *   Dernier Cours de Cloture</div><div ...>467,45</div><div>EUR</div>
+ *   Objectif de cours Moyen</div><div ...>595,17</div><div>EUR</div>
+ *   Ecart / Objectif Moyen</div><div ...>+27,32 %</div>
  */
 function parseConsensusHtml(html) {
   if (!html || html.length < 1000) return null;
@@ -166,43 +174,40 @@ function parseConsensusHtml(html) {
     ecartTargetPct: null,
   };
 
-  const stripped = html.replace(/<[^>]+>/g, ' | ').replace(/\s+/g, ' ');
-
-  // Consensus + recommandation : pattern observed
-  // 'alt="Consensus"   | Achat    | Recommandation moyenne | ACCUMULER | Nombre d Analystes | 27'
-  // 'Dernier Cours de Cloture | 467,45 | EUR | Objectif de cours Moyen | 595,17 | EUR'
-  // 'Ecart / Objectif Moyen | +27,32 %'
-
-  // 1. Consensus
-  let m = stripped.match(/alt="Consensus"\s*\|\s*([A-Za-zéèêàâ\-]+)\s*\|/i);
-  if (!m) m = stripped.match(/Consensus\s*\|\s*([A-Z][A-Za-zéèêàâ]{2,15})\s*\|/);
+  // 1. Consensus principal : 'alt="Consensus"></div>Achat</div>' ou similar
+  // Pattern : apres alt="Consensus" et fermeture div, le mot principal
+  let m = html.match(/alt="Consensus"[^>]*>\s*<\/div>\s*([A-Za-zéèêàâç\-]+)/i);
+  if (!m) m = html.match(/alt="Consensus"[^>]*>([A-Za-zéèêàâç\-]{4,20})/i);
   if (m) result.consensus = m[1].trim();
 
-  // 2. Recommandation moyenne (toutes majuscules)
-  m = stripped.match(/Recommandation\s*moyenne\s*\|\s*([A-Z][A-ZÉÈÀ\s]{2,25}?)\s*\|/);
-  if (m) result.recommendationMean = m[1].trim();
+  // 2. Recommandation moyenne : 'Recommandation moyenne</div><div ...>ACCUMULER</div>'
+  m = html.match(/Recommandation\s+moyenne\s*<\/div>\s*<div[^>]*>\s*([A-ZÀ-Ý][A-ZÀ-Ý\s]{2,25}?)\s*<\/div>/i);
+  if (m) result.recommendationMean = m[1].trim().replace(/\s+/g, ' ');
 
-  // 3. Nombre d'Analystes (apostrophe peut etre HTML entity &#039;)
-  m = stripped.match(/Nombre\s*d['&#0-9]*;?\s*Analystes\s*\|\s*([0-9]+)/);
+  // 3. Nombre d'Analystes : 'Nombre d&#039;Analystes</div><div ...>27</div>'
+  m = html.match(/Nombre\s+d[&#0-9]*;?\s*Analystes\s*<\/div>\s*<div[^>]*>\s*([0-9]+)\s*<\/div>/i);
   if (m) result.analystCount = parseInt(m[1], 10);
 
-  // 4. Dernier cours de Cloture
-  m = stripped.match(/Dernier\s*Cours\s*de\s*Cloture\s*\|\s*([0-9 ]+(?:[,.][0-9]+)?)\s*\|\s*([A-Z]{3})/);
+  // 4. Dernier Cours de Cloture - pattern reel :
+  // 'Cloture</div><div class="c-auto ..."><span class="last">467,45</span>EUR</div>'
+  m = html.match(/Dernier\s+Cours\s+de\s+Cloture[\s\S]*?<span[^>]*class="last[^"]*"[^>]*>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<\/span>\s*([A-Z]{3})/i);
   if (m) {
     result.lastClose = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
     result.lastCloseCurrency = m[2];
   }
 
-  // 5. Objectif de cours Moyen
-  m = stripped.match(/Objectif\s*de\s*cours\s*Moyen\s*\|\s*([0-9 ]+(?:[,.][0-9]+)?)\s*\|\s*([A-Z]{3})/);
+  // 5. Objectif de cours Moyen - meme pattern
+  m = html.match(/Objectif\s+de\s+cours\s+Moyen[\s\S]*?<span[^>]*class="last[^"]*"[^>]*>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<\/span>\s*([A-Z]{3})/i);
   if (m) {
     result.targetMean = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
     result.targetCurrency = m[2];
   }
 
-  // 6. Ecart vs Objectif (%)
-  m = stripped.match(/Ecart\s*\/\s*Objectif\s*Moyen\s*\|\s*([+-]?[0-9 ]+(?:[,.][0-9]+)?)\s*%/);
-  if (m) result.ecartTargetPct = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+  // 6. Ecart vs Objectif - pattern :
+  // 'Ecart / Objectif Moyen</div><div ...><span class="variation..."><span class="c-block...">+27,32 %</span></span>'
+  // OU directement : '+27,32 %' dans un span
+  m = html.match(/Ecart\s*\/\s*Objectif\s+Moyen[\s\S]{0,500}?>\s*([+\-]?[0-9\s]+(?:[,.][0-9]+)?)\s*(?:%|&nbsp;%)/i);
+  if (m) result.ecartTargetPct = parseFloat(m[1].replace(/\s/g, '').replace(' ', '').replace(',', '.'));
 
   if (result.consensus || result.recommendationMean || result.targetMean) {
     return result;
@@ -283,6 +288,96 @@ function parseFundamentalsHtml(html) {
 
 
 /**
+ * Parse les fondamentaux + agenda depuis la page principale Zonebourse.
+ * Retourne {fundamentals, nextEarningsDate, upcomingEvents}.
+ */
+function parseFundamentalsAndAgenda(html) {
+  const result = {
+    marketCap: null, marketCapCurrency: null,
+    peRatio: null, eps: null, dividendYield: null,
+    high52w: null, low52w: null, volume: null,
+    dayHigh: null, dayLow: null,
+    nextEarningsDate: null,
+    upcomingEvents: [],
+  };
+  if (!html || html.length < 2000) return result;
+
+  // Mcap : '<span ...>233,90 Md €</span>' OU 'Capi (M EUR) | 233 234'
+  let m = html.match(/(?:Capitalisation|Capi[^a-z])[\s\S]{0,200}?>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*(?:M|Md|Mio|Mds)\s*€/i);
+  if (m) {
+    let val = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+    if (m[0].toLowerCase().includes('md')) val *= 1000;  // milliards -> millions
+    result.marketCap = Math.round(val);
+    result.marketCapCurrency = 'EUR';
+  }
+
+  // PER 2025/2026 : 'PER 2025</div><div ...>22,5</div>'
+  m = html.match(/PER\s*20\d{2}[\s\S]{0,150}?>\s*([0-9]+(?:[,.][0-9]+)?)\s*</i);
+  if (m) result.peRatio = parseFloat(m[1].replace(',', '.'));
+
+  // BPA : 'BPA 2025'
+  m = html.match(/BPA\s*20\d{2}[\s\S]{0,150}?>\s*([0-9]+(?:[,.][0-9]+)?)\s*</i);
+  if (m) result.eps = parseFloat(m[1].replace(',', '.'));
+
+  // Rendement %
+  m = html.match(/Rendement[\s\S]{0,150}?>\s*([0-9]+(?:[,.][0-9]+)?)\s*%/i);
+  if (m) result.dividendYield = parseFloat(m[1].replace(',', '.'));
+
+  // High/Low 52w : '+ haut 52 sem.</...><...>500</...>'
+  m = html.match(/\+?\s*haut\s+annuel[\s\S]{0,150}?>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*</i);
+  if (m) result.high52w = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+  m = html.match(/\+?\s*bas\s+annuel[\s\S]{0,150}?>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*</i);
+  if (m) result.low52w = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+
+  // Volume du jour
+  m = html.match(/Volume[\s\S]{0,150}?>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*<(?!\/td)/i);
+  if (m) result.volume = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+
+  // Prochaine publication earnings : 'Prochain rendez-vous</...>06/05/2026'
+  m = html.match(/(?:Prochain\s+rendez|Prochaine\s+publication|Resultats)[\s\S]{0,300}?(\d{2}[\/-]\d{2}[\/-]\d{4})/i);
+  if (m) result.nextEarningsDate = m[1];
+
+  return result;
+}
+
+
+async function fetchZonebourseFundamentals(slug, env) {
+  if (!slug) return null;
+  const cacheKey = `zb-fund:${slug}`;
+  try {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached && cached.fetchedAt) {
+      const age = (Date.now() - new Date(cached.fetchedAt).getTime()) / 1000;
+      if (age < 86400) return cached;
+    }
+  } catch {}
+
+  const url = `${ZB_BASE}/cours/action/${slug}/`;
+  let html = '';
+  try {
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': ZB_UA, 'Accept': 'text/html', 'Accept-Language': 'fr-FR,fr;q=0.9' },
+    });
+    if (!resp.ok) return null;
+    html = await resp.text();
+  } catch {
+    return null;
+  }
+  const parsed = parseFundamentalsAndAgenda(html);
+  const result = {
+    ...parsed,
+    source: 'zonebourse',
+    sourceUrl: url,
+    fetchedAt: new Date().toISOString(),
+  };
+  try {
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 + 3600 });
+  } catch {}
+  return result;
+}
+
+
+/**
  * Récupère le consensus Zonebourse pour une société.
  *
  * @param {string} companyName - "LVMH", "Nestle", "ASML"...
@@ -329,11 +424,16 @@ export async function fetchZonebourseConsensus(companyName, env) {
   const parsed = parseConsensusHtml(html);
   if (!parsed) return null;
 
+  // Egalement fetcher fundamentals depuis la page principale (en parallele)
+  const fundamentals = await fetchZonebourseFundamentals(slug, env);
+
   const result = {
     ...parsed,
     source: 'zonebourse',
     sourceUrl: consensusUrl,
     company: companyName,
+    slug,
+    fundamentals: fundamentals || null,
     fetchedAt: new Date().toISOString(),
   };
 
