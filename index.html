@@ -2455,9 +2455,10 @@
         const container = document.getElementById('backtest-featured-cards');
         if (!container) return;
         try {
-          const apiBase = (location.hostname.endsWith('kairosinsider.fr') || location.hostname === 'localhost')
-            ? '/api'
-            : 'https://kairos-insider-api.natquinson.workers.dev/api';
+          // Le worker n'est PAS route sur kairosinsider.fr/api/*
+          // (routes wrangler couvrent /a/*, /blog/*, sitemap.xml, robots.txt seulement)
+          // Donc on appelle TOUJOURS le worker en direct.
+          const apiBase = 'https://kairos-insider-api.natquinson.workers.dev/api';
           const r = await fetch(`${apiBase}/backtest/featured`);
           if (!r.ok) throw new Error('HTTP ' + r.status);
           const data = await r.json();

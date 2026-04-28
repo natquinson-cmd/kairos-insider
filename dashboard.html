@@ -8587,8 +8587,8 @@
     async function searchYahooTickers(query) {
       if (!query || query.length < 2) return [];
       try {
-        const apiBase = (location.hostname.endsWith('kairosinsider.fr') || location.hostname === 'localhost')
-          ? '/api' : 'https://kairos-insider-api.natquinson.workers.dev/api';
+        // Routes wrangler ne couvrent pas /api/* sur kairosinsider.fr -> appel direct worker
+        const apiBase = 'https://kairos-insider-api.natquinson.workers.dev/api';
         const r = await fetch(`${apiBase}/search-ticker?q=${encodeURIComponent(query)}`);
         if (!r.ok) return [];
         const d = await r.json();

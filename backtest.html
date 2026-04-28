@@ -288,9 +288,8 @@
   </div>
 
   <script>
-    const API = window.location.hostname === 'kairosinsider.fr' || window.location.hostname.endsWith('kairosinsider.fr')
-      ? '/api'
-      : 'https://kairos-insider-api.natquinson.workers.dev/api';
+    // Routes wrangler ne couvrent pas /api/* sur kairosinsider.fr -> appel direct worker
+    const API = 'https://kairos-insider-api.natquinson.workers.dev/api';
 
     const filerSelect = document.getElementById('filer');
     const periodSelect = document.getElementById('period');
