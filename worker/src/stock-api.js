@@ -147,8 +147,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
   // Cache : 2 variantes (public tronque / premium complet) x range
-  // v6 : bump apres retrait mapping local Zonebourse obsolete (SANOFI-4684 = HAULOTTE)
-  const cacheKey = `stock-analysis:v6:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v7 : bump apres bump cache slug ZB v2 (forcer recalcul complet)
+  const cacheKey = `stock-analysis:v7:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
