@@ -44,6 +44,20 @@ export const FEATURED_FILERS = ['CEVIAN', 'BLACKROCK', 'NORGES BANK', 'ELLIOTT',
 
 // Liste des grands smart money pour autocomplete + acquisition
 export const KNOWN_FILERS = [
+  // Légendes
+  { key: 'BERKSHIRE', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
+  { key: 'BERKSHIRE HATHAWAY', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
+  { key: 'BUFFETT', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
+  { key: 'WARREN BUFFETT', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
+  { key: 'MUNGER', label: 'Charlie Munger (Berkshire/Daily Journal)', country: 'US', tag: 'legend' },
+  { key: 'BAUPOST', label: 'Baupost Group (Seth Klarman)', country: 'US', tag: 'legend' },
+  { key: 'OAKMARK', label: 'Oakmark Funds (Bill Nygren)', country: 'US', tag: 'legend' },
+  { key: 'TUDOR INVESTMENT', label: 'Tudor Investment (Paul Tudor Jones)', country: 'US', tag: 'legend' },
+  { key: 'SOROS', label: 'Soros Fund Management (George Soros)', country: 'US', tag: 'legend' },
+  { key: 'EINHORN', label: 'Greenlight Capital (David Einhorn)', country: 'US', tag: 'legend' },
+  { key: 'GREENLIGHT', label: 'Greenlight Capital (David Einhorn)', country: 'US', tag: 'legend' },
+  { key: 'COATUE', label: 'Coatue Management (Philippe Laffont)', country: 'US', tag: 'legend' },
+  { key: 'TIGER GLOBAL', label: 'Tiger Global (Chase Coleman)', country: 'US', tag: 'legend' },
   // Activists US
   { key: 'CEVIAN', label: 'Cevian Capital', country: 'EU', tag: 'activist' },
   { key: 'BLUEBELL', label: 'Bluebell Capital', country: 'UK', tag: 'activist' },
