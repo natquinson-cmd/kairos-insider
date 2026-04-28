@@ -100,7 +100,48 @@ def parse_iso_date(s):
     return None
 
 
-def make_filing(source, type_short):
+_TICKER_CACHE = {}  # in-process cache pour eviter Yahoo searches dupliquees
+
+
+def lookup_uk_ticker_via_yahoo(company_name, isin=None):
+    """Resoud le ticker UK Yahoo (ex: 'PHAROS ENERGY PLC' -> 'PHAR.L') via Yahoo Search.
+
+    Cache in-process pour la duree du run (~466 calls max -> 30s).
+    """
+    if not company_name: return ''
+    cache_key = (company_name or '').upper().strip()
+    if cache_key in _TICKER_CACHE:
+        return _TICKER_CACHE[cache_key]
+    # Cleanup query : enlever PLC/LIMITED/etc. pour matcher mieux
+    query = re.sub(r'\b(PLC|LIMITED|LTD|GROUP|HOLDINGS?)\b', '', company_name, flags=re.I).strip()
+    if not query: query = company_name[:40]
+    try:
+        url = f'https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}&quotesCount=5'
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+        })
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode('utf-8', errors='replace'))
+        quotes = data.get('quotes', []) or []
+        # Prefere les .L (LSE) puis equity sans suffix
+        equity_quotes = [q for q in quotes if (q.get('quoteType') or '').lower() == 'equity']
+        eligible = equity_quotes if equity_quotes else quotes
+        # Match .L en priorite
+        pick = next((q for q in eligible if (q.get('symbol') or '').endswith('.L')), None)
+        if not pick: pick = next((q for q in eligible if not '.' in (q.get('symbol') or '')), None)
+        if not pick: pick = eligible[0] if eligible else None
+        result = (pick.get('symbol') or '') if pick else ''
+    except Exception:
+        result = ''
+    _TICKER_CACHE[cache_key] = result
+    return result
+
+
+import urllib.parse
+
+
+def make_filing(source, type_short, enrich_ticker=False):
     company = source.get('company', '') or ''
     headline = source.get('headline', '') or ''
     submitted_date = source.get('submitted_date') or source.get('publication_date') or ''
@@ -108,6 +149,11 @@ def make_filing(source, type_short):
     symbol = source.get('symbol', '') or ''
     isin = source.get('isin', '') or ''
     type_label = source.get('type', '') or ''
+
+    # Si pas de symbol mais on a company name, essayer Yahoo Search
+    # (NSM ne fournit pas le ticker sur la plupart des filings UK)
+    if not symbol and enrich_ticker and company:
+        symbol = lookup_uk_ticker_via_yahoo(company, isin) or ''
 
     # Heuristic filer extraction from headline (ex: "Holdings in Company - BlackRock")
     filer = ''
@@ -160,11 +206,16 @@ def make_filing(source, type_short):
     }
 
 
-def fetch_recent(lookback_days, debug=False):
-    """Fetch les ~5000 plus recents triés DESC, filtre par type + date."""
+def fetch_recent(lookback_days, debug=False, enrich_tickers=False):
+    """Fetch les ~5000 plus recents triés DESC, filtre par type + date.
+
+    enrich_tickers=True : enrichit avec ticker Yahoo via Search API
+    (Yahoo Search resoud 'PHAROS ENERGY PLC' -> 'PHAR.L'). Couteux (~30s
+    pour 466 filings) mais essentiel pour rendre les filings UK cliquables.
+    """
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=lookback_days)
     cutoff = cutoff_date.strftime('%Y-%m-%d')
-    print(f'[FCA NSM] Cutoff: {cutoff} ({lookback_days}j)')
+    print(f'[FCA NSM] Cutoff: {cutoff} ({lookback_days}j) | enrich_tickers={enrich_tickers}')
 
     filings = []
     seen_ids = set()
@@ -205,7 +256,7 @@ def fetch_recent(lookback_days, debug=False):
             doc_id = h.get('_id') or src.get('disclosure_id') or ''
             if doc_id in seen_ids: continue
             seen_ids.add(doc_id)
-            filings.append(make_filing(src, type_short))
+            filings.append(make_filing(src, type_short, enrich_ticker=enrich_tickers))
             page_keep += 1
 
         if debug:
@@ -258,17 +309,20 @@ def main():
     parser.add_argument('--days', type=int, default=DEFAULT_LOOKBACK_DAYS)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--no-enrich-tickers', action='store_true', help='Skip Yahoo Search enrichment (faster but no tickers)')
     args = parser.parse_args()
 
     t0 = time.time()
     print('[FCA] NSM API officielle https://api.data.fca.org.uk/search')
     print(f'[FCA] Types retenus : {list(TYPES_OF_INTEREST.keys())}')
 
-    filings = fetch_recent(lookback_days=args.days, debug=args.debug)
+    enrich = not args.no_enrich_tickers
+    filings = fetch_recent(lookback_days=args.days, debug=args.debug, enrich_tickers=enrich)
     if not filings:
         print('[FAIL] 0 filing recupere')
         sys.exit(1)
-    print(f'[FCA] {len(filings)} declarations smart money ({sum(1 for f in filings if f.get("isActivist"))} activists)')
+    n_with_ticker = sum(1 for f in filings if f.get('ticker'))
+    print(f'[FCA] {len(filings)} declarations ({sum(1 for f in filings if f.get("isActivist"))} activists, {n_with_ticker} avec ticker)')
     push_to_kv(filings, dry_run=args.dry_run)
     print(f'[DONE] {time.time()-t0:.1f}s')
 
