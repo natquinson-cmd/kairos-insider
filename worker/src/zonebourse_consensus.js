@@ -528,8 +528,8 @@ async function fetchZonebourseFundamentals(slug, env) {
 export async function fetchZonebourseConsensus(companyName, env) {
   if (!companyName) return null;
 
-  // v6 : bump apres desactivation mapping local obsolete (SANOFI-4684 -> HAULOTTE)
-  const cacheKey = `zb-consensus:v6:${String(companyName).toUpperCase().trim()}`;
+  // v7 : bump pour invalider caches v6 contenant slugs faux (KALRAY pour LVMH)
+  const cacheKey = `zb-consensus:v7:${String(companyName).toUpperCase().trim()}`;
 
   // Check cache 24h
   try {
