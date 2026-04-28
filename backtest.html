@@ -292,12 +292,29 @@
         </div>
       </div>
 
-      <p style="font-size:11px;color:var(--text-muted);margin:14px 0 0;line-height:1.5">
-        ℹ️ <strong>Note historique</strong> : pour les fonds 13F US (Berkshire, BlackRock, etc.), l'historique remonte
-        à plusieurs trimestres. Pour les filings européens (AMF/FCA/SIX), l'historique est limité aux 90 derniers jours
-        — un build d'archives sur 10 ans est en roadmap.
-      </p>
+      <p id="historyNote" style="font-size:11px;color:var(--text-muted);margin:14px 0 0;line-height:1.5"></p>
     </div>
+
+    <script>
+      // Note dynamique selon la periode selectionnee
+      (function() {
+        const noteEl = document.getElementById('historyNote');
+        const periodEl = document.getElementById('period');
+        if (!noteEl || !periodEl) return;
+        function updateNote() {
+          const p = periodEl.value;
+          if (p === '10y' || p === '20y') {
+            noteEl.innerHTML = `⚠️ <strong>Limitation actuelle</strong> : pour ${p === '10y' ? '10 ans' : '20 ans'} d'historique, seuls les fonds US 13F (Berkshire, BlackRock, etc.) ont des données significatives via SEC EDGAR (45 trimestres dispos pour Berkshire). Les filings européens (AMF/FCA/SIX) sont limités à ~90 jours pour l'instant. <strong>Build d'archives historiques en cours</strong>.`;
+            noteEl.style.color = '#F59E0B';
+          } else {
+            noteEl.innerHTML = `ℹ️ Pour les fonds 13F US, l'historique remonte à plusieurs trimestres. Pour les filings européens, ~90 jours.`;
+            noteEl.style.color = 'var(--text-muted)';
+          }
+        }
+        periodEl.addEventListener('change', updateNote);
+        updateNote();
+      })();
+    </script>
 
     <div id="results"></div>
 

@@ -43,6 +43,15 @@ const PERIOD_TO_DAYS = {
 // Selection : 1 legend (Buffett) + 1 activist EU + 1 institutional global + 1 activist US + 1 state FR
 export const FEATURED_FILERS = ['BERKSHIRE', 'CEVIAN', 'BLACKROCK', 'ELLIOTT', 'BPIFRANCE'];
 
+// Helper local : marque comme activist si filer matche les noms connus
+function is_known_activist_helper(filerName) {
+  if (!filerName) return false;
+  const upper = String(filerName).toUpperCase();
+  const ACTIVISTS = ['BERKSHIRE', 'CEVIAN', 'BLUEBELL', 'ELLIOTT', 'PERSHING', 'STARBOARD',
+    'TRIAN', 'CARL ICAHN', 'TCI FUND', 'JANA', 'BAUPOST', 'GREENLIGHT', 'BUFFETT'];
+  return ACTIVISTS.some(a => upper.includes(a));
+}
+
 // Aliases : pour chaque filer key, liste des sous-strings a chercher dans les
 // filerName / beneficialOwner des filings KV. Permet de matcher Berkshire avec
 // 'Berkshire Hathaway' / 'Warren Buffett' / 'WARREN E BUFFETT' / 'BUFFETT' etc.
@@ -138,6 +147,43 @@ async function gatherFilerPositions(filerKey, periodDays, env) {
   const aliasList = FILER_ALIASES[filerUpper] || [filerUpper];
   const aliasUppers = aliasList.map(a => a.toUpperCase());
 
+  // ===========================================
+  // SOURCE 1 : 13F HISTORY KV (US fonds majeurs)
+  // ===========================================
+  // Pour les fonds avec un 13F-history dans KV (Berkshire, BlackRock, etc.),
+  // on a jusqu'a 12 ans d'historique trimestriel via SEC EDGAR.
+  // Format : { filerKey, cik, filings: [{filingDate, reportDate, positions}] }
+  const historyKvKey = `13f-history-${filerKey.toLowerCase()}`;
+  let historyMatches = [];
+  try {
+    const historyData = await env.CACHE.get(historyKvKey, 'json');
+    if (historyData && Array.isArray(historyData.filings)) {
+      // Pour chaque filing trimestriel, transformer chaque position en pseudo-filing
+      // avec entryDate = reportDate du quartier
+      for (const f of historyData.filings) {
+        const reportDate = f.reportDate || f.filingDate;
+        if (!reportDate || reportDate < cutoffDate) continue;
+        for (const pos of (f.positions || [])) {
+          historyMatches.push({
+            filerName: historyData.filerName || filerKey,
+            targetName: pos.name,
+            ticker: '',  // sera resolu cote frontend ou via Yahoo Search ulterieur
+            cusip: pos.cusip,
+            fileDate: reportDate,
+            crossingDirection: 'up',
+            percentOfClass: null,
+            sharesOwned: pos.shares,
+            value: pos.value,
+            country: 'US',
+            regulator: 'SEC 13F',
+            isActivist: !!is_known_activist_helper(historyData.filerName),
+            _kvSource: '13f-history',
+          });
+        }
+      }
+    }
+  } catch {}
+
   const KV_KEYS = [
     '13dg-recent',         // SEC US
     'amf-thresholds-recent', // FR
@@ -154,7 +200,7 @@ async function gatherFilerPositions(filerKey, periodDays, env) {
     KV_KEYS.map(k => env.CACHE.get(k, 'json').catch(() => null))
   );
 
-  const matches = [];
+  const matches = [...historyMatches];  // commence avec l'historique 13F (si dispo)
   for (let i = 0; i < KV_KEYS.length; i++) {
     const data = dataList[i];
     if (!data || !Array.isArray(data.filings)) continue;

@@ -1,0 +1,59 @@
+name: Fetch 13F History (SEC EDGAR)
+
+# Recupere TOUS les 13F historiques (jusqu'a ~12 ans) des fonds smart money
+# connus via SEC EDGAR. Utilise pour le backtest 5/10 ans.
+#
+# 26 fonds * ~50 filings = ~1300 fetch SEC + parsing XML.
+# SEC rate-limit : 10 req/s, donc ~3 minutes total.
+# Run mensuel suffit (les 13F sont trimestriels avec 45j lag).
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'  # Le 1er de chaque mois a 6h UTC
+  workflow_dispatch:
+    inputs:
+      filer:
+        description: 'Process only this filer (BERKSHIRE, BLACKROCK, etc.)'
+        required: false
+      max_filings:
+        description: 'Max filings per fund (default: 50 = 12 ans)'
+        required: false
+        default: '50'
+
+jobs:
+  fetch-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run 13F history scraper
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          ARGS=""
+          if [ -n "${{ inputs.filer }}" ]; then
+            ARGS="--filer ${{ inputs.filer }}"
+          fi
+          if [ -n "${{ inputs.max_filings }}" ]; then
+            ARGS="$ARGS --max-filings ${{ inputs.max_filings }}"
+          fi
+          python fetch-13f-history.py --debug $ARGS
+        continue-on-error: true
+
+      - name: Upload artifacts (debug)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 13f-history-data
+          path: worker/13f_history_*.json
+          if-no-files-found: ignore
+          retention-days: 30
