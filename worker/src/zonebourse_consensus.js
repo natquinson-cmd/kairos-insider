@@ -278,15 +278,12 @@ async function searchZonebourseSlug(companyName, env) {
 }
 
 
-// Lookup hybride : on PRIORISE la search dynamique car les IDs Zonebourse
-// changent souvent (les slugs locaux deviennent 301 = obsoletes).
-// Le cache search 7j absorbe le cout d'une requete supplementaire.
+// Lookup : UNIQUEMENT via search dynamique avec validation match.
+// Le mapping local KNOWN_SLUGS est OBSOLETE : Zonebourse rattache les IDs
+// a d'autres titres sans avertir (ex: SANOFI-4684 -> HAULOTTE GROUP-4684,
+// SOITEC-4690 -> 301, etc.). Mieux vaut un null honnete qu'un faux Target.
 async function lookupSlug(companyName, env) {
-  // 1. Search dynamique (priorite - slug actuel garanti)
-  const dynamic = await searchZonebourseSlug(companyName, env);
-  if (dynamic) return dynamic;
-  // 2. Fallback : mapping local (peut etre obsolete mais mieux que rien)
-  return lookupSlugLocal(companyName);
+  return await searchZonebourseSlug(companyName, env);
 }
 
 
@@ -530,8 +527,8 @@ async function fetchZonebourseFundamentals(slug, env) {
 export async function fetchZonebourseConsensus(companyName, env) {
   if (!companyName) return null;
 
-  // v5 : bump apres ajout validation match query/slug (eviter KALRAY pour LVMH)
-  const cacheKey = `zb-consensus:v5:${String(companyName).toUpperCase().trim()}`;
+  // v6 : bump apres desactivation mapping local obsolete (SANOFI-4684 -> HAULOTTE)
+  const cacheKey = `zb-consensus:v6:${String(companyName).toUpperCase().trim()}`;
 
   // Check cache 24h
   try {
