@@ -25,6 +25,7 @@
  */
 
 import { aggregateEuThresholds } from './eu_thresholds_aggregator.js';
+import { fetchZonebourseConsensus } from './zonebourse_consensus.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -96,21 +97,32 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   let resolvedFromName = false;
 
   // Si pas de suffix Yahoo (.PA, .L, .DE, etc.) ET pas un ticker US connu,
-  // tenter de resolver via le mapping nom -> Yahoo symbol
+  // tenter de resolver via 1) Yahoo Search (universel) 2) mapping local
   const hasYahooSuffix = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE|TO|AX|HK|SG)$/i.test(ticker);
   const looksLikeUsTicker = /^[A-Z]{1,5}$/.test(ticker);  // 1-5 lettres = potentiel ticker US
 
   if (!hasYahooSuffix) {
+    // STRATEGIE 1 : Yahoo Search (universel, suit auto les renames type FDJ -> FDJU)
     try {
-      const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
-      const looked = lookupEuYahooSymbol(userInput, null);
-      if (looked && looked !== userInput) {
-        ticker = looked;
+      const yahooResolved = await resolveTickerViaYahooSearch(userInput, env);
+      if (yahooResolved && yahooResolved !== userInput) {
+        ticker = yahooResolved;
         resolvedFromName = true;
-        console.log(`[STOCK] User input "${userInput}" resolved to Yahoo symbol "${ticker}"`);
+        console.log(`[STOCK] Yahoo Search "${userInput}" -> "${ticker}"`);
       }
-    } catch (e) {
-      // mapping non disponible, garder ticker original
+    } catch {}
+
+    // STRATEGIE 2 : fallback sur le mapping local (instantanee)
+    if (!resolvedFromName) {
+      try {
+        const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
+        const looked = lookupEuYahooSymbol(userInput, null);
+        if (looked && looked !== userInput) {
+          ticker = looked;
+          resolvedFromName = true;
+          console.log(`[STOCK] Local mapping "${userInput}" -> "${ticker}"`);
+        }
+      } catch {}
     }
   }
 
@@ -144,6 +156,20 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     fetchGoogleTrends(ticker, env),
     aggregateEuThresholds(ticker, env),
   ]);
+
+  // ZONEBOURSE CONSENSUS : recommandations analystes pour actions EU
+  // Utile car stockanalysis.com ne couvre pas .PA, .DE, .SW, .MI, .MC, .AS
+  // Donne : consensus (Achat/Conserver), recommendationMean (ACCUMULER),
+  // analystCount (nb), targetMean (objectif moyen), ecartTargetPct (% upside)
+  let zonebourseConsensus = null;
+  try {
+    // Determine si c'est une action EU (suffix Yahoo) -> on cherche
+    if (hasYahooSuffix || /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i.test(ticker)) {
+      // Utiliser le nom de la societe issu du Yahoo ou du userInput
+      const companyForLookup = (quote?.company?.name) || userInput;
+      zonebourseConsensus = await fetchZonebourseConsensus(companyForLookup, env);
+    }
+  } catch {}
 
   // FALLBACK FILET DE SECURITE : si Yahoo a echoue (price.current null) ET
   // qu'on n'a pas deja resolu via mapping en debut, tenter le mapping ici.
@@ -239,6 +265,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     googleTrends,
     news,
     consensus,
+    zonebourseConsensus,  // Recommandations analystes Zonebourse (EU)
   };
 
   // Tronquer les sections premium pour la vue publique SEO
@@ -272,6 +299,72 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
 
   return result;
 }
+
+// ============================================================
+// YAHOO SEARCH : resolution universelle ticker (LVMH -> MC.PA, FDJ -> FDJU.PA)
+// Suit automatiquement les renames de ticker (LFD -> FDJU recently).
+// Cache 7 jours (les tickers ne changent pas tous les jours).
+// ============================================================
+async function resolveTickerViaYahooSearch(query, env) {
+  if (!query) return null;
+  const cacheKey = `yahoo-search:${String(query).toUpperCase().trim()}`;
+
+  // Cache 7 jours
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.symbol) return cached.symbol;
+    } catch {}
+  }
+
+  try {
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0`;
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': YAHOO_UA,
+        'Accept': 'application/json',
+      },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const quotes = data?.quotes || [];
+    if (quotes.length === 0) return null;
+
+    // Heuristique : preferer .PA, .L, .DE, .AS, .SW, .MI, .MC pour les recherches EU
+    // (Si user tape "LVMH" on veut MC.PA, pas LVMUY US ADR)
+    const queryUp = query.toUpperCase();
+    const looksFrench = /[ÉÈÀÂÇ]/i.test(query) || /^(LVMH|FDJ|TOTALENERGIES|SANOFI|BNP|AXA|ENGIE|VEOLIA|VINCI|RENAULT|PEUGEOT|CARREFOUR|BOLLORE|DASSAULT|SCHNEIDER|LEGRAND|PUBLICIS|HERMES|KERING|SAINT.GOBAIN|CAPGEMINI|PERNOD|UBISOFT|WORLDLINE|BUREAU.VERITAS|AMUNDI|EDENRED|ICADE|ATOS|AIR.LIQUIDE|AIR.FRANCE|TELEPERFORMANCE|VIVENDI|REMY|MICHELIN|SOITEC|EUROFINS|ESSILOR|IPSEN|SAFRAN)$/i.test(queryUp);
+    const euSuffixes = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i;
+
+    let pick = null;
+    // 1. Si requete clairement FR, preferer .PA
+    if (looksFrench) {
+      pick = quotes.find(q => /\.PA$/i.test(q.symbol || ''));
+    }
+    // 2. Sinon preferer un suffix EU
+    if (!pick) {
+      pick = quotes.find(q => euSuffixes.test(q.symbol || ''));
+    }
+    // 3. Fallback : tout suffixe (incl. US tickers sans suffixe)
+    if (!pick) pick = quotes[0];
+
+    const symbol = pick?.symbol || null;
+    if (symbol && env && env.CACHE) {
+      try {
+        await env.CACHE.put(cacheKey, JSON.stringify({
+          symbol,
+          shortname: pick?.shortname,
+          exchange: pick?.exchange,
+          fetchedAt: new Date().toISOString(),
+        }), { expirationTtl: 7 * 86400 });
+      } catch {}
+    }
+    return symbol;
+  } catch {
+    return null;
+  }
+}
+
 
 // ============================================================
 // YAHOO FINANCE : prix + chart
