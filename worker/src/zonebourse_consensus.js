@@ -507,8 +507,8 @@ async function fetchZonebourseFundamentals(slug, env) {
 export async function fetchZonebourseConsensus(companyName, env) {
   if (!companyName) return null;
 
-  // v3 : bump apres fix regex Cloture/Objectif (eviter match Sanofi 1.69 EUR)
-  const cacheKey = `zb-consensus:v3:${String(companyName).toUpperCase().trim()}`;
+  // v4 : bump apres ajout dynamic slug search via Zonebourse search engine
+  const cacheKey = `zb-consensus:v4:${String(companyName).toUpperCase().trim()}`;
 
   // Check cache 24h
   try {

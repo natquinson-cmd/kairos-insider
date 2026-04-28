@@ -147,8 +147,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
   // Cache : 2 variantes (public tronque / premium complet) x range
-  // v3 : bump apres fix regex Zonebourse + accents normalisation
-  const cacheKey = `stock-analysis:v3:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v4 : bump apres preference equity dans Yahoo Search + ZB dynamic slug
+  const cacheKey = `stock-analysis:v4:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
@@ -374,7 +374,8 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
 // ============================================================
 async function resolveTickerViaYahooSearch(query, env) {
   if (!query) return null;
-  const cacheKey = `yahoo-search:${String(query).toUpperCase().trim()}`;
+  // v2 : bump apres ajout filter equity (eviter UBS AG -> fonds 0P00...)
+  const cacheKey = `yahoo-search:v2:${String(query).toUpperCase().trim()}`;
 
   // Cache 7 jours
   if (env && env.CACHE) {
@@ -403,16 +404,24 @@ async function resolveTickerViaYahooSearch(query, env) {
     const looksFrench = /[ÉÈÀÂÇ]/i.test(query) || /^(LVMH|FDJ|TOTALENERGIES|SANOFI|BNP|AXA|ENGIE|VEOLIA|VINCI|RENAULT|PEUGEOT|CARREFOUR|BOLLORE|DASSAULT|SCHNEIDER|LEGRAND|PUBLICIS|HERMES|KERING|SAINT.GOBAIN|CAPGEMINI|PERNOD|UBISOFT|WORLDLINE|BUREAU.VERITAS|AMUNDI|EDENRED|ICADE|ATOS|AIR.LIQUIDE|AIR.FRANCE|TELEPERFORMANCE|VIVENDI|REMY|MICHELIN|SOITEC|EUROFINS|ESSILOR|IPSEN|SAFRAN)$/i.test(queryUp);
     const euSuffixes = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i;
 
+    // Filtrer pour preferer les EQUITY (actions) sur les MUTUALFUND/ETF/INDEX
+    // Sinon "UBS AG" peut renvoyer un fonds 0P00018KHX.L au lieu de UBSG.SW
+    const isEquity = q => (q.quoteType || '').toLowerCase() === 'equity';
+    const equityQuotes = quotes.filter(isEquity);
+    const eligibles = equityQuotes.length > 0 ? equityQuotes : quotes;
+
     let pick = null;
-    // 1. Si requete clairement FR, preferer .PA
+    // 1. Si requete clairement FR, preferer .PA equity
     if (looksFrench) {
-      pick = quotes.find(q => /\.PA$/i.test(q.symbol || ''));
+      pick = eligibles.find(q => /\.PA$/i.test(q.symbol || ''));
     }
-    // 2. Sinon preferer un suffix EU
+    // 2. Sinon preferer un suffix EU equity
     if (!pick) {
-      pick = quotes.find(q => euSuffixes.test(q.symbol || ''));
+      pick = eligibles.find(q => euSuffixes.test(q.symbol || ''));
     }
-    // 3. Fallback : tout suffixe (incl. US tickers sans suffixe)
+    // 3. Fallback : premiere equity (sans .US suffix bizarre)
+    if (!pick) pick = eligibles[0];
+    // 4. Dernier recours : premier resultat tout type
     if (!pick) pick = quotes[0];
 
     const symbol = pick?.symbol || null;
