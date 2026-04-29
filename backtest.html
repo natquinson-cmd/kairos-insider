@@ -386,7 +386,8 @@
     // gros chiffres impactants, pas de details position-by-position.
     function renderEquityCurveDual(curve, fundLabel) {
       if (!curve || curve.length < 2) return '';
-      const W = 900, H = 320, padL = 60, padR = 30, padT = 30, padB = 50;
+      // padR = 100 : reserve a droite pour les pastilles "+43.9%" hors courbe
+      const W = 900, H = 320, padL = 60, padR = 100, padT = 30, padB = 50;
       const innerW = W - padL - padR;
       const innerH = H - padT - padB;
       // Inclut aussi le benchmark dans le calcul des bornes Y
@@ -454,12 +455,31 @@
             <!-- Path fonds (couleur) -->
             <path d="${fundPath}" stroke="${fundColor}" stroke-width="3" fill="none" />
             <!-- Final point fonds -->
-            <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalFund).toFixed(1)}" r="5" fill="${fundColor}" />
-            <text x="${(scaleX(curve.length-1) - 12).toFixed(1)}" y="${(scaleY(finalFund) - 12).toFixed(1)}" text-anchor="end" font-size="16" font-weight="800" fill="${fundColor}">${fmtPct(finalFund)}</text>
-            ${finalBench != null ? `
-              <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalBench).toFixed(1)}" r="4" fill="${benchColor}" opacity="0.7" />
-              <text x="${(scaleX(curve.length-1) - 12).toFixed(1)}" y="${(scaleY(finalBench) + 18).toFixed(1)}" text-anchor="end" font-size="13" font-weight="600" fill="${benchColor}">${fmtPct(finalBench)}</text>
-            ` : ''}
+            <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalFund).toFixed(1)}" r="6" fill="${fundColor}" stroke="#0B0F1A" stroke-width="2" />
+            <!-- Pastille fonds : a DROITE du dot avec fond pour lisibilite -->
+            ${(() => {
+              const cx = scaleX(curve.length - 1);
+              const cy = scaleY(finalFund);
+              const txt = fmtPct(finalFund);
+              const pillW = Math.max(58, txt.length * 9.5 + 12);
+              const pillX = cx + 10;
+              const pillY = cy - 14;
+              return `
+                <rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="28" rx="14" ry="14" fill="${fundColor}" />
+                <text x="${(pillX + pillW/2).toFixed(1)}" y="${(pillY + 19).toFixed(1)}" text-anchor="middle" font-size="15" font-weight="800" fill="#0B0F1A">${txt}</text>`;
+            })()}
+            ${finalBench != null ? (() => {
+              const cx = scaleX(curve.length - 1);
+              const cy = scaleY(finalBench);
+              const txt = fmtPct(finalBench);
+              const pillW = Math.max(54, txt.length * 8.5 + 12);
+              const pillX = cx + 10;
+              const pillY = cy - 12;
+              return `
+                <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5" fill="${benchColor}" stroke="#0B0F1A" stroke-width="2" opacity="0.9" />
+                <rect x="${pillX.toFixed(1)}" y="${pillY.toFixed(1)}" width="${pillW.toFixed(1)}" height="24" rx="12" ry="12" fill="#1A2138" stroke="${benchColor}" stroke-width="1" />
+                <text x="${(pillX + pillW/2).toFixed(1)}" y="${(pillY + 16).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="${benchColor}">${txt}</text>`;
+            })() : ''}
           </svg>
         </div>`;
     }
