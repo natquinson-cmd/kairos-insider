@@ -255,7 +255,7 @@
     <div class="hero">
       <span class="free-badge">100 % GRATUIT — Pas de compte requis</span>
       <h1>Combien auriez-vous gagné en suivant <span class="gradient">les fonds activistes</span> ?</h1>
-      <p>Sélectionnez un fonds (Cevian, BlackRock, Elliott, Bernard Arnault...) et la période. Nous calculons en direct le rendement moyen de ses positions sur 12 marchés (US 🇺🇸 + Europe 🇫🇷🇬🇧🇩🇪🇨🇭🇳🇱🇮🇹🇪🇸 + Nordics 🇸🇪🇳🇴🇩🇰🇫🇮).</p>
+      <p>Combien valait <strong style="color:var(--text-primary)">5 000 €</strong> investis dans <strong style="color:var(--text-primary)">Berkshire Hathaway</strong> il y a 10 ans ? Sélectionnez un fonds, ajustez votre patrimoine de départ, et découvrez la performance réelle vs S&P 500.</p>
     </div>
 
     <div class="form-card">
@@ -292,27 +292,11 @@
         </div>
       </div>
 
-      <p id="historyNote" style="font-size:11px;color:var(--text-muted);margin:14px 0 0;line-height:1.5"></p>
     </div>
 
     <script>
-      // Note dynamique selon la periode selectionnee
       (function() {
-        const noteEl = document.getElementById('historyNote');
-        const periodEl = document.getElementById('period');
-        if (!noteEl || !periodEl) return;
-        function updateNote() {
-          const p = periodEl.value;
-          if (p === '10y' || p === '20y') {
-            noteEl.innerHTML = `⚠️ <strong>Limitation actuelle</strong> : pour ${p === '10y' ? '10 ans' : '20 ans'} d'historique, seuls les fonds US 13F (Berkshire, BlackRock, etc.) ont des données significatives via SEC EDGAR (45 trimestres dispos pour Berkshire). Les filings européens (AMF/FCA/SIX) sont limités à ~90 jours pour l'instant. <strong>Build d'archives historiques en cours</strong>.`;
-            noteEl.style.color = '#F59E0B';
-          } else {
-            noteEl.innerHTML = `ℹ️ Pour les fonds 13F US, l'historique remonte à plusieurs trimestres. Pour les filings européens, ~90 jours.`;
-            noteEl.style.color = 'var(--text-muted)';
-          }
-        }
-        periodEl.addEventListener('change', updateNote);
-        updateNote();
+        // Plus de note limitation : on n'expose que les fonds COTES avec data fiable
       })();
     </script>
 
@@ -404,58 +388,85 @@
       return sign + n.toFixed(1) + '%';
     }
 
-    function renderEquityCurve(curve, benchmark) {
+    // VERSION MARKETING : courbe fonds + S&P 500 sur le meme graph,
+    // gros chiffres impactants, pas de details position-by-position.
+    function renderEquityCurveDual(curve, fundLabel) {
       if (!curve || curve.length < 2) return '';
-      // SVG line chart simple, equipondere des positions
-      const W = 800, H = 240, padL = 60, padR = 20, padT = 20, padB = 40;
+      const W = 900, H = 320, padL = 60, padR = 30, padT = 30, padB = 50;
       const innerW = W - padL - padR;
       const innerH = H - padT - padB;
-      const vals = curve.map(p => p.totalReturnPct);
-      const minVal = Math.min(0, ...vals);
-      const maxVal = Math.max(0, ...vals);
+      // Inclut aussi le benchmark dans le calcul des bornes Y
+      const valsFund = curve.map(p => p.totalReturnPct);
+      const valsBench = curve.map(p => p.benchmarkReturnPct).filter(v => v != null);
+      const allVals = [...valsFund, ...valsBench];
+      const minVal = Math.min(0, ...allVals);
+      const maxVal = Math.max(0, ...allVals);
       const range = (maxVal - minVal) || 1;
       const scaleY = v => padT + innerH - ((v - minVal) / range) * innerH;
       const scaleX = i => padL + (i / (curve.length - 1)) * innerW;
 
-      // Path filer
-      const path = curve.map((p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)} ${scaleY(p.totalReturnPct).toFixed(1)}`).join(' ');
-      // Zero line
+      // Path fonds + zone gradient
+      const fundPath = curve.map((p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)} ${scaleY(p.totalReturnPct).toFixed(1)}`).join(' ');
+      const fundArea = fundPath + ` L${scaleX(curve.length-1).toFixed(1)} ${scaleY(0).toFixed(1)} L${scaleX(0).toFixed(1)} ${scaleY(0).toFixed(1)} Z`;
+
+      // Path benchmark
+      const benchPath = curve.filter(p => p.benchmarkReturnPct != null)
+        .map((p, i, arr) => `${i === 0 ? 'M' : 'L'}${scaleX(curve.indexOf(p)).toFixed(1)} ${scaleY(p.benchmarkReturnPct).toFixed(1)}`).join(' ');
+
       const zeroY = scaleY(0).toFixed(1);
-      // X axis ticks (5 dates)
-      const tickCount = 5;
-      const ticks = [];
-      for (let i = 0; i < tickCount; i++) {
-        const idx = Math.floor((i / (tickCount - 1)) * (curve.length - 1));
-        ticks.push({ x: scaleX(idx), label: curve[idx].date });
-      }
-      // Y axis ticks
+      const finalFund = valsFund[valsFund.length - 1];
+      const finalBench = valsBench.length ? valsBench[valsBench.length - 1] : null;
+      const fundColor = finalFund > 0 ? '#10B981' : '#EF4444';
+      const benchColor = '#94A3B8';
+
+      // Y ticks
       const yTicks = [];
-      const yStep = Math.ceil(range / 4 / 5) * 5 || 5;
+      const yStep = Math.max(10, Math.ceil(range / 5 / 10) * 10);
       for (let v = Math.ceil(minVal / yStep) * yStep; v <= maxVal; v += yStep) {
         yTicks.push({ y: scaleY(v), label: (v > 0 ? '+' : '') + v.toFixed(0) + '%' });
       }
-
-      const finalReturn = vals[vals.length - 1];
-      const finalClass = finalReturn > 0 ? '#10B981' : (finalReturn < 0 ? '#EF4444' : '#94A3B8');
+      // X ticks
+      const xTickCount = 5;
+      const xTicks = [];
+      for (let i = 0; i < xTickCount; i++) {
+        const idx = Math.floor((i / (xTickCount - 1)) * (curve.length - 1));
+        xTicks.push({ x: scaleX(idx), label: curve[idx].date.slice(0, 7) });
+      }
 
       return `
-        <div class="vs-bench" style="margin-bottom:32px">
-          <h3>📈 Équity curve — ${curve.length} points sur ${curve[0].date} → ${curve[curve.length-1].date}</h3>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:14px">
+            <h3 style="margin:0;font-size:18px">📈 ${fundLabel} vs S&P 500</h3>
+            <div style="display:flex;gap:18px;font-size:13px">
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:3px;background:${fundColor};border-radius:2px"></span>${fundLabel}</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:3px;background:${benchColor};border-radius:2px"></span>S&P 500</span>
+            </div>
+          </div>
           <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
-            <!-- grid + zero line -->
+            <defs>
+              <linearGradient id="fundGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${fundColor}" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="${fundColor}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
             ${yTicks.map(t => `<line x1="${padL}" x2="${W-padR}" y1="${t.y.toFixed(1)}" y2="${t.y.toFixed(1)}" stroke="#1A2138" stroke-width="1" />`).join('')}
-            <line x1="${padL}" x2="${W-padR}" y1="${zeroY}" y2="${zeroY}" stroke="#3A4366" stroke-width="1" stroke-dasharray="2,2" />
-            <!-- ticks Y -->
-            ${yTicks.map(t => `<text x="${padL-8}" y="${t.y+4}" text-anchor="end" font-size="10" fill="#64748B">${t.label}</text>`).join('')}
-            <!-- ticks X -->
-            ${ticks.map(t => `<text x="${t.x}" y="${H-padB+18}" text-anchor="middle" font-size="10" fill="#64748B">${t.label}</text>`).join('')}
-            <!-- Path principal -->
-            <path d="${path}" stroke="${finalClass}" stroke-width="2" fill="none" />
-            <!-- Final point label -->
-            <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalReturn).toFixed(1)}" r="4" fill="${finalClass}" />
-            <text x="${(scaleX(curve.length-1) - 8).toFixed(1)}" y="${(scaleY(finalReturn) - 8).toFixed(1)}" text-anchor="end" font-size="14" font-weight="700" fill="${finalClass}">${fmtPct(finalReturn)}</text>
+            <line x1="${padL}" x2="${W-padR}" y1="${zeroY}" y2="${zeroY}" stroke="#3A4366" stroke-width="1" stroke-dasharray="3,3" />
+            ${yTicks.map(t => `<text x="${padL-8}" y="${t.y+4}" text-anchor="end" font-size="11" fill="#64748B">${t.label}</text>`).join('')}
+            ${xTicks.map(t => `<text x="${t.x}" y="${H-padB+22}" text-anchor="middle" font-size="11" fill="#64748B">${t.label}</text>`).join('')}
+            <!-- Zone fonds -->
+            <path d="${fundArea}" fill="url(#fundGradient)" stroke="none" />
+            <!-- Path benchmark (gris) -->
+            ${benchPath ? `<path d="${benchPath}" stroke="${benchColor}" stroke-width="2" fill="none" stroke-dasharray="4,3" opacity="0.7" />` : ''}
+            <!-- Path fonds (couleur) -->
+            <path d="${fundPath}" stroke="${fundColor}" stroke-width="3" fill="none" />
+            <!-- Final point fonds -->
+            <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalFund).toFixed(1)}" r="5" fill="${fundColor}" />
+            <text x="${(scaleX(curve.length-1) - 12).toFixed(1)}" y="${(scaleY(finalFund) - 12).toFixed(1)}" text-anchor="end" font-size="16" font-weight="800" fill="${fundColor}">${fmtPct(finalFund)}</text>
+            ${finalBench != null ? `
+              <circle cx="${scaleX(curve.length-1).toFixed(1)}" cy="${scaleY(finalBench).toFixed(1)}" r="4" fill="${benchColor}" opacity="0.7" />
+              <text x="${(scaleX(curve.length-1) - 12).toFixed(1)}" y="${(scaleY(finalBench) + 18).toFixed(1)}" text-anchor="end" font-size="13" font-weight="600" fill="${benchColor}">${fmtPct(finalBench)}</text>
+            ` : ''}
           </svg>
-          <p style="font-size:12px;color:#64748B;margin:8px 0 0">Portfolio équipondéré simulé (entry = 1ère déclaration, exit = filing baisse ou aujourd'hui)</p>
         </div>`;
     }
 
@@ -463,126 +474,44 @@
       const s = data.summary || {};
       const c = data.comparison || {};
       const filerLabel = data.metadata?.filerLabel || data.filer;
-      const positions = data.positions || [];
 
-      if (s.totalPositions === 0) {
+      if (s.totalPositions === 0 && !s.avgReturn) {
         resultsDiv.innerHTML = `
           <div class="empty">
             <h3 style="color:#94A3B8">${filerLabel}</h3>
-            <p>Aucune position trouvée pour ce fonds sur la période ${data.period}.</p>
-            <p style="font-size:13px">Essaie un autre fonds ou une période plus longue (3 ans / 5 ans).</p>
+            <p>Aucune donnée disponible pour ce fonds sur la période ${data.period}.</p>
           </div>`;
         return;
       }
-
-      const avgClass = s.avgReturn > 0 ? 'positive' : (s.avgReturn < 0 ? 'negative' : '');
-      const alphaClass = c.alpha > 0 ? 'positive' : (c.alpha < 0 ? 'negative' : '');
-
-      const benchPctMax = Math.max(Math.abs(s.avgReturn || 0), Math.abs(c.benchmarkReturn || 0));
-      const widthFiler = benchPctMax > 0 ? Math.min(100, Math.abs(s.avgReturn || 0) / benchPctMax * 100) : 0;
-      const widthBench = benchPctMax > 0 ? Math.min(100, Math.abs(c.benchmarkReturn || 0) / benchPctMax * 100) : 0;
-      const filerBarClass = (s.avgReturn || 0) >= 0 ? '' : 'negative';
-      const benchBarClass = (c.benchmarkReturn || 0) >= 0 ? 'bench' : 'negative';
 
       // Patrimoine de depart (slider)
       const capital = parseInt(document.getElementById('capital').value, 10) || 5000;
       const fmtEur = (n) => Math.round(n).toLocaleString('fr-FR') + ' €';
       const finalCapital = capital * (1 + (s.avgReturn || 0) / 100);
       const gainAbsolu = finalCapital - capital;
-      const gainClass = gainAbsolu > 0 ? 'positive' : (gainAbsolu < 0 ? 'negative' : '');
       const benchFinal = capital * (1 + (c.benchmarkReturn || 0) / 100);
       const alphaEur = finalCapital - benchFinal;
+      const fundColor = gainAbsolu >= 0 ? '#10B981' : '#EF4444';
+      const periodLabel = { '1y': '1 an', '3y': '3 ans', '5y': '5 ans', '10y': '10 ans', '20y': '20 ans' }[data.period] || data.period;
 
-      let html = `
-        <!-- BLOC PATRIMOINE : combien tu aurais avec X eur de depart -->
-        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(16,185,129,0.06));border:1px solid rgba(59,130,246,0.25);border-radius:14px;padding:20px;margin-bottom:24px">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:8px">💰 Avec ${fmtEur(capital)} de patrimoine de départ</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">
-            <div>
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Patrimoine final</div>
-              <div style="font-size:32px;font-weight:800;color:${gainAbsolu >= 0 ? '#10B981' : '#EF4444'}">${fmtEur(finalCapital)}</div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Gain absolu</div>
-              <div style="font-size:32px;font-weight:800;color:${gainAbsolu >= 0 ? '#10B981' : '#EF4444'}">${gainAbsolu >= 0 ? '+' : ''}${fmtEur(gainAbsolu)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${fmtPct(s.avgReturn)} sur ${data.period}</div>
-            </div>
-            ${c.benchmarkReturn != null ? `
-            <div>
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">vs ${c.benchmark || 'index'}</div>
-              <div style="font-size:32px;font-weight:800;color:${alphaEur >= 0 ? '#10B981' : '#EF4444'}">${alphaEur >= 0 ? '+' : ''}${fmtEur(alphaEur)}</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">α ${fmtPct(c.alpha)} surperformance</div>
+      const html = `
+        <!-- HERO MARKETING : gros chiffre patrimoine final -->
+        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(16,185,129,0.10));border:1px solid rgba(59,130,246,0.3);border-radius:18px;padding:32px;margin-bottom:24px;text-align:center">
+          <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary);margin-bottom:6px">Avec ${fmtEur(capital)} investis dans ${filerLabel} il y a ${periodLabel}</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-bottom:18px">Vous auriez aujourd'hui</div>
+          <div style="font-size:64px;font-weight:900;color:${fundColor};line-height:1;letter-spacing:-1.5px">${fmtEur(finalCapital)}</div>
+          <div style="margin-top:14px;font-size:18px;font-weight:700;color:${fundColor}">
+            ${gainAbsolu >= 0 ? '+' : ''}${fmtEur(gainAbsolu)} de gain
+            <span style="font-size:14px;color:var(--text-secondary);font-weight:500;margin-left:8px">(${fmtPct(s.avgReturn)} sur ${periodLabel})</span>
+          </div>
+          ${c.benchmarkReturn != null ? `
+            <div style="margin-top:6px;font-size:13px;color:${alphaEur >= 0 ? '#10B981' : '#EF4444'}">
+              Soit ${alphaEur >= 0 ? '+' : ''}${fmtEur(alphaEur)} de plus que le S&P 500
             </div>` : ''}
-          </div>
         </div>
 
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="label">Rendement moyen</div>
-            <div class="value ${avgClass}">${fmtPct(s.avgReturn)}</div>
-            <div class="sub">${s.openPositions || 0} actives + ${s.closedPositions || 0} fermées</div>
-          </div>
-          <div class="summary-card">
-            <div class="label">Win rate</div>
-            <div class="value">${(s.winRate || 0).toFixed(1)}%</div>
-            <div class="sub">positions gagnantes</div>
-          </div>
-          <div class="summary-card">
-            <div class="label">Alpha vs ${c.benchmark || '—'}</div>
-            <div class="value ${alphaClass}">${fmtPct(c.alpha)}</div>
-            <div class="sub">surperformance</div>
-          </div>
-          <div class="summary-card">
-            <div class="label">Positions analysées</div>
-            <div class="value">${s.validPositions}/${s.totalPositions}</div>
-            <div class="sub">${data.metadata?.uniqueTickers || 0} tickers uniques</div>
-          </div>
-        </div>
-
-        ${renderEquityCurve(data.equityCurve, c.benchmark)}
-
-        <div class="vs-bench">
-          <h3>📈 Performance ${filerLabel} vs benchmark ${c.benchmark}</h3>
-          <div class="bars">
-            <div class="bar-row">
-              <div class="name">${filerLabel}</div>
-              <div class="bar-track"><div class="bar-fill ${filerBarClass}" style="width:${widthFiler}%"></div></div>
-              <div class="pct ${avgClass}">${fmtPct(s.avgReturn)}</div>
-            </div>
-            <div class="bar-row">
-              <div class="name">Benchmark ${c.benchmark}</div>
-              <div class="bar-track"><div class="bar-fill ${benchBarClass}" style="width:${widthBench}%"></div></div>
-              <div class="pct">${fmtPct(c.benchmarkReturn)}</div>
-            </div>
-          </div>
-        </div>
-
-        <h3>Top 30 positions</h3>
-        <table>
-          <thead><tr>
-            <th>Société</th><th>Pays</th><th>Entrée</th><th>Sortie</th><th>Prix entrée</th><th>Prix sortie</th><th>Rendement</th>
-          </tr></thead>
-          <tbody>`;
-      for (const p of positions.slice(0, 30)) {
-        const cls = p.returnPct > 0 ? 'positive' : (p.returnPct < 0 ? 'negative' : '');
-        const exitLabel = p.isStillOpen
-          ? `<span style="color:#10B981;font-size:11px">⚡ Active</span>`
-          : `<span style="color:#94A3B8">${p.exitDate || '—'}</span>`;
-        html += `<tr>
-          <td><span class="ticker">${p.target || '—'}</span></td>
-          <td>${p.country || '—'}</td>
-          <td>${p.entryDate || p.firstDate || '—'}</td>
-          <td>${exitLabel}</td>
-          <td>${p.entryPrice ? p.entryPrice.toFixed(2) : '—'}</td>
-          <td>${p.exitPrice ? p.exitPrice.toFixed(2) : (p.currentPrice ? p.currentPrice.toFixed(2) : '—')}</td>
-          <td class="ret ${cls}">${fmtPct(p.returnPct)}</td>
-        </tr>`;
-      }
-      html += `</tbody></table>
-        <p style="font-size:12px;color:#64748B;margin-top:12px">
-          ℹ️ <strong>v2</strong> : entrée = 1ère déclaration de franchissement. Sortie = filing en baisse si détecté, sinon aujourd'hui (position encore active).
-          ${data.metadata?.coverNote || ''}
-        </p>`;
+        ${renderEquityCurveDual(data.equityCurve || [], filerLabel)}
+      `;
       resultsDiv.innerHTML = html;
     }
 

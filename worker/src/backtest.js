@@ -38,9 +38,8 @@ const PERIOD_TO_DAYS = {
   '10y': 3650, '20y': 7300,  // historique etendu (limite par les filings dispos)
 };
 
-// Fonds vedettes pour la landing : 5 fonds avec performance historique REELLE
-// (via ticker du fonds cote en bourse, pas estimation 13F).
-export const FEATURED_FILERS = ['BERKSHIRE', 'BLACKROCK', 'PERSHING SQUARE', 'TIGER GLOBAL', 'BRIDGEWATER'];
+// Fonds vedettes pour la landing : 5 fonds COTES avec perf reelle 10+ ans.
+export const FEATURED_FILERS = ['BERKSHIRE', 'BLACKROCK', 'PERSHING SQUARE', 'TIGER GLOBAL', 'BLACKSTONE'];
 
 // Mapping FILER_KEY -> ticker Yahoo du fonds COTE EN BOURSE.
 // Permet d'afficher la VRAIE performance historique du fonds (pas une
@@ -118,52 +117,30 @@ const FILER_ALIASES = {
   'BOLLORE': ['BOLLORE', 'BOLLORÉ', 'VINCENT BOLLORE'],
 };
 
-// Liste des grands smart money pour autocomplete + acquisition
-// Les aliases (BUFFETT, WARREN BUFFETT, BERKSHIRE HATHAWAY) sont geres dans
-// FILER_ALIASES ci-dessous : ils permettent de matcher dans les filings KV
-// mais NE sont PAS exposes dans la liste publique (sinon doublons UI).
+// Liste des fonds avec PERFORMANCE HISTORIQUE FIABLE via leur ticker public.
+// On ne garde QUE les fonds COTES EN BOURSE pour avoir des chiffres credibles
+// (10+ ans d'historique direct via Yahoo Finance).
+//
+// Les fonds non-cotes (Bridgewater, Soros, Citadel, Cevian...) ne sont pas
+// exposes dans le backtest car leur perf serait approximee par 4 positions
+// 13F au hasard — pas credible pour le marketing.
 export const KNOWN_FILERS = [
-  // Légendes (1 entree = 1 filer affiche, alias geres en backend)
-  { key: 'BERKSHIRE', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend' },
-  { key: 'MUNGER', label: 'Charlie Munger (Berkshire/Daily Journal)', country: 'US', tag: 'legend' },
-  { key: 'BAUPOST', label: 'Baupost Group (Seth Klarman)', country: 'US', tag: 'legend' },
-  { key: 'OAKMARK', label: 'Oakmark Funds (Bill Nygren)', country: 'US', tag: 'legend' },
-  { key: 'TUDOR INVESTMENT', label: 'Tudor Investment (Paul Tudor Jones)', country: 'US', tag: 'legend' },
-  { key: 'SOROS', label: 'Soros Fund Management (George Soros)', country: 'US', tag: 'legend' },
-  { key: 'GREENLIGHT', label: 'Greenlight Capital (David Einhorn)', country: 'US', tag: 'legend' },
-  { key: 'COATUE', label: 'Coatue Management (Philippe Laffont)', country: 'US', tag: 'legend' },
-  { key: 'TIGER GLOBAL', label: 'Tiger Global (Chase Coleman)', country: 'US', tag: 'legend' },
-  // Activists US
-  { key: 'CEVIAN', label: 'Cevian Capital', country: 'EU', tag: 'activist' },
-  { key: 'BLUEBELL', label: 'Bluebell Capital', country: 'UK', tag: 'activist' },
-  { key: 'ELLIOTT', label: 'Elliott Management', country: 'US', tag: 'activist' },
-  { key: 'PERSHING SQUARE', label: 'Pershing Square (Bill Ackman)', country: 'US', tag: 'activist' },
-  { key: 'STARBOARD', label: 'Starboard Value', country: 'US', tag: 'activist' },
-  { key: 'TRIAN', label: 'Trian Fund Management', country: 'US', tag: 'activist' },
-  { key: 'CARL ICAHN', label: 'Icahn Enterprises', country: 'US', tag: 'activist' },
-  { key: 'TCI FUND', label: 'TCI Fund Management', country: 'UK', tag: 'activist' },
-  { key: 'JANA PARTNERS', label: 'Jana Partners', country: 'US', tag: 'activist' },
-  // Institutionnels
-  { key: 'BLACKROCK', label: 'BlackRock', country: 'GLOBAL', tag: 'institutional' },
-  { key: 'VANGUARD', label: 'Vanguard', country: 'GLOBAL', tag: 'institutional' },
-  { key: 'STATE STREET', label: 'State Street', country: 'US', tag: 'institutional' },
-  { key: 'NORGES BANK', label: 'Norges Bank Investment Mgmt', country: 'GLOBAL', tag: 'institutional' },
-  { key: 'GIC', label: 'GIC (Singapour)', country: 'GLOBAL', tag: 'institutional' },
-  { key: 'TEMASEK', label: 'Temasek Holdings', country: 'GLOBAL', tag: 'institutional' },
-  { key: 'CAPITAL GROUP', label: 'Capital Group', country: 'US', tag: 'institutional' },
-  { key: 'FIDELITY', label: 'Fidelity', country: 'US', tag: 'institutional' },
-  { key: 'WELLINGTON', label: 'Wellington Management', country: 'US', tag: 'institutional' },
-  // Hedge Funds
-  { key: 'CITADEL', label: 'Citadel (Ken Griffin)', country: 'US', tag: 'hedgefund' },
-  { key: 'BRIDGEWATER', label: 'Bridgewater Associates (Ray Dalio)', country: 'US', tag: 'hedgefund' },
-  { key: 'MILLENNIUM', label: 'Millennium Partners (Englander)', country: 'US', tag: 'hedgefund' },
-  { key: 'RENAISSANCE', label: 'Renaissance Technologies (Simons)', country: 'US', tag: 'hedgefund' },
-  // FR-specific
-  { key: 'BPIFRANCE', label: 'Bpifrance', country: 'FR', tag: 'state' },
-  { key: 'AMUNDI', label: 'Amundi', country: 'FR', tag: 'institutional' },
-  { key: 'BOLLORE', label: 'Groupe Bolloré', country: 'FR', tag: 'family' },
-  { key: 'ARNAULT', label: 'Bernard Arnault (LVMH)', country: 'FR', tag: 'family' },
-  { key: 'PINAULT', label: 'Pinault (Artemis)', country: 'FR', tag: 'family' },
+  // Légendes (cote NYSE/NASDAQ)
+  { key: 'BERKSHIRE', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend', ticker: 'BRK-B' },
+  // Activists / Holdings cotes
+  { key: 'PERSHING SQUARE', label: 'Pershing Square (Bill Ackman)', country: 'EU', tag: 'activist', ticker: 'PSH.AS' },
+  { key: 'CARL ICAHN', label: 'Icahn Enterprises (Carl Icahn)', country: 'US', tag: 'activist', ticker: 'IEP' },
+  // Institutionnels cotes
+  { key: 'BLACKROCK', label: 'BlackRock', country: 'US', tag: 'institutional', ticker: 'BLK' },
+  // Private Equity / Asset Management cotes
+  { key: 'KKR', label: 'KKR & Co (Kravis/Roberts)', country: 'US', tag: 'institutional', ticker: 'KKR' },
+  { key: 'BLACKSTONE', label: 'Blackstone (Steve Schwarzman)', country: 'US', tag: 'institutional', ticker: 'BX' },
+  { key: 'APOLLO', label: 'Apollo Global Management', country: 'US', tag: 'institutional', ticker: 'APO' },
+  { key: 'CARLYLE', label: 'Carlyle Group', country: 'US', tag: 'institutional', ticker: 'CG' },
+  { key: 'ARES', label: 'Ares Management', country: 'US', tag: 'institutional', ticker: 'ARES' },
+  { key: 'BROOKFIELD', label: 'Brookfield Asset Management', country: 'US', tag: 'institutional', ticker: 'BAM' },
+  // Hedge fund cote
+  { key: 'TIGER GLOBAL', label: 'Tiger Global Investments', country: 'US', tag: 'hedgefund', ticker: 'TGB' },
 ];
 
 
@@ -555,25 +532,39 @@ async function backtestViaPublicTicker(filerKey, periodKey, env) {
     if (bFirst && bLast) benchReturn = ((bLast - bFirst) / bFirst) * 100;
   }
 
-  // Sample equity curve (1 point per ~7d)
+  // Sample equity curve avec FONDS + BENCHMARK (S&P 500) sur la meme timeline
   const samplingDays = Math.max(7, Math.floor(periodDays / 50));
   const samplingMs = samplingDays * 24 * 3600 * 1000;
   const startMs = new Date(startIso + 'T00:00:00Z').getTime();
   const equityCurve = [];
-  for (let t = startMs; t <= Date.now(); t += samplingMs) {
-    const targetUnix = t / 1000;
-    let bestIdx = 0, bestDiff = Infinity;
-    for (let i = 0; i < timestamps.length; i++) {
-      if (closes[i] == null) continue;
-      const diff = Math.abs(timestamps[i] - targetUnix);
+  // Benchmark : prendre le premier close pour normaliser
+  const benchClosesArr = benchTimeline?.closes || [];
+  const benchTimestampsArr = benchTimeline?.timestamps || [];
+  const benchFirst = benchClosesArr.find(c => c != null);
+
+  const lookupClose = (tsArr, closesArr, targetUnix) => {
+    if (!tsArr || !tsArr.length) return null;
+    let bestIdx = -1, bestDiff = Infinity;
+    for (let i = 0; i < tsArr.length; i++) {
+      if (closesArr[i] == null) continue;
+      const diff = Math.abs(tsArr[i] - targetUnix);
       if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
     }
-    if (closes[bestIdx] != null) {
-      const ret = ((closes[bestIdx] - firstClose) / firstClose) * 100;
+    return bestIdx >= 0 ? closesArr[bestIdx] : null;
+  };
+
+  for (let t = startMs; t <= Date.now(); t += samplingMs) {
+    const targetUnix = t / 1000;
+    const fundClose = lookupClose(timestamps, closes, targetUnix);
+    const benchClose = lookupClose(benchTimestampsArr, benchClosesArr, targetUnix);
+    if (fundClose != null) {
+      const fundRet = ((fundClose - firstClose) / firstClose) * 100;
+      const benchRet = (benchFirst && benchClose) ? ((benchClose - benchFirst) / benchFirst) * 100 : null;
       equityCurve.push({
-        date: new Date(timestamps[bestIdx] * 1000).toISOString().slice(0, 10),
-        totalReturnPct: Math.round(ret * 100) / 100,
-        positions: 1,  // 1 = le fonds lui-meme
+        date: new Date(t).toISOString().slice(0, 10),
+        totalReturnPct: Math.round(fundRet * 100) / 100,
+        benchmarkReturnPct: benchRet != null ? Math.round(benchRet * 100) / 100 : null,
+        positions: 1,
       });
     }
   }
