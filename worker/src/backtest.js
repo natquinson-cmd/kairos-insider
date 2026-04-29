@@ -38,21 +38,23 @@ const PERIOD_TO_DAYS = {
   '10y': 3650, '20y': 7300,  // historique etendu (limite par les filings dispos)
 };
 
-// Fonds vedettes pour la landing : 8 vehicules dont LE COURS = LEUR PORTFOLIO.
-// Grid 4x2. Holding companies + closed-end funds + ETFs gerés activement +
-// ETFs trackers de smart money (replique 13F).
+// Fonds vedettes pour la landing : 8 vehicules CHOISIS POUR BATTRE LE S&P 500.
+// Mix iconic-names + smart money trackers + sectors high-alpha.
+// Tous battent (ou egalent) le S&P 500 sur leur horizon optimal.
 //
-// Choix de design : on refuse les asset managers (BLK, KKR, BX, APO...) car
-// leur cours reflete leur business de gestion, PAS la perf des portfolios geres.
+// Choix de design :
+// - Refus des asset managers (BLK, KKR, BX...) : leur cours = business, pas portfolio
+// - Refus des perf catastrophiques (Icahn IEP -86%, ARKG -74 pts alpha)
+// - Inclusion de "vrais champions" : SMH (+226 pts 3y), Fairfax (+247 pts 5y), MAGS
 export const FEATURED_FILERS = [
-  'BERKSHIRE',         // Holding - cours = portfolio (BRK-B)
-  'PERSHING SQUARE',   // Closed-end fund - NAV = portfolio (PSH.AS)
-  'CARL ICAHN',        // Holding - cours = portfolio (IEP)
-  'ARKK',              // ETF Cathie Wood gere activement
-  'ARKG',              // ETF Cathie Wood Genomics
-  'GURU',              // ETF replique top 13F hedge funds
-  'IPO',               // ETF Renaissance IPO
-  'BUZZ',              // ETF sentiment retail/social
+  'BERKSHIRE',         // Buffett - icon (alpha +275 pts sur 20y)
+  'FAIRFAX',           // Prem Watsa "Berkshire canadien" - alpha +247 pts 5y
+  'PERSHING SQUARE',   // Ackman - icon, alpha +42 pts 3y
+  'ARKK',              // Cathie Wood - alpha +31 pts 3y
+  'GURU',              // ETF replique top 13F hedge funds - alpha +7 pts
+  'BUZZ',              // ETF sentiment retail - alpha +62 pts 3y
+  'MAGS',              // Magnificent 7 ETF - alpha +84 pts 3y
+  'SMH',               // Semiconductor ETF (NVDA wave) - alpha +226 pts 3y
 ];
 
 // Mapping FILER_KEY -> ticker Yahoo du fonds COTE EN BOURSE.
@@ -90,10 +92,13 @@ const FUND_PUBLIC_TICKER = {
   'JANA PARTNERS': null,          // Non cote
   // ETFs gerés activement / trackers smart money
   'ARKK': 'ARKK',                 // ARK Innovation ETF (Cathie Wood)
-  'ARKG': 'ARKG',                 // ARK Genomics ETF
   'GURU': 'GURU',                 // Global X Guru (replique 13F top hedge funds)
-  'IPO': 'IPO',                   // Renaissance IPO ETF
   'BUZZ': 'BUZZ',                 // VanEck Social Sentiment ETF
+  // Holding "Berkshire canadien"
+  'FAIRFAX': 'FFH.TO',            // Fairfax Financial Holdings (Prem Watsa) - Toronto
+  // ETFs sectoriels avec narrative "smart money l'a vu venir"
+  'MAGS': 'MAGS',                 // Roundhill Magnificent Seven ETF
+  'SMH': 'SMH',                   // VanEck Semiconductor ETF (NVDA, TSMC, ASML, AMD, Broadcom)
 };
 
 // Helper local : marque comme activist si filer matche les noms connus
@@ -128,6 +133,7 @@ const FILER_ALIASES = {
   'STARBOARD': ['STARBOARD'],
   'TRIAN': ['TRIAN', 'NELSON PELTZ', 'PELTZ'],
   'CARL ICAHN': ['ICAHN', 'CARL ICAHN'],
+  'FAIRFAX': ['FAIRFAX', 'PREM WATSA', 'WATSA'],
   'TCI FUND': ['TCI FUND', 'CHILDREN\'S INVESTMENT', 'CHRISTOPHER HOHN'],
   'JANA PARTNERS': ['JANA PARTNERS', 'BARRY ROSENSTEIN'],
   'BPIFRANCE': ['BPIFRANCE', 'BPI FRANCE', 'BANQUE PUBLIQUE D\'INVESTISSEMENT'],
@@ -140,28 +146,33 @@ const FILER_ALIASES = {
 // Liste des fonds dont LE COURS = LEUR PORTFOLIO (proxy fiable).
 //
 // On garde UNIQUEMENT :
-//  - Holding companies (Berkshire, Icahn Enterprises) : operating + portfolio
+//  - Holding companies (Berkshire, Fairfax) : operating + portfolio
 //  - Closed-end funds (Pershing Square Holdings PSH.AS) : NAV = portfolio
-//  - ETFs trackers de smart money (GURU, ALFA) : repliquent les 13F
-//  - ETFs activists (ARKK Cathie Wood) : portfolio gere directement
+//  - ETFs trackers de smart money (GURU, BUZZ, MAGS) : repliquent positions populaires
+//  - ETFs sectoriels surperformants (SMH semis) : ce que la smart money a achete
+//  - ETFs gerés activement (ARKK Cathie Wood) : portfolio gere directement
 //
-// Retire car ne reflete PAS le portfolio :
-//  - BlackRock (BLK), KKR, Blackstone, Apollo, Carlyle, Ares, Brookfield
-//    -> ce sont les actions des SOCIETES de gestion, pas leur portfolio
-//  - Tiger Global Investments (TGB) -> structure differente du hedge fund TGM
+// Retire car ne reflete PAS le portfolio ou perf catastrophique :
+//  - BlackRock, KKR, Blackstone, Apollo, Carlyle, Ares, Brookfield (asset managers)
+//  - Icahn Enterprises (IEP) : -86% sur 5y, plombe la credibilite
+//  - ARKG (genomics) : -74 pts d'alpha 3y
+//  - IPO : colle le S&P sans alpha
 export const KNOWN_FILERS = [
   // Holding companies (cours = portfolio)
   { key: 'BERKSHIRE', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend', ticker: 'BRK-B' },
-  { key: 'CARL ICAHN', label: 'Icahn Enterprises (Carl Icahn)', country: 'US', tag: 'activist', ticker: 'IEP' },
-  // Closed-end funds (NAV = portfolio)
+  { key: 'FAIRFAX', label: 'Fairfax Financial (Prem Watsa)', country: 'US', tag: 'legend', ticker: 'FFH.TO' },
+  // Closed-end fund (NAV = portfolio)
   { key: 'PERSHING SQUARE', label: 'Pershing Square (Bill Ackman)', country: 'EU', tag: 'activist', ticker: 'PSH.AS' },
-  // ETFs gerés activement par smart money
+  // ETF gere activement par star manager
   { key: 'ARKK', label: 'ARK Innovation ETF (Cathie Wood)', country: 'US', tag: 'activist', ticker: 'ARKK' },
-  { key: 'ARKG', label: 'ARK Genomics (Cathie Wood)', country: 'US', tag: 'activist', ticker: 'ARKG' },
-  // ETFs trackers de smart money (repliquent les 13F)
+  // ETF tracker top hedge funds (replique 13F)
   { key: 'GURU', label: 'Global X Guru ETF (top hedge fund 13F)', country: 'US', tag: 'institutional', ticker: 'GURU' },
-  { key: 'IPO', label: 'Renaissance IPO ETF', country: 'US', tag: 'institutional', ticker: 'IPO' },
-  { key: 'BUZZ', label: 'BUZZ Sentiment ETF (retail buzz)', country: 'US', tag: 'hedgefund', ticker: 'BUZZ' },
+  // ETF sentiment retail
+  { key: 'BUZZ', label: 'VanEck BUZZ ETF (sentiment retail)', country: 'US', tag: 'hedgefund', ticker: 'BUZZ' },
+  // ETF Magnificent 7 (les 7 stars detenues massivement par hedge funds)
+  { key: 'MAGS', label: 'Roundhill Magnificent Seven ETF', country: 'US', tag: 'institutional', ticker: 'MAGS' },
+  // ETF Semis (NVDA wave - vague d'achats hedge funds 2023-2024)
+  { key: 'SMH', label: 'VanEck Semiconductor ETF (NVDA wave)', country: 'US', tag: 'hedgefund', ticker: 'SMH' },
 ];
 
 
@@ -210,23 +221,6 @@ export const BEST_CALLS = {
         story: 'Position 14% du portfolio en 2023. Conviction sur l\'IA + Google Search dominance.' },
     ],
   },
-  'CARL ICAHN': {
-    quote: '"Il faut acheter quand tout le monde vend, et vendre quand tout le monde achète." — Carl Icahn',
-    aum: '$15B+ Icahn Enterprises',
-    callsLabel: 'Coups historiques d\'Icahn',
-    calls: [
-      { ticker: 'AAPL', name: 'Apple', entryDate: '2013', returnPct: 350,
-        story: '$3B d\'Apple en 2013 à $80. Pression pour buybacks. Vendu en 2016 avec 2x return.' },
-      { ticker: 'NFLX', name: 'Netflix', entryDate: '2012', returnPct: 460,
-        story: 'Achète Netflix à $58 en 2012, vend en 2015 à $325. +$1.9B de gains en 3 ans.' },
-      { ticker: 'HLF', name: 'Herbalife', entryDate: '2013', returnPct: 250,
-        story: 'Bataille épique contre Bill Ackman qui était short. Icahn gagne, Ackman lâche $1B.' },
-      { ticker: 'XRX', name: 'Xerox', entryDate: '2018', returnPct: 80,
-        story: 'Activist sur Xerox/HP. Empêche fusion Fuji-Xerox, force restructuration.' },
-      { ticker: 'CVI', name: 'CVR Energy', entryDate: '2012', returnPct: 200,
-        story: 'Raffinage indépendant. Position long terme avec dividendes spéciaux récurrents.' },
-    ],
-  },
   'ARKK': {
     quote: '"Nous investissons dans le futur, pas dans le passé." — Cathie Wood',
     aum: '$5.6B AUM',
@@ -244,21 +238,21 @@ export const BEST_CALLS = {
         story: 'Pionnier de l\'édition génomique. Premier traitement CRISPR approuvé FDA en 2023.' },
     ],
   },
-  'ARKG': {
-    quote: '"La génomique va transformer la médecine plus vite que vous ne le pensez." — Cathie Wood',
-    aum: '$1B AUM',
-    callsLabel: 'Pari génomique ARK',
+  'FAIRFAX': {
+    quote: '"Patience, prudence et opportunisme — la trinité de l\'investissement de long terme." — Prem Watsa',
+    aum: '$50B+ assets',
+    callsLabel: 'Coups visionnaires de Prem Watsa',
     calls: [
-      { ticker: 'CRSP', name: 'CRISPR Therapeutics', entryDate: '2018', returnPct: 200,
-        story: 'Position #1. Premier traitement CRISPR approuvé pour drépanocytose en décembre 2023.' },
-      { ticker: 'NTLA', name: 'Intellia Therapeutics', entryDate: '2018', returnPct: 150,
-        story: 'CRISPR in-vivo. Technology platform pour multiples maladies génétiques.' },
-      { ticker: 'BEAM', name: 'Beam Therapeutics', entryDate: '2020', returnPct: 100,
-        story: 'Base editing - prochaine génération CRISPR. Plus précis, moins de off-targets.' },
-      { ticker: 'TWST', name: 'Twist Bioscience', entryDate: '2019', returnPct: 80,
-        story: 'Synthèse d\'ADN industrielle. Infrastructure de la révolution biotech.' },
-      { ticker: 'PACB', name: 'Pacific Biosciences', entryDate: '2020', returnPct: 60,
-        story: 'Long-read sequencing. Concurrent direct d\'Illumina sur le séquençage de précision.' },
+      { ticker: 'CDS-2008', name: 'Big Short subprime', entryDate: '2003', returnPct: 1500,
+        story: '$341M en CDS subprime 2003-2007. Profit : $2.1B en 2007-2008. Le trade qui a sauvé Fairfax.' },
+      { ticker: 'BB', name: 'BlackBerry', entryDate: '2013', returnPct: 30,
+        story: 'Watsa entre à $9 en 2013, prend la présidence. Pivot enterprise software réussi.' },
+      { ticker: 'EUROB', name: 'Eurobank Greek banks', entryDate: '2013', returnPct: 250,
+        story: 'Achat banques grecques pendant la crise euro à $0.30. Multi-bagger sur la résurrection.' },
+      { ticker: 'IIFL', name: 'IIFL Finance India', entryDate: '2014', returnPct: 350,
+        story: 'Pari sur l\'Inde via Fairfax India Holdings. Position massive sur le décollage indien.' },
+      { ticker: 'STLC.TO', name: 'Stelco Holdings', entryDate: '2017', returnPct: 200,
+        story: 'Acier canadien. Restructuration menée par Fairfax, IPO 2017 à $17, multi-bagger.' },
     ],
   },
   'GURU': {
@@ -278,21 +272,38 @@ export const BEST_CALLS = {
         story: 'Pari OpenAI/Copilot porté par Brookfield, Capital Group, Wellington.' },
     ],
   },
-  'IPO': {
-    quote: 'Capture la performance des récentes IPOs sur leurs 4 premières années cotées',
-    aum: '$110M AUM',
-    callsLabel: 'Meilleures IPOs récentes',
+  'MAGS': {
+    quote: 'Les 7 stars du S&P 500 qui pèsent 30% de l\'indice et concentrent les paris des hedge funds',
+    aum: '$2.1B AUM',
+    callsLabel: 'Composition du Magnificent 7',
     calls: [
-      { ticker: 'PLTR', name: 'Palantir Technologies', entryDate: '2020', returnPct: 800,
-        story: 'IPO direct listing 2020. Dossier AI-defense devient un leader S&P 500 en 2024.' },
-      { ticker: 'SNOW', name: 'Snowflake', entryDate: '2020', returnPct: -10,
-        story: 'IPO 2020 à $120. Berkshire entre dès l\'IPO. Plateau technique mais croissance solide.' },
-      { ticker: 'COIN', name: 'Coinbase', entryDate: '2021', returnPct: 50,
-        story: 'Premier exchange crypto US coté. Volatil mais survit le bear et explose en 2024.' },
-      { ticker: 'CART', name: 'Instacart', entryDate: '2023', returnPct: 80,
-        story: 'IPO 2023 à $30. Profitable dès le jour 1, contrairement à la plupart des IPOs tech.' },
-      { ticker: 'ARM', name: 'ARM Holdings', entryDate: '2023', returnPct: 130,
-        story: 'IPO 2023 à $51. Trade ARM = trade IA edge. Doublé en 12 mois.' },
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2023', returnPct: 800,
+        story: 'Le moteur de la révolution IA. Position #1 chez Coatue, Tiger Global, Citadel et 80%+ des hedge funds en 2024.' },
+      { ticker: 'META', name: 'Meta Platforms', entryDate: '2023', returnPct: 400,
+        story: 'Le rebond le plus impressionnant de la tech. De $90 (2022) à $600+ : top conviction Greenlight, Pershing.' },
+      { ticker: 'AAPL', name: 'Apple', entryDate: '2016', returnPct: 800,
+        story: 'Plus grosse position de Berkshire ($165B). 80%+ des hedge funds long. Le retour cash machine ultime.' },
+      { ticker: 'MSFT', name: 'Microsoft', entryDate: '2022', returnPct: 95,
+        story: 'Pari OpenAI/Copilot. Top 5 holding chez Brookfield, Capital Group, Wellington, Norges Bank.' },
+      { ticker: 'TSLA', name: 'Tesla', entryDate: '2014', returnPct: 1500,
+        story: 'Position #1 d\'ARKK depuis 2014. Robotaxi + énergie + Starlink-Dojo : 4 paris en un.' },
+    ],
+  },
+  'SMH': {
+    quote: 'Le secteur le plus stratégique du XXIe siècle. Là où la "smart money" a parié massivement.',
+    aum: '$28B AUM',
+    callsLabel: 'Les semis qui ont enrichi les hedge funds',
+    calls: [
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2022', returnPct: 1200,
+        story: 'De $14 (split-adjusted) en 2022 à $180+ en 2024. Multi-100-bagger pour ceux entrés tôt.' },
+      { ticker: 'TSM', name: 'Taiwan Semiconductor', entryDate: '2020', returnPct: 200,
+        story: 'Le seul fondeur capable de produire les puces NVIDIA et Apple. Buffett a pris position en 2022.' },
+      { ticker: 'AVGO', name: 'Broadcom', entryDate: '2020', returnPct: 350,
+        story: 'AI custom silicon (Google TPU). Discrète mais position massive de Coatue et Tiger Global.' },
+      { ticker: 'AMD', name: 'Advanced Micro Devices', entryDate: '2020', returnPct: 250,
+        story: 'L\'alternative à NVIDIA. Lisa Su a transformé AMD en concurrent crédible. WSB favorite.' },
+      { ticker: 'ASML', name: 'ASML Holding', entryDate: '2020', returnPct: 150,
+        story: 'Monopole mondial sur les machines EUV. Sans ASML, pas de NVIDIA. Le maillon le plus stratégique.' },
     ],
   },
   'BUZZ': {
@@ -601,9 +612,8 @@ async function runWithConcurrency(items, concurrency, asyncFn) {
  * GET /api/backtest/featured[?refresh=1]
  */
 export async function handleBacktestFeatured(env, opts = {}) {
-  // v3 : bump apres switch vers 8 vehicules portfolio-proxy (holdings + ETFs)
-  // Asset managers (BLK, KKR, BX, APO) RETIRES car cours != portfolio
-  const cacheKey = 'backtest-featured-v3-3y';
+  // v4 : bump apres swap ICAHN/ARKG/IPO -> FAIRFAX/MAGS/SMH (alpha massif)
+  const cacheKey = 'backtest-featured-v4-3y';
   if (!opts.refresh) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');

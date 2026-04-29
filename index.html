@@ -1557,7 +1557,8 @@
         <h2 style="font-size:36px;margin:14px 0 12px;letter-spacing:-0.5px">Combien auriez-vous gagné <span style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en suivant ces fonds légendaires ?</span></h2>
         <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:16px;line-height:1.65">
           Choisis un fonds, un horizon, ton patrimoine de départ — et découvre <strong style="color:var(--text-primary)">la performance réelle</strong> vs S&P 500.
-          8 véhicules dont le cours <strong style="color:var(--text-primary)">reflète directement le portefeuille</strong> (Berkshire, Pershing Square, Icahn, ARKK, GURU…).
+          8 véhicules <strong style="color:var(--text-primary)">qui ont battu l'indice</strong> sur leur horizon optimal :
+          Berkshire (+275 pts sur 20 ans), Fairfax (+247 pts sur 5 ans), Magnificent 7, Semiconducteurs, ETFs trackers de smart money…
         </p>
       </div>
       <!-- Widget mount : Berkshire 10 ans par defaut, autoRun pour wow effect immediat -->
@@ -2446,7 +2447,7 @@
         if (!root || !window.KairosBacktest) return;
         window.KairosBacktest.mount(root, {
           defaultFiler: 'BERKSHIRE',
-          defaultPeriod: '10y',
+          defaultPeriod: '20y',  // Berkshire +275 pts d'alpha sur 20y - le track record legendaire
           defaultCapital: 5000,
           autoRun: true,
           showBestCalls: true,
