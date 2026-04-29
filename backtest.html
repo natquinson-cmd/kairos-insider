@@ -93,7 +93,7 @@
       line-height: 1.15;
     }
     .hero h1 span.gradient {
-      background: linear-gradient(135deg, #3B82F6, #10B981);
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -152,17 +152,23 @@
     }
     .form-row button {
       padding: 12px 28px;
-      background: var(--accent);
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(59,130,246,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
     }
-    .form-row button:hover { background: var(--accent-hover); }
-    .form-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-row button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(59,130,246,0.55), 0 0 0 1px rgba(255,255,255,0.18) inset;
+      filter: brightness(1.08);
+    }
+    .form-row button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
     .results { margin-top: 32px; }
     .summary-grid {
@@ -210,7 +216,7 @@
     .vs-bench .bar-row .bar-track { flex: 1; height: 24px; background: var(--surface-2); border-radius: 6px; position: relative; overflow: hidden; }
     .vs-bench .bar-row .bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--accent), #10B981);
+      background: linear-gradient(90deg, #3B82F6, #8B5CF6);
       transition: width 0.6s ease;
     }
     .vs-bench .bar-row .bar-fill.bench { background: linear-gradient(90deg, #64748B, #94A3B8); }
@@ -528,7 +534,7 @@
 
       const html = `
         <!-- HERO MARKETING : gros chiffre patrimoine final -->
-        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(16,185,129,0.10));border:1px solid rgba(59,130,246,0.3);border-radius:18px;padding:32px;margin-bottom:24px;text-align:center">
+        <div style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.12));border:1px solid rgba(139,92,246,0.3);border-radius:18px;padding:32px;margin-bottom:24px;text-align:center">
           <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary);margin-bottom:6px">Avec ${fmtEur(capital)} investis dans ${filerLabel} il y a ${periodLabel}</div>
           <div style="font-size:14px;color:var(--text-muted);margin-bottom:18px">Vous auriez aujourd'hui</div>
           <div style="font-size:64px;font-weight:900;color:${fundColor};line-height:1;letter-spacing:-1.5px">${fmtEur(finalCapital)}</div>
@@ -600,7 +606,7 @@
     // Trust footer : pitch "pourquoi Kairos" sous le backtest
     function renderTrustFooter(filerLabel) {
       return `
-        <div style="margin-top:48px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(16,185,129,0.08));border:1px solid rgba(59,130,246,0.3);border-radius:20px;padding:32px;text-align:center">
+        <div style="margin-top:48px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10));border:1px solid rgba(139,92,246,0.3);border-radius:20px;padding:32px;text-align:center">
           <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">Vous voulez les prochains coups ?</div>
           <h3 style="margin:0 0 8px;font-size:26px;font-weight:800;letter-spacing:-0.3px">Suivez ${filerLabel} en temps réel</h3>
           <p style="margin:0 auto 24px;color:var(--text-secondary);max-width:560px;line-height:1.6">
@@ -608,7 +614,7 @@
             Reçoit une alerte email <strong style="color:var(--text-primary)">avant que la presse ne couvre la news</strong>.
           </p>
           <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-            <a href="/dashboard.html?action=signup" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:var(--accent);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:15px;transition:background 0.15s" onmouseover="this.style.background='var(--accent-hover)'" onmouseout="this.style.background='var(--accent)'">
+            <a href="/dashboard.html?action=signup" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(59,130,246,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;transition:transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease" onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.08)'" onmouseout="this.style.transform='';this.style.filter=''">
               Créer mon compte gratuit
             </a>
             <a href="/" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:transparent;color:var(--text-primary);text-decoration:none;border-radius:12px;font-weight:600;font-size:15px;border:1px solid var(--border-strong)">
