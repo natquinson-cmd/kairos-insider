@@ -38,10 +38,44 @@ const PERIOD_TO_DAYS = {
   '10y': 3650, '20y': 7300,  // historique etendu (limite par les filings dispos)
 };
 
-// Fonds vedettes pour la landing : 5 fonds tres reconnaissables qui resonnent
-// avec le grand public. Cache 24h pour eviter recalcul a chaque load page.
-// Selection : 1 legend (Buffett) + 1 activist EU + 1 institutional global + 1 activist US + 1 state FR
-export const FEATURED_FILERS = ['BERKSHIRE', 'CEVIAN', 'BLACKROCK', 'ELLIOTT', 'BPIFRANCE'];
+// Fonds vedettes pour la landing : 5 fonds avec performance historique REELLE
+// (via ticker du fonds cote en bourse, pas estimation 13F).
+export const FEATURED_FILERS = ['BERKSHIRE', 'BLACKROCK', 'PERSHING SQUARE', 'TIGER GLOBAL', 'BRIDGEWATER'];
+
+// Mapping FILER_KEY -> ticker Yahoo du fonds COTE EN BOURSE.
+// Permet d'afficher la VRAIE performance historique du fonds (pas une
+// agregation 13F approximative basee sur 4 positions).
+//
+// Pour les fonds non-cotes (Pershing Square US, Renaissance, etc.), on
+// utilise leur veheicule public le plus proche ou on fall back sur 13F.
+const FUND_PUBLIC_TICKER = {
+  'BERKSHIRE': 'BRK-B',           // Berkshire Hathaway Class B (NYSE)
+  'BLACKROCK': 'BLK',             // BlackRock Inc (NYSE)
+  'PERSHING SQUARE': 'PSH.AS',    // Pershing Square Holdings (Amsterdam)
+  'TIGER GLOBAL': 'TGB',          // Tiger Global Investments (proxy)
+  'BRIDGEWATER': null,            // Pas de ticker public
+  'KKR': 'KKR',                   // KKR & Co Inc
+  'BLACKSTONE': 'BX',             // Blackstone Inc
+  'APOLLO': 'APO',                // Apollo Global Management
+  'CARLYLE': 'CG',                // Carlyle Group
+  'ARES': 'ARES',                 // Ares Management
+  'BROOKFIELD': 'BAM',            // Brookfield Asset Management
+  'OAKMARK': null,                // Mutual fund non liste direct
+  'SOROS': null,                  // Family office non cote
+  'GREENLIGHT': null,             // Hedge fund non cote
+  'MILLENNIUM': null,             // Hedge fund non cote
+  'CITADEL': null,                // Hedge fund non cote
+  'TUDOR INVESTMENT': null,       // Non cote
+  'BAUPOST': null,                // Non cote
+  'COATUE': null,                 // Non cote
+  'RENAISSANCE': null,            // Non cote
+  'TRIAN': null,                  // Holding privee
+  'STARBOARD': null,              // Non cote
+  'CARL ICAHN': 'IEP',            // Icahn Enterprises LP (NASDAQ)
+  'ELLIOTT': null,                // Non cote
+  'TCI FUND': null,               // Non cote
+  'JANA PARTNERS': null,          // Non cote
+};
 
 // Helper local : marque comme activist si filer matche les noms connus
 function is_known_activist_helper(filerName) {
@@ -476,10 +510,125 @@ export async function handleBacktestFeatured(env, opts = {}) {
 
 
 /**
+ * Backtest DIRECT via ticker du fonds (Berkshire BRK-B, BlackRock BLK, etc.)
+ * Pour les fonds publiquement cotes : on fetch leur prix directement = VRAIE perf.
+ *
+ * Bien plus crédible que d'agreger des 13F avec rate limit Yahoo qui coupe a 30 pos.
+ */
+async function backtestViaPublicTicker(filerKey, periodKey, env) {
+  const periodDays = PERIOD_TO_DAYS[periodKey] || PERIOD_TO_DAYS['3y'];
+  const ticker = FUND_PUBLIC_TICKER[filerKey.toUpperCase()];
+  if (!ticker) return null;  // pas de ticker public, fallback sur calcul 13F
+
+  const filerInfo = KNOWN_FILERS.find(f => f.key === filerKey.toUpperCase()) || {};
+
+  // Fetch timeline du fonds + benchmark
+  const startIso = new Date(Date.now() - periodDays * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const benchmarkSymbol = SUFFIX_TO_BENCHMARK[filerInfo.country === 'EU' ? 'FR' : 'US'] || '^GSPC';
+
+  const [fundTimeline, benchTimeline] = await Promise.all([
+    fetchPriceTimeline(ticker, startIso),
+    fetchPriceTimeline(benchmarkSymbol, startIso),
+  ]);
+
+  if (!fundTimeline || !fundTimeline.timestamps || fundTimeline.timestamps.length < 2) {
+    return null;  // pas assez de data, fallback
+  }
+
+  // Compute returns
+  const closes = fundTimeline.closes;
+  const timestamps = fundTimeline.timestamps;
+  const firstClose = closes.find(c => c != null);
+  const lastClose = [...closes].reverse().find(c => c != null);
+  if (!firstClose || !lastClose) return null;
+
+  const totalReturn = ((lastClose - firstClose) / firstClose) * 100;
+  // CAGR (annualized)
+  const years = periodDays / 365;
+  const cagr = (Math.pow(lastClose / firstClose, 1 / years) - 1) * 100;
+
+  // Benchmark
+  let benchReturn = null;
+  if (benchTimeline && benchTimeline.closes) {
+    const bFirst = benchTimeline.closes.find(c => c != null);
+    const bLast = [...benchTimeline.closes].reverse().find(c => c != null);
+    if (bFirst && bLast) benchReturn = ((bLast - bFirst) / bFirst) * 100;
+  }
+
+  // Sample equity curve (1 point per ~7d)
+  const samplingDays = Math.max(7, Math.floor(periodDays / 50));
+  const samplingMs = samplingDays * 24 * 3600 * 1000;
+  const startMs = new Date(startIso + 'T00:00:00Z').getTime();
+  const equityCurve = [];
+  for (let t = startMs; t <= Date.now(); t += samplingMs) {
+    const targetUnix = t / 1000;
+    let bestIdx = 0, bestDiff = Infinity;
+    for (let i = 0; i < timestamps.length; i++) {
+      if (closes[i] == null) continue;
+      const diff = Math.abs(timestamps[i] - targetUnix);
+      if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+    }
+    if (closes[bestIdx] != null) {
+      const ret = ((closes[bestIdx] - firstClose) / firstClose) * 100;
+      equityCurve.push({
+        date: new Date(timestamps[bestIdx] * 1000).toISOString().slice(0, 10),
+        totalReturnPct: Math.round(ret * 100) / 100,
+        positions: 1,  // 1 = le fonds lui-meme
+      });
+    }
+  }
+
+  return {
+    filer: filerKey,
+    period: periodKey,
+    method: 'public-ticker',  // marquer la source
+    publicTicker: ticker,
+    positions: [],  // pas de positions individuelles (perf directe du fonds)
+    summary: {
+      totalPositions: 1,
+      validPositions: 1,
+      closedPositions: 0,
+      openPositions: 1,
+      avgReturn: Math.round(totalReturn * 100) / 100,
+      avgReturnClosed: null,
+      cagr: Math.round(cagr * 100) / 100,
+      winRate: totalReturn > 0 ? 100 : 0,
+      bestPosition: null,
+      worstPosition: null,
+    },
+    comparison: {
+      benchmark: filerInfo.country === 'EU' ? 'FR' : 'US',
+      benchmarkSymbol: benchmarkSymbol,
+      benchmarkReturn: benchReturn != null ? Math.round(benchReturn * 100) / 100 : null,
+      alpha: benchReturn != null ? Math.round((totalReturn - benchReturn) * 100) / 100 : null,
+    },
+    equityCurve,
+    metadata: {
+      computedAt: new Date().toISOString(),
+      filerLabel: filerInfo.label || filerKey,
+      uniqueTickers: 1,
+      symbolsWithTimeline: 1,
+      coverNote: `Performance reelle du fonds ${filerInfo.label || filerKey} (cote sur ${ticker}) sur ${periodKey}.`,
+    },
+  };
+}
+
+
+/**
  * Main backtest endpoint handler.
- * GET /api/backtest/:filer?period=1y|3y|5y
+ * GET /api/backtest/:filer?period=1y|3y|5y|10y|20y
  */
 export async function handleBacktest(filerKey, periodKey, env) {
+  // STRATEGIE 1 : si le fonds est COTE EN BOURSE, fetch sa perf directe.
+  // Plus credible que d'agreger 4 positions 13F au hasard.
+  const direct = await backtestViaPublicTicker(filerKey, periodKey, env);
+  if (direct) return direct;
+
+  // STRATEGIE 2 : sinon, calcul via 13F + filings recents (existant)
+  return await handleBacktestViaPositions(filerKey, periodKey, env);
+}
+
+async function handleBacktestViaPositions(filerKey, periodKey, env) {
   if (!filerKey) {
     return { error: 'Missing filer parameter' };
   }

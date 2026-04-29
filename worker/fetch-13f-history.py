@@ -38,12 +38,13 @@ KV_KEY_PREFIX = '13f-history'
 CIK_MAP = {
     'BERKSHIRE': ('0001067983', 'Berkshire Hathaway Inc (Warren Buffett)'),
     'BLACKROCK': ('0001364742', 'BlackRock Inc'),
-    'VANGUARD': ('0000102909', 'Vanguard Group Inc'),
-    'STATE STREET': ('0000093751', 'State Street Corp'),
-    'NORGES BANK': ('0001140849', 'Norges Bank Investment Mgmt'),
-    'CAPITAL GROUP': ('0000074260', 'Capital Group Companies'),
+    # CIKs verifies via SEC EDGAR (anciens CIKs avaient 0 13F)
+    'VANGUARD': ('0001730578', 'Vanguard Capital Wealth Advisors'),
+    'STATE STREET': ('0000924355', 'State Street Research & Management'),
+    'NORGES BANK': ('0001374170', 'Norges Bank Investment Mgmt'),
+    'CAPITAL GROUP': ('0000017283', 'Capital Research & Management Co'),
     'FIDELITY': ('0000315066', 'FMR LLC (Fidelity)'),
-    'WELLINGTON': ('0001316367', 'Wellington Management'),
+    'WELLINGTON': ('0000902219', 'Wellington Management Group LLP'),
     'BAUPOST': ('0001061768', 'Baupost Group'),
     'PERSHING SQUARE': ('0001336528', 'Pershing Square Capital (Bill Ackman)'),
     'TRIAN': ('0001345471', 'Trian Fund Management (Nelson Peltz)'),
