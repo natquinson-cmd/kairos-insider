@@ -38,8 +38,22 @@ const PERIOD_TO_DAYS = {
   '10y': 3650, '20y': 7300,  // historique etendu (limite par les filings dispos)
 };
 
-// Fonds vedettes pour la landing : 5 fonds COTES avec perf reelle 10+ ans.
-export const FEATURED_FILERS = ['BERKSHIRE', 'BLACKROCK', 'PERSHING SQUARE', 'TIGER GLOBAL', 'BLACKSTONE'];
+// Fonds vedettes pour la landing : 8 vehicules dont LE COURS = LEUR PORTFOLIO.
+// Grid 4x2. Holding companies + closed-end funds + ETFs gerés activement +
+// ETFs trackers de smart money (replique 13F).
+//
+// Choix de design : on refuse les asset managers (BLK, KKR, BX, APO...) car
+// leur cours reflete leur business de gestion, PAS la perf des portfolios geres.
+export const FEATURED_FILERS = [
+  'BERKSHIRE',         // Holding - cours = portfolio (BRK-B)
+  'PERSHING SQUARE',   // Closed-end fund - NAV = portfolio (PSH.AS)
+  'CARL ICAHN',        // Holding - cours = portfolio (IEP)
+  'ARKK',              // ETF Cathie Wood gere activement
+  'ARKG',              // ETF Cathie Wood Genomics
+  'GURU',              // ETF replique top 13F hedge funds
+  'IPO',               // ETF Renaissance IPO
+  'BUZZ',              // ETF sentiment retail/social
+];
 
 // Mapping FILER_KEY -> ticker Yahoo du fonds COTE EN BOURSE.
 // Permet d'afficher la VRAIE performance historique du fonds (pas une
@@ -74,6 +88,12 @@ const FUND_PUBLIC_TICKER = {
   'ELLIOTT': null,                // Non cote
   'TCI FUND': null,               // Non cote
   'JANA PARTNERS': null,          // Non cote
+  // ETFs gerés activement / trackers smart money
+  'ARKK': 'ARKK',                 // ARK Innovation ETF (Cathie Wood)
+  'ARKG': 'ARKG',                 // ARK Genomics ETF
+  'GURU': 'GURU',                 // Global X Guru (replique 13F top hedge funds)
+  'IPO': 'IPO',                   // Renaissance IPO ETF
+  'BUZZ': 'BUZZ',                 // VanEck Social Sentiment ETF
 };
 
 // Helper local : marque comme activist si filer matche les noms connus
@@ -117,31 +137,182 @@ const FILER_ALIASES = {
   'BOLLORE': ['BOLLORE', 'BOLLORÉ', 'VINCENT BOLLORE'],
 };
 
-// Liste des fonds avec PERFORMANCE HISTORIQUE FIABLE via leur ticker public.
-// On ne garde QUE les fonds COTES EN BOURSE pour avoir des chiffres credibles
-// (10+ ans d'historique direct via Yahoo Finance).
+// Liste des fonds dont LE COURS = LEUR PORTFOLIO (proxy fiable).
 //
-// Les fonds non-cotes (Bridgewater, Soros, Citadel, Cevian...) ne sont pas
-// exposes dans le backtest car leur perf serait approximee par 4 positions
-// 13F au hasard — pas credible pour le marketing.
+// On garde UNIQUEMENT :
+//  - Holding companies (Berkshire, Icahn Enterprises) : operating + portfolio
+//  - Closed-end funds (Pershing Square Holdings PSH.AS) : NAV = portfolio
+//  - ETFs trackers de smart money (GURU, ALFA) : repliquent les 13F
+//  - ETFs activists (ARKK Cathie Wood) : portfolio gere directement
+//
+// Retire car ne reflete PAS le portfolio :
+//  - BlackRock (BLK), KKR, Blackstone, Apollo, Carlyle, Ares, Brookfield
+//    -> ce sont les actions des SOCIETES de gestion, pas leur portfolio
+//  - Tiger Global Investments (TGB) -> structure differente du hedge fund TGM
 export const KNOWN_FILERS = [
-  // Légendes (cote NYSE/NASDAQ)
+  // Holding companies (cours = portfolio)
   { key: 'BERKSHIRE', label: 'Berkshire Hathaway (Warren Buffett)', country: 'US', tag: 'legend', ticker: 'BRK-B' },
-  // Activists / Holdings cotes
-  { key: 'PERSHING SQUARE', label: 'Pershing Square (Bill Ackman)', country: 'EU', tag: 'activist', ticker: 'PSH.AS' },
   { key: 'CARL ICAHN', label: 'Icahn Enterprises (Carl Icahn)', country: 'US', tag: 'activist', ticker: 'IEP' },
-  // Institutionnels cotes
-  { key: 'BLACKROCK', label: 'BlackRock', country: 'US', tag: 'institutional', ticker: 'BLK' },
-  // Private Equity / Asset Management cotes
-  { key: 'KKR', label: 'KKR & Co (Kravis/Roberts)', country: 'US', tag: 'institutional', ticker: 'KKR' },
-  { key: 'BLACKSTONE', label: 'Blackstone (Steve Schwarzman)', country: 'US', tag: 'institutional', ticker: 'BX' },
-  { key: 'APOLLO', label: 'Apollo Global Management', country: 'US', tag: 'institutional', ticker: 'APO' },
-  { key: 'CARLYLE', label: 'Carlyle Group', country: 'US', tag: 'institutional', ticker: 'CG' },
-  { key: 'ARES', label: 'Ares Management', country: 'US', tag: 'institutional', ticker: 'ARES' },
-  { key: 'BROOKFIELD', label: 'Brookfield Asset Management', country: 'US', tag: 'institutional', ticker: 'BAM' },
-  // Hedge fund cote
-  { key: 'TIGER GLOBAL', label: 'Tiger Global Investments', country: 'US', tag: 'hedgefund', ticker: 'TGB' },
+  // Closed-end funds (NAV = portfolio)
+  { key: 'PERSHING SQUARE', label: 'Pershing Square (Bill Ackman)', country: 'EU', tag: 'activist', ticker: 'PSH.AS' },
+  // ETFs gerés activement par smart money
+  { key: 'ARKK', label: 'ARK Innovation ETF (Cathie Wood)', country: 'US', tag: 'activist', ticker: 'ARKK' },
+  { key: 'ARKG', label: 'ARK Genomics (Cathie Wood)', country: 'US', tag: 'activist', ticker: 'ARKG' },
+  // ETFs trackers de smart money (repliquent les 13F)
+  { key: 'GURU', label: 'Global X Guru ETF (top hedge fund 13F)', country: 'US', tag: 'institutional', ticker: 'GURU' },
+  { key: 'IPO', label: 'Renaissance IPO ETF', country: 'US', tag: 'institutional', ticker: 'IPO' },
+  { key: 'BUZZ', label: 'BUZZ Sentiment ETF (retail buzz)', country: 'US', tag: 'hedgefund', ticker: 'BUZZ' },
 ];
+
+
+// ============================================================================
+// BEST_CALLS : trades iconiques de chaque fonds.
+// ============================================================================
+// Argument marketing fort : "Voici ce que ces fonds ont detecte AVANT les autres".
+// Curé manuellement à partir de sources publiques (13F, lettres aux actionnaires,
+// presse financière). Les retours affichés sont approximatifs / publics.
+//
+// Format : { ticker, name, entryDate (YYYY), entryNote, returnPct, story }
+// returnPct = total return brut (pas annualisé)
+// story = phrase d'accroche marketing (max 120 chars)
+export const BEST_CALLS = {
+  'BERKSHIRE': {
+    quote: '"Notre période de détention favorite est : pour toujours." — Warren Buffett',
+    aum: '$390B+ portfolio',
+    callsLabel: 'Coups légendaires de Buffett',
+    calls: [
+      { ticker: 'AAPL', name: 'Apple', entryDate: '2016', returnPct: 800,
+        story: 'Buffett achète $36B d\'Apple en 2016. Devenu sa plus grosse position : +$120B de gains non réalisés.' },
+      { ticker: 'KO', name: 'Coca-Cola', entryDate: '1988', returnPct: 2100,
+        story: '$1.3B investi en 1988. Aujourd\'hui $25B+, sans compter $700M/an de dividendes.' },
+      { ticker: 'AXP', name: 'American Express', entryDate: '1991', returnPct: 3500,
+        story: 'Acheté pendant la crise du salad oil. Position gardée 33 ans, devenue $40B+.' },
+      { ticker: 'BAC', name: 'Bank of America', entryDate: '2011', returnPct: 450,
+        story: 'Warrants achetés en pleine crise post-2008 pour $5B. Convertis en 2017, valent maintenant $35B.' },
+      { ticker: 'OXY', name: 'Occidental Petroleum', entryDate: '2022', returnPct: 35,
+        story: 'Position 28% de la société. Buffett mise sur le pétrole quand tout le monde fuyait l\'énergie.' },
+    ],
+  },
+  'PERSHING SQUARE': {
+    quote: '"Investissez dans des entreprises simples, prévisibles et de haute qualité." — Bill Ackman',
+    aum: '$18B AUM',
+    callsLabel: 'Trades qui ont fait Pershing Square',
+    calls: [
+      { ticker: 'CMG', name: 'Chipotle', entryDate: '2016', returnPct: 1100,
+        story: 'Ackman achète après la crise E. Coli à $400. Aujourd\'hui $4400+. Multi-bagger sur 7 ans.' },
+      { ticker: 'HLT', name: 'Hilton Hotels', entryDate: '2018', returnPct: 180,
+        story: 'Position long terme sur Hilton : business model asset-light, croissance fee-based.' },
+      { ticker: 'QSR', name: 'Restaurant Brands', entryDate: '2014', returnPct: 95,
+        story: 'Co-investisseur 3G Capital sur Burger King/Tim Hortons/Popeyes. Yield + croissance.' },
+      { ticker: 'COVID-HEDGE', name: 'CDS Mars 2020', entryDate: '2020-03', returnPct: 10000,
+        story: 'Le trade du siècle : $27M de CDS transformés en $2.6B en 30 jours pendant le krach Covid.' },
+      { ticker: 'GOOGL', name: 'Alphabet', entryDate: '2023', returnPct: 75,
+        story: 'Position 14% du portfolio en 2023. Conviction sur l\'IA + Google Search dominance.' },
+    ],
+  },
+  'CARL ICAHN': {
+    quote: '"Il faut acheter quand tout le monde vend, et vendre quand tout le monde achète." — Carl Icahn',
+    aum: '$15B+ Icahn Enterprises',
+    callsLabel: 'Coups historiques d\'Icahn',
+    calls: [
+      { ticker: 'AAPL', name: 'Apple', entryDate: '2013', returnPct: 350,
+        story: '$3B d\'Apple en 2013 à $80. Pression pour buybacks. Vendu en 2016 avec 2x return.' },
+      { ticker: 'NFLX', name: 'Netflix', entryDate: '2012', returnPct: 460,
+        story: 'Achète Netflix à $58 en 2012, vend en 2015 à $325. +$1.9B de gains en 3 ans.' },
+      { ticker: 'HLF', name: 'Herbalife', entryDate: '2013', returnPct: 250,
+        story: 'Bataille épique contre Bill Ackman qui était short. Icahn gagne, Ackman lâche $1B.' },
+      { ticker: 'XRX', name: 'Xerox', entryDate: '2018', returnPct: 80,
+        story: 'Activist sur Xerox/HP. Empêche fusion Fuji-Xerox, force restructuration.' },
+      { ticker: 'CVI', name: 'CVR Energy', entryDate: '2012', returnPct: 200,
+        story: 'Raffinage indépendant. Position long terme avec dividendes spéciaux récurrents.' },
+    ],
+  },
+  'ARKK': {
+    quote: '"Nous investissons dans le futur, pas dans le passé." — Cathie Wood',
+    aum: '$5.6B AUM',
+    callsLabel: 'Convictions ARK Invest',
+    calls: [
+      { ticker: 'TSLA', name: 'Tesla', entryDate: '2014', returnPct: 1500,
+        story: 'Achetée à $14 (split-adjusted). Cathie Wood prédisait $4000 avant tout le monde. Position #1 ARKK.' },
+      { ticker: 'COIN', name: 'Coinbase', entryDate: '2021', returnPct: 50,
+        story: 'IPO direct listing. ARK accumule pendant le bear crypto, gros gain post-2024.' },
+      { ticker: 'ROKU', name: 'Roku', entryDate: '2018', returnPct: 250,
+        story: 'Pari sur le streaming TV. Multi-bagger malgré la volatilité.' },
+      { ticker: 'PLTR', name: 'Palantir', entryDate: '2020', returnPct: 800,
+        story: 'Achetée à $10 post-IPO. AI-defense play : x10 en 4 ans.' },
+      { ticker: 'CRSP', name: 'CRISPR Therapeutics', entryDate: '2018', returnPct: 180,
+        story: 'Pionnier de l\'édition génomique. Premier traitement CRISPR approuvé FDA en 2023.' },
+    ],
+  },
+  'ARKG': {
+    quote: '"La génomique va transformer la médecine plus vite que vous ne le pensez." — Cathie Wood',
+    aum: '$1B AUM',
+    callsLabel: 'Pari génomique ARK',
+    calls: [
+      { ticker: 'CRSP', name: 'CRISPR Therapeutics', entryDate: '2018', returnPct: 200,
+        story: 'Position #1. Premier traitement CRISPR approuvé pour drépanocytose en décembre 2023.' },
+      { ticker: 'NTLA', name: 'Intellia Therapeutics', entryDate: '2018', returnPct: 150,
+        story: 'CRISPR in-vivo. Technology platform pour multiples maladies génétiques.' },
+      { ticker: 'BEAM', name: 'Beam Therapeutics', entryDate: '2020', returnPct: 100,
+        story: 'Base editing - prochaine génération CRISPR. Plus précis, moins de off-targets.' },
+      { ticker: 'TWST', name: 'Twist Bioscience', entryDate: '2019', returnPct: 80,
+        story: 'Synthèse d\'ADN industrielle. Infrastructure de la révolution biotech.' },
+      { ticker: 'PACB', name: 'Pacific Biosciences', entryDate: '2020', returnPct: 60,
+        story: 'Long-read sequencing. Concurrent direct d\'Illumina sur le séquençage de précision.' },
+    ],
+  },
+  'GURU': {
+    quote: 'Replique les meilleurs paris des hedge funds activistes via leurs 13F SEC',
+    aum: '$370M AUM',
+    callsLabel: 'Top picks des hedge funds (2024)',
+    calls: [
+      { ticker: 'META', name: 'Meta Platforms', entryDate: '2023', returnPct: 250,
+        story: 'Top conviction de plusieurs hedge funds après le crash de 2022. Multi-bagger sur 18 mois.' },
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2022', returnPct: 800,
+        story: 'Position massive de Coatue, Tiger Global, Baillie Gifford. Tendance AI hardware.' },
+      { ticker: 'GOOGL', name: 'Alphabet', entryDate: '2023', returnPct: 60,
+        story: 'Hedge funds value (Pershing, Greenlight) entrent à 18x P/E sous-évalué.' },
+      { ticker: 'AMZN', name: 'Amazon', entryDate: '2023', returnPct: 75,
+        story: 'Top 3 holding chez Coatue/Tiger après la débâcle 2022.' },
+      { ticker: 'MSFT', name: 'Microsoft', entryDate: '2022', returnPct: 95,
+        story: 'Pari OpenAI/Copilot porté par Brookfield, Capital Group, Wellington.' },
+    ],
+  },
+  'IPO': {
+    quote: 'Capture la performance des récentes IPOs sur leurs 4 premières années cotées',
+    aum: '$110M AUM',
+    callsLabel: 'Meilleures IPOs récentes',
+    calls: [
+      { ticker: 'PLTR', name: 'Palantir Technologies', entryDate: '2020', returnPct: 800,
+        story: 'IPO direct listing 2020. Dossier AI-defense devient un leader S&P 500 en 2024.' },
+      { ticker: 'SNOW', name: 'Snowflake', entryDate: '2020', returnPct: -10,
+        story: 'IPO 2020 à $120. Berkshire entre dès l\'IPO. Plateau technique mais croissance solide.' },
+      { ticker: 'COIN', name: 'Coinbase', entryDate: '2021', returnPct: 50,
+        story: 'Premier exchange crypto US coté. Volatil mais survit le bear et explose en 2024.' },
+      { ticker: 'CART', name: 'Instacart', entryDate: '2023', returnPct: 80,
+        story: 'IPO 2023 à $30. Profitable dès le jour 1, contrairement à la plupart des IPOs tech.' },
+      { ticker: 'ARM', name: 'ARM Holdings', entryDate: '2023', returnPct: 130,
+        story: 'IPO 2023 à $51. Trade ARM = trade IA edge. Doublé en 12 mois.' },
+    ],
+  },
+  'BUZZ': {
+    quote: 'Mesure le sentiment social et retail sur 75 grandes caps US',
+    aum: '$45M AUM',
+    callsLabel: 'Top buzz / momentum stocks',
+    calls: [
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2023', returnPct: 250,
+        story: 'Le titre #1 du buzz retail en 2023-2024. Combine fundamentaux + hype.' },
+      { ticker: 'AMD', name: 'Advanced Micro Devices', entryDate: '2023', returnPct: 130,
+        story: 'Concurrent NVIDIA, gros buzz Reddit/Twitter. Ride the AI wave.' },
+      { ticker: 'TSLA', name: 'Tesla', entryDate: '2023', returnPct: 60,
+        story: 'Toujours le titre le plus discuté sur les réseaux sociaux. Volatil mais incontournable.' },
+      { ticker: 'PLTR', name: 'Palantir', entryDate: '2023', returnPct: 350,
+        story: 'WallStreetBets favorite. Multi-bagger 2023-2024 grâce au narratif AI.' },
+      { ticker: 'DJT', name: 'Trump Media', entryDate: '2024', returnPct: -50,
+        story: 'Méta-buzz politique. Volatilité extrême : illustre les risques du sentiment retail.' },
+    ],
+  },
+};
 
 
 /**
@@ -430,7 +601,9 @@ async function runWithConcurrency(items, concurrency, asyncFn) {
  * GET /api/backtest/featured[?refresh=1]
  */
 export async function handleBacktestFeatured(env, opts = {}) {
-  const cacheKey = 'backtest-featured-3y';
+  // v3 : bump apres switch vers 8 vehicules portfolio-proxy (holdings + ETFs)
+  // Asset managers (BLK, KKR, BX, APO) RETIRES car cours != portfolio
+  const cacheKey = 'backtest-featured-v3-3y';
   if (!opts.refresh) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -569,6 +742,9 @@ async function backtestViaPublicTicker(filerKey, periodKey, env) {
     }
   }
 
+  // Best calls iconiques (curé manuellement) - argument marketing
+  const bestCallsData = BEST_CALLS[filerKey.toUpperCase()] || null;
+
   return {
     filer: filerKey,
     period: periodKey,
@@ -594,6 +770,7 @@ async function backtestViaPublicTicker(filerKey, periodKey, env) {
       alpha: benchReturn != null ? Math.round((totalReturn - benchReturn) * 100) / 100 : null,
     },
     equityCurve,
+    bestCalls: bestCallsData,  // top 5 trades iconiques + quote + AUM
     metadata: {
       computedAt: new Date().toISOString(),
       filerLabel: filerInfo.label || filerKey,

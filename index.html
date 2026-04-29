@@ -1012,64 +1012,69 @@
 
     /* ===== SOURCES DE DONNEES (bandeau "As seen on" honnete) ===== */
     .data-sources-strip {
-      padding: 50px 0 40px;
+      padding: 70px 0 60px;
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, transparent, rgba(116,185,255,0.02), transparent);
+      background: linear-gradient(180deg, transparent, rgba(116,185,255,0.04), transparent);
     }
     .sources-label {
       text-align: center;
-      font-size: 12px;
+      font-size: 14px;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.16em;
       color: var(--text-muted);
-      font-weight: 600;
-      margin-bottom: 24px;
+      font-weight: 700;
+      margin-bottom: 36px;
     }
     .sources-logos {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       align-items: center;
-      gap: 14px 28px;
-      max-width: 1100px;
+      gap: 18px 24px;
+      max-width: 1200px;
       margin: 0 auto;
     }
     .source-logo {
       display: inline-flex;
       align-items: center;
-      gap: 14px;
-      padding: 14px 22px;
+      gap: 18px;
+      padding: 22px 32px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      font-weight: 600;
-      font-size: 16px;
+      border-radius: 18px;
+      font-weight: 700;
+      font-size: 19px;
       color: var(--text-primary);
-      transition: all 0.15s ease;
+      transition: all 0.18s ease;
       cursor: default;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     .source-logo:hover {
       border-color: var(--border-strong);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.18);
     }
     .source-ico {
-      font-size: 36px;
-      width: 40px;
-      height: 40px;
+      font-size: 52px;
+      width: 60px;
+      height: 60px;
       object-fit: contain;
       display: inline-block;
       flex-shrink: 0;
-      border-radius: 8px;
+      border-radius: 10px;
     }
     .source-name { letter-spacing: -0.01em; }
+    @media (max-width: 720px) {
+      .source-logo { padding: 16px 22px; font-size: 16px; gap: 14px; }
+      .source-ico { width: 44px; height: 44px; font-size: 38px; }
+    }
     .sources-footnote {
       text-align: center;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-muted);
-      margin-top: 24px;
-      max-width: 640px;
+      margin-top: 32px;
+      max-width: 720px;
       margin-left: auto;
       margin-right: auto;
       line-height: 1.6;
@@ -1500,34 +1505,8 @@
 
   <!-- ===== SOURCES DE DONNEES (bandeau "As seen on" version honnete) ===== -->
   <!--
-    Section Backtest preview : 5 fonds vedettes pre-calcules pour
-    demontrer la valeur immediate du produit sans inscription requise.
-  -->
-  <section class="section" id="backtest-preview" style="padding-top:60px;padding-bottom:40px">
-    <div class="container">
-      <div style="text-align:center;margin-bottom:32px">
-        <span class="section-badge" style="background:rgba(16, 185, 129, 0.15);color:#10B981;border:1px solid rgba(16, 185, 129, 0.3)">📊 BACKTEST GRATUIT</span>
-        <h2 style="font-size:32px;margin:12px 0 8px">Combien auriez-vous gagné <span style="background:linear-gradient(135deg,#3B82F6,#10B981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en suivant les fonds activistes ?</span></h2>
-        <p style="color:var(--text-secondary);max-width:700px;margin:0 auto;font-size:16px">
-          Performance réelle des positions de 5 grands fonds smart money sur les 3 dernières années.
-          Pas de compte requis, données 100% officielles (SEC + AMF + FCA + SIX + AFM + BaFin).
-        </p>
-      </div>
-      <div id="backtest-featured-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">
-        <div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1">⏳ Chargement des stats...</div>
-      </div>
-      <div style="text-align:center;margin-top:24px">
-        <a href="/backtest.html" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#3B82F6,#10B981);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px">
-          📊 Tester avec 30 fonds différents (gratuit, sans compte) →
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!--
-    Plutot qu'un faux "Vu dans Yahoo Finance" (qu'on ne peut pas prouver),
-    on affiche les 7 SOURCES officielles qu'on agrege. Ca cree la credibilite
-    institutionnelle sans mensonge.
+    Section logos sources officielles AVANT backtest : credibilite institutionnelle
+    immediatement apres le hero, avant que l'utilisateur voit les chiffres.
   -->
   <section class="data-sources-strip">
     <div class="container">
@@ -1563,6 +1542,32 @@
         </div>
       </div>
       <div class="sources-footnote" data-i18n="sources.footnote">Aucune donnée inventée. 100 % des signaux proviennent de régulateurs officiels ou de fournisseurs de marché reconnus.</div>
+    </div>
+  </section>
+
+  <!--
+    Section Backtest preview : 8 fonds COTES avec performance reelle 10 ans.
+    Vient APRES les logos sources pour le visiteur ait deja vu la credibilite.
+  -->
+  <section class="section" id="backtest-preview" style="padding-top:40px;padding-bottom:40px">
+    <div class="container">
+      <div style="text-align:center;margin-bottom:32px">
+        <span class="section-badge" style="background:rgba(16, 185, 129, 0.15);color:#10B981;border:1px solid rgba(16, 185, 129, 0.3)">📊 BACKTEST GRATUIT</span>
+        <h2 style="font-size:32px;margin:12px 0 8px">Combien auriez-vous gagné <span style="background:linear-gradient(135deg,#3B82F6,#10B981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en suivant ces fonds légendaires ?</span></h2>
+        <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:16px">
+          Performance <strong style="color:var(--text-primary)">réelle</strong> de 8 véhicules dont le cours <strong style="color:var(--text-primary)">reflète directement le portefeuille</strong> :
+          holdings (Berkshire, Icahn Enterprises), closed-end fund (Pershing Square) et ETFs gérés activement / trackers de smart money (ARK, Global X Guru, Renaissance IPO, BUZZ).
+          Cours direct via Yahoo Finance — chaque chiffre est vérifiable.
+        </p>
+      </div>
+      <div id="backtest-featured-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">
+        <div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1">⏳ Chargement des stats...</div>
+      </div>
+      <div style="text-align:center;margin-top:24px">
+        <a href="/backtest.html" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#3B82F6,#10B981);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:15px">
+          📊 Lancer un backtest personnalisé (gratuit, sans compte) →
+        </a>
+      </div>
     </div>
   </section>
 

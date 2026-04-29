@@ -511,8 +511,84 @@
         </div>
 
         ${renderEquityCurveDual(data.equityCurve || [], filerLabel)}
+
+        ${renderBestCalls(data.bestCalls, filerLabel)}
+
+        ${renderTrustFooter(filerLabel)}
       `;
       resultsDiv.innerHTML = html;
+    }
+
+    // Renders iconic trades section ("top 5 coups historiques") - argument marketing
+    function renderBestCalls(bc, filerLabel) {
+      if (!bc || !Array.isArray(bc.calls) || bc.calls.length === 0) return '';
+      const cards = bc.calls.map((call, idx) => {
+        const isPositive = (call.returnPct || 0) >= 0;
+        const color = isPositive ? '#10B981' : '#EF4444';
+        const sign = isPositive ? '+' : '';
+        const rankBadge = ['🥇', '🥈', '🥉', '4', '5'][idx] || (idx + 1);
+        return `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;transition:transform 0.15s,border-color 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='var(--border-strong)'" onmouseout="this.style.transform='';this.style.borderColor='var(--border)'">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:18px">${rankBadge}</div>
+                <div>
+                  <div style="font-weight:800;font-size:15px;color:var(--text-primary)">${call.name}</div>
+                  <div style="font-size:11px;color:var(--text-muted);font-family:monospace;letter-spacing:0.4px">${call.ticker} · entrée ${call.entryDate}</div>
+                </div>
+              </div>
+              <div style="font-size:22px;font-weight:900;color:${color};letter-spacing:-0.5px">${sign}${call.returnPct}%</div>
+            </div>
+            <p style="margin:0;font-size:13px;color:var(--text-secondary);line-height:1.5">${call.story}</p>
+          </div>`;
+      }).join('');
+
+      return `
+        <div style="margin-top:32px">
+          <!-- Quote bandeau -->
+          <div style="background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(59,130,246,0.06));border:1px solid rgba(251,191,36,0.25);border-radius:18px;padding:24px 28px;margin-bottom:20px;text-align:center">
+            <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px">Philosophie d'investissement</div>
+            <div style="font-size:18px;font-style:italic;color:var(--text-primary);line-height:1.5;max-width:720px;margin:0 auto">${bc.quote}</div>
+            ${bc.aum ? `<div style="margin-top:10px;display:inline-block;padding:4px 12px;background:rgba(59,130,246,0.15);color:var(--accent);border:1px solid rgba(59,130,246,0.3);border-radius:12px;font-size:11px;font-weight:700;letter-spacing:0.5px">${bc.aum}</div>` : ''}
+          </div>
+
+          <!-- Title best calls -->
+          <div style="margin-bottom:14px">
+            <h3 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.3px">${bc.callsLabel || "Trades qui ont marqué l'histoire"}</h3>
+            <p style="margin:6px 0 0;color:var(--text-secondary);font-size:14px">Détectés <strong style="color:var(--text-primary)">avant la masse</strong> par ${filerLabel}. Sources : 13F SEC, lettres aux actionnaires, presse financière.</p>
+          </div>
+
+          <!-- Grid 5 best calls -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+            ${cards}
+          </div>
+        </div>`;
+    }
+
+    // Trust footer : pitch "pourquoi Kairos" sous le backtest
+    function renderTrustFooter(filerLabel) {
+      return `
+        <div style="margin-top:48px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(16,185,129,0.08));border:1px solid rgba(59,130,246,0.3);border-radius:20px;padding:32px;text-align:center">
+          <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">Vous voulez les prochains coups ?</div>
+          <h3 style="margin:0 0 8px;font-size:26px;font-weight:800;letter-spacing:-0.3px">Suivez ${filerLabel} en temps réel</h3>
+          <p style="margin:0 auto 24px;color:var(--text-secondary);max-width:560px;line-height:1.6">
+            Kairos Insider trace <strong style="color:var(--text-primary)">tous les filings SEC, AMF, FCA, BaFin, AFM, SIX</strong> dès leur publication.
+            Reçoit une alerte email <strong style="color:var(--text-primary)">avant que la presse ne couvre la news</strong>.
+          </p>
+          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+            <a href="/dashboard.html?action=signup" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:var(--accent);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:15px;transition:background 0.15s" onmouseover="this.style.background='var(--accent-hover)'" onmouseout="this.style.background='var(--accent)'">
+              Créer mon compte gratuit
+            </a>
+            <a href="/" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:transparent;color:var(--text-primary);text-decoration:none;border-radius:12px;font-weight:600;font-size:15px;border:1px solid var(--border-strong)">
+              En savoir plus
+            </a>
+          </div>
+          <div style="margin-top:18px;font-size:12px;color:var(--text-muted);display:flex;gap:18px;justify-content:center;flex-wrap:wrap">
+            <span>✓ Aucune CB requise</span>
+            <span>✓ Données régulateurs officiels</span>
+            <span>✓ 12 marchés couverts</span>
+          </div>
+        </div>`;
     }
 
     btnRun.addEventListener('click', runBacktest);
