@@ -1546,26 +1546,25 @@
   </section>
 
   <!--
-    Section Backtest preview : 8 fonds COTES avec performance reelle 10 ans.
-    Vient APRES les logos sources pour le visiteur ait deja vu la credibilite.
+    Section Backtest LIVE : widget interactif monte directement sur la landing.
+    Berkshire 10y par defaut, l'utilisateur peut changer fonds/periode/patrimoine
+    sans quitter la page. Effet "wow" maximum.
   -->
-  <section class="section" id="backtest-preview" style="padding-top:40px;padding-bottom:40px">
-    <div class="container">
+  <section class="section" id="backtest-preview" style="padding-top:40px;padding-bottom:60px">
+    <div class="container" style="max-width:1100px">
       <div style="text-align:center;margin-bottom:32px">
-        <span class="section-badge" style="background:rgba(16, 185, 129, 0.15);color:#10B981;border:1px solid rgba(16, 185, 129, 0.3)">📊 BACKTEST GRATUIT</span>
-        <h2 style="font-size:32px;margin:12px 0 8px">Combien auriez-vous gagné <span style="background:linear-gradient(135deg,#3B82F6,#10B981);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en suivant ces fonds légendaires ?</span></h2>
-        <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:16px">
-          Performance <strong style="color:var(--text-primary)">réelle</strong> de 8 véhicules dont le cours <strong style="color:var(--text-primary)">reflète directement le portefeuille</strong> :
-          holdings (Berkshire, Icahn Enterprises), closed-end fund (Pershing Square) et ETFs gérés activement / trackers de smart money (ARK, Global X Guru, Renaissance IPO, BUZZ).
-          Cours direct via Yahoo Finance — chaque chiffre est vérifiable.
+        <span class="section-badge" style="background:rgba(139, 92, 246, 0.15);color:#8B5CF6;border:1px solid rgba(139, 92, 246, 0.3)">📊 BACKTEST LIVE — 100 % GRATUIT</span>
+        <h2 style="font-size:36px;margin:14px 0 12px;letter-spacing:-0.5px">Combien auriez-vous gagné <span style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en suivant ces fonds légendaires ?</span></h2>
+        <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:16px;line-height:1.65">
+          Choisis un fonds, un horizon, ton patrimoine de départ — et découvre <strong style="color:var(--text-primary)">la performance réelle</strong> vs S&P 500.
+          8 véhicules dont le cours <strong style="color:var(--text-primary)">reflète directement le portefeuille</strong> (Berkshire, Pershing Square, Icahn, ARKK, GURU…).
         </p>
       </div>
-      <div id="backtest-featured-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">
-        <div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1">⏳ Chargement des stats...</div>
-      </div>
-      <div style="text-align:center;margin-top:24px">
-        <a href="/backtest.html" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(59,130,246,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset">
-          📊 Lancer un backtest personnalisé (gratuit, sans compte) →
+      <!-- Widget mount : Berkshire 10 ans par defaut, autoRun pour wow effect immediat -->
+      <div id="backtest-live-widget"></div>
+      <div style="text-align:center;margin-top:32px">
+        <a href="/backtest.html" style="display:inline-flex;align-items:center;gap:8px;padding:14px 32px;background:transparent;color:var(--text-primary);text-decoration:none;border-radius:10px;font-weight:600;font-size:15px;border:1px solid var(--border-strong);transition:border-color 0.15s, background 0.15s" onmouseover="this.style.borderColor='#8B5CF6';this.style.background='rgba(139,92,246,0.08)'" onmouseout="this.style.borderColor='';this.style.background=''">
+          Page backtest dédiée (URL partageable) →
         </a>
       </div>
     </div>
@@ -2438,112 +2437,42 @@
   <script src="assets/toast.js?v=20260420" defer></script>
   <script src="assets/cookie-consent.js?v=20260420" defer></script>
 
-  <!-- Backtest featured cards : load 5 funds stats from API + render on hero strip -->
+  <!-- Backtest LIVE widget : monte le widget interactif (lazy-loaded au scroll) -->
+  <script src="/assets/backtest-widget.js" defer></script>
   <script>
     (function() {
-      const TAG_LABELS = {
-        legend: { emoji: '⭐', label: 'Légende' },
-        activist: { emoji: '⚡', label: 'Activist' },
-        institutional: { emoji: '🏦', label: 'Institutionnel' },
-        family: { emoji: '👑', label: 'Famille' },
-        state: { emoji: '🏛️', label: 'Souverain' },
-        hedgefund: { emoji: '💰', label: 'Hedge Fund' },
+      function mountWidget() {
+        const root = document.getElementById('backtest-live-widget');
+        if (!root || !window.KairosBacktest) return;
+        window.KairosBacktest.mount(root, {
+          defaultFiler: 'BERKSHIRE',
+          defaultPeriod: '10y',
+          defaultCapital: 5000,
+          autoRun: true,
+          showBestCalls: true,
+          showTrustFooter: false,  // pas de doublon : la home a deja sa CTA section finale
+        });
+      }
+      // Lazy-load : monte le widget quand la section approche du viewport
+      const target = document.getElementById('backtest-live-widget');
+      if (!target) return;
+      const fire = () => {
+        if (window.KairosBacktest) {
+          mountWidget();
+        } else {
+          // Le script defer n'est pas encore execute : attend
+          setTimeout(fire, 100);
+        }
       };
-      const COUNTRY_FLAG = { US: '🇺🇸', FR: '🇫🇷', UK: '🇬🇧', GLOBAL: '🌍', EU: '🇪🇺' };
-
-      function fmtPct(n) {
-        if (n == null || isNaN(n)) return '—';
-        const sign = n > 0 ? '+' : '';
-        return sign + Number(n).toFixed(1) + '%';
-      }
-
-      async function loadFeaturedBacktest() {
-        const container = document.getElementById('backtest-featured-cards');
-        if (!container) return;
-        try {
-          // Le worker n'est PAS route sur kairosinsider.fr/api/*
-          // (routes wrangler couvrent /a/*, /blog/*, sitemap.xml, robots.txt seulement)
-          // Donc on appelle TOUJOURS le worker en direct.
-          const apiBase = 'https://kairos-insider-api.natquinson.workers.dev/api';
-          const r = await fetch(`${apiBase}/backtest/featured`);
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          const data = await r.json();
-          if (!data.filers || data.filers.length === 0) throw new Error('No filers');
-          renderCards(data.filers, container);
-        } catch (e) {
-          // Fallback : afficher des stats statiques pour ne pas casser l'experience
-          container.innerHTML = `
-            <div style="text-align:center;padding:32px;grid-column:1/-1;color:var(--text-muted)">
-              <p>📊 Chargement temporairement indisponible</p>
-              <a href="/backtest.html" style="color:#3B82F6">Aller au backtest complet →</a>
-            </div>`;
-        }
-      }
-
-      function renderCards(filers, container) {
-        container.innerHTML = filers.map(f => {
-          if (f.error || f.avgReturn == null) {
-            return ''; // skip
-          }
-          const tag = TAG_LABELS[f.tag] || { emoji: '', label: f.tag };
-          const flag = COUNTRY_FLAG[f.country] || '🌍';
-          const retClass = f.avgReturn > 0 ? 'positive' : (f.avgReturn < 0 ? 'negative' : '');
-          const retColor = f.avgReturn > 0 ? '#10B981' : (f.avgReturn < 0 ? '#EF4444' : '#94A3B8');
-          const alphaColor = (f.alpha || 0) > 0 ? '#10B981' : ((f.alpha || 0) < 0 ? '#EF4444' : '#94A3B8');
-          const top = f.bestPosition || {};
-          return `
-            <a href="/backtest.html#filer=${encodeURIComponent(f.key)}" style="
-              display:block;text-decoration:none;color:inherit;
-              background:var(--surface);border:1px solid var(--border);border-radius:14px;
-              padding:20px;transition:transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-            " onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#3B82F6';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.2)'" onmouseout="this.style.transform='';this.style.borderColor='';this.style.boxShadow=''">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                <span style="font-size:18px">${flag}</span>
-                <span style="font-size:11px;text-transform:uppercase;color:#94A3B8;letter-spacing:0.5px">${tag.emoji} ${tag.label}</span>
-              </div>
-              <div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:14px;min-height:38px">${f.label}</div>
-              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
-                <span style="font-size:32px;font-weight:800;color:${retColor}">${fmtPct(f.avgReturn)}</span>
-                <span style="font-size:12px;color:#94A3B8">rendement moyen</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding-top:10px;border-top:1px solid var(--border)">
-                <span>${(f.winRate || 0).toFixed(0)}% win rate</span>
-                <span style="color:${alphaColor};font-weight:600">α ${fmtPct(f.alpha)} vs ${f.benchmark || 'idx'}</span>
-              </div>
-              ${top.target ? `
-                <div style="margin-top:8px;font-size:11px;color:#64748B">
-                  Top : <strong style="color:var(--text-primary)">${top.target.length > 22 ? top.target.slice(0,22)+'…' : top.target}</strong> ${fmtPct(top.returnPct)}
-                </div>
-              ` : ''}
-            </a>`;
-        }).filter(Boolean).join('');
-
-        if (container.innerHTML.trim() === '') {
-          container.innerHTML = `<div style="text-align:center;padding:32px;grid-column:1/-1;color:var(--text-muted)">
-            <p>📊 Données en cours de génération, revenez dans quelques minutes</p>
-            <a href="/backtest.html" style="color:#3B82F6">Aller au backtest complet →</a>
-          </div>`;
-        }
-      }
-
-      // Lazy-load : déclenche quand la section est près du viewport
       if ('IntersectionObserver' in window) {
-        const target = document.getElementById('backtest-featured-cards');
-        if (target) {
-          const obs = new IntersectionObserver((entries) => {
-            for (const e of entries) {
-              if (e.isIntersecting) {
-                obs.disconnect();
-                loadFeaturedBacktest();
-                break;
-              }
-            }
-          }, { rootMargin: '200px' });
-          obs.observe(target);
-        }
+        const obs = new IntersectionObserver((entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) { obs.disconnect(); fire(); break; }
+          }
+        }, { rootMargin: '300px' });
+        obs.observe(target);
       } else {
-        // Fallback : load immediately
-        document.addEventListener('DOMContentLoaded', loadFeaturedBacktest);
+        document.addEventListener('DOMContentLoaded', fire);
       }
     })();
   </script>
