@@ -21,7 +21,7 @@ const ZB_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chro
 // Format : { match (regex i): slug Zonebourse }
 const KNOWN_SLUGS = {
   // CAC 40 / SBF 120 (FR)
-  'LVMH': 'LVMH-MOET-HENNESSY-VUITTON-4669',
+  'LVMH': 'LVMH-4669',  // Zonebourse a raccourci slugs en 2026, redirige depuis ancien
   'TOTALENERGIES': 'TOTALENERGIES-SE-4717',
   'TOTAL': 'TOTALENERGIES-SE-4717',
   'AIRBUS': 'AIRBUS-4637',
@@ -193,27 +193,78 @@ function lookupSlugLocal(companyName) {
 }
 
 
-/**
- * Recherche dynamique du slug Zonebourse via leur moteur de recherche.
- * Cache 7 jours dans KV (le slug ne change pas souvent).
- * Plus fiable que le mapping statique qui devient obsolete avec les IDs Zonebourse.
- */
-async function searchZonebourseSlug(companyName, env) {
-  if (!companyName) return null;
-  // v2 : bump apres ajout validation match (eviter caches stale slugs faux)
-  const cacheKey = `zb-slug:v2:${stripAccents(companyName.toUpperCase()).trim()}`;
+// Helpers cache (notFound vs slug found)
+async function _cacheSlugMiss(env, cacheKey) {
+  if (env && env.CACHE) {
+    try {
+      await env.CACHE.put(cacheKey, JSON.stringify({ notFound: true, fetchedAt: new Date().toISOString() }),
+        { expirationTtl: 86400 });
+    } catch {}
+  }
+  return null;
+}
+async function _cacheSlugHit(env, cacheKey, slug) {
+  if (env && env.CACHE) {
+    try {
+      await env.CACHE.put(cacheKey, JSON.stringify({ slug, fetchedAt: new Date().toISOString() }),
+        { expirationTtl: 7 * 86400 });
+    } catch {}
+  }
+  return slug;
+}
 
-  // Cache 7 jours
+
+/**
+ * Recherche dynamique du slug Zonebourse + VALIDATION par fetch de la page.
+ *
+ * STRATEGIE v3 (apres bug LVMH du 30 avril 2026) :
+ *  1. Search Zonebourse par nom -> liste de slugs candidats
+ *  2. Pre-filtre : query stripped doit etre dans slug stripped (3-6 chars)
+ *  3. **VALIDATION FORTE** : pour chaque candidat (max 5), fetch /consensus/
+ *     et verifier que le <title> contient `| TICKERSHORT |` (ex: `| MC |`).
+ *     Le ticker court est unique par cotation Zonebourse, donc c'est
+ *     l'identifiant le plus fiable.
+ *  4. Fallback heuristique : si pas de ticker fourni, prendre le slug
+ *     avec le plus PETIT ID numerique (= cotation principale historique
+ *     vs pages news avec IDs > 10M).
+ *
+ * Pourquoi c'est necessaire :
+ *  - Zonebourse a plusieurs cotations par titre (Paris MC, Moscow MOH, etc.)
+ *  - Les IDs sont reattribues sans avertir (SANOFI-4684 devient HAULOTTE)
+ *  - La search retourne des results 'trending' par defaut (BNP-PARIBAS-4618)
+ *    meme pour des queries non liees -> validation par titre INDISPENSABLE
+ *
+ * @param {string} companyName - Nom de la societe (Yahoo longName ou shortName)
+ * @param {string|null} yahooSymbol - Symbole Yahoo complet (MC.PA, BARC.L) pour
+ *                                    extraire le ticker court qui sert de validation
+ * @param {object} env - env Cloudflare Worker (pour cache KV)
+ * @returns {Promise<string|null>} - Slug Zonebourse valide ou null
+ */
+async function searchZonebourseSlug(companyName, yahooSymbol, env) {
+  if (!companyName) return null;
+
+  // Ticker court = ce qui apparait avant le suffixe Yahoo (MC.PA -> MC).
+  // Sera utilise pour valider les candidats : Zonebourse encode ce ticker
+  // dans le <title> de chaque page entre pipes (`| MC |`).
+  const tickerShort = yahooSymbol
+    ? String(yahooSymbol).split('.')[0].toUpperCase()
+    : null;
+
+  // v3 : bump apres validation par fetch de title (vs v2 qui acceptait n'importe
+  // quel slug match-prefixe). Format clef : zb-slug:v3:NOM|TICKER pour cache
+  // separe par ticker (LVMH MC.PA != LVMH XYZ.MOH).
+  const cacheKey = `zb-slug:v3:${stripAccents(companyName.toUpperCase()).trim()}|${tickerShort || ''}`;
+
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
       if (cached && cached.slug) return cached.slug;
-      if (cached && cached.notFound) return null;  // memorise les misses
+      if (cached && cached.notFound) return null;
     } catch {}
   }
 
   try {
-    // Cleanup company name : enlever 'S.A.', 'PLC', 'AG', etc. pour mieux searcher
+    // Cleanup : enlever S.A., PLC, AG, etc. pour mieux searcher
     const cleanQuery = String(companyName)
       .replace(/[,.]?\s*(S\.?A\.?|S\.?A\.?S\.?|PLC|N\.?V\.?|AG|SE|SPA|S\.?p\.?A\.?|LTD|GROUP|GROUPE|HOLDING|HOLDINGS).*$/i, '')
       .trim()
@@ -227,64 +278,104 @@ async function searchZonebourseSlug(companyName, env) {
     if (!resp.ok) return null;
     const html = await resp.text();
 
-    // Extraire les premiers liens /cours/action/SLUG/
-    const links = Array.from(html.matchAll(/href="(\/cours\/action\/([A-Z0-9-]+))\/?"/gi))
-      .map(m => ({ path: m[1], slug: m[2] }));
-    const unique = Array.from(new Set(links.map(l => l.slug)));
+    const links = Array.from(html.matchAll(/href="\/cours\/action\/([A-Z0-9-]+)\/?"/gi))
+      .map(m => m[1]);
+    const unique = Array.from(new Set(links));
 
-    if (unique.length === 0) {
-      if (env && env.CACHE) {
-        try {
-          await env.CACHE.put(cacheKey, JSON.stringify({ notFound: true, fetchedAt: new Date().toISOString() }),
-            { expirationTtl: 86400 });
-        } catch {}
-      }
-      return null;
-    }
+    if (unique.length === 0) return _cacheSlugMiss(env, cacheKey);
 
-    // VALIDATION : verifier que le slug match REELLEMENT le nom recherche.
-    // Sans cette validation, la search Zonebourse retourne ses resultats
-    // 'trending' par defaut (KALRAY, NOKIA, VUSION) meme quand la query
-    // ne match pas du tout.
+    // PRE-FILTRE : slug stripped doit contenir les 3-6 premiers chars de la query
+    // (evite les results trending qui n'ont rien a voir : ALPHABET, MICROSOFT, etc.)
     const queryStripped = stripAccents(cleanQuery.toUpperCase()).replace(/[^A-Z0-9]/g, '');
-    if (queryStripped.length < 3) return null;
-    const validMatch = unique.find(slug => {
-      const slugStripped = slug.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      // Le slug doit contenir au moins 3 chars consecutifs du query
-      // (ex: "LVMH" dans "LVMH-MOET-HENNESSY..." ou "NESTLE" dans "NESTLE-S-A-...")
-      return slugStripped.includes(queryStripped.slice(0, Math.min(6, queryStripped.length)));
-    });
+    let candidates = unique;
+    if (queryStripped.length >= 3) {
+      const prefix = queryStripped.slice(0, Math.min(6, queryStripped.length));
+      candidates = unique.filter(slug => {
+        const slugStripped = slug.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return slugStripped.includes(prefix);
+      });
+      if (candidates.length === 0) candidates = unique;  // relâche si trop strict
+    }
 
-    if (!validMatch) {
-      // Search ne match pas la query -> on memorise le miss
-      if (env && env.CACHE) {
+    // VALIDATION FORTE : fetcher chaque candidat (max 5) et verifier que le
+    // <title> contient `| TICKERSHORT |`. Cela elimine :
+    //  - Les pages news/transcripts (IDs longs sans consensus, title sans ticker)
+    //  - Les autres cotations du meme titre (Moscow, NY, etc. - mauvais ticker)
+    //  - Les slugs reattribues a un autre titre
+    if (tickerShort && tickerShort.length >= 1 && tickerShort.length <= 8) {
+      const tickerRegex = new RegExp(`\\|\\s*${tickerShort.replace(/[^A-Z0-9]/gi, '')}\\s*\\|`, 'i');
+      // Limit a 5 fetches pour rester sous le quota subrequests Cloudflare (50/req)
+      for (const slug of candidates.slice(0, 5)) {
         try {
-          await env.CACHE.put(cacheKey, JSON.stringify({ notFound: true, fetchedAt: new Date().toISOString() }),
-            { expirationTtl: 86400 });
+          const consensusUrl = `${ZB_BASE}/cours/action/${slug}/consensus/`;
+          const r = await fetch(consensusUrl, {
+            headers: { 'User-Agent': ZB_UA, 'Accept': 'text/html' },
+          });
+          if (!r.ok) continue;
+          const h = await r.text();
+          const titleMatch = h.match(/<title>([^<]{1,200})<\/title>/i);
+          if (!titleMatch) continue;
+          const title = titleMatch[1];
+          // Title attendu format : "COMPANY: ... | TICKERSHORT | ISIN | Zonebourse"
+          if (tickerRegex.test(title) &&
+              (h.includes('consensus-gauge') || h.includes('Recommandation moyenne'))) {
+            return _cacheSlugHit(env, cacheKey, slug);
+          }
         } catch {}
       }
-      return null;
     }
 
-    if (env && env.CACHE) {
-      try {
-        await env.CACHE.put(cacheKey, JSON.stringify({ slug: validMatch, fetchedAt: new Date().toISOString() }),
-          { expirationTtl: 7 * 86400 });
-      } catch {}
-    }
-    return validMatch;
+    // FALLBACK : pas de ticker fourni, ou aucun candidat n'a passe la validation.
+    // Heuristique : prendre le slug avec le plus PETIT ID numerique a la fin.
+    // Les cotations principales historiques ont des IDs 4XXX (ex: LVMH-4669),
+    // les pages news/secondaires ont des IDs > 10M (LVMH-111960885).
+    const fallback = candidates.sort((a, b) => {
+      const aId = parseInt((a.match(/-(\d+)$/) || [])[1] || '0', 10);
+      const bId = parseInt((b.match(/-(\d+)$/) || [])[1] || '0', 10);
+      return aId - bId;
+    })[0];
+
+    if (fallback) return _cacheSlugHit(env, cacheKey, fallback);
+    return _cacheSlugMiss(env, cacheKey);
   } catch {
     return null;
   }
 }
 
 
-// Lookup : UNIQUEMENT via search dynamique avec validation match.
-// Le mapping local KNOWN_SLUGS est OBSOLETE : Zonebourse rattache les IDs
-// a d'autres titres sans avertir (ex: SANOFI-4684 -> HAULOTTE GROUP-4684,
-// SOITEC-4690 -> 301, etc.). Mieux vaut un null honnete qu'un faux Target.
-async function lookupSlug(companyName, env) {
-  return await searchZonebourseSlug(companyName, env);
+// Lookup : UNIQUEMENT via search dynamique avec validation par fetch de title.
+// KNOWN_SLUGS reste utilise comme priorite 1 pour les top stocks connus
+// (mais Zonebourse reattribue les IDs sans avertir, donc validation runtime).
+async function lookupSlug(companyName, yahooSymbol, env) {
+  // Priorite 1 : KNOWN_SLUGS pour cas connus (test rapide, evite le fetch search)
+  const known = lookupSlugLocal(companyName);
+  if (known) {
+    // Valide le slug connu en fetchant sa page (attrape les IDs reattribues)
+    if (yahooSymbol) {
+      const tickerShort = String(yahooSymbol).split('.')[0].toUpperCase();
+      try {
+        const r = await fetch(`${ZB_BASE}/cours/action/${known}/consensus/`, {
+          headers: { 'User-Agent': ZB_UA, 'Accept': 'text/html' },
+        });
+        if (r.ok) {
+          const h = await r.text();
+          const titleMatch = h.match(/<title>([^<]{1,200})<\/title>/i);
+          if (titleMatch) {
+            const tickerRegex = new RegExp(`\\|\\s*${tickerShort.replace(/[^A-Z0-9]/gi, '')}\\s*\\|`, 'i');
+            if (tickerRegex.test(titleMatch[1]) &&
+                (h.includes('consensus-gauge') || h.includes('Recommandation moyenne'))) {
+              return known;  // KNOWN_SLUGS confirme valide
+            }
+          }
+        }
+      } catch {}
+      // Si la validation KNOWN_SLUGS echoue -> tomber dans search dynamique
+    } else {
+      return known;  // pas de ticker pour valider, on fait confiance au mapping
+    }
+  }
+  // Priorite 2 : search dynamique avec validation
+  return await searchZonebourseSlug(companyName, yahooSymbol, env);
 }
 
 
@@ -523,13 +614,19 @@ async function fetchZonebourseFundamentals(slug, env) {
  *
  * @param {string} companyName - "LVMH", "Nestle", "ASML"...
  * @param {object} env - Cloudflare worker env (avec env.CACHE)
+ * @param {object} [opts] - Options additionnelles
+ * @param {string} [opts.yahooSymbol] - Symbole Yahoo (MC.PA, BARC.L) pour validation
+ *                                       par ticker court (ex: MC pour MC.PA)
  * @returns {Promise<object|null>}
  */
-export async function fetchZonebourseConsensus(companyName, env) {
+export async function fetchZonebourseConsensus(companyName, env, opts = {}) {
   if (!companyName) return null;
 
-  // v7 : bump pour invalider caches v6 contenant slugs faux (KALRAY pour LVMH)
-  const cacheKey = `zb-consensus:v7:${String(companyName).toUpperCase().trim()}`;
+  const yahooSymbol = opts.yahooSymbol || null;
+
+  // v8 : bump pour invalider caches v7 contenant slugs faux (LVMH-111960885 etc.)
+  // Format clef inclut le yahooSymbol pour cache differencie par cotation.
+  const cacheKey = `zb-consensus:v8:${String(companyName).toUpperCase().trim()}|${yahooSymbol || ''}`;
 
   // Check cache 24h
   try {
@@ -540,8 +637,8 @@ export async function fetchZonebourseConsensus(companyName, env) {
     }
   } catch {}
 
-  // Lookup slug : local mapping puis search dynamique
-  const slug = await lookupSlug(companyName, env);
+  // Lookup slug : KNOWN_SLUGS valide puis search dynamique avec validation
+  const slug = await lookupSlug(companyName, yahooSymbol, env);
   if (!slug) {
     return null;
   }

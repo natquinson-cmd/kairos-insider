@@ -183,7 +183,13 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   try {
     if (hasYahooSuffix || /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE)$/i.test(ticker)) {
       const companyForLookup = (quote?.company?.name) || userInput;
-      zonebourseConsensus = await fetchZonebourseConsensus(companyForLookup, env);
+      // v3 : on passe yahooSymbol pour la validation par ticker short dans le title.
+      // Indispensable car Zonebourse a plusieurs cotations par titre (Paris MC vs
+      // Moscow MOH) et la search retourne souvent le mauvais (LVMH-111960885 = page
+      // news sans consensus, vs LVMH-4669 = vraie cotation Paris).
+      zonebourseConsensus = await fetchZonebourseConsensus(companyForLookup, env, {
+        yahooSymbol: ticker,
+      });
     }
   } catch {}
 
@@ -221,11 +227,27 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     }
   }
   // Fusion : overview + statistics pour les fondamentaux (statistics = plus complet)
+  // FALLBACK EU : pour les actions europeennes, stockanalysis.com renvoie {} vide
+  // donc on merge les fondamentaux Zonebourse en complement (marketCap, PER, EPS,
+  // dividendYield, high52w, low52w). Important pour LVMH, BNP, ASML, Nestle, etc.
   const fundamentals = {
+    ...((zonebourseConsensus && zonebourseConsensus.fundamentals) || {}),
     ...overview.fundamentals,
-    ...statistics.fundamentals,  // override avec statistics si dispo
+    ...statistics.fundamentals,  // stockanalysis prioritaire si dispo (US)
   };
-  const consensus = overview.consensus;
+  // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
+  // basique depuis Zonebourse (le frontend a aussi un bloc dedie zonebourseConsensus)
+  let consensus = overview.consensus;
+  if (!consensus && zonebourseConsensus && zonebourseConsensus.targetMean) {
+    consensus = {
+      // Format compatible stockanalysis pour le frontend EXISTANT
+      targetMeanPrice: zonebourseConsensus.targetMean,
+      totalAnalysts: zonebourseConsensus.analystCount,
+      recommendationKey: (zonebourseConsensus.recommendationMean || zonebourseConsensus.consensus || '').toLowerCase(),
+      // Marqueurs source pour le frontend qui voudrait afficher autrement
+      _source: 'zonebourse',
+    };
+  }
 
   // Poids du Kairos Score : parametrables via console admin → KV config:score-weights.
   // Cache 1h : la config ne change pas souvent et les appels stockAnalysis sont
