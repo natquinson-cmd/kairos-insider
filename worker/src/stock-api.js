@@ -346,10 +346,36 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
 // ============================================================
 // YAHOO SEARCH : autocomplete multi-resultats (pour dropdown UI)
 // Retourne plusieurs candidats {symbol, shortname, exchange, type}
+// + RE-RANKING EU : kairos est franco-europeen, on boost les .PA/.DE/.AS/.SW/.L/.MI
+// pour qu'un user qui tape "hermes" voit RMS.PA AVANT Federated Hermes US.
 // ============================================================
+const EU_PRIORITY_SUFFIXES = ['.PA', '.AS', '.SW', '.DE', '.MI', '.MC', '.L', '.ST', '.OL', '.CO', '.HE', '.BR', '.LS', '.WA', '.PR', '.IR', '.HE', '.AT'];
+const CAC40_FAST_LOOKUP = {
+  // Mapping RAPIDE des noms communs FR -> ticker exact CAC40 / SBF120.
+  // Garantit que ces resultats sont en TETE peu importe ce que renvoie Yahoo.
+  'LVMH': 'MC.PA', 'HERMES': 'RMS.PA', 'LOREAL': 'OR.PA', "L'OREAL": 'OR.PA',
+  'TOTAL': 'TTE.PA', 'TOTALENERGIES': 'TTE.PA', 'SANOFI': 'SAN.PA',
+  'AIRBUS': 'AIR.PA', 'KERING': 'KER.PA', 'AXA': 'CS.PA',
+  'BNP': 'BNP.PA', 'BNP PARIBAS': 'BNP.PA', 'CARREFOUR': 'CA.PA',
+  'CAPGEMINI': 'CAP.PA', 'DANONE': 'BN.PA', 'VINCI': 'DG.PA',
+  'SAFRAN': 'SAF.PA', 'SCHNEIDER': 'SU.PA', 'STELLANTIS': 'STLAP.PA',
+  'STM': 'STM.PA', 'STMICRO': 'STM.PA', 'STMICROELECTRONICS': 'STM.PA',
+  'THALES': 'HO.PA', 'PERNOD': 'RI.PA', 'PERNOD RICARD': 'RI.PA',
+  'PUBLICIS': 'PUB.PA', 'SAINT GOBAIN': 'SGO.PA', 'SAINT-GOBAIN': 'SGO.PA',
+  'ACCOR': 'AC.PA', 'AIR LIQUIDE': 'AI.PA', 'BOUYGUES': 'EN.PA',
+  'DASSAULT': 'DSY.PA', 'DASSAULT SYSTEMES': 'DSY.PA',
+  'ESSILOR': 'EL.PA', 'ESSILORLUXOTTICA': 'EL.PA', 'ENGIE': 'ENGI.PA',
+  'EUROFINS': 'ERF.PA', 'LEGRAND': 'LR.PA', 'MICHELIN': 'ML.PA',
+  'ORANGE': 'ORA.PA', 'RENAULT': 'RNO.PA', 'SOCIETE GENERALE': 'GLE.PA',
+  'SOGEN': 'GLE.PA', 'TELEPERFORMANCE': 'TEP.PA', 'VEOLIA': 'VIE.PA',
+  'VIVENDI': 'VIV.PA', 'WORLDLINE': 'WLN.PA', 'ALSTOM': 'ALO.PA',
+  'UNIBAIL': 'URW.AS', 'UNIBAIL RODAMCO': 'URW.AS',
+};
+
 export async function searchTickersAutocomplete(query, env, limit = 10) {
   if (!query || query.length < 1) return [];
-  const cacheKey = `yahoo-autocomplete:${String(query).toLowerCase().trim()}`;
+  // v2 : bump apres ajout EU re-ranking + CAC40 fast-lookup
+  const cacheKey = `yahoo-autocomplete:v2:${String(query).toLowerCase().trim()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -357,7 +383,7 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
     } catch {}
   }
   try {
-    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=${limit}&newsCount=0`;
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=${limit + 5}&newsCount=0`;
     const resp = await fetch(url, {
       headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' },
     });
@@ -366,7 +392,7 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
     const quotes = (data?.quotes || []).filter(q => q.symbol && (q.shortname || q.longname));
 
     // Normalize : retourne juste les champs utiles UI
-    const results = quotes.slice(0, limit).map(q => ({
+    let results = quotes.map(q => ({
       symbol: q.symbol,
       name: q.longname || q.shortname,
       exchange: q.exchange || q.exchDisp || '',
@@ -375,6 +401,48 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
       industry: q.industry || null,
       sector: q.sector || null,
     }));
+
+    // FAST-LOOKUP CAC40 : si la query matche EXACTEMENT un nom commun FR
+    // (LVMH, Hermes, etc.), on injecte ce ticker en TETE meme si Yahoo
+    // l'a retrograde. Garantit la decouvrabilite pour le user FR.
+    const queryUpper = String(query).toUpperCase().trim();
+    const fastTicker = CAC40_FAST_LOOKUP[queryUpper] ||
+      CAC40_FAST_LOOKUP[queryUpper.replace(/[^A-Z]/g, ' ').replace(/\s+/g, ' ').trim()];
+    if (fastTicker) {
+      const existing = results.find(r => r.symbol === fastTicker);
+      if (existing) {
+        // Le ticker est deja dans les resultats : remonter en tete
+        results = [existing, ...results.filter(r => r.symbol !== fastTicker)];
+      }
+      // Si Yahoo n'a pas du tout retourne le ticker, on injecte un placeholder.
+      // Le frontend pourra resoudre via /api/stock/{ticker} ensuite.
+      else if (!existing) {
+        results.unshift({
+          symbol: fastTicker,
+          name: queryUpper + ' (CAC 40)',
+          exchange: 'PAR',
+          exchangeFull: 'Paris',
+          type: 'EQUITY',
+          industry: null,
+          sector: null,
+          _injected: true,
+        });
+      }
+    }
+
+    // RE-RANK EU : pour les EQUITY, push les EU (.PA, .DE, .AS, ...) AVANT
+    // les CDR/OTC/US/etc. sans deplacer le fast-lookup.
+    const isEuTicker = (sym) => EU_PRIORITY_SUFFIXES.some(suf => sym.endsWith(suf));
+    const isEquityEu = (r) => r.type === 'EQUITY' && isEuTicker(r.symbol);
+    const isOtherEquity = (r) => r.type === 'EQUITY' && !isEuTicker(r.symbol);
+    const fastResult = fastTicker ? results.find(r => r.symbol === fastTicker) : null;
+    const remaining = results.filter(r => r !== fastResult);
+    results = [
+      ...(fastResult ? [fastResult] : []),
+      ...remaining.filter(isEquityEu),
+      ...remaining.filter(isOtherEquity),
+      ...remaining.filter(r => r.type !== 'EQUITY'),
+    ].slice(0, limit);
 
     if (env && env.CACHE) {
       try {
