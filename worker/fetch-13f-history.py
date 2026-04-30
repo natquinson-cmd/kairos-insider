@@ -63,6 +63,17 @@ CIK_MAP = {
     'TUDOR INVESTMENT': ('0001049114', 'Tudor Investment Corp'),
     'CARL ICAHN': ('0000921669', 'Icahn Carl C / Icahn Capital'),
     'ELLIOTT': ('0001048445', 'Elliott Investment Mgmt LP'),
+    # ===== EU-based hedge funds + activists (filent 13F SEC pour exposition US) =====
+    'TCI FUND': ('0001647251', 'TCI Fund Management Ltd (Christopher Hohn) - UK'),
+    'CEVIAN': ('0001365341', 'Cevian Capital II GP (Christer Gardell) - Suede activist'),
+    'MARSHALL WACE': ('0001318757', 'Marshall Wace LLP (Paul Marshall) - UK long/short'),
+    'LANSDOWNE': ('0001608485', 'Lansdowne Partners (UK) LLP - UK long/short'),
+    'EGERTON': ('0001581811', 'Egerton Capital (UK) LLP (John Armitage) - UK conviction'),
+    'BREVAN HOWARD': ('0001512857', 'Brevan Howard Capital Management (Alan Howard) - UK macro'),
+    'PELHAM': ('0001654111', 'Pelham Capital Ltd - UK long/short'),
+    'SCULPTOR': ('0001054587', 'Sculptor Capital LP (ex-Och Ziff) - multi-strategy'),
+    'AKO': ('0001376879', 'AKO Capital LLP (Nicolai Tangen avant Norges) - UK quality long-only'),
+    'JANUS HENDERSON': ('0001274173', 'Janus Henderson Group PLC - UK/US asset manager'),
 }
 
 
