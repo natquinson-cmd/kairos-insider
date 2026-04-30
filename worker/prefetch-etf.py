@@ -234,6 +234,17 @@ ZACKS_ETFS = [
     ('URA',  'Global X Uranium',           'Thematique - Uranium'),
     ('UFO',  'Procure Space',              'Thematique - Espace'),
     ('MJ',   'ETFMG Alternative Harvest',  'Thematique - Cannabis'),
+
+    # === Convictions / Smart Factor (opinions fortes Wall Street) ===
+    # ETFs qui ne sont PAS de simples trackers d'indice. Chacun porte une these
+    # d'investissement claire selectionnee/curee par des analystes :
+    ('MOAT', 'VanEck Wide Moat (Morningstar)', 'Convictions - Wide Moat'),  # Top 40 wide-moat (Buffett-style)
+    ('DSTL', 'Distillate Quality',         'Convictions - Quality + Low Debt'),  # FCF + low debt
+    ('MTUM', 'iShares Momentum Factor',    'Convictions - Momentum'),  # Top 125 momentum stocks
+
+    # === International / Exposition EU et global ===
+    ('PXF',  'Invesco FTSE RAFI Dev ex-US','International - Fondamental EU/Asie'),  # Reweight par fondamentaux
+    ('PID',  'Invesco Intl Dividend Achievers', 'International - Dividend Growers EU'),  # Aristocrates intl
 ]
 
 for symbol, label, category in ZACKS_ETFS:

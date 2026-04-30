@@ -874,6 +874,17 @@ async function handleApiRoute(path, url, env, origin) {
           { symbol: 'UFO', label: 'Espace' },
           { symbol: 'MJ',  label: 'Cannabis' },
         ]},
+        // === Convictions Wall Street (opinions fortes, pas trackers d'indice) ===
+        { name: 'Convictions / Smart Factor', etfs: [
+          { symbol: 'MOAT', label: 'Wide Moat (top 40 Morningstar — Buffett-style)' },
+          { symbol: 'DSTL', label: 'Quality + Low Debt (Distillate)' },
+          { symbol: 'MTUM', label: 'Momentum factor (top 125 winners)' },
+        ]},
+        // === International / Exposition Europe et Asie ===
+        { name: 'International (EU + Asie)', etfs: [
+          { symbol: 'PXF',  label: 'Developed ex-US fondamental (RAFI)' },
+          { symbol: 'PID',  label: 'Aristocrates internationaux (dividend growers)' },
+        ]},
       ],
     }, 200, origin);
   }

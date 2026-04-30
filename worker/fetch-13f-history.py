@@ -74,6 +74,21 @@ CIK_MAP = {
     'SCULPTOR': ('0001054587', 'Sculptor Capital LP (ex-Och Ziff) - multi-strategy'),
     'AKO': ('0001376879', 'AKO Capital LLP (Nicolai Tangen avant Norges) - UK quality long-only'),
     'JANUS HENDERSON': ('0001274173', 'Janus Henderson Group PLC - UK/US asset manager'),
+
+    # ===== UK Asset Managers (gestionnaires de Investment Trusts UK celebres) =====
+    'BAILLIE GIFFORD': ('0001088875', 'Baillie Gifford & Co (Scottish Mortgage, Monks, Edinburgh Worldwide)'),
+    'SCHRODERS': ('0001086619', 'Schroders Investment Management (UK $700B AUM)'),
+    'ROYAL LONDON': ('0000863748', 'Royal London Asset Management (UK)'),
+    'LIONTRUST': ('0001544204', 'Liontrust Investment Partners LLP (UK)'),
+    'ABRDN': ('0001716774', 'abrdn plc (ex-Standard Life Aberdeen, UK)'),
+
+    # ===== EU Asset Managers (FR / CH / NL / DE) =====
+    'CARMIGNAC': ('0001569758', 'Carmignac Gestion (Edouard Carmignac, FR)'),
+    'AMUNDI': ('0001330387', 'Amundi (FR, plus gros asset manager EU)'),
+    'COMGEST': ('0001574947', 'Comgest Global Investors (FR, quality growth)'),
+    'BNP PARIBAS AM': ('0001520354', 'BNP Paribas Asset Management (FR)'),
+    'ODDO BHF': ('0001686970', 'ODDO BHF Asset Management (FR/DE)'),
+    'PICTET': ('0001993888', 'Pictet Asset Management Holding SA (Suisse)'),
 }
 
 
