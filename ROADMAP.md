@@ -4,7 +4,103 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 27 avril 2026 (v10 - ES CNMV + IT Borsa Italiana officiels)
+**Dernière mise à jour** : 30 avril 2026 (v11 - Expansion smart money EU + ETFs convictions + crons avancés)
+
+---
+
+## 🎯 v11 — Smart money EU + ETFs convictions + pipeline avancé (30 avril 2026)
+
+Trois chantiers majeurs pour traquer la "vraie smart money européenne" et fiabiliser
+le pipeline data quotidien.
+
+### 🇪🇺 +21 fonds EU au pipeline 13F SEC
+
+Réponse à la demande utilisateur "tracer les mouvements de fonds avec une vraie opinion forte
+côté européen" : ajout de **21 acteurs financiers EU** au `CIK_MAP` de `fetch-13f-history.py`.
+
+**Hedge funds + activists EU** (10 fonds) :
+- TCI Fund Management (Christopher Hohn, UK) — 43 13F
+- Cevian Capital II (Christer Gardell, Suède) — 41 13F, le seul vrai activist 100% EU
+- Marshall Wace LLP (Paul Marshall, UK $65B AUM) — 83 13F
+- Lansdowne Partners (UK) — 47 13F
+- Egerton Capital (John Armitage, UK) — 50 13F
+- Brevan Howard (Alan Howard, UK macro) — 49 13F
+- Pelham Capital (UK) — 41 13F
+- Sculptor Capital (ex-Och Ziff) — 99 13F
+- AKO Capital (UK quality) — 37 13F
+- Janus Henderson Group — 18 13F
+
+**Asset managers UK** (5 fonds) — gèrent les Investment Trusts UK célèbres :
+- **Baillie Gifford** (gère Scottish Mortgage, Monks, Edinburgh Worldwide) — 77 13F
+- **Schroders** (UK $700B AUM) — 108 13F
+- Royal London Asset Management — 78 13F
+- Liontrust Investment Partners — 19 13F
+- abrdn plc (ex-Standard Life Aberdeen) — 35 13F
+
+**Asset managers EU continentaux** (6 fonds, dont 4 français !) :
+- **Carmignac Gestion** (Edouard Carmignac, FR) — 53 13F
+- **Amundi** (FR, plus gros asset mgr EU) — 19 13F
+- **Comgest Global Investors** (FR, quality growth) — 45 13F
+- BNP Paribas Asset Management (FR) — 60 13F
+- ODDO BHF Asset Management (FR/DE) — 6 13F
+- Pictet Asset Management Holding (Suisse) — 11 13F
+
+**Total fonds dans CIK_MAP** : 47 (26 originaux + 21 nouveaux). Chaque fond a ~12 ans
+de 13F historique trimestriel (mensuel cron `fetch-13f-history.yml`).
+
+Pivot intéressant : au lieu de scraper le PDF mensuel factsheet de Scottish Mortgage
+(complexe), on a réalisé que **Baillie Gifford** (le manager) file lui-même un 13F SEC
+trimestriel beaucoup plus précis et trackable.
+
+### 📊 +5 ETFs avec opinion forte au dashboard
+
+Réponse à la demande "ETFs avec une vraie opinion derrière, pas des trackers d'indices".
+Ajout au `prefetch-etf.py` (cron quotidien Zacks) :
+
+**Convictions / Smart Factor** :
+- **MOAT** (VanEck Wide Moat Morningstar) — Top 40 wide-moat (Buffett-style) — 56 positions
+- **DSTL** (Distillate Quality + Low Debt) — 100 positions
+- **MTUM** (iShares Momentum Factor) — Top 125 momentum — 123 positions
+
+**International / Exposition EU + Asie** :
+- **PXF** (Invesco FTSE RAFI Developed ex-US) — Reweight par fondamentaux — 233 pos, top = Shell
+- **PID** (Invesco Intl Dividend Achievers) — Aristocrates intl — 60 positions
+
+`/api/etf-list` mis à jour avec 2 nouvelles catégories. KV upload immédiat des 5 nouveaux
++ ajout au workflow `update-13f.yml` pour refresh quotidien.
+
+### ⏰ Pipeline avancé de 4h pour absorber les retards GitHub Actions
+
+**Diagnostic** : tous les workflows avaient +1h30 à +2h30 de retard systématique
+(observé sur 7 derniers runs). À 9h Paris ce matin, AUCUN job n'avait fini.
+**Root cause** : GitHub Actions retarde les crons HH:00/HH:30 aux heures de pic mondial.
+
+**Solution** : tout avancé de 4 heures + heures décalées (HH:30) :
+
+| Workflow | Avant UTC | Après UTC | Paris (idéal → si retard +2h) |
+|---|---|---|---|
+| backup.yml | 7h | **1h** | 3h → 5h |
+| update-13f.yml | 5h | **1h30** | 3h30 → 5h30 (fini ~6h20) |
+| fetch-eu-thresholds.yml | 5h | **1h30** | 3h30 → 5h30 |
+| fetch-13f-history.yml | 6h (1er) | **2h (1er)** | 4h → 6h |
+| Cloudflare worker cron | 6h15 | **4h** | 6h (pile à l'heure) |
+| daily-comment-digest.yml | 5h45 | **3h30** | 5h30 → 7h30 |
+| daily-tweets.yml | 6h30 | **4h30** | 6h30 → 8h30 |
+
+**Marges** :
+- Sans retard : tout fini vers 5h30 Paris (3h30 d'avance avant 9h)
+- Avec retard +2h max : tout fini vers 8h30 Paris (30min de marge)
+
+### 📚 Documentation mise à jour
+- `DOCUMENTATION.md` : volumétrie (47 fonds, 16 ETFs), pipeline avec nouveaux crons, section fetch-13f-history.yml mensuel
+- `README.md` : couverture étendue, table cron complète, statut "en production"
+- Pas de breaking changes pour les utilisateurs : routes API inchangées, juste plus de data
+
+### Commits clés v11
+- `26e7d7c` — Phase 1 : 10 hedge funds EU au pipeline 13F
+- `23b5e36` — Phase 2 + 3 : 5 ETFs convictions + 11 asset managers UK/EU
+- `ae670b5` — ops(crons) : avance les jobs de 4h pour absorber les retards GitHub
+- 21 workflows `fetch-13f-history` triggerés en background → 15/15 success
 
 ---
 

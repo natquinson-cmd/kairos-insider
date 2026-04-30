@@ -57,7 +57,7 @@ kairos-backups/
 ### Qui écrit ?
 
 - **Workflow** : `.github/workflows/backup.yml`
-- **Fréquence** : tous les jours à 7h UTC (après le cron data de 5h UTC)
+- **Fréquence** : tous les jours à 1h UTC (3h Paris) — AVANT le cron data de 1h30 UTC, capture l'état veille pour permettre un rollback en cas de corruption par les updates du jour
 - **Rétention** : 30 jours glissants (suppression auto des backups plus vieux)
 - **Durée estimée** : 5-10 min
 
@@ -162,7 +162,7 @@ wrangler kv key put "insider-transactions" \
 
 | Métrique | Valeur | Explication |
 |---|---|---|
-| **RPO** (Recovery Point Objective) | **~24h** | Le backup tourne 1x/jour à 7h UTC → au pire on perd les données écrites depuis minuit le jour de la panne. |
+| **RPO** (Recovery Point Objective) | **~24h** | Le backup tourne 1x/jour à 1h UTC → au pire on perd les données écrites depuis minuit le jour de la panne. |
 | **RTO** (Recovery Time Objective) | **< 2h** | Download + gunzip + restore D1 (~20 min) + restore KV sub:*/wl:* (~30 min) + relance workflow data (~30 min) + tests (~30 min). |
 
 Pour baisser le RPO, passer le cron backup à 6h/12h/18h (3×/jour) en ajoutant au schedule du workflow.
