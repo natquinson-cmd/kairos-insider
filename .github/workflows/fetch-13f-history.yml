@@ -9,7 +9,10 @@ name: Fetch 13F History (SEC EDGAR)
 
 on:
   schedule:
-    - cron: '0 6 1 * *'  # Le 1er de chaque mois a 6h UTC
+    # 1er de chaque mois a 2h UTC = 4h Paris (ete).
+    # Run mensuel (les 13F sont trimestriels avec 45j lag, donc pas urgent).
+    # Decale tot pour absorber le retard +1-2h GitHub Actions.
+    - cron: '0 2 1 * *'
   workflow_dispatch:
     inputs:
       filer:

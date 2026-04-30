@@ -2,11 +2,12 @@ name: Update 13F + ETF Data
 
 on:
   schedule:
-    # Tous les jours a 5h UTC = 7h Paris (ete) / 6h Paris (hiver)
-    # Choisi pour finir AVANT 9h Paris (ouverture Euronext) = donnees fraiches
-    # le matin pour les utilisateurs.
-    # Run total: ~30 min (insiders SEC + AMF + BaFin + 13F + ETFs + Trends)
-    - cron: '0 5 * * *'
+    # Tous les jours a 1h30 UTC = 3h30 Paris (ete) / 2h30 Paris (hiver)
+    # Decale tot car GitHub Actions a typiquement +1-2h de retard sur les
+    # heures pleines a forte charge. Avec retard max, finit a ~6h20 Paris.
+    # Heures HH:30 evitent le pic top-of-hour de queue GitHub.
+    # Run total: ~50 min (insiders SEC + AMF + BaFin + 13F + ETFs + Trends)
+    - cron: '30 1 * * *'
   workflow_dispatch:
 
 jobs:

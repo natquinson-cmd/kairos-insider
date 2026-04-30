@@ -6,12 +6,14 @@ name: Backup D1 + KV to R2
 # - Rotation 30 jours (on supprime les backups plus vieux)
 # - Metadata last-backup.json mise a jour a chaque run
 #
-# Le cron tourne a 7h UTC = apres le cron data (5h UTC) donc les backups
-# incluent toujours les donnees du jour.
+# Le cron tourne a 1h UTC (3h Paris) AVANT update-13f (1h30 UTC).
+# Capture l'etat veille = utile pour rollback si update-13f corrompt les data.
+# (Backup post-update est moins critique : on aurait juste les nouvelles data
+# du jour qui peuvent etre regenerees.)
 
 on:
   schedule:
-    - cron: '0 7 * * *'
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 jobs:

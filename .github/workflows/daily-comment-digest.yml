@@ -15,9 +15,10 @@ name: Daily Comment Digest → Email
 on:
   schedule:
     # 5h45 UTC = 7h45 Paris (ete) / 6h45 Paris (hiver)
-    # Tourne APRES daily-tweets (6h30 UTC) pour que la journee start a 7h45
-    # avec les 3 tweets a publier + les 20 tweets a commenter.
-    - cron: '45 5 * * 1-5'   # lundi-vendredi uniquement (week-end X moins actif)
+    # Tourne APRES update-13f (1h30 UTC) qui rafraichit les Kairos Scores.
+    # 3h30 UTC = 5h30 Paris ideal, ~7h30 Paris si retard GitHub +2h.
+    # Lun-ven uniquement (week-end X moins actif).
+    - cron: '30 3 * * 1-5'
   workflow_dispatch:  # run manuel
 
 jobs:

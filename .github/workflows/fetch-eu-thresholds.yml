@@ -27,7 +27,9 @@ on:
     # (articles publies tardivement le vendredi soir / dimanche soir),
     # et CSV officiels (BaFin, AFM) sont mis a jour en temps reel — donc
     # tourner aussi le week-end capture les declarations retardees.
-    - cron: '0 5 * * *'
+    # 30 1 UTC = 3h30 Paris ; parallele a update-13f.yml.
+    # Decale tot pour absorber le retard +1-2h typique GitHub Actions.
+    - cron: '30 1 * * *'
   workflow_dispatch:
 
 jobs:

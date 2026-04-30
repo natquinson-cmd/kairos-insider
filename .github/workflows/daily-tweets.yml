@@ -14,9 +14,9 @@ name: Daily Tweets → Email
 on:
   schedule:
     # 6h30 UTC = 8h30 Paris (ete) / 7h30 Paris (hiver)
-    # Tourne APRES le cron de prefetch des signaux (15 6 * * * UTC)
-    # pour avoir la data fraiche.
-    - cron: '30 6 * * *'
+    # Tourne APRES update-13f (1h30 UTC, ~50min) + worker cron (4h UTC).
+    # 4h30 UTC = 6h30 Paris ideal, ~8h30 Paris si retard GitHub +2h.
+    - cron: '30 4 * * *'
   workflow_dispatch:  # run manuel depuis GitHub UI
 
 jobs:

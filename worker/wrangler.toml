@@ -68,7 +68,7 @@ database_name = "kairos-history"
 database_id = "e26b41bc-9a11-42b4-a33e-e369f2fd7602"
 
 # R2 bucket pour les backups quotidiens D1 + KV.
-# Ecrit par le workflow GitHub Actions backup.yml (cron 7h UTC).
+# Ecrit par le workflow GitHub Actions backup.yml (cron 1h UTC = 3h Paris).
 # Le worker n'a besoin que de la lecture de meta/last-backup.json
 # pour alimenter /api/admin/backup/status.
 [[r2_buckets]]
@@ -78,8 +78,9 @@ bucket_name = "kairos-backups"
 # ============================================================
 # CRON TRIGGERS
 # ============================================================
-# Watchlist daily digest : 6h15 UTC = 8h15 Paris (heure d'ete) / 7h15 (hiver)
-# On tire apres le pipeline data (qui tourne a 5h UTC via GitHub Actions)
-# pour avoir les snapshots du jour deja en KV + D1.
+# Watchlist daily digest : 4h UTC = 6h Paris (heure d'ete) / 5h Paris (hiver).
+# Cloudflare Workers crons tournent PILE a l'heure (pas de retard contrairement
+# a GitHub Actions). On tire apres le pipeline data GitHub (1h30 UTC = ~3h20 UTC
+# en pire cas avec retard) donc 4h UTC laisse 40min de marge.
 [triggers]
-crons = ["15 6 * * *"]
+crons = ["0 4 * * *"]
