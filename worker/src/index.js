@@ -2972,6 +2972,18 @@ async function handleSitemap(env) {
 <lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>1.0</priority>
 </url>`);
 
+    // Page Backtest : acquisition gratuite, point d'entree marketing fort.
+    // URL canonique = /backtest (cf <link canonical> dans backtest.html).
+    // Priorite haute (0.9) - SEO long-tail "backtest hedge fund",
+    // "performance Berkshire Hathaway", "comparaison fonds smart money", etc.
+    urls.push(`<url>
+<loc>${SITE}/backtest</loc>
+<xhtml:link rel="alternate" hreflang="fr" href="${SITE}/backtest"/>
+<xhtml:link rel="alternate" hreflang="en" href="${SITE}/backtest?lang=en"/>
+<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/backtest"/>
+<lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>0.9</priority>
+</url>`);
+
     // Pages statiques legales (RGPD / conformite / mentions) — faible priorite mais indexables
     const staticPages = [
       { path: '/legal.html',   freq: 'monthly', prio: '0.3' },
