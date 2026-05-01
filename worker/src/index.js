@@ -2907,14 +2907,40 @@ const KNOWN_TICKERS = {
   'SERVICENOW': 'NOW',
 };
 
-// Construit un Map(normalizedName -> ticker) en combinant :
-// 1. KNOWN_TICKERS hardcodes (priorite : Alphabet -> GOOGL pas GOOG)
-// 2. Transactions insiders (couvre les autres tickers cotes US/EU)
+// Construit un Map(normalizedName -> ticker) en combinant TOUTES les sources KV
+// disponibles. Cache 1h dans KV pour eviter de recompute (ce mapping prend
+// ~5-10MB de KV reads cumules a chaque requete sinon).
+//
+// Sources (par priorite, KNOWN_TICKERS toujours en tete) :
+//  1. KNOWN_TICKERS (hardcoded ~70 megacaps US, garantit la qualite)
+//  2. insider-transactions (Form 4 SEC + BaFin + AMF, ~5000 tickers actifs)
+//  3. 13dg-recent (Schedule 13D/G filings activists, ~3000 tickers)
+//  4. ETFs holdings (16 ETFs Zacks ~2000 unique tickers, dont les top S&P 500
+//     + EU large caps via PXF/PID/MOAT/DSTL/MTUM)
+//  5. Thresholds EU (AMF/FCA/BaFin/AFM/SIX/CONSOB/CNMV/Nordics, ~2000 EU tickers)
+//
+// Total typique : 6000-10000 mappings name->ticker, vs 70-200 avant.
+//
+// Cache key : 'ticker-by-name-v2' (1h TTL)
 async function buildTickerByName(env) {
+  // Try cache first (1h)
+  try {
+    const cached = await env.CACHE.get('ticker-by-name-v2', 'json');
+    if (cached && Array.isArray(cached.entries)) {
+      const m = new Map();
+      for (const [name, ticker] of cached.entries) m.set(name, ticker);
+      return m;
+    }
+  } catch (_) {}
+
   const m = new Map();
+
+  // 1. KNOWN_TICKERS hardcoded (priorite max - Alphabet -> GOOGL etc.)
   for (const [name, ticker] of Object.entries(KNOWN_TICKERS)) {
     m.set(name, ticker);
   }
+
+  // 2. Transactions insiders (Form 4 + BaFin + AMF)
   try {
     const tx = await env.CACHE.get('insider-transactions', 'json');
     if (tx && Array.isArray(tx.transactions)) {
@@ -2925,6 +2951,60 @@ async function buildTickerByName(env) {
       }
     }
   } catch (_) {}
+
+  // 3. 13D/G Schedule filings (activists, large shareholders)
+  try {
+    const dg = await env.CACHE.get('13dg-recent', 'json');
+    const filings = dg && Array.isArray(dg.filings) ? dg.filings : (Array.isArray(dg) ? dg : []);
+    for (const f of filings) {
+      const tk = (f.ticker || '').trim().toUpperCase();
+      const cn = normalizeForMatch(f.targetName || f.companyName || f.target);
+      if (tk && cn && /^[A-Z0-9.\-]{1,8}$/.test(tk) && !m.has(cn)) m.set(cn, tk);
+    }
+  } catch (_) {}
+
+  // 4. ETFs holdings (mine d'or : 16 ETFs avec ~2000 unique tickers + names)
+  // Couvre la plupart des S&P 500 + EU large caps via PXF/PID/MOAT/DSTL/MTUM.
+  const ETF_KEYS = ['nanc', 'gop', 'guru', 'buzz', 'meme', 'jepi', 'jepq',
+                     'ita', 'ura', 'ufo', 'mj', 'moat', 'dstl', 'mtum', 'pxf', 'pid'];
+  await Promise.all(ETF_KEYS.map(async (etf) => {
+    try {
+      const data = await env.CACHE.get(`etf-${etf}`, 'json');
+      const holdings = data && Array.isArray(data.holdings) ? data.holdings : [];
+      for (const h of holdings) {
+        const tk = (h.ticker || '').trim().toUpperCase();
+        const cn = normalizeForMatch(h.company || h.name);
+        if (tk && cn && /^[A-Z0-9.\-]{1,8}$/.test(tk) && !m.has(cn)) m.set(cn, tk);
+      }
+    } catch (_) {}
+  }));
+
+  // 5. Thresholds EU (AMF/FCA/BaFin/AFM/SIX/CONSOB/CNMV/Nordics)
+  // Couvre les EU mid+small caps non vues ailleurs.
+  const TH_KEYS = ['amf-thresholds-recent', 'uk-thresholds-recent', 'bafin-thresholds-recent',
+                    'nl-thresholds-recent', 'ch-thresholds-recent', 'it-thresholds-recent',
+                    'es-thresholds-recent', 'se-thresholds-recent', 'no-thresholds-recent',
+                    'dk-thresholds-recent', 'fi-thresholds-recent'];
+  await Promise.all(TH_KEYS.map(async (k) => {
+    try {
+      const data = await env.CACHE.get(k, 'json');
+      const filings = data && Array.isArray(data.filings) ? data.filings : [];
+      for (const f of filings) {
+        const tk = (f.ticker || '').trim().toUpperCase();
+        const cn = normalizeForMatch(f.targetName || f.companyName);
+        if (tk && cn && /^[A-Z0-9.\-]{1,12}$/.test(tk) && !m.has(cn)) m.set(cn, tk);
+      }
+    } catch (_) {}
+  }));
+
+  // Cache 1h pour eviter de recompute a chaque /api/13f-consensus request
+  try {
+    const entries = Array.from(m.entries());
+    await env.CACHE.put('ticker-by-name-v2', JSON.stringify({
+      entries, builtAt: new Date().toISOString(), size: entries.length,
+    }), { expirationTtl: 3600 });
+  } catch (_) {}
+
   return m;
 }
 
