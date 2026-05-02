@@ -1270,15 +1270,55 @@ async function fetchFinnhubConsensus(ticker, apiKey) {
 // Solution principale pour les actions EU. Free tier 60 calls/min.
 // Endpoint /stock/metric?metric=all retourne 80+ ratios par stock.
 //
-// Couvre : LVMH (MC.PA), BNP (BNP.PA), ASML (ASML.AS), Nestle (NESN.SW),
-// Siemens (SIE.DE), Inditex (ITX.MC), Shell (SHEL.L), etc.
+// IMPORTANT : Finnhub free tier ne couvre PAS les tickers EU directs (.PA, .DE,
+// .AS, .SW, .L, .MI, .MC) mais COUVRE les ADR US des memes societes.
+// LVMH (MC.PA) -> LVMUY (131 fields), Hermes (RMS.PA) -> HESAY, etc.
+// On fallback automatiquement vers l'ADR si ticker EU retourne vide.
 //
 // Cache KV 24h dans 'finnhub-metrics:{ticker}' pour eviter quota burn.
+const EU_TO_US_ADR = {
+  // CAC 40
+  'MC.PA': 'LVMUY', 'OR.PA': 'LRLCY', 'SAN.PA': 'SNY', 'TTE.PA': 'TTE',
+  'AI.PA': 'AIQUY', 'CS.PA': 'AXAHY', 'BNP.PA': 'BNPQY', 'SU.PA': 'SBGSY',
+  'DG.PA': 'VCISY', 'RI.PA': 'PDRDY', 'RMS.PA': 'HESAY', 'KER.PA': 'PPRUY',
+  'AIR.PA': 'EADSY', 'SAF.PA': 'SAFRY', 'GLE.PA': 'SCGLY', 'STLAP.PA': 'STLA',
+  'CAP.PA': 'CGEMY', 'HO.PA': 'THLLY', 'EL.PA': 'ESLOY', 'ENGI.PA': 'ENGIY',
+  'BN.PA': 'DANOY', 'CA.PA': 'CRRFY', 'DSY.PA': 'DASTY', 'ALO.PA': 'ALSMY',
+  'ML.PA': 'MGDDY', 'RNO.PA': 'RNLSY', 'ORA.PA': 'ORAN', 'PUB.PA': 'PUBGY',
+  'WLN.PA': 'WRDLY', 'VIV.PA': 'VIVHY', 'VIE.PA': 'VEOEY', 'TEP.PA': 'TLPFY',
+  'EN.PA': 'BOUYY', 'SGO.PA': 'CODYY', 'STM.PA': 'STM', 'LR.PA': 'LGRDY',
+  'ERF.PA': 'ERFSF', 'ACC.PA': 'ACRFY', 'AC.PA': 'ACCYY',
+  // DAX
+  'SAP.DE': 'SAP', 'SIE.DE': 'SIEGY', 'ALV.DE': 'ALIZY', 'MBG.DE': 'MBGYY',
+  'VOW3.DE': 'VWAGY', 'BAS.DE': 'BASFY', 'BAYN.DE': 'BAYRY', 'ADS.DE': 'ADDYY',
+  'DBK.DE': 'DB', 'DHL.DE': 'DPSGY', 'BMW.DE': 'BMWYY', 'IFX.DE': 'IFNNY',
+  'DTE.DE': 'DTEGY', 'MUV2.DE': 'MURGY', 'HEN3.DE': 'HENKY', 'CON.DE': 'CTTAY',
+  // AEX
+  'ASML.AS': 'ASML', 'HEIA.AS': 'HEINY', 'UNA.AS': 'UL', 'PHIA.AS': 'PHG',
+  'PRX.AS': 'PROSY', 'INGA.AS': 'ING', 'AD.AS': 'ADRNY', 'STLAM.MI': 'STLA',
+  // SMI
+  'NESN.SW': 'NSRGY', 'ROG.SW': 'RHHBY', 'NOVN.SW': 'NVS', 'UBSG.SW': 'UBS',
+  'ZURN.SW': 'ZURVY', 'ABBN.SW': 'ABB', 'CFR.SW': 'CFRUY', 'GIVN.SW': 'GVDNY',
+  'LONN.SW': 'LZAGY', 'SREN.SW': 'SSREY', 'GEBN.SW': 'GBERY', 'SCMN.SW': 'SCMWY',
+  // FTSE 100
+  'SHEL.L': 'SHEL', 'AZN.L': 'AZN', 'HSBA.L': 'HSBC', 'DGE.L': 'DEO',
+  'ULVR.L': 'UL', 'BP.L': 'BP', 'GSK.L': 'GSK', 'BARC.L': 'BCS',
+  'LLOY.L': 'LYG', 'VOD.L': 'VOD', 'GLEN.L': 'GLNCY', 'RIO.L': 'RIO',
+  'TSCO.L': 'TSCDY', 'PRU.L': 'PUK', 'NWG.L': 'NWG', 'IMB.L': 'IMBBY',
+  'CCH.L': 'CCHGY', 'BATS.L': 'BTI', 'BA.L': 'BAESY', 'NG.L': 'NGG',
+  // FTSE MIB
+  'RACE.MI': 'RACE', 'ENI.MI': 'E', 'ISP.MI': 'ISNPY', 'UCG.MI': 'UNCRY',
+  'ENEL.MI': 'ENLAY', 'STLAM.MI': 'STLA', 'TIT.MI': 'TIIAY', 'G.MI': 'ARZGY',
+  // IBEX 35
+  'SAN.MC': 'SAN', 'TEF.MC': 'TEF', 'ITX.MC': 'IDEXY', 'IBE.MC': 'IBDRY',
+  'BBVA.MC': 'BBVA', 'REP.MC': 'REPYY', 'AENA.MC': 'ANYYY',
+};
+
 async function fetchFinnhubMetrics(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
 
-  // Cache 24h
-  const cacheKey = `finnhub-metrics:${String(ticker).toUpperCase()}`;
+  // Cache 24h sur le ticker ORIGINAL (pas l'ADR) pour le lookup ulterieur
+  const cacheKey = `finnhub-metrics:v2:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1289,14 +1329,34 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
     } catch {}
   }
 
-  try {
-    const url = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(ticker)}&metric=all&token=${apiKey}`;
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const m = data.metric || {};
-    if (!m || Object.keys(m).length === 0) return null;
+  // Strategie : essayer le ticker direct, puis l'ADR US si vide
+  const tryFetch = async (sym) => {
+    const url = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(sym)}&metric=all&token=${apiKey}`;
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const m = data.metric || {};
+      return Object.keys(m).length > 0 ? m : null;
+    } catch { return null; }
+  };
 
+  let m = await tryFetch(ticker);
+  let usedSymbol = ticker;
+
+  // Si ticker EU vide, essayer ADR US
+  if (!m) {
+    const tickerUpper = String(ticker).toUpperCase();
+    const adr = EU_TO_US_ADR[tickerUpper];
+    if (adr) {
+      m = await tryFetch(adr);
+      if (m) usedSymbol = adr;
+    }
+  }
+
+  if (!m || Object.keys(m).length === 0) return null;
+
+  try {
     // Helper : retourne null si la valeur Finnhub est invalide (NaN, null, undefined)
     const num = (v) => (v != null && !isNaN(v)) ? Number(v) : null;
 
@@ -1363,7 +1423,7 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
       roce: { raw: num(m.roceAnnual) || num(m.roceTTM), display: fmtPct(num(m.roceAnnual) || num(m.roceTTM)) },
     };
 
-    const payload = { ...result, extendedRatios, margins, returns };
+    const payload = { ...result, extendedRatios, margins, returns, _usedSymbol: usedSymbol };
 
     // Cache 24h
     if (env && env.CACHE) {
