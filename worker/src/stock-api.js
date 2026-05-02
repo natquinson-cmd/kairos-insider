@@ -249,6 +249,51 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     if (fundamentals.changeYtdPct == null && p.changeYtdPct != null) fundamentals.changeYtdPct = p.changeYtdPct;
     if (fundamentals.change1yPct == null && p.change1yPct != null) fundamentals.change1yPct = p.change1yPct;
   }
+
+  // ENRICHISSEMENT FINNHUB : pour les actions EU principalement (mais aussi US
+  // si stockanalysis a des trous). Couvre marketCap, P/E, EPS, P/S, P/B, beta,
+  // ROE, ROA, marges (brute/operating/net/FCF), enterprise value, etc.
+  // Free tier 60 calls/min, cache 24h dans KV.
+  // Activer en setant le secret FINNHUB_KEY : `wrangler secret put FINNHUB_KEY`.
+  let finnhubMetrics = null;
+  if (env.FINNHUB_KEY) {
+    try {
+      finnhubMetrics = await fetchFinnhubMetrics(ticker, env.FINNHUB_KEY, env);
+    } catch {}
+  }
+  let extendedRatios = statistics.extendedRatios || {};
+  let margins = statistics.margins || {};
+  let returns = statistics.returns || {};
+  if (finnhubMetrics) {
+    // Fundamentals : Finnhub remplit les trous laisses par stockanalysis (vide pour EU)
+    const fnh = finnhubMetrics;
+    const fields = ['marketCap', 'enterpriseValue', 'revenue', 'netIncome', 'sharesOut',
+      'peRatio', 'forwardPE', 'psRatio', 'pbRatio', 'pfcf', 'evEbitda',
+      'eps', 'beta', 'dividendYield', 'dividendsPerShare', 'payoutRatio',
+      'high52w', 'low52w', 'profitMargin'];
+    for (const k of fields) {
+      if (fundamentals[k] == null && fnh[k] != null) fundamentals[k] = fnh[k];
+    }
+    // Extended ratios : merge avec priorite a stockanalysis si dispo
+    if (fnh.extendedRatios) {
+      extendedRatios = { ...fnh.extendedRatios, ...extendedRatios };
+    }
+    // Margins / Returns : Finnhub fournit les .display, on les utilise si stockanalysis vide
+    if (fnh.margins) {
+      for (const k of ['gross', 'operating', 'profit', 'fcf']) {
+        if ((!margins[k] || !margins[k].display) && fnh.margins[k] && fnh.margins[k].display) {
+          margins[k] = fnh.margins[k];
+        }
+      }
+    }
+    if (fnh.returns) {
+      for (const k of ['roe', 'roa', 'roic', 'roce']) {
+        if ((!returns[k] || !returns[k].display) && fnh.returns[k] && fnh.returns[k].display) {
+          returns[k] = fnh.returns[k];
+        }
+      }
+    }
+  }
   // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
   // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
   // de la note gauge (0-10) + analystCount, format identique a stockanalysis.com
@@ -300,9 +345,9 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     price: quote.price,
     chart: quote.chart,
     fundamentals,
-    extendedRatios: statistics.extendedRatios,   // P/S, PEG, EV/EBITDA, etc.
-    margins: statistics.margins,                 // Gross, Operating, Profit, FCF
-    returns: statistics.returns,                 // ROE, ROA, ROIC, ROCE
+    extendedRatios,                              // P/S, PEG, EV/EBITDA (stockanalysis + Finnhub merged)
+    margins,                                     // Gross, Operating, Profit, FCF (idem)
+    returns,                                     // ROE, ROA, ROIC, ROCE (idem)
     financialPosition: statistics.financialPosition,  // Current, Quick, D/E, D/EBITDA
     health: statistics.health,                   // Altman Z + Piotroski F
     shortInterest: statistics.shortInterest,     // Short %, days to cover
@@ -1214,6 +1259,121 @@ async function fetchFinnhubConsensus(ticker, apiKey) {
     };
   } catch (e) {
     console.error('Finnhub consensus error:', ticker, e.message || e);
+    return null;
+  }
+}
+
+
+// ============================================================
+// FINNHUB : fundamentals complets (marketCap, P/E, EPS, ROE, ROA, marges, etc.)
+// ============================================================
+// Solution principale pour les actions EU. Free tier 60 calls/min.
+// Endpoint /stock/metric?metric=all retourne 80+ ratios par stock.
+//
+// Couvre : LVMH (MC.PA), BNP (BNP.PA), ASML (ASML.AS), Nestle (NESN.SW),
+// Siemens (SIE.DE), Inditex (ITX.MC), Shell (SHEL.L), etc.
+//
+// Cache KV 24h dans 'finnhub-metrics:{ticker}' pour eviter quota burn.
+async function fetchFinnhubMetrics(ticker, apiKey, env) {
+  if (!apiKey || !ticker) return null;
+
+  // Cache 24h
+  const cacheKey = `finnhub-metrics:${String(ticker).toUpperCase()}`;
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.fetchedAt) {
+        const age = (Date.now() - new Date(cached.fetchedAt).getTime()) / 1000;
+        if (age < 86400) return cached;
+      }
+    } catch {}
+  }
+
+  try {
+    const url = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(ticker)}&metric=all&token=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const m = data.metric || {};
+    if (!m || Object.keys(m).length === 0) return null;
+
+    // Helper : retourne null si la valeur Finnhub est invalide (NaN, null, undefined)
+    const num = (v) => (v != null && !isNaN(v)) ? Number(v) : null;
+
+    // Mapping Finnhub -> notre format fundamentals
+    // Note : Finnhub marketCap est en MILLIONS (ex: 233456 = 233.5B). On convertit en absolu.
+    const marketCapM = num(m.marketCapitalization);
+    const evM = num(m.enterpriseValue) || num(m.ev);
+    const revenueM = num(m.revenueTTM) || num(m.revenuePerShareTTM);
+
+    const result = {
+      // === Section "Taille" ===
+      marketCap: marketCapM != null ? marketCapM * 1_000_000 : null,
+      enterpriseValue: evM != null ? evM * 1_000_000 : null,
+      revenue: revenueM != null && num(m.revenueTTM) ? num(m.revenueTTM) * 1_000_000 : null,
+      netIncome: num(m.netIncomeCommonAnnual) ? num(m.netIncomeCommonAnnual) * 1_000_000 : null,
+      sharesOut: num(m.sharesOutstanding) ? num(m.sharesOutstanding) * 1_000_000 : null,
+      // === Multiples valuation ===
+      peRatio: num(m.peTTM) || num(m.peExclExtraTTM),
+      forwardPE: num(m.peNormalizedAnnual) || num(m.peExclExtraAnnual),
+      psRatio: num(m.psTTM) || num(m.psAnnual),
+      pbRatio: num(m.pbAnnual) || num(m.pbQuarterly),
+      pfcf: num(m.pfcfShareTTM),
+      evEbitda: num(m['currentEv/freeCashFlowAnnual']) || num(m.evEbitdaTTM),
+      // === Caracteristiques ===
+      eps: num(m.epsTTM) || num(m.epsBasicExclExtraItemsTTM),
+      beta: num(m.beta),
+      dividendYield: num(m.currentDividendYieldTTM) != null ? num(m.currentDividendYieldTTM) / 100 : null,  // % -> fraction
+      dividendsPerShare: num(m.dividendsPerShareAnnual),
+      payoutRatio: num(m.payoutRatioTTM) != null ? num(m.payoutRatioTTM) / 100 : null,
+      // === 52 weeks ===
+      high52w: num(m['52WeekHigh']),
+      low52w: num(m['52WeekLow']),
+      // === Misc ===
+      profitMargin: num(m.netProfitMarginTTM) != null ? num(m.netProfitMarginTTM) / 100 : null,
+      _source: 'finnhub',
+      fetchedAt: new Date().toISOString(),
+    };
+
+    // === Extended ratios (frontend cherche extRatios.peg/ps/pb/pfcf/evEbitda/evSales/evFcf) ===
+    const extendedRatios = {
+      peg: num(m.pegRatio5Y) || num(m.pegRatio),
+      ps: num(m.psTTM),
+      pb: num(m.pbAnnual),
+      pfcf: num(m.pfcfShareTTM),
+      evEbitda: num(m.evEbitdaTTM) || num(m.currentEnterpriseValueOverEbitdaTTM),
+      evSales: num(m.evSalesTTM) || num(m['enterpriseValue/revenue']),
+      evFcf: num(m['evToFcfTTM']) || num(m.evToFreeCashFlowTTM),
+    };
+
+    // === Marges (chaque field doit avoir .display = string formatee + .raw) ===
+    const fmtPct = (v) => v != null ? `${v.toFixed(2)}%` : null;
+    const margins = {
+      gross: { raw: num(m.grossMarginTTM), display: fmtPct(num(m.grossMarginTTM)) },
+      operating: { raw: num(m.operatingMarginTTM), display: fmtPct(num(m.operatingMarginTTM)) },
+      profit: { raw: num(m.netProfitMarginTTM), display: fmtPct(num(m.netProfitMarginTTM)) },
+      fcf: { raw: num(m.freeCashFlowMarginTTM), display: fmtPct(num(m.freeCashFlowMarginTTM)) },
+    };
+
+    // === Returns (ROE, ROA, ROIC, ROCE) ===
+    const returns = {
+      roe: { raw: num(m.roeTTM), display: fmtPct(num(m.roeTTM)) },
+      roa: { raw: num(m.roaTTM), display: fmtPct(num(m.roaTTM)) },
+      roic: { raw: num(m.roiTTM) || num(m.roicTTM), display: fmtPct(num(m.roiTTM) || num(m.roicTTM)) },
+      roce: { raw: num(m.roceAnnual) || num(m.roceTTM), display: fmtPct(num(m.roceAnnual) || num(m.roceTTM)) },
+    };
+
+    const payload = { ...result, extendedRatios, margins, returns };
+
+    // Cache 24h
+    if (env && env.CACHE) {
+      try {
+        await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 86400 + 3600 });
+      } catch {}
+    }
+    return payload;
+  } catch (e) {
+    console.error('Finnhub metrics error:', ticker, e.message || e);
     return null;
   }
 }

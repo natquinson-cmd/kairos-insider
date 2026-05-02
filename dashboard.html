@@ -9947,48 +9947,12 @@
           🔎 Tu as cherche <strong style="color:var(--text-primary)">${d.originalInput || ''}</strong> — affichage du ticker Yahoo correspondant : <strong style="color:#3B82F6">${d.ticker}</strong>
         </div>` : '';
 
-      // BLOC ZONEBOURSE CONSENSUS (recommandations analystes EU)
-      const zb = d.zonebourseConsensus || null;
-      let zonebourseBanner = '';
-      if (zb && (zb.consensus || zb.recommendationMean || zb.targetMean)) {
-        const conColor = ['Achat','Surperformer','ACCUMULER','ACHETER'].some(s => (zb.consensus || '').includes(s) || (zb.recommendationMean || '').includes(s))
-          ? '#10B981'
-          : ['Vendre','Sous-performer','VENDRE','ALLEGER'].some(s => (zb.consensus || '').includes(s) || (zb.recommendationMean || '').includes(s))
-            ? '#EF4444'
-            : '#F59E0B';
-        const ecartColor = (zb.ecartTargetPct || 0) > 0 ? '#10B981' : (zb.ecartTargetPct || 0) < 0 ? '#EF4444' : '#94A3B8';
-        zonebourseBanner = `
-          <div style="padding:18px 22px;background:linear-gradient(135deg,${conColor}15,${conColor}05);border:1px solid ${conColor}40;border-radius:14px;margin-bottom:18px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${conColor}">📊 Consensus analystes</span>
-              <span style="font-size:11px;opacity:0.6">Source: <a href="${zb.sourceUrl||'#'}" target="_blank" rel="noopener" style="color:#3B82F6;text-decoration:underline">Zonebourse</a></span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
-              <div>
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.65;margin-bottom:4px">Recommandation</div>
-                <div style="font-size:22px;font-weight:800;color:${conColor}">${zb.recommendationMean || zb.consensus || '—'}</div>
-                ${zb.consensus && zb.consensus !== zb.recommendationMean ? `<div style="font-size:11px;opacity:0.7;margin-top:2px">${zb.consensus}</div>` : ''}
-              </div>
-              ${zb.targetMean ? `
-              <div>
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.65;margin-bottom:4px">Objectif moyen</div>
-                <div style="font-size:22px;font-weight:800">${zb.targetMean.toLocaleString('fr-FR')} ${zb.targetCurrency || ''}</div>
-                ${zb.ecartTargetPct != null ? `<div style="font-size:12px;color:${ecartColor};font-weight:600;margin-top:2px">${zb.ecartTargetPct > 0 ? '↗' : '↘'} ${zb.ecartTargetPct > 0 ? '+' : ''}${zb.ecartTargetPct}% potentiel</div>` : ''}
-              </div>` : ''}
-              ${zb.analystCount ? `
-              <div>
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.65;margin-bottom:4px">Analystes suivis</div>
-                <div style="font-size:22px;font-weight:800">${zb.analystCount}</div>
-                <div style="font-size:11px;opacity:0.7;margin-top:2px">${zb.analystCount >= 20 ? 'Forte couverture' : zb.analystCount >= 10 ? 'Couverture moyenne' : 'Faible couverture'}</div>
-              </div>` : ''}
-              ${zb.lastClose ? `
-              <div>
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.65;margin-bottom:4px">Cours actuel</div>
-                <div style="font-size:22px;font-weight:800">${zb.lastClose.toLocaleString('fr-FR')} ${zb.lastCloseCurrency || ''}</div>
-              </div>` : ''}
-            </div>
-          </div>`;
-      }
+      // BLOC ZONEBOURSE CONSENSUS supprime (mai 2026) :
+      // Le user a demande que le consensus EU soit AU MEME ENDROIT que les
+      // valeurs US, dans le panneau "Consensus analystes" principal en bas.
+      // Le breakdown buy/hold/sell est maintenant synthetise (cf. worker
+      // synthesizeConsensusFromZonebourse) -> le panneau standard couvre tout.
+      const zonebourseBanner = '';
 
       const coverageBanner = (isSparse && !wasResolvedFromName) ? `
         <div style="padding:16px 20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1px solid rgba(245,158,11,0.25);border-radius:12px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
@@ -10031,7 +9995,6 @@
 
       body.innerHTML = `
         ${resolvedNotice}
-        ${zonebourseBanner}
         ${coverageBanner}
         <!-- HERO -->
         <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:24px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:14px;margin-bottom:24px">
