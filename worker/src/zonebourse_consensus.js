@@ -403,11 +403,19 @@ function parseConsensusHtml(html) {
     lastClose: null,
     lastCloseCurrency: null,
     ecartTargetPct: null,
+    gaugeNote: null,  // Note 0-10 (ex: 7.8) extraite de la jauge Zonebourse
   };
+
+  // 0. Note de la jauge consensus (ex: 'class="consensus-gauge" title="Note: 7.8 / 10"')
+  // Permet de synthetiser un breakdown buy/hold/sell plausible quand seul la
+  // recommandation moyenne est dispo (Zonebourse ne fournit pas le detail des votes).
+  let m = html.match(/consensus-gauge[^"]*"\s*title="Note\s*:?\s*([0-9]+(?:[,.][0-9]+)?)\s*\/\s*10"/i);
+  if (!m) m = html.match(/Note\s*:?\s*([0-9]+(?:[,.][0-9]+)?)\s*\/\s*10/i);
+  if (m) result.gaugeNote = parseFloat(m[1].replace(',', '.'));
 
   // 1. Consensus principal : 'alt="Consensus"></div>Achat</div>' ou similar
   // Pattern : apres alt="Consensus" et fermeture div, le mot principal
-  let m = html.match(/alt="Consensus"[^>]*>\s*<\/div>\s*([A-Za-zéèêàâç\-]+)/i);
+  m = html.match(/alt="Consensus"[^>]*>\s*<\/div>\s*([A-Za-zéèêàâç\-]+)/i);
   if (!m) m = html.match(/alt="Consensus"[^>]*>([A-Za-zéèêàâç\-]{4,20})/i);
   if (m) result.consensus = m[1].trim();
 
@@ -500,8 +508,14 @@ function parseFundamentalsHtml(html) {
   if (m) result.eps = parseFr(m[1]);
 
   // Rendement / dividende : 'Rendement | 2,5%' ou 'Dividende | 2,5%'
+  // IMPORTANT : on stocke en FRACTION (0.025 pour 2.5%) pour matcher le format
+  // stockanalysis.com - le frontend multiplie par 100 pour afficher.
+  // Sans cette division, LVMH 2.88% s'affichait comme 288% (bug rapporte).
   m = stripped.match(/(?:Rendement|Dividend\s*yield)\s*\|\s*([0-9 ]+(?:[,.][0-9]+)?)\s*%/i);
-  if (m) result.dividendYield = parseFr(m[1]);
+  if (m) {
+    const pct = parseFr(m[1]);
+    if (pct != null) result.dividendYield = pct / 100;  // % -> fraction
+  }
 
   // P/S ratio
   m = stripped.match(/P\s*\/\s*Ventes\s*\|\s*([0-9 ]+(?:[,.][0-9]+)?)/i);
@@ -551,9 +565,13 @@ function parseFundamentalsAndAgenda(html) {
   m = html.match(/BPA\s*20\d{2}[\s\S]{0,150}?>\s*([0-9]+(?:[,.][0-9]+)?)\s*</i);
   if (m) result.eps = parseFloat(m[1].replace(',', '.'));
 
-  // Rendement %
+  // Rendement % - stocke en FRACTION pour matcher stockanalysis.com format
+  // (le frontend fait dividendYield * 100 pour afficher).
   m = html.match(/Rendement[\s\S]{0,150}?>\s*([0-9]+(?:[,.][0-9]+)?)\s*%/i);
-  if (m) result.dividendYield = parseFloat(m[1].replace(',', '.'));
+  if (m) {
+    const pct = parseFloat(m[1].replace(',', '.'));
+    if (!isNaN(pct)) result.dividendYield = pct / 100;  // % -> fraction
+  }
 
   // High/Low 52w : '+ haut 52 sem.</...><...>500</...>'
   m = html.match(/\+?\s*haut\s+annuel[\s\S]{0,150}?>\s*([0-9\s]+(?:[,.][0-9]+)?)\s*</i);
@@ -624,9 +642,9 @@ export async function fetchZonebourseConsensus(companyName, env, opts = {}) {
 
   const yahooSymbol = opts.yahooSymbol || null;
 
-  // v8 : bump pour invalider caches v7 contenant slugs faux (LVMH-111960885 etc.)
-  // Format clef inclut le yahooSymbol pour cache differencie par cotation.
-  const cacheKey = `zb-consensus:v8:${String(companyName).toUpperCase().trim()}|${yahooSymbol || ''}`;
+  // v9 : bump apres fix dividendYield (% -> fraction) + ajout gaugeNote (synthese
+  // breakdown buy/hold/sell). v8 contenait LVMH dividendYield = 2.88 (en %, faux).
+  const cacheKey = `zb-consensus:v9:${String(companyName).toUpperCase().trim()}|${yahooSymbol || ''}`;
 
   // Check cache 24h
   try {

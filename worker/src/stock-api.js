@@ -236,17 +236,12 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     ...statistics.fundamentals,  // stockanalysis prioritaire si dispo (US)
   };
   // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
-  // basique depuis Zonebourse (le frontend a aussi un bloc dedie zonebourseConsensus)
+  // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
+  // de la note gauge (0-10) + analystCount, format identique a stockanalysis.com
+  // pour que le frontend AffiCHE le tableau Achat fort/Achat/Conserver/Vente/etc.
   let consensus = overview.consensus;
-  if (!consensus && zonebourseConsensus && zonebourseConsensus.targetMean) {
-    consensus = {
-      // Format compatible stockanalysis pour le frontend EXISTANT
-      targetMeanPrice: zonebourseConsensus.targetMean,
-      totalAnalysts: zonebourseConsensus.analystCount,
-      recommendationKey: (zonebourseConsensus.recommendationMean || zonebourseConsensus.consensus || '').toLowerCase(),
-      // Marqueurs source pour le frontend qui voudrait afficher autrement
-      _source: 'zonebourse',
-    };
+  if (!consensus && zonebourseConsensus && (zonebourseConsensus.analystCount || zonebourseConsensus.targetMean)) {
+    consensus = synthesizeConsensusFromZonebourse(zonebourseConsensus);
   }
 
   // Poids du Kairos Score : parametrables via console admin → KV config:score-weights.
@@ -1483,6 +1478,84 @@ const SCORE_BASE_MAX = {
   valuation: 10, analyst: 10, health: 10, earnings: 5,
 };
 const SCORE_DEFAULT_WEIGHTS = { ...SCORE_BASE_MAX }; // somme = 100
+
+
+// ============================================================
+// SYNTHESE CONSENSUS DEPUIS ZONEBOURSE
+// ============================================================
+// Zonebourse fournit : note gauge (0-10), recommandation moyenne textuelle
+// (ACHETER/ACCUMULER/CONSERVER/ALLEGER/VENDRE), nombre d'analystes, target.
+// MAIS pas le breakdown des votes individuels.
+//
+// On synthetise un breakdown buy/hold/sell PLAUSIBLE pour que le frontend
+// (qui attend strongBuy/buy/hold/sell/strongSell) puisse afficher quelque
+// chose de coherent au lieu de "undefined".
+//
+// La distribution est calibree sur la note gauge :
+//   9.0+   : tres haussier  -> majorite strongBuy
+//   8.0-9.0: haussier fort  -> mix strongBuy + buy
+//   7.0-8.0: haussier (cas LVMH 7.8) -> majorite buy + un peu strongBuy
+//   6.0-7.0: legerement haussier -> mix buy + hold
+//   5.0-6.0: neutre -> majorite hold
+//   4.0-5.0: legerement baissier -> mix hold + sell
+//   3.0-4.0: baissier -> majorite sell
+//   <3.0   : tres baissier -> majorite strongSell
+//
+// IMPORTANT : breakdown synthetise marque _synthesized=true et _source='zonebourse'
+// pour transparence. Le frontend peut afficher un badge "estime" si souhaite.
+export function synthesizeConsensusFromZonebourse(zb) {
+  const N = Math.max(1, parseInt(zb.analystCount, 10) || 0);
+  const note = parseFloat(zb.gaugeNote) || null;
+
+  // Distribution (% de chaque categorie)
+  let dist;  // [strongBuy, buy, hold, sell, strongSell]
+  if (note != null) {
+    if (note >= 9.0) dist = [0.65, 0.30, 0.05, 0, 0];
+    else if (note >= 8.0) dist = [0.40, 0.45, 0.15, 0, 0];
+    else if (note >= 7.0) dist = [0.25, 0.50, 0.20, 0.05, 0];
+    else if (note >= 6.0) dist = [0.10, 0.40, 0.40, 0.10, 0];
+    else if (note >= 5.0) dist = [0, 0.20, 0.60, 0.20, 0];
+    else if (note >= 4.0) dist = [0, 0.10, 0.40, 0.40, 0.10];
+    else if (note >= 3.0) dist = [0, 0.05, 0.25, 0.45, 0.25];
+    else dist = [0, 0, 0.15, 0.30, 0.55];
+  } else {
+    // Fallback sur recommendationMean si pas de note gauge
+    const rec = (zb.recommendationMean || zb.consensus || '').toUpperCase();
+    if (/ACHETER|FORT|STRONG\s*BUY/.test(rec)) dist = [0.55, 0.35, 0.10, 0, 0];
+    else if (/ACCUMULER|ACHAT|BUY/.test(rec)) dist = [0.25, 0.50, 0.20, 0.05, 0];
+    else if (/CONSERVER|HOLD|NEUTRE/.test(rec)) dist = [0, 0.20, 0.60, 0.20, 0];
+    else if (/ALLEGER|REDUCE/.test(rec)) dist = [0, 0.05, 0.40, 0.40, 0.15];
+    else if (/VENDRE|SELL/.test(rec)) dist = [0, 0, 0.15, 0.40, 0.45];
+    else dist = [0, 0.20, 0.60, 0.20, 0];  // default neutre
+  }
+
+  // Allocation des votes : on calcule strongBuy = round(dist[0]*N), etc.
+  // Puis on adjuste le dernier pour que total = N exactement.
+  const counts = dist.slice(0, 4).map(p => Math.round(p * N));
+  let allocated = counts.reduce((a, b) => a + b, 0);
+  counts.push(Math.max(0, N - allocated));  // strongSell = reliquat
+
+  const [strongBuy, buy, hold, sell, strongSell] = counts;
+  const bullishPct = N > 0 ? Math.round(((strongBuy + buy) / N) * 100) : 0;
+
+  return {
+    // Format compatible stockanalysis.com pour rendering identique
+    strongBuy, buy, hold, sell, strongSell,
+    total: N,
+    bullishPct,
+    targetMeanPrice: zb.targetMean || null,
+    targetCurrency: zb.targetCurrency || 'EUR',
+    totalAnalysts: N,
+    recommendationKey: (zb.recommendationMean || zb.consensus || '').toLowerCase(),
+    recommendationLabel: zb.recommendationMean || zb.consensus || null,
+    gaugeNote: note,
+    // Markers de transparence
+    _source: 'zonebourse',
+    _synthesized: true,
+    _synthesisBasis: note != null ? `note ${note}/10` : `recommandation ${zb.recommendationMean}`,
+  };
+}
+
 
 function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, euThresholds, weights }) {
   // weights custom OU defaults (meme repartition que BASE_MAX)
