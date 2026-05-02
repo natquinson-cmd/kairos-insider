@@ -9947,12 +9947,12 @@
           🔎 Tu as cherche <strong style="color:var(--text-primary)">${d.originalInput || ''}</strong> — affichage du ticker Yahoo correspondant : <strong style="color:#3B82F6">${d.ticker}</strong>
         </div>` : '';
 
-      // BLOC ZONEBOURSE CONSENSUS supprime (mai 2026) :
+      // BLOC ZONEBOURSE CONSENSUS supprime du HEADER (mai 2026) :
       // Le user a demande que le consensus EU soit AU MEME ENDROIT que les
       // valeurs US, dans le panneau "Consensus analystes" principal en bas.
-      // Le breakdown buy/hold/sell est maintenant synthetise (cf. worker
-      // synthesizeConsensusFromZonebourse) -> le panneau standard couvre tout.
-      const zonebourseBanner = '';
+      // Le breakdown buy/hold/sell est synthetise (cf. worker synthesizeConsensusFromZonebourse).
+      // La data Zonebourse reste exposee via `zb` pour ajout en bas du panneau Consensus.
+      const zb = d.zonebourseConsensus || null;
 
       const coverageBanner = (isSparse && !wasResolvedFromName) ? `
         <div style="padding:16px 20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1px solid rgba(245,158,11,0.25);border-radius:12px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
@@ -10541,6 +10541,27 @@
                 <strong style="text-transform:uppercase;letter-spacing:0.04em;color:#74b9ff">${fund.recommendationKey}</strong>
               </div>
             ` : ''}
+            ${zb && (zb.consensus || zb.recommendationMean || zb.targetMean) ? (() => {
+              // Box Zonebourse appendue en bas du panneau Consensus (mai 2026, demande user) :
+              // affiche source + recommandation textuelle + objectif EUR + analystes pour les EU.
+              const zbColor = ['Achat','Surperformer','ACCUMULER','ACHETER'].some(s => (zb.recommendationMean || '').includes(s) || (zb.consensus || '').includes(s))
+                ? '#10B981'
+                : ['Vendre','Sous-performer','VENDRE','ALLEGER'].some(s => (zb.recommendationMean || '').includes(s) || (zb.consensus || '').includes(s))
+                  ? '#e74c3c' : '#f39c12';
+              const ecartCol = (zb.ecartTargetPct || 0) > 0 ? '#10B981' : (zb.ecartTargetPct || 0) < 0 ? '#e74c3c' : '#94A3B8';
+              return `
+                <div style="margin-top:10px;padding:12px 14px;background:linear-gradient(135deg,${zbColor}10,transparent);border-left:3px solid ${zbColor};border-radius:6px;font-size:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+                    <span style="opacity:0.85">📊 Consensus <a href="${zb.sourceUrl||'#'}" target="_blank" rel="noopener" style="color:#3B82F6;text-decoration:underline">Zonebourse</a> (analystes EU)</span>
+                    <strong style="text-transform:uppercase;letter-spacing:0.04em;color:${zbColor}">${zb.recommendationMean || zb.consensus || '—'}</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;opacity:0.85">
+                    ${zb.targetMean ? `<span>Objectif EU : <strong>${zb.targetMean.toLocaleString('fr-FR')} ${zb.targetCurrency || ''}</strong>${zb.ecartTargetPct != null ? ` <span style="color:${ecartCol};font-weight:600">${zb.ecartTargetPct > 0 ? '+' : ''}${zb.ecartTargetPct}%</span>` : ''}</span>` : '<span></span>'}
+                    ${zb.analystCount ? `<span>${zb.analystCount} analystes EU</span>` : ''}
+                  </div>
+                </div>
+              `;
+            })() : ''}
           </div>
         </div>
 
