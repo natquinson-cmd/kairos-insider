@@ -235,6 +235,20 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     ...overview.fundamentals,
     ...statistics.fundamentals,  // stockanalysis prioritaire si dispo (US)
   };
+  // ENRICHISSEMENT additionnel pour EU : fallback depuis Yahoo quote.price
+  // (52w high/low, currency, exchange). Yahoo chart endpoint marche pour TOUS
+  // les tickers EU et fournit ces champs gratuitement, donc on remplit les
+  // trous quand stockanalysis + Zonebourse n'ont pas la data.
+  if (quote && quote.price) {
+    const p = quote.price;
+    if (fundamentals.high52w == null && p.high52w != null) fundamentals.high52w = p.high52w;
+    if (fundamentals.low52w == null && p.low52w != null) fundamentals.low52w = p.low52w;
+    if (!fundamentals.currency && p.currency) fundamentals.currency = p.currency;
+    if (!fundamentals.exchange && p.exchange) fundamentals.exchange = p.exchange;
+    // Variation YTD utile pour le scoring momentum
+    if (fundamentals.changeYtdPct == null && p.changeYtdPct != null) fundamentals.changeYtdPct = p.changeYtdPct;
+    if (fundamentals.change1yPct == null && p.change1yPct != null) fundamentals.change1yPct = p.change1yPct;
+  }
   // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
   // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
   // de la note gauge (0-10) + analystCount, format identique a stockanalysis.com
