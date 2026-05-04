@@ -5624,13 +5624,13 @@
           currentUser = user;
           document.getElementById('authOverlay').classList.add('hidden');
           await checkSubscription();
-          // Deep link : si l'URL contient #signals-clusters (par exemple), on va direct dessus
-          const hash = (window.location.hash || '').slice(1);
-          const deepLinkSection = hash.split('&')[0];
-          const validDeepLinks = ['signals-clusters', 'signals-score', 'signals-etf'];
-          if (validDeepLinks.includes(deepLinkSection)) {
-            switchSection(deepLinkSection);
-          } else {
+          // Deep link / browser navigation : tente de restaurer la section depuis l'URL
+          // Couvre TOUTES les sections (pas juste signals-*) + le ticker dans #stockAnalysis?t=X
+          // Format URL : #section ou #stockAnalysis?t=AAPL
+          const navigated = (typeof navigateFromHash === 'function')
+            ? navigateFromHash(window.location.hash)
+            : false;
+          if (!navigated) {
             // Accueil : affichage immédiat (nom + stats)
             loadHome();
             loadedSections['home'] = true;
@@ -6525,10 +6525,12 @@
       consensus13f: '13f',
     };
 
-    function switchSection(section) {
+    function switchSection(section, opts = {}) {
       // Gate premium : la section cible OU son parent hub doit etre premium.
       // Comme screener/clustering n'ont plus de bouton sidebar, on cherche
       // le premium flag via le parent hub.
+      // opts.silent = true : ne pas pousser dans l'historique (cas du popstate
+      // back/forward du navigateur, pour eviter une double-entree).
       const hubParent = HUB_PARENT[section] || section;
       const btn = document.querySelector(`[data-section="${hubParent}"]`);
       const isPremiumSection = btn?.dataset.premium === 'true';
@@ -6633,7 +6635,57 @@
           try { renderPortfolioCharts(); buildPortfolioDailyCal(); renderMonthlyHeatmap(); } catch (e) { console.error('[portfolio] render error:', e); }
         }, 50);
       }
+
+      // === HISTORY NAVIGATION : push state pour back/forward du navigateur ===
+      // Le user peut maintenant utiliser Alt+Left ou le bouton "back" du navigateur
+      // pour revenir a la section precedemment consultee. Skip si silent (ex: appel
+      // depuis popstate listener qui doit rester cote consume sans re-pousser).
+      if (!opts.silent && typeof window !== 'undefined' && window.history) {
+        const targetHash = '#' + section;
+        // Ne pas push si on est deja sur cette section (eviter doublons)
+        if (window.location.hash !== targetHash && window.location.hash.split('&')[0].split('?')[0] !== targetHash) {
+          try {
+            window.history.pushState({ section, source: 'switchSection' }, '', targetHash);
+          } catch (e) { /* SecurityError sur sandboxes */ }
+        }
+      }
     }
+
+    // ============================================================
+    // BROWSER HISTORY : back/forward navigation
+    // ============================================================
+    // Parse #section ou #stockAnalysis?t=AAPL et naviguer en consequence.
+    // Appele au chargement initial + sur popstate (back/forward du navigateur).
+    function navigateFromHash(hash) {
+      const raw = (hash || '').replace(/^#/, '');
+      if (!raw) return false;
+      // Format : section[?param=value][&param=value]
+      const [sectionPart, queryPart] = raw.split('?');
+      const section = sectionPart.split('&')[0];  // Compat ancien format signals-clusters&direction=bullish
+      if (!section) return false;
+      // Parse query params si present
+      const params = {};
+      if (queryPart) {
+        for (const kv of queryPart.split('&')) {
+          const [k, v] = kv.split('=');
+          if (k) params[k] = decodeURIComponent(v || '');
+        }
+      }
+      // Navigate to section (silent : on ne re-pousse pas dans l'historique)
+      switchSection(section, { silent: true });
+      // Cas special : ticker dans l'URL pour Analyse Action
+      if (section === 'stockAnalysis' && params.t) {
+        // Charge l'analyse du ticker (silent pour ne pas re-pousser)
+        setTimeout(() => loadStockAnalysis(params.t, null, { silent: true }), 80);
+      }
+      return true;
+    }
+
+    // popstate : declenche par le bouton back/forward du navigateur
+    // On reload la section/ticker selon le nouveau hash, sans re-push history.
+    window.addEventListener('popstate', (event) => {
+      navigateFromHash(window.location.hash);
+    });
 
     // ============================================================
     // MON PROFIL — avatar, identité, abonnement, préférences, sécurité
@@ -9103,7 +9155,7 @@
       return Math.max(0, FREE_DAILY_QUOTA - getFreeQuotaState().count);
     }
 
-    async function loadStockAnalysis(ticker, chartRange) {
+    async function loadStockAnalysis(ticker, chartRange, opts = {}) {
       ticker = ticker.toUpperCase().trim();
       currentStockTicker = ticker;
       if (chartRange) currentChartRange = chartRange;
@@ -9112,6 +9164,18 @@
       const suggest = document.getElementById('stockSearchSuggest');
       if (input) input.value = ticker;
       if (suggest) suggest.style.display = 'none';
+
+      // === HISTORY NAVIGATION : push state avec le ticker ===
+      // L'URL devient #stockAnalysis?t=AAPL pour permettre back/forward et
+      // partage de lien direct vers une analyse specifique.
+      if (!opts.silent && typeof window !== 'undefined' && window.history) {
+        const targetHash = `#stockAnalysis?t=${encodeURIComponent(ticker)}`;
+        if (window.location.hash !== targetHash) {
+          try {
+            window.history.pushState({ section: 'stockAnalysis', ticker }, '', targetHash);
+          } catch (e) {}
+        }
+      }
 
       // Gate Free : quota 3 analyses/jour. Les premium (Pro/Elite) passent.
       if (!isPremium) {

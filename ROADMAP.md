@@ -108,6 +108,48 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 🔙 Navigation browser back/forward (history.pushState)
+
+**User feedback** : 'pour naviguer plus facilement sur le site, il faudrait
+que le retour arriere ramene a l'ecran precedemment consulte sur le site'
+
+**Avant** : `switchSection()` changait la classe `active` mais ne touchait
+pas a `window.history`. Le bouton back du navigateur ramenait directement
+hors du dashboard (page precedente du browser, pas la section dashboard).
+
+**Apres** : history navigation completement integree :
+
+1. `switchSection(section, opts)` : ajout `opts.silent` (default false)
+   - Sans silent : pousse `history.pushState({section}, '', '#section')`
+   - Avec silent : skip le push (cas du popstate listener pour eviter
+     double-entree dans l'historique)
+
+2. `loadStockAnalysis(ticker, chartRange, opts)` : ajout `opts.silent`
+   - URL devient `#stockAnalysis?t=AAPL` (ticker stocke dans le hash)
+   - Permet partage de lien direct vers une analyse + back/forward entre
+     plusieurs tickers analyses
+
+3. Nouveau `navigateFromHash(hash)` : fonction utilitaire qui parse l'URL
+   et navigate en consequence. Format supporte : `#section`,
+   `#stockAnalysis?t=TICKER`, et compat ancien format `#signals-clusters
+   &direction=bullish`.
+
+4. `window.addEventListener('popstate', ...)` : listener global pour le
+   bouton back/forward du browser. Re-call navigateFromHash en mode silent.
+
+5. `onAuthStateChanged` au load : utilise navigateFromHash pour restaurer
+   la section depuis l'URL (deep-link / refresh tab / lien partage).
+
+**Cas couverts** :
+- Click sur sidebar (Accueil -> Hot Stocks -> Initiés) : back ramene a
+  Hot Stocks puis Accueil
+- Click sur ticker dans Insiders -> Analyse Action AAPL -> click MSFT ->
+  back ramene a AAPL, back encore = Insiders
+- Refresh F5 : la section actuelle est conservee (pas de retour brutal a
+  l'accueil)
+- Partage de lien : `https://kairosinsider.fr/dashboard.html#stockAnalysis?t=MC.PA`
+  ouvre direct l'analyse LVMH
+
 ### 🎨 Analyse Action : etat vide enrichi (Discovery dashboard)
 
 **User feedback** : 'cet ecran est plutot vide quand on l'ouvre au debut.
