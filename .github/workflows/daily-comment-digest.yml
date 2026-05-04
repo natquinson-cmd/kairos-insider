@@ -13,12 +13,9 @@ name: Daily Comment Digest → Email
 # - KAIROS_ADMIN_API_KEY : meme valeur que le secret ADMIN_API_KEY du worker
 
 on:
-  schedule:
-    # 5h45 UTC = 7h45 Paris (ete) / 6h45 Paris (hiver)
-    # Tourne APRES update-13f (1h30 UTC) qui rafraichit les Kairos Scores.
-    # 3h30 UTC = 5h30 Paris ideal, ~7h30 Paris si retard GitHub +2h.
-    # Lun-ven uniquement (week-end X moins actif).
-    - cron: '30 3 * * 1-5'
+  # CRON DESACTIVE le 04 mai 2026 : user a demande d'arreter les emails
+  # quotidiens lies aux tweets, juges pas pertinents. Run manuel uniquement.
+  # Pour reactiver : remettre `- cron: '30 3 * * 1-5'` ci-dessous.
   workflow_dispatch:  # run manuel
 
 jobs:

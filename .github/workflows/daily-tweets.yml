@@ -12,11 +12,11 @@ name: Daily Tweets → Email
 # - KAIROS_ADMIN_API_KEY configure comme secret GitHub (meme valeur)
 
 on:
-  schedule:
-    # 6h30 UTC = 8h30 Paris (ete) / 7h30 Paris (hiver)
-    # Tourne APRES update-13f (1h30 UTC, ~50min) + worker cron (4h UTC).
-    # 4h30 UTC = 6h30 Paris ideal, ~8h30 Paris si retard GitHub +2h.
-    - cron: '30 4 * * *'
+  # CRON DESACTIVE le 04 mai 2026 : user a demande d'arreter les emails
+  # quotidiens, juges pas pertinents. Le workflow reste declenchable
+  # manuellement via workflow_dispatch (GitHub UI > Actions > Run workflow)
+  # si on veut re-tester ou utiliser ponctuellement.
+  # Pour reactiver le cron : remettre la ligne `- cron: '30 4 * * *'` ci-dessous.
   workflow_dispatch:  # run manuel depuis GitHub UI
 
 jobs:
