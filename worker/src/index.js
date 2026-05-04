@@ -2326,6 +2326,24 @@ async function handleSignalsInsiderNetFlow(url, env, origin) {
     } catch {}
 
     // SQL : groupe par ticker, calcule buys $ / sells $ / net $ / tx count / insiders uniques / derniere date.
+    // ORDER BY + LIMIT pousse en SQL directement pour reduire le payload retourne
+    // au Worker (sinon 3700+ rows / 90j -> CPU spike + timeout 500).
+    // On filtre direction/minValue cote SQL aussi quand possible pour minimiser
+    // les rows traitees en JS apres.
+    const orderClause = direction === 'bearish'
+      ? 'ORDER BY (buyValue - sellValue) ASC'  // plus negatif d'abord
+      : direction === 'bullish'
+        ? 'ORDER BY (buyValue - sellValue) DESC'  // plus positif d'abord
+        : 'ORDER BY ABS(buyValue - sellValue) DESC';  // magnitude
+
+    // HAVING : applique direction + minValue cote SQL pour reduire massivement
+    let havingExtra = '(buyValue + sellValue) > 0';
+    if (direction === 'bullish') havingExtra += ' AND (buyValue - sellValue) > 0';
+    else if (direction === 'bearish') havingExtra += ' AND (buyValue - sellValue) < 0';
+    if (minValue > 0) havingExtra += ` AND ABS(buyValue - sellValue) >= ${minValue}`;
+
+    // Fetch limite directement (limit + buffer 50 pour dedoublon eventuel)
+    const sqlLimit = Math.min(limit + 50, 500);
     const query = `
       SELECT
         ticker,
@@ -2340,10 +2358,22 @@ async function handleSignalsInsiderNetFlow(url, env, origin) {
         AND ticker IS NOT NULL AND ticker != ''
         AND trans_type IN ('buy', 'sell')
       GROUP BY ticker
-      HAVING (buyValue + sellValue) > 0
-      LIMIT 2000
+      HAVING ${havingExtra}
+      ${orderClause}
+      LIMIT ${sqlLimit}
     `;
-    const rows = (await env.HISTORY.prepare(query).bind(sinceStr).all()).results || [];
+    let rows = [];
+    try {
+      const result = await env.HISTORY.prepare(query).bind(sinceStr).all();
+      rows = result.results || [];
+    } catch (sqlErr) {
+      console.error('[netflow] SQL error:', sqlErr.message || sqlErr);
+      return jsonResponse({
+        error: 'D1 query failed',
+        detail: String(sqlErr.message || sqlErr),
+        query_filters: { days, direction, minValue, limit },
+      }, 500, origin);
+    }
 
     let items = rows.map(r => {
       const buyValue = r.buyValue || 0;
@@ -2361,16 +2391,9 @@ async function handleSignalsInsiderNetFlow(url, env, origin) {
       };
     });
 
-    if (direction === 'bullish') items = items.filter(i => i.netValue > 0);
-    else if (direction === 'bearish') items = items.filter(i => i.netValue < 0);
-
-    if (minValue > 0) items = items.filter(i => Math.abs(i.netValue) >= minValue);
-
-    items.sort((a, b) => {
-      if (direction === 'bearish') return a.netValue - b.netValue; // plus negatif d'abord
-      if (direction === 'bullish') return b.netValue - a.netValue; // plus positif d'abord
-      return Math.abs(b.netValue) - Math.abs(a.netValue);          // magnitude decroissante
-    });
+    // Note : direction + minValue + sort sont DEJA appliques cote SQL pour
+    // performance (cf. orderClause + havingExtra ci-dessus). Pas besoin de
+    // refiltrer en JS.
 
     const result = {
       total: items.length,
