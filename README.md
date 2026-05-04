@@ -26,6 +26,8 @@ Kairos Insider agrège et traduit en français les déclarations officielles des
 - **3 350+ tickers** US + Europe avec Kairos Score 0-100
 - **160 000+ transactions insider** (SEC Form 4 + AMF + BaFin) avec 7 mois d'historique
 - **37 000+ déclarations 13D/G** activists (2 ans d'historique)
+- **Top 50 Short Interest US** mis à jour quotidiennement (highshortinterest.com + historique 30j avec Δ7d, Δ30d, sparkline)
+- **Fundamentals EU complets** via Finnhub ADR (CAC40, DAX, FTSE, AEX, SMI, FTSE MIB, IBEX) : marketCap, P/E, EPS, ROE, ROA, marges, etc.
 - **Franchissements de seuils** sur 12 marchés EU + UK : France (AMF), UK (FCA), Allemagne (BaFin), Pays-Bas (AFM), Suisse (SIX), Italie (CONSOB), Espagne (CNMV), Suède, Norvège, Danemark, Finlande
 
 ## Pipeline data

@@ -4,7 +4,108 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 30 avril 2026 (v11 - Expansion smart money EU + ETFs convictions + crons avancés)
+**Dernière mise à jour** : 04 mai 2026 (v12 - Short Interest live + Fundamentals EU via Finnhub)
+
+---
+
+## 🎯 v12 — Short Interest live + Fundamentals EU robustes (04 mai 2026)
+
+Deux chantiers majeurs : remplacer la liste hardcodée Short Interest par un
+pipeline dynamique avec historique 30j, et activer Finnhub via ADR US pour
+les fundamentals EU complets.
+
+### 📉 Short Interest top 50 + historique 30j
+
+**Avant** : 10 tickers hardcodés (GME, AMC, MSTR, etc.) jamais mis à jour, avec
+des chiffres typés à la main il y a longtemps. L'endpoint `/api/shorts` retournait
+juste `{ok:true}`.
+
+**Après** :
+- **Source live** : highshortinterest.com scrape quotidien (top 50 actions US,
+  triées par % du float, avec sector + shares short + float total)
+- **Historique 30j** stocké dans le même KV `shorts-recent` (50 stocks × 30 days
+  × 10 bytes = ~15 KB, largement sous la limite KV 25 MB)
+- **Métriques calculées** :
+  - `delta7d` : variation absolue (en points de %) vs J-7
+  - `delta30d` : variation absolue vs J-30
+  - `sparkline` : tableau des 30 derniers % short pour visu mini-chart SVG
+  - `squeezeRisk` : EXTREME (>40%) / ELEVE (25-40) / MODERE (15-25) / FAIBLE (<15)
+- **Frontend enrichi** :
+  - 4 stat cards : nombre de stocks par catégorie de risque
+  - 2 panneaux Top Movers : risers (short qui chauffent) vs fallers (couvertures)
+  - Tableau 50 lignes avec sparkline SVG + Δ7d/30d colorés
+  - Click sur ticker -> bascule sur Analyse Action
+- **Cron** : `prefetch-shorts.py` ajouté à `update-13f.yml` (1h30 UTC daily)
+
+### 🇪🇺 Fundamentals EU complets via Finnhub ADR US
+
+**Découverte clé** : Finnhub free tier ne couvre PAS les tickers EU directs (.PA, .DE,
+.AS, .SW, .L, .MI, .MC) mais COUVRE leur ADR US.
+
+Test live :
+- MC.PA → EMPTY, **LVMUY → 131 fields complets** (P/E 20.5, ROE 16.4%, etc.)
+- ASML.AS → EMPTY, ASML (US listing) → 132 fields
+- NESN.SW → EMPTY, NSRGY → 131 fields
+
+**Solution** : table `EU_TO_US_ADR` avec ~80 mappings :
+- CAC 40 complet (LVMH→LVMUY, Hermès→HESAY, L'Oréal→LRLCY, etc.)
+- DAX (SAP, Siemens→SIEGY, Allianz→ALIZY, BMW→BMWYY, etc.)
+- AEX (ASML, Heineken→HEINY, Unilever→UL, ING)
+- SMI (Nestlé→NSRGY, Roche→RHHBY, Novartis→NVS, UBS, Zurich→ZURVY)
+- FTSE 100 (Shell, AstraZeneca→AZN, HSBC, Diageo→DEO, BP, GSK, Barclays→BCS)
+- FTSE MIB (Ferrari, ENI→E, Intesa→ISNPY, Stellantis)
+- IBEX 35 (Santander, Telefónica, Inditex→IDEXY, Iberdrola→IBDRY)
+
+Logic dans `fetchFinnhubMetrics` :
+1. Try ticker direct (peut marcher pour ASML/SAP listings duals)
+2. Si vide, try `EU_TO_US_ADR[ticker]`
+3. Cache 24h sur ticker original (transparent côté caller)
+4. Marqueur `_usedSymbol` pour traçabilité
+
+**Données enrichies maintenant disponibles pour tout EU** :
+- Section "Taille" : marketCap, enterpriseValue, revenue, netIncome, sharesOut
+- Multiples : peRatio, forwardPE, psRatio, pbRatio, pfcf, evEbitda, evSales, evFcf
+- Caractéristiques : eps, beta, dividendYield (en fraction), payoutRatio
+- 52w high/low
+- Marges : gross, operating, profit, fcf (avec .display formatté)
+- Returns : roe, roa, roic, roce (avec .display)
+
+### 🔧 Bug fixes & UI améliorations
+
+- **Dividende 288%** : Zonebourse retournait le rendement en %, frontend faisait
+  `* 100` en pensant fraction → 288%. Fix : Zonebourse parser stocke en fraction
+  (2.88% → 0.0288) pour matcher format stockanalysis.com.
+
+- **Consensus EU "undefined"** : pour les EU sans breakdown détaillé, on synthétise
+  un buy/hold/sell plausible depuis la note gauge Zonebourse (0-10) + nombre
+  d'analystes. LVMH note 7.8 → 7 strongBuy / 14 buy / 5 hold / 1 sell / 0 strongSell.
+
+- **Panneau Zonebourse duplicate** : supprimé du header (banner en haut), ajouté
+  comme box compacte au bas du panneau Consensus standard. UI uniformisée EU/US.
+
+- **CAC40 search** : ajout `CAC40_FAST_LOOKUP` (40 mappings nom → ticker) +
+  re-ranking EU dans search-ticker pour que "hermes" remonte RMS.PA en 1er au
+  lieu de Federated Hermes US.
+
+- **13F consensus tickers manquants** : `buildTickerByName` étendu à 5 sources
+  (KNOWN_TICKERS + insider-transactions + 13D/G + 16 ETFs + 11 thresholds EU).
+  Cache 1h. Couverture passée de ~200 à ~6000-10000 mappings name→ticker.
+
+### 📅 Cron emails désactivés (user request)
+
+- `daily-tweets.yml` (4h30 UTC) : 3 tweets quotidiens via email — DÉSACTIVÉ
+- `daily-comment-digest.yml` (3h30 UTC lun-ven) : digest tweets X — DÉSACTIVÉ
+
+Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
+
+### Commits clés v12
+- `da2f6ee` — desactive emails quotidiens lies aux tweets (user request)
+- `8874a3e` — UI : box Zonebourse appendue en bas du panneau Consensus
+- `dc395ca` — Finnhub fallback ADR US pour CAC40 + DAX + AEX + SMI + FTSE
+- `e7d148c` — Finnhub integration + suppression panneau Zonebourse duplicate
+- `1cb1c78` — fundamentals EU enrichis depuis Yahoo quote (52w, currency, change %)
+- `26084ff` — fix dividend 288% + breakdown analystes synthétisés
+- `5ac6f2a` — buildTickerByName étendu à 5 sources
 
 ---
 

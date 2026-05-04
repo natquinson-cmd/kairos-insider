@@ -1,7 +1,7 @@
 # 📚 Documentation technique — Kairos Insider
 
 > Documentation complète de la plateforme Kairos Insider.
-> Dernière mise à jour : 30 avril 2026
+> Dernière mise à jour : 04 mai 2026
 
 ---
 
@@ -50,6 +50,8 @@ L'abonnement Premium (29 €/mois ou 290 €/an) débloque l'intégralité des f
 - **16 ETFs** avec snapshots quotidiens (11 thématiques + 5 convictions/international)
 - **47 fonds** dans le pipeline 13F SEC complet (26 US originaux + 21 EU ajoutés en avril 2026)
 - **12 ans d'historique trimestriel 13F** par fond (cron mensuel)
+- **Top 50 actions US shortées** avec historique 30j (Δ7d, Δ30d, sparkline) — depuis mai 2026
+- **Finnhub fundamentals** pour CAC40 + DAX + AEX + SMI + FTSE via fallback ADR US (mai 2026)
 
 ---
 
@@ -181,6 +183,7 @@ Le pipeline tourne **quotidiennement à 1h30 UTC** (3h30 Paris heure d'été) vi
           ├─ Merge SEC + BaFin + AMF                     2 min
           ├─ Fetch Google Trends (top 100 tickers)      20 min
           ├─ Fetch ETF holdings (16 ETFs)                5 min
+          ├─ Fetch Short Interest top 50 (highshortinterest) 5 sec
           ├─ Push daily D1 snapshots (ETF + 13F)        10 min
           ├─ Push Kairos Scores quotidiens             2-5 min
 3h00 UTC  └─ Push insider transactions history         15 min
@@ -219,6 +222,7 @@ Le pipeline tourne **quotidiennement à 1h30 UTC** (3h30 Paris heure d'été) vi
 | `merge-sources.py` | Merge SEC + BaFin + AMF en 1 fichier unifié | ~2 min |
 | `prefetch-trends.py` | Google Trends pour top 100 tickers | ~20 min |
 | `prefetch-etf.py` | Fetch composition des 16 ETF (politiques + smart money + thématiques + convictions + international) | ~5 min |
+| `prefetch-shorts.py` | (NEW mai 2026) Top 50 actions US shortées via highshortinterest.com + historique 30j | ~5s |
 | `fetch-13f-history.py` | (mensuel) Fetch 12 ans de 13F historique pour les 47 fonds du CIK_MAP | ~10 min |
 | `push-to-d1.py` | Push ETF snapshots + 13F holdings vers D1 | ~10 min |
 | `push-insiders-to-d1.py` | Push transactions insiders vers D1 | ~15 min |

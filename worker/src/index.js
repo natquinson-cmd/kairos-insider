@@ -1012,8 +1012,22 @@ async function handleApiRoute(path, url, env, origin) {
     return handleMarketPulse(env, origin);
   }
   if (path === '/api/shorts') {
-    // Ces donnees sont dans le frontend, pas besoin de backend
-    return jsonResponse({ ok: true }, 200, origin);
+    // Top 50 actions US les plus shortees + historique 30j (delta7d/30d + sparkline).
+    // Update quotidien via .github/workflows/update-13f.yml -> prefetch-shorts.py.
+    // Source : highshortinterest.com (FINRA bi-mensuel + recalcul float continu).
+    try {
+      const data = await env.CACHE.get('shorts-recent', 'json');
+      if (!data) {
+        return jsonResponse({
+          ok: false,
+          message: 'Short interest data not yet available — premier run en cours',
+          stocks: [],
+        }, 200, origin);
+      }
+      return jsonResponse(data, 200, origin);
+    } catch (e) {
+      return jsonResponse({ error: 'Failed to load shorts', detail: String(e && e.message || e) }, 500, origin);
+    }
   }
 
   return jsonResponse({ error: 'Unknown API route' }, 404, origin);

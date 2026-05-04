@@ -231,6 +231,18 @@ jobs:
             fi
           done
 
+      # ===== SHORT INTEREST (top 50 US, daily) =====
+      # Scrape highshortinterest.com -> top 50 actions US shortees + history 30j
+      # par ticker pour calculer delta7d / delta30d / sparkline.
+      # Le script lit l'existant KV puis append le snapshot du jour.
+      - name: Fetch Short Interest top 50 (avec history 30j)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: cd worker && python prefetch-shorts.py
+        timeout-minutes: 5
+        continue-on-error: true
+
       # ===== HISTORIQUE D1 (snapshots ETF + 13F) =====
       # Pousse les holdings du jour dans la DB historique pour permettre
       # les comparaisons temporelles (ETF rotation, 13F evolution, etc.)
