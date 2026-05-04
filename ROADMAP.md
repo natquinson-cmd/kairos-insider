@@ -108,6 +108,51 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 🇪🇺 Panels EU complets : Sante financiere + Resultats + Concurrents via Finnhub
+
+**User feedback** : 'je crois qu'il manque toutes ces infos pour les valeurs
+EUR non ? Comment les recuperer ?' (screenshot des 3 panels US complets que
+le user voulait pour LVMH/EU).
+
+**Etat avant** : 3 panels vides ou n/a pour EU :
+- Sante financiere (Piotroski F, ratios liquidite, dette/FP, dette/EBITDA,
+  couverture interets)
+- Resultats trimestriels (prochaine publication, historique surprises BPA)
+- Concurrents sectoriels (8 entreprises meme secteur)
+
+Toutes ces data venaient de stockanalysis.com (US-only), donc vide pour
+.PA, .DE, .AS, .SW, .L, .MI, .MC.
+
+**Fix** : 3 nouvelles fonctions Finnhub avec fallback automatique vers ADR :
+
+1. `fetchFinnhubEarnings(ticker, apiKey, env)` -> `/stock/earnings`
+   Retourne historique trimestriel : actual EPS, estimate EPS, surprise %.
+   LVMUY -> 4 entrees Q4 2025 / Q2 2025 / Q4 2024 / Q2 2024.
+   Cache 24h.
+
+2. `fetchFinnhubEarningsCalendar(ticker, apiKey, env)` -> `/calendar/earnings`
+   Retourne prochaine publication (date + Q + epsEstimate + time bmo/amc).
+   LVMUY -> 22 juillet 2026, Q2 2026, epsEstimate 11.49.
+   Cache 24h.
+
+3. `fetchFinnhubPeers(ticker, apiKey, env)` -> `/stock/peers`
+   Retourne 10 tickers concurrents EU (vs stockanalysis qui mixait LVMH avec
+   LPL Financial !). LVMUY -> [RMS.PA, CDI.PA, KER.PA, etc.] - tous EU luxe.
+   Cache 7 jours.
+
+4. Extension `fetchFinnhubMetrics()` : ajout `financialPosition` avec
+   currentRatio, quickRatio, debtEquity, debtEbitda, interestCoverage.
+
+**Strategie de merge** : stockanalysis (US, plus riche avec name + employees
+pour peers) PRIORITAIRE, sinon fallback Finnhub. Pour LVMH les 3 panels
+seront aussi denses que pour AAPL/MSFT.
+
+**Couverture** : ~80 mappings ADR EU_TO_US_ADR deja en place (CAC 40, DAX,
+AEX, SMI, FTSE 100, FTSE MIB, IBEX 35).
+
+**Performance** : 4 fetches Finnhub en Promise.all (parallelisme), cache
+24h-7j -> max 4 req/ticker/24h, sous le quota free tier 60/min.
+
 ### ✏️ Renommage 'Analyse action' -> 'Décrypter une valeur'
 
 **User feedback** : 'Pour un public francophone que mettrais-tu au lieu de

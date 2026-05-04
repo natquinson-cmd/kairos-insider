@@ -252,20 +252,27 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
 
   // ENRICHISSEMENT FINNHUB : pour les actions EU principalement (mais aussi US
   // si stockanalysis a des trous). Couvre marketCap, P/E, EPS, P/S, P/B, beta,
-  // ROE, ROA, marges (brute/operating/net/FCF), enterprise value, etc.
+  // ROE, ROA, marges, enterprise value, financialPosition + earnings + peers.
   // Free tier 60 calls/min, cache 24h dans KV.
   // Activer en setant le secret FINNHUB_KEY : `wrangler secret put FINNHUB_KEY`.
   let finnhubMetrics = null;
+  let finnhubEarnings = null;
+  let finnhubCalendar = null;
+  let finnhubPeers = null;
   if (env.FINNHUB_KEY) {
-    try {
-      finnhubMetrics = await fetchFinnhubMetrics(ticker, env.FINNHUB_KEY, env);
-    } catch {}
+    // Parallel pour gagner du temps (4 endpoints differents Finnhub)
+    [finnhubMetrics, finnhubEarnings, finnhubCalendar, finnhubPeers] = await Promise.all([
+      fetchFinnhubMetrics(ticker, env.FINNHUB_KEY, env).catch(() => null),
+      fetchFinnhubEarnings(ticker, env.FINNHUB_KEY, env).catch(() => null),
+      fetchFinnhubEarningsCalendar(ticker, env.FINNHUB_KEY, env).catch(() => null),
+      fetchFinnhubPeers(ticker, env.FINNHUB_KEY, env).catch(() => null),
+    ]);
   }
   let extendedRatios = statistics.extendedRatios || {};
   let margins = statistics.margins || {};
   let returns = statistics.returns || {};
+  let financialPosition = statistics.financialPosition || {};
   if (finnhubMetrics) {
-    // Fundamentals : Finnhub remplit les trous laisses par stockanalysis (vide pour EU)
     const fnh = finnhubMetrics;
     const fields = ['marketCap', 'enterpriseValue', 'revenue', 'netIncome', 'sharesOut',
       'peRatio', 'forwardPE', 'psRatio', 'pbRatio', 'pfcf', 'evEbitda',
@@ -274,11 +281,9 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     for (const k of fields) {
       if (fundamentals[k] == null && fnh[k] != null) fundamentals[k] = fnh[k];
     }
-    // Extended ratios : merge avec priorite a stockanalysis si dispo
     if (fnh.extendedRatios) {
       extendedRatios = { ...fnh.extendedRatios, ...extendedRatios };
     }
-    // Margins / Returns : Finnhub fournit les .display, on les utilise si stockanalysis vide
     if (fnh.margins) {
       for (const k of ['gross', 'operating', 'profit', 'fcf']) {
         if ((!margins[k] || !margins[k].display) && fnh.margins[k] && fnh.margins[k].display) {
@@ -293,6 +298,32 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
         }
       }
     }
+    // Financial position (Sante financiere) : fallback Finnhub si stockanalysis vide
+    if (fnh.financialPosition) {
+      for (const k of ['currentRatio', 'quickRatio', 'debtEquity', 'debtEbitda', 'interestCoverage']) {
+        if ((!financialPosition[k] || !financialPosition[k].display) && fnh.financialPosition[k] && fnh.financialPosition[k].display) {
+          financialPosition[k] = fnh.financialPosition[k];
+        }
+      }
+    }
+  }
+
+  // FUSION earnings : prend stockanalysis (US) sinon Finnhub (EU)
+  // Le panneau 'Resultats trimestriels' a besoin de earnings.history et earnings.next
+  let mergedEarnings = earningsData || { history: [], next: null };
+  // Si stockanalysis n'a pas d'historique mais Finnhub si -> fallback
+  if ((!mergedEarnings.history || mergedEarnings.history.length === 0) && finnhubEarnings && finnhubEarnings.history && finnhubEarnings.history.length > 0) {
+    mergedEarnings = { ...mergedEarnings, history: finnhubEarnings.history };
+  }
+  // Si stockanalysis n'a pas de next earnings mais Finnhub si -> fallback
+  if (!mergedEarnings.next && finnhubCalendar && finnhubCalendar.next) {
+    mergedEarnings = { ...mergedEarnings, next: finnhubCalendar.next };
+  }
+
+  // FUSION peers : prend stockanalysis (US, avec name + employees) sinon Finnhub (EU, ticker only)
+  let mergedPeers = (employeesData && employeesData.peers) || [];
+  if (mergedPeers.length === 0 && finnhubPeers && finnhubPeers.peers && finnhubPeers.peers.length > 0) {
+    mergedPeers = finnhubPeers.peers;
   }
   // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
   // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
@@ -314,7 +345,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
 
   const score = computeKairosScore({
     insiders, smartMoney, govEtf, quote, fundamentals, consensus,
-    health: statistics.health, earnings: earningsData,
+    health: statistics.health, earnings: mergedEarnings,
     euThresholds,  // EU activists/holdings (AMF/FCA/SIX/AFM/BaFin)
     weights: scoreWeights,
   });
@@ -348,12 +379,12 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     extendedRatios,                              // P/S, PEG, EV/EBITDA (stockanalysis + Finnhub merged)
     margins,                                     // Gross, Operating, Profit, FCF (idem)
     returns,                                     // ROE, ROA, ROIC, ROCE (idem)
-    financialPosition: statistics.financialPosition,  // Current, Quick, D/E, D/EBITDA
+    financialPosition,                           // Current, Quick, D/E, D/EBITDA (stockanalysis + Finnhub)
     health: statistics.health,                   // Altman Z + Piotroski F
     shortInterest: statistics.shortInterest,     // Short %, days to cover
     fairValue: statistics.fairValue,             // Lynch, Graham
-    earnings: earningsData,                      // history + next
-    peers: employeesData.peers || [],            // concurrents sectoriels
+    earnings: mergedEarnings,                    // history + next (stockanalysis US + Finnhub EU fallback)
+    peers: mergedPeers,                          // concurrents sectoriels (stockanalysis + Finnhub fallback)
     score,
     insiders,
     smartMoney,
@@ -1423,7 +1454,21 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
       roce: { raw: num(m.roceAnnual) || num(m.roceTTM), display: fmtPct(num(m.roceAnnual) || num(m.roceTTM)) },
     };
 
-    const payload = { ...result, extendedRatios, margins, returns, _usedSymbol: usedSymbol };
+    // === Financial position (currentRatio, quickRatio, debtEquity, debtEbitda, interestCoverage) ===
+    // Pour le panneau 'Sante financiere' qui etait vide pour EU.
+    const fmtNum = (v) => v != null ? v.toFixed(2) : null;
+    const debtEquity = num(m['totalDebt/totalEquityAnnual']) || num(m['longTermDebt/equityAnnual']);
+    const debtEbitda = num(m['totalDebt/ebitdaAnnual']);
+    const interestCoverage = num(m.interestCoverageAnnual) || num(m.netInterestCoverage);
+    const financialPosition = {
+      currentRatio: { raw: num(m.currentRatioAnnual), display: fmtNum(num(m.currentRatioAnnual)) },
+      quickRatio: { raw: num(m.quickRatioAnnual), display: fmtNum(num(m.quickRatioAnnual)) },
+      debtEquity: { raw: debtEquity, display: fmtNum(debtEquity) },
+      debtEbitda: { raw: debtEbitda, display: fmtNum(debtEbitda) },
+      interestCoverage: { raw: interestCoverage, display: fmtNum(interestCoverage) },
+    };
+
+    const payload = { ...result, extendedRatios, margins, returns, financialPosition, _usedSymbol: usedSymbol };
 
     // Cache 24h
     if (env && env.CACHE) {
@@ -1437,6 +1482,167 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
     return null;
   }
 }
+
+// ============================================================
+// FINNHUB EARNINGS : historique des resultats trimestriels (EU + US)
+// Free tier 60 calls/min. Cache 24h.
+// Solution principale pour remplir le panneau 'Resultats trimestriels'
+// pour les actions EU (LVMH, BNP, ASML, etc.) ou stockanalysis.com renvoie
+// vide. Avec fallback automatique vers ADR US (LVMH MC.PA -> LVMUY).
+// ============================================================
+async function fetchFinnhubEarnings(ticker, apiKey, env) {
+  if (!apiKey || !ticker) return null;
+  const cacheKey = `finnhub-earnings:${String(ticker).toUpperCase()}`;
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.fetchedAt) {
+        const age = (Date.now() - new Date(cached.fetchedAt).getTime()) / 1000;
+        if (age < 86400) return cached;
+      }
+    } catch {}
+  }
+  const tryFetch = async (sym) => {
+    try {
+      const r = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(sym)}&token=${apiKey}`);
+      if (!r.ok) return null;
+      const arr = await r.json();
+      return Array.isArray(arr) && arr.length > 0 ? arr : null;
+    } catch { return null; }
+  };
+  let arr = await tryFetch(ticker);
+  if (!arr) {
+    const adr = EU_TO_US_ADR[String(ticker).toUpperCase()];
+    if (adr) arr = await tryFetch(adr);
+  }
+  if (!arr) return null;
+  // Format Finnhub : [{symbol, period (date), year, quarter, actual, estimate, surprisePercent}]
+  // -> Notre format : history = [{period: 'Q1', year, date, epsActual, epsEst, epsSurprisePct, beat}]
+  arr.sort((a, b) => (b.period || '').localeCompare(a.period || ''));  // recent first
+  const history = arr.slice(0, 12).map(e => ({
+    period: e.quarter ? `Q${e.quarter}` : '',
+    year: e.year,
+    date: e.period || null,  // Finnhub utilise 'period' pour la date YYYY-MM-DD
+    epsActual: e.actual != null ? Number(e.actual) : null,
+    epsEst: e.estimate != null ? Number(e.estimate) : null,
+    epsSurprisePct: e.surprisePercent != null ? Number(e.surprisePercent) : null,
+    beat: (e.actual != null && e.estimate != null) ? (e.actual >= e.estimate) : null,
+  }));
+  const payload = { history, _source: 'finnhub', fetchedAt: new Date().toISOString() };
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify(payload), { expirationTtl: 86400 + 3600 });
+  } catch {}
+  return payload;
+}
+
+
+// ============================================================
+// FINNHUB EARNINGS CALENDAR : prochaine publication (EU + US)
+// Endpoint /calendar/earnings retourne les events futurs et passes.
+// Pour 'next earnings', on cherche le 1er event sans actual rempli.
+// Cache 24h.
+// ============================================================
+async function fetchFinnhubEarningsCalendar(ticker, apiKey, env) {
+  if (!apiKey || !ticker) return null;
+  const cacheKey = `finnhub-calendar:${String(ticker).toUpperCase()}`;
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.fetchedAt) {
+        const age = (Date.now() - new Date(cached.fetchedAt).getTime()) / 1000;
+        if (age < 86400) return cached;
+      }
+    } catch {}
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const futureMax = new Date(); futureMax.setMonth(futureMax.getMonth() + 6);
+  const toDate = futureMax.toISOString().slice(0, 10);
+  const tryFetch = async (sym) => {
+    try {
+      const r = await fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${today}&to=${toDate}&symbol=${encodeURIComponent(sym)}&token=${apiKey}`);
+      if (!r.ok) return null;
+      const data = await r.json();
+      const events = data.earningsCalendar || [];
+      return events.length > 0 ? events : null;
+    } catch { return null; }
+  };
+  let events = await tryFetch(ticker);
+  if (!events) {
+    const adr = EU_TO_US_ADR[String(ticker).toUpperCase()];
+    if (adr) events = await tryFetch(adr);
+  }
+  if (!events) return null;
+  // Premier event futur (pas encore publie : actual = null)
+  events.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const upcoming = events.find(e => e.epsActual == null) || events[0];
+  if (!upcoming) return null;
+  // Format Finnhub hour : 'bmo' = before market open, 'amc' = after market close, 'tas' = time after session
+  // Format frontend : time = 'bmo' | 'amc' | null
+  const next = {
+    date: upcoming.date,
+    period: upcoming.quarter ? `Q${upcoming.quarter}` : '',
+    year: upcoming.year,
+    time: upcoming.hour || null,
+    epsEst: upcoming.epsEstimate != null ? Number(upcoming.epsEstimate) : null,
+    confirmed: upcoming.epsActual != null,
+  };
+  const payload = { next, _source: 'finnhub', fetchedAt: new Date().toISOString() };
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify(payload), { expirationTtl: 86400 + 3600 });
+  } catch {}
+  return payload;
+}
+
+
+// ============================================================
+// FINNHUB PEERS : concurrents sectoriels (EU + US)
+// Endpoint /stock/peers retourne 10-20 tickers similaires meme secteur.
+// Pour LVMH (MC.PA via LVMUY) -> ['MC.PA', 'RMS.PA' (Hermes), 'CDI.PA' (Christian Dior),
+// 'KER.PA' (Kering), ...] - peers EU concrets, contrairement a stockanalysis qui melange.
+// Cache 7 jours (les peers changent peu).
+// ============================================================
+async function fetchFinnhubPeers(ticker, apiKey, env) {
+  if (!apiKey || !ticker) return null;
+  const cacheKey = `finnhub-peers:${String(ticker).toUpperCase()}`;
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached && cached.fetchedAt) {
+        const age = (Date.now() - new Date(cached.fetchedAt).getTime()) / 1000;
+        if (age < 7 * 86400) return cached;
+      }
+    } catch {}
+  }
+  const tryFetch = async (sym) => {
+    try {
+      const r = await fetch(`https://finnhub.io/api/v1/stock/peers?symbol=${encodeURIComponent(sym)}&token=${apiKey}`);
+      if (!r.ok) return null;
+      const arr = await r.json();
+      return Array.isArray(arr) && arr.length > 0 ? arr : null;
+    } catch { return null; }
+  };
+  let tickers = await tryFetch(ticker);
+  if (!tickers) {
+    const adr = EU_TO_US_ADR[String(ticker).toUpperCase()];
+    if (adr) tickers = await tryFetch(adr);
+  }
+  if (!tickers) return null;
+  // Le 1er element est souvent le ticker lui-meme (Finnhub include input)
+  // -> on l'exclut. Format frontend : [{ticker, name, employees}, ...]
+  // On n'a pas le name/employees ici (necessiterait /stock/profile2 par peer = couteux).
+  // Le frontend affiche juste le ticker, click -> loadStockAnalysis qui fetche le full.
+  const upper = String(ticker).toUpperCase();
+  const peers = tickers
+    .filter(t => t && t.toUpperCase() !== upper)
+    .slice(0, 10)
+    .map(t => ({ ticker: String(t).toUpperCase(), name: '', employees: null }));
+  const payload = { peers, _source: 'finnhub', fetchedAt: new Date().toISOString() };
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify(payload), { expirationTtl: 7 * 86400 + 3600 });
+  } catch {}
+  return payload;
+}
+
 
 // ============================================================
 // AGGREGATORS : insiders depuis KV insider-transactions
