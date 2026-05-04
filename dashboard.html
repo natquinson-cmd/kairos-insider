@@ -8520,16 +8520,18 @@
           ? `<div>${fmtDate(primaryDate)}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px" title="Date de la transaction">tx : ${fmtDate(t.date)}</div>`
           : fmtDate(primaryDate);
 
-        // Insider truncation : les declarants EU peuvent etre tres longs
-        // ("SOCIETE HOLDING ... personne morale liee a X"). On affiche un nom court
-        // dans la cell + tooltip complet au survol.
+        // Insider truncation TRES compacte : max 22 chars + tooltip complet au survol
+        // Pour "personne morale liee a X" (entites EU), on affiche directement X
+        // (la VRAIE personne) au lieu du nom de la societe holding qui pollue.
         const insiderFull = t.insider || '—';
-        const insiderShort = insiderFull.length > 40 ? insiderFull.slice(0, 38) + '…' : insiderFull;
-        // Pour les "personne morale liee a X" -> extraire le nom de la personne
-        let insiderHint = '';
+        let insiderShort = insiderFull;
         const lieM = insiderFull.match(/personne morale li[ée]e [aà]\s+(.+?)(?:$|,)/i);
-        if (lieM && insiderFull.length > 40) {
-          insiderHint = ` <span style="font-size:10px;color:var(--text-muted)">→ ${lieM[1].trim().slice(0, 30)}</span>`;
+        if (lieM && lieM[1]) {
+          // Cas entité morale : afficher uniquement la VRAIE personne (FABRICE COLONNAWALEWSKI)
+          insiderShort = lieM[1].trim();
+        }
+        if (insiderShort.length > 22) {
+          insiderShort = insiderShort.slice(0, 21) + '…';
         }
 
         rows += `<tr>
@@ -8541,7 +8543,7 @@
           <td style="text-align:right;font-weight:600">${fmtNum(t.shares)}</td>
           <td style="text-align:right">${t.price > 0 ? fmtCur(t.price, currency) : '—'}</td>
           <td style="text-align:right;font-weight:600">${t.value > 0 ? fmtCurShort(t.value, currency) : '—'}</td>
-          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${insiderFull.replace(/"/g, '&quot;')}">${insiderShort}${insiderHint}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${insiderFull.replace(/"/g, '&quot;')}">${insiderShort}</td>
           <td style="font-size:11px;color:var(--text-muted)">${translatePosition(t.title)}</td>
         </tr>`;
       }
