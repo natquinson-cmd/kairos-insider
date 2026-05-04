@@ -485,7 +485,7 @@
       'dash.section.clustering.desc': 'Quatre angles de lecture des transactions insiders — clusters, flux net, insiders transversaux et achats contrarians. Chaque vue repond a une question differente.',
 
       'dash.clustering.tab.clusters': 'Clusters',
-      'dash.clustering.tab.netflow': 'Flux net 30j',
+      'dash.clustering.tab.netflow': 'Flux net',
       'dash.clustering.tab.crossticker': 'Transversaux',
       'dash.clustering.tab.contrarian': 'Contrarian',
       'dash.clustering.clusters.desc': 'Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — signal fort quand ≥3 insiders agissent ensemble.',
@@ -1018,7 +1018,7 @@
       'dash.section.screener.title': 'Insiders — Advanced Screener',
       'dash.section.screener.desc': 'Combinable filters on the full history of insider transactions (up to 5 years). Filter by role, amount, period, ticker, source — export results as CSV.',
       'dash.clustering.tab.clusters': 'Clusters',
-      'dash.clustering.tab.netflow': 'Net flow 30d',
+      'dash.clustering.tab.netflow': 'Net flow',
       'dash.clustering.tab.crossticker': 'Cross-ticker',
       'dash.clustering.tab.contrarian': 'Contrarian',
       'dash.clustering.clusters.desc': 'Stocks where multiple executives traded simultaneously — strong signal when ≥3 insiders act together.',
