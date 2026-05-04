@@ -106,6 +106,30 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `1cb1c78` — fundamentals EU enrichis depuis Yahoo quote (52w, currency, change %)
 - `26084ff` — fix dividend 288% + breakdown analystes synthétisés
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
+- `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
+
+### 🔧 Tableau Initiés : reorder colonnes pour UX EU
+
+**User feedback** : "il y a aussi peu d'informations quand les donnees sont europe"
++ "il faudrait au moins le type (achat/vente) et le nombre d'actions"
+
+**Diagnostic** : les data EU sont en fait PLUS COMPLETES que US (100% price/value
++ ISIN systematique vs 60% pour US). Mais la table avait Type/Actions/Valeur en
+positions 7-10 sur 10, donc COUPEES par le viewport. Le declarant EU long
+("SOCIETE HOLDING ... personne morale liee a X") prenait toute la largeur.
+
+**Solution** : reorder colonnes -> Type/Actions/Prix/Valeur **avant** Declarant.
+Plus :
+- Truncate Declarant > 40 chars avec ellipsis + tooltip complet
+- Extraction "personne morale liee a X" -> affiche X en hint compact
+- Truncate Entreprise > 200px avec tooltip
+- min-width 1100px sur la table avec overflow-x:auto pour scroll smooth
+
+Ordre final : Date | Marche | Ticker | Entreprise | **Type** | **Actions** |
+Prix | Valeur | Declarant | Poste
+
+Le user voit maintenant l'info critique (achat/vente + nb actions + valeur)
+des le 1er coup d'oeil pour TOUTES les transactions, US et EU.
 
 ---
 

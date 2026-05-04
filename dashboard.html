@@ -8520,35 +8520,47 @@
           ? `<div>${fmtDate(primaryDate)}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px" title="Date de la transaction">tx : ${fmtDate(t.date)}</div>`
           : fmtDate(primaryDate);
 
+        // Insider truncation : les declarants EU peuvent etre tres longs
+        // ("SOCIETE HOLDING ... personne morale liee a X"). On affiche un nom court
+        // dans la cell + tooltip complet au survol.
+        const insiderFull = t.insider || '—';
+        const insiderShort = insiderFull.length > 40 ? insiderFull.slice(0, 38) + '…' : insiderFull;
+        // Pour les "personne morale liee a X" -> extraire le nom de la personne
+        let insiderHint = '';
+        const lieM = insiderFull.match(/personne morale li[ée]e [aà]\s+(.+?)(?:$|,)/i);
+        if (lieM && insiderFull.length > 40) {
+          insiderHint = ` <span style="font-size:10px;color:var(--text-muted)">→ ${lieM[1].trim().slice(0, 30)}</span>`;
+        }
+
         rows += `<tr>
           <td style="white-space:nowrap">${dateCell}</td>
           <td style="white-space:nowrap;text-align:center" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
           ${t.ticker ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(t.ticker).replace(/'/g, "\\'")}'), 150)" title="${t.isin || ''} · Cliquer pour analyser ${t.ticker}">${tickerDisplay}</td>` : `<td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>`}
-          <td style="color:var(--text-primary)">${t.company || '—'}</td>
-          <td>${t.insider || '—'}</td>
-          <td>${translatePosition(t.title)}</td>
-          <td>${typeLabel}</td>
-          <td style="text-align:right">${fmtNum(t.shares)}</td>
+          <td style="color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.company || '').replace(/"/g, '&quot;')}">${t.company || '—'}</td>
+          <td style="text-align:center">${typeLabel}</td>
+          <td style="text-align:right;font-weight:600">${fmtNum(t.shares)}</td>
           <td style="text-align:right">${t.price > 0 ? fmtCur(t.price, currency) : '—'}</td>
           <td style="text-align:right;font-weight:600">${t.value > 0 ? fmtCurShort(t.value, currency) : '—'}</td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${insiderFull.replace(/"/g, '&quot;')}">${insiderShort}${insiderHint}</td>
+          <td style="font-size:11px;color:var(--text-muted)">${translatePosition(t.title)}</td>
         </tr>`;
       }
 
       area.innerHTML = `
         <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length} transactions trouvees</p>
-        <div class="table-wrap">
-          <table>
+        <div class="table-wrap" style="overflow-x:auto">
+          <table style="min-width:1100px">
             <thead><tr>
               <th>Date</th>
               <th>Marché</th>
               <th>Ticker</th>
               <th>Entreprise</th>
-              <th>Declarant</th>
-              <th>Poste</th>
-              <th>Type</th>
+              <th style="text-align:center">Type</th>
               <th style="text-align:right">Actions</th>
               <th style="text-align:right">Prix</th>
               <th style="text-align:right">Valeur</th>
+              <th>Declarant</th>
+              <th>Poste</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
