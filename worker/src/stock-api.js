@@ -147,9 +147,10 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
   // Cache : 2 variantes (public tronque / premium complet) x range
-  // v8 : bump pour invalider les EU caches vides (LVMH, Hermes, Nestle...)
-  // dont companyName etait null par manque d'insiders SEC -> aggregate13F vide.
-  const cacheKey = `stock-analysis:v8:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v9 : bump pour purger d'eventuels caches "empty" (BEN, etc.) ou stockanalysis
+  // a renvoye empty transient et le worker a cache 15 min un resultat vide.
+  // En +, ajout d'une protection looksEmpty -> TTL 60s au lieu de 15 min.
+  const cacheKey = `stock-analysis:v9:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
@@ -440,9 +441,24 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     }
   }
 
-  // Cache KV 15 min
+  // Detection resultat anormalement vide : si stockanalysis + Finnhub + Yahoo
+  // ont tous echoue (e.g. 5xx transient, rate limit, IP block), on retournerait
+  // un cache vide au prochain user. On reduit le TTL a 60s dans ce cas pour
+  // tenter un re-fetch rapide au lieu de bloquer le ticker pendant 15 min.
+  const looksEmpty = (
+    (!result.fundamentals || Object.keys(result.fundamentals).length === 0)
+    && !result.price
+    && (!result.consensus)
+    && (!result.news || result.news.length === 0)
+    && (!result.peers || result.peers.length === 0)
+  );
+  const effectiveTtl = looksEmpty ? 60 : CACHE_TTL;
+  if (looksEmpty) {
+    console.warn(`[STOCK] Empty result for ${ticker} - caching only 60s for retry`);
+  }
+  // Cache KV (15 min en normal, 60s si resultat vide pour permettre retry rapide)
   try {
-    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: CACHE_TTL });
+    await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: effectiveTtl });
   } catch (e) {
     console.error('KV cache put failed:', e);
   }
