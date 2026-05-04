@@ -571,8 +571,8 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
 // ============================================================
 async function resolveTickerViaYahooSearch(query, env) {
   if (!query) return null;
-  // v2 : bump apres ajout filter equity (eviter UBS AG -> fonds 0P00...)
-  const cacheKey = `yahoo-search:v2:${String(query).toUpperCase().trim()}`;
+  // v3 : bump apres priorite match exact symbol = query (evite CRBP -> CRBP2.PA)
+  const cacheKey = `yahoo-search:v3:${String(query).toUpperCase().trim()}`;
 
   // Cache 7 jours
   if (env && env.CACHE) {
@@ -619,8 +619,14 @@ async function resolveTickerViaYahooSearch(query, env) {
     const isUsTicker = q => !!(q.symbol && !q.symbol.includes('.') && /^[A-Z]/.test(q.symbol));
 
     let pick = null;
-    // 1. Requete FR -> preferer .PA equity
-    if (looksFrench) {
+    // 0. MATCH EXACT du symbol = query (priorite absolue).
+    // Bug fix mai 2026 : avant, "CRBP" -> "CRBP2.PA" (Credit Agricole Brie
+    // Picardie) au lieu de "CRBP" (Coherus BioSciences US) parce que la
+    // priorite EU passait en premier. Un ticker exact (US ou EU) doit
+    // toujours gagner sur un substring partiel.
+    pick = eligibles.find(q => (q.symbol || '').toUpperCase() === queryUp);
+    // 1. Requete FR (whitelist hardcoded) -> preferer .PA equity
+    if (!pick && looksFrench) {
       pick = eligibles.find(q => /\.PA$/i.test(q.symbol || ''));
     }
     // 2. Equity sur major EU exchange
