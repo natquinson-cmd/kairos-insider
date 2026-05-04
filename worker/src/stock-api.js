@@ -1356,8 +1356,9 @@ const EU_TO_US_ADR = {
 async function fetchFinnhubMetrics(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
 
-  // Cache 24h sur le ticker ORIGINAL (pas l'ADR) pour le lookup ulterieur
-  const cacheKey = `finnhub-metrics:v2:${String(ticker).toUpperCase()}`;
+  // Cache 24h sur le ticker ORIGINAL (pas l'ADR) pour le lookup ulterieur.
+  // v3 : bump apres ajout healthScore + financialPosition (mai 2026).
+  const cacheKey = `finnhub-metrics:v3:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1666,7 +1667,8 @@ async function fetchFinnhubEarningsCalendar(ticker, apiKey, env) {
 // ============================================================
 async function fetchFinnhubPeers(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
-  const cacheKey = `finnhub-peers:${String(ticker).toUpperCase()}`;
+  // v2 : bump apres enrichissement avec longName via Yahoo chart (mai 2026).
+  const cacheKey = `finnhub-peers:v2:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');

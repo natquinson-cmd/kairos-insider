@@ -10808,9 +10808,9 @@
           </div>
         </div>
 
-        <!-- 3 COLONNES : Santé / Earnings / Peers -->
-        ${(health.altmanZ != null || health.piotroskiF != null || (earnings.history && earnings.history.length) || earnings.next || peers.length > 0) ? `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
+        <!-- 3 COLONNES : Santé / Earnings / Peers (align-items:stretch pour meme hauteur) -->
+        ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (earnings.history && earnings.history.length) || earnings.next || peers.length > 0) ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px;align-items:stretch">
 
           <!-- SANTE FINANCIERE -->
           ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (finPos.debtEquity && finPos.debtEquity.display) || (finPos.currentRatio && finPos.currentRatio.display)) ? `
@@ -11012,19 +11012,19 @@
           </div>
           ` : ''}
 
-          <!-- PEERS -->
+          <!-- PEERS : layout flex pour epouser la hauteur des autres cards de la row -->
           ${peers.length > 0 ? `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">🎯 Concurrents sectoriels</h3>
-            <div style="font-size:11px;opacity:0.55;margin-bottom:10px">${peers.length} entreprises du même secteur — cliquez pour analyser</div>
-            <div class="scroll-y-hover" style="max-height:300px;padding-right:4px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;min-height:0">
+            <h3 style="margin:0 0 12px;font-size:16px;flex-shrink:0">🎯 Concurrents sectoriels</h3>
+            <div style="font-size:11px;opacity:0.55;margin-bottom:10px;flex-shrink:0">${peers.length} entreprises du même secteur — cliquez pour analyser</div>
+            <div class="scroll-y-hover" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px;max-height:600px">
               ${peers.map(p => `
-                <div onclick="loadStockAnalysis('${p.ticker}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px;margin-bottom:6px;background:var(--surface-1);border-radius:8px;cursor:pointer;transition:background 0.2s;font-size:13px" onmouseover="this.style.background='rgba(116,185,255,0.08)'" onmouseout="this.style.background='var(--surface-1)'">
-                  <div style="flex:1;min-width:0">
-                    <div style="font-weight:600;color:#74b9ff">${p.ticker}</div>
-                    <div style="font-size:11px;opacity:0.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name || ''}</div>
+                <div onclick="loadStockAnalysis('${p.ticker}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px;margin-bottom:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;font-size:13px" onmouseover="this.style.background='rgba(116,185,255,0.08)';this.style.borderColor='rgba(116,185,255,0.3)'" onmouseout="this.style.background='var(--bg-card)';this.style.borderColor='var(--border)'">
+                  <div style="flex:1;min-width:0;overflow:hidden">
+                    <div style="font-weight:700;color:#74b9ff;font-size:13px">${p.ticker}</div>
+                    ${p.name ? `<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px" title="${escapeHtmlClient(p.name)}">${escapeHtmlClient(p.name)}</div>` : ''}
                   </div>
-                  ${p.employees ? `<div style="text-align:right;font-size:11px;opacity:0.7;margin-left:8px"><div>${fmtBig(p.employees)}</div><div style="opacity:0.55">employés</div></div>` : ''}
+                  ${p.employees ? `<div style="text-align:right;font-size:11px;opacity:0.7;margin-left:8px;flex-shrink:0"><div>${fmtBig(p.employees)}</div><div style="opacity:0.55">employés</div></div>` : ''}
                 </div>
               `).join('')}
             </div>
