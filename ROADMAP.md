@@ -108,6 +108,26 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 🎨 Analyse Action : etat vide enrichi (Discovery dashboard)
+
+**User feedback** : 'cet ecran est plutot vide quand on l'ouvre au debut.
+Pourrais-tu faire un genre de Dashboard avec pleins d'indicateurs mais
+floute ou propose moi une autre solution esthetique'
+
+**Solution choisie** : layout discovery interactif (plutot que blur fake) :
+- Hero badge "Analyse complete en 30 secondes"
+- 8 cards "Tickers populaires US" cliquables (AAPL, MSFT, NVDA, GOOGL,
+  META, AMZN, TSLA, BRK-B) avec hover color glow
+- 8 cards "Tickers populaires Europe" (MC.PA, RMS.PA, OR.PA, ASML.AS,
+  NESN.SW, SAP.DE, SAN.PA, SHEL.L)
+- Section "Ce que tu obtiens" avec les 8 dimensions de l'analyse
+  (Insiders, Hedge funds, Politiques, Prix, Fondamentaux, Consensus,
+   Sante, News) sur fond gradient subtil
+- Tips footer : recherche par nom ou ISIN
+
+Click sur une card -> remplit le search input + lance loadStockAnalysis().
+Avantage vs blur fake : entierement actionnable et utile.
+
 ### 🔧 Tableau Initiés : reorder colonnes pour UX EU
 
 **User feedback** : "il y a aussi peu d'informations quand les donnees sont europe"

@@ -3483,13 +3483,7 @@
           <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
         </div>
 
-        <div id="stockAnalysisBody">
-          <div style="text-align:center;padding:60px 20px;opacity:0.6">
-            <div style="font-size:48px;margin-bottom:12px">🔎</div>
-            <p>Recherche un ticker pour afficher l'analyse complete</p>
-            <p style="font-size:13px;margin-top:8px;opacity:0.7">Essaye : <a href="#" onclick="loadStockAnalysis('AAPL');return false" style="color:#74b9ff">AAPL</a> · <a href="#" onclick="loadStockAnalysis('MSFT');return false" style="color:#74b9ff">MSFT</a> · <a href="#" onclick="loadStockAnalysis('NVDA');return false" style="color:#74b9ff">NVDA</a> · <a href="#" onclick="loadStockAnalysis('MC.PA');return false" style="color:#74b9ff">MC.PA</a></p>
-          </div>
-        </div>
+        <div id="stockAnalysisBody"></div>
       </div>
 
       <!-- ===== SECTION: HOT STOCKS (Google Trends) ===== -->
@@ -8744,6 +8738,113 @@
       const input = document.getElementById('stockSearchInput');
       const suggest = document.getElementById('stockSearchSuggest');
       wireTickerAutocomplete(input, suggest, (ticker) => loadStockAnalysis(ticker));
+      // Render le dashboard discovery (etat vide enrichi) si pas deja une analyse
+      const body = document.getElementById('stockAnalysisBody');
+      if (body && !body._hasAnalysis && !body.innerHTML.trim()) {
+        renderStockDiscovery(body);
+      }
+    }
+
+    // ============================================================
+    // STOCK DISCOVERY : etat vide enrichi avec tickers populaires + apercu
+    // Affiche au lieu d'une page vide quand l'utilisateur entre dans Analyse Action
+    // ============================================================
+    function renderStockDiscovery(body) {
+      const popularUS = [
+        ['AAPL', 'Apple', 'Tech', '#A8E6CF'],
+        ['MSFT', 'Microsoft', 'Tech', '#74b9ff'],
+        ['NVDA', 'NVIDIA', 'Semiconducteurs', '#a29bfe'],
+        ['GOOGL', 'Alphabet', 'Tech', '#fdcb6e'],
+        ['META', 'Meta Platforms', 'Tech', '#74b9ff'],
+        ['AMZN', 'Amazon', 'E-commerce', '#fab1a0'],
+        ['TSLA', 'Tesla', 'Auto / Energy', '#fd79a8'],
+        ['BRK-B', 'Berkshire Hathaway', 'Conglomérat', '#55efc4'],
+      ];
+      const popularEU = [
+        ['MC.PA', 'LVMH', 'Luxe FR', '#a29bfe'],
+        ['RMS.PA', 'Hermès', 'Luxe FR', '#fdcb6e'],
+        ['OR.PA', "L'Oréal", 'Cosmétique FR', '#fd79a8'],
+        ['ASML.AS', 'ASML', 'Semis NL', '#74b9ff'],
+        ['NESN.SW', 'Nestlé', 'Conso CH', '#A8E6CF'],
+        ['SAP.DE', 'SAP', 'Tech DE', '#a29bfe'],
+        ['SAN.PA', 'Sanofi', 'Pharma FR', '#74b9ff'],
+        ['SHEL.L', 'Shell', 'Énergie UK', '#fdcb6e'],
+      ];
+      const dimensions = [
+        ['🕴️', 'Insiders', 'SEC + AMF + BaFin'],
+        ['🏦', 'Hedge funds', '13F filings (47 fonds)'],
+        ['🏛️', 'Politiques', 'NANC + GOP + Pelosi'],
+        ['📈', 'Prix & timeline', '5 ans cours + variations'],
+        ['💰', 'Fondamentaux', 'MarketCap, P/E, ROE…'],
+        ['🎯', 'Consensus', 'Analystes US + EU'],
+        ['🛡️', 'Santé financière', 'Altman Z + Piotroski F'],
+        ['📰', 'News récentes', 'Yahoo + Google Trends'],
+      ];
+
+      const renderCard = ([t, n, s, c]) => `
+        <button onclick="loadStockAnalysis('${t.replace(/'/g, "\\'")}'); document.getElementById('stockSearchInput').value='${t}'" style="text-align:left;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;gap:4px;font-family:inherit;color:var(--text-primary)" onmouseover="this.style.borderColor='${c}';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px ${c}40'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
+          <div style="font-family:monospace;font-weight:800;color:var(--text-primary);font-size:15px">${t}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${n}</div>
+          <div style="font-size:10px;color:${c};text-transform:uppercase;letter-spacing:0.05em;font-weight:600">${s}</div>
+        </button>
+      `;
+
+      const renderDim = ([icon, label, sub]) => `
+        <div style="text-align:center;padding:14px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+          <div style="font-size:26px;margin-bottom:6px">${icon}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${label}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;line-height:1.3">${sub}</div>
+        </div>
+      `;
+
+      body.innerHTML = `
+        <!-- Hero mini : value props -->
+        <div style="text-align:center;padding:8px 16px 4px">
+          <div style="display:inline-flex;align-items:center;gap:10px;padding:8px 18px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(162,155,254,0.08));border:1px solid rgba(116,185,255,0.25);border-radius:30px;font-size:13px;color:#74b9ff;font-weight:600">
+            ⚡ Analyse complète en 30 secondes
+          </div>
+        </div>
+
+        <!-- TICKERS POPULAIRES US -->
+        <div style="margin-top:24px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="font-size:20px">🇺🇸</span>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Tickers populaires US</h3>
+            <span style="flex:1;height:1px;background:var(--border)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+            ${popularUS.map(renderCard).join('')}
+          </div>
+        </div>
+
+        <!-- TICKERS POPULAIRES EU -->
+        <div style="margin-top:28px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="font-size:20px">🇪🇺</span>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Tickers populaires Europe</h3>
+            <span style="flex:1;height:1px;background:var(--border)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+            ${popularEU.map(renderCard).join('')}
+          </div>
+        </div>
+
+        <!-- APERCU DES 8 DIMENSIONS -->
+        <div style="margin-top:32px;padding:22px;background:linear-gradient(135deg,rgba(116,185,255,0.04),rgba(162,155,254,0.03));border:1px solid var(--border);border-radius:14px">
+          <div style="text-align:center;margin-bottom:18px">
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Ce que tu obtiens à chaque analyse</h3>
+            <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary)">8 dimensions synthétisées en un Kairos Score 0-100</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+            ${dimensions.map(renderDim).join('')}
+          </div>
+        </div>
+
+        <!-- TIPS -->
+        <div style="margin-top:18px;text-align:center;font-size:12px;color:var(--text-muted)">
+          💡 Tu peux aussi rechercher par <strong>nom</strong> (ex: "Hermès", "Nestlé") ou <strong>ISIN</strong> (ex: FR0000121014).
+        </div>
+      `;
     }
 
     async function initInsiderSearch() {
