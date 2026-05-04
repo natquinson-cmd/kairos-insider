@@ -46,6 +46,64 @@ PREFERRED_EXCH = {
     'PT': ['LIS', 'XLIS'],             # Lisbon
 }
 
+# Mapping exchange OpenFIGI -> suffixe Yahoo Finance.
+# Sans ca, OpenFIGI renvoie 'DG' pour Vinci (Paris EPA), et le frontend
+# ne peut pas distinguer de 'DG' = Dollar General (US NYSE). Avec : on
+# stocke 'DG.PA' direct, et le click ouvre la BONNE action.
+EXCH_TO_YAHOO_SUFFIX = {
+    'EPA': '.PA', 'XPAR': '.PA', 'PAR': '.PA',           # Paris
+    'XETR': '.DE', 'GER': '.DE', 'FRA': '.DE', 'ETR': '.DE',  # Allemagne
+    'LSE': '.L', 'LON': '.L', 'XLON': '.L',              # Londres
+    'AEX': '.AS', 'XAMS': '.AS', 'AMS': '.AS',           # Amsterdam
+    'SWX': '.SW', 'VTX': '.SW', 'XSWX': '.SW',           # Suisse
+    'VIE': '.VI', 'XWBO': '.VI', 'WBO': '.VI',           # Vienne
+    'MIL': '.MI', 'XMIL': '.MI', 'MTA': '.MI',           # Milan
+    'BRU': '.BR', 'XBRU': '.BR',                          # Bruxelles
+    'MCE': '.MC', 'XMAD': '.MC', 'MAD': '.MC',           # Madrid
+    'STO': '.ST', 'XSTO': '.ST',                          # Stockholm
+    'CPH': '.CO', 'XCSE': '.CO',                          # Copenhague
+    'HEL': '.HE', 'XHEL': '.HE',                          # Helsinki
+    'ISE': '.IR', 'XDUB': '.IR', 'DUB': '.IR',           # Dublin
+    'OSL': '.OL', 'XOSL': '.OL',                          # Oslo
+    'LIS': '.LS', 'XLIS': '.LS',                          # Lisbonne
+}
+
+
+def to_yahoo_ticker(ticker, exch_code):
+    """Suffixe le ticker selon l'exchange (DG + EPA -> DG.PA)."""
+    if not ticker or '.' in ticker:  # deja un ticker complet
+        return ticker
+    suffix = EXCH_TO_YAHOO_SUFFIX.get((exch_code or '').upper(), '')
+    return ticker + suffix if suffix else ticker
+
+
+# Mapping prefixe ISIN -> suffixe Yahoo (utilise pour migrer le cache existant
+# qui contient des tickers EU sans suffixe heritedu pre-fix).
+ISIN_PREFIX_TO_YAHOO_SUFFIX = {
+    'FR': '.PA', 'DE': '.DE', 'GB': '.L', 'NL': '.AS', 'CH': '.SW',
+    'AT': '.VI', 'IT': '.MI', 'BE': '.BR', 'ES': '.MC', 'SE': '.ST',
+    'DK': '.CO', 'FI': '.HE', 'IE': '.IR', 'NO': '.OL', 'PT': '.LS',
+}
+
+
+def upgrade_cache_eu_tickers(cache):
+    """Migre les entrees du cache : tickers EU sans suffixe -> avec suffixe Yahoo.
+
+    Sert pour les caches existants generes avant l'introduction du suffixe
+    Yahoo (DG -> DG.PA, BMW -> BMW.DE, etc.). Idempotent : skip les tickers
+    qui ont deja un point.
+    """
+    upgraded = 0
+    for isin, ticker in list(cache.items()):
+        if not ticker or '.' in ticker:
+            continue
+        prefix = isin[:2].upper() if isin else ''
+        suffix = ISIN_PREFIX_TO_YAHOO_SUFFIX.get(prefix)
+        if suffix:
+            cache[isin] = ticker + suffix
+            upgraded += 1
+    return upgraded
+
 
 def load_cache():
     if not os.path.exists(CACHE_FILE):
@@ -64,7 +122,7 @@ def save_cache(cache):
 
 
 def pick_best_ticker(matches, isin):
-    """Choisit le meilleur ticker parmi les matches OpenFIGI."""
+    """Choisit le meilleur ticker parmi les matches OpenFIGI, format Yahoo (DG.PA)."""
     if not matches:
         return None
     prefix = isin[:2].upper() if isin else ''
@@ -74,17 +132,17 @@ def pick_best_ticker(matches, isin):
     for exch in preferred:
         for m in matches:
             if m.get('exchCode', '').upper() == exch and m.get('ticker'):
-                return m['ticker']
+                return to_yahoo_ticker(m['ticker'], m.get('exchCode'))
 
     # 2. Premier match avec un ticker non-vide (securite type COMMON STOCK)
     for m in matches:
         if m.get('ticker') and m.get('securityType2', '').upper() in ('COMMON STOCK', 'EQUITY', ''):
-            return m['ticker']
+            return to_yahoo_ticker(m['ticker'], m.get('exchCode'))
 
     # 3. Tout premier ticker non-vide
     for m in matches:
         if m.get('ticker'):
-            return m['ticker']
+            return to_yahoo_ticker(m['ticker'], m.get('exchCode'))
 
     return None
 
@@ -159,6 +217,14 @@ def main():
     # Cache
     cache = load_cache()
     print(f'Cache existant: {len(cache)} ISIN')
+
+    # Migration une-fois : tickers EU dans le cache sans suffixe Yahoo
+    # (DG -> DG.PA, BMW -> BMW.DE, etc.). Idempotent : skip les tickers
+    # qui ont deja un point.
+    upgraded = upgrade_cache_eu_tickers(cache)
+    if upgraded:
+        print(f'  Migration : {upgraded} tickers EU upgrades avec suffixe Yahoo')
+        save_cache(cache)
 
     # ISIN a resoudre (pas dans le cache ou avec ticker null mais qu'on veut re-tenter)
     to_resolve = [i for i in all_isins if i not in cache]

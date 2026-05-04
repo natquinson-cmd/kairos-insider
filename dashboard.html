@@ -5488,6 +5488,23 @@
       return `<img src="https://flagcdn.com/w20/${code}.png" srcset="https://flagcdn.com/w40/${code}.png 2x" width="20" height="15" alt="${market}" title="${market}" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.1)" onerror="this.style.display='none';this.insertAdjacentText('afterend','${market}')">`;
     }
 
+    // Mapping marche pays -> suffixe Yahoo Finance.
+    // Utile pour les transactions insiders AMF/BaFin/etc. qui stockent le ticker
+    // brut (ex: 'DG' pour Vinci) sans suffixe Yahoo. Sans ca, click sur 'DG'
+    // -> Dollar General US au lieu de Vinci FR. Avec : 'DG' + market='FR' -> 'DG.PA'.
+    const MARKET_TO_YAHOO_SUFFIX = {
+      FR: '.PA', DE: '.DE', GB: '.L', UK: '.L', NL: '.AS', CH: '.SW',
+      IT: '.MI', ES: '.MC', SE: '.ST', DK: '.CO', FI: '.HE', NO: '.OL',
+      PT: '.LS', BE: '.BR', AT: '.VI', IE: '.IR',
+    };
+    function toYahooTicker(ticker, market) {
+      if (!ticker) return ticker;
+      // Deja un ticker complet (contient '.') -> ne pas double-suffixer
+      if (String(ticker).includes('.')) return ticker;
+      const suffix = MARKET_TO_YAHOO_SUFFIX[(market || '').toUpperCase()];
+      return suffix ? ticker + suffix : ticker;
+    }
+
     // Mapping code exchange (Yahoo / stockanalysis / SEC) → code pays ISO-2
     // pour afficher le drapeau correspondant dans le hero fiche action.
     // Source exchange : d.price.exchange (Yahoo : 'NMS', 'NYQ', 'PNK', 'ASE', 'LSE'...)
@@ -8568,8 +8585,11 @@
         const market = t.market || 'US';
         const currency = t.currency || 'USD';
         const flag = fmtMarket(market);
+        // Suffixe Yahoo selon le marche : 'DG' + FR -> 'DG.PA' (Vinci, pas Dollar General)
+        // Indispensable pour que click ouvre la BONNE action et pas un ticker US homonyme.
+        const yahooTicker = toYahooTicker(t.ticker, market);
         // Pour les rows Europe, le ticker est vide : on affiche l'ISIN court à la place (ex: DE000A1RFMZ1 -> DE..FMZ1)
-        let tickerDisplay = t.ticker || '';
+        let tickerDisplay = yahooTicker || '';
         if (!tickerDisplay && t.isin) {
           tickerDisplay = t.isin.length > 8 ? `${t.isin.slice(0, 2)}..${t.isin.slice(-4)}` : t.isin;
         }
@@ -8600,7 +8620,7 @@
         rows += `<tr>
           <td style="white-space:nowrap">${dateCell}</td>
           <td style="white-space:nowrap;text-align:center" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
-          ${t.ticker ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(t.ticker).replace(/'/g, "\\'")}'), 150)" title="${t.isin || ''} · Cliquer pour analyser ${t.ticker}">${tickerDisplay}</td>` : `<td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>`}
+          ${t.ticker ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(yahooTicker).replace(/'/g, "\\'")}'), 150)" title="${t.isin || ''} · Cliquer pour analyser ${yahooTicker}">${tickerDisplay}</td>` : `<td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>`}
           <td style="color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.company || '').replace(/"/g, '&quot;')}">${t.company || '—'}</td>
           <td style="text-align:center">${typeLabel}</td>
           <td style="text-align:right;font-weight:600">${fmtNum(t.shares)}</td>
