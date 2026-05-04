@@ -146,7 +146,7 @@
       'feat.history.desc_html': 'Remontez dans le temps. Voyez comment <strong>les positions évoluent</strong> trimestre après trimestre : quels fonds entrent ou sortent, quelles convictions se renforcent, quels Kairos Scores montent ou descendent. Une <strong>base profonde</strong> pour backtester vos intuitions.',
       'feat.history.chip': 'NEW · Historique long terme',
 
-      'feat.deep.title': 'Analyse action complète',
+      'feat.deep.title': 'Décrypter une valeur en profondeur',
       'feat.deep.desc': 'Une fiche exhaustive par action : <strong>Kairos Score</strong> visuel, ratios de valorisation, santé financière, historique earnings, concurrents sectoriels, objectifs analystes, chart avec les trades des initiés superposés. Tout ce qu\'il faut <strong>sans changer d\'onglet</strong>.',
       'feat.deep.chip': '● Des milliers de tickers',
 
@@ -319,7 +319,7 @@
       'dash.sidebar.dashboard': 'Tableau de bord',
       'dash.sidebar.home': 'Accueil',
       'dash.sidebar.analyse': 'Analyse',
-      'dash.sidebar.stock_analysis': 'Analyse action',
+      'dash.sidebar.stock_analysis': 'Décrypter une valeur',
       'dash.sidebar.hot_stocks': 'Hot Stocks',
       'dash.sidebar.smart_money': 'Smart Money',
       'dash.sidebar.insiders': 'Initiés',
@@ -441,9 +441,9 @@
       'dash.home.explore_features': 'Explorez les fonctionnalités',
 
       // ==== Home cards (10 restantes) ====
-      'dash.home.stockAnalysis_title': 'Analyse action',
+      'dash.home.stockAnalysis_title': 'Décrypter une valeur',
       'dash.home.stockAnalysis_desc': 'Deep-dive complet sur n\'importe quel ticker : <strong>Kairos Score</strong> composite de 0 à 100, initiés, hedge funds, fondamentaux, santé financière, peers, earnings.',
-      'dash.home.stockAnalysis_cta': 'Rechercher une action →',
+      'dash.home.stockAnalysis_cta': 'Décrypter un ticker →',
       'dash.home.watchlist_title': 'Ma Watchlist',
       'dash.home.watchlist_desc': 'Suivez vos actions préférées et recevez un <strong>Brief quotidien par email</strong> à 8h avec les événements smart money détectés : clusters d\'initiés, rotations ETF, variations Kairos Score.',
       'dash.home.watchlist_cta': 'Configurer mes alertes →',
@@ -473,8 +473,8 @@
       'dash.home.shorts_cta': 'Voir le classement →',
 
       // ==== Section headers (h2 + desc) ====
-      'dash.section.stockAnalysis.title': 'Analyse action',
-      'dash.section.stockAnalysis.desc': 'Cherche un ticker et obtiens une analyse complete : insiders, hedge funds, ETF politiciens/gurus, prix, fondamentaux, news — le tout synthetise en un <strong>Kairos Score</strong> de 0 a 100.',
+      'dash.section.stockAnalysis.title': 'Décrypter une valeur',
+      'dash.section.stockAnalysis.desc': 'Tape un ticker et décrypte tout en 30 secondes : insiders, hedge funds, ETF politiciens/gurus, prix, fondamentaux, news — synthétisé en un <strong>Kairos Score</strong> de 0 à 100.',
       'dash.section.hotStocks.title': '🔥 Hot Stocks — Tendances recherche Google',
       'dash.section.hotStocks.desc': 'Les actions dont l\'intérêt retail explose en ce moment. Base sur les données Google Trends — l\'attention retail precede souvent les mouvements de prix, surtout sur les small caps. Mis a jour quotidiennement.',
       'dash.section.insider.title': 'Initiés — Transactions récentes',
@@ -690,7 +690,7 @@
       'feat.history.desc_html': 'Travel back in time. See how <strong>positions evolve</strong> quarter after quarter: which funds enter or exit, which convictions strengthen, which Kairos Scores rise or fall. A <strong>deep database</strong> to backtest your intuitions.',
       'feat.history.chip': 'NEW · Long-term history',
 
-      'feat.deep.title': 'Full stock analysis',
+      'feat.deep.title': 'Decode a stock in depth',
       'feat.deep.desc': 'A comprehensive profile for every stock: visual <strong>Kairos Score</strong>, valuation ratios, financial health, earnings history, sector peers, analyst targets, chart with insider trades overlaid. Everything you need <strong>without switching tabs</strong>.',
       'feat.deep.chip': '● Thousands of tickers',
 
@@ -854,7 +854,7 @@
       'dash.sidebar.dashboard': 'Dashboard',
       'dash.sidebar.home': 'Home',
       'dash.sidebar.analyse': 'Analysis',
-      'dash.sidebar.stock_analysis': 'Stock analysis',
+      'dash.sidebar.stock_analysis': 'Decode a stock',
       'dash.sidebar.hot_stocks': 'Hot Stocks',
       'dash.sidebar.smart_money': 'Smart Money',
       'dash.sidebar.insiders': 'Insiders',
@@ -977,7 +977,7 @@
       'dash.home.explore_features': 'Explore features',
 
       // ==== Home cards (10 others) ====
-      'dash.home.stockAnalysis_title': 'Stock analysis',
+      'dash.home.stockAnalysis_title': 'Decode a stock',
       'dash.home.stockAnalysis_desc': 'Complete deep-dive on any ticker: <strong>Kairos Score</strong> composite from 0 to 100, insiders, hedge funds, fundamentals, financial health, peers, earnings.',
       'dash.home.stockAnalysis_cta': 'Search a stock →',
       'dash.home.watchlist_title': 'My Watchlist',
@@ -1009,8 +1009,8 @@
       'dash.home.shorts_cta': 'See the ranking →',
 
       // ==== Section headers (h2 + desc) ====
-      'dash.section.stockAnalysis.title': 'Stock analysis',
-      'dash.section.stockAnalysis.desc': 'Search for a ticker and get a full analysis: insiders, hedge funds, ETFs, politicians/gurus, price, fundamentals, news — all synthesized into a <strong>Kairos Score</strong> from 0 to 100.',
+      'dash.section.stockAnalysis.title': 'Decode a stock',
+      'dash.section.stockAnalysis.desc': 'Type a ticker and decode everything in 30 seconds: insiders, hedge funds, ETFs, politicians/gurus, price, fundamentals, news — synthesized into a <strong>Kairos Score</strong> from 0 to 100.',
       'dash.section.hotStocks.title': '🔥 Hot Stocks — Google Search Trends',
       'dash.section.hotStocks.desc': 'Stocks whose retail interest is exploding right now. Based on Google Trends data — retail attention often precedes price movements, especially on small caps. Updated daily.',
       'dash.section.insider.title': 'Insiders — Recent transactions',

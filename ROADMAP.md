@@ -108,6 +108,29 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### ✏️ Renommage 'Analyse action' -> 'Décrypter une valeur'
+
+**User feedback** : 'Pour un public francophone que mettrais-tu au lieu de
+Analyse action ?' -> choix 'Décrypter une valeur'.
+
+**Rationale** : 'Analyse action' est ambigu en français car 'action' signifie
+aussi 'agir'. 'Décrypter une valeur' est plus dynamique (verbe d'action),
+plus financier (terme 'valeur' = standard FR pour stock/security), et
+match le positionnement Smart Money de Kairos (déchiffrer les signaux des
+pros).
+
+**Fichiers modifiés** :
+- dashboard.html : sidebar item + h2 section + card home + sub-titre
+- assets/i18n.js : 5 clés FR ('dash.sidebar.stock_analysis', 'dash.home.
+  stockAnalysis_title', 'dash.home.stockAnalysis_cta', 'dash.section.
+  stockAnalysis.title', 'dash.section.stockAnalysis.desc', 'feat.deep.title')
+- assets/i18n.js : 4 clés EN équivalentes ('Decode a stock', 'Decode a
+  stock in depth')
+- action.html : <title>, og:title, twitter:title (SEO + share preview)
+- index.html : feat.deep.title sur landing
+
+**EN équivalent** : 'Decode a stock' (parallèle au verbe 'décrypter').
+
 ### 💡 Activité récente : explication des variations Kairos Score
 
 **User feedback** : 'ici ça fait un peu vide, ça serait super d'expliquer
