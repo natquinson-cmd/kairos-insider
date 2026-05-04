@@ -206,6 +206,53 @@ D. aggregateGovEtf etendu de 3 ETFs (NANC/GOP/GURU) a TOUS LES 16 ETFs :
 detiennent (Confluence + Diversified Trust + autres) et apparait dans
 PXF (Developed ex-US) et possiblement MOAT/PID.
 
+### 🐛 BUG ROOT-CAUSE : companyName=null pour les EU
+
+**User feedback** : 'je ne vois toujours pas les donnees Hedge funds, ETF
+et Google Trends pour LVMH, c'est normal ?' (apres le fix mapping ci-dessus)
+
+**Diagnostic root-cause** : meme avec le fix normalize, LVMH restait vide.
+Cause :
+
+```js
+// AVANT (BUG)
+const insiders = await aggregateInsiders(ticker, env);
+const companyNameFromInsiders = insiders.transactions[0]?.company || null;
+// ...
+aggregate13F(ticker, env, companyNameFromInsiders),
+```
+
+Pour les actions EU : pas d'insiders SEC, donc si AMF/BaFin pas de
+transaction recente sur LVMH -> companyName=null -> normalize('') = ''
+-> aggregate13F return early avec result vide. Mes fixes precedents sur
+SEC truncation/accents/dashes etaient corrects mais inutiles tant que
+companyName etait null.
+
+**Fix** : refactorer l'etape 1 pour fetcher Yahoo quote EN PARALLELE
+d'insiders, et utiliser quote.company.name (toujours dispo et fiable
+'LVMH Moet Hennessy Louis Vuitton SE') comme source primaire.
+
+```js
+// APRES (FIX)
+let [insiders, quote] = await Promise.all([
+  aggregateInsiders(ticker, env),
+  fetchYahooQuote(ticker, effectiveRange),
+]);
+const companyNameFromInsiders = insiders.transactions[0]?.company || null;
+const companyNameFromYahoo = quote?.company?.name || null;
+const resolvedCompanyName = companyNameFromYahoo || companyNameFromInsiders;
+// ...
+aggregate13F(ticker, env, resolvedCompanyName),
+```
+
+**Cache** : bump v7 -> v8 pour invalider les caches LVMH/Hermes/Nestle/etc.
+qui contiennent des hedge funds vides.
+
+**Resultat** : "LVMH Moet Hennessy Louis Vuitton SE" -> normalize ->
+"LVMH MOET HENNESSY LOUIS VUITTON" -> match avec cle SEC tronquee
+"LVMH MOET HENNESSY LOUIS VUITT" via le filtre k.length>=20 &&
+normalizedTarget.startsWith(k) -> hedge funds affiches.
+
 ### 🎨 Panels EU enrichis : color coding + peers names + Health Score Kairos
 
 **User feedback** :

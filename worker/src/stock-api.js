@@ -147,28 +147,42 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
   // Cache : 2 variantes (public tronque / premium complet) x range
-  // v7 : bump apres bump cache slug ZB v2 (forcer recalcul complet)
-  const cacheKey = `stock-analysis:v7:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v8 : bump pour invalider les EU caches vides (LVMH, Hermes, Nestle...)
+  // dont companyName etait null par manque d'insiders SEC -> aggregate13F vide.
+  const cacheKey = `stock-analysis:v8:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
     return cached;
   }
 
-  // Etape 1 : insiders d'abord (pour extraire le company name fiable)
-  const insiders = await aggregateInsiders(ticker, env);
+  // Etape 1 : insiders + Yahoo quote EN PARALLELE pour extraire le company name.
+  // FIX EU MAJEUR (mai 2026) : avant on dependait UNIQUEMENT de insiders pour
+  // companyName. Pour les actions EU (LVMH, Nestle, Hermes...), pas d'insiders
+  // SEC -> companyName=null -> aggregate13F return vide (alors qu'on a bien
+  // les positions hedge funds dans le 13f-ticker-index). Yahoo quote fournit
+  // toujours le longName fiable (ex: "LVMH Moet Hennessy Louis Vuitton SE")
+  // qui matche le nom SEC apres normalize.
+  // let pour quote car le fallback retry plus bas peut le reassigner si Yahoo a echoue
+  // eslint-disable-next-line prefer-const
+  let [insiders, quote] = await Promise.all([
+    aggregateInsiders(ticker, env),
+    fetchYahooQuote(ticker, effectiveRange),
+  ]);
   const companyNameFromInsiders = (insiders.transactions[0] && insiders.transactions[0].company) || null;
+  const companyNameFromYahoo = (quote && quote.company && (quote.company.name || quote.company.longName)) || null;
+  // Priorite : Yahoo (toujours dispo et longName complet) > insiders (peut etre tronque AMF/BaFin)
+  const resolvedCompanyName = companyNameFromYahoo || companyNameFromInsiders;
 
   // Etape 2 : tout le reste en parallele (avec le company name pour le 13F)
   // Sources stockanalysis.com en parallele : overview + statistics + earnings + employees (peers)
   // + euThresholds : aggregateur cross-KV (AMF/FCA/SIX/AFM/BaFin) pour les actions EU
-  let [quote, overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends, euThresholds] = await Promise.all([
-    fetchYahooQuote(ticker, effectiveRange),
+  let [overview, statistics, earningsData, employeesData, news, smartMoney, govEtf, googleTrends, euThresholds] = await Promise.all([
     fetchStockAnalysisOverview(ticker),
     fetchStockAnalysisStatistics(ticker),
     fetchStockAnalysisEarnings(ticker),
     fetchStockAnalysisEmployees(ticker),
     fetchYahooNews(ticker),
-    aggregate13F(ticker, env, companyNameFromInsiders),
+    aggregate13F(ticker, env, resolvedCompanyName),
     aggregateGovEtf(ticker, env),
     fetchGoogleTrends(ticker, env),
     aggregateEuThresholds(ticker, env),
