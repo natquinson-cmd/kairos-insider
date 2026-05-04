@@ -48,32 +48,119 @@ CORE_TICKERS = [
     'RIVN', 'LCID', 'NIO', 'F', 'GM',
     # FR / EU
     'MC.PA', 'AIR.PA', 'SAN.PA', 'OR.PA', 'BNP.PA', 'TTE.PA',
-    'ASML', 'SAP', 'NESN.SW', 'ROG.SW', 'NOVO-B.CO',
+    'KER.PA', 'RMS.PA', 'CS.PA', 'DG.PA', 'SAF.PA', 'AI.PA',
+    'BN.PA', 'SU.PA', 'CAP.PA', 'HO.PA', 'EL.PA', 'STM.PA',
+    'ASML', 'SAP', 'NESN.SW', 'ROG.SW', 'NOVN.SW', 'UBSG.SW', 'ABBN.SW',
+    'NOVO-B.CO', 'SHEL.L', 'AZN.L', 'HSBA.L', 'BARC.L',
+    'SIE.DE', 'BMW.DE', 'ALV.DE', 'BAS.DE', 'ITX.MC', 'SAN.MC',
 ]
 
 
+# ============================================================
+# TICKER -> KEYWORD GOOGLE SEARCH
+# ============================================================
+# Google Trends ne comprend pas 'MC.PA' ou 'NESN.SW' comme keyword. Les retail
+# tapent 'LVMH', 'Nestle', 'Hermes', etc. On mappe donc chaque ticker vers
+# le terme de recherche reel pour avoir des données significatives.
+#
+# Pour les US, le ticker est souvent OK (NVDA, AAPL, TSLA = recherches courantes).
+# Pour les EU avec suffixe (.PA, .DE, .AS, .SW, .L, .MI, .MC, .CO), on remplace
+# par le nom commun.
+#
+# Format : { 'TICKER': 'search keyword' }
+# Le resultat est stocke dans le KV SOUS le ticker original (pour matching).
+TICKER_TO_KW = {
+    # CAC 40 (FR)
+    'MC.PA': 'LVMH',
+    'OR.PA': "L'Oreal",
+    'SAN.PA': 'Sanofi',
+    'TTE.PA': 'TotalEnergies',
+    'AI.PA': 'Air Liquide',
+    'CS.PA': 'AXA',
+    'BNP.PA': 'BNP Paribas',
+    'SU.PA': 'Schneider Electric',
+    'DG.PA': 'Vinci',
+    'RMS.PA': 'Hermes',
+    'KER.PA': 'Kering',
+    'AIR.PA': 'Airbus',
+    'SAF.PA': 'Safran',
+    'CAP.PA': 'Capgemini',
+    'HO.PA': 'Thales',
+    'EL.PA': 'EssilorLuxottica',
+    'BN.PA': 'Danone',
+    'STM.PA': 'STMicroelectronics',
+    # AEX (NL) - ASML est listed direct US donc pas de suffix
+    'ASML': 'ASML',
+    # DAX (DE)
+    'SAP': 'SAP',
+    'SIE.DE': 'Siemens',
+    'BMW.DE': 'BMW',
+    'ALV.DE': 'Allianz',
+    'BAS.DE': 'BASF',
+    # SMI (CH)
+    'NESN.SW': 'Nestle',
+    'ROG.SW': 'Roche',
+    'NOVN.SW': 'Novartis',
+    'UBSG.SW': 'UBS',
+    'ABBN.SW': 'ABB',
+    # FTSE 100 (UK)
+    'SHEL.L': 'Shell',
+    'AZN.L': 'AstraZeneca',
+    'HSBA.L': 'HSBC',
+    'BARC.L': 'Barclays',
+    # IBEX (ES)
+    'ITX.MC': 'Inditex',
+    'SAN.MC': 'Banco Santander',
+    # Nordics
+    'NOVO-B.CO': 'Novo Nordisk',
+    # US bluechips qu'on peut clarifier
+    'BRK.B': 'Berkshire Hathaway',
+}
+
+
 def fetch_trends_batch(pytrends, tickers, timeframe='today 3-m'):
-    """Query Google Trends pour un batch de tickers. Renvoie dict {ticker: series}."""
+    """Query Google Trends pour un batch de tickers. Renvoie dict {ticker: series}.
+
+    IMPORTANT (mai 2026) : on mappe chaque ticker vers son KEYWORD reel via
+    TICKER_TO_KW. Personne ne tape 'MC.PA' sur Google, ils tapent 'LVMH'.
+    Sans ce mapping, les EU et certains US donnaient interestNow=0 (queries vides).
+    Le resultat est stocke sous le ticker ORIGINAL pour le matching backend.
+    """
     result = {}
+    # Build keyword list + reverse mapping pour retrouver le ticker apres query
+    kw_list = []
+    kw_to_ticker = {}
+    for t in tickers:
+        kw = TICKER_TO_KW.get(t, t)  # fallback sur le ticker si pas de mapping
+        kw_list.append(kw)
+        kw_to_ticker[kw] = t
     try:
-        # pytrends limite a 5 tickers par query
-        pytrends.build_payload(tickers, cat=0, timeframe=timeframe, geo='', gprop='')
+        # pytrends limite a 5 tickers par query. Les keywords doivent etre uniques
+        # dans le batch (Google Trends ne dedupe pas) - on filtre.
+        seen = set()
+        unique_kws = []
+        for kw in kw_list:
+            if kw in seen: continue
+            seen.add(kw)
+            unique_kws.append(kw)
+        pytrends.build_payload(unique_kws, cat=0, timeframe=timeframe, geo='', gprop='')
         df = pytrends.interest_over_time()
         if df is None or df.empty:
             return result
 
-        for ticker in tickers:
-            if ticker not in df.columns:
+        for kw in unique_kws:
+            if kw not in df.columns:
                 continue
+            ticker = kw_to_ticker.get(kw, kw)  # retrouve le ticker original
             series = []
-            for idx, value in df[ticker].items():
+            for idx, value in df[kw].items():
                 try:
                     date_str = idx.strftime('%Y-%m-%d')
                     series.append({'date': date_str, 'value': int(value)})
                 except Exception:
                     continue
             if series:
-                result[ticker] = series
+                result[ticker] = series  # stocke sous ticker original
     except Exception as e:
         print(f'  ! Batch failed ({tickers}): {e}')
     return result

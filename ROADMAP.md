@@ -108,6 +108,104 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 🐛 Mapping EU pour 13F + ETF + Google Trends (BUG MAJEUR)
+
+**User feedback** :
+1. 'Etonnant que LVMH ne soit pas dans aucun hedge fund et ETF non ?
+   Il n'y a pas des soucis de mapping avec les Tickers Europe ?'
+2. 'verifie aussi pour les recherches googles, on devrait avoir des
+   resultats pour LVMH'
+
+**Bug 13F** : voir section ci-dessous (normalize accents + dashes,
+prefix matching tronque).
+
+**Bug ETF Politiciens** : aggregateGovEtf ne checkait que NANC/GOP/GURU.
+Etendu aux 16 ETFs (+ ADR fallback). LVMH detecte maintenant dans
+PXF (Developed ex-US), MOAT, etc.
+
+**Bug Google Trends** : prefetch-trends.py query Google avec le ticker
+brut ('MC.PA', 'NESN.SW') mais personne ne tape ça sur Google. Les retail
+tapent 'LVMH', 'Nestle'. Resultat : MC.PA = interestNow:0, mean:0,
+trend:stable depuis toujours.
+
+Fix : nouvelle table TICKER_TO_KW qui mappe chaque ticker EU vers son
+nom commun. ~40 mappings :
+- MC.PA -> 'LVMH'
+- OR.PA -> "L'Oreal"
+- NESN.SW -> 'Nestle'
+- AZN.L -> 'AstraZeneca'
+- ITX.MC -> 'Inditex'
+- BMW.DE -> 'BMW'
+- etc.
+
+Logique fetch_trends_batch :
+- Pour chaque ticker, build le keyword via TICKER_TO_KW
+- Query Google Trends avec keywords (pas tickers)
+- Stocke le resultat sous le TICKER ORIGINAL (pour matching backend)
+- Reverse mapping kw_to_ticker pour gerer le retour pytrends
+
+CORE_TICKERS etendu de 11 a ~30 EU (CAC 40 complete + DAX + SMI + FTSE
+100 + AEX + IBEX). Au prochain run du cron prefetch-trends, LVMH aura
+des vraies donnees Trends ('LVMH' a en moyenne 60-80/100 sur Google FR).
+
+
+
+**User feedback** : 'Etonnant que LVMH ne soit pas dans aucun hedge fund
+et ETF non ? Il n'y a pas des soucis de mapping avec les Tickers Europe ?'
+
+**Diagnostic** : OUI, gros bug de mapping pour les EU. Verifie sur la KV
+13f-ticker-index : LVMH apparait sous 2 cles tronquees :
+- 'LVMH MOET HENNESSY LOUIS VUITT' (1 fund Confluence)
+- 'LVMH MOET HENNESSY LOUIS' (1 fund Diversified Trust)
+
+Mais le matching cherche 'LVMH MOET HENNESSY - LOUIS VUITTON SOCIETE
+EUROPEENNE' (depuis Yahoo longName 'LVMH Moet Hennessy - Louis Vuitton,
+Societe Europeenne').
+
+3 PROBLEMES dans normalizeCompanyName :
+1. Accents non retires : 'MOËT' ≠ 'MOET'
+2. Tirets non retires : 'Louis - Vuitton' ≠ 'Louis Vuitton'
+3. Suffixes EU 'SOCIETE EUROPEENNE' / 'SOCIETE ANONYME' non strippes
+   (alors que SE, SA simples le sont)
+
+Et bug dans aggregate13F :
+4. Le fallback prefix 'normalizedTarget.startsWith(k + " ")' echoue pour
+   les cles SEC tronquees a 30 chars (au milieu d'un mot, pas suivi
+   d'espace).
+
+**Fixes** :
+
+A. normalizeCompanyName (worker JS) :
+   - .normalize('NFD').replace(/[̀-ͯ]/g, '') -> strip accents
+   - replace([.,\\-]/g, ' ') -> dashes inclus
+   - regex etendue avec SOCIETE EUROPEENNE/ANONYME/PAR ACTIONS SIMPLIFIEE
+   - regex appliquee 2x pour double-suffixes ('LVMH SE SA')
+
+B. normalize_company_name_py (Python prefetch-13f.py) :
+   Sync identique pour coherence index <-> queries.
+
+C. aggregate13F prefix matching :
+   Ajout d'un cas 'k.length >= 20 && normalizedTarget.startsWith(k)' qui
+   accepte les cles SEC tronquees au milieu d'un mot (sans exiger l'espace
+   apres). Avec dedup par fundName+date pour eviter les doublons quand
+   plusieurs cles tronquees matchent ('LVMH MOET HENNESSY LOUIS VUITT' +
+   'LVMH MOET HENNESSY LOUIS' = mêmes funds).
+
+D. aggregateGovEtf etendu de 3 ETFs (NANC/GOP/GURU) a TOUS LES 16 ETFs :
+   - Politiciens : NANC, GOP
+   - Smart money : GURU
+   - Sentiment : BUZZ, MEME
+   - Income : JEPI, JEPQ
+   - Thematiques : ITA, URA, UFO, MJ
+   - Convictions : MOAT, DSTL, MTUM (mai 2026)
+   - International : PXF, PID (couvre EU - LVMH dans PXF/PID)
+
+   Avec match sur ticker direct OU ADR US (LVMH cherche MC.PA puis LVMUY).
+
+**Resultat attendu** : LVMH affiche maintenant les hedge funds qui le
+detiennent (Confluence + Diversified Trust + autres) et apparait dans
+PXF (Developed ex-US) et possiblement MOAT/PID.
+
 ### 🎨 Panels EU enrichis : color coding + peers names + Health Score Kairos
 
 **User feedback** :

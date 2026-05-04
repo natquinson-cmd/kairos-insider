@@ -375,12 +375,22 @@ all_funds.sort(key=lambda f: f['totalValue'], reverse=True)
 # (hors top 50 du portefeuille du fonds).
 # ============================================================
 def normalize_company_name_py(name):
-    """Doit matcher normalizeCompanyName() cote Worker (stock-api.js)."""
+    """Doit matcher normalizeCompanyName() cote Worker (stock-api.js).
+    v2 (mai 2026) : strip accents (NFD) + dashes + suffixes EU pour matcher
+    les noms tronques SEC 30 chars dans 13F-HR (ex: LVMH MOET HENNESSY -> ...VUITT)."""
     if not name:
         return ''
-    s = str(name).upper()
-    s = re.sub(r'[.,]', ' ', s)
-    s = re.sub(r'\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A)\b', '', s)
+    import unicodedata
+    # Strip accents : NFD decompose puis filtre les diacritics
+    s = unicodedata.normalize('NFD', str(name))
+    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+    s = s.upper()
+    s = re.sub(r'[.,\-]', ' ', s)  # strip dots, commas, dashes
+    # Suffixes EU specifiques d'abord
+    s = re.sub(r'\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|SOCIETE PAR ACTIONS SIMPLIFIEE)\b', '', s)
+    s = re.sub(r'\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A|KGAA|GMBH)\b', '', s)
+    # Re-apply pour gerer les double-suffixes (LVMH SE SA)
+    s = re.sub(r'\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|INC|CORP|CO|LTD|PLC|LLC|LP|GROUP|SA|SE|AG|NV)\b', '', s)
     s = re.sub(r'\s+', ' ', s)
     return s.strip()
 

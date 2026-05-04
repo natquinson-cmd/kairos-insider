@@ -1818,9 +1818,17 @@ async function aggregateInsiders(ticker, env) {
 function normalizeCompanyName(name) {
   if (!name) return '';
   return String(name)
+    .normalize('NFD')                  // Decompose accents : "MOËT" -> "MO" + "Ë" decomposed
+    .replace(/[̀-ͯ]/g, '')   // Strip diacritics : "Ë" -> "E", "É" -> "E"
     .toUpperCase()
-    .replace(/[.,]/g, ' ')
-    .replace(/\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A)\b/g, '')
+    .replace(/[.,\-]/g, ' ')           // Strip dots, commas AND DASHES
+    // Retire les suffixes corporates en fin (les EU 'SOCIETE EUROPEENNE',
+    // 'SOCIETE ANONYME' aussi). Repete pour gerer les double-suffixes type
+    // "SE SA" qu'on voit parfois dans les filings.
+    .replace(/\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|SOCIETE PAR ACTIONS SIMPLIFIEE)\b/g, '')
+    .replace(/\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A|KGAA|GMBH)\b/g, '')
+    // Re-applique pour les double-suffixes (LVMH SE SA, etc.)
+    .replace(/\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|INC|CORP|CO|LTD|PLC|LLC|LP|GROUP|SA|SE|AG|NV)\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -1844,18 +1852,36 @@ async function aggregate13F(ticker, env, companyName) {
       indexUsed = true;
       // Match exact d'abord
       let entries = index[normalizedTarget] || null;
-      // Fallback : match par prefixe (ex. "APPLE" cherche "APPLE" dans les cles)
+      // Fallback : match par prefixe (ex. "APPLE" cherche "APPLE" dans les cles).
+      // IMPORTANT EU FIX (mai 2026) : la SEC tronque les noms 13F a ~30 chars,
+      // donc 'LVMH MOET HENNESSY LOUIS VUITTON' devient 'LVMH MOET HENNESSY LOUIS VUITT'
+      // dans le KV. On accepte donc un match TRONQUE si :
+      //   - normalizedTarget commence par les N premiers chars de k (sans exiger
+      //     d'espace apres k, car k peut couper au milieu d'un mot)
+      //   - ET k.length >= 20 (eviter les false positives sur des prefixes courts
+      //     type 'AMAZON' qui matcherait Amazon Inc + Amazon Holdings + etc.)
       if (!entries) {
-        const candidateKeys = Object.keys(index).filter(k =>
-          k === normalizedTarget ||
-          k.startsWith(normalizedTarget + ' ') ||
-          normalizedTarget.startsWith(k + ' ')
-        );
+        const candidateKeys = Object.keys(index).filter(k => {
+          if (k === normalizedTarget) return true;
+          if (k.startsWith(normalizedTarget + ' ')) return true;
+          if (normalizedTarget.startsWith(k + ' ')) return true;
+          // EU fix : accepte k tronque par SEC 30-chars limit
+          if (k.length >= 20 && normalizedTarget.startsWith(k)) return true;
+          return false;
+        });
         if (candidateKeys.length) {
           entries = [];
           for (const k of candidateKeys) {
             entries = entries.concat(index[k] || []);
           }
+          // Dedup par fundName (plusieurs cles peuvent matcher LVMH = LVMH MOET... + LVMH MOET HENNESSY LOUIS = meme funds)
+          const seen = new Set();
+          entries = entries.filter(h => {
+            const key = (h.n || h.fundName || '') + '|' + (h.d || h.reportDate || '');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
         }
       }
       if (entries && entries.length) {
@@ -1943,23 +1969,56 @@ async function aggregate13F(ticker, env, companyName) {
 // ============================================================
 async function aggregateGovEtf(ticker, env) {
   const result = { inEtfs: [], totalPct: 0 };
+  // Etendu mai 2026 : avant on ne checkait que NANC/GOP/GURU. Pour les EU, ce
+  // sont les ETFs convictions (MOAT, DSTL, MTUM) + international (PXF, PID) qui
+  // peuvent contenir LVMH/Hermes/SAP/etc. On scan donc les 16 ETFs et on filtre
+  // par categorie cote frontend si besoin.
   const keys = [
-    { key: 'etf-nanc', label: 'NANC', full: 'Democrats' },
-    { key: 'etf-gop', label: 'GOP', full: 'Republicans' },
-    { key: 'etf-guru', label: 'GURU', full: 'Hedge Fund Gurus' },
+    // Politiciens
+    { key: 'etf-nanc', label: 'NANC', full: 'Démocrates US (Pelosi & co)', cat: 'politics' },
+    { key: 'etf-gop',  label: 'GOP',  full: 'Républicains US', cat: 'politics' },
+    // Smart money
+    { key: 'etf-guru', label: 'GURU', full: 'Top hedge funds 13F', cat: 'smart' },
+    // Sentiment
+    { key: 'etf-buzz', label: 'BUZZ', full: 'Sentiment retail Twitter/Reddit', cat: 'sentiment' },
+    { key: 'etf-meme', label: 'MEME', full: 'Roundhill MEME', cat: 'sentiment' },
+    // Income
+    { key: 'etf-jepi', label: 'JEPI', full: 'JPMorgan Equity Premium', cat: 'income' },
+    { key: 'etf-jepq', label: 'JEPQ', full: 'JPMorgan Nasdaq Premium', cat: 'income' },
+    // Thematiques
+    { key: 'etf-ita',  label: 'ITA',  full: 'Defense & Aerospace', cat: 'theme' },
+    { key: 'etf-ura',  label: 'URA',  full: 'Uranium', cat: 'theme' },
+    { key: 'etf-ufo',  label: 'UFO',  full: 'Espace', cat: 'theme' },
+    { key: 'etf-mj',   label: 'MJ',   full: 'Cannabis', cat: 'theme' },
+    // Convictions Wall Street (mai 2026)
+    { key: 'etf-moat', label: 'MOAT', full: 'Wide Moat (Morningstar Buffett-style)', cat: 'conviction' },
+    { key: 'etf-dstl', label: 'DSTL', full: 'Quality + Low Debt (Distillate)', cat: 'conviction' },
+    { key: 'etf-mtum', label: 'MTUM', full: 'Momentum Factor', cat: 'conviction' },
+    // International (couvre les EU)
+    { key: 'etf-pxf',  label: 'PXF',  full: 'Developed ex-US (RAFI fundamental)', cat: 'international' },
+    { key: 'etf-pid',  label: 'PID',  full: 'International Dividend Achievers', cat: 'international' },
   ];
   try {
-    for (const { key, label, full } of keys) {
+    const up = ticker.toUpperCase();
+    // Pour les EU, le ticker du KV ETF peut etre soit le ticker EU direct (RMS.PA),
+    // soit l'ADR US (HESAY). On accepte les 2 + un fallback name match si besoin.
+    const adrUp = (EU_TO_US_ADR[up] || '').toUpperCase();
+    // Premier pass : match exact par ticker (US OU ADR)
+    const tickerVariants = [up, adrUp].filter(Boolean);
+    for (const { key, label, full, cat } of keys) {
       const data = await env.CACHE.get(key, 'json');
       if (!data) continue;
       const holdings = data.holdings || data.positions || [];
-      const up = ticker.toUpperCase();
-      const match = holdings.find(h => (h.ticker || h.symbol || '').toUpperCase() === up);
+      const match = holdings.find(h => {
+        const ht = (h.ticker || h.symbol || '').toUpperCase();
+        return tickerVariants.includes(ht);
+      });
       if (match) {
         const pct = Number(match.weight || match.pctOfPortfolio || match.percentage) || 0;
         result.inEtfs.push({
           etf: label,
           fullName: full,
+          category: cat,
           weight: pct,
           shares: Number(match.shares) || 0,
         });
