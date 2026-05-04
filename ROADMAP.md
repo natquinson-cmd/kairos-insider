@@ -108,6 +108,67 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 🎨 Panels EU enrichis : color coding + peers names + Health Score Kairos
+
+**User feedback** :
+1. 'pour la partie Sante financiere il faut que ce soit plus parlant
+   (indication de couleur etc...)'
+2. 'pour les concurrents, leur vrai nom affiche en plus serait top'
+3. 'il n'y a pas les indicateurs Altman et Piotroski F-Score comme pour
+   les US ?'
+
+**Fix 1 : Color coding sur les ratios financiers**
+
+Chaque ratio (currentRatio, quickRatio, debtEquity, debtEbitda,
+interestCoverage) est maintenant accompagne d'un BADGE couleur avec
+interpretation immediate :
+
+- currentRatio : SOLIDE (>=2 vert) / SAIN (1.5-2) / JUSTE (1-1.5) / TENDU (<1 rouge)
+- quickRatio : SOLIDE (>=1.2) / SAIN (0.8-1.2) / MOYEN (0.5-0.8) / FAIBLE (<0.5)
+- debtEquity : PEU ENDETTE (<=0.3 vert) / MAITRISE (0.3-1) / ELEVE (1-2) / TRES ELEVE (>2 rouge)
+- debtEbitda : FAIBLE (<=2) / MODERE (2-4) / ELEVE (4-6) / CRITIQUE (>6)
+- interestCoverage : EXCELLENTE (>=5) / BONNE (2.5-5) / JUSTE (1.5-2.5) / DANGEREUSE (<1.5)
+
+La valeur numerique est aussi coloree selon le seuil. Tooltip au survol
+explique le ratio.
+
+**Fix 2 : Peers enrichis avec noms de societe**
+
+Dans `fetchFinnhubPeers`, pour chaque peer ticker, on fetch le `longName`
+via Yahoo chart endpoint (pas d'auth, gratuit). Cache 30j dans KV
+`peer-name:TICKER`. 10 peers max -> max 10 fetches Yahoo / analyse, puis
+cache.
+
+LVMH peers : 'RMS.PA - Hermes International', 'CDI.PA - Christian Dior SE',
+'KER.PA - Kering SA', etc. au lieu de juste tickers.
+
+**Fix 3 : Health Score Kairos pour EU (proxy Altman/Piotroski)**
+
+Pour les actions EU ou stockanalysis.com ne calcule ni Altman Z ni
+Piotroski F, on calcule un score sur **7 criteres binaires** depuis les
+data Finnhub :
+
+1. Marge nette > 0
+2. ROA > 0
+3. ROE > 0
+4. Marge brute > 0
+5. Marge operationnelle > 0
+6. Liquidite generale > 1
+7. Endettement (debt/equity) < 2
+
+Total /7 :
+- >=5 (>=71%) : SOLIDE (vert)
+- 3-4 (43-71%) : MOYEN (orange)
+- <3 (<43%) : FAIBLE (rouge)
+
+Affichage : score X/Y + label colore + LISTE detaillee de chaque critere
+(avec ✓ ou ✗) pour transparence totale. Le user voit pourquoi LVMH a
+6/7 (par exemple).
+
+Note explicative : 'Score Kairos : 7 criteres de sante fondamentale.
+Approximation pour les actions EU ou Altman Z et Piotroski F ne sont pas
+disponibles.'
+
 ### 🇪🇺 Panels EU complets : Sante financiere + Resultats + Concurrents via Finnhub
 
 **User feedback** : 'je crois qu'il manque toutes ces infos pour les valeurs

@@ -325,6 +325,14 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   if (mergedPeers.length === 0 && finnhubPeers && finnhubPeers.peers && finnhubPeers.peers.length > 0) {
     mergedPeers = finnhubPeers.peers;
   }
+
+  // FUSION health : stockanalysis a Altman Z + Piotroski F (US uniquement). Pour
+  // les EU, on a calcule un Health Score Kairos (proxy sur 7 criteres) depuis
+  // Finnhub. Si stockanalysis renvoie vide, on expose le score Kairos.
+  let mergedHealth = statistics.health || {};
+  if ((!mergedHealth.altmanZ && !mergedHealth.piotroskiF) && finnhubMetrics && finnhubMetrics.healthScore) {
+    mergedHealth = { ...mergedHealth, kairosScore: finnhubMetrics.healthScore };
+  }
   // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
   // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
   // de la note gauge (0-10) + analystCount, format identique a stockanalysis.com
@@ -380,7 +388,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     margins,                                     // Gross, Operating, Profit, FCF (idem)
     returns,                                     // ROE, ROA, ROIC, ROCE (idem)
     financialPosition,                           // Current, Quick, D/E, D/EBITDA (stockanalysis + Finnhub)
-    health: statistics.health,                   // Altman Z + Piotroski F
+    health: mergedHealth,                        // Altman Z + Piotroski F (US) ou kairosScore (EU)
     shortInterest: statistics.shortInterest,     // Short %, days to cover
     fairValue: statistics.fairValue,             // Lynch, Graham
     earnings: mergedEarnings,                    // history + next (stockanalysis US + Finnhub EU fallback)
@@ -1468,7 +1476,62 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
       interestCoverage: { raw: interestCoverage, display: fmtNum(interestCoverage) },
     };
 
-    const payload = { ...result, extendedRatios, margins, returns, financialPosition, _usedSymbol: usedSymbol };
+    // === HEALTH SCORE KAIROS (proxy Piotroski F simplifie) ===
+    // Pour les EU ou stockanalysis.com ne fournit pas Altman Z + Piotroski F,
+    // on calcule un score sur 7 criteres binaires depuis les data Finnhub :
+    // 1. Net income > 0 (rentabilite)
+    // 2. ROA > 0
+    // 3. ROE > 0
+    // 4. Marge nette > 0
+    // 5. Marge operationnelle > 0
+    // 6. Current ratio > 1 (couvre dettes court terme)
+    // 7. Debt/Equity < 2 (endettement maitrise)
+    // Total /7. >=5 = SOLIDE, 3-4 = MOYEN, <3 = FAIBLE.
+    let healthScore = null;
+    {
+      const checks = [];
+      // 1. Net income TTM positive (proxy via netProfitMarginTTM > 0)
+      const npm = num(m.netProfitMarginTTM);
+      if (npm != null) checks.push({ ok: npm > 0, label: 'Marge nette positive' });
+      // 2. ROA > 0
+      const roa = num(m.roaTTM);
+      if (roa != null) checks.push({ ok: roa > 0, label: 'ROA positif' });
+      // 3. ROE > 0
+      const roe = num(m.roeTTM);
+      if (roe != null) checks.push({ ok: roe > 0, label: 'ROE positif' });
+      // 4. Marge brute > 0
+      const gm = num(m.grossMarginTTM);
+      if (gm != null) checks.push({ ok: gm > 0, label: 'Marge brute positive' });
+      // 5. Marge operationnelle > 0
+      const om = num(m.operatingMarginTTM);
+      if (om != null) checks.push({ ok: om > 0, label: 'Marge opérationnelle positive' });
+      // 6. Current ratio > 1
+      const cr = num(m.currentRatioAnnual);
+      if (cr != null) checks.push({ ok: cr > 1, label: 'Liquidité générale > 1' });
+      // 7. Debt/Equity < 2
+      if (debtEquity != null) checks.push({ ok: debtEquity < 2, label: 'Endettement maîtrisé' });
+
+      if (checks.length >= 4) {  // au moins 4 criteres dispo pour donner un score fiable
+        const passed = checks.filter(c => c.ok).length;
+        const total = checks.length;
+        const ratio = passed / total;
+        let zone, label;
+        if (ratio >= 0.71) { zone = 'strong'; label = 'SOLIDE'; }
+        else if (ratio >= 0.43) { zone = 'mid'; label = 'MOYEN'; }
+        else { zone = 'weak'; label = 'FAIBLE'; }
+        healthScore = {
+          score: passed,
+          total,
+          ratio: Math.round(ratio * 100),
+          zone,
+          label,
+          criteria: checks,
+          source: 'kairos',  // marqueur : score Kairos vs vrai Piotroski US
+        };
+      }
+    }
+
+    const payload = { ...result, extendedRatios, margins, returns, financialPosition, healthScore, _usedSymbol: usedSymbol };
 
     // Cache 24h
     if (env && env.CACHE) {
@@ -1627,16 +1690,48 @@ async function fetchFinnhubPeers(ticker, apiKey, env) {
     if (adr) tickers = await tryFetch(adr);
   }
   if (!tickers) return null;
-  // Le 1er element est souvent le ticker lui-meme (Finnhub include input)
-  // -> on l'exclut. Format frontend : [{ticker, name, employees}, ...]
-  // On n'a pas le name/employees ici (necessiterait /stock/profile2 par peer = couteux).
-  // Le frontend affiche juste le ticker, click -> loadStockAnalysis qui fetche le full.
+  // Le 1er element est souvent le ticker lui-meme (Finnhub include input) -> exclu.
+  // ENRICHISSEMENT NOM : pour chaque peer, on recupere le longName via Yahoo
+  // chart endpoint (peer-name:TICKER cache 30j). Permet d'afficher 'RMS.PA -
+  // Hermes International' au lieu de 'RMS.PA' seul.
   const upper = String(ticker).toUpperCase();
-  const peers = tickers
+  const candidates = tickers
     .filter(t => t && t.toUpperCase() !== upper)
     .slice(0, 10)
-    .map(t => ({ ticker: String(t).toUpperCase(), name: '', employees: null }));
-  const payload = { peers, _source: 'finnhub', fetchedAt: new Date().toISOString() };
+    .map(t => String(t).toUpperCase());
+
+  // Fetch noms en parallele (max 10 fetches, mais cache 30j -> typiquement ~0)
+  const enriched = await Promise.all(candidates.map(async (peerTicker) => {
+    const nameKey = `peer-name:${peerTicker}`;
+    let name = '';
+    if (env && env.CACHE) {
+      try {
+        const cachedName = await env.CACHE.get(nameKey, 'text');
+        if (cachedName !== null) name = cachedName;
+      } catch {}
+    }
+    if (!name) {
+      try {
+        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(peerTicker)}?range=1d`, {
+          headers: { 'User-Agent': YAHOO_UA },
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const meta = d?.chart?.result?.[0]?.meta || {};
+          name = meta.longName || meta.shortName || '';
+          // Cache 30 jours (les noms ne changent pas)
+          if (env && env.CACHE && name) {
+            try {
+              await env.CACHE.put(nameKey, name, { expirationTtl: 30 * 86400 });
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+    return { ticker: peerTicker, name: name || '', employees: null };
+  }));
+
+  const payload = { peers: enriched, _source: 'finnhub', fetchedAt: new Date().toISOString() };
   try {
     await env.CACHE?.put(cacheKey, JSON.stringify(payload), { expirationTtl: 7 * 86400 + 3600 });
   } catch {}
