@@ -481,8 +481,8 @@ const CAC40_FAST_LOOKUP = {
 
 export async function searchTickersAutocomplete(query, env, limit = 10) {
   if (!query || query.length < 1) return [];
-  // v2 : bump apres ajout EU re-ranking + CAC40 fast-lookup
-  const cacheKey = `yahoo-autocomplete:v2:${String(query).toLowerCase().trim()}`;
+  // v3 : bump apres exclusion options/futures/currency (CRBP260515P0... etc.)
+  const cacheKey = `yahoo-autocomplete:v3:${String(query).toLowerCase().trim()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -496,7 +496,20 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
     });
     if (!resp.ok) return [];
     const data = await resp.json();
-    const quotes = (data?.quotes || []).filter(q => q.symbol && (q.shortname || q.longname));
+    // Whitelist des types d'instruments tradables (action / ETF / fonds / indice / crypto)
+    // Exclut explicitement OPTION (CRBP260515P00002500), FUTURE, CURRENCY (forex pairs),
+    // CRYPTOCURRENCY OBSOLETE, etc. qui polluent les resultats Yahoo Search.
+    // Bug fix mai 2026 : taper 'CRBP' renvoyait 4 lignes 'OPR' (puts/calls Coherus).
+    const ALLOWED_TYPES = new Set(['EQUITY', 'ETF', 'MUTUALFUND', 'INDEX', 'CRYPTOCURRENCY']);
+    const EXCLUDED_EXCHANGES = new Set(['OPR']);  // Options Pricing Reporting Authority
+    const quotes = (data?.quotes || []).filter(q => {
+      if (!q.symbol || (!q.shortname && !q.longname)) return false;
+      const type = (q.quoteType || q.typeDisp || '').toUpperCase();
+      if (!ALLOWED_TYPES.has(type)) return false;
+      const exch = (q.exchange || '').toUpperCase();
+      if (EXCLUDED_EXCHANGES.has(exch)) return false;
+      return true;
+    });
 
     // Normalize : retourne juste les champs utiles UI
     let results = quotes.map(q => ({
