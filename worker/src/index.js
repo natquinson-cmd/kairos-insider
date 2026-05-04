@@ -6624,11 +6624,22 @@ async function handleScheduleDGTicker(url, env, origin) {
   const merged = await loadAllThresholdsFilings(env);
   if (!merged.filings.length) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
-  // Match strict sur ticker (US) OU sur ticker base (FR/DE qui ont des suffixes .PA, .DE)
+  // BUG FIX (mai 2026) : avant, MC.PA -> tickerBase="MC" matchait Moelis & Co
+  // (ticker US "MC") car le filter acceptait t === tickerBase. Or "MC" seul est
+  // un ticker US. Quand l'input a un suffixe Yahoo (.PA, .DE, .L, etc.), on
+  // doit matcher UNIQUEMENT les variations EU (MC.PA, MC.AS, etc.) PAS le US.
+  const hasYahooSuffix = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE|TO|AX|HK|SG)$/i.test(ticker);
   const tickerBase = ticker.split('.')[0];
   let filings = merged.filings.filter(f => {
     const t = (f.ticker || '').toUpperCase();
-    return t === ticker || t === tickerBase || (t && t.split('.')[0] === tickerBase);
+    if (t === ticker) return true;  // match exact toujours OK
+    if (hasYahooSuffix) {
+      // EU input -> exclure les tickers US sans suffixe (MC=Moelis, BN=Brookfield, etc.)
+      // Accepter uniquement les variations EU avec un suffixe pays.
+      return t.includes('.') && t.split('.')[0] === tickerBase;
+    }
+    // US input -> comportement permissif d'avant (tickerBase OK)
+    return t === tickerBase || (t && t.split('.')[0] === tickerBase);
   });
 
   // Enrichit avec le delta vs filing precedent du meme filer+ticker
