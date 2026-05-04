@@ -9471,13 +9471,59 @@
           try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
         };
 
-        // Score delta card
+        // Score delta card avec BREAKDOWN explicatif (mai 2026)
+        // Quand le score change, on affiche les 3 dimensions qui ont le plus
+        // contribue (positivement ou negativement) pour expliquer la variation.
         let scoreHTML = '';
         if (hasScore) {
           const delta = data.score.delta;
           const deltaColor = delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : '#9CA3AF';
           const deltaArrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
           const deltaSign = delta > 0 ? '+' : '';
+
+          // Breakdown : top 3 dimensions par |delta|, avec narratif et liste
+          let breakdownHTML = '';
+          const contribs = Array.isArray(data.score.contributions) ? data.score.contributions : [];
+          if (contribs.length > 0) {
+            const top3 = contribs.slice(0, 3);
+            // Narratif court : "Variation portee par X (-5pt), Y (-3pt) et Z (+1pt)"
+            const direction = delta > 0 ? 'hausse' : 'baisse';
+            const narrPieces = top3.map(c => {
+              const sign = c.delta > 0 ? '+' : '';
+              const col = c.delta > 0 ? '#10B981' : c.delta < 0 ? '#EF4444' : '#9CA3AF';
+              return `<strong style="color:${col}">${c.label}</strong> (${sign}${c.delta}pt)`;
+            });
+            const narr = top3.length === 1
+              ? `Cette ${direction} vient principalement de ${narrPieces[0]}.`
+              : `Cette ${direction} vient principalement de ${narrPieces.slice(0,-1).join(', ')} et ${narrPieces[top3.length-1]}.`;
+
+            // Petite liste detaillee : barres horizontales par dimension
+            const maxAbs = Math.max(...contribs.map(c => Math.abs(c.delta)), 1);
+            const rowsHTML = top3.map(c => {
+              const isPos = c.delta > 0;
+              const col = isPos ? '#10B981' : '#EF4444';
+              const widthPct = Math.min(100, (Math.abs(c.delta) / maxAbs) * 100);
+              const sign = isPos ? '+' : '';
+              return `
+                <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px">
+                  <div style="width:130px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.label}">${c.label}</div>
+                  <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;position:relative">
+                    <div style="height:100%;width:${widthPct.toFixed(1)}%;background:${col};border-radius:3px"></div>
+                  </div>
+                  <div style="width:60px;text-align:right;color:${col};font-weight:700">${sign}${c.delta}pt</div>
+                </div>
+              `;
+            }).join('');
+
+            breakdownHTML = `
+              <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--divider)">
+                <div style="font-size:11px;color:var(--text-secondary);line-height:1.55;margin-bottom:8px">
+                  💡 ${narr}
+                </div>
+                <div>${rowsHTML}</div>
+              </div>`;
+          }
+
           scoreHTML = `
             <div class="activity-card">
               <div class="activity-card-label">📊 Kairos Score</div>
@@ -9489,6 +9535,7 @@
                 </div>
               </div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px">vs ${fmtD(data.score.datePrevious)} (${data.score.previous}/100)</div>
+              ${breakdownHTML}
             </div>`;
         }
 

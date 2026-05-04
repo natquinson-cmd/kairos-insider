@@ -1876,25 +1876,58 @@ async function handleTickerActivity(url, env, origin) {
 
   try {
     // 1) Kairos Score : valeur la plus récente + valeur au +/- days avant
+    // + BREAKDOWN des sous-scores pour expliquer la variation (mai 2026)
     let scoreInfo = null;
     try {
       const scoreRes = await env.HISTORY.prepare(
-        `SELECT date, total FROM score_history WHERE ticker = ? ORDER BY date DESC LIMIT 20`
+        `SELECT date, total, insider, smart_money, gov_guru, momentum,
+                valuation, analyst, health, earnings
+         FROM score_history WHERE ticker = ? ORDER BY date DESC LIMIT 20`
       ).bind(ticker).all();
       const rows = scoreRes.results || [];
       if (rows.length >= 1) {
         const now = rows[0];
-        // Cherche la valeur la plus proche de "il y a N jours" (basé sur date, pas index)
         const cutoff = new Date(now.date);
         cutoff.setDate(cutoff.getDate() - days);
         const cutoffStr = cutoff.toISOString().slice(0, 10);
         const prev = rows.find(r => r.date <= cutoffStr) || rows[rows.length - 1];
+        const hasComparable = prev && prev.date !== now.date;
+
+        // Calcul du breakdown : delta par sous-score (insider, smart_money, etc.)
+        // Permet d'expliquer 'pourquoi le score a baisse de -10pt' :
+        //   ex: 'principalement insider (-5pt) et momentum (-3pt)'
+        let contributions = null;
+        if (hasComparable) {
+          const dims = [
+            { key: 'insider', label: 'Initiés' },
+            { key: 'smart_money', label: 'Hedge funds' },
+            { key: 'gov_guru', label: 'Politiciens & gourous' },
+            { key: 'momentum', label: 'Momentum cours' },
+            { key: 'valuation', label: 'Valorisation' },
+            { key: 'analyst', label: 'Consensus analystes' },
+            { key: 'health', label: 'Santé financière' },
+            { key: 'earnings', label: 'Earnings' },
+          ];
+          contributions = dims.map(d => ({
+            key: d.key,
+            label: d.label,
+            now: now[d.key] != null ? Number(now[d.key]) : null,
+            previous: prev[d.key] != null ? Number(prev[d.key]) : null,
+            delta: (now[d.key] != null && prev[d.key] != null)
+              ? Number((now[d.key] - prev[d.key]).toFixed(2))
+              : null,
+          })).filter(c => c.delta !== null && Math.abs(c.delta) >= 0.1);  // ignore micro variations
+          // Tri par |delta| desc pour faire ressortir les plus gros contributeurs
+          contributions.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+        }
+
         scoreInfo = {
           now: now.total,
-          previous: prev && prev.date !== now.date ? prev.total : null,
-          delta: prev && prev.date !== now.date ? (now.total - prev.total) : null,
+          previous: hasComparable ? prev.total : null,
+          delta: hasComparable ? (now.total - prev.total) : null,
           dateNow: now.date,
-          datePrevious: prev && prev.date !== now.date ? prev.date : null,
+          datePrevious: hasComparable ? prev.date : null,
+          contributions,  // [{key, label, now, previous, delta}, ...] tri par |delta|
         };
       }
     } catch (e) { console.warn('score lookup failed:', e); }

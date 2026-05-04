@@ -108,6 +108,40 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 💡 Activité récente : explication des variations Kairos Score
+
+**User feedback** : 'ici ça fait un peu vide, ça serait super d'expliquer
+ce qui a provoqué la baisse' (capture d'ecran d'un score qui baisse de
+-10pt sans explication, juste la valeur 55/100 vs 65/100).
+
+**Avant** : la card Kairos Score affichait juste valeur actuelle, valeur
+J-7, et delta. Aucune explication de POURQUOI le score a bouge.
+
+**Apres** :
+
+Backend (handleTickerActivity) recupere maintenant aussi les 8 sous-scores
+depuis score_history :
+- insider, smart_money, gov_guru, momentum, valuation, analyst, health, earnings
+
+Et calcule pour chaque dimension le delta (now - previous), filtre les
+variations < 0.1pt (bruit), et trie par |delta| desc.
+
+Frontend (loadTickerActivity) affiche :
+
+1. NARRATIF court en haut :
+   '💡 Cette baisse vient principalement de Initiés (-5pt), Momentum (-3pt)
+    et Consensus analystes (-2pt).'
+
+2. BARRES HORIZONTALES pour les top 3 contributeurs :
+   - Label de la dimension (Initiés, Hedge funds, Momentum, etc.)
+   - Barre proportionnelle a |delta|, couleur verte si positif, rouge si negatif
+   - Valeur exacte du delta (-5pt, +3pt, etc.)
+
+L'utilisateur comprend maintenant en un coup d'oeil pourquoi le score a
+varie. Pour le ticker du screenshot (-10pt), il verra par exemple que
+ce sont les sous-scores 'Initiés' et 'Momentum' qui ont chute (probablement
+suite a des ventes massives d'insiders + un cours en baisse).
+
 ### 🔍 Top Signaux du jour : fix counts + UI cleanup
 
 **User feedback** :
