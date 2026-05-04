@@ -7842,17 +7842,30 @@
           </div>` : '';
 
         // Card 2 : Insider Clusters
+        // UI UPDATE (mai 2026) : suppression bulles emoji 🟢🔴 trop visuelles.
+        // Remplace par chips compactes "Nb ach. / Nb vt." avec couleurs sur les
+        // chiffres uniquement. Plus pro et plus lisible.
+        // Backend renvoie maintenant les INSIDERS DISTINCTS (pas les lignes brutes).
         const clusterItems = (data.insiderClusters || []).slice(0, 5).map(c => {
-          const isBullish = (c.buyCount || 0) > (c.sellCount || 0);
-          const icon = isBullish ? '🟢' : '🔴';
-          const color = isBullish ? '#10B981' : '#EF4444';
+          const buy = c.buyCount || 0;
+          const sell = c.sellCount || 0;
+          const isBullish = buy > sell;
+          const isBalanced = buy > 0 && sell > 0;
+          const valueColor = isBullish ? '#10B981' : isBalanced ? '#F59E0B' : '#EF4444';
+          const arrow = isBullish ? '↑' : isBalanced ? '⇄' : '↓';
+          // Format chip : "8 ach · 13 vt" couleur sur chiffres
+          const chip = `<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">
+            <strong style="color:${buy>0?'#10B981':'var(--text-muted)'}">${buy}</strong>&nbsp;ach
+            <span style="opacity:0.5;margin:0 4px">·</span>
+            <strong style="color:${sell>0?'#EF4444':'var(--text-muted)'}">${sell}</strong>&nbsp;vt
+          </span>`;
           return `
             <div class="signal-row" ${goTicker(c.ticker)}>
-              <div style="display:flex;align-items:center;gap:8px;min-width:0">
-                <strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(c.ticker)}</strong>
-                <span style="color:var(--text-muted);font-size:11px">${c.buyCount}🟢 / ${c.sellCount}🔴</span>
+              <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient(c.ticker)}</strong>
+                ${chip}
               </div>
-              <div style="color:${color};font-weight:600;font-size:12px;flex-shrink:0">${icon} ${fmtUsd(c.totalValue)}</div>
+              <div style="color:${valueColor};font-weight:600;font-size:12px;flex-shrink:0">${arrow} ${fmtUsd(c.totalValue)}</div>
             </div>`;
         }).join('');
         const clusterCard = hasClusters ? `
@@ -7861,7 +7874,7 @@
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
               <div style="flex:1">
                 <div class="signal-card-title">Clusters insiders</div>
-                <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
+                <div class="signal-card-sub">≥ 3 dirigeants distincts sur 7j</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
@@ -7910,18 +7923,20 @@
           const date = fmtD(a.date);
           const rightText = [form, date].filter(Boolean).join(' · ');
           // Pour les filings EU (AMF/FCA/SIX/AFM/BaFin), ticker est souvent vide.
-          // On utilise targetName comme query qui sera resolue par le backend
-          // (Yahoo Search resolver : UBS AG -> UBSG.SW, LVMH -> MC.PA, etc.)
           const queryForAnalysis = a.ticker || a.targetName || '';
-          // Texte affiche : ticker s'il existe, sinon targetName (raison sociale officielle)
           const displayLabel = a.ticker || a.targetName || '?';
+          // UI FIX (mai 2026) : on n'utilise plus slice() pour tronquer (illisible).
+          // Le truncate est fait par CSS text-overflow:ellipsis avec tooltip complet
+          // au survol. La card est aussi plus large (cf. minmax 320px dans la grid).
+          const fullLabel = displayLabel || '';
+          const fullFiler = a.filer || '';
           return `
             <div class="signal-row" ${queryForAnalysis ? goTicker(queryForAnalysis) : ''}>
-              <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
-                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient((displayLabel || '').slice(0, 18))}</strong>
-                <span style="color:var(--text-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient((a.filer || '').slice(0, 24))}</span>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden">
+                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(fullLabel)}">${escapeHtmlClient(fullLabel)}</strong>
+                <span style="color:var(--text-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="${escapeHtmlClient(fullFiler)}">${escapeHtmlClient(fullFiler)}</span>
               </div>
-              <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0">${escapeHtmlClient(rightText)}</div>
+              <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0;white-space:nowrap">${escapeHtmlClient(rightText)}</div>
             </div>`;
         }).join('');
         const activistCard = hasActivists ? `
@@ -7952,7 +7967,9 @@
             }
             .signals-grid {
               display:grid;gap:14px;
-              grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+              /* minmax 340px : plus large que 280 pour laisser respirer les content
+                  les plus denses (Fonds offensifs avec ticker + filer + form + date). */
+              grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
             }
             .signal-card {
               background:var(--surface-1);

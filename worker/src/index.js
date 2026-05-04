@@ -2078,29 +2078,42 @@ async function computeTopSignals(env) {
     }));
   } catch (e) { console.warn('scoreMovers failed:', e); }
 
-  // 2) Insider Clusters : tickers avec 3+ transactions dans les 7 derniers jours
+  // 2) Insider Clusters : tickers avec 3+ INSIDERS UNIQUES dans les 7 derniers jours
+  // FIX (mai 2026) : avant on comptait les LIGNES (COUNT(*)), ce qui donnait 142
+  // pour un seul Form 4 split en 142 transactions individuelles (typique des stock
+  // options exercises). Maintenant on compte les INSIDERS DISTINCTS, ce qui est
+  // la VRAIE definition d'un cluster (3+ dirigeants differents transigent ensemble).
   try {
     const since = new Date(); since.setDate(since.getDate() - 7);
     const sinceStr = since.toISOString().slice(0, 10);
     const clusterQuery = `
-      SELECT ticker, COUNT(*) AS cnt,
-        SUM(CASE WHEN trans_type = 'buy' THEN 1 ELSE 0 END) AS buyCount,
-        SUM(CASE WHEN trans_type = 'sell' THEN 1 ELSE 0 END) AS sellCount,
-        SUM(CASE WHEN trans_type = 'buy' THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
+      SELECT ticker,
+        COUNT(DISTINCT insider) AS uniqueInsiders,
+        COUNT(DISTINCT CASE WHEN trans_type = 'buy'  THEN insider END) AS buyInsiders,
+        COUNT(DISTINCT CASE WHEN trans_type = 'sell' THEN insider END) AS sellInsiders,
+        COUNT(*) AS rawTxLines,
+        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
         SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
         GROUP_CONCAT(DISTINCT insider) AS insiders,
         MAX(trans_date) AS lastDate
       FROM insider_transactions_history
       WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
-      GROUP BY ticker HAVING cnt >= 3
-      ORDER BY cnt DESC, (buyValue + sellValue) DESC LIMIT 10
+      GROUP BY ticker HAVING uniqueInsiders >= 3
+      ORDER BY uniqueInsiders DESC, (buyValue + sellValue) DESC LIMIT 10
     `;
     const rows = (await env.HISTORY.prepare(clusterQuery).bind(sinceStr).all()).results || [];
     result.insiderClusters = rows.map(r => ({
-      ticker: r.ticker, buyCount: r.buyCount || 0, sellCount: r.sellCount || 0,
+      ticker: r.ticker,
+      // Compteurs PROPRES : nombre d'insiders distincts qui ont achete/vendu
+      buyCount: r.buyInsiders || 0,
+      sellCount: r.sellInsiders || 0,
+      uniqueInsiders: r.uniqueInsiders || 0,
+      // Garde rawTxLines pour info technique (cas Form 4 split en plusieurs lignes)
+      rawTxLines: r.rawTxLines || 0,
       totalValue: (r.buyValue || 0) + (r.sellValue || 0),
       netValue: (r.buyValue || 0) - (r.sellValue || 0),
-      topNames: (r.insiders || '').split(',').slice(0, 3), lastDate: r.lastDate,
+      topNames: (r.insiders || '').split(',').slice(0, 3),
+      lastDate: r.lastDate,
     }));
   } catch (e) { console.warn('insiderClusters failed:', e); }
 

@@ -108,6 +108,48 @@ Les 2 workflows restent déclenchables manuellement via `gh workflow run`.
 - `5ac6f2a` — buildTickerByName étendu à 5 sources
 - `3f7c4bb` — Short Interest top 50 + history 30j (deltas + sparkline)
 
+### 🔍 Top Signaux du jour : fix counts + UI cleanup
+
+**User feedback** :
+1. 'la card Fonds offensifs frais est illisible (faire une card plus grande)'
+2. 'Clusters insiders semble fausse avec beaucoup trop de mouvement
+    affiches sur les 7 derniers jours'
+3. 'je n'aime pas les bulles vertes ou rouge pour signifier l'achat
+    vente, trouve autre chose'
+
+**Bug clusters identifie** : la query SQL comptait COUNT(*) sur
+`insider_transactions_history` ou un seul Form 4 SEC peut etre split en
+N lignes (line_num) pour des stock options exercices fractionnes. CRWV
+montrait '142 ventes' mais c'etait en realite 1 SEUL FILING avec 142
+lignes provenant de 6 insiders. Pareil CVNA 58 lignes / 1 filing,
+GDEN 55 lignes / 1 filing.
+
+**Fix backend** : la query utilise maintenant
+COUNT(DISTINCT insider) (vraie definition d'un cluster = 3+ DIRIGEANTS
+DIFFERENTS), avec champs separes :
+- buyInsiders : nb d'insiders distincts qui ont achete
+- sellInsiders : nb d'insiders distincts qui ont vendu
+- uniqueInsiders : total
+- rawTxLines : conserve pour info technique
+
+CRWV affiche maintenant 0 acheteurs / 6 vendeurs (vs 0 / 142 avant).
+Le sub-titre passe de "≥ 3 transactions meme ticker (7j)" a
+"≥ 3 dirigeants distincts sur 7j".
+
+**Fix UI bulles emoji** : les bulles 🟢🔴 sont remplacees par des chips
+texte compactes "0 ach · 6 vt" avec couleurs sur les chiffres uniquement
+(vert pour les acheteurs, rouge pour les vendeurs). Plus pro, plus lisible.
+L'icone principale (anciennement 🟢/🔴) devient une fleche directionnelle :
+- ↑ = bullish (plus d'acheteurs)
+- ⇄ = balance (mix achats/ventes)
+- ↓ = bearish (plus de vendeurs)
+
+**Fix card Activists** : grid template passe de minmax(280px,1fr) a
+minmax(340px,1fr) pour laisser respirer les noms longs. Truncation fait
+par CSS text-overflow:ellipsis (avec tooltip title=) au lieu de slice()
+hardcode (qui coupait Galenica AC.../IMCD N.V. Black.../etc.). Le label
+ticker a max-width:130px + ellipsis, le filer prend le flex:1 restant.
+
 ### 🔙 Navigation browser back/forward (history.pushState)
 
 **User feedback** : 'pour naviguer plus facilement sur le site, il faudrait
