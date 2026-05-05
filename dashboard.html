@@ -203,8 +203,22 @@
       background-color: var(--bg-primary);
       color: var(--text-primary);
       line-height: 1.6;
-      overflow-x: hidden;
+      /* FIX sticky thead (mai 2026) : overflow-x: hidden -> clip car la spec
+         CSS3 dit que si overflow-x est non-visible, overflow-y devient
+         automatiquement 'auto' -> le body devient un scroll context et
+         PIEGE le sticky thead dedans (au lieu de la window).
+         'clip' a le meme effet visuel (cache le debordement horizontal)
+         mais SANS creer de scroll context. Support : Chrome 90+, FF 81+,
+         Safari 16+. Sur browsers tres anciens, fallback overflow:hidden
+         via la regle @supports plus bas. */
+      overflow-x: clip;
       -webkit-font-smoothing: antialiased;
+    }
+    /* Fallback pour browsers sans overflow:clip (Safari < 16 / vieux Chrome).
+       overflow-x:hidden y reintroduit le double scroll mais c'est mieux que
+       l'overflow horizontal incontrole. */
+    @supports not (overflow-x: clip) {
+      body { overflow-x: hidden; }
     }
 
     /* ============================================================
