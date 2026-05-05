@@ -9252,8 +9252,14 @@
         loadEtfHistoryFor(ticker).catch(() => {});
         // Charge les filings 13D/G recents sur ce ticker (banner + markers chart)
         loadActivistsForTicker(ticker).catch(() => {});
-        // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta score
-        loadTickerActivity(ticker).catch(() => {});
+        // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta score.
+        // FIX (mai 2026) : on passe le score LIVE (data.score.total) pour aligner
+        // l'affichage du widget avec le radar/score affiche en haut de page.
+        // Sans ca : radar montrait 38 (live) et widget montrait 42 (snapshot D1
+        // d'hier), creant une incoherence visible pour l'utilisateur.
+        const liveScoreTotal = data && data.score && typeof data.score.total === 'number' ? data.score.total : null;
+        const liveBreakdown = data && data.score && data.score.breakdown ? data.score.breakdown : null;
+        loadTickerActivity(ticker, 7, liveScoreTotal, liveBreakdown).catch(() => {});
       } catch (e) {
         clearStockLoader();
         // Cas special : backend dit 'FREE_QUOTA_EXCEEDED' → on affiche
@@ -9441,11 +9447,40 @@
     // ============================================================
     // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta Kairos Score
     // ============================================================
-    async function loadTickerActivity(ticker, days = 7) {
+    async function loadTickerActivity(ticker, days = 7, liveScoreTotal = null, liveBreakdown = null) {
       if (!ticker) return;
       try {
         const data = await apiFetch(`/api/history/ticker-activity?ticker=${encodeURIComponent(ticker)}&days=${days}`);
         if (!data || data.error) return;
+
+        // FIX coherence (mai 2026) : si on a recu le score LIVE depuis le radar,
+        // on l'utilise comme valeur 'now' au lieu du snapshot D1 d'hier soir.
+        // Recalcule aussi delta + contributions pour rester coherent.
+        // Mapping snake_case D1 -> camelCase live breakdown :
+        const D1_TO_LIVE_KEY = {
+          insider: 'insider', smart_money: 'smartMoney', gov_guru: 'govGuru',
+          momentum: 'momentum', valuation: 'valuation', analyst: 'analyst',
+          health: 'health', earnings: 'earnings',
+        };
+        if (liveScoreTotal != null && data.score && data.score.previous != null) {
+          const prevScore = data.score.previous;
+          data.score.now = liveScoreTotal;
+          data.score.delta = liveScoreTotal - prevScore;
+          // Recalcule les contributions par axe : (live sub-score) - (D1 prev sub-score)
+          if (liveBreakdown && Array.isArray(data.score.contributions)) {
+            data.score.contributions = data.score.contributions.map(c => {
+              const liveKey = D1_TO_LIVE_KEY[c.key];
+              const liveSub = (liveKey && liveBreakdown[liveKey] && typeof liveBreakdown[liveKey].score === 'number')
+                ? liveBreakdown[liveKey].score
+                : null;
+              if (liveSub == null || c.previous == null) return c;
+              const newDelta = Number((liveSub - c.previous).toFixed(2));
+              return { ...c, now: liveSub, delta: newDelta };
+            }).filter(c => Math.abs(c.delta) >= 0.1)
+              .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+          }
+        }
+
         const hasScore = data.score && data.score.delta !== null;
         const hasEtf = data.etfChanges && data.etfChanges.length > 0;
         const hasInsider = data.insiderTrades && data.insiderTrades.length > 0;

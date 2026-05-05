@@ -2071,7 +2071,8 @@ async function handleTickerActivity(url, env, origin) {
 async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
-  const cacheKey = 'home:top-signals';
+  // v2 : bump apres ajout filter |delta| <= 20 (anti pipeline noise)
+  const cacheKey = 'home:top-signals:v2';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -2087,7 +2088,13 @@ async function computeTopSignals(env) {
     activistsFresh: [],
   };
 
-  // 1) Score Movers : top deltas entre 2 dates les plus récentes par ticker
+  // 1) Score Movers : top deltas entre 2 dates les plus récentes par ticker.
+  // FIX (mai 2026) : on filtre les deltas suspects |delta| > 20pt qui sont
+  // tres souvent des bugs de pipeline (API source down un jour -> dataOk=false
+  // -> sub-score neutre, puis recovery jour suivant -> remontee artificielle).
+  // Les vrais mouvements sur 1 jour depassent rarement 15-20pt, sauf evenement
+  // exceptionnel (M&A, fraude, etc.). Au-dessus c'est presque toujours du
+  // noise pipeline qui pollue le 'Top signaux du jour' (CCC 69->42 par ex.).
   try {
     const scoreQuery = `
       WITH latest_two AS (
@@ -2101,7 +2108,9 @@ async function computeTopSignals(env) {
         (a.total - b.total) AS delta
       FROM latest_two a
       LEFT JOIN latest_two b ON a.ticker = b.ticker AND b.rn = 2
-      WHERE a.rn = 1 AND b.total IS NOT NULL AND ABS(a.total - b.total) >= 3
+      WHERE a.rn = 1 AND b.total IS NOT NULL
+        AND ABS(a.total - b.total) >= 3
+        AND ABS(a.total - b.total) <= 20
       ORDER BY ABS(a.total - b.total) DESC LIMIT 12
     `;
     const rows = (await env.HISTORY.prepare(scoreQuery).all()).results || [];
