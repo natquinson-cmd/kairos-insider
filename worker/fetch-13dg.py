@@ -175,6 +175,42 @@ def parse_13dg_primary_doc(xml_content):
             pct = None
         persons.append({'name': name, 'shares': amount, 'pct': pct, 'fundType': fund_type})
 
+    # Fallback Format 2 : <coverPage> (structure utilisée par beaucoup de 13G passifs)
+    if not persons:
+        def get_any(tag):
+            m = re.search(rf'<{tag}[^>]*>\s*([^<\s][^<]*?)\s*</{tag}>', xml_content, re.IGNORECASE)
+            return m.group(1).strip() if m else None
+        pct_raw   = get_any('percentOfClass') or get_any('percentOwned')
+        shares_raw = (get_any('sharesOrPrincipalAmountValue') or
+                      get_any('aggregateAmountOwned') or
+                      get_any('sharesOrPrincipal'))
+        name = get_any('rptOwnerName') or get_any('reportingOwnerName')
+        try:
+            pct = float(pct_raw) if pct_raw else None
+        except (ValueError, TypeError):
+            pct = None
+        try:
+            shares = float(shares_raw.replace(',', '')) if shares_raw else None
+        except (ValueError, TypeError):
+            shares = None
+        if pct is not None or shares is not None:
+            persons.append({'name': name, 'shares': shares, 'pct': pct, 'fundType': None})
+
+    # Fallback Format 3 : texte SGML brut (anciens dépôts ou filings non-XML)
+    if not persons:
+        pct_m    = re.search(r'percent of class[^0-9\n]*([0-9]+(?:\.[0-9]+)?)\s*%?', xml_content, re.IGNORECASE)
+        shares_m = re.search(r'(?:aggregate amount|amount beneficially owned)[^0-9\n]*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?)', xml_content, re.IGNORECASE)
+        try:
+            pct = float(pct_m.group(1)) if pct_m else None
+        except (ValueError, TypeError):
+            pct = None
+        try:
+            shares = float(shares_m.group(1).replace(',', '')) if shares_m else None
+        except (ValueError, TypeError):
+            shares = None
+        if pct is not None or shares is not None:
+            persons.append({'name': None, 'shares': shares, 'pct': pct, 'fundType': None})
+
     if not persons:
         return {}
 
