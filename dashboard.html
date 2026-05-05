@@ -2161,55 +2161,36 @@
     }
     .funds-table-wrap thead th {
       position: sticky;
-      top: 0;
+      /* Sous la nav fixe (~72px = padding 16+16 + contenu ~40) */
+      top: 72px;
       z-index: 10;
       background: var(--bg-secondary);
       backdrop-filter: blur(8px);
     }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
-    /* ===== STICKY HEADERS =====
-       Probleme classique : quand un parent a overflow-x:auto, il cree un
-       scroll-context qui PIEGE le sticky enfant dedans. Si le container
-       n'a PAS de hauteur max, il n'a rien a scroller en Y donc le header
-       reste colle visuellement au scroll Y de la page... mais mal cale.
-       SOLUTION : on donne aux wraps de tables une hauteur max explicite
-       + overflow auto sur les 2 axes. Le sticky est alors sticky vs ce
-       container (comportement Excel : tableau scrollable, header reste
-       visible en haut du tableau).
-       On cible les wraps en utilisant les classes utilitaires ET un
-       attribut-selector sur les inline styles contenant overflow*auto.
-       Ca couvre les 16+ wraps inline du dashboard sans avoir a les
-       retagger un par un. */
-    .funds-table-wrap,
-    .sig-table-wrap,
-    .table-scroll,
-    div[style*="overflow-x:auto"]:has(> table),
-    div[style*="overflow-x: auto"]:has(> table),
-    div[style*="overflow:auto"]:has(> table),
-    div[style*="overflow: auto"]:has(> table),
-    div[style*="overflow-x:auto"]:has(> div > table),
-    div[style*="overflow-x: auto"]:has(> div > table) {
-      max-height: 72vh !important;
-      overflow: auto !important;
-    }
-
-    /* FIX double scroll (mai 2026) : retire max-height + overflow auto.
-       Le scroll vertical est gere par la page principale, le scroll horizontal
-       reste local pour les tables larges (responsive mobile/tablet). */
+    /* ===== STICKY HEADERS (mai 2026) =====
+       FIX double scroll : on a retire le max-height/overflow:auto force
+       sur les containers de tables. Le scroll vertical est maintenant
+       celui de la page principale (single scrollbar).
+       Le sticky thead utilise donc le viewport comme parent scrollable
+       et se cale sous la nav fixe (top: 72px = hauteur nav 16+16 padding
+       + ~40px contenu). Voir thead th plus bas pour le top offset. */
     .funds-table-wrap,
     .sig-table-wrap,
     .table-scroll {
       overflow-x: auto;
     }
 
-    /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows */
+    /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows.
+       top: 72px = hauteur nav fixe (padding 16+16 + contenu ~40px). Sans cet
+       offset, le thead se collait sous la nav qui le masquait au scroll. */
     thead th {
       padding: 14px 16px; text-align: left; font-weight: 600; font-size: 12px;
       color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
       border-bottom: 1px solid var(--border); white-space: nowrap;
       position: sticky;
-      top: 0;
+      top: 72px;
       z-index: 5;
       /* IMPORTANT : background OPAQUE (pas transparent) pour masquer les rows
          qui passent derriere le header sticky lors du scroll. Fallback en
