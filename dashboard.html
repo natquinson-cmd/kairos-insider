@@ -2147,16 +2147,16 @@
 
     /* ===== TABLE ===== */
     .table-wrap {
-      max-height: 72vh;
-      overflow: auto;
+      /* FIX double scroll (mai 2026) : avec le pattern 'Voir plus' qui
+         pagine cote client, on n'a plus besoin de bloquer la hauteur interne.
+         Le scroll vertical de la page principale est suffisant et evite la
+         seconde scrollbar collee a droite. On garde overflow-x pour les
+         tables larges sur mobile/tablet. */
+      overflow-x: auto;
       border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card);
     }
-    /* Variante pour la table principale Hedge Funds : scrollbar horizontale
-       toujours visible (max-height + sticky header) au lieu d'etre tout
-       en bas après tous les fonds. */
+    /* Variante Hedge Funds : sticky header pour suivre le scroll de la page */
     .funds-table-wrap {
-      max-height: calc(100vh - 200px);
-      overflow-y: auto;
       overflow-x: auto;
     }
     .funds-table-wrap thead th {
@@ -2194,12 +2194,13 @@
       overflow: auto !important;
     }
 
-    /* Fallback pour browsers sans :has() : au minimum les classes nommees */
+    /* FIX double scroll (mai 2026) : retire max-height + overflow auto.
+       Le scroll vertical est gere par la page principale, le scroll horizontal
+       reste local pour les tables larges (responsive mobile/tablet). */
     .funds-table-wrap,
     .sig-table-wrap,
     .table-scroll {
-      max-height: 72vh;
-      overflow: auto;
+      overflow-x: auto;
     }
 
     /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows */
@@ -11473,7 +11474,7 @@
           <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
             Triées par nombre de fonds en <strong>conviction</strong> (position ≥ 0.3% du portefeuille). Les puces vertes ★ indiquent les convictions, les grises sont les positions passives.
           </p>
-          <div class="table-scroll" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;max-height:72vh;overflow:auto">
+          <div class="table-scroll" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="background:var(--surface-2)">
@@ -16061,7 +16062,7 @@
       });
 
       tableArea.innerHTML = `
-        <div class="table-scroll" style="max-height:72vh;overflow:auto">
+        <div class="table-scroll">
           <table class="data-table" style="width:100%;border-collapse:collapse">
             <thead>${headers}</thead>
             <tbody>${body}</tbody>
@@ -17535,7 +17536,7 @@
               <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
             </div>
           </div>
-          <div class="table-scroll" style="max-height:72vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+          <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
             <table class="data-table" style="width:100%;border-collapse:collapse;min-width:920px;font-size:12.5px">
               <thead>
                 <tr>
