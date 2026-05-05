@@ -2147,17 +2147,17 @@
 
     /* ===== TABLE ===== */
     .table-wrap {
-      /* FIX double scroll (mai 2026) : avec le pattern 'Voir plus' qui
-         pagine cote client, on n'a plus besoin de bloquer la hauteur interne.
-         Le scroll vertical de la page principale est suffisant et evite la
-         seconde scrollbar collee a droite. On garde overflow-x pour les
-         tables larges sur mobile/tablet. */
-      overflow-x: auto;
+      /* FIX sticky thead (mai 2026) : on ne met PAS overflow-x:auto ici car
+         ca cree un scroll context qui piege le sticky thead dedans (le
+         browser traite implicitement overflow-y comme auto, et comme le
+         container n'a pas de hauteur a scroller, le sticky se decale).
+         Resultat : titres de colonnes mal cales, ne suivent pas le scroll
+         de la page. Le scroll horizontal mobile est gere par le body. */
       border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card);
     }
     /* Variante Hedge Funds : sticky header pour suivre le scroll de la page */
     .funds-table-wrap {
-      overflow-x: auto;
+      /* Pas d'overflow non plus pour la meme raison : sticky thead figee */
     }
     .funds-table-wrap thead th {
       position: sticky;
@@ -2170,16 +2170,18 @@
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
     /* ===== STICKY HEADERS (mai 2026) =====
-       FIX double scroll : on a retire le max-height/overflow:auto force
-       sur les containers de tables. Le scroll vertical est maintenant
-       celui de la page principale (single scrollbar).
+       FIX double scroll + thead figee : aucun overflow sur les wraps de
+       tables, sinon le browser cree un scroll context qui piege le sticky
+       thead dedans (overflow-x:auto -> overflow-y traite implicitement
+       comme auto, sticky se cale par rapport au container interne au lieu
+       du viewport).
        Le sticky thead utilise donc le viewport comme parent scrollable
        et se cale sous la nav fixe (top: 72px = hauteur nav 16+16 padding
        + ~40px contenu). Voir thead th plus bas pour le top offset. */
     .funds-table-wrap,
     .sig-table-wrap,
     .table-scroll {
-      overflow-x: auto;
+      /* Pas d'overflow : laisse le sticky thead se caler sur le viewport */
     }
 
     /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows.
@@ -8424,7 +8426,7 @@
 
       area.innerHTML = `
         <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length.toLocaleString('fr-FR')} transactions trouvées</p>
-        <div class="table-wrap" style="overflow-x:auto">
+        <div class="table-wrap">
           <table style="min-width:1100px">
             <thead><tr>
               <th>Date</th>
@@ -12653,7 +12655,7 @@
       }).join('');
 
       area.innerHTML = `
-        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow-x:auto">
+        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
           <table class="sig-table" style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr>
@@ -12731,7 +12733,7 @@
       }).join('');
 
       area.innerHTML = `
-        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow-x:auto">
+        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
           <table class="sig-table" style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
               <tr>
@@ -13702,7 +13704,7 @@
       area.innerHTML = `
         ${statCards}
         ${moversBlock}
-        <div class="table-wrap" style="overflow-x:auto">
+        <div class="table-wrap">
           <table style="min-width:1100px">
             <thead><tr>
               <th style="text-align:center;width:40px">#</th>
@@ -16419,7 +16421,7 @@
       }).join('');
 
       body.innerHTML = revenueBar + statusBar + `
-        <div class="table-scroll" style="max-height:520px;overflow:auto">
+        <div class="table-scroll">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
             <thead style="position:sticky;top:0;background:var(--bg-card);z-index:1">
               <tr style="border-bottom:2px solid var(--border)">
