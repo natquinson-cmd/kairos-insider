@@ -2299,14 +2299,21 @@ async function handleSignalsInsiderClusters(url, env, origin) {
     else if (roles === 'directors') roleFilter = `AND (title LIKE '%Director%')`;
     else if (roles === 'owners') roleFilter = `AND (title LIKE '%10%%' OR title LIKE '%owner%')`;
 
+    // FIX UNIFORMISATION (mai 2026) : un 'cluster' = 3+ INSIDERS DISTINCTS
+    // qui ont transige (pas 3+ TRANSACTIONS = pourrait etre 1 insider qui fait
+    // 3 trades). Aligne sur la query du widget Accueil 'home/top-signals'.
+    // buyCount/sellCount comptent aussi des INSIDERS DISTINCTS (vs avant des
+    // transactions, ce qui inflait artificiellement le breakdown 14/1 etc.).
+    // + filtre anti-fantome : exiger au moins 1 vrai achat/vente avec valeur.
     const query = `
       SELECT
         ticker,
         company,
-        COUNT(*) AS cnt,
-        SUM(CASE WHEN trans_type = 'buy' THEN 1 ELSE 0 END) AS buyCount,
-        SUM(CASE WHEN trans_type = 'sell' THEN 1 ELSE 0 END) AS sellCount,
-        SUM(CASE WHEN trans_type = 'buy' THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
+        COUNT(DISTINCT insider) AS uniqueInsiders,
+        COUNT(DISTINCT CASE WHEN trans_type = 'buy'  THEN insider END) AS buyInsiders,
+        COUNT(DISTINCT CASE WHEN trans_type = 'sell' THEN insider END) AS sellInsiders,
+        COUNT(*) AS rawTxLines,
+        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
         SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
         GROUP_CONCAT(DISTINCT insider) AS insiders,
         GROUP_CONCAT(DISTINCT title) AS roles,
@@ -2315,7 +2322,9 @@ async function handleSignalsInsiderClusters(url, env, origin) {
       WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
       ${roleFilter}
       GROUP BY ticker
-      HAVING cnt >= ?
+      HAVING uniqueInsiders >= ?
+        AND (buyInsiders + sellInsiders) >= 1
+        AND (buyValue + sellValue) > 0
       LIMIT 500
     `;
     const rows = (await env.HISTORY.prepare(query).bind(sinceStr, minTx).all()).results || [];
@@ -2327,9 +2336,12 @@ async function handleSignalsInsiderClusters(url, env, origin) {
       return {
         ticker: r.ticker,
         company: r.company,
-        count: r.cnt,
-        buyCount: r.buyCount || 0,
-        sellCount: r.sellCount || 0,
+        // count = nombre d'insiders DISTINCTS (semantique cluster). rawTxLines
+        // est expose pour debug/info (peut etre 142 pour 1 Form 4 split).
+        count: r.uniqueInsiders,
+        rawTxLines: r.rawTxLines || 0,
+        buyCount: r.buyInsiders || 0,
+        sellCount: r.sellInsiders || 0,
         buyValue: r.buyValue || 0,
         sellValue: r.sellValue || 0,
         totalValue,
