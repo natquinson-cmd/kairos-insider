@@ -3854,8 +3854,8 @@
             <div class="sig-filter-group">
               <label class="sig-filter-label">Tri</label>
               <select class="sig-filter-select" id="clusterSort" onchange="loadClustering()">
-                <option value="value" selected>Valeur totale</option>
-                <option value="count"># Insiders</option>
+                <option value="count" selected># Insiders</option>
+                <option value="value">Valeur totale</option>
                 <option value="net">|Net achat/vente|</option>
                 <option value="recent">Plus récent</option>
               </select>
@@ -12310,7 +12310,7 @@
           direction: document.getElementById('clusterDirection')?.value || 'all',
           minValue: document.getElementById('clusterMinValue')?.value || '0',
           roles: document.getElementById('clusterRoles')?.value || 'all',
-          sort: document.getElementById('clusterSort')?.value || 'value',
+          sort: document.getElementById('clusterSort')?.value || 'count',
         };
         // Sync URL pour permettre le partage de lien
         try { updateSignalUrl('clustering', filters); } catch {}
