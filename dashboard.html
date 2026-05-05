@@ -3639,15 +3639,9 @@
           </div>
         </details>
 
-        <!-- Pagination HAUT (duplique pour eviter le scroll jusqu'en bas) -->
-        <div class="pagination" id="insiderPaginationTop" style="display:none;margin-bottom:16px">
-          <button onclick="changePage(-1,'top')" id="prevBtnTop">← Précédent</button>
-          <span class="page-info" id="pageInfoTop">Page 1</span>
-          <button onclick="changePage(1,'top')" id="nextBtnTop">Suivant →</button>
-        </div>
-
         <!-- TABLE PRINCIPALE : transactions récentes (KV) OU résultats screener (D1)
-             selon que l'user a lancé ou non la recherche avancée. -->
+             selon que l'user a lancé ou non la recherche avancée. Pattern 'Voir plus'
+             en bas du tableau (mai 2026) — plus de pagination Page X/Y. -->
         <div id="insiderTableArea">
           <div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>
         </div>
@@ -3656,12 +3650,6 @@
              n'a pas cliqué 'Lancer la recherche avancée'. Une fois rempli, il
              remplace l'affichage de insiderTableArea. -->
         <div id="scrTableArea" style="display:none"></div>
-
-        <div class="pagination" id="insiderPagination" style="display:none;">
-          <button onclick="changePage(-1)" id="prevBtn">← Précédent</button>
-          <span class="page-info" id="pageInfo">Page 1</span>
-          <button onclick="changePage(1)" id="nextBtn">Suivant →</button>
-        </div>
       </div>
 
       <!-- ===== SECTION: FONDS OFFENSIFS (ACTIVIST INVESTORS / 13D/G) ===== -->
@@ -6323,7 +6311,12 @@
     // ============================================================
     // STATE
     // ============================================================
-    let currentPage = 0;
+    // Pattern 'Voir plus' (mai 2026) : on cumule les transactions affichees au
+    // lieu d'avoir une pagination Page X/Y. insiderDisplayedCount est le nombre
+    // de transactions visibles ; le bouton 'Voir plus' incremente de 25 et
+    // re-render. Reset a INSIDER_INITIAL_COUNT a chaque changement de filtre.
+    const INSIDER_INITIAL_COUNT = 25;
+    let insiderDisplayedCount = INSIDER_INITIAL_COUNT;
     let totalTrades = 0;
     let currentDays = 30;
     let currentType = 'all'; // 'all', 'buy', 'sell'
@@ -6334,7 +6327,7 @@
     // ============================================================
     function selectPeriod(days) {
       currentDays = days;
-      currentPage = 0;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
       document.querySelectorAll('[data-days]').forEach(b =>
         b.classList.toggle('active', parseInt(b.dataset.days) === days)
       );
@@ -6343,7 +6336,7 @@
 
     function selectType(type) {
       currentType = type;
-      currentPage = 0;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
       document.querySelectorAll('[data-type]').forEach(b =>
         b.classList.toggle('active', b.dataset.type === type)
       );
@@ -6352,7 +6345,7 @@
 
     function selectRegion(region) {
       currentRegion = region;
-      currentPage = 0;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
       document.querySelectorAll('[data-region]').forEach(b =>
         b.classList.toggle('active', b.dataset.region === region)
       );
@@ -8560,13 +8553,13 @@
     function renderInsiderPage() {
       const area = document.getElementById('insiderTableArea');
       const filtered = getFilteredInsiderTx();
-      const start = currentPage * INSIDER_PAGE_SIZE;
-      const pageTx = filtered.slice(start, start + INSIDER_PAGE_SIZE);
-      const totalPages = Math.ceil(filtered.length / INSIDER_PAGE_SIZE);
+      // Pattern 'Voir plus' : on rend de 0 a insiderDisplayedCount (cumulatif),
+      // le bouton 'Voir plus' en bas incremente de INSIDER_INITIAL_COUNT.
+      const visibleCount = Math.min(insiderDisplayedCount, filtered.length);
+      const pageTx = filtered.slice(0, visibleCount);
 
       if (filtered.length === 0) {
         area.innerHTML = '<div class="empty-state"><p>Aucune transaction trouvee pour ces criteres.</p></div>';
-        document.getElementById('insiderPagination').style.display = 'none';
         return;
       }
 
@@ -8626,8 +8619,17 @@
         </tr>`;
       }
 
+      // Footer 'Voir plus' via le helper generique (uniformise sur tout le site)
+      const footerHtml = renderLoadMoreFooter({
+        visible: visibleCount,
+        total: filtered.length,
+        onLoadMore: 'loadMoreInsiders()',
+        initialCount: INSIDER_INITIAL_COUNT,
+        label: 'transactions',
+      });
+
       area.innerHTML = `
-        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length} transactions trouvees</p>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length.toLocaleString('fr-FR')} transactions trouvées</p>
         <div class="table-wrap" style="overflow-x:auto">
           <table style="min-width:1100px">
             <thead><tr>
@@ -8644,40 +8646,37 @@
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div>`;
-
-      const pag = document.getElementById('insiderPagination');
-      const pagTop = document.getElementById('insiderPaginationTop');
-      if (totalPages > 1) {
-        pag.style.display = 'flex';
-        document.getElementById('prevBtn').disabled = currentPage === 0;
-        document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
-        document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} / ${totalPages}`;
-        // Miroir en haut
-        if (pagTop) {
-          pagTop.style.display = 'flex';
-          document.getElementById('prevBtnTop').disabled = currentPage === 0;
-          document.getElementById('nextBtnTop').disabled = currentPage >= totalPages - 1;
-          document.getElementById('pageInfoTop').textContent = `Page ${currentPage + 1} / ${totalPages}`;
-        }
-      } else {
-        pag.style.display = 'none';
-        if (pagTop) pagTop.style.display = 'none';
-      }
+        </div>
+        ${footerHtml}`;
     }
 
-    function changePage(delta, from) {
-      const filtered = getFilteredInsiderTx();
-      const totalPages = Math.ceil(filtered.length / INSIDER_PAGE_SIZE);
-      const newPage = currentPage + delta;
-      if (newPage < 0 || newPage >= totalPages) return;
-      currentPage = newPage;
+    // 'Voir plus' : on ajoute un INSIDER_INITIAL_COUNT supplementaire de
+    // transactions visibles puis on re-render. Le scroll reste a la position
+    // courante (les nouvelles lignes apparaissent en bas, pattern infinite-scroll).
+    function loadMoreInsiders() {
+      insiderDisplayedCount += INSIDER_INITIAL_COUNT;
       renderInsiderPage();
-      // Scroll : depuis la pagination du bas on remonte au tableau,
-      // depuis celle du haut on reste en haut (pas de scroll intempestif)
-      if (from !== 'top') {
-        document.getElementById('insiderTableArea').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Helper generique 'Voir plus' : a reutiliser pour TOUTES les tables paginees
+    // du site (mai 2026, demande user uniformisation). Genere le footer standard
+    // avec bouton 'Voir plus (X restantes)' + compteur 'Y sur Z affichées'.
+    // Usage :
+    //   renderLoadMoreFooter({ visible, total, onLoadMore: 'maFonctionLoadMore()' })
+    function renderLoadMoreFooter({ visible, total, onLoadMore, initialCount = 25, label = 'éléments' }) {
+      const remaining = Math.max(0, total - visible);
+      if (remaining > 0) {
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 0">
+          <button onclick="${onLoadMore}" style="padding:12px 28px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 12px rgba(116,185,255,0.25)">
+            Voir plus <span style="opacity:0.8;font-weight:500;margin-left:4px">(${remaining.toLocaleString('fr-FR')} restant${remaining > 1 ? 's' : ''})</span>
+          </button>
+          <div style="font-size:11px;color:var(--text-muted)">${visible.toLocaleString('fr-FR')} sur ${total.toLocaleString('fr-FR')} ${label} affiché${total > 1 ? 's' : ''}</div>
+        </div>`;
       }
+      if (total > initialCount) {
+        return `<div style="padding:18px 0;text-align:center;color:var(--text-muted);font-size:12px">Tous les ${total.toLocaleString('fr-FR')} ${label} sont affichés.</div>`;
+      }
+      return '';
     }
 
     // ============================================================
@@ -12069,7 +12068,7 @@
       // un clic sur l'input puis effacement manuel.
       const clearBtn = document.getElementById('clearInsiderBtn');
       if (clearBtn) clearBtn.style.display = insiderSearchQuery ? 'inline-flex' : 'none';
-      currentPage = 0;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
       renderInsiderPage();
     }
 
@@ -12077,7 +12076,7 @@
       insiderSearchQuery = '';
       document.getElementById('searchInsider').value = '';
       document.getElementById('clearInsiderBtn').style.display = 'none';
-      currentPage = 0;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
       renderInsiderPage();
     }
 
