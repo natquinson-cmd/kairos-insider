@@ -2365,9 +2365,13 @@ async function handleSignalsInsiderClusters(url, env, origin) {
     else if (sort === 'recent') items.sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
     else items.sort((a, b) => b.totalValue - a.totalValue); // défaut : value
 
+    // Cap raisonnable a 500 (aligne sur le SQL LIMIT 500). Le frontend a le
+    // pattern 'Voir plus' qui paginera ces 500 par crans de 15. Augmenter au
+    // dela impose une grosse charge JSON pour peu de valeur (au-dela de 500
+    // clusters sur 90j, ce sont des signaux trop dilues).
     return jsonResponse({
       total: items.length,
-      items: items.slice(0, 200),
+      items: items.slice(0, 500),
       filters: { days, minTx, direction, minValue, roles, sort },
       generatedAt: new Date().toISOString(),
     }, 200, origin);

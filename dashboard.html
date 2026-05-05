@@ -12577,6 +12577,14 @@
                        : clusterTypeFilter === 'sell' ? 'ventes nettes'
                        : 'tous';
       const generated = data.generatedAt ? new Date(data.generatedAt).toLocaleDateString('fr-FR') : '—';
+      // data.total = nombre TOTAL de clusters post-filter cote serveur (avant cap 500).
+      // totalClusters = ce qui a ete reellement retourne (items.length, capped).
+      // Si total > items.length -> message indiquant que c'est tronque.
+      const realTotal = (data && typeof data.total === 'number') ? data.total : totalClusters;
+      const isCapped = realTotal > totalClusters;
+      const headerCount = isCapped
+        ? `${totalClusters.toLocaleString('fr-FR')} cluster${totalClusters > 1 ? 's' : ''} affichés sur ${realTotal.toLocaleString('fr-FR')} (${filterHint}) — 90 jours`
+        : `${realTotal.toLocaleString('fr-FR')} cluster${realTotal > 1 ? 's' : ''} (${filterHint}) sur 90 jours`;
       const footerHtml = renderLoadMoreFooter({
         visible: visibleCount,
         total: totalClusters,
@@ -12587,7 +12595,7 @@
 
       area.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-          <span style="color:var(--text-muted);font-size:13px">${totalClusters.toLocaleString('fr-FR')} cluster${totalClusters > 1 ? 's' : ''} (${filterHint}) sur 90 jours</span>
+          <span style="color:var(--text-muted);font-size:13px">${headerCount}</span>
           <span class="last-update">Mis a jour le ${generated}</span>
         </div>
         <div class="table-wrap">
