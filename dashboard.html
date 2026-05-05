@@ -7820,6 +7820,7 @@
         // Remplace par chips compactes "Nb ach. / Nb vt." avec couleurs sur les
         // chiffres uniquement. Plus pro et plus lisible.
         // Backend renvoie maintenant les INSIDERS DISTINCTS (pas les lignes brutes).
+        const _today = new Date().toISOString().slice(0, 10);
         const clusterItems = (data.insiderClusters || []).slice(0, 5).map(c => {
           const buy = c.buyCount || 0;
           const sell = c.sellCount || 0;
@@ -7827,6 +7828,10 @@
           const isBalanced = buy > 0 && sell > 0;
           const valueColor = isBullish ? '#10B981' : isBalanced ? '#F59E0B' : '#EF4444';
           const arrow = isBullish ? '↑' : isBalanced ? '⇄' : '↓';
+          const isNew = c.lastDate && c.lastDate >= _today;
+          const newBadge = isNew
+            ? `<span style="font-size:10px;font-weight:700;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:1px 5px;flex-shrink:0;letter-spacing:0.03em">NEW</span>`
+            : '';
           // Format chip : "8 ach · 13 vt" couleur sur chiffres
           const chip = `<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">
             <strong style="color:${buy>0?'#10B981':'var(--text-muted)'}">${buy}</strong>&nbsp;ach
@@ -7835,8 +7840,9 @@
           </span>`;
           return `
             <div class="signal-row" ${goTicker(c.ticker)}>
-              <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
                 <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient(c.ticker)}</strong>
+                ${newBadge}
                 ${chip}
               </div>
               <div style="color:${valueColor};font-weight:600;font-size:12px;flex-shrink:0">${arrow} ${fmtUsd(c.totalValue)}</div>

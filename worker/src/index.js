@@ -2071,8 +2071,8 @@ async function handleTickerActivity(url, env, origin) {
 async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
-  // v3 : bump apres filtre clusters fantomes (LNKB/STKL 0/0 $0 -> exclus)
-  const cacheKey = 'home:top-signals:v3';
+  // v4 : tri lastDate DESC + badge Nouveau sur convergences du jour
+  const cacheKey = 'home:top-signals:v4';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -2148,7 +2148,7 @@ async function computeTopSignals(env) {
       HAVING uniqueInsiders >= 3
         AND (buyInsiders + sellInsiders) >= 1
         AND (buyValue + sellValue) > 0
-      ORDER BY uniqueInsiders DESC, (buyValue + sellValue) DESC LIMIT 10
+      ORDER BY lastDate DESC, uniqueInsiders DESC LIMIT 10
     `;
     const rows = (await env.HISTORY.prepare(clusterQuery).bind(sinceStr).all()).results || [];
     result.insiderClusters = rows.map(r => ({
