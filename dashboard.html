@@ -3300,7 +3300,7 @@
             <div style="font-size:11px;opacity:0.55;margin-top:2px" id="homeStatInsiderDetail" data-i18n="dash.home.stat_tx_detail">Initiés SEC + AMF + BaFin</div>
           </div>
           <div class="home-stat" style="padding:16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px" data-i18n="dash.home.stat_clusters_title">Clusters détectés</div>
+            <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px" data-i18n="dash.home.stat_clusters_title">Convergences détectées</div>
             <div style="font-size:22px;font-weight:700;color:#2ecc71" id="homeStatClusters">…</div>
             <div style="font-size:11px;opacity:0.55;margin-top:2px" data-i18n="dash.home.stat_clusters_detail">Signaux insiders coordonnés</div>
           </div>
@@ -3340,7 +3340,7 @@
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.watchlist_title">Ma Watchlist</h4>
-            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions préférées et recevez un <strong>Brief quotidien par email</strong> à 8h avec les événements smart money détectés : clusters d'initiés, rotations ETF, variations Kairos Score.</p>
+            <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions préférées et recevez un <strong>Brief quotidien par email</strong> à 8h avec les événements smart money détectés : convergences d'initiés, rotations ETF, variations Kairos Score.</p>
             <div style="margin-top:12px;font-size:12px;color:#FBBF24" data-i18n="dash.home.watchlist_cta">Configurer mes alertes →</div>
           </div>
 
@@ -3403,9 +3403,9 @@
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(239,68,68,0.13);color:#EF4444;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
             </div>
-            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.clustering_title">Signaux Insiders (Clusters)</h4>
+            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.clustering_title">Convergences d'initiés</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.clustering_desc">Quand <strong>3+ dirigeants</strong> achètent sur la même entreprise dans un court laps de temps. Historiquement le signal le plus fiable — les insiders savent quelque chose.</p>
-            <div style="margin-top:12px;font-size:12px;color:#2ecc71" data-i18n="dash.home.clustering_cta">Voir les clusters actifs →</div>
+            <div style="margin-top:12px;font-size:12px;color:#2ecc71" data-i18n="dash.home.clustering_cta">Voir les convergences actives →</div>
           </div>
 
           <div onclick="switchSection('13f')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
@@ -3462,8 +3462,8 @@
           </summary>
           <div style="padding:18px 4px 4px 28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-size:13px;line-height:1.6">
             <div>
-              <strong style="color:#74b9ff">1. Cherchez les clusters</strong><br>
-              <span style="opacity:0.75">Quand plusieurs dirigeants achètent en même temps, c'est rarement du hasard. Historiquement, les clusters battent le marché de 6-10% / an.</span>
+              <strong style="color:#74b9ff">1. Cherchez les convergences</strong><br>
+              <span style="opacity:0.75">Quand plusieurs dirigeants achètent en même temps, c'est rarement du hasard. Historiquement, les convergences battent le marché de 6-10% / an.</span>
             </div>
             <div>
               <strong style="color:#74b9ff">2. Suivez l'argent smart</strong><br>
@@ -3516,7 +3516,7 @@
         <!-- HUB INSIDERS (toutes les donnees issues de SEC Form 4 + BaFin + AMF) -->
         <div class="hub-tabs" role="tablist">
           <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Convergences</span></button>
         </div>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
@@ -3783,18 +3783,18 @@
 
       <!-- ===== SECTION: SIGNAUX INSIDERS (4 sous-onglets) ===== -->
       <div class="section-page" id="section-clustering">
-        <h2 data-i18n="dash.section.clustering.title">Initiés — Signaux & Clusters</h2>
-        <p class="section-desc" data-i18n="dash.section.clustering.desc">Quatre angles de lecture des transactions insiders — clusters, flux net, insiders transversaux et achats contrarians. Chaque vue repond a une question differente : "qui achete ensemble ?", "ou accumulent-ils ?", "qui a la vision transversale ?", "qui a la plus forte conviction ?".</p>
+        <h2 data-i18n="dash.section.clustering.title">Initiés — Signaux & Convergences</h2>
+        <p class="section-desc" data-i18n="dash.section.clustering.desc">Quatre angles de lecture des transactions insiders — convergences, flux net, insiders transversaux et achats contrarians. Chaque vue repond a une question differente : "qui achete ensemble ?", "ou accumulent-ils ?", "qui a la vision transversale ?", "qui a la plus forte conviction ?".</p>
 
         <!-- HUB INSIDERS (meme barre qu'ailleurs) -->
         <div class="hub-tabs" role="tablist">
           <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Convergences</span></button>
         </div>
 
         <!-- BARRE DE SOUS-ONGLETS -->
         <div class="cl-tabs" role="tablist">
-          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')">🎯 <span data-i18n="dash.clustering.tab.clusters">Clusters</span></button>
+          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')">🎯 <span data-i18n="dash.clustering.tab.clusters">Convergences</span></button>
           <button class="cl-tab" role="tab" data-cltab="netflow" onclick="switchClusterTab('netflow')">💰 <span data-i18n="dash.clustering.tab.netflow">Flux net</span></button>
           <button class="cl-tab" role="tab" data-cltab="crossticker" onclick="switchClusterTab('crossticker')">🔄 <span data-i18n="dash.clustering.tab.crossticker">Transversaux</span></button>
           <button class="cl-tab" role="tab" data-cltab="contrarian" onclick="switchClusterTab('contrarian')">⚡ <span data-i18n="dash.clustering.tab.contrarian">Contrarian</span></button>
@@ -3802,7 +3802,7 @@
 
         <!-- ===== ONGLET 1 : CLUSTERS ===== -->
         <div class="cl-panel" id="cl-panel-clusters" role="tabpanel">
-          <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.clusters.desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — signal fort quand ≥3 insiders agissent ensemble.</p>
+          <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.clusters.desc">Convergences d'initiés : actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — signal fort quand ≥3 insiders agissent ensemble.</p>
 
           <!-- Filtres avancés -->
           <div class="sig-filters" style="margin-bottom:18px">
@@ -3863,7 +3863,7 @@
           </div>
 
           <div id="clusteringArea">
-            <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
+            <div class="loading"><div class="spinner"></div>Analyse des convergences en cours...</div>
           </div>
         </div>
 
@@ -4570,7 +4570,7 @@
       <!-- ===== SECTION: MA WATCHLIST ===== -->
       <div class="section-page" id="section-watchlist">
         <h2><span data-i18n="dash.section.watchlist.title">Ma Watchlist</span> <span class="beta-tag" style="background:linear-gradient(135deg,#F59E0B,#EC4899)">NEW</span></h2>
-        <p class="section-desc" data-i18n="dash.section.watchlist.desc">Suivez vos actions préférées et recevez chaque matin à 8h un Brief par email des événements smart money détectés : nouveaux clusters d'initiés, entrées/sorties d'ETF, variations du Kairos Score.</p>
+        <p class="section-desc" data-i18n="dash.section.watchlist.desc">Suivez vos actions préférées et recevez chaque matin à 8h un Brief par email des événements smart money détectés : nouvelles convergences d'initiés, entrées/sorties d'ETF, variations du Kairos Score.</p>
 
         <!-- KPIs + bouton d'ajout -->
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch;margin:20px 0 24px">
@@ -4626,7 +4626,7 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeCluster" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
-              <span style="font-size:13px">🚨 Clusters insiders (3+ dirigeants)</span>
+              <span style="font-size:13px">🚨 Convergences d'initiés (3+ dirigeants)</span>
             </label>
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeEtf" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
@@ -5007,7 +5007,7 @@
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/signals/insider-clusters</code></div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Clusters insiders (≥3 dirigeants même ticker). Filtres : <code style="font-size:11px">?days=7&minTx=3&direction=all&roles=all&sort=value</code>.</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Convergences d'initiés (≥3 dirigeants même ticker). Filtres : <code style="font-size:11px">?days=7&minTx=3&direction=all&roles=all&sort=value</code>.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="padding:2px 8px;background:rgba(16,185,129,0.2);color:#10B981;border-radius:4px;font-family:monospace;font-size:11px;font-weight:700">GET</span><code style="color:var(--text-primary);font-size:13px">/api/signals/insider-netflow</code></div>
@@ -5108,8 +5108,8 @@
         <h3 style="margin:24px 0 14px;font-size:16px">Stratégies backtestables (prévues)</h3>
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🎯 Cluster chasing</strong></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Acheter 100$ à chaque détection de cluster ≥3 insiders. Hold 90/180/365 jours. Compare au S&amp;P 500.</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🎯 Convergence chasing</strong></div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Acheter 100$ à chaque détection de convergence ≥3 insiders. Hold 90/180/365 jours. Compare au S&amp;P 500.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">⚡ Activist following</strong></div>
@@ -6037,7 +6037,7 @@
     const PAYWALL_FEATURES = {
       pro: [
         { ok: true,  text: '<strong>Kairos Score</strong> complet — 8 axes · 3 349 tickers' },
-        { ok: true,  text: 'Initiés : transactions · signaux · clusters · screener' },
+        { ok: true,  text: 'Initiés : transactions · signaux · convergences · screener' },
         { ok: true,  text: '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)' },
         { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
         { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
@@ -6048,7 +6048,7 @@
       elite: [
         { ok: true,  text: '<strong style="color:var(--text-primary)">Tout le plan Pro</strong>, plus :' },
         { ok: true,  text: '<strong>API REST</strong> pour intégrer la data' },
-        { ok: true,  text: '<strong>Alertes temps-réel</strong> (push + email) sur clusters & 13D' },
+        { ok: true,  text: '<strong>Alertes temps-réel</strong> (push + email) sur convergences & 13D' },
         { ok: true,  text: '<strong>Backtests historiques</strong> (coming soon)' },
         { ok: true,  text: '<strong>Exports CSV</strong> (screener, insiders, hedge funds)' },
         { ok: true,  text: 'Support prioritaire (&lt; 4h)' },
@@ -7720,7 +7720,7 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
               <div style="flex:1">
-                <div class="signal-card-title">Clusters insiders</div>
+                <div class="signal-card-title">Convergences d'initiés</div>
                 <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
               </div>
               <span class="signal-card-chevron">→</span>
@@ -7847,7 +7847,7 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('clustering')" title="Ouvrir l'analyse détaillée">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
               <div style="flex:1">
-                <div class="signal-card-title">Clusters insiders</div>
+                <div class="signal-card-title">Convergences d'initiés</div>
                 <div class="signal-card-sub">≥ 3 dirigeants distincts sur 7j</div>
               </div>
               <span class="signal-card-chevron">→</span>
@@ -12322,7 +12322,7 @@
         renderClusters();
       } catch (err) {
         if (err.message !== 'Unauthorized') {
-          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement des clusters.</p></div>';
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement des convergences.</p></div>';
         }
       }
     }
@@ -12393,7 +12393,7 @@
       const clusters = allClusters;
 
       if (clusters.length === 0) {
-        area.innerHTML = '<div class="empty-state"><p>Aucun cluster correspondant a ce filtre. Essayez "Tous" ou augmentez la periode.</p></div>';
+        area.innerHTML = '<div class="empty-state"><p>Aucune convergence correspondante a ce filtre. Essayez "Tous" ou augmentez la periode.</p></div>';
         return;
       }
 
@@ -12467,14 +12467,14 @@
       const realTotal = (data && typeof data.total === 'number') ? data.total : totalClusters;
       const isCapped = realTotal > totalClusters;
       const headerCount = isCapped
-        ? `${totalClusters.toLocaleString('fr-FR')} cluster${totalClusters > 1 ? 's' : ''} affichés sur ${realTotal.toLocaleString('fr-FR')} (${filterHint}) — ${periodLabel}`
-        : `${realTotal.toLocaleString('fr-FR')} cluster${realTotal > 1 ? 's' : ''} (${filterHint}) ${periodLabel}`;
+        ? `${totalClusters.toLocaleString('fr-FR')} convergence${totalClusters > 1 ? 's' : ''} affichées sur ${realTotal.toLocaleString('fr-FR')} (${filterHint}) — ${periodLabel}`
+        : `${realTotal.toLocaleString('fr-FR')} convergence${realTotal > 1 ? 's' : ''} (${filterHint}) ${periodLabel}`;
       const footerHtml = renderLoadMoreFooter({
         visible: visibleCount,
         total: totalClusters,
         onLoadMore: 'loadMoreClusters()',
         initialCount: CLUSTERS_INITIAL_COUNT,
-        label: 'clusters',
+        label: 'convergences',
       });
 
       area.innerHTML = `
@@ -12503,7 +12503,7 @@
         </div>
         ${footerHtml}
         <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
-          Un cluster indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions ${periodLabel}.
+          Une convergence indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions ${periodLabel}.
           La <strong>direction</strong> reflete le NET en valeur (achat $ - vente $).
         </p>`;
     }
