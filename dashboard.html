@@ -8944,6 +8944,22 @@
         input.value = ticker;
         searchInsider();
       });
+      // FIX UX (mai 2026) : avant, la recherche ne se declenchait que sur Enter
+      // ou clic sur une suggestion du dropdown. Si l'user tapait 'Vinci' sans
+      // valider explicitement, RIEN ne se passait -> bug user-visible.
+      // Maintenant : live filter avec debounce 250ms sur chaque keystroke.
+      // Le dropdown autocomplete reste dispo en parallele pour suggestions.
+      // Garde anti double-binding : guard via dataset.
+      if (input && input.dataset.liveFilterWired !== '1') {
+        input.dataset.liveFilterWired = '1';
+        let liveDebounce = null;
+        input.addEventListener('input', () => {
+          clearTimeout(liveDebounce);
+          liveDebounce = setTimeout(() => {
+            searchInsider();
+          }, 250);
+        });
+      }
     }
 
     let _stockLoaderInterval = null;
@@ -12053,8 +12069,11 @@
 
     function searchInsider() {
       insiderSearchQuery = document.getElementById('searchInsider').value.trim().toUpperCase();
-      if (!insiderSearchQuery) return;
-      document.getElementById('clearInsiderBtn').style.display = 'inline-flex';
+      // Affiche/masque le bouton 'Effacer' selon que l'input est rempli ou vide.
+      // Avant : on retournait early si query vide -> impossible de reset apres
+      // un clic sur l'input puis effacement manuel.
+      const clearBtn = document.getElementById('clearInsiderBtn');
+      if (clearBtn) clearBtn.style.display = insiderSearchQuery ? 'inline-flex' : 'none';
       currentPage = 0;
       renderInsiderPage();
     }
