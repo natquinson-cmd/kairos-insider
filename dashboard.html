@@ -8760,23 +8760,22 @@
         input.value = ticker;
         searchInsider();
       });
-      // FIX UX (mai 2026) : avant, la recherche ne se declenchait que sur Enter
-      // ou clic sur une suggestion du dropdown. Si l'user tapait 'Vinci' sans
-      // valider explicitement, RIEN ne se passait -> bug user-visible.
-      // Maintenant : live filter avec debounce 250ms sur chaque keystroke.
-      // Le dropdown autocomplete reste dispo en parallele pour suggestions.
-      // Garde anti double-binding : guard via dataset.
-      if (input && input.dataset.liveFilterWired !== '1') {
-        input.dataset.liveFilterWired = '1';
-        let liveDebounce = null;
-        input.addEventListener('input', () => {
-          clearTimeout(liveDebounce);
-          liveDebounce = setTimeout(() => {
-            searchInsider();
-          }, 250);
-        });
-      }
     }
+
+    // FIX UX (mai 2026, regression) : event delegation document-level pour
+    // garantir que le live filter sur #searchInsider tourne TOUJOURS, meme
+    // si initInsiderSearch n'a pas encore wire l'autocomplete (race condition
+    // avec ensureTickerList async). Avant : wire direct sur input.addEventListener
+    // qui pouvait ne pas etre en place si l'user tapait avant la fin du await.
+    // Maintenant : listener au document, actif des le 1er DOMContentLoaded.
+    let _insiderSearchDebounce = null;
+    document.addEventListener('input', (e) => {
+      if (!e || !e.target || e.target.id !== 'searchInsider') return;
+      clearTimeout(_insiderSearchDebounce);
+      _insiderSearchDebounce = setTimeout(() => {
+        if (typeof searchInsider === 'function') searchInsider();
+      }, 250);
+    });
 
     let _stockLoaderInterval = null;
 
