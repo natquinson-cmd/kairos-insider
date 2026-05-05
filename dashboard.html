@@ -2397,6 +2397,12 @@
       margin-left: 4px;
     }
 
+    .hub-tab svg, .cl-tab svg {
+      width: 14px; height: 14px; flex-shrink: 0;
+      stroke: currentColor; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+
     /* Pills tickers dans le tableau Transversaux — lisible dans les 2 themes */
     .cl-ticker-pill {
       display: inline-block;
@@ -3515,8 +3521,8 @@
 
         <!-- HUB INSIDERS (toutes les donnees issues de SEC Form 4 + BaFin + AMF) -->
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Convergences</span></button>
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')"><svg viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> <span data-i18n="dash.hub.insider.signals">Signaux & Convergences</span></button>
         </div>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
@@ -3788,16 +3794,16 @@
 
         <!-- HUB INSIDERS (meme barre qu'ailleurs) -->
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Convergences</span></button>
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')"><svg viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
+          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> <span data-i18n="dash.hub.insider.signals">Signaux & Convergences</span></button>
         </div>
 
         <!-- BARRE DE SOUS-ONGLETS -->
         <div class="cl-tabs" role="tablist">
-          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')">🎯 <span data-i18n="dash.clustering.tab.clusters">Convergences</span></button>
-          <button class="cl-tab" role="tab" data-cltab="netflow" onclick="switchClusterTab('netflow')">💰 <span data-i18n="dash.clustering.tab.netflow">Flux net</span></button>
-          <button class="cl-tab" role="tab" data-cltab="crossticker" onclick="switchClusterTab('crossticker')">🔄 <span data-i18n="dash.clustering.tab.crossticker">Transversaux</span></button>
-          <button class="cl-tab" role="tab" data-cltab="contrarian" onclick="switchClusterTab('contrarian')">⚡ <span data-i18n="dash.clustering.tab.contrarian">Contrarian</span></button>
+          <button class="cl-tab active" role="tab" data-cltab="clusters" onclick="switchClusterTab('clusters')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> <span data-i18n="dash.clustering.tab.clusters">Convergences</span></button>
+          <button class="cl-tab" role="tab" data-cltab="netflow" onclick="switchClusterTab('netflow')"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> <span data-i18n="dash.clustering.tab.netflow">Flux net</span></button>
+          <button class="cl-tab" role="tab" data-cltab="crossticker" onclick="switchClusterTab('crossticker')"><svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> <span data-i18n="dash.clustering.tab.crossticker">Transversaux</span></button>
+          <button class="cl-tab" role="tab" data-cltab="contrarian" onclick="switchClusterTab('contrarian')"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> <span data-i18n="dash.clustering.tab.contrarian">Contrarian</span></button>
         </div>
 
         <!-- ===== ONGLET 1 : CLUSTERS ===== -->
@@ -3963,7 +3969,7 @@
         <!-- ===== ONGLET 4 : CONTRARIAN BUYS (placeholder etape 2) ===== -->
         <div class="cl-panel" id="cl-panel-contrarian" role="tabpanel" hidden>
           <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-1));border:1px solid rgba(245,158,11,0.24);border-radius:14px;padding:32px 28px;text-align:center">
-            <div style="font-size:42px;margin-bottom:10px">⚡</div>
+            <div style="margin-bottom:10px"><svg viewBox="0 0 24 24" style="width:42px;height:42px;stroke:#6366F1;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
             <h3 style="margin:0 0 8px;font-size:19px;color:var(--text-primary)" data-i18n="dash.clustering.contrarian.title">Achats Contrarian · Bientôt</h3>
             <p style="margin:0 auto 14px;max-width:620px;font-size:14px;color:var(--text-secondary);line-height:1.65" data-i18n="dash.clustering.contrarian.desc">Insiders qui achetent quand le cours <strong>chute fortement</strong> — signal de vraie conviction (vs Musk qui achete en routine). Exemple : un CEO qui met sa prime annuelle sur sa boite apres une baisse de 30% est bien plus informatif qu'un achat automatique mensuel.</p>
             <div style="display:inline-block;padding:8px 14px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);border-radius:8px;font-size:12px;color:#F59E0B;font-weight:600" data-i18n="dash.clustering.contrarian.coming">En cours : integration de l'historique de prix (OHLCV) pour detecter les chutes ≥15% sur 90j.</div>
