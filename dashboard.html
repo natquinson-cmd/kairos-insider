@@ -17518,18 +17518,19 @@
             ? `<span style="margin-left:6px;padding:1px 6px;background:rgba(239,68,68,0.12);color:#EF4444;border-radius:4px;font-size:10px;font-weight:700" title="Franchissement à la BAISSE — le filer est passé en dessous d'un seuil">↓ Baisse</span>`
             : '';
 
-          // Ticker cell : si pas de ticker resolu, afficher targetName tronqué
-          const tickerCell = f.ticker
-            ? `<strong style="color:#74b9ff">${escapeHtmlClient(f.ticker)}</strong>`
+          // Ticker cell : yahooSymbol en priorité (EU: MC.PA, BARC.L…), ticker US sinon
+          const displayTicker = f.yahooSymbol || f.ticker;
+          const tickerCell = displayTicker
+            ? `<strong style="color:#74b9ff">${escapeHtmlClient(displayTicker)}</strong>`
             : `<span style="color:var(--text-muted);font-size:11px" title="Ticker non résolu — voir le nom de l'entreprise ci-contre">—</span>`;
           return `
-            <tr ${f.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${f.ticker}'), 150)" style="cursor:pointer"` : ''}>
+            <tr ${displayTicker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${String(displayTicker).replace(/'/g,"\\'")}'), 150)" style="cursor:pointer"` : ''}>
               <td style="padding:10px 12px;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtD(f.fileDate)}</td>
               <td style="padding:10px 12px;text-align:center">${flagCell}</td>
               <td style="padding:10px 12px">${formBadge(f.form)}${dirBadge}</td>
               <td style="padding:10px 12px">${tickerCell}</td>
-              <td style="padding:10px 12px;font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
-              <td style="padding:10px 12px;font-size:13px">${escapeHtmlClient(f.filerName || '—')}${activistBadge}</td>
+              <td style="padding:10px 12px;font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
+              <td style="padding:10px 12px;font-size:13px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.filerName || '')}"><span style="display:flex;align-items:center;gap:4px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient(f.filerName || '—')}</span>${activistBadge}</span></td>
               <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums">
                 <div style="font-weight:600;color:${pctColor}">${fmtPct(f.percentOfClass)}</div>
                 ${deltaHtml}
@@ -17558,20 +17559,20 @@
               <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
             </div>
           </div>
-          <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
-            <table class="data-table" style="width:100%;border-collapse:collapse;min-width:920px;font-size:12.5px">
+          <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto">
+            <table class="data-table" style="width:100%;border-collapse:collapse;min-width:780px;font-size:12.5px">
               <thead>
                 <tr>
-                  <th style="text-align:left;width:78px">Date</th>
-                  <th style="text-align:center;width:50px" title="Marché / régulateur d'origine">🌍</th>
-                  <th style="text-align:left;width:130px">Forme</th>
-                  <th style="text-align:left;width:68px">Ticker</th>
-                  <th style="text-align:left">Entreprise ciblée</th>
-                  <th style="text-align:left">Investisseur (filer)</th>
-                  <th style="text-align:right;width:92px" title="% du capital détenu">% capital</th>
-                  <th style="text-align:right;width:70px" title="Nombre d'actions détenues">Actions</th>
-                  <th style="text-align:right;width:90px" title="Montant total investi (~)">Investi ~</th>
-                  <th style="text-align:center;width:54px" title="Voir la source officielle (SEC, AMF, BaFin)">Source</th>
+                  <th style="text-align:left;width:70px">Date</th>
+                  <th style="text-align:center;width:40px" title="Marché / régulateur d'origine">🌍</th>
+                  <th style="text-align:left;width:110px">Forme</th>
+                  <th style="text-align:left;width:72px">Ticker</th>
+                  <th style="text-align:left;max-width:130px">Entreprise ciblée</th>
+                  <th style="text-align:left;max-width:150px">Investisseur (filer)</th>
+                  <th style="text-align:right;width:82px" title="% du capital détenu">% capital</th>
+                  <th style="text-align:right;width:64px" title="Nombre d'actions détenues">Actions</th>
+                  <th style="text-align:right;width:80px" title="Montant total investi (~)">Investi ~</th>
+                  <th style="text-align:center;width:48px" title="Voir la source officielle (SEC, AMF, BaFin)">Source</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
