@@ -3795,12 +3795,71 @@
         <div class="cl-panel" id="cl-panel-clusters" role="tabpanel">
           <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.clusters.desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — signal fort quand ≥3 insiders agissent ensemble.</p>
 
-          <div class="period-selector" style="margin-bottom:24px">
-            <span class="period-label">Type :</span>
-            <div class="period-buttons">
-              <button class="period-btn active" data-cltype="all" onclick="selectClusterType('all')">Tous</button>
-              <button class="period-btn" data-cltype="buy" onclick="selectClusterType('buy')" style="color:var(--accent-green)">Achats</button>
-              <button class="period-btn" data-cltype="sell" onclick="selectClusterType('sell')" style="color:var(--accent-red)">Ventes</button>
+          <!-- Préfiltres 1-clic (mai 2026 : ex-section-signals-clusters fusionnee ici) -->
+          <div class="sig-quickfilters" id="clusterQuickFilters" style="margin-bottom:14px">
+            <button class="sig-qf-btn active" data-preset="default">Défaut</button>
+            <button class="sig-qf-btn" data-preset="bullish7">Bullish 7j</button>
+            <button class="sig-qf-btn" data-preset="bearish7">Bearish 7j</button>
+            <button class="sig-qf-btn" data-preset="mega">Méga clusters ≥ $100M</button>
+            <button class="sig-qf-btn" data-preset="csuite">C-suite only</button>
+            <button class="sig-qf-btn" data-preset="today">Aujourd'hui</button>
+          </div>
+
+          <!-- Filtres avancés -->
+          <div class="sig-filters" style="margin-bottom:18px">
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Période</label>
+              <select class="sig-filter-select" id="clusterDays" onchange="loadClustering()">
+                <option value="1">Aujourd'hui</option>
+                <option value="7" selected>7 jours</option>
+                <option value="14">14 jours</option>
+                <option value="30">30 jours</option>
+                <option value="90">90 jours</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Min insiders</label>
+              <select class="sig-filter-select" id="clusterMinTx" onchange="loadClustering()">
+                <option value="3" selected>≥ 3</option>
+                <option value="5">≥ 5</option>
+                <option value="10">≥ 10</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Direction</label>
+              <select class="sig-filter-select" id="clusterDirection" onchange="loadClustering()">
+                <option value="all" selected>Toutes</option>
+                <option value="bullish">Bullish (net achat)</option>
+                <option value="bearish">Bearish (net vente)</option>
+                <option value="mixed">Mixte (achat + vente)</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Valeur min ($)</label>
+              <select class="sig-filter-select" id="clusterMinValue" onchange="loadClustering()">
+                <option value="0" selected>Aucun</option>
+                <option value="1000000">≥ $1M</option>
+                <option value="10000000">≥ $10M</option>
+                <option value="100000000">≥ $100M</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Rôle</label>
+              <select class="sig-filter-select" id="clusterRoles" onchange="loadClustering()">
+                <option value="all" selected>Tous</option>
+                <option value="csuite">C-suite (CEO/CFO…)</option>
+                <option value="directors">Directors</option>
+                <option value="owners">10% owners</option>
+              </select>
+            </div>
+            <div class="sig-filter-group">
+              <label class="sig-filter-label">Tri</label>
+              <select class="sig-filter-select" id="clusterSort" onchange="loadClustering()">
+                <option value="value" selected>Valeur totale</option>
+                <option value="count"># Insiders</option>
+                <option value="net">|Net achat/vente|</option>
+                <option value="recent">Plus récent</option>
+              </select>
             </div>
           </div>
 
@@ -4784,90 +4843,6 @@
             </div>
             <button class="profile-btn profile-btn-danger" onclick="deleteMyAccount()" data-i18n="profile.delete_btn">🗑️ Supprimer</button>
           </div>
-        </div>
-      </div>
-
-      <!-- ===== SECTION: SIGNAL DETAIL — Clusters insiders (Lot 1) ===== -->
-      <div class="section-page" id="section-signals-clusters">
-        <div class="sig-page">
-          <div class="sig-page-header">
-            <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
-            <h2 class="sig-page-title">
-              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</span>
-              Clusters insiders
-            </h2>
-            <span class="sig-page-count" id="sigClustersCount">—</span>
-          </div>
-
-          <!-- Préfiltres 1-clic -->
-          <div class="sig-quickfilters" id="sigClustersQuickFilters">
-            <button class="sig-qf-btn active" data-preset="default">Défaut</button>
-            <button class="sig-qf-btn" data-preset="bullish7">Bullish 7j</button>
-            <button class="sig-qf-btn" data-preset="bearish7">Bearish 7j</button>
-            <button class="sig-qf-btn" data-preset="mega">Méga clusters ≥ $100M</button>
-            <button class="sig-qf-btn" data-preset="csuite">C-suite only</button>
-            <button class="sig-qf-btn" data-preset="today">Aujourd'hui</button>
-          </div>
-
-          <!-- Filtres avancés -->
-          <div class="sig-filters">
-            <div class="sig-filter-group">
-              <label class="sig-filter-label">Période</label>
-              <select class="sig-filter-select" id="sigClustersDays" onchange="loadSignalsClusters()">
-                <option value="1">Aujourd'hui</option>
-                <option value="7" selected>7 jours</option>
-                <option value="14">14 jours</option>
-                <option value="30">30 jours</option>
-              </select>
-            </div>
-            <div class="sig-filter-group">
-              <label class="sig-filter-label">Min transactions</label>
-              <select class="sig-filter-select" id="sigClustersMinTx" onchange="loadSignalsClusters()">
-                <option value="3" selected>≥ 3</option>
-                <option value="5">≥ 5</option>
-                <option value="10">≥ 10</option>
-              </select>
-            </div>
-            <div class="sig-filter-group">
-              <label class="sig-filter-label">Direction</label>
-              <select class="sig-filter-select" id="sigClustersDirection" onchange="loadSignalsClusters()">
-                <option value="all" selected>Toutes</option>
-                <option value="bullish">Bullish (net achat)</option>
-                <option value="bearish">Bearish (net vente)</option>
-                <option value="mixed">Mixte (achat + vente)</option>
-              </select>
-            </div>
-            <div class="sig-filter-group">
-              <label class="sig-filter-label">Valeur min ($)</label>
-              <select class="sig-filter-select" id="sigClustersMinValue" onchange="loadSignalsClusters()">
-                <option value="0" selected>Aucun</option>
-                <option value="1000000">≥ $1M</option>
-                <option value="10000000">≥ $10M</option>
-                <option value="100000000">≥ $100M</option>
-              </select>
-            </div>
-            <div class="sig-filter-group">
-              <label class="sig-filter-label">Rôle</label>
-              <select class="sig-filter-select" id="sigClustersRoles" onchange="loadSignalsClusters()">
-                <option value="all" selected>Tous</option>
-                <option value="csuite">C-suite (CEO/CFO…)</option>
-                <option value="directors">Directors</option>
-                <option value="owners">10% owners</option>
-              </select>
-            </div>
-            <div class="sig-filter-group">
-              <label class="sig-filter-label">Tri</label>
-              <select class="sig-filter-select" id="sigClustersSort" onchange="loadSignalsClusters()">
-                <option value="value" selected>Valeur totale</option>
-                <option value="count"># Transactions</option>
-                <option value="net">|Net achat/vente|</option>
-                <option value="recent">Plus récent</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Table -->
-          <div id="sigClustersBody"><div class="sig-empty">Chargement…</div></div>
         </div>
       </div>
 
@@ -6515,6 +6490,11 @@
           if (adv && !adv.open) adv.open = true;
         }, 100);
       }
+      // Alias 'signals-clusters' -> 'clustering' (mai 2026 : ex-page Signal
+      // Detail accessible depuis l'Accueil widget, fusionnee dans la sidebar
+      // Inities > Signaux & Clusters > Clusters). Preserve l'URL hash
+      // partageable (#signals-clusters&days=7&direction=bullish ...).
+      if (section === 'signals-clusters') section = 'clustering';
       // Gate premium : la section cible OU son parent hub doit etre premium.
       // Comme screener/clustering n'ont plus de bouton sidebar, on cherche
       // le premium flag via le parent hub.
@@ -6555,7 +6535,6 @@
         loadedSections[section] = true;
         if (section === 'home') loadHome();
         if (section === '13f') { loadQuarterActivity(); load13FFunds(); }
-        if (section === 'clustering') loadClustering();
         if (section === 'feargreed') loadFearGreed();
         if (section === 'vix') loadVix();
         if (section === 'shorts') loadShortInterest();
@@ -6575,15 +6554,22 @@
         if (section === 'activists') loadActivists();
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
-        if (section === 'signals-clusters') {
-          const urlFilters = readSignalUrl('signals-clusters');
-          if (Object.keys(urlFilters).length > 0) {
-            ['days','minTx','direction','minValue','roles','sort'].forEach(k => {
-              const el = document.getElementById('sigClusters' + k.charAt(0).toUpperCase() + k.slice(1));
-              if (el && urlFilters[k] != null) el.value = urlFilters[k];
-            });
-          }
-          loadSignalsClusters();
+        if (section === 'clustering') {
+          // FIX merge (mai 2026) : section-signals-clusters fusionnee dans
+          // section-clustering. On lit l'URL (compat avec ancien hash
+          // #signals-clusters&days=7&direction=bullish) AVANT loadClustering
+          // pour rehydrater les selects, sinon le fetch part avec les valeurs
+          // par defaut.
+          ['signals-clusters', 'clustering'].forEach(urlKey => {
+            const urlFilters = readSignalUrl(urlKey);
+            if (Object.keys(urlFilters).length > 0) {
+              ['days','minTx','direction','minValue','roles','sort'].forEach(k => {
+                const el = document.getElementById('cluster' + k.charAt(0).toUpperCase() + k.slice(1));
+                if (el && urlFilters[k] != null) el.value = urlFilters[k];
+              });
+            }
+          });
+          loadClustering();
         }
         if (section === 'signals-score') {
           const urlFilters = readSignalUrl('signals-score');
@@ -7859,7 +7845,7 @@
         }).join('');
         const clusterCard = hasClusters ? `
           <div class="signal-card">
-            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('signals-clusters')" title="Ouvrir l'analyse détaillée">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('clustering')" title="Ouvrir l'analyse détaillée">
               <div class="signal-card-icon" style="background:linear-gradient(135deg,#10B981,#059669)">🎯</div>
               <div style="flex:1">
                 <div class="signal-card-title">Clusters insiders</div>
@@ -8046,154 +8032,6 @@
       if (!after.startsWith('&')) return {};
       return Object.fromEntries(new URLSearchParams(after.slice(1)));
     }
-
-    // ============================================================
-    // SIGNAL DETAIL — Clusters insiders (Lot 1)
-    // ============================================================
-    const CLUSTERS_PRESETS = {
-      default: { days: '7', minTx: '3', direction: 'all', minValue: '0', roles: 'all', sort: 'value' },
-      bullish7: { days: '7', minTx: '3', direction: 'bullish', minValue: '0', roles: 'all', sort: 'net' },
-      bearish7: { days: '7', minTx: '3', direction: 'bearish', minValue: '0', roles: 'all', sort: 'net' },
-      mega: { days: '30', minTx: '3', direction: 'all', minValue: '100000000', roles: 'all', sort: 'value' },
-      csuite: { days: '7', minTx: '3', direction: 'all', minValue: '0', roles: 'csuite', sort: 'value' },
-      today: { days: '1', minTx: '3', direction: 'all', minValue: '0', roles: 'all', sort: 'value' },
-    };
-
-    function applyClustersPreset(preset) {
-      const f = CLUSTERS_PRESETS[preset];
-      if (!f) return;
-      document.getElementById('sigClustersDays').value = f.days;
-      document.getElementById('sigClustersMinTx').value = f.minTx;
-      document.getElementById('sigClustersDirection').value = f.direction;
-      document.getElementById('sigClustersMinValue').value = f.minValue;
-      document.getElementById('sigClustersRoles').value = f.roles;
-      document.getElementById('sigClustersSort').value = f.sort;
-      // Active le bon bouton visuel
-      document.querySelectorAll('#sigClustersQuickFilters .sig-qf-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.preset === preset);
-      });
-      loadSignalsClusters();
-    }
-    window.applyClustersPreset = applyClustersPreset;
-
-    async function loadSignalsClusters() {
-      if (!currentUser) return;
-      const body = document.getElementById('sigClustersBody');
-      const countEl = document.getElementById('sigClustersCount');
-      if (!body) return;
-      body.innerHTML = window.Skeleton ? window.Skeleton.table(8, 7) : '<div class="sig-empty">Chargement…</div>';
-
-      const filters = {
-        days: document.getElementById('sigClustersDays').value,
-        minTx: document.getElementById('sigClustersMinTx').value,
-        direction: document.getElementById('sigClustersDirection').value,
-        minValue: document.getElementById('sigClustersMinValue').value,
-        roles: document.getElementById('sigClustersRoles').value,
-        sort: document.getElementById('sigClustersSort').value,
-      };
-      updateSignalUrl('signals-clusters', filters);
-
-      try {
-        const token = await currentUser.getIdToken();
-        const qs = new URLSearchParams(filters).toString();
-        const res = await fetch(`${API_BASE}/api/signals/insider-clusters?${qs}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
-          if (countEl) countEl.textContent = '—';
-          return;
-        }
-        renderSignalsClusters(data);
-      } catch (e) {
-        body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
-      }
-    }
-    window.loadSignalsClusters = loadSignalsClusters;
-
-    function renderSignalsClusters(data) {
-      const body = document.getElementById('sigClustersBody');
-      const countEl = document.getElementById('sigClustersCount');
-      if (!body) return;
-      const items = data.items || [];
-      if (countEl) countEl.textContent = `${data.total || 0} signal${data.total > 1 ? 'aux' : ''}`;
-
-      if (items.length === 0) {
-        body.innerHTML = `
-          <div class="sig-empty">
-            <div style="font-size:40px;margin-bottom:10px">🤷</div>
-            <div style="font-size:14px">Aucun cluster correspondant à vos filtres.</div>
-            <div style="font-size:12px;margin-top:6px;opacity:0.7">Essayez de relâcher les critères (période plus longue, moins de transactions min…).</div>
-          </div>`;
-        return;
-      }
-
-      const fmtUsd = (n) => {
-        if (n == null || !isFinite(n) || n === 0) return '—';
-        const abs = Math.abs(n);
-        if (abs >= 1e9) return (n < 0 ? '-' : '') + '$' + (abs / 1e9).toFixed(2) + 'B';
-        if (abs >= 1e6) return (n < 0 ? '-' : '') + '$' + (abs / 1e6).toFixed(1) + 'M';
-        if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
-        return (n < 0 ? '-' : '') + '$' + Math.round(abs);
-      };
-      const fmtD = (d) => {
-        if (!d) return '—';
-        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
-      };
-
-      const rows = items.map(c => {
-        const pill = c.direction === 'bullish'
-          ? '<span class="sig-pill sig-pill-buy">BULLISH</span>'
-          : c.direction === 'bearish'
-          ? '<span class="sig-pill sig-pill-sell">BEARISH</span>'
-          : '<span class="sig-pill sig-pill-mixed">MIXTE</span>';
-        const netColor = c.netValue > 0 ? '#10B981' : c.netValue < 0 ? '#EF4444' : '#94A3B8';
-        const insidersPreview = (c.insiders || []).slice(0, 3).join(', ');
-        const rolesPreview = (c.roles || []).slice(0, 2).join(', ');
-        const onclick = `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(c.ticker).replace(/'/g,'\\\'')}'),150)"`;
-        return `
-          <tr ${onclick}>
-            <td><span class="sig-ticker-cell">${escapeHtmlClient(c.ticker)}</span>
-                <div style="font-size:10px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px" title="${escapeHtmlClient(c.company || '')}">${escapeHtmlClient((c.company || '').slice(0, 30))}</div></td>
-            <td>${pill}</td>
-            <td style="text-align:center"><strong>${c.count}</strong>
-                <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${c.buyCount}🟢 / ${c.sellCount}🔴</div></td>
-            <td style="text-align:right;font-weight:600">${fmtUsd(c.totalValue)}</td>
-            <td style="text-align:right;color:${netColor};font-weight:600">${fmtUsd(c.netValue)}</td>
-            <td style="font-size:11px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(insidersPreview)}">${escapeHtmlClient(insidersPreview)}${c.insiders && c.insiders.length > 3 ? ` +${c.insiders.length - 3}` : ''}
-                <div style="font-size:10px;opacity:0.6;margin-top:2px">${escapeHtmlClient(rolesPreview)}</div></td>
-            <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtD(c.lastDate)}</td>
-          </tr>`;
-      }).join('');
-
-      body.innerHTML = `
-        <div class="sig-table-wrap">
-          <table class="sig-table">
-            <thead>
-              <tr>
-                <th>Ticker</th>
-                <th>Direction</th>
-                <th style="text-align:center"># Insiders</th>
-                <th style="text-align:right">Valeur totale</th>
-                <th style="text-align:right">Net</th>
-                <th>Insiders (top 3)</th>
-                <th>Dernière</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        <div style="margin-top:12px;font-size:11px;color:var(--text-muted);text-align:right">
-          Cliquez sur un ticker pour ouvrir son analyse · Données rafraîchies quotidiennement
-        </div>`;
-    }
-
-    // Init préfiltres au chargement de la section
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest?.('#sigClustersQuickFilters .sig-qf-btn');
-      if (btn && btn.dataset.preset) applyClustersPreset(btn.dataset.preset);
-    });
 
     // ============================================================
     // SIGNAL DETAIL — Score Movers (Lot 2)
@@ -12436,7 +12274,6 @@
     // ============================================================
     let allClusters = [];
     let clusterData = null;
-    let clusterTypeFilter = 'all';
 
     // ============================================================
     // SIGNAUX INSIDERS — Switch 4 sous-onglets + lazy loading
@@ -12462,31 +12299,28 @@
       }
     }
 
-    function selectClusterType(type) {
-      clusterTypeFilter = type;
-      clustersDisplayedCount = CLUSTERS_INITIAL_COUNT; // reset 'Voir plus'
-      document.querySelectorAll('[data-cltype]').forEach(b =>
-        b.classList.toggle('active', b.dataset.cltype === type)
-      );
-      // FIX uniformisation : on refetch avec le bon param direction
-      // (avant : on filtrait juste le array local, mais le nouvel endpoint
-      // applique le filtre cote serveur via ?direction=bullish/bearish/all)
-      loadClustering();
-    }
-
+    // FIX merge (mai 2026) : section-signals-clusters fusionnee dans cette section.
+    // Lit les 6 filtres avances + sync URL pour partage de lien (?days=7&direction=bullish...).
     async function loadClustering() {
       const area = document.getElementById('clusteringArea');
       try {
-        // FIX uniformisation (mai 2026) : avant, /api/clusters lisait un KV
-        // calcule en batch (sans direction/net achat). Maintenant on utilise
-        // /api/signals/insider-clusters (meme endpoint que la page Signal Detail
-        // depuis l'Accueil) -> donnees en LIVE depuis D1, avec direction,
-        // breakdown achat/vente et NET coherents partout.
-        const dirParam = clusterTypeFilter === 'buy' ? 'bullish'
-                       : clusterTypeFilter === 'sell' ? 'bearish'
-                       : 'all';
-        clusterData = await apiFetch(`/api/signals/insider-clusters?days=90&minTx=3&direction=${dirParam}&sort=value`);
-        allClusters = (clusterData.items || []).slice();  // deja trie par valeur cote serveur
+        // Lecture des filtres depuis le DOM (lazy : on tolere absence des selects
+        // si l'user atterrit sur la section sans avoir interagi).
+        const filters = {
+          days: document.getElementById('clusterDays')?.value || '7',
+          minTx: document.getElementById('clusterMinTx')?.value || '3',
+          direction: document.getElementById('clusterDirection')?.value || 'all',
+          minValue: document.getElementById('clusterMinValue')?.value || '0',
+          roles: document.getElementById('clusterRoles')?.value || 'all',
+          sort: document.getElementById('clusterSort')?.value || 'value',
+        };
+        // Sync URL pour permettre le partage de lien
+        try { updateSignalUrl('clustering', filters); } catch {}
+        // Reset 'Voir plus' a chaque nouvelle requete
+        clustersDisplayedCount = CLUSTERS_INITIAL_COUNT;
+        const qs = new URLSearchParams(filters).toString();
+        clusterData = await apiFetch(`/api/signals/insider-clusters?${qs}`);
+        allClusters = (clusterData.items || []).slice();
         renderClusters();
       } catch (err) {
         if (err.message !== 'Unauthorized') {
@@ -12494,6 +12328,87 @@
         }
       }
     }
+
+    // Préfiltres 1-clic (ex section-signals-clusters), portes ici pour
+    // unifier les 2 vues. Le bouton applique 6 filtres d'un coup + relance.
+    const CLUSTERING_PRESETS = {
+      default:  { days: '7',  minTx: '3', direction: 'all',     minValue: '0',         roles: 'all',    sort: 'value'  },
+      bullish7: { days: '7',  minTx: '3', direction: 'bullish', minValue: '0',         roles: 'all',    sort: 'net'    },
+      bearish7: { days: '7',  minTx: '3', direction: 'bearish', minValue: '0',         roles: 'all',    sort: 'net'    },
+      mega:     { days: '30', minTx: '3', direction: 'all',     minValue: '100000000', roles: 'all',    sort: 'value'  },
+      csuite:   { days: '7',  minTx: '3', direction: 'all',     minValue: '0',         roles: 'csuite', sort: 'value'  },
+      today:    { days: '1',  minTx: '3', direction: 'all',     minValue: '0',         roles: 'all',    sort: 'value'  },
+    };
+
+    function applyClusteringPreset(preset) {
+      const f = CLUSTERING_PRESETS[preset];
+      if (!f) return;
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      setVal('clusterDays', f.days);
+      setVal('clusterMinTx', f.minTx);
+      setVal('clusterDirection', f.direction);
+      setVal('clusterMinValue', f.minValue);
+      setVal('clusterRoles', f.roles);
+      setVal('clusterSort', f.sort);
+      document.querySelectorAll('#clusterQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadClustering();
+    }
+    window.applyClusteringPreset = applyClusteringPreset;
+
+    // Click handler pour les boutons preset (event delegation comme l'ex
+    // section-signals-clusters)
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#clusterQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyClusteringPreset(btn.dataset.preset);
+    });
+
+    // Click sur une ligne de cluster -> ouvre Explorer (section-insider) avec :
+    //   - ticker pre-rempli (search insider)
+    //   - meme periode que celle des filtres clusters (Option A)
+    //   - type derive de la direction (bullish->buy, bearish->sell, sinon all)
+    // L'utilisateur retrouve toutes les transactions de ce cluster dans le contexte
+    // familier d'Explorer (avec ses filtres avances depliables, export CSV, etc.).
+    function openExplorerForCluster(ticker, clusterDays, clusterDirection) {
+      if (!ticker) return;
+      // Mapping periode clusters -> periode Explorer (qui supporte 7/30/90).
+      // 1j et 14j ne sont pas dispo dans Explorer KV -> fallback sur 7/30.
+      let explorerDays = 30;
+      const d = parseInt(clusterDays, 10);
+      if (d <= 7) explorerDays = 7;
+      else if (d <= 30) explorerDays = 30;
+      else explorerDays = 90;
+      // Mapping direction clusters -> type Explorer
+      let explorerType = 'all';
+      if (clusterDirection === 'bullish') explorerType = 'buy';
+      else if (clusterDirection === 'bearish') explorerType = 'sell';
+      // Switch + setup
+      switchSection('insider');
+      setTimeout(() => {
+        const input = document.getElementById('searchInsider');
+        if (input) {
+          input.value = ticker;
+        }
+        const clearBtn = document.getElementById('clearInsiderBtn');
+        if (clearBtn) clearBtn.style.display = 'inline-flex';
+        // State globals : insiderSearchQuery, currentDays, currentType, insiderDisplayedCount
+        if (typeof window !== 'undefined') {
+          insiderSearchQuery = String(ticker).toUpperCase();
+          currentDays = explorerDays;
+          currentType = explorerType;
+          insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+        }
+        // UI : active le bon bouton periode + type
+        document.querySelectorAll('[data-days]').forEach(b =>
+          b.classList.toggle('active', parseInt(b.dataset.days) === explorerDays));
+        document.querySelectorAll('[data-type]').forEach(b =>
+          b.classList.toggle('active', b.dataset.type === explorerType));
+        // Re-render avec les nouveaux filtres
+        if (typeof renderInsiderPage === 'function') renderInsiderPage();
+      }, 150);
+    }
+    window.openExplorerForCluster = openExplorerForCluster;
 
     // Pattern 'Voir plus' (mai 2026) : on cumule les clusters affiches au lieu
     // de paginer Page X/Y. CLUSTERS_INITIAL_COUNT (15) est l'increment par clic.
@@ -12535,10 +12450,13 @@
         return (n < 0 ? '-' : '') + '$' + Math.round(abs);
       };
 
+      // Recupere les filtres actuels pour les passer a openExplorerForCluster
+      const currentDaysFilter = document.getElementById('clusterDays')?.value || '7';
+      const currentDirectionFilter = document.getElementById('clusterDirection')?.value || 'all';
+
       let rows = '';
       for (let i = 0; i < pageClusters.length; i++) {
         const c = pageClusters[i];
-        const absIdx = i;  // pattern 'Voir plus' : on rend toujours depuis 0
         const directionPill = c.direction === 'bullish'
           ? '<span class="pill buy">BULLISH</span>'
           : c.direction === 'bearish'
@@ -12547,9 +12465,18 @@
         const netColor = c.netValue > 0 ? 'var(--accent-green)' : c.netValue < 0 ? 'var(--accent-red)' : 'var(--text-muted)';
         const insidersPreview = (c.insiders || []).slice(0, 3).join(', ');
         const rolesPreview = (c.roles || []).slice(0, 2).join(', ');
+        const tickerEsc = String(c.ticker || '').replace(/'/g, "\\'");
 
-        rows += `<tr class="fund-row" onclick="toggleCluster(${absIdx})" style="cursor:pointer">
-          <td class="ticker">${escapeHtmlClient(c.ticker || '—')}
+        // 2 clics distincts (mai 2026) :
+        //   - Click sur la LIGNE -> openExplorerForCluster (detail des transactions
+        //     sur la meme periode + type) dans l'onglet Explorer
+        //   - Click sur le TICKER (avec stopPropagation) -> Decrypter une valeur
+        //     (fiche action complete avec Kairos Score, fondamentaux, etc.)
+        const rowOnclick = `onclick="openExplorerForCluster('${tickerEsc}', '${currentDaysFilter}', '${currentDirectionFilter}')"`;
+        const tickerOnclick = `onclick="event.stopPropagation();switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${tickerEsc}'),150)"`;
+
+        rows += `<tr class="fund-row" ${rowOnclick} style="cursor:pointer" title="Voir le détail des transactions de ce cluster dans Explorer">
+          <td class="ticker clickable-ticker" ${tickerOnclick} title="Décrypter ${escapeHtmlClient(c.ticker || '')} (analyse complète)">${escapeHtmlClient(c.ticker || '—')}
               <div style="font-size:10px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px" title="${escapeHtmlClient(c.company || '')}">${escapeHtmlClient((c.company || '').slice(0, 35))}</div></td>
           <td style="text-align:center">${directionPill}</td>
           <td style="text-align:center"><strong>${c.count}</strong>
@@ -12558,33 +12485,27 @@
           <td style="text-align:right;color:${netColor};font-weight:600">${fmtUsdShort(c.netValue)}</td>
           <td style="font-size:11px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(insidersPreview)}">${escapeHtmlClient(insidersPreview)}${c.insiders && c.insiders.length > 3 ? ` +${c.insiders.length - 3}` : ''}
               <div style="font-size:10px;opacity:0.6;margin-top:2px">${escapeHtmlClient(rolesPreview)}</div></td>
-          <td class="last-update" style="white-space:nowrap">${fmtDate(c.lastDate)} <span class="chevron">&#9654;</span></td>
-        </tr>`;
-
-        // Ligne depliable : detail des tx au clic
-        rows += `<tr class="fund-detail-row" id="cluster-detail-${absIdx}" data-ticker="${escapeHtml(c.ticker || '')}" data-company="${escapeHtml(c.company || '')}">
-          <td colspan="7" class="fund-detail-cell">
-            <div class="fund-detail-inner">
-              <div id="cluster-detail-content-${absIdx}" style="color:var(--text-muted);padding:20px;text-align:center;font-size:13px">
-                <div class="spinner" style="display:inline-block;margin-right:10px;vertical-align:middle"></div>Chargement des transactions…
-              </div>
-            </div>
-          </td>
+          <td class="last-update" style="white-space:nowrap">${fmtDate(c.lastDate)} <span class="chevron" title="Cliquez pour voir le détail">&#9654;</span></td>
         </tr>`;
       }
 
-      const filterHint = clusterTypeFilter === 'buy' ? 'achats nets'
-                       : clusterTypeFilter === 'sell' ? 'ventes nettes'
+      // Direction lue depuis le filtre (au lieu de l'ancien clusterTypeFilter
+      // local qui a ete supprime lors du merge avec les filtres avances).
+      const directionFilter = currentDirectionFilter || 'all';
+      const filterHint = directionFilter === 'bullish' ? 'achats nets'
+                       : directionFilter === 'bearish' ? 'ventes nettes'
+                       : directionFilter === 'mixed' ? 'mixtes'
                        : 'tous';
+      const periodLabel = currentDaysFilter === '1' ? "aujourd'hui"
+                        : `sur ${currentDaysFilter} jours`;
       const generated = data.generatedAt ? new Date(data.generatedAt).toLocaleDateString('fr-FR') : '—';
       // data.total = nombre TOTAL de clusters post-filter cote serveur (avant cap 500).
       // totalClusters = ce qui a ete reellement retourne (items.length, capped).
-      // Si total > items.length -> message indiquant que c'est tronque.
       const realTotal = (data && typeof data.total === 'number') ? data.total : totalClusters;
       const isCapped = realTotal > totalClusters;
       const headerCount = isCapped
-        ? `${totalClusters.toLocaleString('fr-FR')} cluster${totalClusters > 1 ? 's' : ''} affichés sur ${realTotal.toLocaleString('fr-FR')} (${filterHint}) — 90 jours`
-        : `${realTotal.toLocaleString('fr-FR')} cluster${realTotal > 1 ? 's' : ''} (${filterHint}) sur 90 jours`;
+        ? `${totalClusters.toLocaleString('fr-FR')} cluster${totalClusters > 1 ? 's' : ''} affichés sur ${realTotal.toLocaleString('fr-FR')} (${filterHint}) — ${periodLabel}`
+        : `${realTotal.toLocaleString('fr-FR')} cluster${realTotal > 1 ? 's' : ''} (${filterHint}) ${periodLabel}`;
       const footerHtml = renderLoadMoreFooter({
         visible: visibleCount,
         total: totalClusters,
@@ -12594,9 +12515,14 @@
       });
 
       area.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <span style="color:var(--text-muted);font-size:13px">${headerCount}</span>
           <span class="last-update">Mis a jour le ${generated}</span>
+        </div>
+        <!-- Hint navigation : 2 clics distincts (mai 2026) -->
+        <div style="background:linear-gradient(135deg,rgba(116,185,255,0.06),rgba(162,155,254,0.03));border:1px solid rgba(116,185,255,0.18);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:14px">💡</span>
+          <span>Clic sur le <strong style="color:var(--accent-blue)">ticker</strong> → décrypter la valeur · Clic sur la <strong>ligne</strong> → détail des transactions du cluster dans Explorer</span>
         </div>
         <div class="table-wrap">
           <table>
@@ -12614,8 +12540,8 @@
         </div>
         ${footerHtml}
         <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
-          Un cluster indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions sur les 90 derniers jours.
-          La <strong>direction</strong> reflete le NET en valeur (achat $ - vente $). Cliquez sur une ligne pour voir les noms et detail des transactions.
+          Un cluster indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions ${periodLabel}.
+          La <strong>direction</strong> reflete le NET en valeur (achat $ - vente $).
         </p>`;
     }
 
