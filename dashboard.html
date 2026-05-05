@@ -3501,14 +3501,13 @@
 
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page" id="section-insider">
-        <h2 data-i18n="dash.section.insider.title">Initiés — Transactions récentes</h2>
-        <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — déclarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement.</p>
+        <h2 data-i18n="dash.section.insider.title">Explorer les transactions</h2>
+        <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — déclarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement. Recherche libre + filtres avancés dépliables (jusqu'à 5 ans d'historique, exports CSV).</p>
 
         <!-- HUB INSIDERS (toutes les donnees issues de SEC Form 4 + BaFin + AMF) -->
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Transactions récentes</span></button>
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
           <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
-          <button class="hub-tab" data-hub-target="screener" onclick="switchSection('screener')">🔎 <span data-i18n="dash.hub.insider.screener">Screener avancé</span></button>
         </div>
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
@@ -3547,6 +3546,99 @@
           </div>
         </div>
 
+        <!-- ===== FILTRES AVANCES (dépliables) — fusion de l'ancien Screener =====
+             Quand l'user déplie ce bloc et lance la recherche, on bascule sur
+             /api/history/insider (D1, jusqu'à 5 ans) au lieu du KV des 90j.
+             Reset = retour au mode 'récentes' (KV). -->
+        <details id="advFiltersDetails" style="background:linear-gradient(135deg,rgba(116,185,255,0.06),rgba(162,155,254,0.03));border:1px solid rgba(116,185,255,0.22);border-radius:12px;padding:14px 18px;margin-bottom:24px">
+          <summary style="display:flex;gap:12px;align-items:center;font-weight:600;color:#74b9ff;font-size:14px;list-style:none;outline:none;cursor:pointer">
+            <span style="font-size:18px">🔬</span>
+            <span>Filtres avancés &mdash; recherche historique (jusqu'à 5 ans, export CSV)</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+          </summary>
+          <div style="padding:16px 0 4px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
+                <input id="scrTicker" type="text" placeholder="ex: AAPL" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
+                <select id="scrDays" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="30">30 jours</option>
+                  <option value="90" selected>90 jours</option>
+                  <option value="180">6 mois</option>
+                  <option value="365">1 an</option>
+                  <option value="1095">3 ans</option>
+                  <option value="1825">5 ans</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
+                <select id="scrType" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="">Tous</option>
+                  <option value="buy">Achat</option>
+                  <option value="sell">Vente</option>
+                  <option value="option-exercise">Exercice option</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
+                <select id="scrRole" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="">Tous</option>
+                  <option value="CEO">CEO</option>
+                  <option value="CFO">CFO</option>
+                  <option value="Director">Director</option>
+                  <option value="President">President</option>
+                  <option value="Chairman">Chairman</option>
+                  <option value="10%">10% Owner</option>
+                  <option value="Officer">Officer</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Source</label>
+                <select id="scrSource" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="">Toutes</option>
+                  <option value="SEC">SEC (US)</option>
+                  <option value="AMF">AMF (FR)</option>
+                  <option value="BAFIN">BaFin (DE)</option>
+                  <option value="FCA">FCA (UK)</option>
+                  <option value="SEDI">SEDI (CA)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nom insider</label>
+                <input id="scrInsider" type="text" placeholder="ex: Musk" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Montant min (USD)</label>
+                <input id="scrMinValue" type="number" placeholder="ex: 100000" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Tri</label>
+                <select id="scrSort" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="date-desc">Date ↓ (recent)</option>
+                  <option value="date-asc">Date ↑ (ancien)</option>
+                  <option value="value-desc">Montant ↓ (gros)</option>
+                  <option value="value-asc">Montant ↑ (petit)</option>
+                  <option value="ticker-asc">Ticker A→Z</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <button onclick="runScreener()" style="padding:10px 20px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                Lancer la recherche avancée
+              </button>
+              <button onclick="resetScreener()" style="padding:10px 20px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:8px;font-weight:500;cursor:pointer">Reset filtres</button>
+              <button id="scrExportBtn" onclick="exportScreenerCsv()" disabled style="padding:10px 20px;background:rgba(16,185,129,0.15);color:var(--accent-green);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5">
+                📥 Export CSV
+              </button>
+              <span id="scrCount" style="margin-left:auto;font-size:13px;color:var(--text-secondary)"></span>
+            </div>
+          </div>
+        </details>
+
         <!-- Pagination HAUT (duplique pour eviter le scroll jusqu'en bas) -->
         <div class="pagination" id="insiderPaginationTop" style="display:none;margin-bottom:16px">
           <button onclick="changePage(-1,'top')" id="prevBtnTop">← Précédent</button>
@@ -3554,129 +3646,21 @@
           <button onclick="changePage(1,'top')" id="nextBtnTop">Suivant →</button>
         </div>
 
+        <!-- TABLE PRINCIPALE : transactions récentes (KV) OU résultats screener (D1)
+             selon que l'user a lancé ou non la recherche avancée. -->
         <div id="insiderTableArea">
           <div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>
         </div>
+
+        <!-- Conteneur résultats screener avancé : reste vide tant que l'user
+             n'a pas cliqué 'Lancer la recherche avancée'. Une fois rempli, il
+             remplace l'affichage de insiderTableArea. -->
+        <div id="scrTableArea" style="display:none"></div>
 
         <div class="pagination" id="insiderPagination" style="display:none;">
           <button onclick="changePage(-1)" id="prevBtn">← Précédent</button>
           <span class="page-info" id="pageInfo">Page 1</span>
           <button onclick="changePage(1)" id="nextBtn">Suivant →</button>
-        </div>
-      </div>
-
-      <!-- ===== SECTION: SCREENER AVANCE ===== -->
-      <div class="section-page" id="section-screener">
-        <h2><span data-i18n="dash.section.screener.title">Initiés — Screener avancé</span></h2>
-        <p class="section-desc" data-i18n="dash.section.screener.desc">Filtres combinables sur l'historique complet des transactions insiders (jusqu'a 5 ans). Filtre par role, montant, période, ticker, source — exporte les resultats en CSV.</p>
-
-        <!-- HUB INSIDERS (meme barre qu'ailleurs) -->
-        <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Transactions récentes</span></button>
-          <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
-          <button class="hub-tab" data-hub-target="screener" onclick="switchSection('screener')">🔎 <span data-i18n="dash.hub.insider.screener">Screener avancé</span></button>
-        </div>
-
-        <!-- GRILLE DE FILTRES -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px">
-            <!-- Ticker -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
-              <input id="scrTicker" type="text" placeholder="ex: AAPL" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
-            </div>
-            <!-- Period -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
-              <select id="scrDays" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                <option value="30">30 jours</option>
-                <option value="90" selected>90 jours</option>
-                <option value="180">6 mois</option>
-                <option value="365">1 an</option>
-                <option value="1095">3 ans</option>
-                <option value="1825">5 ans</option>
-              </select>
-            </div>
-            <!-- Type -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
-              <select id="scrType" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                <option value="">Tous</option>
-                <option value="buy">Achat</option>
-                <option value="sell">Vente</option>
-                <option value="option-exercise">Exercice option</option>
-              </select>
-            </div>
-            <!-- Role -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
-              <select id="scrRole" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                <option value="">Tous</option>
-                <option value="CEO">CEO</option>
-                <option value="CFO">CFO</option>
-                <option value="Director">Director</option>
-                <option value="President">President</option>
-                <option value="Chairman">Chairman</option>
-                <option value="10%">10% Owner</option>
-                <option value="Officer">Officer</option>
-              </select>
-            </div>
-            <!-- Source -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Source</label>
-              <select id="scrSource" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                <option value="">Toutes</option>
-                <option value="SEC">SEC (US)</option>
-                <option value="AMF">AMF (FR)</option>
-                <option value="BAFIN">BaFin (DE)</option>
-                <option value="FCA">FCA (UK)</option>
-                <option value="SEDI">SEDI (CA)</option>
-              </select>
-            </div>
-            <!-- Insider name -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nom insider</label>
-              <input id="scrInsider" type="text" placeholder="ex: Musk" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
-            </div>
-            <!-- Min value -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Montant min (USD)</label>
-              <input id="scrMinValue" type="number" placeholder="ex: 100000" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
-            </div>
-            <!-- Sort -->
-            <div>
-              <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Tri</label>
-              <select id="scrSort" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                <option value="date-desc">Date ↓ (recent)</option>
-                <option value="date-asc">Date ↑ (ancien)</option>
-                <option value="value-desc">Montant ↓ (gros)</option>
-                <option value="value-asc">Montant ↑ (petit)</option>
-                <option value="ticker-asc">Ticker A→Z</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- ACTION BUTTONS -->
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <button onclick="runScreener()" style="padding:10px 20px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              Lancer la recherche
-            </button>
-            <button onclick="resetScreener()" style="padding:10px 20px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:8px;font-weight:500;cursor:pointer">Reset filtres</button>
-            <button id="scrExportBtn" onclick="exportScreenerCsv()" disabled style="padding:10px 20px;background:rgba(16,185,129,0.15);color:var(--accent-green);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5">
-              📥 Export CSV
-            </button>
-            <span id="scrCount" style="margin-left:auto;font-size:13px;color:var(--text-secondary)"></span>
-          </div>
-        </div>
-
-        <!-- TABLE RESULTATS -->
-        <div id="scrTableArea">
-          <div style="padding:60px 20px;text-align:center;color:var(--text-secondary)">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;opacity:0.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <p style="margin:0;font-size:15px">Selectionnez vos filtres et lancez la recherche.</p>
-            <p style="margin:8px 0 0;font-size:13px;opacity:0.7">Les resultats s'afficheront ici.</p>
-          </div>
         </div>
       </div>
 
@@ -3807,9 +3791,8 @@
 
         <!-- HUB INSIDERS (meme barre qu'ailleurs) -->
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Transactions récentes</span></button>
+          <button class="hub-tab" data-hub-target="insider" onclick="switchSection('insider')">🕴️ <span data-i18n="dash.hub.insider.recent">Explorer</span></button>
           <button class="hub-tab" data-hub-target="clustering" onclick="switchSection('clustering')">🎯 <span data-i18n="dash.hub.insider.signals">Signaux & Clusters</span></button>
-          <button class="hub-tab" data-hub-target="screener" onclick="switchSection('screener')">🔎 <span data-i18n="dash.hub.insider.screener">Screener avancé</span></button>
         </div>
 
         <!-- BARRE DE SOUS-ONGLETS -->
@@ -6543,6 +6526,18 @@
     };
 
     function switchSection(section, opts = {}) {
+      // Alias 'screener' -> 'insider' avec auto-deplier des filtres avances.
+      // L'ancienne section dediee a ete fusionnee dans 'Explorer les transactions'
+      // (mai 2026). Les liens existants (URL hash, bookmarks) continuent de
+      // marcher en redirigeant + ouvrant directement le bloc dépliable.
+      if (section === 'screener') {
+        section = 'insider';
+        // Defer : attendre que la section soit montee avant de toggle <details>
+        setTimeout(() => {
+          const adv = document.getElementById('advFiltersDetails');
+          if (adv && !adv.open) adv.open = true;
+        }, 100);
+      }
       // Gate premium : la section cible OU son parent hub doit etre premium.
       // Comme screener/clustering n'ont plus de bouton sidebar, on cherche
       // le premium flag via le parent hub.
@@ -16028,6 +16023,7 @@
     // Appelle /api/history/insider avec filtres combinables
     // ============================================================
     let screenerResults = [];  // dernier resultset (pour export CSV)
+    let screenerActive = false;  // bascule entre mode rapide (KV) et mode avance (D1)
 
     function resetScreener() {
       document.getElementById('scrTicker').value = '';
@@ -16038,11 +16034,26 @@
       document.getElementById('scrInsider').value = '';
       document.getElementById('scrMinValue').value = '';
       document.getElementById('scrSort').value = 'date-desc';
-      document.getElementById('scrCount').textContent = '';
-      document.getElementById('scrTableArea').innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--text-secondary)"><p style="margin:0;font-size:15px">Filtres reset. Relancez la recherche.</p></div>';
-      document.getElementById('scrExportBtn').disabled = true;
-      document.getElementById('scrExportBtn').style.opacity = '0.5';
+      const countEl = document.getElementById('scrCount');
+      if (countEl) countEl.textContent = '';
+      const exportBtn = document.getElementById('scrExportBtn');
+      if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.style.opacity = '0.5';
+      }
       screenerResults = [];
+      // Sortir du mode avance : revenir aux transactions recentes (KV)
+      screenerActive = false;
+      const scrArea = document.getElementById('scrTableArea');
+      if (scrArea) {
+        scrArea.style.display = 'none';
+        scrArea.innerHTML = '';
+      }
+      // Re-render la table principale (transactions recentes du KV)
+      if (typeof renderInsiderPage === 'function') {
+        currentPage = 0;
+        renderInsiderPage();
+      }
     }
 
     async function runScreener() {
@@ -16054,9 +16065,21 @@
         Toast.warning('Veuillez vous connecter.');
         return;
       }
+      // Active le mode avance : on bascule l'affichage du tableau KV vers
+      // scrTableArea (D1 historique). Les filtres rapides + pagination KV
+      // sont masques pour eviter la confusion entre les 2 datasets.
+      screenerActive = true;
+      const insiderArea = document.getElementById('insiderTableArea');
+      const insiderPagTop = document.getElementById('insiderPaginationTop');
+      const insiderPagBot = document.getElementById('insiderPagination');
+      if (insiderArea) insiderArea.style.display = 'none';
+      if (insiderPagTop) insiderPagTop.style.display = 'none';
+      if (insiderPagBot) insiderPagBot.style.display = 'none';
       const tableArea = document.getElementById('scrTableArea');
+      tableArea.style.display = 'block';
       tableArea.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche en cours...</div>';
-      document.getElementById('scrCount').textContent = '';
+      const countEl = document.getElementById('scrCount');
+      if (countEl) countEl.textContent = '';
 
       try {
         const ticker = (document.getElementById('scrTicker').value || '').trim().toUpperCase();
