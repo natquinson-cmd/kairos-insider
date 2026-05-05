@@ -12477,14 +12477,25 @@
       document.querySelectorAll('[data-cltype]').forEach(b =>
         b.classList.toggle('active', b.dataset.cltype === type)
       );
-      renderClusters();
+      // FIX uniformisation : on refetch avec le bon param direction
+      // (avant : on filtrait juste le array local, mais le nouvel endpoint
+      // applique le filtre cote serveur via ?direction=bullish/bearish/all)
+      loadClustering();
     }
 
     async function loadClustering() {
       const area = document.getElementById('clusteringArea');
       try {
-        clusterData = await apiFetch('/api/clusters');
-        allClusters = (clusterData.clusters || []).sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
+        // FIX uniformisation (mai 2026) : avant, /api/clusters lisait un KV
+        // calcule en batch (sans direction/net achat). Maintenant on utilise
+        // /api/signals/insider-clusters (meme endpoint que la page Signal Detail
+        // depuis l'Accueil) -> donnees en LIVE depuis D1, avec direction,
+        // breakdown achat/vente et NET coherents partout.
+        const dirParam = clusterTypeFilter === 'buy' ? 'bullish'
+                       : clusterTypeFilter === 'sell' ? 'bearish'
+                       : 'all';
+        clusterData = await apiFetch(`/api/signals/insider-clusters?days=90&minTx=3&direction=${dirParam}&sort=value`);
+        allClusters = (clusterData.items || []).slice();  // deja trie par valeur cote serveur
         renderClusters();
       } catch (err) {
         if (err.message !== 'Unauthorized') {
@@ -12498,15 +12509,9 @@
     let clusterPage = 0;
 
     function changeClusterPage(delta, from) {
-      // Recalcul filtered clusters (meme logique que dans renderClusters)
-      let filtered = allClusters;
-      if (clusterTypeFilter !== 'all') {
-        filtered = filtered.filter(c => {
-          const details = c.insiderDetails || [];
-          return details.some(d => d.txType === clusterTypeFilter);
-        });
-      }
-      const totalPages = Math.ceil(filtered.length / CLUSTER_PAGE_SIZE);
+      // Filtre par type applique cote serveur via /api/signals/insider-clusters?direction=...
+      // donc allClusters est deja filtre. Pagination simple sur le tableau.
+      const totalPages = Math.ceil(allClusters.length / CLUSTER_PAGE_SIZE);
       const newPage = clusterPage + delta;
       if (newPage < 0 || newPage >= totalPages) return;
       clusterPage = newPage;
@@ -12520,101 +12525,109 @@
       const area = document.getElementById('clusteringArea');
       const data = clusterData;
 
-      // Filtrer par type : regarder le txType dominant des insiders
-      let clusters = allClusters;
-      if (clusterTypeFilter !== 'all') {
-        clusters = clusters.filter(c => {
-          const details = c.insiderDetails || [];
-          const matchCount = details.filter(d => d.txType === clusterTypeFilter).length;
-          return matchCount > 0;
-        });
+      // FIX uniformisation : nouveau format coherent avec /api/signals/insider-clusters
+      // utilise depuis l'Accueil. Le filtre par type est applique cote serveur
+      // (loadClustering refetch quand selectClusterType change).
+      const clusters = allClusters;
+
+      const pagTop    = document.getElementById('clusterPaginationTop');
+      const pagBottom = document.getElementById('clusterPaginationBottom');
+
+      if (clusters.length === 0) {
+        area.innerHTML = '<div class="empty-state"><p>Aucun cluster correspondant a ce filtre. Essayez "Tous" ou augmentez la periode.</p></div>';
+        if (pagTop)    pagTop.style.display    = 'none';
+        if (pagBottom) pagBottom.style.display = 'none';
+        return;
       }
 
-        // Cache les paginations haut/bas si rien a afficher
-        const pagTop    = document.getElementById('clusterPaginationTop');
-        const pagBottom = document.getElementById('clusterPaginationBottom');
+      // Pagination
+      const totalClusters = clusters.length;
+      const totalPages = Math.max(1, Math.ceil(totalClusters / CLUSTER_PAGE_SIZE));
+      if (clusterPage >= totalPages) clusterPage = totalPages - 1;
+      if (clusterPage < 0) clusterPage = 0;
+      const start = clusterPage * CLUSTER_PAGE_SIZE;
+      const pageClusters = clusters.slice(start, start + CLUSTER_PAGE_SIZE);
 
-        if (clusters.length === 0) {
-          area.innerHTML = '<div class="empty-state"><p>Aucun cluster détecté sur les 90 derniers jours.</p></div>';
-          if (pagTop)    pagTop.style.display    = 'none';
-          if (pagBottom) pagBottom.style.display = 'none';
-          return;
-        }
+      // Format coherent avec page Signal Detail (depuis l'Accueil) : direction
+      // pill, breakdown achat/vente, NET, insiders top 3.
+      const fmtUsdShort = (n) => {
+        if (n == null || !isFinite(n) || n === 0) return '—';
+        const abs = Math.abs(n);
+        if (abs >= 1e9) return (n < 0 ? '-' : '') + '$' + (abs / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return (n < 0 ? '-' : '') + '$' + (abs / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
+        return (n < 0 ? '-' : '') + '$' + Math.round(abs);
+      };
 
-        // Pagination
-        const totalClusters = clusters.length;
-        const totalPages = Math.max(1, Math.ceil(totalClusters / CLUSTER_PAGE_SIZE));
-        if (clusterPage >= totalPages) clusterPage = totalPages - 1;
-        if (clusterPage < 0) clusterPage = 0;
-        const start = clusterPage * CLUSTER_PAGE_SIZE;
-        const pageClusters = clusters.slice(start, start + CLUSTER_PAGE_SIZE);
+      let rows = '';
+      for (let i = 0; i < pageClusters.length; i++) {
+        const c = pageClusters[i];
+        const absIdx = start + i;
+        const directionPill = c.direction === 'bullish'
+          ? '<span class="pill buy">BULLISH</span>'
+          : c.direction === 'bearish'
+          ? '<span class="pill sell">BEARISH</span>'
+          : '<span class="pill other">MIXTE</span>';
+        const netColor = c.netValue > 0 ? 'var(--accent-green)' : c.netValue < 0 ? 'var(--accent-red)' : 'var(--text-muted)';
+        const insidersPreview = (c.insiders || []).slice(0, 3).join(', ');
+        const rolesPreview = (c.roles || []).slice(0, 2).join(', ');
 
-        let rows = '';
-        for (let i = 0; i < pageClusters.length; i++) {
-          const c = pageClusters[i];
-          const absIdx = start + i; // index unique global sur la page paginee
-          const strength = c.insiderCount >= 5 ? 'TRES FORT' : c.insiderCount >= 3 ? 'FORT' : 'MODERE';
-          const strengthCls = c.insiderCount >= 5 ? 'buy' : c.insiderCount >= 3 ? 'buy' : 'other';
-          const countBg = c.insiderCount >= 5 ? 'rgba(16,185,129,0.3)' : c.insiderCount >= 3 ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)';
-          const countColor = c.insiderCount >= 3 ? 'var(--accent-green)' : 'var(--accent-blue)';
+        rows += `<tr class="fund-row" onclick="toggleCluster(${absIdx})" style="cursor:pointer">
+          <td class="ticker">${escapeHtmlClient(c.ticker || '—')}
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px" title="${escapeHtmlClient(c.company || '')}">${escapeHtmlClient((c.company || '').slice(0, 35))}</div></td>
+          <td style="text-align:center">${directionPill}</td>
+          <td style="text-align:center"><strong>${c.count}</strong>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${c.buyCount}🟢 / ${c.sellCount}🔴</div></td>
+          <td style="text-align:right;font-weight:600">${fmtUsdShort(c.totalValue)}</td>
+          <td style="text-align:right;color:${netColor};font-weight:600">${fmtUsdShort(c.netValue)}</td>
+          <td style="font-size:11px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(insidersPreview)}">${escapeHtmlClient(insidersPreview)}${c.insiders && c.insiders.length > 3 ? ` +${c.insiders.length - 3}` : ''}
+              <div style="font-size:10px;opacity:0.6;margin-top:2px">${escapeHtmlClient(rolesPreview)}</div></td>
+          <td class="last-update" style="white-space:nowrap">${fmtDate(c.lastDate)} <span class="chevron">&#9654;</span></td>
+        </tr>`;
 
-          // Les clusters actuels sont tous bases sur SEC (US). Quand on ajoutera des clusters
-          // Europe via BaFin, c.market/c.region pilotera le drapeau.
-          const clusterMarket = c.market || 'US';
-          rows += `<tr class="fund-row" onclick="toggleCluster(${absIdx})" style="cursor:pointer">
-            <td style="white-space:nowrap;text-align:center" title="${clusterMarket}">${fmtMarket(clusterMarket)}</td>
-            <td class="ticker">${c.ticker || '—'}</td>
-            <td style="color:var(--text-primary)">${c.company} <span class="chevron">&#9654;</span></td>
-            <td style="text-align:center">
-              <span style="background:${countBg};color:${countColor};padding:3px 10px;border-radius:100px;font-weight:700;font-size:13px">${c.insiderCount}</span>
-            </td>
-            <td>${c.totalFilings} déclarations</td>
-            <td style="text-align:right;font-weight:600">${c.totalValue && c.totalValue > 0 ? fmtCurShort(c.totalValue) : '—'}</td>
-            <td class="last-update">${fmtDate(c.firstDate)} — ${fmtDate(c.lastDate)}</td>
-            <td style="text-align:center"><span class="pill ${strengthCls}">${strength}</span></td>
-          </tr>`;
-
-          // Ligne depliable : contenu charge lazy au clic via loadClusterDetail (D1 -> 1 ligne par tx)
-          const tickerEsc = (c.ticker || '').replace(/'/g, "\\'");
-          rows += `<tr class="fund-detail-row" id="cluster-detail-${absIdx}" data-ticker="${escapeHtml(c.ticker || '')}" data-company="${escapeHtml(c.company || '')}">
-            <td colspan="8" class="fund-detail-cell">
-              <div class="fund-detail-inner">
-                <div id="cluster-detail-content-${absIdx}" style="color:var(--text-muted);padding:20px;text-align:center;font-size:13px">
-                  <div class="spinner" style="display:inline-block;margin-right:10px;vertical-align:middle"></div>Chargement des transactions…
-                </div>
+        // Ligne depliable : detail des tx au clic
+        rows += `<tr class="fund-detail-row" id="cluster-detail-${absIdx}" data-ticker="${escapeHtml(c.ticker || '')}" data-company="${escapeHtml(c.company || '')}">
+          <td colspan="7" class="fund-detail-cell">
+            <div class="fund-detail-inner">
+              <div id="cluster-detail-content-${absIdx}" style="color:var(--text-muted);padding:20px;text-align:center;font-size:13px">
+                <div class="spinner" style="display:inline-block;margin-right:10px;vertical-align:middle"></div>Chargement des transactions…
               </div>
-            </td>
-          </tr>`;
-        }
+            </div>
+          </td>
+        </tr>`;
+      }
 
-        const pageHint = totalPages > 1
-          ? ` · <strong>Page ${clusterPage + 1} / ${totalPages}</strong> (affichage ${start + 1}-${Math.min(start + CLUSTER_PAGE_SIZE, totalClusters)})`
-          : '';
+      const pageHint = totalPages > 1
+        ? ` · <strong>Page ${clusterPage + 1} / ${totalPages}</strong> (affichage ${start + 1}-${Math.min(start + CLUSTER_PAGE_SIZE, totalClusters)})`
+        : '';
+      const filterHint = clusterTypeFilter === 'buy' ? 'achats nets'
+                       : clusterTypeFilter === 'sell' ? 'ventes nettes'
+                       : 'tous';
+      const generated = data.generatedAt ? new Date(data.generatedAt).toLocaleDateString('fr-FR') : '—';
 
-        area.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-            <span style="color:var(--text-muted);font-size:13px">${clusters.length} clusters détectés sur ${data.totalFilings?.toLocaleString('fr-FR') || '?'} déclarations (90 jours)${pageHint}</span>
-            <span class="last-update">Mis a jour le ${data.date || '—'}</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr>
-                <th>Marche</th>
-                <th>Ticker</th>
-                <th>Entreprise</th>
-                <th style="text-align:center">Insiders</th>
-                <th>Declarations</th>
-                <th style="text-align:right">Valeur totale</th>
-                <th>Période</th>
-                <th style="text-align:center">Signal</th>
-              </tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-          <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
-            Un cluster indique que plusieurs dirigeants d'une meme entreprise ont depose une déclaration insider (transaction sur leurs propres actions) dans les 90 derniers jours.
-            Plus le nombre d'insiders est eleve, plus le signal est fort. Cliquez sur une ligne pour voir les noms des declarants.
-          </p>`;
+      area.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+          <span style="color:var(--text-muted);font-size:13px">${clusters.length} cluster${clusters.length > 1 ? 's' : ''} (${filterHint}) sur 90 jours${pageHint}</span>
+          <span class="last-update">Mis a jour le ${generated}</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Ticker</th>
+              <th style="text-align:center">Direction</th>
+              <th style="text-align:center"># Tx</th>
+              <th style="text-align:right">Valeur totale</th>
+              <th style="text-align:right">Net achat/vente</th>
+              <th>Insiders (top 3)</th>
+              <th>Derniere</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
+          Un cluster indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions sur les 90 derniers jours.
+          La <strong>direction</strong> reflete le NET en valeur (achat $ - vente $). Cliquez sur une ligne pour voir les noms et detail des transactions.
+        </p>`;
 
         // Mise a jour des paginations haut + bas
         const updatePag = (topEl, prevId, nextId, infoId) => {
