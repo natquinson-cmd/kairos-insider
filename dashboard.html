@@ -3795,16 +3795,6 @@
         <div class="cl-panel" id="cl-panel-clusters" role="tabpanel">
           <p class="cl-panel-desc" style="margin:0 0 18px;font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.clustering.clusters.desc">Actions sur lesquelles plusieurs dirigeants ont effectue des transactions simultanement — signal fort quand ≥3 insiders agissent ensemble.</p>
 
-          <!-- Préfiltres 1-clic (mai 2026 : ex-section-signals-clusters fusionnee ici) -->
-          <div class="sig-quickfilters" id="clusterQuickFilters" style="margin-bottom:14px">
-            <button class="sig-qf-btn active" data-preset="default">Défaut</button>
-            <button class="sig-qf-btn" data-preset="bullish7">Bullish 7j</button>
-            <button class="sig-qf-btn" data-preset="bearish7">Bearish 7j</button>
-            <button class="sig-qf-btn" data-preset="mega">Méga clusters ≥ $100M</button>
-            <button class="sig-qf-btn" data-preset="csuite">C-suite only</button>
-            <button class="sig-qf-btn" data-preset="today">Aujourd'hui</button>
-          </div>
-
           <!-- Filtres avancés -->
           <div class="sig-filters" style="margin-bottom:18px">
             <div class="sig-filter-group">
@@ -12327,41 +12317,6 @@
         }
       }
     }
-
-    // Préfiltres 1-clic (ex section-signals-clusters), portes ici pour
-    // unifier les 2 vues. Le bouton applique 6 filtres d'un coup + relance.
-    const CLUSTERING_PRESETS = {
-      default:  { days: '7',  minTx: '3', direction: 'all',     minValue: '0',         roles: 'all',    sort: 'value'  },
-      bullish7: { days: '7',  minTx: '3', direction: 'bullish', minValue: '0',         roles: 'all',    sort: 'net'    },
-      bearish7: { days: '7',  minTx: '3', direction: 'bearish', minValue: '0',         roles: 'all',    sort: 'net'    },
-      mega:     { days: '30', minTx: '3', direction: 'all',     minValue: '100000000', roles: 'all',    sort: 'value'  },
-      csuite:   { days: '7',  minTx: '3', direction: 'all',     minValue: '0',         roles: 'csuite', sort: 'value'  },
-      today:    { days: '1',  minTx: '3', direction: 'all',     minValue: '0',         roles: 'all',    sort: 'value'  },
-    };
-
-    function applyClusteringPreset(preset) {
-      const f = CLUSTERING_PRESETS[preset];
-      if (!f) return;
-      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-      setVal('clusterDays', f.days);
-      setVal('clusterMinTx', f.minTx);
-      setVal('clusterDirection', f.direction);
-      setVal('clusterMinValue', f.minValue);
-      setVal('clusterRoles', f.roles);
-      setVal('clusterSort', f.sort);
-      document.querySelectorAll('#clusterQuickFilters .sig-qf-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.preset === preset);
-      });
-      loadClustering();
-    }
-    window.applyClusteringPreset = applyClusteringPreset;
-
-    // Click handler pour les boutons preset (event delegation comme l'ex
-    // section-signals-clusters)
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest?.('#clusterQuickFilters .sig-qf-btn');
-      if (btn && btn.dataset.preset) applyClusteringPreset(btn.dataset.preset);
-    });
 
     // Click sur une ligne de cluster -> ouvre Explorer (section-insider) avec :
     //   - ticker pre-rempli (search insider)
