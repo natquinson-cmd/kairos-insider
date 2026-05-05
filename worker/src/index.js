@@ -2071,8 +2071,8 @@ async function handleTickerActivity(url, env, origin) {
 async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
-  // v2 : bump apres ajout filter |delta| <= 20 (anti pipeline noise)
-  const cacheKey = 'home:top-signals:v2';
+  // v3 : bump apres filtre clusters fantomes (LNKB/STKL 0/0 $0 -> exclus)
+  const cacheKey = 'home:top-signals:v3';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -2121,10 +2121,14 @@ async function computeTopSignals(env) {
   } catch (e) { console.warn('scoreMovers failed:', e); }
 
   // 2) Insider Clusters : tickers avec 3+ INSIDERS UNIQUES dans les 7 derniers jours
-  // FIX (mai 2026) : avant on comptait les LIGNES (COUNT(*)), ce qui donnait 142
+  // FIX 1 (mai 2026) : avant on comptait les LIGNES (COUNT(*)), ce qui donnait 142
   // pour un seul Form 4 split en 142 transactions individuelles (typique des stock
-  // options exercises). Maintenant on compte les INSIDERS DISTINCTS, ce qui est
-  // la VRAIE definition d'un cluster (3+ dirigeants differents transigent ensemble).
+  // options exercises). Maintenant on compte les INSIDERS DISTINCTS.
+  // FIX 2 (mai 2026) : on filtre les "clusters fantomes" qui apparaissaient avec
+  // 'LNKB 0 ach · 0 vt · ↓ $0' : 3+ insiders ont DEPOSE un Form 4 mais tous en
+  // type 'option-exercise', 'gift', 'other' -> aucun signal directionnel reel,
+  // et UI trompeuse ('-$0' avec fleche descendante). Maintenant on exige qu'au
+  // moins 1 dirigeant ait fait un VRAI achat ou vente (buy/sell trans_type).
   try {
     const since = new Date(); since.setDate(since.getDate() - 7);
     const sinceStr = since.toISOString().slice(0, 10);
@@ -2140,7 +2144,10 @@ async function computeTopSignals(env) {
         MAX(trans_date) AS lastDate
       FROM insider_transactions_history
       WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
-      GROUP BY ticker HAVING uniqueInsiders >= 3
+      GROUP BY ticker
+      HAVING uniqueInsiders >= 3
+        AND (buyInsiders + sellInsiders) >= 1
+        AND (buyValue + sellValue) > 0
       ORDER BY uniqueInsiders DESC, (buyValue + sellValue) DESC LIMIT 10
     `;
     const rows = (await env.HISTORY.prepare(clusterQuery).bind(sinceStr).all()).results || [];
