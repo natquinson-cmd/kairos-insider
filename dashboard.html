@@ -787,12 +787,20 @@
       100% { transform: scale(1); }
     }
 
-    /* ===== RESPONSIVE MOBILE GLOBAL ===== */
-    /* Anti-overflow horizontal (cause #1 des bugs mobiles) */
-    html, body { overflow-x: hidden; max-width: 100%; }
+    /* ===== RESPONSIVE MOBILE GLOBAL =====
+       FIX sticky thead (mai 2026) : on utilise overflow-x: clip au lieu
+       de hidden (la spec CSS3 fait que overflow-x: hidden cree un scroll
+       context qui piege les sticky descendants). 'clip' a le meme effet
+       visuel mais sans creer de scroll context. */
+    html, body { overflow-x: clip; max-width: 100%; }
+    @supports not (overflow-x: clip) {
+      html, body { overflow-x: hidden; }
+    }
     img, video, iframe, canvas { max-width: 100%; height: auto; }
-    /* Tableaux : wrap scroll horizontal pour éviter le débordement */
-    .table-wrap, .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    /* Anciennement : .table-wrap, .table-scroll { overflow-x: auto } pour le
+       responsive mobile. Mais ca creait un scroll context qui piegeait le
+       sticky thead. Maintenant : tables qui debordent sont coupees par le
+       body en mode clip (acceptable sur mobile pour MVP). */
     table { max-width: 100%; }
 
     @media (max-width: 768px) {
