@@ -3669,121 +3669,132 @@
 
       <!-- ===== SECTION: FONDS OFFENSIFS (ACTIVIST INVESTORS / 13D/G) ===== -->
       <div class="section-page" id="section-activists">
-        <div style="margin-bottom:16px">
-          <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
-        </div>
-        <h2>⚡ Fonds Offensifs <span style="font-size:16px;color:var(--text-muted);font-weight:400">(Activistes)</span> <span style="display:inline-block;margin-left:8px;padding:3px 8px;font-size:10px;font-weight:700;background:linear-gradient(135deg,#3B82F6,#10B981);color:#fff;border-radius:12px;letter-spacing:0.5px">🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 +Nordics 12 MARCHÉS</span></h2>
-        <p class="section-desc">Les fonds qui prennent <strong>plus de 3-5 % du capital d'une entreprise pour forcer un changement</strong> (vente d'une division, changement de CEO, rachats d'actions…). Signal quasi-imminent, détecté 35 jours avant les 13F. Données <strong>SEC EDGAR (US)</strong>, <strong>AMF (France)</strong>, <strong>BaFin (Allemagne)</strong> et <strong>FCA via Investegate (UK)</strong>.</p>
+        <h2>Fonds Offensifs</h2>
 
-        <!-- EXPLAINERS PLIABLES (collapsed par defaut pour ne pas surcharger) -->
-        <details class="explainer-collapsible" style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.04));border:1px solid rgba(245,158,11,0.22);border-radius:12px;padding:12px 20px;margin-bottom:12px;cursor:pointer">
-          <summary style="display:flex;gap:12px;align-items:center;font-weight:600;color:#F59E0B;font-size:14px;list-style:none;outline:none">
-            <span style="font-size:18px">🎯</span>
-            <span>Qu'est-ce qu'un fonds offensif ?</span>
+        <!-- FILTRES RAPIDES — même style que Initiés -->
+        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">
+          <div class="period-selector" style="margin-bottom:0">
+            <span class="period-label">Période :</span>
+            <div class="period-buttons">
+              <button class="period-btn" onclick="setActPreset('days','7',this)">7 jours</button>
+              <button class="period-btn active" onclick="setActPreset('days','30',this)">30 jours</button>
+              <button class="period-btn" onclick="setActPreset('days','90',this)">90 jours</button>
+            </div>
+          </div>
+          <div class="period-selector" style="margin-bottom:0">
+            <span class="period-label">Type :</span>
+            <div class="period-buttons">
+              <button class="period-btn active" onclick="setActPreset('filter','activists',this)">Offensifs</button>
+              <button class="period-btn" onclick="setActPreset('filter','13D',this)">13D</button>
+              <button class="period-btn" onclick="setActPreset('filter','13G',this)">13G</button>
+              <button class="period-btn" onclick="setActPreset('filter','all',this)">Tous</button>
+            </div>
+          </div>
+          <div class="period-selector" style="margin-bottom:0">
+            <span class="period-label">Marché :</span>
+            <div class="period-buttons">
+              <button class="period-btn active" onclick="setActPreset('country','',this)">Tous</button>
+              <button class="period-btn" onclick="setActPreset('country','US',this)">🇺🇸 US</button>
+              <button class="period-btn" onclick="setActPreset('country','FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI',this)">🇪🇺 Europe</button>
+              <button class="period-btn" onclick="setActPreset('country','FR',this)">🇫🇷</button>
+              <button class="period-btn" onclick="setActPreset('country','DE',this)">🇩🇪</button>
+              <button class="period-btn" onclick="setActPreset('country','UK',this)">🇬🇧</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- FILTRES AVANCÉS + INFORMATIONS (dépliables) -->
+        <details id="actAdvDetails" style="background:linear-gradient(135deg,rgba(245,158,11,0.06),rgba(236,72,153,0.03));border:1px solid rgba(245,158,11,0.22);border-radius:12px;padding:14px 18px;margin-bottom:24px">
+          <summary style="display:flex;gap:10px;align-items:center;font-weight:600;color:#F59E0B;font-size:14px;list-style:none;outline:none;cursor:pointer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            <span>Filtres avancés &amp; informations</span>
             <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
           </summary>
-          <div style="padding:14px 4px 4px 32px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
-            <p style="margin:0 0 10px">
-              Un <strong>fonds offensif</strong> (<em>"activist investor"</em> en finance anglo-saxonne — rien à voir avec l'activisme politique ou le lobbying) est un hedge fund qui achète une grosse participation dans une société cotée pour <strong>forcer la direction à faire des changements</strong> : vendre une division, remplacer le CEO, distribuer du cash, procéder à une fusion…
-            </p>
-            <p style="margin:0 0 10px">
-              <strong style="color:var(--text-primary)">Pourquoi c'est intéressant pour un investisseur ?</strong> Les fonds offensifs ciblent des entreprises <strong>sous-valorisées ou mal gérées</strong>. Quand Carl Icahn a pris une position dans Apple en 2013, Apple a lancé $100B de rachats d'actions et le titre a gagné 30%. Idem pour <strong>Bill Ackman</strong> (Pershing Square) chez Chipotle, <strong>Paul Singer</strong> (Elliott) chez SoftBank, <strong>Nelson Peltz</strong> (Trian) chez Disney…
-            </p>
-            <p style="margin:0">
-              Le marché anticipe souvent ces catalyseurs : <strong>détecter un fonds offensif tôt = souvent capter une partie de la hausse</strong>.
-            </p>
+          <div style="padding:16px 0 4px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
+                <input id="actTicker" type="text" placeholder="ex: TWTR" oninput="debounceActivists()" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Marché précis</label>
+                <select id="actCountry" onchange="loadActivists()" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="">— Tous les marchés (12) —</option>
+                  <optgroup label="Tier 1+2 (sources officielles)">
+                    <option value="US">États-Unis (SEC)</option>
+                    <option value="FR">France (AMF)</option>
+                    <option value="DE">Allemagne (BaFin)</option>
+                    <option value="UK">Royaume-Uni (FCA)</option>
+                    <option value="NL">Pays-Bas (AFM)</option>
+                    <option value="CH">Suisse (SIX)</option>
+                  </optgroup>
+                  <optgroup label="Tier 3">
+                    <option value="IT">Italie (CONSOB)</option>
+                    <option value="ES">Espagne (CNMV)</option>
+                    <option value="SE">Suède</option>
+                    <option value="NO">Norvège</option>
+                    <option value="DK">Danemark</option>
+                    <option value="FI">Finlande</option>
+                  </optgroup>
+                  <optgroup label="Combinaisons">
+                    <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">Europe seulement (11)</option>
+                    <option value="FR,DE,IT,ES,NL">Eurozone core (5)</option>
+                    <option value="SE,NO,DK,FI">Nordics (4)</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Direction</label>
+                <select id="actFilter" onchange="loadActivists()" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
+                  <option value="activists">Fonds offensifs connus</option>
+                  <option value="all">Toutes les déclarations</option>
+                  <option value="13D">13D (offensifs US)</option>
+                  <option value="13G">13G (passifs US)</option>
+                  <option value="up">Franchissement ↑ hausse</option>
+                  <option value="down">Franchissement ↓ baisse</option>
+                </select>
+              </div>
+            </div>
+            <!-- Explainers dans le collapsible -->
+            <div style="border-top:1px solid var(--border);padding-top:14px;display:grid;gap:10px">
+              <details style="background:var(--surface-2);border-radius:8px;padding:10px 14px">
+                <summary style="font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+                  <span>Qu'est-ce qu'un fonds offensif ?</span>
+                  <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">déplier</span>
+                </summary>
+                <div style="padding:10px 0 2px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+                  <p style="margin:0 0 8px">Un <strong>fonds offensif</strong> (<em>"activist investor"</em>) est un hedge fund qui achète une grosse participation dans une société cotée pour <strong>forcer des changements</strong> : vendre une division, remplacer le CEO, distribuer du cash, procéder à une fusion…</p>
+                  <p style="margin:0">Les fonds offensifs ciblent des entreprises <strong>sous-valorisées ou mal gérées</strong>. <strong>Détecter un fonds offensif tôt = souvent capter une partie de la hausse</strong> (Icahn/Apple +30%, Ackman/Chipotle, Elliott/SoftBank, Peltz/Disney…)</p>
+                </div>
+              </details>
+              <details style="background:var(--surface-2);border-radius:8px;padding:10px 14px">
+                <summary style="font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+                  <span>Les 3 types de déclarations (13D, 13G, /A)</span>
+                  <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">déplier</span>
+                </summary>
+                <div style="padding:10px 0 2px;font-size:13px;line-height:1.8">
+                  <div style="margin-bottom:6px"><strong style="color:#F59E0B">13D</strong> — position >5% avec intention active (signal le plus fort)</div>
+                  <div style="margin-bottom:6px"><strong style="color:#10B981">13G</strong> — même seuil >5% mais passif (Vanguard, BlackRock)</div>
+                  <div><strong style="color:var(--text-secondary)">/A</strong> — amendement quand la position change de >1% (changement de conviction)</div>
+                </div>
+              </details>
+            </div>
           </div>
         </details>
 
-        <details class="explainer-collapsible" style="background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.03));border:1px solid rgba(59,130,246,0.18);border-radius:12px;padding:12px 20px;margin-bottom:20px;cursor:pointer">
-          <summary style="display:flex;gap:12px;align-items:center;font-weight:600;color:#74b9ff;font-size:14px;list-style:none;outline:none">
-            <span style="font-size:18px">📋</span>
-            <span>Les 3 types de déclarations SEC (13D, 13G, /A)</span>
-            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
-          </summary>
-          <div style="padding:14px 4px 4px 32px;font-size:13px;line-height:1.7;color:var(--text-primary)">
-            <div style="margin-bottom:8px"><strong style="color:#F59E0B">Schedule 13D</strong> : position <strong>>5% avec intention active</strong> (fonds offensifs, activistes). <span style="color:var(--text-muted)">→ le signal le plus fort.</span></div>
-            <div style="margin-bottom:8px"><strong style="color:#10B981">Schedule 13G</strong> : même seuil >5% mais <strong>passif</strong> (Vanguard, BlackRock). <span style="color:var(--text-muted)">→ plus neutre.</span></div>
-            <div><strong style="color:var(--text-secondary)">/A (Amendement)</strong> : mise à jour quand la position change de >1%. <span style="color:var(--text-muted)">→ changement de conviction.</span></div>
-          </div>
-        </details>
-
-        <!-- PRÉFILTRES 1-clic (Lot 4) -->
-        <div class="sig-quickfilters" id="actQuickFilters" style="margin-bottom:14px">
-          <button class="sig-qf-btn active" data-preset="default">Défaut (offensifs 30j)</button>
-          <button class="sig-qf-btn" data-preset="week">Cette semaine</button>
-          <button class="sig-qf-btn" data-preset="13donly">13D uniquement</button>
-          <button class="sig-qf-btn" data-preset="bigOnes">Méga positions</button>
-          <button class="sig-qf-btn" data-preset="all90">Tout 90j</button>
-        </div>
-
-        <!-- FILTRES -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:24px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
-            <select id="actDays" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:130px">
-              <option value="7">7 jours</option>
-              <option value="30" selected>30 jours</option>
-              <option value="90">90 jours</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Marché</label>
-            <select id="actCountry" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:170px">
-              <option value="">— Tous les marchés (12) —</option>
-              <optgroup label="Tier 1+2 (sources officielles)">
-                <option value="US">États-Unis (SEC)</option>
-                <option value="FR">France (AMF)</option>
-                <option value="DE">Allemagne (BaFin)</option>
-                <option value="UK">Royaume-Uni (FCA)</option>
-                <option value="NL">Pays-Bas (AFM)</option>
-                <option value="CH">Suisse (SIX)</option>
-              </optgroup>
-              <optgroup label="Tier 3 (Google News)">
-                <option value="IT">Italie (CONSOB)</option>
-                <option value="ES">Espagne (CNMV)</option>
-                <option value="SE">Suède (FI)</option>
-                <option value="NO">Norvège (Finanstilsynet)</option>
-                <option value="DK">Danemark (Finanstilsynet)</option>
-                <option value="FI">Finlande (Finanssivalvonta)</option>
-              </optgroup>
-              <optgroup label="Combinaisons">
-                <option value="US,FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">Tous (12 marchés)</option>
-                <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">Europe seulement (11)</option>
-                <option value="FR,DE,IT,ES,NL">Eurozone core (5)</option>
-                <option value="SE,NO,DK,FI">Nordics (4)</option>
-              </optgroup>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Filtre</label>
-            <select id="actFilter" onchange="loadActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:180px">
-              <option value="activists">⚡ Fonds offensifs connus</option>
-              <option value="all">Toutes les déclarations</option>
-              <option value="13D">13D (US offensifs)</option>
-              <option value="13G">13G (US passifs)</option>
-              <option value="up">Franchissement à la hausse</option>
-              <option value="down">Franchissement à la baisse</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
-            <input id="actTicker" type="text" placeholder="ex: TWTR" oninput="debounceActivists()" style="padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;width:140px" />
-          </div>
-          <div style="margin-left:auto">
-            <button onclick="loadActivists()" style="padding:10px 18px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Rafraichir</button>
-          </div>
-        </div>
+        <!-- Selects cachés pour la période et le type (lus par loadActivists) -->
+        <select id="actDays" style="display:none">
+          <option value="7">7</option>
+          <option value="30" selected>30</option>
+          <option value="90">90</option>
+        </select>
 
         <!-- TOP ACTIVISTS CARD -->
         <div id="activistsTopCard"></div>
 
         <!-- FILINGS LIST -->
         <div id="activistsBody">
-          <div style="padding:60px 20px;text-align:center;color:var(--text-muted)">
-            <div style="font-size:36px;margin-bottom:12px">⚡</div>
-            <p style="margin:0;font-size:15px">Chargement des déclarations...</p>
-          </div>
+          <div class="loading"><div class="spinner"></div>Chargement des déclarations…</div>
         </div>
       </div>
 
@@ -8308,21 +8319,25 @@
     function applyActivistsPreset(preset) {
       const f = ACTIVISTS_PRESETS[preset];
       if (!f) return;
-      document.getElementById('actDays').value = f.days;
-      document.getElementById('actFilter').value = f.filter;
+      const dSel = document.getElementById('actDays');
+      const fSel = document.getElementById('actFilter');
+      if (dSel) dSel.value = f.days;
+      if (fSel) fSel.value = f.filter;
       const tkInput = document.getElementById('actTicker');
-      if (tkInput) tkInput.value = f.ticker;
-      document.querySelectorAll('#actQuickFilters .sig-qf-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.preset === preset);
-      });
+      if (tkInput) tkInput.value = f.ticker || '';
       loadActivists();
     }
     window.applyActivistsPreset = applyActivistsPreset;
 
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest?.('#actQuickFilters .sig-qf-btn');
-      if (btn && btn.dataset.preset) applyActivistsPreset(btn.dataset.preset);
-    });
+    function setActPreset(field, value, el) {
+      const ids = { days: 'actDays', filter: 'actFilter', country: 'actCountry' };
+      const sel = document.getElementById(ids[field]);
+      if (sel) sel.value = value;
+      const parent = el?.closest?.('.period-buttons');
+      if (parent) parent.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === el));
+      loadActivists();
+    }
+    window.setActPreset = setActPreset;
 
     // ============================================================
     // INSIDER TRADES — données pré-calculées depuis KV
@@ -17388,27 +17403,7 @@
           }
         }
 
-        // Render top card (activists agreges sur la période) - VERSION COMPACTE
-        // Avant : grid de 8 cards full, prenait ~280px de hauteur
-        // Apres : ligne horizontale scrollable de chips, ~50px de hauteur (-83%)
-        if (topCard && activistsAggregated && activistsAggregated.byFiler?.length && !ticker) {
-          const topActivists = activistsAggregated.byFiler.slice(0, 12);  // 12 max (vs 8 avant)
-          topCard.innerHTML = `
-            <div style="background:linear-gradient(90deg,rgba(245,158,11,0.08),rgba(236,72,153,0.04));border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:10px 14px;margin-bottom:14px">
-              <div style="display:flex;align-items:center;gap:12px;overflow-x:auto;scroll-behavior:smooth">
-                <div style="font-size:11px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;white-space:nowrap;flex-shrink:0">🔥 Top ${days}j :</div>
-                ${topActivists.map(a => `
-                  <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;white-space:nowrap;flex-shrink:0;font-size:12px" title="${escapeHtmlClient((a.tickers || []).slice(0, 8).join(', '))}">
-                    <strong style="color:var(--text-primary)">${escapeHtmlClient(a.label)}</strong>
-                    <span style="background:rgba(245,158,11,0.2);color:#F59E0B;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700">${a.count}</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        } else if (topCard) {
-          topCard.innerHTML = '';
-        }
+        if (topCard) topCard.innerHTML = '';
 
         // Render filings list
         if (!filings.length) {
@@ -17559,7 +17554,7 @@
               <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
             </div>
           </div>
-          <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto">
+          <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
             <table class="data-table" style="width:100%;border-collapse:collapse;min-width:780px;font-size:12.5px">
               <thead>
                 <tr>
