@@ -3804,20 +3804,8 @@
             </div>
           </div>
 
-          <div class="pagination" id="clusterPaginationTop" style="display:none;margin-bottom:16px">
-            <button onclick="changeClusterPage(-1,'top')" id="clusterPrevBtnTop">← Précédent</button>
-            <span class="page-info" id="clusterPageInfoTop">Page 1</span>
-            <button onclick="changeClusterPage(1,'top')" id="clusterNextBtnTop">Suivant →</button>
-          </div>
-
           <div id="clusteringArea">
             <div class="loading"><div class="spinner"></div>Analyse des clusters en cours...</div>
-          </div>
-
-          <div class="pagination" id="clusterPaginationBottom" style="display:none;margin-top:16px">
-            <button onclick="changeClusterPage(-1)" id="clusterPrevBtn">← Précédent</button>
-            <span class="page-info" id="clusterPageInfo">Page 1</span>
-            <button onclick="changeClusterPage(1)" id="clusterNextBtn">Suivant →</button>
           </div>
         </div>
 
@@ -4052,11 +4040,7 @@
           <div class="empty-state"><p>Selectionnez un ETF ci-dessus pour voir ses positions en temps réel.</p></div>
         </div>
 
-        <div class="pagination" id="etfPagination" style="display:none;">
-          <button onclick="changeEtfPage(-1)" id="etfPrevBtn">← Precedent</button>
-          <span class="page-info" id="etfPageInfo">Page 1</span>
-          <button onclick="changeEtfPage(1)" id="etfNextBtn">Suivant →</button>
-        </div>
+        <!-- Pattern 'Voir plus' (mai 2026) : footer rendu directement dans le tableau via renderLoadMoreFooter -->
       </div>
 
       <!-- ===== SECTION: FEAR & GREED ===== -->
@@ -12087,8 +12071,9 @@
     let etfAllHoldings = [];
     let etfHasChanges = false;
     let etfPrevDate = null;
-    let etfPage = 0;
-    const ETF_PAGE_SIZE = 25;
+    // Pattern 'Voir plus' (mai 2026) : etfDisplayedCount au lieu de etfPage.
+    const ETF_INITIAL_COUNT = 25;
+    let etfDisplayedCount = ETF_INITIAL_COUNT;
 
     // Definition des onglets ETF groupes par catégorie (UI + endpoint mapping)
     const ETF_GROUPS = [
@@ -12320,7 +12305,7 @@
     }
 
     async function loadEtf(type, symbol, btnEl) {
-      etfPage = 0;
+      etfDisplayedCount = ETF_INITIAL_COUNT;  // reset 'Voir plus'
       // Activer le sous-onglet (par data-attribute, plus fiable que event.target)
       document.querySelectorAll('.etf-subtab').forEach(b => b.classList.remove('active'));
       const target = btnEl || document.querySelector(`.etf-subtab[data-symbol="${symbol}"][data-type="${type}"]`);
@@ -12377,9 +12362,9 @@
 
     function renderEtfPage() {
       const area = document.getElementById('etfTableArea');
-      const start = etfPage * ETF_PAGE_SIZE;
-      const pageHoldings = etfAllHoldings.slice(start, start + ETF_PAGE_SIZE);
-      const totalPages = Math.ceil(etfAllHoldings.length / ETF_PAGE_SIZE);
+      // Pattern 'Voir plus' : on rend de 0 a etfDisplayedCount (cumulatif)
+      const visibleCount = Math.min(etfDisplayedCount, etfAllHoldings.length);
+      const pageHoldings = etfAllHoldings.slice(0, visibleCount);
       const hasChanges = etfHasChanges;
 
       let rows = '';
@@ -12414,6 +12399,13 @@
         }
 
         const prevLabel = etfPrevDate ? ` (vs ${etfPrevDate})` : '';
+        const footerHtml = renderLoadMoreFooter({
+          visible: visibleCount,
+          total: etfAllHoldings.length,
+          onLoadMore: 'loadMoreEtf()',
+          initialCount: ETF_INITIAL_COUNT,
+          label: 'positions',
+        });
 
         area.innerHTML = `
           <div class="table-wrap">
@@ -12430,27 +12422,13 @@
               </tr></thead>
               <tbody>${rows}</tbody>
             </table>
-          </div>`;
-
-      // Pagination
-      const pag = document.getElementById('etfPagination');
-      if (totalPages > 1) {
-        pag.style.display = 'flex';
-        document.getElementById('etfPrevBtn').disabled = etfPage === 0;
-        document.getElementById('etfNextBtn').disabled = etfPage >= totalPages - 1;
-        document.getElementById('etfPageInfo').textContent = `Page ${etfPage + 1} / ${totalPages}`;
-      } else {
-        pag.style.display = 'none';
-      }
+          </div>
+          ${footerHtml}`;
     }
 
-    function changeEtfPage(delta) {
-      const totalPages = Math.ceil(etfAllHoldings.length / ETF_PAGE_SIZE);
-      const newPage = etfPage + delta;
-      if (newPage < 0 || newPage >= totalPages) return;
-      etfPage = newPage;
+    function loadMoreEtf() {
+      etfDisplayedCount += ETF_INITIAL_COUNT;
       renderEtfPage();
-      document.getElementById('etfTableArea').scrollIntoView({ behavior: 'smooth' });
     }
 
     // ============================================================
@@ -12486,7 +12464,7 @@
 
     function selectClusterType(type) {
       clusterTypeFilter = type;
-      clusterPage = 0; // reset pagination quand on change de filtre
+      clustersDisplayedCount = CLUSTERS_INITIAL_COUNT; // reset 'Voir plus'
       document.querySelectorAll('[data-cltype]').forEach(b =>
         b.classList.toggle('active', b.dataset.cltype === type)
       );
@@ -12517,21 +12495,14 @@
       }
     }
 
-    // Pagination des clusters : CLUSTER_PAGE_SIZE par page (15 = confortable, le detail des insiders deplie la table)
-    const CLUSTER_PAGE_SIZE = 15;
-    let clusterPage = 0;
+    // Pattern 'Voir plus' (mai 2026) : on cumule les clusters affiches au lieu
+    // de paginer Page X/Y. CLUSTERS_INITIAL_COUNT (15) est l'increment par clic.
+    const CLUSTERS_INITIAL_COUNT = 15;
+    let clustersDisplayedCount = CLUSTERS_INITIAL_COUNT;
 
-    function changeClusterPage(delta, from) {
-      // Filtre par type applique cote serveur via /api/signals/insider-clusters?direction=...
-      // donc allClusters est deja filtre. Pagination simple sur le tableau.
-      const totalPages = Math.ceil(allClusters.length / CLUSTER_PAGE_SIZE);
-      const newPage = clusterPage + delta;
-      if (newPage < 0 || newPage >= totalPages) return;
-      clusterPage = newPage;
+    function loadMoreClusters() {
+      clustersDisplayedCount += CLUSTERS_INITIAL_COUNT;
       renderClusters();
-      if (from !== 'top') {
-        document.getElementById('clusteringArea').scrollIntoView({ behavior: 'smooth' });
-      }
     }
 
     function renderClusters() {
@@ -12543,23 +12514,15 @@
       // (loadClustering refetch quand selectClusterType change).
       const clusters = allClusters;
 
-      const pagTop    = document.getElementById('clusterPaginationTop');
-      const pagBottom = document.getElementById('clusterPaginationBottom');
-
       if (clusters.length === 0) {
         area.innerHTML = '<div class="empty-state"><p>Aucun cluster correspondant a ce filtre. Essayez "Tous" ou augmentez la periode.</p></div>';
-        if (pagTop)    pagTop.style.display    = 'none';
-        if (pagBottom) pagBottom.style.display = 'none';
         return;
       }
 
-      // Pagination
+      // Pattern 'Voir plus' : slice(0, displayedCount) cumulatif
       const totalClusters = clusters.length;
-      const totalPages = Math.max(1, Math.ceil(totalClusters / CLUSTER_PAGE_SIZE));
-      if (clusterPage >= totalPages) clusterPage = totalPages - 1;
-      if (clusterPage < 0) clusterPage = 0;
-      const start = clusterPage * CLUSTER_PAGE_SIZE;
-      const pageClusters = clusters.slice(start, start + CLUSTER_PAGE_SIZE);
+      const visibleCount = Math.min(clustersDisplayedCount, totalClusters);
+      const pageClusters = clusters.slice(0, visibleCount);
 
       // Format coherent avec page Signal Detail (depuis l'Accueil) : direction
       // pill, breakdown achat/vente, NET, insiders top 3.
@@ -12575,7 +12538,7 @@
       let rows = '';
       for (let i = 0; i < pageClusters.length; i++) {
         const c = pageClusters[i];
-        const absIdx = start + i;
+        const absIdx = i;  // pattern 'Voir plus' : on rend toujours depuis 0
         const directionPill = c.direction === 'bullish'
           ? '<span class="pill buy">BULLISH</span>'
           : c.direction === 'bearish'
@@ -12610,17 +12573,21 @@
         </tr>`;
       }
 
-      const pageHint = totalPages > 1
-        ? ` · <strong>Page ${clusterPage + 1} / ${totalPages}</strong> (affichage ${start + 1}-${Math.min(start + CLUSTER_PAGE_SIZE, totalClusters)})`
-        : '';
       const filterHint = clusterTypeFilter === 'buy' ? 'achats nets'
                        : clusterTypeFilter === 'sell' ? 'ventes nettes'
                        : 'tous';
       const generated = data.generatedAt ? new Date(data.generatedAt).toLocaleDateString('fr-FR') : '—';
+      const footerHtml = renderLoadMoreFooter({
+        visible: visibleCount,
+        total: totalClusters,
+        onLoadMore: 'loadMoreClusters()',
+        initialCount: CLUSTERS_INITIAL_COUNT,
+        label: 'clusters',
+      });
 
       area.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-          <span style="color:var(--text-muted);font-size:13px">${clusters.length} cluster${clusters.length > 1 ? 's' : ''} (${filterHint}) sur 90 jours${pageHint}</span>
+          <span style="color:var(--text-muted);font-size:13px">${totalClusters.toLocaleString('fr-FR')} cluster${totalClusters > 1 ? 's' : ''} (${filterHint}) sur 90 jours</span>
           <span class="last-update">Mis a jour le ${generated}</span>
         </div>
         <div class="table-wrap">
@@ -12637,28 +12604,11 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
+        ${footerHtml}
         <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
           Un cluster indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions sur les 90 derniers jours.
           La <strong>direction</strong> reflete le NET en valeur (achat $ - vente $). Cliquez sur une ligne pour voir les noms et detail des transactions.
         </p>`;
-
-        // Mise a jour des paginations haut + bas
-        const updatePag = (topEl, prevId, nextId, infoId) => {
-          if (!topEl) return;
-          if (totalPages > 1) {
-            topEl.style.display = 'flex';
-            const pb = document.getElementById(prevId);
-            const nb = document.getElementById(nextId);
-            const info = document.getElementById(infoId);
-            if (pb) pb.disabled = clusterPage === 0;
-            if (nb) nb.disabled = clusterPage >= totalPages - 1;
-            if (info) info.textContent = `Page ${clusterPage + 1} / ${totalPages}`;
-          } else {
-            topEl.style.display = 'none';
-          }
-        };
-        updatePag(pagTop,    'clusterPrevBtnTop', 'clusterNextBtnTop', 'clusterPageInfoTop');
-        updatePag(pagBottom, 'clusterPrevBtn',    'clusterNextBtn',    'clusterPageInfo');
     }
 
     // Cache des detail transactions par ticker (evite refetch a chaque reouverture)
@@ -16023,6 +15973,9 @@
     // ============================================================
     let screenerResults = [];  // dernier resultset (pour export CSV)
     let screenerActive = false;  // bascule entre mode rapide (KV) et mode avance (D1)
+    // Pattern 'Voir plus' (mai 2026) : 100 resultats par cran, increment a chaque clic
+    const SCREENER_INITIAL_COUNT = 100;
+    let screenerDisplayedCount = SCREENER_INITIAL_COUNT;
 
     function resetScreener() {
       document.getElementById('scrTicker').value = '';
@@ -16068,6 +16021,7 @@
       // scrTableArea (D1 historique). Les filtres rapides + pagination KV
       // sont masques pour eviter la confusion entre les 2 datasets.
       screenerActive = true;
+      screenerDisplayedCount = SCREENER_INITIAL_COUNT;  // reset 'Voir plus'
       const insiderArea = document.getElementById('insiderTableArea');
       const insiderPagTop = document.getElementById('insiderPaginationTop');
       const insiderPagBot = document.getElementById('insiderPagination');
@@ -16179,9 +16133,9 @@
         return `<span title="${s}">${flag}</span>`;
       };
       const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-      const pageSize = 100;
-      const shown = rows.slice(0, pageSize);
-      const hidden = rows.length - shown.length;
+      // Pattern 'Voir plus' : on rend de 0 a screenerDisplayedCount (cumulatif)
+      const visibleCount = Math.min(screenerDisplayedCount, rows.length);
+      const shown = rows.slice(0, visibleCount);
 
       const headers = `
         <tr>
@@ -16210,6 +16164,14 @@
           <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${fmtUsd(r.value)}</td>
         </tr>`).join('');
 
+      const footerHtml = renderLoadMoreFooter({
+        visible: visibleCount,
+        total: rows.length,
+        onLoadMore: 'loadMoreScreener()',
+        initialCount: SCREENER_INITIAL_COUNT,
+        label: 'résultats',
+      });
+
       tableArea.innerHTML = `
         <div class="table-scroll" style="max-height:72vh;overflow:auto">
           <table class="data-table" style="width:100%;border-collapse:collapse">
@@ -16217,8 +16179,14 @@
             <tbody>${body}</tbody>
           </table>
         </div>
-        ${hidden > 0 ? `<div style="padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;background:var(--surface);border-top:1px solid var(--border)">Affichage des ${pageSize} premiers resultats sur ${rows.length}. Exportez en CSV pour tout recuperer.</div>` : ''}
+        ${footerHtml}
       `;
+    }
+
+    // 'Voir plus' pour le screener : ajoute 100 resultats supplementaires
+    function loadMoreScreener() {
+      screenerDisplayedCount += SCREENER_INITIAL_COUNT;
+      renderScreenerTable(screenerResults);
     }
 
     // ============================================================
