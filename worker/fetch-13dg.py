@@ -215,14 +215,35 @@ def parse_13dg_primary_doc(xml_content):
 
 
 def enrich_filing(filing):
-    """Fetch primary_doc.xml d'un filing et ajoute les infos d'ownership."""
-    cik = (filing.get('targetCik') or '').lstrip('0')
+    """Fetch primary_doc.xml d'un filing et ajoute les infos d'ownership.
+
+    BUG FIX (mai 2026) : utilise filerCik en priorite au lieu de targetCik.
+    SEC EDGAR archive les filings sous le CIK du FILER (l'investisseur qui
+    submit, ex: Vanguard) PAS du target (l'entreprise concernee, ex: CCC).
+    L'URL `Archives/edgar/data/{targetCik}/{accession}/primary_doc.xml`
+    renvoyait 404, et l'enrichissement echouait silencieusement -> chips
+    '% capital', 'titres', 'invest.' absents dans le frontend.
+    """
+    filer_cik = (filing.get('filerCik') or '').lstrip('0')
+    target_cik = (filing.get('targetCik') or '').lstrip('0')
     accession = (filing.get('accession') or '').replace('-', '')
-    if not cik or not accession:
+    if not accession or (not filer_cik and not target_cik):
         return filing
-    xml_url = f'https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/primary_doc.xml'
-    xml = fetch(xml_url)
-    parsed = parse_13dg_primary_doc(xml)
+
+    parsed = {}
+    # Priorite 1 : filer CIK (la bonne URL pour SEC)
+    if filer_cik:
+        xml_url = f'https://www.sec.gov/Archives/edgar/data/{filer_cik}/{accession}/primary_doc.xml'
+        xml = fetch(xml_url)
+        parsed = parse_13dg_primary_doc(xml)
+
+    # Fallback : target CIK (au cas ou filerCik n'est pas correct ou si
+    # le filing a ete archive sous le target pour certains filings legacy)
+    if not parsed and target_cik and target_cik != filer_cik:
+        xml_url = f'https://www.sec.gov/Archives/edgar/data/{target_cik}/{accession}/primary_doc.xml'
+        xml = fetch(xml_url)
+        parsed = parse_13dg_primary_doc(xml)
+
     # Merge (sans ecraser les champs existants)
     for k, v in parsed.items():
         if v is not None:
