@@ -310,7 +310,7 @@
       border-bottom: 1px solid var(--border);
     }
     .nav-container { display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .logo-mark {
       width: 40px; height: 40px; min-width: 40px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
@@ -1102,7 +1102,7 @@
       width: 90%;
     }
     .auth-card .logo-mark { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 16px; }
-    .auth-card h2 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; margin-bottom: 8px; }
+    .auth-card h2 { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 24px; margin-bottom: 8px; }
     .auth-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
     .auth-card input {
       width: 100%; padding: 14px 18px;
@@ -1336,7 +1336,7 @@
       filter: drop-shadow(0 2px 8px rgba(59,130,246,0.4));
     }
     .radar-title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       margin: 0 0 4px;
@@ -1421,7 +1421,7 @@
       border-bottom: 1px solid var(--border);
     }
     .radar-connected-title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 18px;
       font-weight: 700;
       color: var(--text-primary);
@@ -1483,7 +1483,7 @@
       margin-bottom: 6px;
     }
     .radar-kpi-value {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       color: var(--text-primary);
@@ -1507,7 +1507,7 @@
     }
     .radar-block-head h4 {
       margin: 0;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 15px;
       font-weight: 700;
       color: var(--text-primary);
@@ -1631,7 +1631,7 @@
     }
     .broker-modal-header h3 {
       margin: 0;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       background: linear-gradient(135deg, #3B82F6, #8B5CF6);
@@ -1748,7 +1748,7 @@
     }
     .broker-back:hover { color: var(--text-primary); }
     .broker-form-title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 18px;
       font-weight: 700;
       color: var(--text-primary);
@@ -2006,7 +2006,7 @@
     }
     .section-page.active { display: block; }
     .section-page h2 {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       margin-bottom: 6px;
@@ -2141,7 +2141,7 @@
       border-radius: 14px; padding: 20px 24px;
     }
     .stat-card .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    .stat-card .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; }
+    .stat-card .stat-value { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 28px; font-weight: 700; }
     .stat-card .stat-value.green { color: var(--accent-green); }
     .stat-card .stat-value.red { color: var(--accent-red); }
 
@@ -2530,7 +2530,7 @@
       position: relative;
     }
     .chart-card h4 {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 13px;
       font-weight: 600;
       color: var(--text-secondary);
@@ -2648,7 +2648,7 @@
       margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
     }
     .hero-card .hero-value {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 32px; font-weight: 800;
       margin-bottom: 4px;
     }
@@ -10026,7 +10026,7 @@
         let xAdj = x;
         if (Math.abs(Math.cos(p.angle)) < 0.15) xAdj = CX;
         return `
-          <text x="${xAdj}" y="${y + 4}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="${palette.label}" font-family="'Space Grotesk', sans-serif" letter-spacing="0.03em">${p.axis.short}</text>
+          <text x="${xAdj}" y="${y + 4}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="${palette.label}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.03em">${p.axis.short}</text>
           <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${p.score}/${p.max}</text>
         `;
       }).join('');
@@ -10090,8 +10090,8 @@
                 ${dots}
                 ${labels}
                 <!-- Score central -->
-                <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="52" font-weight="700" fill="${palette.main}" font-family="'Space Grotesk', sans-serif" letter-spacing="-0.02em">${total}</text>
-                <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="'Space Grotesk', sans-serif" letter-spacing="0.08em">/ 100</text>
+                <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="52" font-weight="700" fill="${palette.main}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="-0.02em">${total}</text>
+                <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.08em">/ 100</text>
               </svg>
             </div>
 
