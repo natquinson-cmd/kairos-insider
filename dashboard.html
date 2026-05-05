@@ -2169,17 +2169,20 @@
 
     /* ===== TABLE ===== */
     .table-wrap {
-      /* FIX sticky thead (mai 2026) : on ne met PAS overflow-x:auto ici car
-         ca cree un scroll context qui piege le sticky thead dedans (le
-         browser traite implicitement overflow-y comme auto, et comme le
-         container n'a pas de hauteur a scroller, le sticky se decale).
-         Resultat : titres de colonnes mal cales, ne suivent pas le scroll
-         de la page. Le scroll horizontal mobile est gere par le body. */
+      /* FIX sticky thead + table large (mai 2026) : 'overflow-x: clip' coupe
+         le debordement horizontal des tables avec min-width:1100px qui
+         depassent du viewport, MAIS sans creer de scroll context (clip ≠
+         hidden/auto/scroll). Donc le sticky thead utilise toujours la window
+         comme parent scrollable et reste figee au scroll. */
+      overflow-x: clip;
       border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card);
     }
     /* Variante Hedge Funds : sticky header pour suivre le scroll de la page */
     .funds-table-wrap {
-      /* Pas d'overflow non plus pour la meme raison : sticky thead figee */
+      overflow-x: clip;
+    }
+    @supports not (overflow-x: clip) {
+      .table-wrap, .funds-table-wrap { overflow-x: hidden; }
     }
     .funds-table-wrap thead th {
       position: sticky;
@@ -2192,18 +2195,18 @@
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
     /* ===== STICKY HEADERS (mai 2026) =====
-       FIX double scroll + thead figee : aucun overflow sur les wraps de
-       tables, sinon le browser cree un scroll context qui piege le sticky
-       thead dedans (overflow-x:auto -> overflow-y traite implicitement
-       comme auto, sticky se cale par rapport au container interne au lieu
-       du viewport).
-       Le sticky thead utilise donc le viewport comme parent scrollable
-       et se cale sous la nav fixe (top: 72px = hauteur nav 16+16 padding
-       + ~40px contenu). Voir thead th plus bas pour le top offset. */
+       overflow-x: clip coupe le debordement horizontal des tables larges
+       (ex: min-width:1100px sur small screens) MAIS sans creer de scroll
+       context, contrairement a overflow:hidden/auto/scroll. Donc le
+       sticky thead reste cale sur le viewport et fige correctement.
+       top: 72px = hauteur nav fixe (padding 16+16 + contenu ~40px). */
     .funds-table-wrap,
     .sig-table-wrap,
     .table-scroll {
-      /* Pas d'overflow : laisse le sticky thead se caler sur le viewport */
+      overflow-x: clip;
+    }
+    @supports not (overflow-x: clip) {
+      .funds-table-wrap, .sig-table-wrap, .table-scroll { overflow-x: hidden; }
     }
 
     /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows.
