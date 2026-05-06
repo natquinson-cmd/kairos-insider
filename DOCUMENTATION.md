@@ -1,7 +1,7 @@
 # 📚 Documentation technique — Kairos Insider
 
 > Documentation complète de la plateforme Kairos Insider.
-> Dernière mise à jour : 04 mai 2026
+> Dernière mise à jour : 06 mai 2026 (§6 Calcul du Kairos Score ajouté)
 
 ---
 
@@ -12,14 +12,15 @@
 3. [Stack technique](#3-stack-technique)
 4. [Pipeline de données](#4-pipeline-de-donn%C3%A9es)
 5. [Structure des données](#5-structure-des-donn%C3%A9es)
-6. [Endpoints API](#6-endpoints-api)
-7. [Authentification & abonnements](#7-authentification--abonnements)
-8. [Sécurité](#8-s%C3%A9curit%C3%A9)
-9. [Observabilité](#9-observabilit%C3%A9)
-10. [Déploiement](#10-d%C3%A9ploiement)
-11. [Secrets & configuration](#11-secrets--configuration)
-12. [Développement local](#12-d%C3%A9veloppement-local)
-13. [Roadmap & évolutions futures](#13-roadmap--%C3%A9volutions-futures)
+6. [Calcul du Kairos Score (8 piliers)](#6-calcul-du-kairos-score-8-piliers)
+7. [Endpoints API](#7-endpoints-api)
+8. [Authentification & abonnements](#8-authentification--abonnements)
+9. [Sécurité](#9-s%C3%A9curit%C3%A9)
+10. [Observabilité](#10-observabilit%C3%A9)
+11. [Déploiement](#11-d%C3%A9ploiement)
+12. [Secrets & configuration](#12-secrets--configuration)
+13. [Développement local](#13-d%C3%A9veloppement-local)
+14. [Roadmap & évolutions futures](#14-roadmap--%C3%A9volutions-futures)
 
 ---
 
@@ -453,7 +454,7 @@ CREATE INDEX idx_anomalies_date_delta ON score_anomalies(date DESC, delta DESC);
 CREATE INDEX idx_anomalies_ticker ON score_anomalies(ticker);
 ```
 
-Cette table stocke les tickers dont le Kairos Score a bougé de ≥20 points entre 2 runs du pipeline `push-scores-to-d1.py`. Le pipeline insère en batch D1 après chaque run et envoie un email HTML à l'admin si ≥1 anomalie ou si le circuit breaker est déclenché. Détail dans §9.6.
+Cette table stocke les tickers dont le Kairos Score a bougé de ≥20 points entre 2 runs du pipeline `push-scores-to-d1.py`. Le pipeline insère en batch D1 après chaque run et envoie un email HTML à l'admin si ≥1 anomalie ou si le circuit breaker est déclenché. Détail dans §10.6.
 
 ### Firebase Realtime Database (`europe-west1`)
 
@@ -482,7 +483,220 @@ Règles de sécurité : chaque user ne peut lire/écrire que ses propres donnée
 
 ---
 
-## 6. Endpoints API
+## 6. Calcul du Kairos Score (8 piliers)
+
+Le **Kairos Score** est un score composite **0-100** qui synthétise 8 dimensions complémentaires du « smart money ». Calculé en temps réel par `computeKairosScore()` dans [`worker/src/stock-api.js:2205`](worker/src/stock-api.js).
+
+### 6.1 Architecture du score
+
+**Poids par défaut** (`SCORE_BASE_MAX`, [`stock-api.js:2121`](worker/src/stock-api.js)) — somme = 100 :
+
+| Pilier | Clé interne | Poids | Label affiché |
+|---|---|---:|---|
+| Initiés (Form 4 SEC + BaFin + AMF) | `insider` | **20** | Signal des initiés |
+| Hedge funds (13F + thresholds EU) | `smartMoney` | **20** | Hedge funds (13F) |
+| Politiciens & gourous (16 ETF) | `govGuru` | **10** | Politiciens & gourous |
+| Momentum cours | `momentum` | **15** | Momentum du cours |
+| Valorisation | `valuation` | **10** | Valorisation |
+| Consensus analystes | `analyst` | **10** | Consensus analystes |
+| Santé financière | `health` | **10** | Santé financière |
+| Earnings (beats/misses) | `earnings` | **5** | Momentum résultats |
+
+Les poids sont **personnalisables** par admin via le panneau "Pondération Kairos Score" → écrit dans `KV config:score-weights`. Le calcul utilise `applyWeight(axis, rawScore)` qui normalise le score brut sur `SCORE_BASE_MAX[axis]` puis multiplie par le poids custom :
+
+```js
+applyWeight = (axis, rawScore) => {
+  const baseMax = SCORE_BASE_MAX[axis];
+  const normalized = Math.max(0, Math.min(1, rawScore / baseMax));
+  return Math.round(normalized * W[axis]);
+};
+```
+
+### 6.2 Flag `dataOk` par pilier
+
+Avant le calcul, chaque pilier reçoit un booléen `dataOk` qui indique si la source a effectivement remonté des données. Si `false`, le score retombe sur sa baseline neutre (typiquement 50 % du max), ce qui peut générer un faux signal positif/négatif si l'ancien score était élevé/bas.
+
+```js
+hasInsiderData    = (buyCount + sellCount + uniqueInsiders) > 0
+hasSmartMoneyData = fundCount > 0 OU euTotalFilings > 0   // EU thresholds inclus
+hasGovGuruData    = inEtfs.length > 0                     // ETF politiques/gourous
+hasMomentumData   = current && high52w && low52w           // 3 prix Yahoo OK
+hasValuationData  = peRatio || forwardPE                   // au moins un PE
+hasAnalystData    = consensus.total > 0 || targetMeanPrice
+hasHealthData     = altmanZ != null || piotroskiF != null
+hasEarningsData   = earnings.history.length > 0
+```
+
+Voir §10.6 pour les **5 garde-fous anti-mouvements artificiels** qui exploitent `dataOk`.
+
+### 6.3 Formules détaillées (8 piliers)
+
+#### Pilier 1 — Insider (raw 0-20)
+
+```js
+let insiderScore = 10;  // baseline neutre
+const totalNet  = netValueUsd + netValueEur;       // somme signée USD+EUR
+const buyVsSell = buyCount - sellCount;
+if (totalNet > 0)  insiderScore += min(6, log10(|totalNet|+1) * 1.5);   // volume buys
+if (totalNet < 0)  insiderScore -= min(6, log10(|totalNet|+1) * 1.5);   // volume sells
+if (buyVsSell > 0) insiderScore += min(2, buyVsSell * 0.4);              // ratio buys
+if (buyVsSell < 0) insiderScore -= min(2, |buyVsSell| * 0.4);            // ratio sells
+if (clusterSignal)        insiderScore += 3;        // ≥3 acheteurs uniques sur 30j
+if (uniqueInsiders >= 5)  insiderScore += 1;        // diversité signal
+```
+
+**Plage théorique** : 0 (saturée) à 20 (max bullish). La pénalité capping à `min(6, ...)` empêche les signaux extrêmes — un single Form 4 vente $500M et $5M produisent le même score.
+
+**Cluster signal** : ≥3 insiders distincts achetant sur 30 jours = boost +3pt.
+
+#### Pilier 2 — Smart Money (raw 0-20)
+
+```js
+let smScore = 10;
+// 13F US
+if (fundCount >= 1)         smScore += min(6, fundCount * 0.5);
+if (avgDeltaPct > 5)        smScore += 4;     // hedge funds renforcent fort
+else if (avgDeltaPct > 0)   smScore += 2;
+else if (avgDeltaPct < -5)  smScore -= 4;
+else if (avgDeltaPct < 0)   smScore -= 2;
+// Thresholds EU (BaFin/AMF/FCA/AFM/SIX/CONSOB/CNMV/Nordics)
+if (euTotal > 0)       smScore += min(4, euTotal * 0.3);     // up to +4
+if (euActivists > 0)   smScore += min(3, euActivists);       // boost activistes
+if (euRecent >= 3)     smScore += 2;                          // momentum 7j
+```
+
+**Particularité EU** : pour les actions européennes (où le 13F US est souvent vide), les filings AMF/FCA/SIX/AFM/BaFin remontent les positions des grands institutionnels (BlackRock, Norges Bank, Vanguard) et activistes (TCI, Cevian, Elliott…).
+
+#### Pilier 3 — Gov / Guru (raw 0-10)
+
+```js
+let ggScore = 5;
+if (inEtfs.length > 0)  ggScore += inEtfs.length * 1.5;  // chaque ETF = +1.5
+if (totalPct > 1)       ggScore += 1;                     // exposition cumulée >1%
+```
+
+ETF suivis : NANC/GOP (politiques US), GURU/ARKK/BUZZ/MEME (smart money + retail), JEPI/JEPQ (income), ITA/URA/UFO/MJ (thématiques), MOAT/DSTL/MTUM (convictions), PXF/PID (international).
+
+#### Pilier 4 — Momentum cours (raw 0-15) — *cf §6.4 pour analyse approfondie*
+
+```js
+let momScore = 7;  // baseline = mid-range si pas de données
+if (current && high52w && low52w) {
+  const positionInRange = (current - low52w) / (high52w - low52w);  // 0..1
+  momScore = round(positionInRange * 15);            // 0 = bottom, 15 = top
+}
+if (changePct > 2)   momScore = min(15, momScore + 2);   // boost intra-jour
+if (changePct < -2)  momScore = max(0,  momScore - 2);   // pénalité crash
+```
+
+**Lecture rapide** :
+
+| Raw score | Signification |
+|---:|---|
+| 0 | Cours = plus-bas 52 sem. (déprime totale) |
+| 7 | Mid-range OU `dataOk=false` (Yahoo down) |
+| 11 | ~75 % du range, proche du high |
+| 15 | Cours = plus-haut 52 sem. + day-to-day positif |
+
+#### Pilier 5 — Valorisation (raw 0-10)
+
+```js
+let valScore = 5;
+if (peRatio > 0) {
+  if (peRatio < 15)       valScore += 3;   // décotée
+  else if (peRatio < 25)  valScore += 1;   // OK
+  else if (peRatio > 40)  valScore -= 2;   // chère
+}
+if (forwardPE && peRatio && forwardPE < peRatio)  valScore += 1;  // BPA en hausse
+```
+
+**Limite connue** : ne tient pas compte du secteur (PE = 25 normal pour tech, élevé pour banque). Évolution prévue : ratios sectoriels.
+
+#### Pilier 6 — Consensus analystes (raw 0-10)
+
+```js
+let anaScore = 5;
+if (consensus.total > 0) {
+  anaScore = round(bullishPct / 10);  // 0..10 (% strong-buy + buy / total)
+} else if (targetMeanPrice && current) {
+  // Fallback : objectif moyen vs prix actuel
+  const upside = (targetMeanPrice - current) / current * 100;
+  if (upside > 20)  anaScore = 9;
+  else if (upside > 10)  anaScore = 7;
+  else if (upside > 0)   anaScore = 6;
+  else if (upside > -10) anaScore = 4;
+  else                   anaScore = 2;
+}
+```
+
+**Source primaire** : `consensus` synthétisé depuis Zonebourse (fonction `synthesizeConsensus()`, [`stock-api.js:2160`](worker/src/stock-api.js)) qui transforme la note gauge 0-10 en distribution `(strongBuy, buy, hold, sell, strongSell)`. Fallback : `targetMeanPrice` de stockanalysis.com.
+
+#### Pilier 7 — Santé financière (raw 0-10)
+
+Combine **Altman Z-Score** (risque de faillite) et **Piotroski F-Score** (qualité fondamentale).
+
+```js
+let healthScore = 5;
+// Altman Z-Score (formule classique)
+if (altmanZ > 2.99)        healthScore += 3;    // sain
+else if (altmanZ > 1.81)   healthScore += 0;    // gris
+else                       healthScore -= 3;    // détresse
+// Piotroski F-Score (0-9)
+if (piotroskiF >= 7)       healthScore += 3;    // solide
+else if (piotroskiF >= 4)  healthScore += 0;    // moyen
+else                       healthScore -= 2;    // faible
+```
+
+#### Pilier 8 — Earnings momentum (raw 0-5)
+
+```js
+let earnScore = 2;  // baseline
+const last4 = earnings.history.slice(0, 4);
+const beats = last4.filter(x => x.beat).length;
+if (last4.length > 0) {
+  earnScore = round(beats / last4.length * 5);  // 0..5 selon ratio beats
+}
+```
+
+Source : `earnings.history` (4 derniers trimestres reportés par stockanalysis.com avec `beat: bool`).
+
+### 6.4 Cas concret — pourquoi un score peut "phantom-rise"
+
+Le **bug LBTY** illustré le 6 mai 2026 :
+
+| Date | total | insider |
+|---|---:|---:|
+| 04/25 | 52 | **3** ← vraie pénalité ventes |
+| 04/28 | 60 | **10** ← phantom-rise (fallback neutre) |
+| 05/02 | 64 | 10 |
+| 05/06 | 62 | 10 |
+
+**Mécanique du bug** : entre 04/25 et 04/28, le pipeline a snapshoté `insider=10` (= baseline neutre signifiant "pas de données"). Le sub-score est resté figé à 10 pendant une semaine, alors que les vraies transactions insider montraient des ventes massives.
+
+**Cause racine** : `apply_last_known_good_fallback()` dans [`push-scores-to-d1.py:222`](worker/push-scores-to-d1.py) ne se déclenchait que dans une seule direction (`old > new`). Quand `dataOk=False` faisait remonter le score (4 → 10), le fallback ne s'activait pas.
+
+**Fix (commit `f36c34d`, mai 2026)** : déclenchement bidirectionnel — quand `dataOk=False`, on garde toujours l'ancien sous-score peu importe le sens de la variation. Voir §10.6 pour le détail.
+
+### 6.5 Calcul du delta affiché ("vs date X")
+
+Le widget "Activité récente" du dashboard affiche `(now, previous, delta, contributions)`. La logique vit dans [`worker/src/index.js:1871`](worker/src/index.js) (`handleTickerActivity`) :
+
+1. Charge les 20 derniers snapshots `score_history` pour le ticker
+2. `now` = ligne la plus récente
+3. `prev` = première ligne ≤ `now.date - days` (default 7j) — fallback : ligne la plus ancienne
+4. Pour chaque pilier `(insider, smart_money, …, earnings)` : calcule `delta = now[k] - prev[k]`
+5. Renvoie **toutes les 8 dimensions** (même `delta=0`) au dashboard pour permettre la recompute live
+
+Le dashboard ([`dashboard.html:9335`](dashboard.html)) **recalcule le delta live** : il remplace `now` par le sub-score live (`liveBreakdown[axis].score`) puis re-trie les contributions par `|delta|` desc. Ce double calcul permet de surfacer un signal qui aurait été masqué par un snapshot D1 défectueux (cf bug LBTY §6.4).
+
+**Helper text généré** : sépare drivers (même sens que `delta` total) et offsetters (sens inverse) pour éviter l'incohérence "Cette baisse vient de Momentum (+2pt)" :
+
+> Cette baisse vient principalement de **Initiés (-6pt)** et **Santé financière (-3pt)**.
+> Partiellement compensée par **Momentum cours (+2pt)**.
+
+---
+
+## 7. Endpoints API
 
 URL de base : `https://kairos-insider-api.natquinson.workers.dev` (alias `kairosinsider.fr`).
 
@@ -506,7 +720,7 @@ Réservées au pipeline GitHub Actions. Non exposées publiquement.
 
 | Endpoint | Usage |
 |---|---|
-| `GET /internal/score/:ticker` | Score complet + breakdown des 8 piliers (payload minimal). Utilisé par `push-scores-to-d1.py` pour stocker la décomposition détaillée en D1. Retourne `{ ticker, updatedAt, score: { total, signal, breakdown } }`. Ajouté le 24 avril 2026 (cf. §9.6 — garde-fous anti-mouvements artificiels). |
+| `GET /internal/score/:ticker` | Score complet + breakdown des 8 piliers (payload minimal). Utilisé par `push-scores-to-d1.py` pour stocker la décomposition détaillée en D1. Retourne `{ ticker, updatedAt, score: { total, signal, breakdown } }`. Ajouté le 24 avril 2026 (cf. §10.6 — garde-fous anti-mouvements artificiels). |
 
 ### Routes authentifiées (JWT Firebase requis)
 
@@ -577,7 +791,7 @@ Toutes les routes `/api/*` et `/stripe/*` demandent un header `Authorization: Be
 
 ---
 
-## 7. Authentification & abonnements
+## 8. Authentification & abonnements
 
 ### Flux d'inscription
 
@@ -642,7 +856,7 @@ Pour conformité comptable, les factures émises restent conservées 10 ans chez
 
 ---
 
-## 8. Sécurité
+## 9. Sécurité
 
 Récapitulatif des mesures en place (cf. Priorité 1 de la roadmap).
 
@@ -713,11 +927,11 @@ Le code a été audité :
 
 ---
 
-## 9. Observabilité
+## 10. Observabilité
 
 Ajoutée en avril 2026 (Priorité 3). Vise à détecter proactivement les problèmes.
 
-### 9.1 Health check quotidien
+### 10.1 Health check quotidien
 
 Fonction `runHealthCheck(env)` lancée via le cron Worker à 4h UTC :
 1. Liste tous les `lastRun:*` dans KV + `wl-last-cron-run`
@@ -729,7 +943,7 @@ Fonction `runHealthCheck(env)` lancée via le cron Worker à 4h UTC :
 4. Cooldown 20h pour éviter le spam (1 alerte max par cycle d'attention)
 5. Stocke le résultat dans `health:last-check` (accessible via endpoint admin)
 
-### 9.2 Error tracking
+### 10.2 Error tracking
 
 **Helper `logError(env, err, context)`** stocke les exceptions dans KV :
 - Liste rotative FIFO de 100 dernières (`err:list`, TTL 30j)
@@ -740,7 +954,7 @@ Fonction `runHealthCheck(env)` lancée via le cron Worker à 4h UTC :
 
 **Cron wrappers** : `ctx.waitUntil(runX().catch(err => logError(env, err, {...})))` — aucune erreur silencieuse.
 
-### 9.3 Logs structurés JSON
+### 10.3 Logs structurés JSON
 
 **Helper `log.info/warn/error(event, context)`** produit du JSON uniforme :
 ```json
@@ -755,7 +969,7 @@ Events nommés en dot-notation (namespacing clair) :
 
 **Compatible Cloudflare Logpush** : quand le volume le justifiera (~1000 users+), activer Logpush vers **R2** (archive) ou **BigQuery** (queries SQL) sans refonte de code. Le refactor amont (JSON vs string) coûte zéro et débloque tout.
 
-### 9.4 Dashboard admin
+### 10.4 Dashboard admin
 
 Accessible à `natquinson@gmail.com` via `dashboard.html#admin`. Sections :
 - **KPIs globaux** : utilisateurs, subs actifs, visites 7j, jobs OK
@@ -765,7 +979,7 @@ Accessible à `natquinson@gmail.com` via `dashboard.html#admin`. Sections :
 - **Jobs & Cron** : statut des 12 scripts Python + bouton trigger manuel
 - **Suivi d'erreurs** : KPIs aujourd'hui/7j/total + sparkline + 20 dernières avec stack trace
 
-### 9.5 Google Analytics 4 (admin)
+### 10.5 Google Analytics 4 (admin)
 
 Intégration native via **Data API** (pas de tracking côté Worker, juste de la consultation admin) :
 - **JWT RS256** signé avec la clé privée du service account (Web Crypto API)
@@ -773,7 +987,7 @@ Intégration native via **Data API** (pas de tracking côté Worker, juste de la
 - Queries parallèles (runReport x4) pour KPIs + série + top pages + sources
 - Secret : `GA4_SERVICE_ACCOUNT_JSON`, `GA4_PROPERTY_ID`
 
-### 9.6 Garde-fous anti-mouvements artificiels Kairos Score (avril 2026)
+### 10.6 Garde-fous anti-mouvements artificiels Kairos Score (avril 2026)
 
 **Problème résolu** : un ticker pouvait bondir de +20 à +23 points en une nuit sans event réel, à cause du comportement "best-effort" du pipeline : quand une API source (Yahoo, StockAnalysis, SEC EDGAR) timeout, le sous-score correspondant retombait à sa **valeur neutre par défaut** (ex: insider = 10/20). Le lendemain, API revenue → rattrapage de 10-15 points d'un coup, ressemblant à un signal smart money alors que c'était juste de la re-hydratation.
 
@@ -880,7 +1094,7 @@ Ce même secret `KAIROS_ADMIN_API_KEY` est utilisé par le workflow `daily-tweet
 
 ---
 
-## 10. Déploiement
+## 11. Déploiement
 
 ### Déploiement du Worker
 
@@ -925,7 +1139,7 @@ URL de prod : `https://kairosinsider.fr` (pointé sur GitHub Pages via CNAME).
 
 ---
 
-## 11. Secrets & configuration
+## 12. Secrets & configuration
 
 ### Secrets du Worker
 
@@ -976,7 +1190,7 @@ Directement dans la console Firebase (pas de CLI) :
 
 ---
 
-## 12. Développement local
+## 13. Développement local
 
 ### Prérequis
 
@@ -1040,7 +1254,7 @@ Affiche les `console.log` en temps réel.
 
 ---
 
-## 13. Roadmap & évolutions futures
+## 14. Roadmap & évolutions futures
 
 Cf. `ROADMAP.md` pour le détail.
 
@@ -1074,7 +1288,7 @@ Cf. `ROADMAP.md` pour le détail.
 - Phase C : home dashboard "Top signaux du jour"
 
 **Fiabilité pipeline Kairos Score (24 avril 2026)** — 100%
-- 5 garde-fous anti-mouvements artificiels (cf. §9.6) :
+- 5 garde-fous anti-mouvements artificiels (cf. §10.6) :
   1. Stockage des 8 sous-scores en D1 via endpoint interne `/internal/score/:ticker`
   2. Sanity check delta ≥20 pts + email admin + table `score_anomalies`
   3. Fallback "last known good" par pilier (flag `dataOk` dans `computeKairosScore`)
