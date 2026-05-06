@@ -10165,6 +10165,41 @@
         healthBankruptcy: t('stock.health.bankruptcyRisk', 'risque de faillite 2 ans. > 2.99 sûr · 1.81–2.99 gris · < 1.81 détresse'),
         realtimePrice: t('stock.helper.realtimePrice', '❌ Prix temps réel'),
         intradaySession: t('stock.helper.intradaySession', 'sur la séance'),
+        // ===== Wave 3 =====
+        coFounded: t('stock.company.founded', 'Fondée en'),
+        coHeadquarters: t('stock.company.headquarters', 'Siège'),
+        coEmployees: t('stock.company.employees', 'Employés'),
+        coMarket: t('stock.company.market', 'Marché'),
+        actExits: t('stock.activity.exits', 'Sorties complètes'),
+        actIncreased: t('stock.activity.increased', 'Renforcées (+20%)'),
+        actDecreased: t('stock.activity.decreased', 'Réduites (-20%)'),
+        googleInterest: t('stock.label.googleInterest', 'Intérêt Google'),
+        consSplit: t('stock.consensus.split', 'partagé'),
+        consBullishLabel: t('stock.consensus.bullishLabel', 'haussiers'),
+        sentVeryBullish: t('stock.sentiment.veryBullish', 'Très haussier'),
+        sentBullish: t('stock.sentiment.bullish', 'Haussier'),
+        sentMixed: t('stock.sentiment.mixed', 'Mitigé'),
+        sentBearish: t('stock.sentiment.bearish', 'Baissier'),
+        sentVeryBearish: t('stock.sentiment.veryBearish', 'Très baissier'),
+        zoneSafe: t('stock.healthZone.safe', 'SAINE'),
+        zoneGrey: t('stock.healthZone.grey', 'ZONE GRISE'),
+        zoneDistress: t('stock.healthZone.distress', 'DÉTRESSE'),
+        rateCheap: t('stock.rate.cheap', 'Bon marché'),
+        rateGood: t('stock.rate.good', 'Bon'),
+        rateNeutral: t('stock.rate.neutral', 'Neutre'),
+        rateExpensive: t('stock.rate.expensive', 'Cher'),
+        rateVeryExpensive: t('stock.rate.veryExpensive', 'Très cher'),
+        rateHigh: t('stock.rate.high', 'Élevé'),
+        rateVeryHigh: t('stock.rate.veryHigh', 'Très élevé'),
+        rateUndervalued: t('stock.rate.undervalued', 'Sous-évalué'),
+        rateFairPrice: t('stock.rate.fairPrice', 'Juste prix'),
+        rateOvervalued: t('stock.rate.overvalued', 'Surévalué'),
+        rateDefensive: t('stock.rate.defensive', 'Défensif'),
+        rateMarket: t('stock.rate.market', 'Marché'),
+        rateVolatile: t('stock.rate.volatile', 'Volatile'),
+        rateNone: t('stock.rate.none', 'Aucun'),
+        rateWeak: t('stock.rate.weak', 'Faible'),
+        rateFair: t('stock.rate.fair', 'Correct'),
       };
 
       // Fallback : si company.name est absent mais qu'on connait le ticker dans
@@ -10259,7 +10294,7 @@
               ${coverage.news ? '<span style="color:#10B981;margin-right:10px">✅ News</span>' : ''}
               <br>
               <strong>Non disponible :</strong>
-              ${!coverage.price ? '<span style="color:var(--text-muted);margin-right:10px">❌ Prix temps réel</span>' : ''}
+              ${!coverage.price ? `<span style="color:var(--text-muted);margin-right:10px">${L.realtimePrice}</span>` : ''}
               ${!coverage.fundamentals ? '<span style="color:var(--text-muted);margin-right:10px">❌ Fondamentaux / ratios</span>' : ''}
               ${!coverage.hedgeFunds ? '<span style="color:var(--text-muted);margin-right:10px">❌ Hedge funds 13F (US only)</span>' : ''}
               ${!coverage.etf ? '<span style="color:var(--text-muted);margin-right:10px">❌ ETF politiciens (US only)</span>' : ''}
@@ -10310,10 +10345,10 @@
             <div style="font-size:13px;opacity:0.6;margin-bottom:14px">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 20px">
               ${infoRow('PDG', company.ceo)}
-              ${infoRow('Fondée en', company.founded)}
-              ${infoRow('Siège', company.headquarters)}
+              ${infoRow(L.coFounded, company.founded)}
+              ${infoRow(L.coHeadquarters, company.headquarters)}
               ${infoRow('Introduction en bourse', company.ipoDate)}
-              ${company.employees ? infoRow('Employés', fmtBig(company.employees) + (company.employeesGrowth != null ? ` <span style="font-size:11px;color:${company.employeesGrowth>0?'#2ecc71':'#ff7675'}">(${company.employeesGrowth>0?'+':''}${company.employeesGrowth.toFixed(1)}% / an)</span>` : '')) : ''}
+              ${company.employees ? infoRow(L.coEmployees, fmtBig(company.employees) + (company.employeesGrowth != null ? ` <span style="font-size:11px;color:${company.employeesGrowth>0?'#2ecc71':'#ff7675'}">(${company.employeesGrowth>0?'+':''}${company.employeesGrowth.toFixed(1)}% / an)</span>` : '')) : ''}
               ${infoRow('Exercice fiscal', company.fiscalYearEnd)}
               ${company.website ? `<div style="font-size:12px"><span style="opacity:0.55">Site :</span> <a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff">${company.website.replace(/^https?:\/\//,'').replace(/\/$/,'')}</a></div>` : ''}
             </div>
@@ -10323,7 +10358,7 @@
             <div style="color:${changeColor};font-size:16px;margin-top:4px">
               ${changePct != null ? `${changeSign}${changePct.toFixed(2)}%` : '—'}
               ${price.change != null ? ` <span style="opacity:0.7;font-size:13px">(${changeSign}${fmtCurr(price.change)})</span>` : ''}
-              <span style="font-size:11px;opacity:0.55;margin-left:4px">sur la séance</span>
+              <span style="font-size:11px;opacity:0.55;margin-left:4px">${L.intradaySession}</span>
             </div>
 
             <!-- Tableau de performance multi-horizon -->
@@ -10549,16 +10584,16 @@
               const rate = (val, type) => {
                 if (val == null) return { color: 'var(--text-muted)', bg: 'rgba(156,163,175,0.08)', label: '—', tooltip: '' };
                 const thresholds = {
-                  pe:        [{ max: 15, c: '#2ecc71', l: 'Bon marché', tip: 'P/E < 15 = peu cher' }, { max: 25, c: '#9CA3AF', l: 'Neutre', tip: 'P/E entre 15 et 25 = valorisation moyenne' }, { max: 40, c: '#f39c12', l: 'Cher', tip: 'P/E entre 25 et 40 = valorisation élevée' }, { max: 1e9, c: '#e74c3c', l: 'Très cher', tip: 'P/E > 40 = valorisation très élevée' }],
-                  ps:        [{ max: 2, c: '#2ecc71', l: 'Bon', tip: 'P/S < 2 = sous-évalué vs ventes' }, { max: 5, c: '#9CA3AF', l: 'Neutre', tip: 'P/S entre 2 et 5 = juste prix' }, { max: 10, c: '#f39c12', l: 'Élevé', tip: 'P/S entre 5 et 10 = cher vs ventes' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: 'P/S > 10 = très cher vs ventes' }],
-                  pb:        [{ max: 1.5, c: '#2ecc71', l: 'Bon', tip: 'P/B < 1.5 = sous-évalué vs actif net' }, { max: 3, c: '#9CA3AF', l: 'Neutre', tip: 'P/B entre 1.5 et 3' }, { max: 5, c: '#f39c12', l: 'Élevé', tip: 'P/B entre 3 et 5 = cher vs actif' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: 'P/B > 5' }],
-                  pfcf:      [{ max: 15, c: '#2ecc71', l: 'Bon', tip: 'P/FCF < 15 = bon flux de trésorerie' }, { max: 25, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 40, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
-                  evEbitda:  [{ max: 10, c: '#2ecc71', l: 'Bon', tip: 'EV/EBITDA < 10 = peu cher' }, { max: 15, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 25, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
-                  evSales:   [{ max: 3, c: '#2ecc71', l: 'Bon', tip: '' }, { max: 6, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 12, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
-                  evFcf:     [{ max: 20, c: '#2ecc71', l: 'Bon', tip: '' }, { max: 35, c: '#9CA3AF', l: 'Neutre', tip: '' }, { max: 60, c: '#f39c12', l: 'Élevé', tip: '' }, { max: 1e9, c: '#e74c3c', l: 'Très élevé', tip: '' }],
-                  peg:       [{ max: 1, c: '#2ecc71', l: 'Sous-évalué', tip: 'PEG < 1 = sous-évalué vs croissance' }, { max: 2, c: '#9CA3AF', l: 'Juste prix', tip: 'PEG entre 1 et 2' }, { max: 1e9, c: '#e74c3c', l: 'Surévalué', tip: 'PEG > 2 = trop cher vs croissance' }],
-                  beta:      [{ max: 0.7, c: '#3498db', l: 'Défensif', tip: 'Beta < 0.7 = moins volatile que le marché' }, { max: 1.3, c: '#9CA3AF', l: 'Marché', tip: 'Beta proche de 1 = bouge comme le marché' }, { max: 1e9, c: '#f39c12', l: 'Volatile', tip: 'Beta > 1.3 = plus volatile que le marché' }],
-                  divYield:  [{ max: 0.01, c: 'var(--text-muted)', l: 'Aucun', tip: '' }, { max: 0.02, c: '#9CA3AF', l: 'Faible', tip: '' }, { max: 0.05, c: '#52b788', l: 'Correct', tip: '' }, { max: 1e9, c: '#2ecc71', l: 'Élevé', tip: 'Dividende > 5% = haut rendement' }],
+                  pe:        [{ max: 15, c: '#2ecc71', l: L.rateCheap, tip: 'P/E < 15 = peu cher' }, { max: 25, c: '#9CA3AF', l: L.rateNeutral, tip: 'P/E entre 15 et 25 = valorisation moyenne' }, { max: 40, c: '#f39c12', l: L.rateExpensive, tip: 'P/E entre 25 et 40 = valorisation élevée' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryExpensive, tip: 'P/E > 40 = valorisation très élevée' }],
+                  ps:        [{ max: 2, c: '#2ecc71', l: L.rateGood, tip: 'P/S < 2 = sous-évalué vs ventes' }, { max: 5, c: '#9CA3AF', l: L.rateNeutral, tip: 'P/S entre 2 et 5 = juste prix' }, { max: 10, c: '#f39c12', l: L.rateHigh, tip: 'P/S entre 5 et 10 = cher vs ventes' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: 'P/S > 10 = très cher vs ventes' }],
+                  pb:        [{ max: 1.5, c: '#2ecc71', l: L.rateGood, tip: 'P/B < 1.5 = sous-évalué vs actif net' }, { max: 3, c: '#9CA3AF', l: L.rateNeutral, tip: 'P/B entre 1.5 et 3' }, { max: 5, c: '#f39c12', l: L.rateHigh, tip: 'P/B entre 3 et 5 = cher vs actif' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: 'P/B > 5' }],
+                  pfcf:      [{ max: 15, c: '#2ecc71', l: L.rateGood, tip: 'P/FCF < 15 = bon flux de trésorerie' }, { max: 25, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 40, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  evEbitda:  [{ max: 10, c: '#2ecc71', l: L.rateGood, tip: 'EV/EBITDA < 10 = peu cher' }, { max: 15, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 25, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  evSales:   [{ max: 3, c: '#2ecc71', l: L.rateGood, tip: '' }, { max: 6, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 12, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  evFcf:     [{ max: 20, c: '#2ecc71', l: L.rateGood, tip: '' }, { max: 35, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 60, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  peg:       [{ max: 1, c: '#2ecc71', l: L.rateUndervalued, tip: 'PEG < 1 = sous-évalué vs croissance' }, { max: 2, c: '#9CA3AF', l: L.rateFairPrice, tip: 'PEG entre 1 et 2' }, { max: 1e9, c: '#e74c3c', l: L.rateOvervalued, tip: 'PEG > 2 = trop cher vs croissance' }],
+                  beta:      [{ max: 0.7, c: '#3498db', l: L.rateDefensive, tip: 'Beta < 0.7 = moins volatile que le marché' }, { max: 1.3, c: '#9CA3AF', l: L.rateMarket, tip: 'Beta proche de 1 = bouge comme le marché' }, { max: 1e9, c: '#f39c12', l: L.rateVolatile, tip: 'Beta > 1.3 = plus volatile que le marché' }],
+                  divYield:  [{ max: 0.01, c: 'var(--text-muted)', l: L.rateNone, tip: '' }, { max: 0.02, c: '#9CA3AF', l: L.rateWeak, tip: '' }, { max: 0.05, c: '#52b788', l: L.rateFair, tip: '' }, { max: 1e9, c: '#2ecc71', l: L.rateHigh, tip: 'Dividende > 5% = haut rendement' }],
                 };
                 const t = thresholds[type];
                 if (!t) return { color: 'var(--text-primary)', bg: 'rgba(255,255,255,0.05)', label: '', tooltip: '' };
@@ -10723,7 +10758,7 @@
               const neutPct = (consensus.hold / tot) * 100;
               // Couleur dominante
               const sentColor = bullPct >= 65 ? '#2ecc71' : bullPct >= 45 ? '#74b9ff' : bullPct >= 30 ? '#f39c12' : '#e74c3c';
-              const sentLabel = bullPct >= 75 ? 'Très haussier' : bullPct >= 55 ? 'Haussier' : bullPct >= 40 ? 'Mitigé' : bullPct >= 25 ? 'Baissier' : 'Très baissier';
+              const sentLabel = bullPct >= 75 ? L.sentVeryBullish : bullPct >= 55 ? L.sentBullish : bullPct >= 40 ? L.sentMixed : bullPct >= 25 ? L.sentBearish : L.sentVeryBearish;
               // Objectif de cours
               const target = fund.targetMeanPrice;
               const upside = (target && price.current) ? ((target - price.current) / price.current) * 100 : null;
@@ -10732,13 +10767,23 @@
               // Synthese textuelle dynamique
               let narrative = '';
               if (bullPct >= 75) {
-                narrative = `Les analystes sont <strong style="color:#2ecc71">très majoritairement haussiers</strong> (${consensus.strongBuy + consensus.buy}/${tot}).`;
+                narrative = t('stock.consensus.narrative.veryBullish', 'Les analystes sont <strong style="color:#2ecc71">très majoritairement haussiers</strong> ({n}/{tot}).')
+                  .replace('{n}', consensus.strongBuy + consensus.buy)
+                  .replace('{tot}', tot);
               } else if (bullPct >= 55) {
-                narrative = `Une <strong style="color:#52b788">majorité</strong> d'analystes recommande l'achat${consensus.hold > 0 ? `, mais ${consensus.hold} restent prudents` : ''}.`;
+                narrative = t('stock.consensus.narrative.bullish', "Une <strong style=\"color:#52b788\">majorité</strong> d'analystes recommande l'achat{cautious}.")
+                  .replace('{cautious}', consensus.hold > 0
+                    ? t('stock.consensus.narrative.bullishCautious', ', mais {hold} restent prudents').replace('{hold}', consensus.hold)
+                    : '');
               } else if (bullPct >= 40) {
-                narrative = `Le consensus est <strong style="color:#74b9ff">partagé</strong>${consensus.hold > 0 ? `, avec ${consensus.hold} analystes en position d'attente` : ''}.`;
+                narrative = t('stock.consensus.narrative.split', 'Le consensus est <strong style="color:#74b9ff">partagé</strong>{wait}.')
+                  .replace('{wait}', consensus.hold > 0
+                    ? t('stock.consensus.narrative.splitWait', ", avec {hold} analystes en position d'attente").replace('{hold}', consensus.hold)
+                    : '');
               } else if (bullPct >= 25) {
-                narrative = `Une <strong style="color:#f39c12">majorité prudente</strong> : ${consensus.hold + consensus.sell + consensus.strongSell}/${tot} analystes ne recommandent pas l'achat.`;
+                narrative = t('stock.consensus.narrative.cautious', "Une <strong style=\"color:#f39c12\">majorité prudente</strong> : {n}/{tot} analystes ne recommandent pas l'achat.")
+                  .replace('{n}', consensus.hold + consensus.sell + consensus.strongSell)
+                  .replace('{tot}', tot);
               } else {
                 narrative = `Les analystes sont <strong style="color:#e74c3c">majoritairement baissiers</strong> (${consensus.sell + consensus.strongSell}/${tot} avis négatifs).`;
               }
@@ -10751,7 +10796,7 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
                   <div style="padding:14px;background:linear-gradient(135deg,${sentColor}20,${sentColor}08);border:1px solid ${sentColor}40;border-radius:10px">
                     <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">Sentiment global</div>
-                    <div style="font-size:22px;font-weight:700;color:${sentColor};line-height:1.1">${bullPct.toFixed(0)}% <span style="font-size:13px;opacity:0.7">haussiers</span></div>
+                    <div style="font-size:22px;font-weight:700;color:${sentColor};line-height:1.1">${bullPct.toFixed(0)}% <span style="font-size:13px;opacity:0.7">${L.consBullishLabel}</span></div>
                     <div style="font-size:11px;color:${sentColor};margin-top:4px;font-weight:600">${sentLabel}</div>
                   </div>
                   ${target ? `
@@ -10913,7 +10958,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
               ${health.altmanZ != null ? (() => {
                 const zoneCol = health.altmanZone === 'safe' ? '#2ecc71' : health.altmanZone === 'grey' ? '#f39c12' : '#e74c3c';
-                const zoneTxt = health.altmanZone === 'safe' ? 'SAINE' : health.altmanZone === 'grey' ? 'ZONE GRISE' : 'DÉTRESSE';
+                const zoneTxt = health.altmanZone === 'safe' ? L.zoneSafe : health.altmanZone === 'grey' ? L.zoneGrey : L.zoneDistress;
                 return `<div style="padding:12px;background:rgba(${health.altmanZone==='safe'?'46,204,113':health.altmanZone==='grey'?'243,156,18':'231,76,60'},0.08);border:1px solid rgba(${health.altmanZone==='safe'?'46,204,113':health.altmanZone==='grey'?'243,156,18':'231,76,60'},0.2);border-radius:8px;text-align:center">
                   <div style="font-size:11px;opacity:0.65;margin-bottom:3px">Altman Z-Score</div>
                   <div style="font-size:26px;font-weight:700;color:${zoneCol}">${health.altmanZ.toFixed(2)}</div>
@@ -11121,7 +11166,7 @@
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
                 <div style="padding:14px;background:var(--bg-card);border-radius:8px">
-                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Intérêt actuel</div>
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">${L.recentInterest}</div>
                   <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestNow}/100</div>
                 </div>
                 <div style="padding:14px;background:var(--bg-card);border-radius:8px">
@@ -11440,7 +11485,7 @@
             data: {
               labels: trLabels,
               datasets: [{
-                label: 'Intérêt Google',
+                label: L.googleInterest,
                 data: trValues,
                 borderColor: '#74b9ff',
                 backgroundColor: 'rgba(116,185,255,0.15)',
@@ -11541,9 +11586,9 @@
           </p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px">
             ${card('Nouvelles positions', '#2ecc71', data.newPositions, '🆕')}
-            ${card('Sorties complètes', '#e74c3c', data.soldPositions, '❌')}
-            ${card('Renforcées (+20%)', '#74b9ff', data.increased, '📈')}
-            ${card('Réduites (-20%)', '#f39c12', data.decreased, '📉')}
+            ${card(L.actExits, '#e74c3c', data.soldPositions, '❌')}
+            ${card(L.actIncreased, '#74b9ff', data.increased, '📈')}
+            ${card(L.actDecreased, '#f39c12', data.decreased, '📉')}
           </div>
           <hr style="margin:24px 0;border:none;border-top:1px solid var(--border-subtle)">
         `;
