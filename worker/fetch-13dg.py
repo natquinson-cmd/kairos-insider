@@ -448,7 +448,7 @@ def main():
     #   P2 : autres, par date decroissante
     # ============================================================
     MAX_ENRICH_PER_RUN = 5000
-    candidates = [f for f in deduped if f.get('percentOfClass') is None and f.get('sharesOwned') is None]
+    candidates = [f for f in deduped if f.get('percentOfClass') is None]
 
     # Charge la liste des tickers populaires (top tickers consultes sur le site).
     # Best-effort : si wrangler n'est pas dispo ou la cle KV est vide, on tombe
