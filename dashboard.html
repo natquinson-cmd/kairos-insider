@@ -11207,7 +11207,7 @@
                   <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestMax}/100</div>
                 </div>
               </div>
-              ${!LOW_VOLUME ? `<canvas id="trendsChart" style="max-height:180px"></canvas>` : `<p style="opacity:0.55;font-size:13px;padding:20px 0">${t('stock.trends.lowVolume', 'Le volume de recherche pour "{ticker}" est trop faible sur les 90 derniers jours pour qu\\'un signal soit exploitable (max {max}/100 sur la période). Ce ticker n\\'attire pas encore l\\'attention retail sur Google.').replace('{ticker}', d.ticker).replace('{max}', tr.interestMax)}</p>`}
+              ${!LOW_VOLUME ? `<canvas id="trendsChart" style="max-height:180px"></canvas>` : `<p style="opacity:0.55;font-size:13px;padding:20px 0">${t('stock.trends.lowVolume', "Le volume de recherche pour \"{ticker}\" est trop faible sur les 90 derniers jours pour qu'un signal soit exploitable (max {max}/100 sur la période). Ce ticker n'attire pas encore l'attention retail sur Google.").replace('{ticker}', d.ticker).replace('{max}', tr.interestMax)}</p>`}
               <p style="font-size:11px;opacity:0.55;margin:10px 0 0">
                 ${t('stock.trends.desc', 'Volume de recherche Google pour "{ticker}" sur 90 jours (Google Trends, échelle 0-100, 100 = pic de la période). Les pics précèdent souvent les mouvements de prix sur les small caps.').replace('{ticker}', d.ticker)}
               </p>
