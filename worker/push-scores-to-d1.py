@@ -220,9 +220,19 @@ PILLAR_KEYS = ['insider', 'smartMoney', 'govGuru', 'momentum', 'valuation', 'ana
 
 
 def apply_last_known_good_fallback(ticker, score, last_tuple):
-    """Fallback : si un pilier a dataOk=False ET que le nouveau sous-score est
-    inferieur a l'ancien, on garde l'ancien (= pas d'ecrasement d'une bonne
-    valeur par un defaut neutre du au timeout d'une API source).
+    """Fallback : quand un pilier a dataOk=False, on garde l'ancien sous-score
+    PEU IMPORTE LE SENS du delta (= ne pas ecraser une vraie valeur par un
+    defaut neutre quand la source est down).
+
+    AVANT (bug) : on ne declenchait que quand old > new, pour eviter qu'une
+    panne API ecrase une bonne valeur par un neutre plus bas. Mais l'inverse
+    arrive aussi : si l'ancienne valeur etait BASSE (penalite reelle, ex: ventes
+    insiders), perdre la donnee la fait remonter au neutre (10) et cree un
+    faux signal positif (ex: IVU 04/25 insider=4 -> 05/01 insider=10 alors
+    qu'il n'y avait rien acheter, juste les ventes qui sortaient du lookback).
+
+    APRES : si dataOk=False, on garde toujours l'ancien sous-score (sauf si
+    l'ancien etait null/0, dans ce cas on accepte le nouveau).
 
     Retourne (patched_score_dict, list_of_fallback_pillars).
     """
@@ -238,15 +248,17 @@ def apply_last_known_good_fallback(ticker, score, last_tuple):
         new_sub = sec.get('score')
         old_sub = last_tuple[i]
         data_ok = sec.get('dataOk', True)
-        # Fallback uniquement si : dataOk=False + ancien > nouveau + ancien significatif
-        if not data_ok and old_sub is not None and new_sub is not None and old_sub > new_sub and old_sub >= 5:
-            # On rehydrate avec l'ancienne valeur
+        # Fallback si : dataOk=False ET ancien existe ET ancien != nouveau.
+        # On garde l'ancien dans les 2 sens (drop ET hausse fantome).
+        if not data_ok and old_sub is not None and new_sub is not None and old_sub != new_sub:
             total_adjustment += (old_sub - new_sub)
             sec['score'] = old_sub
             sec['fallbackUsed'] = True
-            sec['detail'] = (sec.get('detail') or '') + ' [fallback: last-known-good]'
+            direction = 'drop' if old_sub > new_sub else 'phantom-rise'
+            sec['detail'] = (sec.get('detail') or '') + f' [fallback: last-known-good ({direction})]'
             fallbacks.append(f'{key} {new_sub}->{old_sub}')
-    if total_adjustment > 0:
+    # total_adjustment peut etre negatif (cas phantom-rise : on baisse le total)
+    if total_adjustment != 0:
         score['total'] = (score.get('total') or 0) + total_adjustment
     return score, fallbacks
 

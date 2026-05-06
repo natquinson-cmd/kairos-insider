@@ -9333,15 +9333,26 @@
           data.score.now = liveScoreTotal;
           data.score.delta = liveScoreTotal - prevScore;
           // Recalcule les contributions par axe : (live sub-score) - (D1 prev sub-score)
+          // FIX (mai 2026 / IVU) : on filtre les piliers avec dataOk=false côté live
+          // pour eviter les "phantom rises" — quand les donnees insiders/13F/etc.
+          // disparaissent du lookback, le sub-score retombe au neutre (10) ce qui
+          // cree un faux signal positif si l'ancien score etait bas (ex: IVU
+          // insider 4 -> 10 alors qu'il n'y a aucun nouveau buy, juste les sells
+          // qui sortent de la fenetre 90j). Avec dataOk=false on cache le delta.
           if (liveBreakdown && Array.isArray(data.score.contributions)) {
             data.score.contributions = data.score.contributions.map(c => {
               const liveKey = D1_TO_LIVE_KEY[c.key];
-              const liveSub = (liveKey && liveBreakdown[liveKey] && typeof liveBreakdown[liveKey].score === 'number')
-                ? liveBreakdown[liveKey].score
-                : null;
+              const liveAxis = liveKey ? liveBreakdown[liveKey] : null;
+              const liveSub = (liveAxis && typeof liveAxis.score === 'number') ? liveAxis.score : null;
               if (liveSub == null || c.previous == null) return c;
+              // Si la donnee live est manquante (dataOk=false), on ne peut pas
+              // calculer un delta fiable -> on neutralise (delta=0) pour l'exclure
+              // du tri et du resume "Cette hausse vient principalement de...".
+              if (liveAxis && liveAxis.dataOk === false) {
+                return { ...c, now: liveSub, delta: 0, dataOk: false };
+              }
               const newDelta = Number((liveSub - c.previous).toFixed(2));
-              return { ...c, now: liveSub, delta: newDelta };
+              return { ...c, now: liveSub, delta: newDelta, dataOk: true };
             }).filter(c => Math.abs(c.delta) >= 0.1)
               .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
           }
