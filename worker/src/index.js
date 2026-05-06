@@ -2081,8 +2081,10 @@ async function handleTickerActivity(url, env, origin) {
 async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
-  // v5 : scoreMovers utilise un baseline anti-spike (skip rn=2 si outlier)
-  const cacheKey = 'home:top-signals:v5';
+  // v6 : etfMovers threshold abaisse 0.3 -> 0.1pt (les ETFs bougent peu d'un
+  // jour a l'autre, max 0.25pt observe; 0.3 etait trop restrictif et filtrait
+  // tout, faisant disparaitre le widget ETF du cockpit)
+  const cacheKey = 'home:top-signals:v6';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -2197,7 +2199,10 @@ async function computeTopSignals(env) {
     }));
   } catch (e) { console.warn('insiderClusters failed:', e); }
 
-  // 3) ETF Movers : plus gros changements de poids (≥0.3pt)
+  // 3) ETF Movers : plus gros changements de poids
+  // FIX (mai 2026) : seuil baisse de 0.3pt -> 0.1pt. Les ETFs trackes
+  // (NANC/GOP/ARK/MOAT/...) ne bougent que de 0.05-0.25pt en delta J vs J-1
+  // (rebalancing graduel). Avec >= 0.3pt, le widget etait toujours vide.
   try {
     const etfQuery = `
       WITH latest_two AS (
@@ -2209,7 +2214,7 @@ async function computeTopSignals(env) {
              a.date AS dateNow, b.date AS datePrev, (a.weight - COALESCE(b.weight, 0)) AS delta
       FROM latest_two a
       LEFT JOIN latest_two b ON a.etf_symbol = b.etf_symbol AND a.ticker = b.ticker AND b.rn = 2
-      WHERE a.rn = 1 AND b.weight IS NOT NULL AND ABS(a.weight - b.weight) >= 0.3
+      WHERE a.rn = 1 AND b.weight IS NOT NULL AND ABS(a.weight - b.weight) >= 0.1
       ORDER BY ABS(a.weight - b.weight) DESC LIMIT 12
     `;
     const rows = (await env.HISTORY.prepare(etfQuery).all()).results || [];
