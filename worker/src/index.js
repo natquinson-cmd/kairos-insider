@@ -2071,8 +2071,8 @@ async function handleTickerActivity(url, env, origin) {
 async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
-  // v4 : tri lastDate DESC + badge Nouveau sur convergences du jour
-  const cacheKey = 'home:top-signals:v4';
+  // v5 : scoreMovers utilise un baseline anti-spike (skip rn=2 si outlier)
+  const cacheKey = 'home:top-signals:v5';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -2088,30 +2088,51 @@ async function computeTopSignals(env) {
     activistsFresh: [],
   };
 
-  // 1) Score Movers : top deltas entre 2 dates les plus récentes par ticker.
-  // FIX (mai 2026) : on filtre les deltas suspects |delta| > 20pt qui sont
-  // tres souvent des bugs de pipeline (API source down un jour -> dataOk=false
-  // -> sub-score neutre, puis recovery jour suivant -> remontee artificielle).
-  // Les vrais mouvements sur 1 jour depassent rarement 15-20pt, sauf evenement
-  // exceptionnel (M&A, fraude, etc.). Au-dessus c'est presque toujours du
-  // noise pipeline qui pollue le 'Top signaux du jour' (CCC 69->42 par ex.).
+  // 1) Score Movers : top deltas entre la derniere date et un baseline stable.
+  // FIX 1 (mai 2026) : on filtre les deltas |delta| > 20pt qui sont presque
+  // toujours du bruit pipeline (API source down -> sub-score neutre, puis
+  // recovery -> remontee artificielle).
+  // FIX 2 (mai 2026) : avant on prenait simplement rn=2 comme baseline, mais
+  // un spike isole sur la veille (ex: CRBP 04/25=45 -> 04/28=63 -> 05/04=44)
+  // creait un faux signal '63->44 -19pt' alors que le vrai etat est stable
+  // (~45). On compare maintenant rn=2 et rn=3 : si rn=2 est coherent avec
+  // rn=3 (ecart <= 10pt), on l'utilise. Sinon on saute le spike et on prend
+  // rn=3 comme baseline plus stable. Aligne le widget avec la vue detail
+  // (qui utilise un baseline 7j et evite naturellement les spikes 1-jour).
   try {
     const scoreQuery = `
-      WITH latest_two AS (
+      WITH latest_n AS (
         SELECT ticker, date, total,
                ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
         FROM score_history
+      ),
+      candidates AS (
+        SELECT
+          a.ticker,
+          a.total AS scoreNow,
+          a.date AS dateNow,
+          CASE
+            WHEN b3.total IS NULL OR ABS(b2.total - b3.total) <= 10
+              THEN b2.total
+            ELSE b3.total
+          END AS scorePrev,
+          CASE
+            WHEN b3.total IS NULL OR ABS(b2.total - b3.total) <= 10
+              THEN b2.date
+            ELSE b3.date
+          END AS datePrev
+        FROM latest_n a
+        LEFT JOIN latest_n b2 ON a.ticker = b2.ticker AND b2.rn = 2
+        LEFT JOIN latest_n b3 ON a.ticker = b3.ticker AND b3.rn = 3
+        WHERE a.rn = 1 AND b2.total IS NOT NULL
       )
       SELECT
-        a.ticker, a.total AS scoreNow, b.total AS scorePrev,
-        a.date AS dateNow, b.date AS datePrev,
-        (a.total - b.total) AS delta
-      FROM latest_two a
-      LEFT JOIN latest_two b ON a.ticker = b.ticker AND b.rn = 2
-      WHERE a.rn = 1 AND b.total IS NOT NULL
-        AND ABS(a.total - b.total) >= 3
-        AND ABS(a.total - b.total) <= 20
-      ORDER BY ABS(a.total - b.total) DESC LIMIT 12
+        ticker, scoreNow, scorePrev, dateNow, datePrev,
+        (scoreNow - scorePrev) AS delta
+      FROM candidates
+      WHERE ABS(scoreNow - scorePrev) >= 3
+        AND ABS(scoreNow - scorePrev) <= 20
+      ORDER BY ABS(scoreNow - scorePrev) DESC LIMIT 12
     `;
     const rows = (await env.HISTORY.prepare(scoreQuery).all()).results || [];
     result.scoreMovers = rows.map(r => ({
