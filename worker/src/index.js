@@ -2081,10 +2081,8 @@ async function handleTickerActivity(url, env, origin) {
 async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
-  // v6 : etfMovers threshold abaisse 0.3 -> 0.1pt (les ETFs bougent peu d'un
-  // jour a l'autre, max 0.25pt observe; 0.3 etait trop restrictif et filtrait
-  // tout, faisant disparaitre le widget ETF du cockpit)
-  const cacheKey = 'home:top-signals:v6';
+  // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
+  const cacheKey = 'home:top-signals:v7';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -2199,22 +2197,31 @@ async function computeTopSignals(env) {
     }));
   } catch (e) { console.warn('insiderClusters failed:', e); }
 
-  // 3) ETF Movers : plus gros changements de poids
-  // FIX (mai 2026) : seuil baisse de 0.3pt -> 0.1pt. Les ETFs trackes
-  // (NANC/GOP/ARK/MOAT/...) ne bougent que de 0.05-0.25pt en delta J vs J-1
-  // (rebalancing graduel). Avec >= 0.3pt, le widget etait toujours vide.
+  // 3) ETF Movers : plus gros changements de poids sur 7 jours
+  // FIX (mai 2026) :
+  // - Seuil >= 0.1pt (au lieu de 0.3pt) : les ETFs bougent peu d'un jour
+  //   sur l'autre meme sur 7j (rebalancing graduel).
+  // - Fenetre 7 jours (au lieu de J vs J-1) : capture les rotations
+  //   significatives sans le bruit quotidien. Plus parlant pour l'utilisateur.
   try {
     const etfQuery = `
-      WITH latest_two AS (
+      WITH ranked AS (
         SELECT etf_symbol, ticker, date, weight,
-               ROW_NUMBER() OVER (PARTITION BY etf_symbol, ticker ORDER BY date DESC) AS rn
+               ROW_NUMBER() OVER (PARTITION BY etf_symbol, ticker ORDER BY date DESC) AS rn,
+               MAX(date) OVER (PARTITION BY etf_symbol, ticker) AS latest_date
         FROM etf_snapshots
+      ),
+      prev_pick AS (
+        SELECT etf_symbol, ticker, date, weight,
+               ROW_NUMBER() OVER (PARTITION BY etf_symbol, ticker ORDER BY date DESC) AS rn2
+        FROM ranked
+        WHERE date <= date(latest_date, '-7 days')
       )
       SELECT a.etf_symbol AS etf, a.ticker, a.weight AS currWeight, b.weight AS prevWeight,
-             a.date AS dateNow, b.date AS datePrev, (a.weight - COALESCE(b.weight, 0)) AS delta
-      FROM latest_two a
-      LEFT JOIN latest_two b ON a.etf_symbol = b.etf_symbol AND a.ticker = b.ticker AND b.rn = 2
-      WHERE a.rn = 1 AND b.weight IS NOT NULL AND ABS(a.weight - b.weight) >= 0.1
+             a.date AS dateNow, b.date AS datePrev, (a.weight - b.weight) AS delta
+      FROM ranked a
+      JOIN prev_pick b ON a.etf_symbol = b.etf_symbol AND a.ticker = b.ticker AND b.rn2 = 1
+      WHERE a.rn = 1 AND ABS(a.weight - b.weight) >= 0.1
       ORDER BY ABS(a.weight - b.weight) DESC LIMIT 12
     `;
     const rows = (await env.HISTORY.prepare(etfQuery).all()).results || [];
@@ -6698,16 +6705,23 @@ async function handleScheduleDGTicker(url, env, origin) {
   // doit matcher UNIQUEMENT les variations EU (MC.PA, MC.AS, etc.) PAS le US.
   const hasYahooSuffix = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE|TO|AX|HK|SG)$/i.test(ticker);
   const tickerBase = ticker.split('.')[0];
+  // FIX (mai 2026 / UBI.PA Ubisoft) : les filings AMF/BaFin/FCA/etc. n'ont
+  // souvent PAS de field ticker (ticker=''), juste targetName + yahooSymbol
+  // ajoute par l'enrichment. Le filter doit aussi matcher sur yahooSymbol.
   let filings = merged.filings.filter(f => {
     const t = (f.ticker || '').toUpperCase();
-    if (t === ticker) return true;  // match exact toujours OK
+    const ys = (f.yahooSymbol || '').toUpperCase();
+    if (t === ticker || ys === ticker) return true;  // match exact (ticker OU yahoo)
     if (hasYahooSuffix) {
       // EU input -> exclure les tickers US sans suffixe (MC=Moelis, BN=Brookfield, etc.)
       // Accepter uniquement les variations EU avec un suffixe pays.
-      return t.includes('.') && t.split('.')[0] === tickerBase;
+      if (t.includes('.') && t.split('.')[0] === tickerBase) return true;
+      if (ys.includes('.') && ys.split('.')[0] === tickerBase) return true;
+      return false;
     }
     // US input -> comportement permissif d'avant (tickerBase OK)
-    return t === tickerBase || (t && t.split('.')[0] === tickerBase);
+    return t === tickerBase || (t && t.split('.')[0] === tickerBase)
+        || ys === tickerBase || (ys && ys.split('.')[0] === tickerBase);
   });
 
   // Enrichit avec le delta vs filing precedent du meme filer+ticker
