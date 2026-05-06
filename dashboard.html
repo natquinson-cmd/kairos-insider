@@ -10306,23 +10306,23 @@
             <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">${L.emptyLimited}</div>
             <div style="font-size:13px;opacity:0.85;line-height:1.5;margin-bottom:8px">
               ${t('stock.banner.smallCap', 'Ce titre est probablement une <strong>small cap européenne régionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.')}<br>
-              💡 <strong>Astuce</strong> : pour les grandes EU, essaie le ticker Yahoo : LVMH → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">MC.PA</code>, Barclays → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">BARC.L</code>, Nestlé → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">NESN.SW</code>.
+              ${t('stock.banner.smallCapTip', '💡 <strong>Astuce</strong> : pour les grandes EU, essaie le ticker Yahoo : LVMH → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">MC.PA</code>, Barclays → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">BARC.L</code>, Nestlé → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">NESN.SW</code>.')}
             </div>
             <div style="font-size:12px;opacity:0.8">
-              <strong>Disponible :</strong>
-              ${coverage.insider ? '<span style="color:#10B981;margin-right:10px">✅ Transactions insider (BaFin/AMF)</span>' : ''}
-              ${coverage.price ? '<span style="color:#10B981;margin-right:10px">✅ Prix</span>' : ''}
-              ${coverage.fundamentals ? '<span style="color:#10B981;margin-right:10px">✅ Fondamentaux</span>' : ''}
-              ${coverage.hedgeFunds ? '<span style="color:#10B981;margin-right:10px">✅ Hedge funds</span>' : ''}
-              ${coverage.news ? '<span style="color:#10B981;margin-right:10px">✅ News</span>' : ''}
+              <strong>${t('stock.coverage.available', 'Disponible :')}</strong>
+              ${coverage.insider ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.insider', '✅ Transactions insider (BaFin/AMF)')}</span>` : ''}
+              ${coverage.price ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.price', '✅ Prix')}</span>` : ''}
+              ${coverage.fundamentals ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.fundamentals', '✅ Fondamentaux')}</span>` : ''}
+              ${coverage.hedgeFunds ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.hedgeFunds', '✅ Hedge funds')}</span>` : ''}
+              ${coverage.news ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.news', '✅ News')}</span>` : ''}
               <br>
-              <strong>Non disponible :</strong>
+              <strong>${t('stock.coverage.unavailable', 'Non disponible :')}</strong>
               ${!coverage.price ? `<span style="color:var(--text-muted);margin-right:10px">${L.realtimePrice}</span>` : ''}
-              ${!coverage.fundamentals ? '<span style="color:var(--text-muted);margin-right:10px">❌ Fondamentaux / ratios</span>' : ''}
-              ${!coverage.hedgeFunds ? '<span style="color:var(--text-muted);margin-right:10px">❌ Hedge funds 13F (US only)</span>' : ''}
-              ${!coverage.etf ? '<span style="color:var(--text-muted);margin-right:10px">❌ ETF politiciens (US only)</span>' : ''}
-              ${!coverage.news ? '<span style="color:var(--text-muted);margin-right:10px">❌ News / analystes</span>' : ''}
-              ${!coverage.trends ? '<span style="color:var(--text-muted);margin-right:10px">❌ Google Trends</span>' : ''}
+              ${!coverage.fundamentals ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noFundamentals', '❌ Fondamentaux / ratios')}</span>` : ''}
+              ${!coverage.hedgeFunds ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noHedgeFunds', '❌ Hedge funds 13F (US only)')}</span>` : ''}
+              ${!coverage.etf ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noEtf', '❌ ETF politiciens (US only)')}</span>` : ''}
+              ${!coverage.news ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noNews', '❌ News / analystes')}</span>` : ''}
+              ${!coverage.trends ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noTrends', '❌ Google Trends')}</span>` : ''}
             </div>
           </div>
         </div>
