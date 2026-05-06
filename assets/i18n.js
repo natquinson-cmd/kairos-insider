@@ -438,6 +438,10 @@
       'stock.etfLabel.BUZZ': 'Sentiment retail Twitter/Reddit',
       'stock.etfLabel.shares': 'titres',
       'stock.gov.absent': 'Absent des ETF suivis (NANC, GOP, GURU)',
+      // ==== Footer dashboard ====
+      'footer.copy': '© 2026 Kairos Insider — Données SEC publiques, usage informatif uniquement.',
+      'footer.notAdvice': "Pas un conseil en investissement.",
+      'footer.manageCookies': 'Gérer mes cookies',
 
       // ==== POPULAR STOCKS ====
       'popular.badge': 'Analyses populaires',
@@ -1316,6 +1320,10 @@
       'stock.etfLabel.BUZZ': 'Retail sentiment Twitter/Reddit',
       'stock.etfLabel.shares': 'shares',
       'stock.gov.absent': 'Not in tracked ETFs (NANC, GOP, GURU)',
+      // ==== Footer dashboard ====
+      'footer.copy': '© 2026 Kairos Insider — Public SEC data, for informational purposes only.',
+      'footer.notAdvice': 'Not investment advice.',
+      'footer.manageCookies': 'Manage cookies',
 
       'popular.badge': 'Popular analyses',
       'popular.title_part1': 'The most followed stocks',
