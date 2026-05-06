@@ -8995,6 +8995,11 @@
     // Stocke le ticker + range courant pour le period selector sur le chart
     let currentStockTicker = null;
     let currentChartRange = '1y';
+    // Cache la derniere reponse API pour permettre un re-render sans refetch
+    // (utilise par le listener kairos:langchange ci-dessous pour traduire la
+    // page Decode a stock quand l'utilisateur switche FR<->EN sans avoir a
+    // re-fetch /api/stock/:ticker).
+    let currentStockData = null;
 
     // Change la periode du chart SANS re-rendre toute la page Analyse Action.
     // Fetch uniquement /api/stock avec nouveau range, rebuild le chart via
@@ -9113,6 +9118,7 @@
         // Petit delai pour laisser la barre se remplir joliment si c'etait ultra rapide (cache)
         const elapsed = Date.now() - startedAt;
         if (elapsed < 400) await new Promise(r => setTimeout(r, 400 - elapsed));
+        currentStockData = data;  // cache pour re-render sur kairos:langchange
         renderStockAnalysis(data);
         // Charge l'historique D1 en parallele (non-bloquant pour le rendu principal)
         loadEtfHistoryFor(ticker).catch(() => {});
@@ -10062,6 +10068,19 @@
       s.id = 'kairosRadarAnim';
       s.textContent = '@keyframes kairosRadarGrow { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }';
       document.head.appendChild(s);
+    }
+
+    // Re-render la page Decode a stock quand l'utilisateur switche FR<->EN
+    // (sans avoir a refetch /api/stock/:ticker).
+    // L = { ... } est recalcule a chaque appel donc les nouveaux labels prennent
+    // effet immediatement.
+    if (typeof window !== 'undefined' && !window._kairosStockLangListener) {
+      window._kairosStockLangListener = true;
+      window.addEventListener('kairos:langchange', () => {
+        if (currentStockData && document.getElementById('section-stockAnalysis')?.classList.contains('active')) {
+          try { renderStockAnalysis(currentStockData); } catch (e) { console.warn('re-render stockAnalysis failed:', e); }
+        }
+      });
     }
 
     function renderStockAnalysis(d) {
