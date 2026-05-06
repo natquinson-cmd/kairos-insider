@@ -304,6 +304,28 @@
       'landing.photo_placeholder': 'Photo à remplacer',
       // Footer
       'nav.legal': 'Mentions légales',
+      // ==== MERCI page (post-checkout) ====
+      'merci.title_h1': 'Merci pour votre abonnement !',
+      'merci.subtitle': 'Votre abonnement <strong style="color:var(--text-primary)">Kairos Insider Premium</strong> est actif. Vous avez maintenant accès à l\'ensemble des données Smart Money.',
+      'merci.features_title': 'Ce que vous débloquez',
+      'merci.f_score': '<strong>Kairos Score 0-100</strong> (radar 8 axes + synthèse textuelle adaptative)',
+      'merci.f_insiders': "Transactions d'initiés US (SEC), France (AMF) &amp; Europe (BaFin) en quasi-temps réel",
+      'merci.f_clusters': "Signaux de clusters d'insiders sur 90 jours",
+      'merci.f_hedgefunds': '<strong>500+ hedge funds</strong> 13F consolidés (Buffett, Burry, Tiger, BlackRock…)',
+      'merci.f_consensus': 'Smart Money Consensus avec ★ conviction',
+      'merci.f_etf': '<strong>11 ETF thématiques</strong> (politique, ARK, sentiment retail, income, défense, uranium…)',
+      'merci.f_trends': 'Hot Stocks via Google Trends (signal retail)',
+      'merci.f_history': 'Historique 2 ans (évolution AUM, rotations, scores)',
+      'merci.f_portfolio': 'Import multi-plateforme de votre portefeuille',
+      'merci.cta': 'Accéder au Dashboard',
+      'merci.email_info': '📧 Un email de confirmation a été envoyé à votre adresse.<br>Vous pouvez gérer votre abonnement à tout moment depuis votre espace personnel.',
+      'merci.footer_contact': 'Contact',
+      'nav.cgv': 'CGV',
+      'nav.privacy': 'Confidentialité',
+      'nav.home': 'Accueil',
+      // ==== ACTION (public stock page) ====
+      'action.loading': "Chargement de l'analyse…",
+      'action.footer_data': 'Données insiders : SEC · AMF · BaFin — Mise à jour quotidienne',
 
       // ==== POPULAR STOCKS ====
       'popular.badge': 'Analyses populaires',
@@ -1058,6 +1080,28 @@
       'landing.photo_placeholder': 'Replace photo',
       // Footer
       'nav.legal': 'Legal notice',
+      // ==== MERCI page (post-checkout) ====
+      'merci.title_h1': 'Thank you for subscribing!',
+      'merci.subtitle': 'Your <strong style="color:var(--text-primary)">Kairos Insider Premium</strong> subscription is now active. You have access to all the Smart Money data.',
+      'merci.features_title': 'What you unlock',
+      'merci.f_score': '<strong>Kairos Score 0-100</strong> (8-axis radar + adaptive textual synthesis)',
+      'merci.f_insiders': 'Insider transactions US (SEC), France (AMF) &amp; Europe (BaFin) in near real-time',
+      'merci.f_clusters': '90-day insider cluster signals',
+      'merci.f_hedgefunds': '<strong>500+ hedge funds</strong> 13F consolidated (Buffett, Burry, Tiger, BlackRock…)',
+      'merci.f_consensus': 'Smart Money Consensus with ★ conviction',
+      'merci.f_etf': '<strong>11 thematic ETFs</strong> (political, ARK, retail sentiment, income, defense, uranium…)',
+      'merci.f_trends': 'Hot Stocks via Google Trends (retail signal)',
+      'merci.f_history': '2-year history (AUM evolution, rotations, scores)',
+      'merci.f_portfolio': 'Multi-platform portfolio import',
+      'merci.cta': 'Access Dashboard',
+      'merci.email_info': '📧 A confirmation email has been sent to your address.<br>You can manage your subscription anytime from your personal space.',
+      'merci.footer_contact': 'Contact',
+      'nav.cgv': 'Terms',
+      'nav.privacy': 'Privacy',
+      'nav.home': 'Home',
+      // ==== ACTION (public stock page) ====
+      'action.loading': 'Loading analysis…',
+      'action.footer_data': 'Insider data: SEC · AMF · BaFin — Updated daily',
 
       'popular.badge': 'Popular analyses',
       'popular.title_part1': 'The most followed stocks',

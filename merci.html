@@ -37,6 +37,9 @@
   <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
 
+  <!-- i18n FR/EN -->
+  <script src="assets/i18n.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -195,8 +198,8 @@
         </svg>
       </div>
 
-      <h1>Merci pour votre abonnement !</h1>
-      <p class="subtitle">
+      <h1 data-i18n="merci.title_h1">Merci pour votre abonnement !</h1>
+      <p class="subtitle" data-i18n="merci.subtitle">
         Votre abonnement <strong style="color:var(--text-primary)">Kairos Insider Premium</strong> est actif.
         Vous avez maintenant accès à l'ensemble des données Smart Money.
       </p>
@@ -208,24 +211,24 @@
         -> quand on ajoute/modifie une feature premium, mettre a jour les 3 endroits
       -->
       <div class="features">
-        <div class="features-title">Ce que vous débloquez</div>
-        <div class="feature-item"><span class="check">✓</span> <strong>Kairos Score 0-100</strong> (radar 8 axes + synthèse textuelle adaptative)</div>
-        <div class="feature-item"><span class="check">✓</span> Transactions d'initiés US (SEC), France (AMF) &amp; Europe (BaFin) en quasi-temps réel</div>
-        <div class="feature-item"><span class="check">✓</span> Signaux de clusters d'insiders sur 90 jours</div>
-        <div class="feature-item"><span class="check">✓</span> <strong>500+ hedge funds</strong> 13F consolidés (Buffett, Burry, Tiger, BlackRock…)</div>
-        <div class="feature-item"><span class="check">✓</span> Smart Money Consensus avec ★ conviction</div>
-        <div class="feature-item"><span class="check">✓</span> <strong>11 ETF thématiques</strong> (politique, ARK, sentiment retail, income, défense, uranium…)</div>
-        <div class="feature-item"><span class="check">✓</span> Hot Stocks via Google Trends (signal retail)</div>
-        <div class="feature-item"><span class="check">✓</span> Historique 2 ans (évolution AUM, rotations, scores)</div>
-        <div class="feature-item"><span class="check">✓</span> Import multi-plateforme de votre portefeuille</div>
+        <div class="features-title" data-i18n="merci.features_title">Ce que vous débloquez</div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_score"><strong>Kairos Score 0-100</strong> (radar 8 axes + synthèse textuelle adaptative)</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_insiders">Transactions d'initiés US (SEC), France (AMF) &amp; Europe (BaFin) en quasi-temps réel</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_clusters">Signaux de clusters d'insiders sur 90 jours</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_hedgefunds"><strong>500+ hedge funds</strong> 13F consolidés (Buffett, Burry, Tiger, BlackRock…)</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_consensus">Smart Money Consensus avec ★ conviction</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_etf"><strong>11 ETF thématiques</strong> (politique, ARK, sentiment retail, income, défense, uranium…)</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_trends">Hot Stocks via Google Trends (signal retail)</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_history">Historique 2 ans (évolution AUM, rotations, scores)</span></div>
+        <div class="feature-item"><span class="check">✓</span> <span data-i18n="merci.f_portfolio">Import multi-plateforme de votre portefeuille</span></div>
       </div>
 
       <a href="dashboard.html" class="btn">
-        Accéder au Dashboard
+        <span data-i18n="merci.cta">Accéder au Dashboard</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
 
-      <p class="email-info">
+      <p class="email-info" data-i18n="merci.email_info">
         📧 Un email de confirmation a été envoyé à votre adresse.<br>
         Vous pouvez gérer votre abonnement à tout moment depuis votre espace personnel.
       </p>
@@ -234,10 +237,10 @@
 
   <footer>
     <p>© 2026 Kairos Insider —
-      <a href="legal.html">Mentions légales</a>·
-      <a href="cgv.html">CGV</a>·
-      <a href="privacy.html">Confidentialité</a>·
-      <a href="mailto:contact@kairosinsider.fr">Contact</a>
+      <a href="legal.html" data-i18n="nav.legal">Mentions légales</a>·
+      <a href="cgv.html" data-i18n="nav.cgv">CGV</a>·
+      <a href="privacy.html" data-i18n="nav.privacy">Confidentialité</a>·
+      <a href="mailto:contact@kairosinsider.fr" data-i18n="merci.footer_contact">Contact</a>
     </p>
   </footer>
 
