@@ -9419,15 +9419,35 @@
           if (contribs.length > 0) {
             const top3 = contribs.slice(0, 3);
             // Narratif court : "Variation portee par X (-5pt), Y (-3pt) et Z (+1pt)"
+            // FIX (mai 2026 / LBTY) : on separe drivers (meme sens que le total)
+            // et offsetters (sens inverse) pour eviter le texte incoherent
+            // "Cette baisse vient principalement de Momentum (+2pt)" quand les
+            // vraies dimensions baissieres sont absentes/masquees.
             const direction = delta > 0 ? 'hausse' : 'baisse';
-            const narrPieces = top3.map(c => {
+            const expectedSign = delta > 0 ? 1 : -1;
+            const renderPiece = c => {
               const sign = c.delta > 0 ? '+' : '';
               const col = c.delta > 0 ? '#10B981' : c.delta < 0 ? '#EF4444' : '#9CA3AF';
               return `<strong style="color:${col}">${c.label}</strong> (${sign}${c.delta}pt)`;
-            });
-            const narr = top3.length === 1
-              ? `Cette ${direction} vient principalement de ${narrPieces[0]}.`
-              : `Cette ${direction} vient principalement de ${narrPieces.slice(0,-1).join(', ')} et ${narrPieces[top3.length-1]}.`;
+            };
+            const drivers = contribs.filter(c => Math.sign(c.delta) === expectedSign).slice(0, 3);
+            const offsetters = contribs.filter(c => Math.sign(c.delta) === -expectedSign).slice(0, 2);
+            let narr = '';
+            if (drivers.length > 0) {
+              const driverPieces = drivers.map(renderPiece);
+              narr = drivers.length === 1
+                ? `Cette ${direction} vient principalement de ${driverPieces[0]}.`
+                : `Cette ${direction} vient principalement de ${driverPieces.slice(0, -1).join(', ')} et ${driverPieces[driverPieces.length - 1]}.`;
+              if (offsetters.length > 0) {
+                const offsetPieces = offsetters.map(renderPiece);
+                narr += ` Partiellement compensée par ${offsetPieces.join(', ')}.`;
+              }
+            } else if (offsetters.length > 0) {
+              // Aucun driver dans le sens du total : variations mixtes contradictoires.
+              // Probable cumul de micro-variations + erreurs d'arrondi cote D1.
+              const offsetPieces = offsetters.map(renderPiece);
+              narr = `Variation contre-intuitive : seules ${offsetPieces.join(', ')} ressortent (sens inverse du total).`;
+            }
 
             // Petite liste detaillee : barres horizontales par dimension
             const maxAbs = Math.max(...contribs.map(c => Math.abs(c.delta)), 1);

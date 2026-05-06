@@ -1908,6 +1908,16 @@ async function handleTickerActivity(url, env, origin) {
             { key: 'health', label: 'Santé financière' },
             { key: 'earnings', label: 'Earnings' },
           ];
+          // FIX (mai 2026 / LBTY) : on RENVOIE TOUTES les 8 dimensions, meme
+          // celles avec delta=0. Le dashboard recalcule un delta LIVE en
+          // remplacant `now` par le sub-score live (peut differer du snapshot
+          // D1 si le pipeline a foire et stocke un neutre 10 alors que les
+          // vraies donnees insider montrent une penalite). Sans ce changement,
+          // une dimension avec D1 delta=0 etait filtree ici et le live ne
+          // pouvait pas la reintroduire (cf bug LBTY: insider stuck at 10 en
+          // D1, mais live a -7 de delta -> insider line jamais affichee).
+          // Le filtre `Math.abs(delta) >= 0.1` est applique cote dashboard
+          // APRES la recompute live.
           contributions = dims.map(d => ({
             key: d.key,
             label: d.label,
@@ -1916,7 +1926,7 @@ async function handleTickerActivity(url, env, origin) {
             delta: (now[d.key] != null && prev[d.key] != null)
               ? Number((now[d.key] - prev[d.key]).toFixed(2))
               : null,
-          })).filter(c => c.delta !== null && Math.abs(c.delta) >= 0.1);  // ignore micro variations
+          })).filter(c => c.delta !== null);  // garde tous les axes valides (delta peut etre 0)
           // Tri par |delta| desc pour faire ressortir les plus gros contributeurs
           contributions.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
         }
