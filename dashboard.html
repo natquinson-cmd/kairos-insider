@@ -9787,11 +9787,11 @@
           return;
         }
         await navigator.clipboard.writeText(url);
-        if (label) { label.textContent = '✓ Lien copié !'; reset('Partager'); }
+        if (label) { label.textContent = t('stock.action.linkCopied', '✓ Lien copié !'); reset(t('stock.action.share', 'Partager')); }
       } catch (e) {
         // Fallback : prompt classique
         window.prompt('Copie ce lien pour partager l\'analyse :', url);
-        if (label) { label.textContent = 'Partager'; }
+        if (label) { label.textContent = t('stock.action.share', 'Partager'); }
       }
     }
 
@@ -9835,39 +9835,40 @@
         if (!axes.length) return '';
         const n = axes.length;
         const list = axes.slice(0, 3).map(a => `<strong style="color:${palette.label}">${a.label.toLowerCase()}</strong>`).join(', ');
-        const intro = n >= 3 ? 'Les signaux les plus forts viennent de' :
-                      n === 2 ? 'Deux dimensions ressortent particulièrement :' :
-                                'Le signal le plus marqué vient de';
-        const more = axes.length > 3 ? ` et ${axes.length - 3} autre${axes.length - 3 > 1 ? 's' : ''}` : '';
+        const introKey = n >= 3 ? 'stock.synth.strongIntro3' : n === 2 ? 'stock.synth.strongIntro2' : 'stock.synth.strongIntro1';
+        const introFb  = n >= 3 ? 'Les signaux les plus forts viennent de' : n === 2 ? 'Deux dimensions ressortent particulièrement :' : 'Le signal le plus marqué vient de';
+        const intro = t(introKey, introFb);
+        const more = axes.length > 3
+          ? t('stock.synth.andOthers', ' et {n} autre{plural}').replace('{n}', axes.length - 3).replace('{plural}', axes.length - 3 > 1 ? 's' : '')
+          : '';
         return `${intro} ${list}${more}.`;
       };
       const phraseWeak = (axes) => {
         if (!axes.length) return '';
         const n = axes.length;
         const list = axes.slice(0, 3).map(a => `<strong style="color:#FBBF24">${a.label.toLowerCase()}</strong>`).join(', ');
-        const intro = n >= 3 ? 'En revanche, plusieurs faiblesses sont à noter :' :
-                      n === 2 ? 'Deux points faibles à surveiller :' :
-                                'Un point faible à surveiller :';
+        const introKey = n >= 3 ? 'stock.synth.weakIntro3' : n === 2 ? 'stock.synth.weakIntro2' : 'stock.synth.weakIntro1';
+        const introFb  = n >= 3 ? 'En revanche, plusieurs faiblesses sont à noter :' : n === 2 ? 'Deux points faibles à surveiller :' : 'Un point faible à surveiller :';
+        const intro = t(introKey, introFb);
         return `${intro} ${list}.`;
       };
 
       // Conclusion selon le score
-      let conclusion = '';
-      if (total >= 75) {
-        conclusion = `Le consensus smart money est <strong style="color:${palette.main}">très favorable</strong> sur ${tk}. Plusieurs dimensions clés sont alignées dans le sens de l'achat.`;
-      } else if (total >= 60) {
-        conclusion = `Le profil global de ${tk} est <strong style="color:${palette.main}">positif</strong>, avec des signaux smart money majoritairement favorables.`;
-      } else if (total >= 40) {
-        conclusion = `Le signal sur ${tk} est <strong style="color:${palette.main}">mitigé</strong>. Aucune tendance institutionnelle nette ne se dégage.`;
-      } else if (total >= 25) {
-        conclusion = `Le profil global de ${tk} est <strong style="color:${palette.main}">défavorable</strong>. Plusieurs dimensions clés envoient des signaux négatifs.`;
-      } else {
-        conclusion = `Les signaux smart money sont <strong style="color:${palette.main}">très défavorables</strong> sur ${tk}. La majorité des dimensions sont dans le rouge.`;
-      }
+      const _conKey = total >= 75 ? 'stock.synth.veryFavorable'
+                    : total >= 60 ? 'stock.synth.positive'
+                    : total >= 40 ? 'stock.synth.mixed'
+                    : total >= 25 ? 'stock.synth.unfavorable'
+                    :               'stock.synth.veryUnfavorable';
+      const _conFb = total >= 75 ? "Le consensus smart money est <strong style=\"color:{color}\">très favorable</strong> sur {tk}. Plusieurs dimensions clés sont alignées dans le sens de l'achat."
+                   : total >= 60 ? 'Le profil global de {tk} est <strong style="color:{color}">positif</strong>, avec des signaux smart money majoritairement favorables.'
+                   : total >= 40 ? 'Le signal sur {tk} est <strong style="color:{color}">mitigé</strong>. Aucune tendance institutionnelle nette ne se dégage.'
+                   : total >= 25 ? 'Le profil global de {tk} est <strong style="color:{color}">défavorable</strong>. Plusieurs dimensions clés envoient des signaux négatifs.'
+                   :               'Les signaux smart money sont <strong style="color:{color}">très défavorables</strong> sur {tk}. La majorité des dimensions sont dans le rouge.';
+      const conclusion = t(_conKey, _conFb).replace('{color}', palette.main).replace('{tk}', tk);
 
       // Cas particulier : tout neutre (ni fort ni faible)
       if (strong.length === 0 && weak.length === 0) {
-        return `<p style="margin:0">${conclusion} Toutes les dimensions affichent des scores moyens (entre 30 et 70%) — pas de signal contrarié, mais pas de catalyseur fort non plus.</p>`;
+        return `<p style="margin:0">${conclusion} ${t('stock.synth.neutral', 'Toutes les dimensions affichent des scores moyens (entre 30 et 70%) — pas de signal contrarié, mais pas de catalyseur fort non plus.')}</p>`;
       }
 
       // Construction de l'analyse en 2-3 phrases
@@ -9880,9 +9881,9 @@
       const hfAxis = ranked.find(a => a.key === 'smartMoney');
       let convictionNote = '';
       if (insiderAxis && insiderAxis.pct >= 0.75 && hfAxis && hfAxis.pct >= 0.5) {
-        convictionNote = ` <em style="opacity:0.85">À noter : forte activité d'achat des dirigeants combinée à un soutien institutionnel — un alignement souvent observé sur les retournements haussiers.</em>`;
+        convictionNote = ` <em style="opacity:0.85">${t('stock.synth.convictionPositive', "À noter : forte activité d'achat des dirigeants combinée à un soutien institutionnel — un alignement souvent observé sur les retournements haussiers.")}</em>`;
       } else if (insiderAxis && insiderAxis.pct <= 0.2) {
-        convictionNote = ` <em style="opacity:0.85">À noter : les dirigeants vendent ou n'achètent pas, ce qui réduit la conviction interne.</em>`;
+        convictionNote = ` <em style="opacity:0.85">${t('stock.synth.convictionNegative', "À noter : les dirigeants vendent ou n'achètent pas, ce qui réduit la conviction interne.")}</em>`;
       }
 
       return `<p style="margin:0">${parts.join(' ')}${convictionNote}</p>`;
@@ -9903,18 +9904,24 @@
                     : total >= 25 ? { main: '#F59E0B', glow: 'rgba(245,158,11,0.30)', label: '#FBBF24', light: '#FCD34D' }
                                   : { main: '#EF4444', glow: 'rgba(239,68,68,0.30)', label: '#F87171', light: '#FCA5A5' };
 
-      const signal = score?.signal || (total >= 75 ? 'ACHAT FORT' : total >= 60 ? 'ACHAT' : total >= 40 ? 'NEUTRE' : total >= 25 ? 'VENTE' : 'VENTE FORTE');
+      const _sigKey = total >= 75 ? 'stock.signal.strongBuy'
+                    : total >= 60 ? 'stock.signal.buy'
+                    : total >= 40 ? 'stock.signal.neutral'
+                    : total >= 25 ? 'stock.signal.sell'
+                    :               'stock.signal.strongSell';
+      const _sigFb  = total >= 75 ? 'ACHAT FORT' : total >= 60 ? 'ACHAT' : total >= 40 ? 'NEUTRE' : total >= 25 ? 'VENTE' : 'VENTE FORTE';
+      const signal = score?.signal || t(_sigKey, _sigFb);
 
       // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
       const axesOrder = [
-        { key: 'insider',    label: 'Initiés',    short: 'INS' },
-        { key: 'smartMoney', label: 'Hedge Funds',short: 'HF'  },
-        { key: 'momentum',   label: 'Momentum',   short: 'MOM' },
-        { key: 'earnings',   label: 'Résultats',  short: 'EPS' },
-        { key: 'analyst',    label: 'Analystes',  short: 'ANA' },
-        { key: 'valuation',  label: 'Valo',       short: 'VAL' },
-        { key: 'health',     label: 'Santé',      short: 'FIN' },
-        { key: 'govGuru',    label: 'Politique',  short: 'GOV' },
+        { key: 'insider',    label: t('stock.axis.insider', 'Initiés'),       short: 'INS' },
+        { key: 'smartMoney', label: t('stock.axis.smartMoney', 'Hedge Funds'),short: 'HF'  },
+        { key: 'momentum',   label: t('stock.axis.momentum', 'Momentum'),     short: 'MOM' },
+        { key: 'earnings',   label: t('stock.axis.earnings', 'Résultats'),    short: 'EPS' },
+        { key: 'analyst',    label: t('stock.axis.analyst', 'Analystes'),     short: 'ANA' },
+        { key: 'valuation',  label: t('stock.axis.valuation', 'Valo'),        short: 'VAL' },
+        { key: 'health',     label: t('stock.axis.health', 'Santé'),          short: 'FIN' },
+        { key: 'govGuru',    label: t('stock.axis.govGuru', 'Politique'),     short: 'GOV' },
       ];
       const breakdown = score?.breakdown || {};
 
@@ -9983,14 +9990,26 @@
       // On n'expose PAS le poids de chaque axe (b.max) a l'utilisateur final
       // — c'est une info de calibration paramatrable dans la console admin.
       // A la place : pourcentage normalise 0-100% (meme echelle pour tous les axes).
+      // Mapping de fallback FR -> client labels traduits (override l'API qui renvoie du FR)
+      const _bdLabel = {
+        insider:    t('stock.bd.insider', 'Signal des initiés'),
+        smartMoney: t('stock.bd.smartMoney', 'Hedge funds (13F)'),
+        govGuru:    t('stock.bd.govGuru', 'Politiciens & gourous'),
+        momentum:   t('stock.bd.momentum', 'Momentum du cours'),
+        earnings:   t('stock.bd.earnings', 'Momentum résultats'),
+        analyst:    t('stock.bd.analyst', 'Consensus analystes'),
+        valuation:  t('stock.bd.valuation', 'Valorisation'),
+        health:     t('stock.bd.health', 'Santé financière'),
+      };
       const breakdownRows = axesOrder.map(axis => {
         const b = breakdown[axis.key];
         if (!b) return '';
         const pct = b.max > 0 ? (b.score / b.max) * 100 : 0;
         const pctDisplay = Math.round(pct);
+        const lbl = _bdLabel[axis.key] || b.label;
         return `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider)">
-            <div style="flex:0 0 110px;font-size:12px;color:var(--text-secondary)">${b.label}</div>
+            <div style="flex:0 0 110px;font-size:12px;color:var(--text-secondary)">${lbl}</div>
             <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;position:relative">
               <div style="height:100%;background:linear-gradient(90deg, ${palette.main}, ${palette.light});width:${pct}%;border-radius:3px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
             </div>
@@ -10049,10 +10068,10 @@
 
               <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
                 <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span>Décomposition (8 axes)</span>
-                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">Score par axe — 0% = faible, 100% = excellent</span>
+                  <span>${t('stock.label.breakdown8axes', 'Décomposition (8 axes)')}</span>
+                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">${t('stock.label.scorePerAxis', 'Score par axe — 0% = faible, 100% = excellent')}</span>
                 </div>
-                ${breakdownRows || '<div style="opacity:0.5;font-size:12px">Détails indisponibles</div>'}
+                ${breakdownRows || `<div style="opacity:0.5;font-size:12px">${t('stock.empty.detailsUnavailable', 'Détails indisponibles')}</div>`}
               </div>
             </div>
           </div>
@@ -10350,18 +10369,18 @@
               ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
               ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
               <button data-wl-star="${d.ticker}" onclick="toggleWatchlistStar('${d.ticker}')"
-                      title="Ajouter a ma watchlist"
+                      title="${L.actAddWl}"
                       class="wl-star-btn ${isInWatchlist(d.ticker) ? 'active' : ''}"
                       style="margin-left:auto;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
                       onmouseover="this.style.borderColor='#FBBF24';this.style.background='rgba(251,191,36,0.08)'"
                       onmouseout="if(!this.classList.contains('active')){this.style.borderColor='var(--border)';this.style.background='var(--surface-2)';}">
-                ${isInWatchlist(d.ticker) ? '★ Dans la watchlist' : '☆ Ajouter a ma watchlist'}
+                ${isInWatchlist(d.ticker) ? t('stock.action.inWatchlist', '★ Dans la watchlist') : t('stock.action.addWatchlistShort', '☆ Ajouter à ma watchlist')}
               </button>
-              <button onclick="shareStockAnalysis('${d.ticker}')" title="Copier le lien public de partage"
+              <button onclick="shareStockAnalysis('${d.ticker}')" title="${L.actCopy}"
                       style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
                       onmouseover="this.style.borderColor='var(--accent-blue)';this.style.background='rgba(59,130,246,0.08)'"
                       onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-2)'">
-                <span>🔗</span><span id="shareBtnLabel-${d.ticker}">Partager</span>
+                <span>🔗</span><span id="shareBtnLabel-${d.ticker}">${t('stock.action.share', 'Partager')}</span>
               </button>
             </div>
             <div style="font-size:18px;opacity:0.9;margin-bottom:4px">${company.name || ''}</div>
@@ -10370,7 +10389,7 @@
               ${infoRow('PDG', company.ceo)}
               ${infoRow(L.coFounded, company.founded)}
               ${infoRow(L.coHeadquarters, company.headquarters)}
-              ${infoRow('Introduction en bourse', company.ipoDate)}
+              ${infoRow(t('stock.label.ipo', 'Introduction en bourse'), company.ipoDate)}
               ${company.employees ? infoRow(L.coEmployees, fmtBig(company.employees) + (company.employeesGrowth != null ? ` <span style="font-size:11px;color:${company.employeesGrowth>0?'#2ecc71':'#ff7675'}">(${company.employeesGrowth>0?'+':''}${company.employeesGrowth.toFixed(1)}% / an)</span>` : '')) : ''}
               ${infoRow('Exercice fiscal', company.fiscalYearEnd)}
               ${company.website ? `<div style="font-size:12px"><span style="opacity:0.55">Site :</span> <a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff">${company.website.replace(/^https?:\/\//,'').replace(/\/$/,'')}</a></div>` : ''}
@@ -10387,11 +10406,11 @@
             <!-- Tableau de performance multi-horizon -->
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
               <div style="text-align:center;min-width:64px;padding:6px 10px;background:var(--surface-1);border-radius:6px">
-                <div style="font-size:10px;opacity:0.6">Depuis 1er janv.</div>
+                <div style="font-size:10px;opacity:0.6">${t('stock.label.sinceJan1', 'Depuis 1er janv.')}</div>
                 <div style="font-size:13px;font-weight:600;color:${perfCol(ytdPct)}">${perfTxt(ytdPct)}</div>
               </div>
               <div style="text-align:center;min-width:64px;padding:6px 10px;background:var(--surface-1);border-radius:6px">
-                <div style="font-size:10px;opacity:0.6">Sur 1 an</div>
+                <div style="font-size:10px;opacity:0.6">${t('stock.label.oneYear', 'Sur 1 an')}</div>
                 <div style="font-size:13px;font-weight:600;color:${perfCol(y1Pct)}">${perfTxt(y1Pct)}</div>
               </div>
             </div>
@@ -16081,8 +16100,8 @@
         const tk = (el.dataset.wlStar || '').toUpperCase();
         const on = isInWatchlist(tk);
         el.classList.toggle('active', on);
-        el.innerHTML = on ? '★ Dans la watchlist' : '☆ Ajouter a ma watchlist';
-        el.title = on ? 'Retirer de ma watchlist' : 'Ajouter a ma watchlist';
+        el.innerHTML = on ? t('stock.action.inWatchlist', '★ Dans la watchlist') : t('stock.action.addWatchlistShort', '☆ Ajouter à ma watchlist');
+        el.title = on ? t('stock.action.removeWatchlist', 'Retirer de ma watchlist') : t('stock.action.addWatchlist', 'Ajouter à ma watchlist');
       });
     }
 
