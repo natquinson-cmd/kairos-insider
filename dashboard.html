@@ -10200,6 +10200,29 @@
         rateNone: t('stock.rate.none', 'Aucun'),
         rateWeak: t('stock.rate.weak', 'Faible'),
         rateFair: t('stock.rate.fair', 'Correct'),
+        // ===== Wave 4 =====
+        range52w: t('stock.label.range52w', 'Plage 52 sem. :'),
+        sizeProportional: t('stock.label.sizeProportional', '· taille ∝ montant'),
+        forwardPE: t('stock.label.forwardPE', 'P/E prévisionnel'),
+        noHedgeFunds: t('stock.empty.noHedgeFunds', 'Aucun des hedge funds suivis ne détient ce titre.'),
+        noHedgeFundsNote: t('stock.empty.noHedgeFundsNote', "Recherche sur l'intégralité des positions (pas seulement top 50). Note : les 13F SEC ne couvrent que les titres cotés aux USA."),
+        debtLow: t('stock.debt.low', L.debtLow),
+        debtControlled: t('stock.debt.controlled', L.debtControlled),
+        debtHigh: t('stock.debt.high', 'ÉLEVÉ'),
+        debtVeryHigh: t('stock.debt.veryHigh', L.debtVeryHigh),
+        debtModerate: t('stock.debt.moderate', L.debtModerate),
+        ratioCurrentRatio: t('stock.ratio.currentRatio', 'Liquidité générale'),
+        ratioQuickRatio: t('stock.ratio.quickRatio', 'Liquidité réduite'),
+        ratioDebtEquity: t('stock.ratio.debtEquity', 'Dette / Fonds propres'),
+        ratioDebtEbitda: t('stock.ratio.debtEbitda', 'Dette / EBITDA'),
+        ratioInterestCoverage: t('stock.ratio.interestCoverage', 'Couverture des intérêts'),
+        earnBmo: t('stock.earnings.bmo', 'avant ouverture'),
+        earnAmc: t('stock.earnings.amc', 'après clôture'),
+        earnTimeUnknown: t('stock.earnings.timeUnknown', 'heure non précisée'),
+        peersEmployees: t('stock.peers.employees', 'employés'),
+        chartInsiderBuys: t('stock.chart.insiderBuys', 'Achats insiders'),
+        chartBuyLegend: t('stock.chart.buyLegend', '🟢 ACHAT'),
+        chartSellLegend: t('stock.chart.sellLegend', '🔴 VENTE'),
       };
 
       // Fallback : si company.name est absent mais qu'on connait le ticker dans
@@ -10266,7 +10289,7 @@
       const wasResolvedFromName = !!d.resolvedFromName;
       const resolvedNotice = wasResolvedFromName ? `
         <div style="padding:12px 18px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;margin-bottom:16px;font-size:13px;color:var(--text-secondary)">
-          🔎 Tu as cherche <strong style="color:var(--text-primary)">${d.originalInput || ''}</strong> — affichage du ticker Yahoo correspondant : <strong style="color:#3B82F6">${d.ticker}</strong>
+          ${t('stock.banner.searchedFor', '🔎 Tu as cherché <strong style="color:var(--text-primary)">{input}</strong> — ticker Yahoo : <strong style="color:#3B82F6">{ticker}</strong>').replace('{input}', d.originalInput || '').replace('{ticker}', d.ticker)}
         </div>` : '';
 
       // BLOC ZONEBOURSE CONSENSUS supprime du HEADER (mai 2026) :
@@ -10282,7 +10305,7 @@
           <div style="flex:1">
             <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">${L.emptyLimited}</div>
             <div style="font-size:13px;opacity:0.85;line-height:1.5;margin-bottom:8px">
-              Ce titre est probablement une <strong>small cap europeenne regionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases de données gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.<br>
+              ${t('stock.banner.smallCap', 'Ce titre est probablement une <strong>small cap européenne régionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.')}<br>
               💡 <strong>Astuce</strong> : pour les grandes EU, essaie le ticker Yahoo : LVMH → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">MC.PA</code>, Barclays → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">BARC.L</code>, Nestlé → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">NESN.SW</code>.
             </div>
             <div style="font-size:12px;opacity:0.8">
@@ -10374,7 +10397,7 @@
             </div>
 
             <div style="font-size:12px;opacity:0.5;margin-top:10px">
-              Plage 52 sem. : ${fmtCurr(price.low52w)} – ${fmtCurr(price.high52w)}
+              ${L.range52w} ${fmtCurr(price.low52w)} – ${fmtCurr(price.high52w)}
             </div>
             ${price.current && price.low52w && price.high52w ? (() => {
               const pos = ((price.current - price.low52w) / (price.high52w - price.low52w)) * 100;
@@ -10413,7 +10436,7 @@
             <span><span style="color:#10B981">◆</span> ${L.insBuy}</span>
             <span><span style="color:#EF4444">▼</span> ${L.insSell}</span>
             <span><span style="color:#FACC15;font-size:13px">★</span> fonds offensif (13D/G)</span>
-            <span style="opacity:0.6">· taille ∝ montant</span>
+            <span style="opacity:0.6">${L.sizeProportional}</span>
           </div>
           <div style="position:relative;z-index:1;height:300px"><canvas id="stockPriceChart"></canvas></div>
         </div>
@@ -10459,7 +10482,7 @@
             </div>
             <div style="font-size:13px;opacity:0.8;margin-bottom:10px" id="saInsiderFlux">
               Flux net : <strong style="color:${(insiders.netValueUsd||0)+(insiders.netValueEur||0) >= 0 ? '#2ecc71' : '#ff7675'}">${fmtCurr((insiders.netValueUsd||0)+(insiders.netValueEur||0), cur)}</strong><br>
-              ${insiders.uniqueInsiders || 0} initiés distincts
+              ${t('stock.label.distinctInsiders', '{n} initiés distincts').replace('{n}', insiders.uniqueInsiders || 0)}
             </div>
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px" id="saInsiderList">
               ${(insiders.transactions || []).slice(0, 15).map(t => `
@@ -10525,7 +10548,7 @@
                     $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
                   </div>
                 </div>
-              `).join('') || '<div style="opacity:0.5;padding:12px 0;line-height:1.5">Aucun des hedge funds suivis ne detient ce titre.<br><span style="font-size:11px;opacity:0.7">Recherche sur l\'intégralité des positions (pas seulement top 50). Note : les 13F SEC ne couvrent que les titres cotes aux USA.</span></div>'}
+              `).join('') || `<div style="opacity:0.5;padding:12px 0;line-height:1.5">${L.noHedgeFunds}<br><span style="font-size:11px;opacity:0.7">${L.noHedgeFundsNote}</span></div>`}
             </div>
           </div>
 
@@ -10534,8 +10557,8 @@
             <h3 style="margin:0 0 12px;font-size:16px">🏛️ Politiciens &amp; Gurus</h3>
             ${gov.inEtfs && gov.inEtfs.length > 0 ? `
               <div style="font-size:13px;opacity:0.8;margin-bottom:12px">
-                Présent dans <strong>${gov.inEtfs.length}</strong> ETF suivis<br>
-                Poids cumulé : <strong>${(gov.totalPct||0).toFixed(2)}%</strong>
+                ${t('stock.gov.presentIn', 'Présent dans <strong>{n}</strong> ETF suivis').replace('{n}', gov.inEtfs.length)}<br>
+                ${t('stock.gov.cumulatedWeight', 'Poids cumulé : <strong>{pct}%</strong>').replace('{pct}', (gov.totalPct||0).toFixed(2))}
               </div>
               ${gov.inEtfs.map(e => `
                 <div style="padding:10px;background:var(--surface-1);border-radius:8px;margin-bottom:8px">
@@ -10665,7 +10688,7 @@
                 <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.valMultiples}</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px">
                   ${ratioCard('P/E (12 mois)', fund.peRatio, 'pe')}
-                  ${ratioCard('P/E prévisionnel', fund.forwardPE, 'pe')}
+                  ${ratioCard(L.forwardPE, fund.forwardPE, 'pe')}
                   ${peg != null ? ratioCard('PEG', peg, 'peg') : ''}
                   ${ps != null ? ratioCard('P/S (cours/ventes)', ps, 'ps') : ''}
                   ${pb != null ? ratioCard('P/B (cours/actif)', pb, 'pb') : ''}
@@ -10785,7 +10808,9 @@
                   .replace('{n}', consensus.hold + consensus.sell + consensus.strongSell)
                   .replace('{tot}', tot);
               } else {
-                narrative = `Les analystes sont <strong style="color:#e74c3c">majoritairement baissiers</strong> (${consensus.sell + consensus.strongSell}/${tot} avis négatifs).`;
+                narrative = t('stock.consensus.narrative.veryBearish', 'Les analystes sont <strong style="color:#e74c3c">majoritairement baissiers</strong> ({n}/{tot} avis négatifs).')
+                  .replace('{n}', consensus.sell + consensus.strongSell)
+                  .replace('{tot}', tot);
               }
               if (upside != null) {
                 narrative += ` Objectif moyen ${target.toFixed(2)}${cur === 'USD' ? ' $' : cur === 'EUR' ? ' €' : ' ' + cur} ${upside > 0 ? `(<strong style="color:#2ecc71">+${upside.toFixed(1)}%</strong> vs cours actuel)` : `(<strong style="color:#e74c3c">${upside.toFixed(1)}%</strong> vs cours actuel)`}.`;
@@ -10923,14 +10948,14 @@
                   else                { col = '#e74c3c'; label = 'FAIBLE'; }
                 } else if (type === 'debtEquity') {
                   // Plus c'est BAS, mieux c'est
-                  if (val <= 0.3)     { col = '#2ecc71'; label = 'PEU ENDETTÉ'; }
-                  else if (val <= 1)  { col = '#27ae60'; label = 'MAÎTRISÉ'; }
-                  else if (val <= 2)  { col = '#f39c12'; label = 'ÉLEVÉ'; }
-                  else                { col = '#e74c3c'; label = 'TRÈS ÉLEVÉ'; }
+                  if (val <= 0.3)     { col = '#2ecc71'; label = L.debtLow; }
+                  else if (val <= 1)  { col = '#27ae60'; label = L.debtControlled; }
+                  else if (val <= 2)  { col = '#f39c12'; label = L.debtHigh; }
+                  else                { col = '#e74c3c'; label = L.debtVeryHigh; }
                 } else if (type === 'debtEbitda') {
                   if (val <= 2)       { col = '#2ecc71'; label = 'FAIBLE'; }
-                  else if (val <= 4)  { col = '#27ae60'; label = 'MODÉRÉ'; }
-                  else if (val <= 6)  { col = '#f39c12'; label = 'ÉLEVÉ'; }
+                  else if (val <= 4)  { col = '#27ae60'; label = L.debtModerate; }
+                  else if (val <= 6)  { col = '#f39c12'; label = L.debtHigh; }
                   else                { col = '#e74c3c'; label = 'CRITIQUE'; }
                 } else if (type === 'interestCoverage') {
                   if (val >= 5)       { col = '#2ecc71'; label = 'EXCELLENTE'; }
@@ -10989,10 +11014,10 @@
               })() : ''}
             </div>
             <div style="font-size:11px;opacity:0.55;line-height:1.5;margin-bottom:12px">
-              ${health.altmanZ != null ? '<strong>Altman Z</strong> : risque de faillite 2 ans. > 2.99 sûr · 1.81–2.99 gris · < 1.81 détresse.' : ''}
+              ${health.altmanZ != null ? t('stock.health.altmanTip', '<strong>Altman Z</strong> : risque de faillite 2 ans. > 2.99 sûr · 1.81–2.99 gris · < 1.81 détresse.') : ''}
               ${health.altmanZ != null && health.piotroskiF != null ? '<br>' : ''}
-              ${health.piotroskiF != null ? '<strong>Piotroski F</strong> : qualité fondamentale sur 9 critères. ≥ 7 solide · 4–6 moyen · < 4 faible.' : ''}
-              ${(health.altmanZ == null && health.piotroskiF == null && health.kairosScore) ? '<strong>Score Kairos</strong> : 7 critères de santé fondamentale (rentabilité, liquidité, endettement). Approximation pour les actions EU où Altman Z et Piotroski F ne sont pas disponibles. ≥ 5/7 solide · 3–4 moyen · < 3 faible.' : ''}
+              ${health.piotroskiF != null ? t('stock.health.piotroskiTip', '<strong>Piotroski F</strong> : qualité fondamentale sur 9 critères. ≥ 7 solide · 4–6 moyen · < 4 faible.') : ''}
+              ${(health.altmanZ == null && health.piotroskiF == null && health.kairosScore) ? t('stock.health.kairosTip', "<strong>Score Kairos</strong> : 7 critères de santé fondamentale (rentabilité, liquidité, endettement). Approximation pour les actions EU où Altman Z et Piotroski F ne sont pas disponibles. ≥ 5/7 solide · 3–4 moyen · < 3 faible.") : ''}
             </div>
             ${(finPos.currentRatio && finPos.currentRatio.display) || (finPos.debtEquity && finPos.debtEquity.display) ? (() => {
               // Helpers couleur (réinjectés ici car les helpers de l'IIFE supérieure ne sont pas accessibles)
@@ -11010,14 +11035,14 @@
                   else if (val >= 0.5) { col = '#f39c12'; label = 'MOYEN'; }
                   else { col = '#e74c3c'; label = 'FAIBLE'; }
                 } else if (type === 'debtEquity') {
-                  if (val <= 0.3) { col = '#2ecc71'; label = 'PEU ENDETTÉ'; }
-                  else if (val <= 1) { col = '#27ae60'; label = 'MAÎTRISÉ'; }
-                  else if (val <= 2) { col = '#f39c12'; label = 'ÉLEVÉ'; }
-                  else { col = '#e74c3c'; label = 'TRÈS ÉLEVÉ'; }
+                  if (val <= 0.3) { col = '#2ecc71'; label = L.debtLow; }
+                  else if (val <= 1) { col = '#27ae60'; label = L.debtControlled; }
+                  else if (val <= 2) { col = '#f39c12'; label = L.debtHigh; }
+                  else { col = '#e74c3c'; label = L.debtVeryHigh; }
                 } else if (type === 'debtEbitda') {
                   if (val <= 2) { col = '#2ecc71'; label = 'FAIBLE'; }
-                  else if (val <= 4) { col = '#27ae60'; label = 'MODÉRÉ'; }
-                  else if (val <= 6) { col = '#f39c12'; label = 'ÉLEVÉ'; }
+                  else if (val <= 4) { col = '#27ae60'; label = L.debtModerate; }
+                  else if (val <= 6) { col = '#f39c12'; label = L.debtHigh; }
                   else { col = '#e74c3c'; label = 'CRITIQUE'; }
                 } else if (type === 'interestCoverage') {
                   if (val >= 5) { col = '#2ecc71'; label = 'EXCELLENTE'; }
@@ -11044,11 +11069,11 @@
               return `<div style="padding-top:12px;border-top:1px solid var(--border-subtle)">
                 <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.finStructure}</div>
                 <table style="width:100%;font-size:12px">
-                  ${ratioRow('Liquidité générale', 'currentRatio', 'currentRatio', 'Actifs courants / passifs courants. > 1.5 = solide, < 1 = tendu')}
-                  ${ratioRow('Liquidité réduite', 'quickRatio', 'quickRatio', 'Actifs liquides / passifs courants (sans stocks). > 1 = solide')}
-                  ${ratioRow('Dette / Fonds propres', 'debtEquity', 'debtEquity', 'Levier financier. < 1 = peu endetté, > 2 = très endetté')}
-                  ${ratioRow('Dette / EBITDA', 'debtEbitda', 'debtEbitda', 'Capacité de remboursement. < 2 = sain, > 4 = à surveiller')}
-                  ${ratioRow('Couverture des intérêts', 'interestCoverage', 'interestCoverage', 'EBIT / charges intérêts. > 5 = solide, < 1.5 = dangereux')}
+                  ${ratioRow(L.ratioCurrentRatio, 'currentRatio', 'currentRatio', 'Actifs courants / passifs courants. > 1.5 = solide, < 1 = tendu')}
+                  ${ratioRow(L.ratioQuickRatio, 'quickRatio', 'quickRatio', 'Actifs liquides / passifs courants (sans stocks). > 1 = solide')}
+                  ${ratioRow(L.ratioDebtEquity, 'debtEquity', 'debtEquity', 'Levier financier. < 1 = peu endetté, > 2 = très endetté')}
+                  ${ratioRow(L.ratioDebtEbitda, 'debtEbitda', 'debtEbitda', 'Capacité de remboursement. < 2 = sain, > 4 = à surveiller')}
+                  ${ratioRow(L.ratioInterestCoverage, 'interestCoverage', 'interestCoverage', 'EBIT / charges intérêts. > 5 = solide, < 1.5 = dangereux')}
                 </table>
               </div>`;
             })() : ''}
@@ -11066,7 +11091,7 @@
                   ${earnings.next.confirmed ? `<span style="font-size:10px;color:#2ecc71;background:rgba(46,204,113,0.15);padding:2px 6px;border-radius:4px">${L.earnConfirmed}</span>` : `<span style="font-size:10px;opacity:0.5">${L.earnEstimated}</span>`}
                 </div>
                 <div style="font-size:18px;font-weight:600;color:#74b9ff">${earnings.next.date ? new Date(earnings.next.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'}) : '—'}</div>
-                ${earnings.next.period && earnings.next.year ? `<div style="font-size:11px;opacity:0.6;margin-top:2px">${earnings.next.period} ${earnings.next.year} · ${earnings.next.time === 'bmo' ? 'avant ouverture' : earnings.next.time === 'amc' ? 'après clôture' : 'heure non précisée'}</div>` : ''}
+                ${earnings.next.period && earnings.next.year ? `<div style="font-size:11px;opacity:0.6;margin-top:2px">${earnings.next.period} ${earnings.next.year} · ${earnings.next.time === 'bmo' ? L.earnBmo : earnings.next.time === 'amc' ? L.earnAmc : L.earnTimeUnknown}</div>` : ''}
                 ${earnings.next.epsEst != null ? `<div style="font-size:12px;margin-top:6px;opacity:0.8">${L.earnEpsEst} : <strong>${earnings.next.epsEst.toFixed(2)}</strong></div>` : ''}
               </div>
             ` : ''}
@@ -11105,7 +11130,7 @@
           ${peers.length > 0 ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;min-height:0">
             <h3 style="margin:0 0 12px;font-size:16px;flex-shrink:0">🎯 Concurrents sectoriels</h3>
-            <div style="font-size:11px;opacity:0.55;margin-bottom:10px;flex-shrink:0">${peers.length} entreprises du même secteur — cliquez pour analyser</div>
+            <div style="font-size:11px;opacity:0.55;margin-bottom:10px;flex-shrink:0">${peers.length} ${L.peersIntro}</div>
             <div class="scroll-y-hover" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px;max-height:600px">
               ${peers.map(p => `
                 <div onclick="loadStockAnalysis('${p.ticker}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px;margin-bottom:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;font-size:13px" onmouseover="this.style.background='rgba(116,185,255,0.08)';this.style.borderColor='rgba(116,185,255,0.3)'" onmouseout="this.style.background='var(--bg-card)';this.style.borderColor='var(--border)'">
@@ -11113,7 +11138,7 @@
                     <div style="font-weight:700;color:#74b9ff;font-size:13px">${p.ticker}</div>
                     ${p.name ? `<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px" title="${escapeHtmlClient(p.name)}">${escapeHtmlClient(p.name)}</div>` : ''}
                   </div>
-                  ${p.employees ? `<div style="text-align:right;font-size:11px;opacity:0.7;margin-left:8px;flex-shrink:0"><div>${fmtBig(p.employees)}</div><div style="opacity:0.55">employés</div></div>` : ''}
+                  ${p.employees ? `<div style="text-align:right;font-size:11px;opacity:0.7;margin-left:8px;flex-shrink:0"><div>${fmtBig(p.employees)}</div><div style="opacity:0.55">${L.peersEmployees}</div></div>` : ''}
                 </div>
               `).join('')}
             </div>
@@ -11182,9 +11207,9 @@
                   <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestMax}/100</div>
                 </div>
               </div>
-              ${!LOW_VOLUME ? `<canvas id="trendsChart" style="max-height:180px"></canvas>` : `<p style="opacity:0.55;font-size:13px;padding:20px 0">Le volume de recherche pour "${d.ticker}" est trop faible sur les 90 derniers jours pour qu'un signal soit exploitable (max ${tr.interestMax}/100 sur la période). Ce ticker n'attire pas encore l'attention retail sur Google.</p>`}
+              ${!LOW_VOLUME ? `<canvas id="trendsChart" style="max-height:180px"></canvas>` : `<p style="opacity:0.55;font-size:13px;padding:20px 0">${t('stock.trends.lowVolume', 'Le volume de recherche pour "{ticker}" est trop faible sur les 90 derniers jours pour qu\\'un signal soit exploitable (max {max}/100 sur la période). Ce ticker n\\'attire pas encore l\\'attention retail sur Google.').replace('{ticker}', d.ticker).replace('{max}', tr.interestMax)}</p>`}
               <p style="font-size:11px;opacity:0.55;margin:10px 0 0">
-                Volume de recherche Google pour "${d.ticker}" sur 90 jours (Google Trends, échelle 0-100, 100 = pic de la période). Les pics précèdent souvent les mouvements de prix sur les small caps.
+                ${t('stock.trends.desc', 'Volume de recherche Google pour "{ticker}" sur 90 jours (Google Trends, échelle 0-100, 100 = pic de la période). Les pics précèdent souvent les mouvements de prix sur les small caps.').replace('{ticker}', d.ticker)}
               </p>
             </div>
           `;
@@ -11340,7 +11365,7 @@
           // Plus simple et plus fiable que des canvas custom.
           if (hasBuys) {
             datasets.push({
-              label: 'Achats insiders',
+              label: L.chartInsiderBuys,
               data: buyOverlay,
               _meta: buyMeta,
               borderColor: '#0A0F1E',           // bordure sombre = halo de contraste
@@ -11450,7 +11475,7 @@
                           lines.push(`~${pStr} investis`);
                         }
                       } else {
-                        const prefix = ds.label === 'Achats insiders' ? '🟢 ACHAT' : '🔴 VENTE';
+                        const prefix = ds.label === L.chartInsiderBuys ? L.chartBuyLegend : L.chartSellLegend;
                         lines.push(`${prefix}${meta.count > 1 ? ' (+' + (meta.count - 1) + ' autre' + (meta.count > 2 ? 's' : '') + ')' : ''}`);
                         if (meta.insider) lines.push(meta.insider + (meta.title ? ' · ' + meta.title : ''));
                         if (meta.shares) lines.push(meta.shares.toLocaleString('fr-FR') + ' titres');
@@ -11514,7 +11539,7 @@
                   padding: 12,
                   callbacks: {
                     title: (items) => items.length ? fmtDate(items[0].label) : '',
-                    label: (ctx) => `Intérêt : ${ctx.parsed.y}/100`,
+                    label: (ctx) => t('stock.trends.tooltipLabel', 'Intérêt : {value}/100').replace('{value}', ctx.parsed.y),
                   },
                 },
               },
