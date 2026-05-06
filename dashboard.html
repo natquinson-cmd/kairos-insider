@@ -10242,6 +10242,15 @@
         chartInsiderBuys: t('stock.chart.insiderBuys', 'Achats insiders'),
         chartBuyLegend: t('stock.chart.buyLegend', '🟢 ACHAT'),
         chartSellLegend: t('stock.chart.sellLegend', '🔴 VENTE'),
+        // ===== Wave 7 health labels =====
+        healthSolid: t('stock.healthRatio.solid', 'SOLIDE'),
+        healthAverage: t('stock.healthRatio.average', 'MOYEN'),
+        healthWeak: t('stock.healthRatio.weak', 'FAIBLE'),
+        healthFair: t('stock.healthRatio.fair', 'JUSTE'),
+        healthGood: t('stock.healthRatio.good', 'BONNE'),
+        healthExcellent: t('stock.healthRatio.excellent', 'EXCELLENTE'),
+        healthDangerous: t('stock.healthRatio.dangerous', 'DANGEREUSE'),
+        healthCritical: t('stock.healthRatio.critical', 'CRITIQUE'),
       };
 
       // Fallback : si company.name est absent mais qu'on connait le ticker dans
@@ -10440,7 +10449,7 @@
           <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px">
             <h3 style="margin:0;font-size:16px;font-weight:700;letter-spacing:-0.01em;display:inline-flex;align-items:center;gap:10px">
               <span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#EC4899);box-shadow:0 0 12px rgba(139,92,246,0.6)"></span>
-              Cours &amp; signaux smart money
+              ${t('stock.chart.title', 'Cours & signaux smart money')}
             </h3>
             <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)" id="chartPeriodSelector">
               ${[
@@ -10454,7 +10463,7 @@
           <div style="position:relative;z-index:1;display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.8;flex-wrap:wrap">
             <span><span style="color:#10B981">◆</span> ${L.insBuy}</span>
             <span><span style="color:#EF4444">▼</span> ${L.insSell}</span>
-            <span><span style="color:#FACC15;font-size:13px">★</span> fonds offensif (13D/G)</span>
+            <span><span style="color:#FACC15;font-size:13px">★</span> ${t('stock.chart.activistMarker', 'fonds offensif (13D/G)')}</span>
             <span style="opacity:0.6">${L.sizeProportional}</span>
           </div>
           <div style="position:relative;z-index:1;height:300px"><canvas id="stockPriceChart"></canvas></div>
@@ -10476,12 +10485,12 @@
                 <option value="1825">5 ans</option>
               </select>
               <select id="saInsiderType" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
-                <option value="">Tous types</option>
-                <option value="buy">Achats</option>
-                <option value="sell">Ventes</option>
+                <option value="">${t('stock.insider.allTypes', 'Tous types')}</option>
+                <option value="buy">${t('stock.cons.buy', 'Achat')}</option>
+                <option value="sell">${t('stock.cons.sell', 'Vente')}</option>
               </select>
               <select id="saInsiderRole" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
-                <option value="">Tous roles</option>
+                <option value="">${t('stock.insider.allRoles', 'Tous roles')}</option>
                 <option value="CEO">CEO</option>
                 <option value="CFO">CFO</option>
                 <option value="Director">Director</option>
@@ -10492,15 +10501,15 @@
             <div style="display:flex;gap:12px;margin-bottom:12px" id="saInsiderStats">
               <div style="flex:1;padding:10px;background:rgba(46,204,113,0.08);border-radius:8px;text-align:center">
                 <div style="font-size:20px;font-weight:600;color:#2ecc71" id="saInsiderBuyCount">${insiders.buyCount || 0}</div>
-                <div style="font-size:11px;opacity:0.7">achats</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.insider.buys_label', 'achats')}</div>
               </div>
               <div style="flex:1;padding:10px;background:rgba(255,118,117,0.08);border-radius:8px;text-align:center">
                 <div style="font-size:20px;font-weight:600;color:#ff7675" id="saInsiderSellCount">${insiders.sellCount || 0}</div>
-                <div style="font-size:11px;opacity:0.7">ventes</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.insider.sells_label', 'ventes')}</div>
               </div>
             </div>
             <div style="font-size:13px;opacity:0.8;margin-bottom:10px" id="saInsiderFlux">
-              Flux net : <strong style="color:${(insiders.netValueUsd||0)+(insiders.netValueEur||0) >= 0 ? '#2ecc71' : '#ff7675'}">${fmtCurr((insiders.netValueUsd||0)+(insiders.netValueEur||0), cur)}</strong><br>
+              ${t('stock.insider.netFlow', 'Flux net :')} <strong style="color:${(insiders.netValueUsd||0)+(insiders.netValueEur||0) >= 0 ? '#2ecc71' : '#ff7675'}">${fmtCurr((insiders.netValueUsd||0)+(insiders.netValueEur||0), cur)}</strong><br>
               ${t('stock.label.distinctInsiders', '{n} initiés distincts').replace('{n}', insiders.uniqueInsiders || 0)}
             </div>
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px" id="saInsiderList">
@@ -10534,15 +10543,15 @@
             <div style="display:flex;gap:12px;margin-bottom:12px">
               <div style="flex:1;padding:10px;background:rgba(116,185,255,0.08);border-radius:8px;text-align:center">
                 <div style="font-size:20px;font-weight:600;color:#74b9ff">${sm.fundCount || 0}</div>
-                <div style="font-size:11px;opacity:0.7">fonds</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.hf.fundsLabel', 'fonds')}</div>
               </div>
               <div style="flex:1;padding:10px;background:var(--surface-2);border-radius:8px;text-align:center">
                 <div style="font-size:20px;font-weight:600;color:${sm.avgDeltaPct>0?'#2ecc71':sm.avgDeltaPct<0?'#ff7675':'#fff'}">${sm.avgDeltaPct > 0 ? '+' : ''}${(sm.avgDeltaPct||0).toFixed(1)}%</div>
-                <div style="font-size:11px;opacity:0.7">Δ positions</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.hf.deltaLabel', 'Δ positions')}</div>
               </div>
             </div>
             <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
-              Valeur totale : <strong>$${fmtBig(sm.totalValue)}</strong>
+              ${t('stock.hf.totalValue', 'Valeur totale :')} <strong>$${fmtBig(sm.totalValue)}</strong>
             </div>
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px">
               ${(sm.topFunds || []).map(f => `
@@ -10573,25 +10582,29 @@
 
           <!-- POLITICIENS / GURUS -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">🏛️ Politiciens &amp; Gurus</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${t('stock.section.politicians', '🏛️ Politiciens & Gurus')}</h3>
             ${gov.inEtfs && gov.inEtfs.length > 0 ? `
               <div style="font-size:13px;opacity:0.8;margin-bottom:12px">
                 ${t('stock.gov.presentIn', 'Présent dans <strong>{n}</strong> ETF suivis').replace('{n}', gov.inEtfs.length)}<br>
                 ${t('stock.gov.cumulatedWeight', 'Poids cumulé : <strong>{pct}%</strong>').replace('{pct}', (gov.totalPct||0).toFixed(2))}
               </div>
-              ${gov.inEtfs.map(e => `
+              ${gov.inEtfs.map(e => {
+                // Override le fullName API (FR-only) par une trad i18n keyed sur le symbol ETF
+                const _etfKey = `stock.etfLabel.${e.etf}`;
+                const _etfName = t(_etfKey, e.fullName) === _etfKey ? e.fullName : t(_etfKey, e.fullName);
+                return `
                 <div style="padding:10px;background:var(--surface-1);border-radius:8px;margin-bottom:8px">
                   <div style="display:flex;justify-content:space-between;align-items:center">
                     <div>
                       <strong style="font-size:14px">${e.etf}</strong>
-                      <span style="font-size:11px;opacity:0.6;margin-left:6px">${e.fullName}</span>
+                      <span style="font-size:11px;opacity:0.6;margin-left:6px">${_etfName}</span>
                     </div>
                     <strong style="color:#74b9ff">${e.weight.toFixed(2)}%</strong>
                   </div>
-                  ${e.shares ? `<div style="font-size:11px;opacity:0.55;margin-top:3px">${e.shares.toLocaleString('fr-FR')} titres</div>` : ''}
+                  ${e.shares ? `<div style="font-size:11px;opacity:0.55;margin-top:3px">${e.shares.toLocaleString('fr-FR')} ${t('stock.etfLabel.shares', 'titres')}</div>` : ''}
                 </div>
-              `).join('')}
-            ` : '<div style="opacity:0.5;padding:12px 0;font-size:13px">Absent des ETF suivis (NANC, GOP, GURU)</div>'}
+              `;}).join('')}
+            ` : `<div style="opacity:0.5;padding:12px 0;font-size:13px">${t('stock.gov.absent', 'Absent des ETF suivis (NANC, GOP, GURU)')}</div>`}
           </div>
         </div>
 
@@ -10779,7 +10792,7 @@
               <div style="margin-top:12px;padding:10px 12px;background:rgba(255,118,117,0.06);border-left:3px solid #ff7675;border-radius:6px;font-size:12px">
                 <span style="opacity:0.7">${L.shortsLabel}</span>
                 <strong style="color:#ff7675;font-size:14px">${shortInt.shortPctFloat.display}</strong>
-                <span style="opacity:0.5"> du flottant</span>
+                <span style="opacity:0.5"> ${t('stock.shorts.ofFloat', 'du flottant')}</span>
                 ${shortInt.daysToCover && shortInt.daysToCover.display ? ` · <span style="opacity:0.65">${L.shortsDays.replace('{n}', shortInt.daysToCover.display)}</span>` : ''}
               </div>
             ` : ''}
@@ -10787,7 +10800,7 @@
 
           <!-- CONSENSUS ANALYSTES -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 14px;font-size:16px">🎯 Consensus analystes</h3>
+            <h3 style="margin:0 0 14px;font-size:16px">${t('stock.section.consensus_full', '🎯 Consensus analystes')}</h3>
             ${consensus ? (() => {
               const tot = consensus.total || 1;
               const sbPct = (consensus.strongBuy / tot) * 100;
@@ -10874,11 +10887,11 @@
 
                 <!-- Détail des 5 catégories -->
                 <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px">
-                  <div style="text-align:center;padding:8px 4px;background:rgba(46,204,113,0.15);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#2ecc71">${consensus.strongBuy}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">Achat<br>fort</div></div>
-                  <div style="text-align:center;padding:8px 4px;background:rgba(46,204,113,0.08);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#52b788">${consensus.buy}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">Achat</div></div>
-                  <div style="text-align:center;padding:8px 4px;background:var(--surface-2);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#9CA3AF">${consensus.hold}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">Conserver</div></div>
-                  <div style="text-align:center;padding:8px 4px;background:rgba(255,118,117,0.08);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#e67e22">${consensus.sell}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">Vente</div></div>
-                  <div style="text-align:center;padding:8px 4px;background:rgba(255,118,117,0.15);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#e74c3c">${consensus.strongSell}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">Vente<br>forte</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(46,204,113,0.15);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#2ecc71">${consensus.strongBuy}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.strongBuy', 'Achat fort').replace(' ', '<br>')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(46,204,113,0.08);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#52b788">${consensus.buy}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.buy', 'Achat')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:var(--surface-2);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#9CA3AF">${consensus.hold}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.hold', 'Conserver')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(255,118,117,0.08);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#e67e22">${consensus.sell}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.sell', 'Vente')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(255,118,117,0.15);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#e74c3c">${consensus.strongSell}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.strongSell', 'Vente forte').replace(' ', '<br>')}</div></div>
                 </div>
 
                 <!-- Synthèse textuelle -->
@@ -10886,7 +10899,7 @@
                   ${narrative}
                 </div>
 
-                <div style="font-size:11px;opacity:0.5;margin-top:8px;text-align:right">${tot} analystes suivis</div>
+                <div style="font-size:11px;opacity:0.5;margin-top:8px;text-align:right">${t('stock.cons.analystsTracked', '{n} analystes suivis').replace('{n}', tot)}</div>
               `;
             })() : (() => {
               // Pas de consensus structure — fallback : objectif + recommandation Yahoo
@@ -10913,7 +10926,7 @@
             })()}
             ${fund.recommendationKey ? `
               <div style="margin-top:14px;padding:10px 12px;background:rgba(116,185,255,0.08);border-left:3px solid #74b9ff;border-radius:6px;font-size:12px;display:flex;justify-content:space-between;align-items:center">
-                <span style="opacity:0.8">Recommandation Yahoo Finance</span>
+                <span style="opacity:0.8">${t('stock.cons.recommendationYahoo', 'Recommandation Yahoo Finance')}</span>
                 <strong style="text-transform:uppercase;letter-spacing:0.04em;color:#74b9ff">${fund.recommendationKey}</strong>
               </div>
             ` : ''}
@@ -10956,15 +10969,15 @@
                 if (val == null) return null;
                 let col, label;
                 if (type === 'currentRatio') {
-                  if (val >= 2)      { col = '#2ecc71'; label = 'SOLIDE'; }
-                  else if (val >= 1.5){ col = '#27ae60'; label = 'SAIN'; }
-                  else if (val >= 1)  { col = '#f39c12'; label = 'JUSTE'; }
-                  else                { col = '#e74c3c'; label = 'TENDU'; }
+                  if (val >= 2)      { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 1.5){ col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 1)  { col = '#f39c12'; label = L.healthFair; }
+                  else                { col = '#e74c3c'; label = L.healthWeak; }
                 } else if (type === 'quickRatio') {
-                  if (val >= 1.2)     { col = '#2ecc71'; label = 'SOLIDE'; }
-                  else if (val >= 0.8){ col = '#27ae60'; label = 'SAIN'; }
-                  else if (val >= 0.5){ col = '#f39c12'; label = 'MOYEN'; }
-                  else                { col = '#e74c3c'; label = 'FAIBLE'; }
+                  if (val >= 1.2)     { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 0.8){ col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 0.5){ col = '#f39c12'; label = L.healthAverage; }
+                  else                { col = '#e74c3c'; label = L.healthWeak; }
                 } else if (type === 'debtEquity') {
                   // Plus c'est BAS, mieux c'est
                   if (val <= 0.3)     { col = '#2ecc71'; label = L.debtLow; }
@@ -10972,15 +10985,15 @@
                   else if (val <= 2)  { col = '#f39c12'; label = L.debtHigh; }
                   else                { col = '#e74c3c'; label = L.debtVeryHigh; }
                 } else if (type === 'debtEbitda') {
-                  if (val <= 2)       { col = '#2ecc71'; label = 'FAIBLE'; }
+                  if (val <= 2)       { col = '#2ecc71'; label = L.healthWeak; }
                   else if (val <= 4)  { col = '#27ae60'; label = L.debtModerate; }
                   else if (val <= 6)  { col = '#f39c12'; label = L.debtHigh; }
-                  else                { col = '#e74c3c'; label = 'CRITIQUE'; }
+                  else                { col = '#e74c3c'; label = L.healthCritical; }
                 } else if (type === 'interestCoverage') {
-                  if (val >= 5)       { col = '#2ecc71'; label = 'EXCELLENTE'; }
-                  else if (val >= 2.5){ col = '#27ae60'; label = 'BONNE'; }
-                  else if (val >= 1.5){ col = '#f39c12'; label = 'JUSTE'; }
-                  else                { col = '#e74c3c'; label = 'DANGEREUSE'; }
+                  if (val >= 5)       { col = '#2ecc71'; label = L.healthExcellent; }
+                  else if (val >= 2.5){ col = '#27ae60'; label = L.healthGood; }
+                  else if (val >= 1.5){ col = '#f39c12'; label = L.healthFair; }
+                  else                { col = '#e74c3c'; label = L.healthDangerous; }
                 }
                 return { col, label };
               };
@@ -11011,7 +11024,7 @@
               })() : ''}
               ${health.piotroskiF != null ? (() => {
                 const zoneCol = health.piotroskiZone === 'strong' ? '#2ecc71' : health.piotroskiZone === 'mid' ? '#f39c12' : '#e74c3c';
-                const zoneTxt = health.piotroskiZone === 'strong' ? 'SOLIDE' : health.piotroskiZone === 'mid' ? 'MOYEN' : 'FAIBLE';
+                const zoneTxt = health.piotroskiZone === 'strong' ? L.healthSolid : health.piotroskiZone === 'mid' ? L.healthAverage : L.healthWeak;
                 return `<div style="padding:12px;background:rgba(${health.piotroskiZone==='strong'?'46,204,113':health.piotroskiZone==='mid'?'243,156,18':'231,76,60'},0.08);border:1px solid rgba(${health.piotroskiZone==='strong'?'46,204,113':health.piotroskiZone==='mid'?'243,156,18':'231,76,60'},0.2);border-radius:8px;text-align:center">
                   <div style="font-size:11px;opacity:0.65;margin-bottom:3px">Piotroski F-Score</div>
                   <div style="font-size:26px;font-weight:700;color:${zoneCol}">${health.piotroskiF}<span style="opacity:0.5;font-size:16px">/9</span></div>
@@ -11044,30 +11057,30 @@
                 if (val == null || isNaN(val)) return null;
                 let col, label;
                 if (type === 'currentRatio') {
-                  if (val >= 2) { col = '#2ecc71'; label = 'SOLIDE'; }
-                  else if (val >= 1.5) { col = '#27ae60'; label = 'SAIN'; }
-                  else if (val >= 1) { col = '#f39c12'; label = 'JUSTE'; }
-                  else { col = '#e74c3c'; label = 'TENDU'; }
+                  if (val >= 2) { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 1.5) { col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 1) { col = '#f39c12'; label = L.healthFair; }
+                  else { col = '#e74c3c'; label = L.healthWeak; }
                 } else if (type === 'quickRatio') {
-                  if (val >= 1.2) { col = '#2ecc71'; label = 'SOLIDE'; }
-                  else if (val >= 0.8) { col = '#27ae60'; label = 'SAIN'; }
-                  else if (val >= 0.5) { col = '#f39c12'; label = 'MOYEN'; }
-                  else { col = '#e74c3c'; label = 'FAIBLE'; }
+                  if (val >= 1.2) { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 0.8) { col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 0.5) { col = '#f39c12'; label = L.healthAverage; }
+                  else { col = '#e74c3c'; label = L.healthWeak; }
                 } else if (type === 'debtEquity') {
                   if (val <= 0.3) { col = '#2ecc71'; label = L.debtLow; }
                   else if (val <= 1) { col = '#27ae60'; label = L.debtControlled; }
                   else if (val <= 2) { col = '#f39c12'; label = L.debtHigh; }
                   else { col = '#e74c3c'; label = L.debtVeryHigh; }
                 } else if (type === 'debtEbitda') {
-                  if (val <= 2) { col = '#2ecc71'; label = 'FAIBLE'; }
+                  if (val <= 2) { col = '#2ecc71'; label = L.healthWeak; }
                   else if (val <= 4) { col = '#27ae60'; label = L.debtModerate; }
                   else if (val <= 6) { col = '#f39c12'; label = L.debtHigh; }
-                  else { col = '#e74c3c'; label = 'CRITIQUE'; }
+                  else { col = '#e74c3c'; label = L.healthCritical; }
                 } else if (type === 'interestCoverage') {
-                  if (val >= 5) { col = '#2ecc71'; label = 'EXCELLENTE'; }
-                  else if (val >= 2.5) { col = '#27ae60'; label = 'BONNE'; }
-                  else if (val >= 1.5) { col = '#f39c12'; label = 'JUSTE'; }
-                  else { col = '#e74c3c'; label = 'DANGEREUSE'; }
+                  if (val >= 5) { col = '#2ecc71'; label = L.healthExcellent; }
+                  else if (val >= 2.5) { col = '#27ae60'; label = L.healthGood; }
+                  else if (val >= 1.5) { col = '#f39c12'; label = L.healthFair; }
+                  else { col = '#e74c3c'; label = L.healthDangerous; }
                 }
                 return { col, label };
               };
@@ -11106,7 +11119,7 @@
             ${earnings.next ? `
               <div style="padding:12px;background:rgba(116,185,255,0.08);border:1px solid rgba(116,185,255,0.25);border-radius:8px;margin-bottom:14px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                  <div style="font-size:11px;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px">Prochaine publication</div>
+                  <div style="font-size:11px;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px">${t('stock.earnings.nextPublication', 'PROCHAINE PUBLICATION')}</div>
                   ${earnings.next.confirmed ? `<span style="font-size:10px;color:#2ecc71;background:rgba(46,204,113,0.15);padding:2px 6px;border-radius:4px">${L.earnConfirmed}</span>` : `<span style="font-size:10px;opacity:0.5">${L.earnEstimated}</span>`}
                 </div>
                 <div style="font-size:18px;font-weight:600;color:#74b9ff">${earnings.next.date ? new Date(earnings.next.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'}) : '—'}</div>
@@ -11115,7 +11128,7 @@
               </div>
             ` : ''}
             ${earnings.history && earnings.history.length > 0 ? `
-              <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Historique des surprises</div>
+              <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${t('stock.earnings.historyTitle', 'HISTORIQUE DES SURPRISES')}</div>
               <div style="font-size:12px">
                 ${earnings.history.slice(0, 6).map(h => {
                   const beatCol = h.beat ? '#2ecc71' : '#ff7675';
@@ -11148,7 +11161,7 @@
           <!-- PEERS : layout flex pour epouser la hauteur des autres cards de la row -->
           ${peers.length > 0 ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;min-height:0">
-            <h3 style="margin:0 0 12px;font-size:16px;flex-shrink:0">🎯 Concurrents sectoriels</h3>
+            <h3 style="margin:0 0 12px;font-size:16px;flex-shrink:0">${t('stock.section.peers', '🎯 Concurrents sectoriels')}</h3>
             <div style="font-size:11px;opacity:0.55;margin-bottom:10px;flex-shrink:0">${peers.length} ${L.peersIntro}</div>
             <div class="scroll-y-hover" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px;max-height:600px">
               ${peers.map(p => `
@@ -11174,16 +11187,16 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
               ${fairValue.lynch && fairValue.lynch.display ? `
                 <div style="padding:12px;background:var(--surface-1);border-radius:8px">
-                  <div style="font-size:11px;opacity:0.6;margin-bottom:4px">Juste valeur selon Peter Lynch</div>
+                  <div style="font-size:11px;opacity:0.6;margin-bottom:4px">${t('stock.fv.lynchTitle', 'Juste valeur selon Peter Lynch')}</div>
                   <div style="font-size:20px;font-weight:600">${fairValue.lynch.display}</div>
-                  ${fairValue.lynchUpside && fairValue.lynchUpside.display ? `<div style="font-size:12px;margin-top:3px;color:${(fairValue.lynchUpside.numeric||0)>0?'#2ecc71':'#ff7675'}">Potentiel : ${fairValue.lynchUpside.display}</div>` : ''}
+                  ${fairValue.lynchUpside && fairValue.lynchUpside.display ? `<div style="font-size:12px;margin-top:3px;color:${(fairValue.lynchUpside.numeric||0)>0?'#2ecc71':'#ff7675'}">${t('stock.fv.potentialLabel', 'Potentiel :')} ${fairValue.lynchUpside.display}</div>` : ''}
                 </div>
               ` : ''}
               ${fairValue.graham && fairValue.graham.display ? `
                 <div style="padding:12px;background:var(--surface-1);border-radius:8px">
-                  <div style="font-size:11px;opacity:0.6;margin-bottom:4px">Nombre de Graham</div>
+                  <div style="font-size:11px;opacity:0.6;margin-bottom:4px">${t('stock.fv.grahamTitle', 'Nombre de Graham')}</div>
                   <div style="font-size:20px;font-weight:600">${fairValue.graham.display}</div>
-                  ${fairValue.grahamUpside && fairValue.grahamUpside.display ? `<div style="font-size:12px;margin-top:3px;color:${(fairValue.grahamUpside.numeric||0)>0?'#2ecc71':'#ff7675'}">Potentiel : ${fairValue.grahamUpside.display}</div>` : ''}
+                  ${fairValue.grahamUpside && fairValue.grahamUpside.display ? `<div style="font-size:12px;margin-top:3px;color:${(fairValue.grahamUpside.numeric||0)>0?'#2ecc71':'#ff7675'}">${t('stock.fv.potentialLabel', 'Potentiel :')} ${fairValue.grahamUpside.display}</div>` : ''}
                 </div>
               ` : ''}
             </div>
@@ -11404,7 +11417,7 @@
           }
           if (hasSells) {
             datasets.push({
-              label: 'Ventes insiders',
+              label: t('stock.chart.insiderSells', 'Ventes insiders'),
               data: sellOverlay,
               _meta: sellMeta,
               borderColor: '#0A0F1E',
