@@ -8333,6 +8333,13 @@
       const ids = { days: 'actDays', filter: 'actFilter', country: 'actCountry' };
       const sel = document.getElementById(ids[field]);
       if (sel) sel.value = value;
+      // Les données EU (BaFin, FCA, AMF…) sont des déclarations réglementaires de seuil,
+      // pas des fonds activistes reconnus. Auto-passer à "toutes déclarations" pour éviter
+      // un résultat vide (le filtre 'activists' exige isActivist:true, rare en EU).
+      if (field === 'country' && value && value !== 'US') {
+        const filterSel = document.getElementById('actFilter');
+        if (filterSel && filterSel.value === 'activists') filterSel.value = 'all';
+      }
       const parent = el?.closest?.('.period-buttons');
       if (parent) parent.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === el));
       loadActivists();

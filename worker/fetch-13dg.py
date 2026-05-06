@@ -59,7 +59,7 @@ def _load_cik_ticker_map():
         return _CIK_TICKER_MAP
     _CIK_TICKER_MAP = {}
     try:
-        print('Loading SEC company_tickers.json (CIK → ticker mapping)...')
+        print('Loading SEC company_tickers.json (CIK -> ticker mapping)...')
         raw = fetch('https://www.sec.gov/files/company_tickers.json', timeout=15, throttled=False)
         if not raw:
             print('  WARN : impossible de telecharger company_tickers.json, fallback disable')
@@ -70,7 +70,7 @@ def _load_cik_ticker_map():
             ticker = (entry.get('ticker') or '').strip().upper()
             if cik and ticker:
                 _CIK_TICKER_MAP[cik] = ticker
-        print(f'  → {len(_CIK_TICKER_MAP)} mappings CIK → ticker charges')
+        print(f'  -> {len(_CIK_TICKER_MAP)} mappings CIK -> ticker charges')
     except Exception as e:
         print(f'  WARN : parse company_tickers.json echoue : {e}')
     return _CIK_TICKER_MAP
@@ -435,7 +435,7 @@ def main():
             if tk:
                 f['ticker'] = tk
                 resolved += 1
-        print(f'  → {resolved} tickers resolus ({resolved * 100 // max(1, len(ticker_missing))}% des manquants)')
+        print(f'  -> {resolved} tickers resolus ({resolved * 100 // max(1, len(ticker_missing))}% des manquants)')
 
     # ============================================================
     # ENRICHISSEMENT : fetch primary_doc.xml pour extraire shares + %
