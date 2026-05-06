@@ -10114,6 +10114,38 @@
         howToRead: t('stock.helper.howToRead', 'Comment lire ces données ?'),
         clickToExpand: t('stock.helper.click2expand', 'Cliquer pour déplier'),
         peersIntro: t('stock.helper.peersIntro', 'entreprises du même secteur — cliquez pour analyser'),
+        // ===== Wave 2 =====
+        consStrongBuy: t('stock.consensus.strongBuy', 'Achat fort'),
+        consBuy: t('stock.consensus.buy', 'Achat'),
+        consHold: t('stock.consensus.hold', 'Conserver'),
+        consSell: t('stock.consensus.sell', 'Vente'),
+        consStrongSell: t('stock.consensus.strongSell', 'Vente forte'),
+        consUnavailable: t('stock.consensus.unavailable', 'Consensus analystes indisponible pour {ticker}'),
+        consSmallCapNote: t('stock.consensus.smallCapNote', 'Possible pour les small caps européennes peu suivies par les analystes US.'),
+        consBullishMaj: t('stock.consensus.bullishMaj', 'très majoritairement haussiers'),
+        consCautiousMaj: t('stock.consensus.cautiousMaj', 'majorité prudente'),
+        consMajShort: t('stock.consensus.majorityShort', 'majorité'),
+        earnEpsEst: t('stock.earnings.epsEstimated', 'BPA estimé'),
+        earnVsExp: t('stock.earnings.vsExpected', 'vs {n} attendu'),
+        earnBeatRate: t('stock.earnings.beatRate', 'Taux de dépassement'),
+        earnConfirmed: t('stock.earnings.confirmed', 'CONFIRMÉE'),
+        earnEstimated: t('stock.earnings.estimated', 'estimée'),
+        shortsLabel: t('stock.shorts.label', '🔻 Ventes à découvert :'),
+        shortsDays: t('stock.shorts.daysToCover', '{n} jours pour racheter'),
+        insBuy: t('stock.insider.tradeBuy', 'achat initié'),
+        insSell: t('stock.insider.tradeSell', 'vente initié'),
+        insBuys: t('stock.insider.buys', 'Achats insiders'),
+        actAddWl: t('stock.action.addWatchlist', 'Ajouter à ma watchlist'),
+        actCopy: t('stock.action.copyShare', 'Copier le lien public de partage'),
+        tagDistress: t('stock.tag.distress', 'DÉTRESSE'),
+        tagCheap: t('stock.tag.cheap', 'Bon marché'),
+        tagFair: t('stock.tag.fair', 'Correct'),
+        tagNone: t('stock.tag.none', 'Aucun'),
+        tagBearish: t('stock.tag.bearish', 'Baissier'),
+        healthFundQuality: t('stock.health.fundQuality', 'qualité fondamentale sur 9 critères. ≥ 7 solide · 4–6 moyen · < 4 fragile'),
+        healthBankruptcy: t('stock.health.bankruptcyRisk', 'risque de faillite 2 ans. > 2.99 sûr · 1.81–2.99 gris · < 1.81 détresse'),
+        realtimePrice: t('stock.helper.realtimePrice', '❌ Prix temps réel'),
+        intradaySession: t('stock.helper.intradaySession', 'sur la séance'),
       };
 
       // Fallback : si company.name est absent mais qu'on connait le ticker dans
@@ -10324,8 +10356,8 @@
             </div>
           </div>
           <div style="position:relative;z-index:1;display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.8;flex-wrap:wrap">
-            <span><span style="color:#10B981">◆</span> achat initié</span>
-            <span><span style="color:#EF4444">▼</span> vente initié</span>
+            <span><span style="color:#10B981">◆</span> ${L.insBuy}</span>
+            <span><span style="color:#EF4444">▼</span> ${L.insSell}</span>
             <span><span style="color:#FACC15;font-size:13px">★</span> fonds offensif (13D/G)</span>
             <span style="opacity:0.6">· taille ∝ montant</span>
           </div>
@@ -10620,7 +10652,7 @@
                     </div>` : ''}
                   ${fund.insiderOwnership != null ? `
                     <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
-                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Détenu par initiés</div>
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.heldByInsiders}</div>
                       <strong style="font-size:14px">${fund.insiderOwnership.toFixed(1)}%</strong>
                     </div>` : ''}
                   ${fund.institutionalOwnership != null ? `
@@ -10649,10 +10681,10 @@
             ` : ''}
             ${shortInt.shortPctFloat && shortInt.shortPctFloat.display ? `
               <div style="margin-top:12px;padding:10px 12px;background:rgba(255,118,117,0.06);border-left:3px solid #ff7675;border-radius:6px;font-size:12px">
-                <span style="opacity:0.7">🔻 Ventes à découvert :</span>
+                <span style="opacity:0.7">${L.shortsLabel}</span>
                 <strong style="color:#ff7675;font-size:14px">${shortInt.shortPctFloat.display}</strong>
                 <span style="opacity:0.5"> du flottant</span>
-                ${shortInt.daysToCover && shortInt.daysToCover.display ? ` · <span style="opacity:0.65">${shortInt.daysToCover.display} jours pour rachetér</span>` : ''}
+                ${shortInt.daysToCover && shortInt.daysToCover.display ? ` · <span style="opacity:0.65">${L.shortsDays.replace('{n}', shortInt.daysToCover.display)}</span>` : ''}
               </div>
             ` : ''}
           </div>
@@ -10711,7 +10743,7 @@
                   </div>
                   ` : `
                   <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;opacity:0.55">
-                    <span style="font-size:12px">Objectif non renseigné</span>
+                    <span style="font-size:12px">${L.emptyTarget}</span>
                   </div>
                   `}
                 </div>
@@ -10719,11 +10751,11 @@
                 <!-- Barre stackée des 5 catégories -->
                 <div style="margin-bottom:14px">
                   <div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--surface-3)">
-                    ${sbPct > 0 ? `<div title="Achat fort : ${consensus.strongBuy}" style="width:${sbPct}%;background:#2ecc71"></div>` : ''}
-                    ${bPct  > 0 ? `<div title="Achat : ${consensus.buy}" style="width:${bPct}%;background:#52b788"></div>` : ''}
-                    ${hPct  > 0 ? `<div title="Conserver : ${consensus.hold}" style="width:${hPct}%;background:#9CA3AF"></div>` : ''}
-                    ${sPct  > 0 ? `<div title="Vente : ${consensus.sell}" style="width:${sPct}%;background:#e67e22"></div>` : ''}
-                    ${ssPct > 0 ? `<div title="Vente forte : ${consensus.strongSell}" style="width:${ssPct}%;background:#e74c3c"></div>` : ''}
+                    ${sbPct > 0 ? `<div title="${L.consStrongBuy} : ${consensus.strongBuy}" style="width:${sbPct}%;background:#2ecc71"></div>` : ''}
+                    ${bPct  > 0 ? `<div title="${L.consBuy} : ${consensus.buy}" style="width:${bPct}%;background:#52b788"></div>` : ''}
+                    ${hPct  > 0 ? `<div title="${L.consHold} : ${consensus.hold}" style="width:${hPct}%;background:#9CA3AF"></div>` : ''}
+                    ${sPct  > 0 ? `<div title="${L.consSell} : ${consensus.sell}" style="width:${sPct}%;background:#e67e22"></div>` : ''}
+                    ${ssPct > 0 ? `<div title="${L.consStrongSell} : ${consensus.strongSell}" style="width:${ssPct}%;background:#e74c3c"></div>` : ''}
                   </div>
                   <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;opacity:0.55;text-transform:uppercase;letter-spacing:0.04em">
                     <span style="color:#2ecc71">★ ${(sbPct + bPct).toFixed(0)}% Achat</span>
@@ -10759,15 +10791,15 @@
                     <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:6px">Objectif de cours moyen</div>
                     <div style="font-size:32px;font-weight:700;color:${upColor};line-height:1">${fmtCurr(target, cur)}</div>
                     <div style="font-size:14px;color:${upColor};margin-top:6px;font-weight:600">${upside > 0 ? '↗ Potentiel' : '↘ Risque'} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}% vs ${fmtCurr(price.current, cur)}</div>
-                    ${fund.numberOfAnalystOpinions ? `<div style="font-size:11px;opacity:0.6;margin-top:8px">D'après ${fund.numberOfAnalystOpinions} analystes</div>` : ''}
+                    ${fund.numberOfAnalystOpinions ? `<div style="font-size:11px;opacity:0.6;margin-top:8px">${t('stock.helper.consensusIntro', "D'après {n} analystes").replace('{n}', fund.numberOfAnalystOpinions)}</div>` : ''}
                   </div>
                 `;
               }
               return `
                 <div style="text-align:center;padding:40px 20px;opacity:0.5">
                   <div style="font-size:32px;margin-bottom:8px">🤷</div>
-                  <p style="font-size:13px">Consensus analystes indisponible pour ${d.ticker}</p>
-                  <p style="font-size:11px;margin-top:4px;opacity:0.7">Possible pour les small caps européennes peu suivies par les analystes US.</p>
+                  <p style="font-size:13px">${L.consUnavailable.replace('{ticker}', d.ticker)}</p>
+                  <p style="font-size:11px;margin-top:4px;opacity:0.7">${L.consSmallCapNote}</p>
                 </div>
               `;
             })()}
@@ -10883,7 +10915,7 @@
                 const ks = health.kairosScore;
                 const zoneCol = ks.zone === 'strong' ? '#2ecc71' : ks.zone === 'mid' ? '#f39c12' : '#e74c3c';
                 return `<div style="padding:12px;background:rgba(${ks.zone==='strong'?'46,204,113':ks.zone==='mid'?'243,156,18':'231,76,60'},0.08);border:1px solid rgba(${ks.zone==='strong'?'46,204,113':ks.zone==='mid'?'243,156,18':'231,76,60'},0.2);border-radius:8px;text-align:center;grid-column:1 / -1">
-                  <div style="font-size:11px;opacity:0.65;margin-bottom:3px">Score Santé Kairos <span style="opacity:0.6;font-size:9px;margin-left:4px">(EU proxy)</span></div>
+                  <div style="font-size:11px;opacity:0.65;margin-bottom:3px">${L.healthScore} <span style="opacity:0.6;font-size:9px;margin-left:4px">(EU proxy)</span></div>
                   <div style="font-size:26px;font-weight:700;color:${zoneCol}">${ks.score}<span style="opacity:0.5;font-size:16px">/${ks.total}</span></div>
                   <div style="font-size:10px;font-weight:600;color:${zoneCol};letter-spacing:0.5px;margin-top:2px">${ks.label} · ${ks.ratio}%</div>
                   <div style="font-size:10px;opacity:0.6;margin-top:6px;line-height:1.4;text-align:left">
@@ -10967,11 +10999,11 @@
               <div style="padding:12px;background:rgba(116,185,255,0.08);border:1px solid rgba(116,185,255,0.25);border-radius:8px;margin-bottom:14px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
                   <div style="font-size:11px;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px">Prochaine publication</div>
-                  ${earnings.next.confirmed ? '<span style="font-size:10px;color:#2ecc71;background:rgba(46,204,113,0.15);padding:2px 6px;border-radius:4px">CONFIRMÉE</span>' : '<span style="font-size:10px;opacity:0.5">estimée</span>'}
+                  ${earnings.next.confirmed ? `<span style="font-size:10px;color:#2ecc71;background:rgba(46,204,113,0.15);padding:2px 6px;border-radius:4px">${L.earnConfirmed}</span>` : `<span style="font-size:10px;opacity:0.5">${L.earnEstimated}</span>`}
                 </div>
                 <div style="font-size:18px;font-weight:600;color:#74b9ff">${earnings.next.date ? new Date(earnings.next.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'}) : '—'}</div>
                 ${earnings.next.period && earnings.next.year ? `<div style="font-size:11px;opacity:0.6;margin-top:2px">${earnings.next.period} ${earnings.next.year} · ${earnings.next.time === 'bmo' ? 'avant ouverture' : earnings.next.time === 'amc' ? 'après clôture' : 'heure non précisée'}</div>` : ''}
-                ${earnings.next.epsEst != null ? `<div style="font-size:12px;margin-top:6px;opacity:0.8">BPA estimé : <strong>${earnings.next.epsEst.toFixed(2)}</strong></div>` : ''}
+                ${earnings.next.epsEst != null ? `<div style="font-size:12px;margin-top:6px;opacity:0.8">${L.earnEpsEst} : <strong>${earnings.next.epsEst.toFixed(2)}</strong></div>` : ''}
               </div>
             ` : ''}
             ${earnings.history && earnings.history.length > 0 ? `
@@ -10987,7 +11019,7 @@
                         <span style="font-size:11px;opacity:0.55;margin-left:8px">${h.date ? new Date(h.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'2-digit'}) : ''}</span>
                       </div>
                       <div style="text-align:right">
-                        <div style="font-size:11px;opacity:0.65">BPA <strong>${h.epsActual != null ? h.epsActual.toFixed(2) : '—'}</strong> <span style="opacity:0.5">vs ${h.epsEst != null ? h.epsEst.toFixed(2) : '—'} attendu</span></div>
+                        <div style="font-size:11px;opacity:0.65">${L.eps} <strong>${h.epsActual != null ? h.epsActual.toFixed(2) : '—'}</strong> <span style="opacity:0.5">${L.earnVsExp.replace('{n}', h.epsEst != null ? h.epsEst.toFixed(2) : '—')}</span></div>
                         <div style="font-weight:600;color:${beatCol}">${h.beat ? '✓' : '✗'} ${surprisePct}</div>
                       </div>
                     </div>
@@ -10999,7 +11031,7 @@
                 const total = earnings.history.length;
                 const pct = total > 0 ? (beats/total*100).toFixed(0) : 0;
                 const beatCol = pct >= 75 ? '#2ecc71' : pct >= 50 ? '#f39c12' : '#ff7675';
-                return `<div style="margin-top:10px;font-size:12px;opacity:0.85">Taux de dépassement : <strong style="color:${beatCol}">${beats}/${total}</strong> <span style="opacity:0.55">(${pct}%)</span></div>`;
+                return `<div style="margin-top:10px;font-size:12px;opacity:0.85">${L.earnBeatRate} : <strong style="color:${beatCol}">${beats}/${total}</strong> <span style="opacity:0.55">(${pct}%)</span></div>`;
               })()}
             ` : ''}
           </div>
@@ -11066,7 +11098,7 @@
             <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
                 <h3 style="margin:0;font-size:16px">${L.secTrends}</h3>
-                ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">⚠️ Volume trop faible pour un signal fiable</span>` : ''}
+                ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">${L.emptyLowVol}</span>` : ''}
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
                 <div style="padding:14px;background:var(--bg-card);border-radius:8px">
@@ -11509,7 +11541,7 @@
       try {
         const data = await apiFetch('/api/13f-consensus');
         if (!data || !data.consensus || data.consensus.length === 0) {
-          body.innerHTML = '<div style="text-align:center;padding:60px 20px;opacity:0.6"><p>Aucune donnée de consensus disponible.</p></div>';
+          body.innerHTML = `<div style="text-align:center;padding:60px 20px;opacity:0.6"><p>${t('stock.empty.noConsensus', 'Aucune donnée de consensus disponible.')}</p></div>`;
           return;
         }
 
