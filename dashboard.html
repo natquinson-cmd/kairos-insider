@@ -10075,6 +10075,47 @@
       const news = d.news || [];
       const trends = d.googleTrends || null;
 
+      // ===== i18n labels (vague 1 - mai 2026) =====
+      // Centralise les traductions pour eviter les t() inline dans les templates.
+      // Vague 2 a venir : tooltips, sub-labels, dates, dynamiques.
+      const L = {
+        secFundamentals: t('stock.section.fundamentals', '📊 Fondamentaux'),
+        secAbout: t('stock.section.about', '🏢 À propos'),
+        secHealth: t('stock.section.health', '🏥 Santé financière'),
+        secFairvalue: t('stock.section.fairvalue', '💎 Valeur intrinsèque'),
+        secEarnings: t('stock.section.earnings', '📅 Résultats trimestriels'),
+        secConsensus: t('stock.section.consensus', '📊 Consensus'),
+        secNews: t('stock.section.news', '📰 Actualités récentes'),
+        secTrends: t('stock.section.trends', '🔎 Intérêt de recherche Google'),
+        secShorts: t('stock.section.shorts', '🔻 Ventes à découvert'),
+        secInsiders: t('stock.section.insiders', '🕴️ Initiés'),
+        secLastQuarter: t('stock.section.lastQuarter', '📊 Activité du dernier trimestre'),
+        marketCap: t('stock.label.marketCap', 'Capitalisation'),
+        enterpriseValue: t('stock.label.enterpriseValue', "Valeur d'entreprise"),
+        revenue: t('stock.label.revenue', "Chiffre d'affaires"),
+        netIncome: t('stock.label.netIncome', 'Résultat net'),
+        valMultiples: t('stock.label.valMultiples', 'Multiples de valorisation'),
+        characteristics: t('stock.label.characteristics', 'Caractéristiques'),
+        margins: t('stock.label.margins', 'Marges & rentabilité'),
+        finStructure: t('stock.label.finStructure', 'Structure financière'),
+        eps: t('stock.label.eps', 'BPA'),
+        beta: t('stock.label.beta', 'Bêta'),
+        dividend: t('stock.label.dividend', 'Dividende'),
+        healthScore: t('stock.label.healthScore', 'Score Santé Kairos'),
+        heldByInsiders: t('stock.label.heldByInsiders', 'Détenu par initiés'),
+        recentInterest: t('stock.label.recentInterest', 'Intérêt actuel'),
+        daysToCover: t('stock.label.daysToCover', 'jours pour racheter'),
+        employees: t('stock.label.employees', 'employés'),
+        emptyTransactions: t('stock.empty.noTransactions', 'Aucune transaction récente'),
+        emptyConsensus: t('stock.empty.noConsensus', 'Aucune donnée de consensus disponible.'),
+        emptyTarget: t('stock.empty.noTarget', 'Objectif non renseigné'),
+        emptyLimited: t('stock.empty.limitedCoverage', 'Couverture de données limitée pour ce ticker'),
+        emptyLowVol: t('stock.empty.lowVolume', '⚠️ Volume trop faible pour un signal fiable'),
+        howToRead: t('stock.helper.howToRead', 'Comment lire ces données ?'),
+        clickToExpand: t('stock.helper.click2expand', 'Cliquer pour déplier'),
+        peersIntro: t('stock.helper.peersIntro', 'entreprises du même secteur — cliquez pour analyser'),
+      };
+
       // Fallback : si company.name est absent mais qu'on connait le ticker dans
       // stockTickerList (la liste publique alimentee par les filings SEC/BaFin/AMF),
       // on recupere au moins name + region/market pour ne pas afficher des '—' partout.
@@ -10153,7 +10194,7 @@
         <div style="padding:16px 20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1px solid rgba(245,158,11,0.25);border-radius:12px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
           <div style="font-size:22px;flex-shrink:0">ℹ️</div>
           <div style="flex:1">
-            <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">Couverture de données limitee pour ce ticker</div>
+            <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">${L.emptyLimited}</div>
             <div style="font-size:13px;opacity:0.85;line-height:1.5;margin-bottom:8px">
               Ce titre est probablement une <strong>small cap europeenne regionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases de données gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.<br>
               💡 <strong>Astuce</strong> : pour les grandes EU, essaie le ticker Yahoo : LVMH → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">MC.PA</code>, Barclays → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">BARC.L</code>, Nestlé → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">NESN.SW</code>.
@@ -10295,7 +10336,7 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
           <!-- INSIDERS -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px" data-saInsiderCard data-ticker="${(d.ticker||'').toUpperCase()}">
-            <h3 style="margin:0 0 12px;font-size:16px">🕴️ Initiés ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secInsiders} ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
             <!-- Filtres period + type -->
             <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
               <select id="saInsiderDays" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
@@ -10348,7 +10389,7 @@
                     ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
                   </div>
                 </div>
-              `).join('') || '<div style="opacity:0.5;padding:12px 0">Aucune transaction récente</div>'}
+              `).join('') || `<div style="opacity:0.5;padding:12px 0">${L.emptyTransactions}</div>`}
             </div>
             <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--divider);text-align:center">
               <a href="#" onclick="openScreenerForTicker('${(d.ticker||'').replace(/'/g, '').toUpperCase()}');return false" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#74b9ff;text-decoration:none;font-weight:500">
@@ -10430,7 +10471,7 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
           <!-- FONDAMENTAUX (refonte UX : chiffres abreges + codes couleurs sur ratios) -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 14px;font-size:16px">📊 Fondamentaux</h3>
+            <h3 style="margin:0 0 14px;font-size:16px">${L.secFundamentals}</h3>
             ${(() => {
               // Helpers locaux
               // Format compact pour les grandes valeurs : 177.8B$, 125.6B$, 3.2T$
@@ -10510,32 +10551,32 @@
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
                   ${fund.marketCap ? `
                     <div style="padding:14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid rgba(116,185,255,0.15);border-radius:10px">
-                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Capitalisation</div>
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.marketCap}</div>
                       <div style="font-size:20px;font-weight:700;color:#74b9ff">${fmtCurrShort(fund.marketCap)}</div>
                     </div>
                   ` : ''}
                   ${fund.enterpriseValue ? `
                     <div style="padding:14px;background:linear-gradient(135deg,rgba(162,155,254,0.08),rgba(162,155,254,0.02));border:1px solid rgba(162,155,254,0.15);border-radius:10px">
-                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Valeur d'entreprise</div>
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.enterpriseValue}</div>
                       <div style="font-size:20px;font-weight:700;color:#a29bfe">${fmtCurrShort(fund.enterpriseValue)}</div>
                     </div>
                   ` : ''}
                   ${fund.revenue ? `
                     <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Chiffre d'affaires</div>
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.revenue}</div>
                       <div style="font-size:20px;font-weight:700">${fmtCurrShort(fund.revenue)}</div>
                     </div>
                   ` : ''}
                   ${fund.netIncome ? `
                     <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">Résultat net</div>
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.netIncome}</div>
                       <div style="font-size:20px;font-weight:700;color:${fund.netIncome > 0 ? '#2ecc71' : '#ff7675'}">${fmtCurrShort(fund.netIncome)}</div>
                     </div>
                   ` : ''}
                 </div>
 
                 <!-- BLOC 2 : Multiples de valorisation avec verdict couleur -->
-                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Multiples de valorisation</div>
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.valMultiples}</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px">
                   ${ratioCard('P/E (12 mois)', fund.peRatio, 'pe')}
                   ${ratioCard('P/E prévisionnel', fund.forwardPE, 'pe')}
@@ -10549,17 +10590,17 @@
                 </div>
 
                 <!-- BLOC 3 : Caracteristiques (BPA, Beta, dividende, ownership) -->
-                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Caractéristiques</div>
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.characteristics}</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px">
                   ${fund.eps != null ? `
                     <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
-                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">BPA</div>
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.eps}</div>
                       <strong style="font-size:14px">${fund.eps.toFixed(2)}</strong>
                     </div>` : ''}
                   ${divPct != null ? (() => {
                     const r = rate(fund.dividendYield, 'divYield');
                     return `<div style="padding:10px 12px;background:${r.bg};border-radius:8px;font-size:12px;border-left:3px solid ${r.color}" title="${r.tooltip}">
-                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Dividende</div>
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.dividend}</div>
                       <strong style="font-size:14px;color:${r.color}">${divPct.toFixed(2)}%</strong>
                       ${r.label ? `<div style="font-size:9px;color:${r.color};opacity:0.85;margin-top:2px">${r.label}</div>` : ''}
                     </div>`;
@@ -10567,7 +10608,7 @@
                   ${fund.beta != null ? (() => {
                     const r = rate(fund.beta, 'beta');
                     return `<div style="padding:10px 12px;background:${r.bg};border-radius:8px;font-size:12px;border-left:3px solid ${r.color}" title="${r.tooltip}">
-                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Bêta</div>
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.beta}</div>
                       <strong style="font-size:14px;color:${r.color}">${fund.beta.toFixed(2)}</strong>
                       ${r.label ? `<div style="font-size:9px;color:${r.color};opacity:0.85;margin-top:2px">${r.label}</div>` : ''}
                     </div>`;
@@ -10593,7 +10634,7 @@
 
             ${(margins.gross && margins.gross.display) || (returns.roe && returns.roe.display) ? `
               <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)">
-                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Marges &amp; rentabilité</div>
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.margins}</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:12px">
                   ${margins.gross && margins.gross.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge brute</div><strong style="color:#2ecc71;font-size:14px">${margins.gross.display}</strong></div>` : ''}
                   ${margins.operating && margins.operating.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge op.</div><strong style="color:#2ecc71;font-size:14px">${margins.operating.display}</strong></div>` : ''}
@@ -10767,7 +10808,7 @@
           <!-- SANTE FINANCIERE -->
           ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (finPos.debtEquity && finPos.debtEquity.display) || (finPos.currentRatio && finPos.currentRatio.display)) ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">🏥 Santé financière</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secHealth}</h3>
             ${(() => {
               // === Helpers couleur pour interprétation des ratios ===
               // Renvoie {col, bg, label, tip} selon la valeur et le type de ratio.
@@ -10905,7 +10946,7 @@
                 </tr>`;
               };
               return `<div style="padding-top:12px;border-top:1px solid var(--border-subtle)">
-                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Structure financière</div>
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.finStructure}</div>
                 <table style="width:100%;font-size:12px">
                   ${ratioRow('Liquidité générale', 'currentRatio', 'currentRatio', 'Actifs courants / passifs courants. > 1.5 = solide, < 1 = tendu')}
                   ${ratioRow('Liquidité réduite', 'quickRatio', 'quickRatio', 'Actifs liquides / passifs courants (sans stocks). > 1 = solide')}
@@ -10921,7 +10962,7 @@
           <!-- EARNINGS -->
           ${(earnings.history && earnings.history.length > 0) || earnings.next ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">📅 Résultats trimestriels</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secEarnings}</h3>
             ${earnings.next ? `
               <div style="padding:12px;background:rgba(116,185,255,0.08);border:1px solid rgba(116,185,255,0.25);border-radius:8px;margin-bottom:14px">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -10989,7 +11030,7 @@
         <!-- FAIR VALUE (Lynch + Graham) -->
         ${(fairValue.lynch && fairValue.lynch.display) || (fairValue.graham && fairValue.graham.display) ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
-            <h3 style="margin:0 0 12px;font-size:16px">💎 Valeur intrinsèque</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secFairvalue}</h3>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
               ${fairValue.lynch && fairValue.lynch.display ? `
                 <div style="padding:12px;background:var(--surface-1);border-radius:8px">
@@ -11024,7 +11065,7 @@
           return `
             <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-                <h3 style="margin:0;font-size:16px">🔎 Intérêt de recherche Google</h3>
+                <h3 style="margin:0;font-size:16px">${L.secTrends}</h3>
                 ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">⚠️ Volume trop faible pour un signal fiable</span>` : ''}
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
@@ -11056,7 +11097,7 @@
         <!-- NEWS -->
         ${news.length > 0 ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
-            <h3 style="margin:0 0 12px;font-size:16px">📰 Actualités récentes</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secNews}</h3>
             <div style="display:grid;gap:8px">
               ${news.slice(0, 10).map(n => `
                 <a href="${n.link}" target="_blank" rel="noopener" style="display:block;padding:10px;background:var(--bg-card);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--bg-card)'">
@@ -11071,7 +11112,7 @@
         <!-- DESCRIPTION ENTREPRISE -->
         ${company.description ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
-            <h3 style="margin:0 0 12px;font-size:16px">🏢 À propos</h3>
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secAbout}</h3>
             <p style="font-size:13px;line-height:1.7;opacity:0.85;margin:0">${company.description}</p>
             ${company.website ? `<div style="margin-top:12px"><a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff;font-size:13px">${company.website}</a></div>` : ''}
           </div>
@@ -11439,7 +11480,7 @@
         `;
 
         area.innerHTML = `
-          <h3 style="font-size:16px;margin:0 0 12px">📊 Activité du dernier trimestre</h3>
+          <h3 style="font-size:16px;margin:0 0 12px">${L.secLastQuarter}</h3>
           <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
             Mouvements significatifs détectés dans les top holdings des fonds suivis :
             <strong>${s.newCount}</strong> nouvelles positions ·
