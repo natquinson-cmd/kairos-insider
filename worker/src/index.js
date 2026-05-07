@@ -6497,8 +6497,10 @@ function enrichFilingsWithDelta(filings, allFilings) {
     // Premier filing strictement anterieur (meme key)
     const prev = bucket.find(p => (p.fileDate || '') < myDate);
     if (!prev) {
-      // Pas de filing precedent dans le cache → c'est peut-etre un filing initial
-      // (13D / 13G non-amend), ou bien le precedent est trop vieux (> 30j)
+      // Pas de filing precedent dans nos 2 ans de cache (MAX_HISTORY_DAYS=730).
+      // Soit c'est un depot initial (13D ou 13G non-amend), soit le precedent
+      // est > 2 ans (rare mais possible pour les vieilles positions stables
+      // type Vanguard/BlackRock detenues depuis 5+ ans).
       return { ...f, isFirstFiling: /^SCHEDULE\s+13[DG]$/i.test((f.form || '').trim()) };
     }
     const percentDelta = (f.percentOfClass != null && prev.percentOfClass != null)

@@ -17763,10 +17763,12 @@
             : f.percentOfClass >= 5 ? '#F59E0B'
             : '#10B981';
 
-          // Delta (uniquement pour les /A avec un filing precedent dispo)
-          // Affiche la variation en pt sous le % total. Si pas de delta dispo
-          // sur un /A (filing precedent trop vieux > 30j), on affiche '∆ ?'
-          // pour signaler que c'est un ajustement sans historique.
+          // Delta vs filing precedent (recherche dans 2 ans d'historique KV)
+          // 4 cas distincts pour aider l'utilisateur :
+          //   a. Delta calcule -> ▲/▼ +X.XXpt vs filing du DATE
+          //   b. /A avec prev trouve mais % non extrait -> "ajust. (% non parse)"
+          //   c. /A sans prev en KV (>2 ans) -> "1er amend. en cache"
+          //   d. 13D/G initial (sans /A) -> "1er dépôt"
           const isAmendment = /\/A\b/.test((f.form || '').toUpperCase());
           let deltaHtml = '';
           if (f.percentDelta != null) {
@@ -17775,11 +17777,21 @@
             const arrow = d > 0 ? '▲' : d < 0 ? '▼' : '=';
             const sign = d > 0 ? '+' : '';
             const prevPctStr = f.previousPercent != null ? `${f.previousPercent.toFixed(2)}%` : '?';
-            const prevDateStr = f.previousFileDate ? new Date(f.previousFileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '';
+            const prevDateStr = f.previousFileDate ? new Date(f.previousFileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
             deltaHtml = `<div style="margin-top:2px;font-size:10px;color:${dColor};font-weight:600;cursor:help" title="Variation vs filing précédent du ${prevDateStr} (${prevPctStr}). Position actuelle = ${f.percentOfClass != null ? f.percentOfClass.toFixed(2) : '?'}%.">${arrow} ${sign}${d.toFixed(2)}pt</div>`;
           } else if (isAmendment) {
-            // Amendement sans delta (prev filing non trouvable → pre-cache)
-            deltaHtml = `<div style="margin-top:2px;font-size:10px;color:var(--text-muted);font-weight:500;cursor:help" title="Amendement : la position précédente n'est pas dans notre cache (dépôt initial > 30j). Le % affiché est la position TOTALE après ajustement.">ajust.</div>`;
+            // Amendement sans delta : 3 sous-cas
+            if (f.previousFileDate) {
+              // prev trouve en KV mais une des 2 valeurs % est null (parser pas tourne)
+              const prevDateStr = new Date(f.previousFileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+              deltaHtml = `<div style="margin-top:2px;font-size:10px;color:var(--text-muted);font-weight:500;cursor:help" title="Amendement d'un filing du ${prevDateStr}. Le % capital n'a pas pu être extrait du XML SEC pour calculer la variation. Re-enrichissement au prochain cron.">ajust. (—)</div>`;
+            } else {
+              // pas de prev dans nos 2 ans de cache -> dépôt initial > 2 ans
+              deltaHtml = `<div style="margin-top:2px;font-size:10px;color:var(--text-muted);font-weight:500;cursor:help" title="Amendement d'une position dont le dépôt initial est > 2 ans (en dehors de notre cache 730j). Le % affiché est la position TOTALE actuelle.">1er amend. en cache</div>`;
+            }
+          } else if (f.isFirstFiling) {
+            // 13D ou 13G initial — pas d'amendement, pas de delta a calculer
+            deltaHtml = `<div style="margin-top:2px;font-size:10px;color:#10B981;font-weight:500;cursor:help" title="Dépôt initial — premier passage du seuil 5%. Aucun filing antérieur du même filer sur ce ticker dans notre historique.">1er dépôt</div>`;
           }
           // Lien vers la source officielle (SEC pour US, AMF pour FR, BaFin pour DE)
           const country = (f.country || 'US').toUpperCase();
