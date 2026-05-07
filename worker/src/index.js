@@ -6542,7 +6542,7 @@ async function loadAllThresholdsFilings(env) {
     env.CACHE.get('fi-thresholds-recent', 'json').catch(() => null),
   ]);
 
-  const all = [];
+  let all = [];
   // SEC : default 'sec' / 'US'
   if (secData?.filings) {
     for (const f of secData.filings) {
@@ -6619,12 +6619,51 @@ async function loadAllThresholdsFilings(env) {
   // Enrichissement : runtime fixes pour les filings deja en KV
   // (effet immediat sans attendre le prochain cron)
 
+  // BLACKLIST des investisseurs passifs : Vanguard, BlackRock, FMR, etc.
+  // ne sont JAMAIS activistes meme si techniquement ils filent un 13D
+  // occasionnellement (cas tres rares sur small caps). Sans cette liste, leurs
+  // milliers de filings 13G en EU/UK etaient auto-flaggees activists via la
+  // logique "auto-derive depuis US 13D" — pollution massive du widget.
+  // Match : substring lowercase apres normalisation.
+  const PASSIVE_FILERS = [
+    'blackrock', 'vanguard', 'state street', 'fmr llc', 'fmr corp',
+    'fidelity', 't. rowe price', 't rowe price', 'northern trust',
+    'wellington management', 'capital research', 'capital group',
+    'capital international', 'jp morgan asset', 'jpmorgan asset',
+    'goldman sachs asset', 'morgan stanley investment',
+    'norges bank', 'gic private', 'temasek', 'kuwait investment',
+    'allianz', 'amundi', 'pictet', 'ubs asset', 'invesco',
+    'dimensional fund', 'geode capital', 'bnp paribas asset',
+    'natixis asset', 'axa investment', 'royal bank of canada',
+    'bank of new york mellon', 'bny mellon', 'bny ',
+    'klp kapitalforvaltning', 'sse asset', 'apg asset',
+    'pgim', 'prudential financial', 'metlife', 'manulife',
+    'sun life', 'mfs invest', 'nuveen', 'voya invest',
+    'lazard asset', 'columbia threadneedle', 'janus henderson',
+    'm&g invest', 'hsbc global asset', 'schroders',
+    'nordea invest', 'swedbank robur', 'storebrand',
+  ];
+  const isPassiveFiler = (name) => {
+    if (!name) return false;
+    const low = name.toLowerCase();
+    return PASSIVE_FILERS.some(p => low.includes(p));
+  };
+
   // PASS 1 : detection US -> auto-flag 13D + collecte les filers activists
   // pour deduire les activists EU (qui n'ont pas de form 13D equivalente).
   // Cette approche AUTO-CONSTRUITE remplace le hardcode KNOWN_ACTIVISTS pour US.
   const knownActivistFilers = new Set();
   for (const f of all) {
     const form = (f.form || '').toUpperCase();
+    // FIX (mai 2026) : si le filer est dans la blacklist passive (Vanguard,
+    // BlackRock, FMR, etc.) on ne le flag JAMAIS activist meme s'il a file
+    // un 13D (cas tres rare). Sans ca, BlackRock auto-flagge polluait toutes
+    // les declarations EU via la propagation auto-derive.
+    if (isPassiveFiler(f.filerName)) {
+      f.isActivist = false;
+      f.activistLabel = null;
+      continue;
+    }
     // US : un filing 13D = activiste par definition SEC
     if (f.country === 'US' && /^SCHEDULE\s*13D/.test(form)) {
       if (!f.isActivist) {
@@ -6682,7 +6721,9 @@ async function loadAllThresholdsFilings(env) {
     //   les rares activists EU qui n'ont jamais file aux US)
     // Cette logique remplace le hardcode pur et evite le maintenance des
     // 62 noms ; la liste se construit toute seule depuis les vrais 13D.
-    if (f.country !== 'US' && !f.isActivist && f.filerName) {
+    // Skip les filers passifs blacklistes meme si match-name (BlackRock,
+    // Vanguard, etc.) — ils ne sont JAMAIS activists.
+    if (f.country !== 'US' && !f.isActivist && f.filerName && !isPassiveFiler(f.filerName)) {
       const norm = f.filerName.toLowerCase().replace(/[,.()&]+/g, ' ').replace(/\s+/g, ' ').trim();
       // Match exact ou containment (ex: "Elliott Investment Mgmt" contient "elliott")
       let isKnown = knownActivistFilers.has(norm);
@@ -6704,6 +6745,42 @@ async function loadAllThresholdsFilings(env) {
     } else if (f.isActivist) {
       f.relationType = 'hostile';
     }
+  }
+
+  // Dedup des filings dupliques (cas typique AFM : 1 declaration peut etre
+  // splittee en N rows si plusieurs share classes — chacune comptee comme
+  // un filing separe alors que c'est la meme position. On dedup sur
+  // (filerName, targetName, fileDate, country) et on garde la version avec
+  // le plus de data parsee.
+  const dedupMap = new Map();
+  for (const f of all) {
+    const filer = (f.filerName || '').toLowerCase().trim();
+    const target = (f.targetName || '').toLowerCase().trim();
+    const date = f.fileDate || '';
+    const country = f.country || '';
+    if (!filer || !target || !date) continue;
+    const key = `${filer}|${target}|${date}|${country}`;
+    const existing = dedupMap.get(key);
+    if (!existing) {
+      dedupMap.set(key, f);
+    } else {
+      // Garde le filing avec le plus de data : prefere celui avec
+      // percentOfClass non null + sharesOwned non null + accession non null
+      const score = (x) => (x.percentOfClass != null ? 1 : 0)
+                        + (x.sharesOwned != null ? 1 : 0)
+                        + (x.accession ? 1 : 0)
+                        + (x.purchasePriceApprox != null ? 1 : 0);
+      if (score(f) > score(existing)) dedupMap.set(key, f);
+    }
+  }
+  // Si dedup a applique des changements significatifs, remplace 'all'.
+  // Sinon on garde l'original (rare, mais safe).
+  if (dedupMap.size < all.length * 0.95) {
+    // Plus de 5% de duplicates trouves -> applique la dedup
+    const deduped = Array.from(dedupMap.values());
+    // Conserve aussi les filings sans key (filer/target/date manquant)
+    const noKey = all.filter(f => !((f.filerName || '').trim() && (f.targetName || '').trim() && f.fileDate));
+    all = [...deduped, ...noKey];
   }
 
   // Tri par date DESC
