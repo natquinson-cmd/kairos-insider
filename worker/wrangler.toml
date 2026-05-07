@@ -24,6 +24,12 @@ fallthrough = true
 pattern = "kairosinsider.fr/a/*"
 zone_name = "kairosinsider.fr"
 
+# OG images dynamiques pour les cartes Twitter / LinkedIn / Discord
+# (visuels de partage avec donnees live par ticker, type "screenshot fiche").
+[[routes]]
+pattern = "kairosinsider.fr/og/*"
+zone_name = "kairosinsider.fr"
+
 [[routes]]
 pattern = "kairosinsider.fr/blog"
 zone_name = "kairosinsider.fr"

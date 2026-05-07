@@ -333,6 +333,16 @@ async function handleRequest(request, env, ctx) {
       return handleActionSSR(ticker, env, lang);
     }
 
+    // OG Image dynamique — visuel de partage Twitter/LinkedIn/Discord
+    // Format : GET /og/:ticker[.svg|.png] -> SVG 1200x630 avec donnees live (prix, Kairos Score, signal)
+    // Utilise comme og:image / twitter:image dans /a/:ticker pour effet "screenshot fiche"
+    // (cf. concurrent InsiderBaba). Cache CDN 1h pour eviter de regenerer a chaque scrape.
+    if (request.method === 'GET' && path.startsWith('/og/')) {
+      const tickerWithExt = decodeURIComponent(path.slice('/og/'.length));
+      const ticker = tickerWithExt.replace(/\.(svg|png)$/i, '').toUpperCase();
+      return handleOgImage(ticker, env);
+    }
+
     // Blog SEO (articles pillar MARKETING.md Sprint 1+2)
     // - /blog           : index / liste des articles
     // - /blog/feed.xml  : flux RSS 2.0
@@ -408,6 +418,64 @@ async function handleRequest(request, env, ctx) {
       } catch (e) {
         return jsonResponse({ error: 'Backtest failed', detail: String(e) }, 500, origin);
       }
+    }
+
+    // ==========================================
+    // BYPASS ANONYME — /api/stock/ accessible sans inscription
+    // ==========================================
+    // Permet aux visiteurs non inscrits de consulter ANON_STOCK_QUOTA fiches
+    // par jour avant le hard wall d'inscription. Stratégie product-led :
+    // l'utilisateur voit la valeur AVANT qu'on lui demande de s'inscrire.
+    // - Pas de token Authorization → quota IP-based (CF-Connecting-IP)
+    // - Token present → fall through vers le flux auth normal (quota uid)
+    // - Re-consulter un ticker deja vu aujourd'hui ne decremente pas le quota.
+    if (request.method === 'GET' && path.startsWith('/api/stock/')) {
+      // Token VIDE compte comme anonyme : le dashboard envoie toujours
+      // 'Authorization: Bearer ' meme sans user connecte. On extrait le token
+      // pour distinguer "vraiment anonyme" (token vide) de "auth tente".
+      const authHeader = (request.headers.get('Authorization') || '').trim();
+      const idTokenPreview = authHeader.replace(/^Bearer\s*/i, '').trim();
+      const hasAuth = !!idTokenPreview;
+      if (!hasAuth) {
+        const ANON_STOCK_QUOTA = 2;
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const ticker = decodeURIComponent(path.slice('/api/stock/'.length))
+          .toUpperCase().split('?')[0].trim();
+        if (!ticker) return jsonResponse({ error: 'Missing ticker' }, 400, origin);
+        const today = new Date().toISOString().slice(0, 10);
+        const quotaKey = `anon-quota:${ip}:${today}`;
+        let quotaData = await env.CACHE.get(quotaKey, 'json').catch(() => null);
+        if (!quotaData || !Array.isArray(quotaData.tickers)) quotaData = { tickers: [], count: 0 };
+        const alreadyAnalyzedToday = quotaData.tickers.includes(ticker);
+        if (!alreadyAnalyzedToday && quotaData.count >= ANON_STOCK_QUOTA) {
+          return jsonResponse({
+            error: `Quota anonyme atteint : ${ANON_STOCK_QUOTA} analyses/jour. Crée un compte gratuit (30 sec) pour 4 analyses/jour.`,
+            code: 'ANON_QUOTA_EXCEEDED',
+            quotaUsed: quotaData.count,
+            quotaMax: ANON_STOCK_QUOTA,
+            analyzedToday: quotaData.tickers,
+            tier: 'anon',
+          }, 403, origin);
+        }
+        if (!alreadyAnalyzedToday) {
+          quotaData.tickers.push(ticker);
+          quotaData.count = quotaData.tickers.length;
+          await env.CACHE.put(quotaKey, JSON.stringify(quotaData), { expirationTtl: 36 * 3600 });
+        }
+        const chartRange = url.searchParams.get('range') || '1y';
+        const data = await handleStockAnalysis(ticker, env, { publicView: false, chartRange });
+        return jsonResponse({
+          ...data,
+          _quotaInfo: {
+            tier: 'anon',
+            used: quotaData.count,
+            max: ANON_STOCK_QUOTA,
+            remaining: Math.max(0, ANON_STOCK_QUOTA - quotaData.count),
+            alreadyToday: alreadyAnalyzedToday,
+          },
+        }, data && data.error ? 400 : 200, origin);
+      }
+      // Has Authorization header → fall through to authenticated flow below
     }
 
     // ==========================================
@@ -666,7 +734,8 @@ async function handleRequest(request, env, ctx) {
             // analyses action /api/stock/:ticker par jour. Au-dela ils
             // doivent passer Pro. Re-consulter un ticker deja analyse
             // aujourd'hui ne decremente pas le quota.
-            const FREE_STOCK_QUOTA = 3;
+            // Quota inscrits = 4/j (anonymes = 2/j, voir bypass plus haut).
+            const FREE_STOCK_QUOTA = 4;
             if (path.startsWith('/api/stock/')) {
               const ticker = decodeURIComponent(path.slice('/api/stock/'.length)).toUpperCase().split('?')[0].trim();
               const today = new Date().toISOString().slice(0, 10);
@@ -681,6 +750,7 @@ async function handleRequest(request, env, ctx) {
                   quotaUsed: quotaData.count,
                   quotaMax: FREE_STOCK_QUOTA,
                   analyzedToday: quotaData.tickers,
+                  tier: 'free',
                 }, 403, origin);
               }
               if (!alreadyAnalyzedToday) {
@@ -689,7 +759,20 @@ async function handleRequest(request, env, ctx) {
                 // TTL 36h pour couvrir les fuseaux + safety margin
                 await env.CACHE.put(quotaKey, JSON.stringify(quotaData), { expirationTtl: 36 * 3600 });
               }
-              // OK, laisse passer vers handleApiRoute
+              // Inline l'analyse pour pouvoir injecter _quotaInfo dans la reponse
+              // (handleApiRoute retourne une Response, plus complexe a wrapper).
+              const chartRange = url.searchParams.get('range') || '1y';
+              const data = await handleStockAnalysis(ticker, env, { publicView: false, chartRange });
+              return jsonResponse({
+                ...data,
+                _quotaInfo: {
+                  tier: 'free',
+                  used: quotaData.count,
+                  max: FREE_STOCK_QUOTA,
+                  remaining: Math.max(0, FREE_STOCK_QUOTA - quotaData.count),
+                  alreadyToday: alreadyAnalyzedToday,
+                },
+              }, data && data.error ? 400 : 200, origin);
             } else {
               return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
             }
@@ -3581,6 +3664,156 @@ function ssrT(lang, key, vars) {
   return s;
 }
 
+// ============================================================
+// OG IMAGE DYNAMIQUE (1200x630 SVG)
+// ============================================================
+// Genere un visuel de partage social par ticker, type "screenshot fiche".
+// Style : code couleur signal (rouge/jaune/vert selon score), Kairos Score
+// au centre, prix + change a droite, stats insiders/funds/perfs.
+// Format SVG : pas de WASM, 0 dependance, < 50ms par render.
+// Cache CDN 1h (les donnees changent peu sur cette echelle).
+// ============================================================
+function svgEscape(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]
+  ));
+}
+
+function ogScoreColor(score) {
+  // Code couleur signal aligne sur les badges du dashboard.
+  if (score >= 80) return '#22C55E'; // vert vif (achat fort)
+  if (score >= 60) return '#10B981'; // vert (achat)
+  if (score >= 40) return '#F59E0B'; // orange (neutre)
+  if (score >= 20) return '#F87171'; // rouge clair (vente)
+  return '#EF4444';                  // rouge (vente forte)
+}
+
+function ogPerfColor(pct) {
+  if (pct == null) return '#9CA3AF';
+  return pct >= 0 ? '#10B981' : '#EF4444';
+}
+
+function ogFmtPrice(n, cur) {
+  if (n == null) return '—';
+  const sym = cur === 'EUR' ? '€' : (cur === 'GBP' ? '£' : '$');
+  try {
+    const formatted = new Intl.NumberFormat('fr-FR', {
+      maximumFractionDigits: n >= 100 ? 0 : 2,
+    }).format(n);
+    return formatted + ' ' + sym;
+  } catch { return n + ' ' + sym; }
+}
+
+function ogFmtPct(n) {
+  if (n == null) return '—';
+  return (n > 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+}
+
+async function handleOgImage(rawTicker, env) {
+  const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
+  if (!ticker || ticker.length > 12) {
+    return new Response('Invalid ticker', { status: 400 });
+  }
+
+  let data;
+  try {
+    data = await handleStockAnalysis(ticker, env, { publicView: true });
+  } catch (e) {
+    data = null;
+  }
+
+  // Donnees a afficher (defaults gracieux si absent)
+  const name = (data && data.company && data.company.name) || ticker;
+  const sector = (data && data.company && data.company.sector) || '';
+  const country = (data && data.company && data.company.country) || '';
+  const score = (data && data.score && data.score.total) || 0;
+  const sig = signalFromScoreSsr(score, 'fr');
+  const price = data && data.price && data.price.current;
+  const currency = (data && data.price && data.price.currency) || 'USD';
+  const changePct = data && data.price && data.price.changePct;
+  const changeYtd = data && data.price && data.price.changeYtdPct;
+  const change1y = data && data.price && data.price.change1yPct;
+  const insiderCount = (data && data.insiders && (data.insiders._totalTransactions ?? (data.insiders.transactions || []).length)) || 0;
+  const fundCount = (data && data.smartMoney && (data.smartMoney._totalFunds ?? (data.smartMoney.topFunds || []).length)) || 0;
+
+  const scoreColor = ogScoreColor(score);
+  const changeColor = ogPerfColor(changePct);
+  const ytdColor = ogPerfColor(changeYtd);
+  const y1Color = ogPerfColor(change1y);
+
+  // Tronque les noms longs (Snap-on Incorporated, BE Semiconductor Industries N.V., etc.)
+  const shortName = name.length > 32 ? name.slice(0, 30) + '…' : name;
+  const shortSector = sector.length > 36 ? sector.slice(0, 34) + '…' : sector;
+  const subline = [shortSector, country].filter(Boolean).join(' · ');
+
+  const tickerFontSize = ticker.length > 7 ? 88 : (ticker.length > 5 ? 104 : 120);
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#0A0F1E"/>
+<stop offset="1" stop-color="#0F1729"/>
+</linearGradient>
+<radialGradient id="glow1" cx="0.15" cy="0.1" r="0.8">
+<stop offset="0" stop-color="${scoreColor}" stop-opacity="0.18"/>
+<stop offset="1" stop-color="${scoreColor}" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="glow2" cx="0.85" cy="0.9" r="0.7">
+<stop offset="0" stop-color="#8B5CF6" stop-opacity="0.12"/>
+<stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#3B82F6"/>
+<stop offset="0.5" stop-color="#06B6D4"/>
+<stop offset="1" stop-color="#10B981"/>
+</linearGradient>
+</defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<rect width="1200" height="630" fill="url(#glow1)"/>
+<rect width="1200" height="630" fill="url(#glow2)"/>
+<text x="60" y="62" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="22" font-weight="800" fill="url(#brand)" letter-spacing="2">KAIROS INSIDER</text>
+<text x="60" y="86" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#9CA3AF" letter-spacing="1">SMART MONEY EU + US · ANALYSE COMPLETE</text>
+<text x="60" y="220" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="${tickerFontSize}" font-weight="900" fill="#F9FAFB" letter-spacing="-2">${svgEscape(ticker)}</text>
+<text x="60" y="262" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="28" font-weight="600" fill="#D1D5DB">${svgEscape(shortName)}</text>
+<text x="60" y="294" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="18" fill="#9CA3AF">${svgEscape(subline)}</text>
+<text x="1140" y="170" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="64" font-weight="700" fill="#F9FAFB">${svgEscape(ogFmtPrice(price, currency))}</text>
+<text x="1140" y="208" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="26" font-weight="600" fill="${changeColor}">${svgEscape(ogFmtPct(changePct))}<tspan fill="#9CA3AF" font-size="20" font-weight="500"> sur la session</tspan></text>
+<rect x="60" y="350" width="380" height="220" rx="20" fill="${scoreColor}" fill-opacity="0.12" stroke="${scoreColor}" stroke-opacity="0.6" stroke-width="2"/>
+<text x="80" y="394" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">KAIROS SCORE</text>
+<text x="80" y="500" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="120" font-weight="900" fill="${scoreColor}">${score}</text>
+<text x="${80 + (String(score).length * 62)}" y="500" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="38" font-weight="600" fill="#6B7280">/100</text>
+<rect x="80" y="520" width="${Math.max(40, sig.label.length * 14 + 24)}" height="34" rx="8" fill="${scoreColor}" fill-opacity="0.22"/>
+<text x="${80 + Math.max(40, sig.label.length * 14 + 24) / 2}" y="544" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="800" fill="${scoreColor}" letter-spacing="1">${svgEscape(sig.label)}</text>
+<rect x="480" y="350" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+<text x="500" y="384" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">INITIES</text>
+<text x="500" y="428" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="40" font-weight="800" fill="#3B82F6">${insiderCount}</text>
+<text x="${500 + (String(insiderCount).length * 22) + 8}" y="428" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" fill="#9CA3AF">transactions 6m</text>
+<rect x="480" y="470" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+<text x="500" y="504" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">FONDS SMART MONEY</text>
+<text x="500" y="548" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="40" font-weight="800" fill="#8B5CF6">${fundCount}</text>
+<text x="${500 + (String(fundCount).length * 22) + 8}" y="548" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" fill="#9CA3AF">positions</text>
+<rect x="820" y="350" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+<text x="840" y="384" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">YTD</text>
+<text x="840" y="428" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="36" font-weight="800" fill="${ytdColor}">${svgEscape(ogFmtPct(changeYtd))}</text>
+<rect x="820" y="470" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+<text x="840" y="504" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">SUR 1 AN</text>
+<text x="840" y="548" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="36" font-weight="800" fill="${y1Color}">${svgEscape(ogFmtPct(change1y))}</text>
+<text x="60" y="608" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="15" font-weight="600" fill="#6B7280">kairosinsider.fr/a/${svgEscape(ticker)}</text>
+<text x="1140" y="608" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#6B7280">Insiders · Smart Money · Seuils EU · Score 100 axes</text>
+</svg>`;
+
+  return new Response(svg, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      // Cache CDN 1h, browser 5min : les scrapers Twitter/Linkedin re-fetchent
+      // periodiquement, on veut leur servir une version pas trop fraiche.
+      'Cache-Control': 'public, max-age=300, s-maxage=3600',
+      'CDN-Cache-Control': 'public, s-maxage=3600',
+    },
+  });
+}
+
 async function handleActionSSR(rawTicker, env, lang = 'fr') {
   const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker || ticker.length > 12) {
@@ -3729,15 +3962,16 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
 <meta property="og:url" content="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
-<meta property="og:image" content="https://kairosinsider.fr/assets/og-image.png">
+<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.svg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/svg+xml">
 <meta property="og:image:alt" content="${escHtmlSsr(title)}">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escHtmlSsr(title)}">
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
-<meta name="twitter:image" content="https://kairosinsider.fr/assets/og-image.png">
+<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.svg">
 <meta name="twitter:image:alt" content="${escHtmlSsr(title)}">
 
 <!-- Google Analytics 4 (RGPD-friendly) -->

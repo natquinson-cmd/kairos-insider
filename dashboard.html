@@ -5724,11 +5724,19 @@
         } else {
           currentUser = null;
           isPremium = false;
-          document.getElementById('authOverlay').classList.remove('hidden');
-          // L'user doit se login d'abord : retire l'overlay 'pending-checkout'
-          // pour que le login apparaisse. Le flag localStorage reste en place,
-          // il declenchera le checkout auto apres login.
+          // Anonymous : on ne FORCE PLUS authOverlay au mount. Le visiteur peut
+          // explorer la fiche valeur (Decrypter une valeur supporte 2/j sans
+          // inscription via le bypass worker /api/stock/). Les features gatees
+          // (watchlist, screener, brief) declencheront authOverlay au moment
+          // de l'interaction via 401. Pattern product-led : on montre la
+          // valeur AVANT de demander l'inscription.
+          window.isAnonymous = true;
           hidePendingCheckoutOverlay();
+          // Affiche un bandeau persistant en haut "Tu utilises Kairos en mode
+          // gratuit (2 analyses/jour). Crée un compte pour 4/jour."
+          if (typeof renderAnonBanner === 'function') {
+            try { renderAnonBanner(); } catch (e) {}
+          }
         }
       });
     }
@@ -6030,18 +6038,32 @@
       });
     }
 
-    // Bandeau 'Quota Free X/3 analyses' affiche en tete de la section
-    // stockAnalysis pour les users non-premium. Rafraichi apres chaque analyse
-    // pour refleter le quota restant.
+    // Bandeau 'Quota X/N analyses' affiche en tete de la section stockAnalysis.
+    // Differencie 3 cas :
+    //  - Premium (Pro/Elite) : masque
+    //  - Visiteur anonyme    : "X/2 - Crée un compte gratuit pour 4/j"
+    //  - Inscrit Free        : "X/4 - Passer Pro pour illimité"
     function renderFreeQuotaBanner() {
       const el = document.getElementById('freeQuotaBanner');
       if (!el) return;
       if (isPremium) { el.style.display = 'none'; return; }
+      const isAnon = !currentUser;
+      const maxQuota = isAnon ? ANON_DAILY_QUOTA : FREE_DAILY_QUOTA;
       const state = getFreeQuotaState();
-      const remaining = Math.max(0, FREE_DAILY_QUOTA - state.count);
-      const pctUsed = Math.min(100, (state.count / FREE_DAILY_QUOTA) * 100);
+      const remaining = Math.max(0, maxQuota - state.count);
+      const pctUsed = Math.min(100, (state.count / maxQuota) * 100);
       const emoji = remaining === 0 ? '🔒' : remaining === 1 ? '⚡' : '✨';
       const color = remaining === 0 ? '#EF4444' : remaining === 1 ? '#F59E0B' : '#10B981';
+      const subline = isAnon
+        ? `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour passer à 4/jour + watchlist + brief`
+        : `${state.count}/${maxQuota} utilisées · reset à minuit · passer Pro pour illimité + watchlist + fonds offensifs`;
+      const ctaLabel = isAnon ? 'Créer un compte gratuit' : 'Passer Pro';
+      const ctaGradient = isAnon
+        ? 'linear-gradient(135deg,#3B82F6,#10B981)'
+        : 'linear-gradient(135deg,#3B82F6,#8B5CF6)';
+      const ctaOnclick = isAnon
+        ? "document.getElementById('authOverlay').classList.remove('hidden')"
+        : "document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()";
       el.style.display = 'block';
       el.innerHTML = `
         <div style="position:relative;padding:14px 18px;margin-bottom:20px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.22);border-radius:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
@@ -6055,12 +6077,14 @@
             <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
               <div style="height:100%;width:${pctUsed}%;background:linear-gradient(90deg,${color},${color});border-radius:3px;transition:width 0.3s"></div>
             </div>
-            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">${state.count}/${FREE_DAILY_QUOTA} utilisées · reset à minuit · passer Pro pour illimité + watchlist + fonds offensifs</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">${subline}</div>
           </div>
-          <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:9px 16px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.25)">Passer Pro</button>
+          <button type="button" onclick="${ctaOnclick}" style="padding:9px 16px;background:${ctaGradient};border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.25)">${ctaLabel}</button>
         </div>
       `;
     }
+    // Alias pour le call-site dans initAuth (clarte de l'intention)
+    function renderAnonBanner() { renderFreeQuotaBanner(); }
 
     // Billing preference (monthly | yearly) — peut etre set via ?billing= dans l'URL depuis la landing
     function getBillingPreference() {
@@ -6305,6 +6329,14 @@
         if (data.code === 'FREE_QUOTA_EXCEEDED') {
           const err = new Error(data.error || 'Free daily quota reached');
           err.code = 'FREE_QUOTA_EXCEEDED';
+          err.quotaData = data;
+          throw err;
+        }
+        // Visiteur anonyme qui a consomme ses 2 analyses gratuites du jour :
+        // on push vers l'inscription gratuite (4 analyses/j) plutot que Pro.
+        if (data.code === 'ANON_QUOTA_EXCEEDED') {
+          const err = new Error(data.error || 'Anonymous daily quota reached');
+          err.code = 'ANON_QUOTA_EXCEEDED';
           err.quotaData = data;
           throw err;
         }
@@ -9116,12 +9148,13 @@
       }
     }
 
-    // Quota Free : 3 analyses / jour. Permet au user gratuit de tester
-    // le vrai Kairos Score, pas une 'vue tronquée'. Trial-like.
+    // Quota Free : 4 analyses / jour pour les inscrits, 2 / jour pour les
+    // visiteurs anonymes (pattern product-led : voir 2 fiches puis hard wall
+    // qui pousse a l'inscription gratuite). Le worker enforce la verite via
+    // _quotaInfo dans la reponse ; localStorage est juste un miroir UX.
     // Stockage : kairos_free_analyses = JSON { date: 'YYYY-MM-DD', tickers: [...], count: N }
-    // (on stocke les tickers deja analyses → permet de re-consulter un ticker
-    //  deja analyse aujourd'hui sans decrementer le quota).
-    const FREE_DAILY_QUOTA = 3;
+    const FREE_DAILY_QUOTA = 4;
+    const ANON_DAILY_QUOTA = 2;
     function getFreeQuotaState() {
       try {
         const today = new Date().toISOString().slice(0, 10);
@@ -9169,22 +9202,44 @@
         }
       }
 
-      // Gate Free : quota 3 analyses/jour. Les premium (Pro/Elite) passent.
+      // Gate Free : quota client-side (defensif UX, le worker reste autorite).
+      // - Anon : ANON_DAILY_QUOTA (2) → wall qui pousse a l'inscription gratuite
+      // - Logged-in Free : FREE_DAILY_QUOTA (4) → wall qui pousse a Pro
+      // - Premium : pas de gate
       if (!isPremium) {
+        const isAnon = !currentUser;
+        const effectiveQuota = isAnon ? ANON_DAILY_QUOTA : FREE_DAILY_QUOTA;
         const state = getFreeQuotaState();
         // Autorise si : ticker deja analyse aujourd'hui OU quota pas atteint
-        if (!state.tickers.includes(ticker) && state.count >= FREE_DAILY_QUOTA) {
-          body.innerHTML = `
-            <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
-              <div style="font-size:48px;margin-bottom:12px">🔒</div>
-              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
-              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
-              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
-              <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-                <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
-              </div>
-              <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.<br>Compteur remis à zéro chaque jour à minuit.</div>
-            </div>`;
+        if (!state.tickers.includes(ticker) && state.count >= effectiveQuota) {
+          if (isAnon) {
+            // Wall anonyme : push vers inscription gratuite (4 analyses/j)
+            body.innerHTML = `
+              <div style="max-width:640px;margin:40px auto;padding:36px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(16,185,129,0.05));border:1px solid rgba(59,130,246,0.30);border-radius:16px;text-align:center">
+                <div style="font-size:48px;margin-bottom:12px">✨</div>
+                <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">Tu as épuisé tes ${ANON_DAILY_QUOTA} analyses gratuites du jour</h2>
+                <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.</p>
+                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu accèdes aussi à la watchlist, aux alertes et au brief quotidien.</p>
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                  <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden')" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6,#10B981);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Créer un compte gratuit</button>
+                  <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden')" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">J'ai déjà un compte</button>
+                </div>
+                <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà consulté aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Tu peux toujours les rouvrir sans décompter.</div>
+              </div>`;
+          } else {
+            // Wall registered Free : push vers Pro
+            body.innerHTML = `
+              <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
+                <div style="font-size:48px;margin-bottom:12px">🔒</div>
+                <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
+                <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
+                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                  <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
+                </div>
+                <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.<br>Compteur remis à zéro chaque jour à minuit.</div>
+              </div>`;
+          }
           return;
         }
         // Enregistre le ticker (idempotent : n'augmente pas si deja dans la liste)
@@ -9239,6 +9294,26 @@
               ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${qd.analyzedToday.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.</div>` : ''}
             </div>`;
           renderFreeQuotaBanner();
+          return;
+        }
+        // Visiteur anonyme : quota 2/j atteint → push vers inscription GRATUITE
+        // (4 analyses/j inscrit), pas vers Pro. Pattern product-led :
+        // l'utilisateur a deja vu 2 fiches completes, il connait la valeur.
+        if (e.code === 'ANON_QUOTA_EXCEEDED' && e.quotaData) {
+          const qd = e.quotaData;
+          body.innerHTML = `
+            <div style="max-width:640px;margin:40px auto;padding:36px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(16,185,129,0.05));border:1px solid rgba(59,130,246,0.30);border-radius:16px;text-align:center">
+              <div style="font-size:48px;margin-bottom:12px">✨</div>
+              <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">Tu as épuisé tes ${qd.quotaMax || 2} analyses gratuites du jour</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu accèdes aussi à la watchlist, aux alertes et au brief quotidien.</p>
+              <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden')" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6,#10B981);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Créer un compte gratuit</button>
+                <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden')" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">J'ai déjà un compte</button>
+              </div>
+              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:18px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà consulté aujourd'hui : <strong>${qd.analyzedToday.join(', ')}</strong><br>Tu peux toujours les rouvrir sans décompter.</div>` : ''}
+              <div style="margin-top:16px;font-size:11px;color:var(--text-muted)">Tu peux aussi explorer les exemples publics : <a href="/a/AAPL" style="color:#3B82F6">/a/AAPL</a> · <a href="/a/UBI.PA" style="color:#3B82F6">/a/UBI.PA</a></div>
+            </div>`;
           return;
         }
         body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
