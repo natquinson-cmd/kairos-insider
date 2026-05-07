@@ -13,6 +13,13 @@ type = "Text"
 globs = ["**/*.md"]
 fallthrough = true
 
+# WASM modules (resvg pour SVG -> PNG sur les OG images Twitter Card).
+# La rule "CompiledWasm" exporte le module comme WebAssembly.Module direct.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
+
 # Routes Workers attachees a kairosinsider.fr (domaine dans le meme compte Cloudflare)
 # - /a/*         : pages SSR publiques pour bots SEO + sociaux (tickers)
 # - /blog, /blog/* : blog SEO (articles pillar, index, feed RSS)

@@ -14,6 +14,20 @@
 import { handleStockAnalysis } from './stock-api.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
 import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
+// Resvg WASM : SVG -> PNG pour les OG images (Twitter Card spec exige PNG/JPG).
+// Init paresseux + memorise (1 seule init par instance Worker).
+import { initWasm, Resvg } from '@resvg/resvg-wasm';
+import resvgWasmModule from '@resvg/resvg-wasm/index_bg.wasm';
+let _resvgInitPromise = null;
+function ensureResvgReady() {
+  if (!_resvgInitPromise) {
+    _resvgInitPromise = initWasm(resvgWasmModule).catch((e) => {
+      _resvgInitPromise = null; // permet retry au prochain appel
+      throw e;
+    });
+  }
+  return _resvgInitPromise;
+}
 import {
   handlePortfolioBrokers,
   handlePortfolioConnections,
@@ -334,13 +348,15 @@ async function handleRequest(request, env, ctx) {
     }
 
     // OG Image dynamique — visuel de partage Twitter/LinkedIn/Discord
-    // Format : GET /og/:ticker[.svg|.png] -> SVG 1200x630 avec donnees live (prix, Kairos Score, signal)
+    // Format : GET /og/:ticker.png -> PNG 1200x630 avec donnees live (prix, Kairos Score, signal)
+    //          GET /og/:ticker.svg -> meme image en SVG (debug / fallback)
     // Utilise comme og:image / twitter:image dans /a/:ticker pour effet "screenshot fiche"
     // (cf. concurrent InsiderBaba). Cache CDN 1h pour eviter de regenerer a chaque scrape.
     if (request.method === 'GET' && path.startsWith('/og/')) {
       const tickerWithExt = decodeURIComponent(path.slice('/og/'.length));
+      const fmt = /\.svg$/i.test(tickerWithExt) ? 'svg' : 'png';
       const ticker = tickerWithExt.replace(/\.(svg|png)$/i, '').toUpperCase();
-      return handleOgImage(ticker, env);
+      return handleOgImage(ticker, env, fmt);
     }
 
     // Blog SEO (articles pillar MARKETING.md Sprint 1+2)
@@ -3709,7 +3725,7 @@ function ogFmtPct(n) {
   return (n > 0 ? '+' : '') + Number(n).toFixed(2) + '%';
 }
 
-async function handleOgImage(rawTicker, env) {
+async function handleOgImage(rawTicker, env, fmt = 'png') {
   const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker || ticker.length > 12) {
     return new Response('Invalid ticker', { status: 400 });
@@ -3802,16 +3818,56 @@ async function handleOgImage(rawTicker, env) {
 <text x="1140" y="608" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#6B7280">Insiders · Smart Money · Seuils EU · Score 100 axes</text>
 </svg>`;
 
-  return new Response(svg, {
-    status: 200,
-    headers: {
-      'Content-Type': 'image/svg+xml; charset=utf-8',
-      // Cache CDN 1h, browser 5min : les scrapers Twitter/Linkedin re-fetchent
-      // periodiquement, on veut leur servir une version pas trop fraiche.
-      'Cache-Control': 'public, max-age=300, s-maxage=3600',
-      'CDN-Cache-Control': 'public, s-maxage=3600',
-    },
-  });
+  // Format SVG demande explicitement (.svg) -> on retourne le SVG brut.
+  // Utile pour debug, fallback, et certains scrapers (Discord, Slack) qui le rendent.
+  if (fmt === 'svg') {
+    return new Response(svg, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=300, s-maxage=3600',
+      },
+    });
+  }
+  // Defaut : PNG via resvg-wasm (Twitter Card spec exige PNG/JPG officiellement).
+  const svgBuffer = new TextEncoder().encode(svg);
+  try {
+    await ensureResvgReady();
+    const renderer = new Resvg(svgBuffer, {
+      // Resolution OG cible : 1200x630 (deja la viewBox du SVG).
+      // fitTo: original = on respecte les dimensions intrinseques du SVG.
+      fitTo: { mode: 'original' },
+      font: {
+        // Pas de fonts custom embarquees : on utilise les sans-serif systeme
+        // que resvg fournit en fallback. Suffit pour le rendu OG (l'utilisateur
+        // n'a pas besoin d'un font specifique, juste de la lisibilite).
+        loadSystemFonts: false,
+      },
+    });
+    const pngData = renderer.render();
+    const pngBytes = pngData.asPng();
+    return new Response(pngBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        // Cache CDN 1h, browser 5min : les scrapers Twitter/Linkedin re-fetchent
+        // periodiquement, on veut leur servir une version pas trop fraiche.
+        'Cache-Control': 'public, max-age=300, s-maxage=3600',
+        'CDN-Cache-Control': 'public, s-maxage=3600',
+      },
+    });
+  } catch (e) {
+    // Si la conversion PNG echoue (WASM crash, OOM, etc.) on tombe sur le SVG.
+    // Mieux vaut une carte SVG (rendue par certains crawlers) qu'un 500.
+    log.warn('og.png.render.failed', { ticker, error: String(e && e.message || e) });
+    return new Response(svg, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=60, s-maxage=300',
+      },
+    });
+  }
 }
 
 async function handleActionSSR(rawTicker, env, lang = 'fr') {
@@ -3962,16 +4018,16 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
 <meta property="og:url" content="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
-<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.svg">
+<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:type" content="image/svg+xml">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:alt" content="${escHtmlSsr(title)}">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escHtmlSsr(title)}">
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
-<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.svg">
+<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png">
 <meta name="twitter:image:alt" content="${escHtmlSsr(title)}">
 
 <!-- Google Analytics 4 (RGPD-friendly) -->
