@@ -3677,8 +3677,17 @@
       <div class="section-page" id="section-activists">
         <h2>Fonds Offensifs</h2>
 
+        <!-- BARRE DE RECHERCHE TICKER — meme style que Initiés Explorer -->
+        <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 24px;display:flex;gap:10px;align-items:stretch">
+          <div style="position:relative;flex:1">
+            <input id="actTicker" type="text" placeholder="Rechercher ticker (ex: AAPL, TWTR, UBI.PA)..." autocomplete="off"
+                   oninput="debounceActivists()"
+                   style="width:100%;padding:14px 18px;font-size:16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none">
+          </div>
+        </div>
+
         <!-- FILTRES RAPIDES — même style que Initiés -->
-        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">
+        <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px;align-items:flex-end">
           <div class="period-selector" style="margin-bottom:0">
             <span class="period-label">Période :</span>
             <div class="period-buttons">
@@ -3696,71 +3705,54 @@
               <button class="period-btn" onclick="setActPreset('filter','all',this)">Tous</button>
             </div>
           </div>
-          <div class="period-selector" style="margin-bottom:0">
-            <span class="period-label">Marché :</span>
-            <div class="period-buttons">
-              <button class="period-btn active" onclick="setActPreset('country','',this)">Tous</button>
-              <button class="period-btn" onclick="setActPreset('country','US',this)"><img src="https://flagcdn.com/w20/us.png" width="16" height="12" alt="US" style="vertical-align:middle;border-radius:1px;margin-right:4px">US</button>
-              <button class="period-btn" onclick="setActPreset('country','FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI',this)"><img src="https://flagcdn.com/w20/eu.png" width="16" height="12" alt="EU" style="vertical-align:middle;border-radius:1px;margin-right:4px">Europe</button>
-              <button class="period-btn" onclick="setActPreset('country','FR',this)"><img src="https://flagcdn.com/w20/fr.png" width="16" height="12" alt="FR" style="vertical-align:middle;border-radius:1px"></button>
-              <button class="period-btn" onclick="setActPreset('country','DE',this)"><img src="https://flagcdn.com/w20/de.png" width="16" height="12" alt="DE" style="vertical-align:middle;border-radius:1px"></button>
-              <button class="period-btn" onclick="setActPreset('country','UK',this)"><img src="https://flagcdn.com/w20/gb.png" width="16" height="12" alt="GB" style="vertical-align:middle;border-radius:1px"></button>
-            </div>
+          <!-- Marché : dropdown complet (12 pays + combinaisons) en remplacement
+               des flags qui ne couvraient que 6 pays -->
+          <div style="margin-bottom:0">
+            <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px;font-weight:600">Marché :</label>
+            <select id="actCountry" onchange="loadActivists()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:240px;font-size:13px">
+              <option value="">— Tous les marchés (12) —</option>
+              <optgroup label="Tier 1+2 (sources officielles)">
+                <option value="US">🇺🇸 États-Unis (SEC)</option>
+                <option value="FR">🇫🇷 France (AMF)</option>
+                <option value="DE">🇩🇪 Allemagne (BaFin)</option>
+                <option value="UK">🇬🇧 Royaume-Uni (FCA)</option>
+                <option value="NL">🇳🇱 Pays-Bas (AFM)</option>
+                <option value="CH">🇨🇭 Suisse (SIX)</option>
+              </optgroup>
+              <optgroup label="Tier 3">
+                <option value="IT">🇮🇹 Italie (CONSOB)</option>
+                <option value="ES">🇪🇸 Espagne (CNMV)</option>
+                <option value="SE">🇸🇪 Suède</option>
+                <option value="NO">🇳🇴 Norvège</option>
+                <option value="DK">🇩🇰 Danemark</option>
+                <option value="FI">🇫🇮 Finlande</option>
+              </optgroup>
+              <optgroup label="Combinaisons">
+                <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">Europe seulement (11)</option>
+                <option value="FR,DE,IT,ES,NL">Eurozone core (5)</option>
+                <option value="SE,NO,DK,FI">Nordics (4)</option>
+              </optgroup>
+            </select>
           </div>
         </div>
 
-        <!-- FILTRES AVANCÉS + INFORMATIONS (dépliables) -->
+        <!-- INFORMATIONS pédagogiques (dépliables) -->
         <details id="actAdvDetails" style="background:linear-gradient(135deg,rgba(245,158,11,0.06),rgba(236,72,153,0.03));border:1px solid rgba(245,158,11,0.22);border-radius:12px;padding:14px 18px;margin-bottom:24px">
           <summary style="display:flex;gap:10px;align-items:center;font-weight:600;color:#F59E0B;font-size:14px;list-style:none;outline:none;cursor:pointer">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-            <span>Filtres avancés &amp; informations</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Comprendre les fonds offensifs &amp; les déclarations 13D/G</span>
             <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
           </summary>
           <div style="padding:16px 0 4px">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px">
-              <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
-                <input id="actTicker" type="text" placeholder="ex: TWTR" oninput="debounceActivists()" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
-              </div>
-              <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Marché précis</label>
-                <select id="actCountry" onchange="loadActivists()" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="">— Tous les marchés (12) —</option>
-                  <optgroup label="Tier 1+2 (sources officielles)">
-                    <option value="US">États-Unis (SEC)</option>
-                    <option value="FR">France (AMF)</option>
-                    <option value="DE">Allemagne (BaFin)</option>
-                    <option value="UK">Royaume-Uni (FCA)</option>
-                    <option value="NL">Pays-Bas (AFM)</option>
-                    <option value="CH">Suisse (SIX)</option>
-                  </optgroup>
-                  <optgroup label="Tier 3">
-                    <option value="IT">Italie (CONSOB)</option>
-                    <option value="ES">Espagne (CNMV)</option>
-                    <option value="SE">Suède</option>
-                    <option value="NO">Norvège</option>
-                    <option value="DK">Danemark</option>
-                    <option value="FI">Finlande</option>
-                  </optgroup>
-                  <optgroup label="Combinaisons">
-                    <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">Europe seulement (11)</option>
-                    <option value="FR,DE,IT,ES,NL">Eurozone core (5)</option>
-                    <option value="SE,NO,DK,FI">Nordics (4)</option>
-                  </optgroup>
-                </select>
-              </div>
-              <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Direction</label>
-                <select id="actFilter" onchange="loadActivists()" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="activists">Fonds offensifs connus</option>
-                  <option value="all">Toutes les déclarations</option>
-                  <option value="13D">13D (offensifs US)</option>
-                  <option value="13G">13G (passifs US)</option>
-                  <option value="up">Franchissement ↑ hausse</option>
-                  <option value="down">Franchissement ↓ baisse</option>
-                </select>
-              </div>
-            </div>
+            <!-- Selects caches : actFilter (utilise par les period-btn Type) -->
+            <select id="actFilter" style="display:none">
+              <option value="activists" selected>activists</option>
+              <option value="all">all</option>
+              <option value="13D">13D</option>
+              <option value="13G">13G</option>
+              <option value="up">up</option>
+              <option value="down">down</option>
+            </select>
             <!-- Explainers dans le collapsible -->
             <div style="border-top:1px solid var(--border);padding-top:14px;display:grid;gap:10px">
               <details style="background:var(--surface-2);border-radius:8px;padding:10px 14px">
