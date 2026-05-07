@@ -17921,19 +17921,19 @@
             : `<span style="color:var(--text-muted);font-size:11px" title="Ticker non résolu — voir le nom de l'entreprise ci-contre">—</span>`;
           return `
             <tr ${displayTicker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${String(displayTicker).replace(/'/g,"\\'")}'), 150)" style="cursor:pointer"` : ''}>
-              <td style="padding:10px 12px;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtD(f.fileDate)}</td>
-              <td style="padding:10px 12px;text-align:center">${flagCell}</td>
-              <td style="padding:10px 12px">${formBadge(f.form)}${dirBadge}</td>
-              <td style="padding:10px 12px">${tickerCell}</td>
-              <td style="padding:10px 12px;font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
-              <td style="padding:10px 12px;font-size:13px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.filerName || '')}"><span style="display:flex;align-items:center;gap:4px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient(f.filerName || '—')}</span>${activistBadge}</span></td>
-              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums">
+              <td style="padding:10px 6px;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtD(f.fileDate)}</td>
+              <td style="padding:10px 4px;text-align:center">${flagCell}</td>
+              <td style="padding:10px 6px">${formBadge(f.form)}${dirBadge}</td>
+              <td style="padding:10px 6px">${tickerCell}</td>
+              <td style="padding:10px 6px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
+              <td style="padding:10px 6px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.filerName || '')}"><span style="display:flex;align-items:center;gap:4px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient(f.filerName || '—')}</span>${activistBadge}</span></td>
+              <td style="padding:10px 6px;text-align:right;font-variant-numeric:tabular-nums">
                 <div style="font-weight:600;color:${pctColor}">${fmtPct(f.percentOfClass)}</div>
                 ${deltaHtml}
               </td>
-              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues">${fmtSharesA(f.sharesOwned)}</td>
-              <td style="padding:10px 12px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (approximatif)">${fmtPriceA(f.purchasePriceApprox)}</td>
-              <td style="padding:10px 12px;text-align:center">${sourceLink}</td>
+              <td style="padding:10px 6px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues">${fmtSharesA(f.sharesOwned)}</td>
+              <td style="padding:10px 6px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (approximatif)">${fmtPriceA(f.purchasePriceApprox)}</td>
+              <td style="padding:10px 4px;text-align:center">${sourceLink}</td>
             </tr>
           `;
         }).join('');
@@ -17956,19 +17956,19 @@
             </div>
           </div>
           <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
-            <table class="data-table" style="width:100%;border-collapse:collapse;min-width:780px;font-size:12.5px">
+            <table class="data-table" style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">
               <thead>
                 <tr>
-                  <th style="text-align:left;width:70px">Date</th>
-                  <th style="text-align:center;width:40px" title="Marché / régulateur d'origine">🌍</th>
-                  <th style="text-align:left;width:78px">Forme</th>
-                  <th style="text-align:left;width:72px">Ticker</th>
-                  <th style="text-align:left;max-width:130px">Entreprise ciblée</th>
-                  <th style="text-align:left;max-width:230px">Investisseur (filer)</th>
-                  <th style="text-align:right;width:82px" title="% du capital détenu">% capital</th>
-                  <th style="text-align:right;width:64px" title="Nombre d'actions détenues">Actions</th>
-                  <th style="text-align:right;width:80px" title="Montant total investi (~)">Investi ~</th>
-                  <th style="text-align:center;width:48px" title="Voir la source officielle (SEC, AMF, BaFin)">Source</th>
+                  <th style="text-align:left;width:64px;padding:8px 6px">Date</th>
+                  <th style="text-align:center;width:36px;padding:8px 4px" title="Marché / régulateur d'origine">🌍</th>
+                  <th style="text-align:left;width:76px;padding:8px 6px">Forme</th>
+                  <th style="text-align:left;width:60px;padding:8px 6px">Ticker</th>
+                  <th style="text-align:left;width:120px;padding:8px 6px">Entreprise ciblée</th>
+                  <th style="text-align:left;width:180px;padding:8px 6px">Investisseur (filer)</th>
+                  <th style="text-align:right;width:76px;padding:8px 6px" title="% du capital détenu">% capital</th>
+                  <th style="text-align:right;width:58px;padding:8px 6px" title="Nombre d'actions détenues">Actions</th>
+                  <th style="text-align:right;width:70px;padding:8px 6px" title="Montant total investi (~)">Investi ~</th>
+                  <th style="text-align:center;width:50px;padding:8px 4px" title="Voir la source officielle (SEC, AMF, BaFin)">Source</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
