@@ -175,16 +175,42 @@ def parse_13dg_primary_doc(xml_content):
             pct = None
         persons.append({'name': name, 'shares': amount, 'pct': pct, 'fundType': fund_type})
 
-    # Fallback Format 2 : <coverPage> (structure utilisée par beaucoup de 13G passifs)
+    # Fallback Format 2 : schema X0202 schedule13g (FMR/Vanguard/BlackRock 13G/A)
+    # Tags : <coverPageHeaderReportingPersonDetails> contient
+    # <reportingPersonName>, <classPercent>,
+    # <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+    # OU dans <item4> : <amountBeneficiallyOwned> + <classPercent>
+    if not persons:
+        for match in re.finditer(r'<coverPageHeaderReportingPersonDetails>(.*?)</coverPageHeaderReportingPersonDetails>', xml_content, re.DOTALL):
+            block = match.group(1)
+            def get_x0202(tag):
+                m = re.search(rf'<{tag}>\s*([^<]+?)\s*</{tag}>', block)
+                return m.group(1).strip() if m else None
+            name = get_x0202('reportingPersonName')
+            shares_raw = get_x0202('reportingPersonBeneficiallyOwnedAggregateNumberOfShares')
+            pct_raw = get_x0202('classPercent')
+            try:
+                shares = float(shares_raw) if shares_raw else None
+            except (ValueError, TypeError):
+                shares = None
+            try:
+                pct = float(pct_raw) if pct_raw else None
+            except (ValueError, TypeError):
+                pct = None
+            if shares is not None or pct is not None:
+                persons.append({'name': name, 'shares': shares, 'pct': pct, 'fundType': None})
+
+    # Fallback Format 3 : <coverPage> (autre structure 13G/A passive)
     if not persons:
         def get_any(tag):
             m = re.search(rf'<{tag}[^>]*>\s*([^<\s][^<]*?)\s*</{tag}>', xml_content, re.IGNORECASE)
             return m.group(1).strip() if m else None
-        pct_raw   = get_any('percentOfClass') or get_any('percentOwned')
+        pct_raw   = get_any('percentOfClass') or get_any('percentOwned') or get_any('classPercent')
         shares_raw = (get_any('sharesOrPrincipalAmountValue') or
                       get_any('aggregateAmountOwned') or
+                      get_any('amountBeneficiallyOwned') or
                       get_any('sharesOrPrincipal'))
-        name = get_any('rptOwnerName') or get_any('reportingOwnerName')
+        name = get_any('rptOwnerName') or get_any('reportingOwnerName') or get_any('reportingPersonName')
         try:
             pct = float(pct_raw) if pct_raw else None
         except (ValueError, TypeError):
@@ -196,7 +222,7 @@ def parse_13dg_primary_doc(xml_content):
         if pct is not None or shares is not None:
             persons.append({'name': name, 'shares': shares, 'pct': pct, 'fundType': None})
 
-    # Fallback Format 3 : texte SGML brut (anciens dépôts ou filings non-XML)
+    # Fallback Format 4 : texte SGML brut (anciens dépôts ou filings non-XML)
     if not persons:
         pct_m    = re.search(r'percent of class[^0-9\n]*([0-9]+(?:\.[0-9]+)?)\s*%?', xml_content, re.IGNORECASE)
         shares_m = re.search(r'(?:aggregate amount|amount beneficially owned)[^0-9\n]*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?)', xml_content, re.IGNORECASE)
