@@ -1817,13 +1817,17 @@ async function aggregateInsiders(ticker, env) {
     // Tri par date desc
     matches.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
 
+    // FIX (mai 2026 / HAYW $29K = max insider score) : separer 'exercise' des
+    // vrais 'buy'. Un exercise = conversion d'options a strike bas, pas de
+    // conviction reelle (souvent suivi d'une vente cashless le meme jour).
+    // Seuls les vrais 'buy' (open-market purchases) comptent comme signal.
     const insiderSet = new Set();
     let totalUsd = 0, totalEur = 0, buys = 0, sells = 0;
     const sources = {};
     for (const t of matches) {
       insiderSet.add((t.insider || '').toLowerCase());
       const val = Number(t.value) || 0;
-      const isBuy = (t.type === 'buy' || t.type === 'exercise');
+      const isBuy = (t.type === 'buy');                         // strict : pas exercise
       const isSell = (t.type === 'sell');
       const signed = isBuy ? val : (isSell ? -val : 0);
       if (t.currency === 'EUR') totalEur += signed;
@@ -1842,15 +1846,21 @@ async function aggregateInsiders(ticker, env) {
     result.uniqueInsiders = insiderSet.size;
     result.sources = sources;
 
-    // Cluster signal : >= 3 insiders distincts sur 30j avec buys net positif
+    // Cluster signal : >= 3 insiders distincts sur 30j AVEC achats nets
+    // significatifs (>= 100K USD/EUR cumulé). Le seuil filtre les achats
+    // symboliques (RSU, $1K cosmetique) qui declenchaient un faux cluster.
     const now = new Date();
     const cutoff30 = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     const recent = matches.filter(t => (t.fileDate || '') >= cutoff30);
-    const recentInsiders = new Set(recent.filter(t => t.type === 'buy' || t.type === 'exercise').map(t => (t.insider || '').toLowerCase()));
-    if (recentInsiders.size >= 3) {
+    const recentBuys = recent.filter(t => t.type === 'buy');
+    const recentInsiders = new Set(recentBuys.map(t => (t.insider || '').toLowerCase()));
+    const recentBuyValue = recentBuys.reduce((s, t) => s + (Number(t.value) || 0), 0);
+    const CLUSTER_MIN_VALUE = 100000;  // 100K total minimum
+    if (recentInsiders.size >= 3 && recentBuyValue >= CLUSTER_MIN_VALUE) {
       result.clusterSignal = {
         label: 'CLUSTER DETECTE',
         insiders: recentInsiders.size,
+        totalValue: recentBuyValue,
         windowDays: 30,
       };
     }
@@ -2248,11 +2258,20 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   };
 
   // --- INSIDER (0-20) ---
+  // FIX (mai 2026 / HAYW $29K = 20/20) : la formule log10*1.5 saturait des
+  // $10K, donc un cluster symbolique de 4x$7K declenchait le score MAX.
+  // Nouvelle formule : (log10(value) - 4) * 2 — donne :
+  //   $10K  -> +0  (seuil)
+  //   $100K -> +2
+  //   $1M   -> +4
+  //   $10M+ -> +6 (max)
+  // Plus en ligne avec la realite : $29K n'est PAS une conviction forte.
   const totalNet = (insiders.netValueUsd || 0) + (insiders.netValueEur || 0);
   const buyVsSell = insiders.buyCount - insiders.sellCount;
   let insiderScore = 10; // neutre
-  if (totalNet > 0) insiderScore += Math.min(6, Math.log10(Math.abs(totalNet) + 1) * 1.5);
-  else if (totalNet < 0) insiderScore -= Math.min(6, Math.log10(Math.abs(totalNet) + 1) * 1.5);
+  const valueBonus = (v) => Math.max(0, Math.min(6, (Math.log10(v) - 4) * 2));
+  if (totalNet > 0) insiderScore += valueBonus(Math.abs(totalNet));
+  else if (totalNet < 0) insiderScore -= valueBonus(Math.abs(totalNet));
   if (buyVsSell > 0) insiderScore += Math.min(2, buyVsSell * 0.4);
   else if (buyVsSell < 0) insiderScore -= Math.min(2, Math.abs(buyVsSell) * 0.4);
   if (insiders.clusterSignal) insiderScore += 3;
