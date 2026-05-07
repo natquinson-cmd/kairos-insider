@@ -6700,14 +6700,14 @@ async function loadAllThresholdsFilings(env) {
 }
 
 // GET /api/13dg/recent?days=30&activistOnly=0&country=FR
-// Retourne les filings recents (max 500). Filtres : periode, activists, pays.
+// Retourne les filings recents (max 2000). Filtres : periode, activists, pays.
 async function handleScheduleDGRecent(url, env, origin) {
   const merged = await loadAllThresholdsFilings(env);
   if (!merged.filings.length) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
   const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
   const activistOnly = url.searchParams.get('activistOnly') === '1';
-  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100', 10), 1), 500);
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100', 10), 1), 2000);
   // Filtre pays : "US,FR,DE" ou vide = tous
   const countryParam = (url.searchParams.get('country') || '').toUpperCase();
   const countryFilter = countryParam ? new Set(countryParam.split(',').map(s => s.trim()).filter(Boolean)) : null;
