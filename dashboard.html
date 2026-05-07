@@ -2237,6 +2237,10 @@
     /* Offsets pour tables dans un container avec un header au-dessus */
     .table-sticky-off-40 thead th { top: 40px; }
     .table-sticky-off-60 thead th { top: 60px; }
+    /* Opt-out : les tables courtes (admin users, etc.) ou avec layout
+       complexe (ex: section parente avec position non-static qui peut
+       creer un scroll context inattendu) n'ont pas besoin de sticky. */
+    .table-no-sticky thead th { position: static; top: auto; }
     tbody td {
       padding: 12px 16px; border-bottom: 1px solid var(--divider-soft);
       white-space: nowrap; color: var(--text-secondary);
@@ -16710,7 +16714,7 @@
 
       body.innerHTML = revenueBar + statusBar + `
         <div class="table-scroll">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
+          <table class="table-no-sticky" style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
             <thead>
               <tr style="border-bottom:2px solid var(--border)">
                 <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
