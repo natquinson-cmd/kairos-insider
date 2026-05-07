@@ -5737,6 +5737,14 @@
           if (typeof renderAnonBanner === 'function') {
             try { renderAnonBanner(); } catch (e) {}
           }
+          // Deep link : un visiteur arrivant via un tweet (URL /a/SNA -> redirect
+          // dashboard.html#stockAnalysis?t=SNA) doit pouvoir voir directement
+          // la fiche valeur, sans inscription. Le bypass worker /api/stock/
+          // gere le quota anon (2/jour). Si pas de hash, on ne charge rien
+          // de specifique (pas de loadHome car certaines features sont gatees).
+          if (typeof navigateFromHash === 'function' && window.location.hash) {
+            try { navigateFromHash(window.location.hash); } catch (e) {}
+          }
         }
       });
     }

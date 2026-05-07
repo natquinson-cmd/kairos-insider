@@ -352,6 +352,25 @@ async function handleRequest(request, env, ctx) {
     if (request.method === 'GET' && path.startsWith('/a/')) {
       const ticker = decodeURIComponent(path.slice('/a/'.length));
       const lang = (url.searchParams.get('lang') || '').toLowerCase() === 'en' ? 'en' : 'fr';
+      // User-Agent split :
+      //  - Bots sociaux/SEO -> SSR HTML avec meta tags (Twitter Card / Google)
+      //  - Humains -> redirection vers le dashboard avec ticker prefile
+      // Pattern : on garde /a/[ticker] comme "URL de partage canonical" pour
+      // que les cartes Twitter / Discord / LinkedIn fonctionnent, mais quand
+      // un humain clique, il atterrit direct sur la page Decrypter.
+      const ua = request.headers.get('User-Agent') || '';
+      const isBot = /bot|crawler|spider|crawling|scraper|preview|fetch|whatsapp|telegram|slack|twitter|facebook|linkedin|pinterest|discord|google|bing|yandex|duckduck|ahrefs|semrush|petal|applebot|chatgpt|claude|perplexity|embed/i.test(ua);
+      if (!isBot) {
+        const cleanTicker = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
+        if (cleanTicker && cleanTicker.length <= 12) {
+          // dashboard.html supporte le hash #stockAnalysis?t=TICKER pour
+          // ouvrir directement la fiche valeur (cf. dashboard.html:9180).
+          // Le query ?lang=fr/en est lu par assets/i18n.js au load.
+          const langQs = lang === 'en' ? '?lang=en' : '';
+          const target = `https://kairosinsider.fr/dashboard.html${langQs}#stockAnalysis?t=${encodeURIComponent(cleanTicker)}`;
+          return Response.redirect(target, 302);
+        }
+      }
       return handleActionSSR(ticker, env, lang);
     }
 
