@@ -9196,14 +9196,18 @@
         }
 
         const isActivist = res.hasActivist;
-        const color = isActivist ? '#F59E0B' : '#10B981';
+        // Color scheme : orange/amber dans les 2 cas - "warning" pour signaler
+        // qu'un >5% holder est une info de marche significative, qu'il soit
+        // activiste declarant (13D) ou passif >5% (13G - Vanguard/BlackRock).
+        // Distinction faite par le titre + le badge du filing, pas par la couleur.
+        const color = '#F59E0B';
         const bgGrad = isActivist
-          ? 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(236,72,153,0.06))'
-          : 'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.04))';
-        const borderColor = isActivist ? 'rgba(245,158,11,0.32)' : 'rgba(16,185,129,0.25)';
+          ? 'linear-gradient(135deg,rgba(245,158,11,0.14),rgba(236,72,153,0.07))'
+          : 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(251,191,36,0.04))';
+        const borderColor = isActivist ? 'rgba(245,158,11,0.38)' : 'rgba(245,158,11,0.28)';
         const title = isActivist
           ? `⚡ Fonds offensif détecté sur ${escapeHtmlClient(ticker)}`
-          : `Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
+          : `📊 Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
         const subtitle = isActivist
           ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · <strong style="color:#F59E0B">${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}</strong>`
           : `${res.total} déclaration${res.total > 1 ? 's' : ''} > 5% du capital`;
@@ -9280,9 +9284,26 @@
             ? `<a href="${secUrl}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-left:auto;flex-shrink:0;transition:all 0.15s" onmouseover="this.style.color='var(--accent-blue)';this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'" title="Voir le filing complet sur SEC EDGAR">SEC ↗</a>`
             : '';
 
+          // Avatar : orange pour activists, ambre pour passifs (warning consistent)
+          const passiveAvatarBg = 'linear-gradient(135deg,#F59E0B,#FBBF24)';
+          const finalAvatarBg = f.isActivist
+            ? 'linear-gradient(135deg,#EF4444,#F59E0B)'
+            : passiveAvatarBg;
+          // Meta line (location, regulator) — info supplementaire utile pour les 13G
+          // ou les chips d'ownership sont absents (enrichissement XML rate ou non
+          // disponible cote regulateur).
+          const metaParts = [];
+          if (f.filerCity) metaParts.push(escapeHtmlClient(f.filerCity));
+          if (f.filerCountry && f.filerCountry !== f.filerCity) metaParts.push(escapeHtmlClient(f.filerCountry));
+          if (f.regulator && f.regulator !== 'SEC EDGAR') metaParts.push(escapeHtmlClient(f.regulator));
+          const accShort = f.accession ? String(f.accession).split('-').pop().slice(-4) : null;
+          const metaRow = (metaParts.length || accShort)
+            ? `<div style="font-size:10px;color:var(--text-muted);opacity:0.65;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">${metaParts.length ? `<span>📍 ${metaParts.join(' · ')}</span>` : ''}${accShort ? `<span style="font-family:monospace">#${escapeHtmlClient(accShort)}</span>` : ''}</div>`
+            : '';
+
           return `
             <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:12px">
-              <div style="width:34px;height:34px;border-radius:50%;background:${avatarBg};color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.3px;box-shadow:0 0 12px ${f.isActivist ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}">${escapeHtmlClient(initials)}</div>
+              <div style="width:34px;height:34px;border-radius:50%;background:${finalAvatarBg};color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.3px;box-shadow:0 0 12px rgba(245,158,11,0.28)">${escapeHtmlClient(initials)}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-weight:700;color:var(--text-primary);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                   <span style="word-break:break-word">${escapeHtmlClient(filerName)}</span>
@@ -9291,6 +9312,7 @@
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:3px">${formDesc(f.form)} · ${fmtLongD(f.fileDate)}</div>
                 ${ownershipRow}
+                ${metaRow}
               </div>
             </div>
           `;
@@ -9310,7 +9332,7 @@
             <div style="display:flex;flex-direction:column;gap:8px">
               ${top3}
             </div>
-            ${res.total > 3 ? `<div style="margin-top:12px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;font-weight:600;text-decoration:none">Voir les ${res.total} déclarations →</a></div>` : ''}
+            ${res.total > 3 ? `<div style="margin-top:12px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ const tkInput=document.getElementById('actTicker'); if(tkInput) tkInput.value='${escapeHtmlClient(ticker)}'; const flt=document.getElementById('actFilter'); if(flt) flt.value='all'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;font-weight:600;text-decoration:none">Voir les ${res.total} déclarations →</a></div>` : ''}
           </div>
         `;
 
