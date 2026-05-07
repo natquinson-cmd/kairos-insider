@@ -20,8 +20,12 @@ import { initWasm, Resvg } from '@resvg/resvg-wasm';
 import resvgWasmModule from '@resvg/resvg-wasm/index_bg.wasm';
 // Polices embarquees : resvg n'a aucun font fallback sur Workers (pas de
 // fonts systeme). Inter Regular + Bold subset Latin (~67KB chacun).
-import interRegularFont from '../fonts/Inter-Regular.ttf';
-import interBoldFont from '../fonts/Inter-Bold.ttf';
+// Wrangler "Data" rule importe en ArrayBuffer ; resvg.fontBuffers exige
+// Uint8Array[]. On wrappe les deux pour matcher la signature.
+import interRegularRaw from '../fonts/Inter-Regular.ttf';
+import interBoldRaw from '../fonts/Inter-Bold.ttf';
+const interRegularFont = new Uint8Array(interRegularRaw);
+const interBoldFont = new Uint8Array(interBoldRaw);
 let _resvgInitPromise = null;
 function ensureResvgReady() {
   if (!_resvgInitPromise) {
