@@ -179,10 +179,17 @@ def parse_csv(text, lookback_days, debug=False):
             if m:
                 try: threshold = float(m.group(1))
                 except: pass
-        type_str = (row.get(col_type) or '').strip()
+        # FIX (mai 2026) : `type_str` (col_type='soort/type') contenait le
+        # share class NL ("Gewoon aandeel" = action ordinaire) qui n'est PAS
+        # une forme de declaration. Pollution de la colonne FORME du tableau
+        # Fonds Offensifs ("Gewoon aandeel" partout pour BlackRock NL).
+        # On garde la share class dans `shareClass` pour info (peut etre utile
+        # plus tard) mais le `form` est toujours un label de declaration AFM.
+        share_class = (row.get(col_type) or '').strip() or None
         filings.append({
             'fileDate': iso_date,
-            'form': f'SUBSTANTIAL HOLDING {threshold:g}%' if threshold else (type_str or 'AFM SUBSTANTIAL'),
+            'form': f'AFM SUBSTANTIAL {threshold:g}%' if threshold else 'AFM SUBSTANTIAL HOLDING',
+            'shareClass': share_class,
             'accession': None,
             'ticker': '',
             'targetName': target,

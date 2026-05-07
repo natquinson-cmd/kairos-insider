@@ -17794,6 +17794,16 @@
           if (/13D/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13D — prise ACTIVE >5% : le filer a l'intention d'influencer la stratégie (board, buybacks, spin-off, fusion…). Signal activiste fort.">13D <span style="opacity:0.75;font-weight:500">· Actif</span></span>`;
           if (/13G\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13G — mise à jour d'une position PASSIVE : le filer ajuste sa déclaration sans intention d'influencer la gestion.">13G/A <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
           if (/13G/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13G — prise PASSIVE >5% : simple déclaration d'investissement, sans intention d'influencer la stratégie (Vanguard, BlackRock, family offices…).">13G <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
+          // Formes EU : franchissement de seuil (AMF, BaFin, FCA, AFM, SIX...)
+          // Format type : "AFM SUBSTANTIAL 5%", "AMF SEUIL 10%", "BaFin §33 5%", "FCA TR-1"
+          // -> badge gris discret avec extraction du % si present
+          const upper = form.toUpperCase();
+          if (/SUBSTANTIAL|THRESHOLD|SEUIL|FRANCHISSEMENT|SHAREHOLDING|STIMMRECHT|WPHG|TR-?1|TR1|UK\s+RNS|UK\s+NSM|§\s*33/.test(upper)) {
+            const m = form.match(/(\d+(?:[.,]\d+)?)\s*%/);
+            const pct = m ? m[1].replace(',', '.') : '';
+            const label = pct ? `Seuil ${pct}%` : 'Seuil >5%';
+            return `<span style="cursor:help;padding:3px 8px;background:rgba(139,92,246,0.10);color:#A78BFA;border:1px solid rgba(139,92,246,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Notification de franchissement de seuil — déclaration réglementaire EU (AMF FR, BaFin DE, FCA UK, AFM NL, SIX CH, etc.). Equivalent fonctionnel des 13D/G US mais sans distinction active/passive : tout détenteur >seuil doit déclarer. Forme brute : ${escapeHtmlClient(form)}">${label}</span>`;
+          }
           return `<span style="padding:3px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:6px;font-size:10px">${escapeHtmlClient(form)}</span>`;
         };
 
