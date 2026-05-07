@@ -10519,7 +10519,7 @@
               ${t('stock.label.distinctInsiders', '{n} initiés distincts').replace('{n}', insiders.uniqueInsiders || 0)}
             </div>
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px" id="saInsiderList">
-              ${(insiders.transactions || []).slice(0, 15).map(t => `
+              ${(insiders.transactions || []).filter(tx => tx.type !== 'other').slice(0, 15).map(t => `
                 <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
                   <div style="display:flex;justify-content:space-between">
                     <div>
@@ -17870,7 +17870,11 @@
           return;
         }
         const data = await res.json();
-        const rows = Array.isArray(data.transactions) ? data.transactions : [];
+        // Filtre les transactions 'other' (RSU grants, gifts, taxes, conversions)
+        // qui n'ont aucun signal de conviction et polluent la liste.
+        const rows = Array.isArray(data.transactions)
+          ? data.transactions.filter(r => r.trans_type !== 'other')
+          : [];
 
         // Recalcul stats locales
         let buyCount = 0, sellCount = 0, netValue = 0;
