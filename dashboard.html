@@ -17777,14 +17777,27 @@
             : '';
 
           // Drapeau pays (US 🇺🇸 / FR 🇫🇷 / DE 🇩🇪) avec tooltip régulateur
+          // 12 pays trackes — utilise flagcdn.com (PNG) car les emoji drapeaux
+          // composes (regional indicators) ne s'affichent pas sur Windows et
+          // tombent visuellement sur leurs 2 lettres ("US" au lieu de 🇺🇸).
           const countryFlags = {
-            US: { flag: '🇺🇸', label: 'États-Unis · SEC EDGAR' },
-            FR: { flag: '🇫🇷', label: 'France · AMF' },
-            DE: { flag: '🇩🇪', label: 'Allemagne · BaFin' },
-            UK: { flag: '🇬🇧', label: 'Royaume-Uni · FCA' },
+            US: { code: 'us', label: 'États-Unis · SEC EDGAR' },
+            FR: { code: 'fr', label: 'France · AMF' },
+            DE: { code: 'de', label: 'Allemagne · BaFin' },
+            UK: { code: 'gb', label: 'Royaume-Uni · FCA' },
+            NL: { code: 'nl', label: 'Pays-Bas · AFM' },
+            CH: { code: 'ch', label: 'Suisse · SIX' },
+            IT: { code: 'it', label: 'Italie · CONSOB' },
+            ES: { code: 'es', label: 'Espagne · CNMV' },
+            SE: { code: 'se', label: 'Suède · Finansinspektionen' },
+            NO: { code: 'no', label: 'Norvège · Finanstilsynet' },
+            DK: { code: 'dk', label: 'Danemark · Finanstilsynet' },
+            FI: { code: 'fi', label: 'Finlande · Finanssivalvonta' },
           };
-          const cf = countryFlags[country] || { flag: '🌐', label: country };
-          const flagCell = `<span style="font-size:16px;cursor:help" title="${cf.label}">${cf.flag}</span>`;
+          const cf = countryFlags[country];
+          const flagCell = cf
+            ? `<img src="https://flagcdn.com/w20/${cf.code}.png" width="18" height="13" alt="${country}" title="${cf.label}" style="vertical-align:middle;border-radius:2px;cursor:help">`
+            : `<span style="font-size:11px;color:var(--text-muted);cursor:help" title="${country}">${country}</span>`;
 
           // Direction franchissement (FR/DE déclarent ↑ et ↓)
           const dirBadge = f.crossingDirection === 'down'
