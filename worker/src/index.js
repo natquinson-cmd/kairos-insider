@@ -6738,7 +6738,10 @@ async function handleScheduleDGRecent(url, env, origin) {
   const merged = await loadAllThresholdsFilings(env);
   if (!merged.filings.length) return jsonResponse({ error: '13D/G data not loaded yet' }, 503, origin);
 
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
+  // Cap libere a 730j (2 ans) pour aligner sur l'historique stocke en KV
+  // (fetch-13dg.py garde MAX_HISTORY_DAYS = 730). Avant : cap 90j inutilement
+  // restrictif alors que la donnee historique etait disponible.
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 730);
   const activistOnly = url.searchParams.get('activistOnly') === '1';
   const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100', 10), 1), 2000);
   // Filtre pays : "US,FR,DE" ou vide = tous
@@ -6818,7 +6821,8 @@ async function handleScheduleDGTicker(url, env, origin) {
 // GET /api/13dg/activists?days=30&country=FR
 // Retourne uniquement les filings activists (US + EU mixed), agrege par filer.
 async function handleScheduleDGActivists(url, env, origin) {
-  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
+  // Cap libere 90 -> 730j pour exposer les 2 ans d'historique stockes en KV.
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 730);
   const countryParam = (url.searchParams.get('country') || '').toUpperCase();
   const countryFilter = countryParam ? new Set(countryParam.split(',').map(s => s.trim()).filter(Boolean)) : null;
 
