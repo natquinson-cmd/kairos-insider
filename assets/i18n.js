@@ -1854,9 +1854,17 @@
     // Met a jour l'attribut <html lang="...">
     if (document.documentElement) document.documentElement.setAttribute('lang', lang);
     // Met a jour l'URL ?lang=X (sans recharger la page)
+    // FIX SEO (mai 2026) : FR est la langue par defaut. On ne stocke
+    // ?lang=fr dans l'URL que si non-default. Sinon Google detecte
+    // ?lang=fr comme duplicate du canonical (sans param) — Search
+    // Console le signale "Page en double sans URL canonique".
     try {
       const url = new URL(window.location.href);
-      url.searchParams.set('lang', lang);
+      if (lang === DEFAULT_LANG) {
+        url.searchParams.delete('lang');
+      } else {
+        url.searchParams.set('lang', lang);
+      }
       window.history.replaceState({}, '', url.toString());
     } catch (e) {}
     // Re-applique les traductions
