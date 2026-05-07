@@ -3704,9 +3704,11 @@
                    13D = orange (#F59E0B) — actif
                    13G = vert (#10B981) — passif
                    Tous = neutre -->
-              <button class="period-btn active" onclick="setActPreset('filter','activists',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Activistes & 13D — fonds offensifs détectés (intention d'influencer)">⚡ Offensifs</button>
-              <button class="period-btn" onclick="setActPreset('filter','13D',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Schedule 13D — prise active >5% (intention d'influencer la gestion)">Actifs</button>
-              <button class="period-btn" onclick="setActPreset('filter','13G',this)" style="border-color:rgba(16,185,129,0.4);color:#10B981" title="Schedule 13G — prise passive >5% (simple investissement, type Vanguard/BlackRock)">Passifs</button>
+              <button class="period-btn active" onclick="setActPreset('filter','activists',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Tous les filings activistes (vrais hostiles + contrôle interne)">⚡ Offensifs</button>
+              <button class="period-btn" onclick="setActPreset('filter','hostile',this)" style="border-color:rgba(239,68,68,0.5);color:#FCA5A5" title="Activistes hostiles uniquement (Elliott, Ackman, Icahn… — exclut les holdings parent-filiale type Imperial→C3is)">⚡ Hostiles</button>
+              <button class="period-btn" onclick="setActPreset('filter','controlling',this)" style="border-color:rgba(59,130,246,0.5);color:#60A5FA" title="Contrôle interne — parent/filiale, holdings, founders maintenant >40% du capital">🏢 Contrôle</button>
+              <button class="period-btn" onclick="setActPreset('filter','13D',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Schedule 13D — prise active >5%">Actifs</button>
+              <button class="period-btn" onclick="setActPreset('filter','13G',this)" style="border-color:rgba(16,185,129,0.4);color:#10B981" title="Schedule 13G — prise passive >5% (Vanguard/BlackRock)">Passifs</button>
               <button class="period-btn" onclick="setActPreset('filter','all',this)" title="Toutes les déclarations >5% du capital">Tous</button>
             </div>
           </div>
@@ -17647,9 +17649,13 @@
             const set = new Set(country.split(',').map(s => s.trim()));
             filings = filings.filter(f => set.has(f.country || 'US'));
           }
-          // Filtre forme/direction (meme logique que la branche else)
+          // Filtre forme/relation/direction (meme logique que la branche else)
           if (filterMode === 'activists') {
             filings = filings.filter(f => f.isActivist);
+          } else if (filterMode === 'hostile') {
+            filings = filings.filter(f => f.isActivist && f.relationType !== 'controlling');
+          } else if (filterMode === 'controlling') {
+            filings = filings.filter(f => f.relationType === 'controlling');
           } else if (filterMode === '13D') {
             filings = filings.filter(f => /^SCHEDULE 13D/.test(f.form));
           } else if (filterMode === '13G') {
@@ -17669,8 +17675,12 @@
           ]);
           if (recentRes && !recentRes.error) filings = recentRes.filings || [];
           activistsAggregated = agRes;
-          // Filtre supplementaire : forme ou direction
-          if (filterMode === '13D') {
+          // Filtre supplementaire : forme/relation/direction
+          if (filterMode === 'hostile') {
+            filings = filings.filter(f => f.isActivist && f.relationType !== 'controlling');
+          } else if (filterMode === 'controlling') {
+            filings = filings.filter(f => f.relationType === 'controlling');
+          } else if (filterMode === '13D') {
             filings = filings.filter(f => /^SCHEDULE 13D/.test(f.form));
           } else if (filterMode === '13G') {
             filings = filings.filter(f => /^SCHEDULE 13G/.test(f.form));
@@ -17729,9 +17739,18 @@
         const fmtPriceA = fmtUsdA;
 
         const rows = filings.map(f => {
-          const activistBadge = f.isActivist
-            ? `<span style="cursor:help;padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Fonds identifié dans notre liste de ~28 activists institutionnels reconnus (Elliott, Pershing Square/Ackman, Icahn, Third Point/Loeb, Starboard, Trian/Peltz, ValueAct, Cevian, JANA, Greenlight/Einhorn…). Ces fonds ont un historique de campagnes actives pour forcer un changement (board, spin-off, buybacks, vente).">⚡ OFFENSIF</span>`
-            : '';
+          // Badge adapte au relationType (mai 2026) :
+          // - 'controlling' : holding/parent/founder maintenant son controle — bleu
+          //   (ex: Imperial Petroleum -> C3is, founders detenant >40% de leur boite)
+          // - 'hostile' / sinon : vrai activiste (Elliott, Ackman, Icahn) — gradient orange/rouge
+          let activistBadge = '';
+          if (f.isActivist) {
+            if (f.relationType === 'controlling') {
+              activistBadge = `<span style="cursor:help;padding:3px 8px;background:rgba(59,130,246,0.20);color:#60A5FA;border:1px solid rgba(59,130,246,0.45);border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Contrôle interne — le filer et la cible partagent un overlap de noms et le filer détient ≥40% du capital. Probablement une relation parent-filiale, holding contrôlant, ou founder maintenant son contrôle (ex: Imperial Petroleum → C3is, structures armateurs grecs). NOT a hostile activist.">🏢 CONTRÔLE</span>`;
+            } else {
+              activistBadge = `<span style="cursor:help;padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Fonds activiste — soit un nom reconnu (Elliott, Ackman, Icahn…) soit auto-detecte via filing 13D US (intention SEC d'influencer la gestion). Historique de campagnes actives pour forcer un changement.">⚡ OFFENSIF</span>`;
+            }
+          }
           // Couleur du % selon seuil
           const pctColor = f.percentOfClass == null ? 'var(--text-muted)'
             : f.percentOfClass >= 10 ? '#EF4444'

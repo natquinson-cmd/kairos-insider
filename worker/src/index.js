@@ -6638,7 +6638,32 @@ async function loadAllThresholdsFilings(env) {
     }
   }
 
-  // PASS 2 : EU enrichments (yahooSymbol + activist deduction)
+  // Helper : detecte un filing "Contrôle interne" (parent-filiale, holding,
+  // founder maintenant control) plutot qu'un activiste hostile.
+  // Heuristique : pct >= 40% ET overlap de noms significatif.
+  // Cas type : Imperial Petroleum -> C3is (CISS) — Vafias possede les 2.
+  const isControllingHolder = (f) => {
+    const pct = f.percentOfClass;
+    if (pct == null || pct < 40) return false;
+    if (!f.filerName || !f.targetName) return false;
+    // Strip mots juridiques communs (inc, corp, ltd, sa, holdings…) avant comparaison
+    const strip = (s) => (s || '').toLowerCase()
+      .replace(/\b(inc|corp(oration)?|ltd|limited|s\.?a\.?|llc|holdings?|group|company|co|n\.?v\.?|plc|ag|gmbh|spa|sarl|partners?|capital|management|fund|investments?)\b/gi, ' ')
+      .replace(/[^a-z0-9 ]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const filerCore = strip(f.filerName);
+    const targetCore = strip(f.targetName);
+    if (!filerCore || !targetCore) return false;
+    const filerWords = filerCore.split(' ').filter(w => w.length >= 4);
+    const targetWords = targetCore.split(' ').filter(w => w.length >= 4);
+    if (!filerWords.length || !targetWords.length) return false;
+    // Si un mot >=4 char du filer apparait dans le target (ou inverse), match
+    return filerWords.some(w => targetCore.includes(w))
+        || targetWords.some(w => filerCore.includes(w));
+  };
+
+  // PASS 2 : EU enrichments + classification controlling vs activist
   for (const f of all) {
     // yahooSymbol pour les EU (LVMH -> MC.PA, BARCLAYS -> BARC.L, etc.)
     if (f.country && f.country !== 'US' && !f.yahooSymbol) {
@@ -6668,6 +6693,14 @@ async function loadAllThresholdsFilings(env) {
         f.isActivist = true;
         if (!f.activistLabel) f.activistLabel = `Filer activist confirme (US 13D)`;
       }
+    }
+    // Classification finale : si flag activist + heuristique controlling,
+    // marque comme 'controlling' (parent/filiale) plutot que 'hostile'.
+    if (f.isActivist && isControllingHolder(f)) {
+      f.relationType = 'controlling';
+      f.activistLabel = 'Contrôle interne — parent/filiale';
+    } else if (f.isActivist) {
+      f.relationType = 'hostile';
     }
   }
 
