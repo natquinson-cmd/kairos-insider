@@ -724,13 +724,21 @@ async function fetchYahooQuote(ticker, range = '1y') {
     const dailyChange = (current != null && dailyPrev != null) ? current - dailyPrev : null;
     const dailyChangePct = (current != null && dailyPrev != null && dailyPrev !== 0) ? (dailyChange / dailyPrev) * 100 : null;
 
-    // Performance 1 an : premier point du chart vs current
+    // Performance 1 an : trouve le point >= 365 jours en arriere
+    // FIX (mai 2026) : avant on prenait chartPoints[0] (= 1er point du chart),
+    // mais si l'user demande range=5y/max, le 1er point est >> 1 an avant
+    // donc le %1y etait incorrect (calcule sur 5 ans pour LR.PA p.ex.).
+    // Maintenant on filtre explicitement par date.
     let change1y = null, change1yPct = null;
     if (chartPoints.length > 0 && current != null) {
-      const firstClose = chartPoints[0].close;
-      if (firstClose != null && firstClose !== 0) {
-        change1y = current - firstClose;
-        change1yPct = ((current - firstClose) / firstClose) * 100;
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAgoStr = oneYearAgo.toISOString().slice(0, 10);
+      // 1er point >= -365j ou fallback : 1er point disponible si range < 1y
+      const yearPoint = chartPoints.find(p => p.date && p.date >= oneYearAgoStr) || chartPoints[0];
+      if (yearPoint && yearPoint.close != null && yearPoint.close !== 0) {
+        change1y = current - yearPoint.close;
+        change1yPct = ((current - yearPoint.close) / yearPoint.close) * 100;
       }
     }
 
