@@ -3699,10 +3699,15 @@
           <div class="period-selector" style="margin-bottom:0">
             <span class="period-label">Type :</span>
             <div class="period-buttons">
-              <button class="period-btn active" onclick="setActPreset('filter','activists',this)">Offensifs</button>
-              <button class="period-btn" onclick="setActPreset('filter','13D',this)">13D</button>
-              <button class="period-btn" onclick="setActPreset('filter','13G',this)">13G</button>
-              <button class="period-btn" onclick="setActPreset('filter','all',this)">Tous</button>
+              <!-- Codes couleur cohérents avec la légende du tableau :
+                   Offensifs = gradient orange/rouge (mêmes tons que badge ⚡ OFFENSIF)
+                   13D = orange (#F59E0B) — actif
+                   13G = vert (#10B981) — passif
+                   Tous = neutre -->
+              <button class="period-btn active" onclick="setActPreset('filter','activists',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Activistes & 13D — fonds offensifs détectés (intention d'influencer)">⚡ Offensifs</button>
+              <button class="period-btn" onclick="setActPreset('filter','13D',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Schedule 13D — prise active >5%">13D</button>
+              <button class="period-btn" onclick="setActPreset('filter','13G',this)" style="border-color:rgba(16,185,129,0.4);color:#10B981" title="Schedule 13G — prise passive >5%">13G</button>
+              <button class="period-btn" onclick="setActPreset('filter','all',this)" title="Toutes les déclarations >5% du capital">Tous</button>
             </div>
           </div>
           <!-- Marché : dropdown complet (12 pays + combinaisons) en remplacement
