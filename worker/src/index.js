@@ -18,6 +18,10 @@ import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 // Init paresseux + memorise (1 seule init par instance Worker).
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
 import resvgWasmModule from '@resvg/resvg-wasm/index_bg.wasm';
+// Polices embarquees : resvg n'a aucun font fallback sur Workers (pas de
+// fonts systeme). Inter Regular + Bold subset Latin (~67KB chacun).
+import interRegularFont from '../fonts/Inter-Regular.ttf';
+import interBoldFont from '../fonts/Inter-Bold.ttf';
 let _resvgInitPromise = null;
 function ensureResvgReady() {
   if (!_resvgInitPromise) {
@@ -3838,9 +3842,11 @@ async function handleOgImage(rawTicker, env, fmt = 'png') {
       // fitTo: original = on respecte les dimensions intrinseques du SVG.
       fitTo: { mode: 'original' },
       font: {
-        // Pas de fonts custom embarquees : on utilise les sans-serif systeme
-        // que resvg fournit en fallback. Suffit pour le rendu OG (l'utilisateur
-        // n'a pas besoin d'un font specifique, juste de la lisibilite).
+        // Inter (Regular + Bold) embarque dans le bundle worker.
+        // Necessaire car resvg n'a aucun font fallback sur Cloudflare Workers
+        // (pas de fonts systeme dans le runtime V8 isole).
+        fontBuffers: [interRegularFont, interBoldFont],
+        defaultFontFamily: 'Inter',
         loadSystemFonts: false,
       },
     });

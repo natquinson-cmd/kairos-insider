@@ -20,6 +20,14 @@ type = "CompiledWasm"
 globs = ["**/*.wasm"]
 fallthrough = true
 
+# Polices embarquees pour le rendu OG image (resvg n'a pas de fallback systeme
+# sur Cloudflare Workers). Inter Regular + Bold subset Latin (~67KB chacun).
+# La rule "Data" exporte le fichier comme Uint8Array directement importable.
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf"]
+fallthrough = true
+
 # Routes Workers attachees a kairosinsider.fr (domaine dans le meme compte Cloudflare)
 # - /a/*         : pages SSR publiques pour bots SEO + sociaux (tickers)
 # - /blog, /blog/* : blog SEO (articles pillar, index, feed RSS)
