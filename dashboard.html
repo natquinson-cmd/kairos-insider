@@ -3715,34 +3715,59 @@
               <button class="period-btn" onclick="setActPreset('filter','all',this)" title="Toutes les déclarations >5% du capital">Tous</button>
             </div>
           </div>
-          <!-- Marché : dropdown complet (12 pays + combinaisons) en remplacement
-               des flags qui ne couvraient que 6 pays -->
-          <div style="margin-bottom:0">
+          <!-- Marché : dropdown CUSTOM (les <option> natifs ne supportent
+               ni les <img> drapeaux ni le dark theme correctement sur Windows
+               qui rendent les emoji regional indicators comme "US" texte). -->
+          <div style="margin-bottom:0;position:relative" id="actCountryWrapper">
             <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px;font-weight:600">Marché :</label>
-            <select id="actCountry" onchange="loadActivists()" style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:240px;font-size:13px">
-              <option value="">— Tous les marchés (12) —</option>
-              <optgroup label="Tier 1+2 (sources officielles)">
-                <option value="US">🇺🇸 États-Unis (SEC)</option>
-                <option value="FR">🇫🇷 France (AMF)</option>
-                <option value="DE">🇩🇪 Allemagne (BaFin)</option>
-                <option value="UK">🇬🇧 Royaume-Uni (FCA)</option>
-                <option value="NL">🇳🇱 Pays-Bas (AFM)</option>
-                <option value="CH">🇨🇭 Suisse (SIX)</option>
-              </optgroup>
-              <optgroup label="Tier 3">
-                <option value="IT">🇮🇹 Italie (CONSOB)</option>
-                <option value="ES">🇪🇸 Espagne (CNMV)</option>
-                <option value="SE">🇸🇪 Suède</option>
-                <option value="NO">🇳🇴 Norvège</option>
-                <option value="DK">🇩🇰 Danemark</option>
-                <option value="FI">🇫🇮 Finlande</option>
-              </optgroup>
-              <optgroup label="Combinaisons">
-                <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI">Europe seulement (11)</option>
-                <option value="FR,DE,IT,ES,NL">Eurozone core (5)</option>
-                <option value="SE,NO,DK,FI">Nordics (4)</option>
-              </optgroup>
-            </select>
+            <!-- Bouton declencheur (affiche la valeur courante avec flag) -->
+            <button type="button" id="actCountryBtn" onclick="toggleActCountryMenu(event)"
+                    style="padding:8px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;min-width:260px;font-size:13px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:space-between">
+              <span id="actCountryBtnLabel" style="display:flex;align-items:center;gap:8px">— Tous les marchés (12) —</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:0.6;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <!-- Menu deroulant custom (cache par defaut) -->
+            <div id="actCountryMenu" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--bg-secondary,#0F1729);border:1px solid var(--border-strong);border-radius:10px;padding:6px 0;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-height:420px;overflow-y:auto;min-width:280px">
+              <!-- Hidden select natif (lu par loadActivists, MAJ par le menu custom) -->
+              <select id="actCountry" onchange="loadActivists()" style="display:none">
+                <option value="" selected></option>
+                <option value="US"></option>
+                <option value="FR"></option>
+                <option value="DE"></option>
+                <option value="UK"></option>
+                <option value="NL"></option>
+                <option value="CH"></option>
+                <option value="IT"></option>
+                <option value="ES"></option>
+                <option value="SE"></option>
+                <option value="NO"></option>
+                <option value="DK"></option>
+                <option value="FI"></option>
+                <option value="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI"></option>
+                <option value="FR,DE,IT,ES,NL"></option>
+                <option value="SE,NO,DK,FI"></option>
+              </select>
+              <!-- Items du menu : drapeau + label, triggerent setActCountry() -->
+              <button type="button" class="act-country-opt" data-val="" onclick="setActCountry('','— Tous les marchés (12) —')" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><span style="width:20px;display:inline-block;text-align:center;opacity:0.5">🌍</span><span>— Tous les marchés (12) —</span></button>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;padding:8px 14px 4px;border-top:1px solid var(--border)">Tier 1+2 (sources officielles)</div>
+              <button type="button" class="act-country-opt" data-val="US" onclick="setActCountry('US','États-Unis (SEC)','us')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/us.png" width="20" height="14" alt="US" style="border-radius:2px"><span>États-Unis (SEC)</span></button>
+              <button type="button" class="act-country-opt" data-val="FR" onclick="setActCountry('FR','France (AMF)','fr')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/fr.png" width="20" height="14" alt="FR" style="border-radius:2px"><span>France (AMF)</span></button>
+              <button type="button" class="act-country-opt" data-val="DE" onclick="setActCountry('DE','Allemagne (BaFin)','de')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/de.png" width="20" height="14" alt="DE" style="border-radius:2px"><span>Allemagne (BaFin)</span></button>
+              <button type="button" class="act-country-opt" data-val="UK" onclick="setActCountry('UK','Royaume-Uni (FCA)','gb')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/gb.png" width="20" height="14" alt="UK" style="border-radius:2px"><span>Royaume-Uni (FCA)</span></button>
+              <button type="button" class="act-country-opt" data-val="NL" onclick="setActCountry('NL','Pays-Bas (AFM)','nl')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/nl.png" width="20" height="14" alt="NL" style="border-radius:2px"><span>Pays-Bas (AFM)</span></button>
+              <button type="button" class="act-country-opt" data-val="CH" onclick="setActCountry('CH','Suisse (SIX)','ch')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/ch.png" width="20" height="14" alt="CH" style="border-radius:2px"><span>Suisse (SIX)</span></button>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;padding:8px 14px 4px;border-top:1px solid var(--border)">Tier 3</div>
+              <button type="button" class="act-country-opt" data-val="IT" onclick="setActCountry('IT','Italie (CONSOB)','it')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/it.png" width="20" height="14" alt="IT" style="border-radius:2px"><span>Italie (CONSOB)</span></button>
+              <button type="button" class="act-country-opt" data-val="ES" onclick="setActCountry('ES','Espagne (CNMV)','es')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/es.png" width="20" height="14" alt="ES" style="border-radius:2px"><span>Espagne (CNMV)</span></button>
+              <button type="button" class="act-country-opt" data-val="SE" onclick="setActCountry('SE','Suède','se')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/se.png" width="20" height="14" alt="SE" style="border-radius:2px"><span>Suède</span></button>
+              <button type="button" class="act-country-opt" data-val="NO" onclick="setActCountry('NO','Norvège','no')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/no.png" width="20" height="14" alt="NO" style="border-radius:2px"><span>Norvège</span></button>
+              <button type="button" class="act-country-opt" data-val="DK" onclick="setActCountry('DK','Danemark','dk')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/dk.png" width="20" height="14" alt="DK" style="border-radius:2px"><span>Danemark</span></button>
+              <button type="button" class="act-country-opt" data-val="FI" onclick="setActCountry('FI','Finlande','fi')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/fi.png" width="20" height="14" alt="FI" style="border-radius:2px"><span>Finlande</span></button>
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;padding:8px 14px 4px;border-top:1px solid var(--border)">Combinaisons</div>
+              <button type="button" class="act-country-opt" data-val="FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI" onclick="setActCountry('FR,DE,UK,NL,CH,IT,ES,SE,NO,DK,FI','Europe seulement (11)','eu')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/eu.png" width="20" height="14" alt="EU" style="border-radius:2px"><span>Europe seulement (11)</span></button>
+              <button type="button" class="act-country-opt" data-val="FR,DE,IT,ES,NL" onclick="setActCountry('FR,DE,IT,ES,NL','Eurozone core (5)','eu')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/eu.png" width="20" height="14" alt="EU" style="border-radius:2px"><span>Eurozone core (5)</span></button>
+              <button type="button" class="act-country-opt" data-val="SE,NO,DK,FI" onclick="setActCountry('SE,NO,DK,FI','Nordics (4)','se')" style="display:flex;align-items:center;gap:10px;width:100%;padding:7px 14px;background:transparent;border:none;color:var(--text-primary);text-align:left;cursor:pointer;font-size:13px"><img src="https://flagcdn.com/w20/se.png" width="20" height="14" alt="SE" style="border-radius:2px"><span>Nordics (4)</span></button>
+            </div>
           </div>
         </div>
 
@@ -8356,6 +8381,54 @@
       loadActivists();
     }
     window.setActPreset = setActPreset;
+
+    // ============================================================
+    // CUSTOM DROPDOWN MARCHÉ (Fonds Offensifs)
+    // Le natif <select> ne supporte pas les <img> drapeaux et le dark
+    // theme rend les emoji regional indicators ("US" texte) sur Windows.
+    // On a donc :
+    // - un bouton qui affiche la valeur courante (avec drapeau image)
+    // - un menu deroulant custom avec drapeaux flagcdn.com
+    // - un <select> hidden synchronise (lu par loadActivists)
+    // ============================================================
+    function toggleActCountryMenu(e) {
+      if (e) e.stopPropagation();
+      const m = document.getElementById('actCountryMenu');
+      if (m) m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
+    }
+    window.toggleActCountryMenu = toggleActCountryMenu;
+
+    function setActCountry(value, label, flagCode) {
+      // 1. Sync le hidden <select>
+      const sel = document.getElementById('actCountry');
+      if (sel) sel.value = value;
+      // 2. MAJ le label du bouton (avec drapeau)
+      const lbl = document.getElementById('actCountryBtnLabel');
+      if (lbl) {
+        const flagImg = flagCode
+          ? `<img src="https://flagcdn.com/w20/${flagCode}.png" width="20" height="14" alt="${value}" style="border-radius:2px;flex-shrink:0">`
+          : '<span style="font-size:14px">🌍</span>';
+        lbl.innerHTML = `${flagImg}<span>${label}</span>`;
+      }
+      // 3. Ferme le menu
+      const m = document.getElementById('actCountryMenu');
+      if (m) m.style.display = 'none';
+      // 4. Trigger le filtre
+      loadActivists();
+    }
+    window.setActCountry = setActCountry;
+
+    // Click-outside pour fermer le menu
+    if (typeof document !== 'undefined' && !window._kairosActCountryMenuListener) {
+      window._kairosActCountryMenuListener = true;
+      document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('actCountryWrapper');
+        const menu = document.getElementById('actCountryMenu');
+        if (!wrapper || !menu) return;
+        if (menu.style.display !== 'block') return;
+        if (!wrapper.contains(e.target)) menu.style.display = 'none';
+      });
+    }
 
     // ============================================================
     // INSIDER TRADES — données pré-calculées depuis KV
