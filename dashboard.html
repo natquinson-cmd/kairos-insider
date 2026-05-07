@@ -9952,27 +9952,33 @@
     // Copie l'URL publique de partage (SSR /a/:ticker) dans le presse-papier.
     // Pointe vers la version SSR (HTML riche pre-rendu) plutot que action.html
     // (SPA skeleton) pour que les partages sociaux + bots Google indexent la bonne URL.
+    // Si l'utilisateur est en mode EN, on ajoute ?lang=en pour que le scrape Twitter
+    // genere la version EN de l'OG image (radar / labels traduits).
     async function shareStockAnalysis(ticker) {
       if (!ticker) return;
-      const url = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
+      const lang = (window.KairosI18n && window.KairosI18n.getLang()) || 'fr';
+      const langSuffix = lang === 'en' ? '?lang=en' : '';
+      const url = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}${langSuffix}`;
       const label = document.getElementById(`shareBtnLabel-${ticker}`);
       const reset = (txt) => { if (label) setTimeout(() => { label.textContent = txt; }, 2000); };
       try {
         // Web Share API (mobile) si dispo
         if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
-          await navigator.share({
-            title: `Analyse ${ticker} — Kairos Insider`,
-            text: `Kairos Score et analyse smart money de ${ticker}`,
-            url,
-          });
+          const shareTitle = lang === 'en' ? `${ticker} analysis — Kairos Insider` : `Analyse ${ticker} — Kairos Insider`;
+          const shareText = lang === 'en' ? `Kairos Score and smart money analysis for ${ticker}` : `Kairos Score et analyse smart money de ${ticker}`;
+          await navigator.share({ title: shareTitle, text: shareText, url });
           return;
         }
         await navigator.clipboard.writeText(url);
-        if (label) { label.textContent = t('stock.action.linkCopied', '✓ Lien copié !'); reset(t('stock.action.share', 'Partager')); }
+        if (label) {
+          label.textContent = t('stock.action.linkCopied', lang === 'en' ? '✓ Link copied!' : '✓ Lien copié !');
+          reset(t('stock.action.share', lang === 'en' ? 'Share' : 'Partager'));
+        }
       } catch (e) {
         // Fallback : prompt classique
-        window.prompt('Copie ce lien pour partager l\'analyse :', url);
-        if (label) { label.textContent = t('stock.action.share', 'Partager'); }
+        const promptMsg = lang === 'en' ? 'Copy this link to share the analysis:' : 'Copie ce lien pour partager l\'analyse :';
+        window.prompt(promptMsg, url);
+        if (label) { label.textContent = t('stock.action.share', lang === 'en' ? 'Share' : 'Partager'); }
       }
     }
 
