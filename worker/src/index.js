@@ -4023,7 +4023,11 @@ async function handleOgImage(rawTicker, env, fmt = 'png', lang = 'fr') {
 
   let data;
   try {
-    data = await handleStockAnalysis(ticker, env, { publicView: true });
+    // publicView: false pour garder le breakdown du score (radar 8 axes).
+    // Pas un probleme de privacy : on rend juste un PNG server-side, on
+    // n'expose pas la donnee au client. Les counts insiders/funds restent
+    // accessibles via _totalTransactions/_totalFunds.
+    data = await handleStockAnalysis(ticker, env, { publicView: false });
   } catch (e) {
     data = null;
   }
