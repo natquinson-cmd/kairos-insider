@@ -364,7 +364,8 @@ async function handleRequest(request, env, ctx) {
       const tickerWithExt = decodeURIComponent(path.slice('/og/'.length));
       const fmt = /\.svg$/i.test(tickerWithExt) ? 'svg' : 'png';
       const ticker = tickerWithExt.replace(/\.(svg|png)$/i, '').toUpperCase();
-      return handleOgImage(ticker, env, fmt);
+      const lang = (url.searchParams.get('lang') || '').toLowerCase() === 'en' ? 'en' : 'fr';
+      return handleOgImage(ticker, env, fmt, lang);
     }
 
     // Blog SEO (articles pillar MARKETING.md Sprint 1+2)
@@ -3733,11 +3734,292 @@ function ogFmtPct(n) {
   return (n > 0 ? '+' : '') + Number(n).toFixed(2) + '%';
 }
 
-async function handleOgImage(rawTicker, env, fmt = 'png') {
+// Mappe ticker suffix / exchange -> code pays ISO2 pour le drapeau OG.
+function ogDeriveCountry(data, ticker) {
+  const c = (data && data.company && data.company.country);
+  if (c && /^[A-Z]{2}$/.test(c)) return c.toUpperCase();
+  // Fallback : suffix du ticker
+  const m = String(ticker || '').match(/\.([A-Z]+)$/i);
+  if (m) {
+    const sfx = m[1].toUpperCase();
+    if (sfx === 'PA') return 'FR';
+    if (sfx === 'DE' || sfx === 'F' || sfx === 'BE' || sfx === 'MU') return 'DE';
+    if (sfx === 'L' || sfx === 'IL') return 'GB';
+    if (sfx === 'AS') return 'NL';
+    if (sfx === 'MI' || sfx === 'BIT') return 'IT';
+    if (sfx === 'MC' || sfx === 'BME') return 'ES';
+    if (sfx === 'SW' || sfx === 'EBS' || sfx === 'VX') return 'CH';
+    if (sfx === 'ST') return 'SE';
+    if (sfx === 'OL') return 'NO';
+    if (sfx === 'CO') return 'DK';
+    if (sfx === 'HE') return 'FI';
+    if (sfx === 'T') return 'JP';
+    if (sfx === 'TO' || sfx === 'V') return 'CA';
+    if (sfx === 'AX') return 'AU';
+    if (sfx === 'HK') return 'HK';
+  }
+  // Sinon : exchange
+  const ex = String((data && data.price && data.price.exchange) || '').toUpperCase();
+  if (['NYQ','NMS','NCM','NGM','ASE','BATS','NYSE','NASDAQ','PCX','PNK','OTC'].includes(ex)) return 'US';
+  if (ex === 'PAR' || ex === 'PA') return 'FR';
+  if (ex === 'GER' || ex === 'XETRA') return 'DE';
+  if (ex === 'LSE' || ex === 'LON') return 'GB';
+  return '';
+}
+
+// SVG flag minimaliste 36x24 par pays. Pour les pays inconnus -> rien.
+function ogFlagSvg(country, x, y) {
+  const w = 36, h = 24, r = 3;
+  if (!country) return '';
+  // Clip path pour les coins arrondis
+  const clip = `<clipPath id="og-flag-clip-${country}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}"/></clipPath>`;
+  let body = '';
+  switch (country) {
+    case 'US': {
+      // 7 bandes rouges + 6 blanches + canton bleu
+      const stripeH = h / 13;
+      let stripes = '';
+      for (let i = 0; i < 13; i++) {
+        const fill = i % 2 === 0 ? '#B22234' : '#FFFFFF';
+        stripes += `<rect x="${x}" y="${y + i * stripeH}" width="${w}" height="${stripeH}" fill="${fill}"/>`;
+      }
+      const cantonW = w * 0.4, cantonH = h * (7 / 13);
+      body = stripes + `<rect x="${x}" y="${y}" width="${cantonW}" height="${cantonH}" fill="#3C3B6E"/>`;
+      break;
+    }
+    case 'FR':
+      body = `<rect x="${x}" y="${y}" width="${w/3}" height="${h}" fill="#0055A4"/>`
+           + `<rect x="${x + w/3}" y="${y}" width="${w/3}" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x + 2*w/3}" y="${y}" width="${w/3}" height="${h}" fill="#EF4135"/>`;
+      break;
+    case 'DE':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h/3}" fill="#000000"/>`
+           + `<rect x="${x}" y="${y + h/3}" width="${w}" height="${h/3}" fill="#DD0000"/>`
+           + `<rect x="${x}" y="${y + 2*h/3}" width="${w}" height="${h/3}" fill="#FFCE00"/>`;
+      break;
+    case 'GB':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#012169"/>`
+           + `<line x1="${x}" y1="${y}" x2="${x+w}" y2="${y+h}" stroke="#FFFFFF" stroke-width="3"/>`
+           + `<line x1="${x+w}" y1="${y}" x2="${x}" y2="${y+h}" stroke="#FFFFFF" stroke-width="3"/>`
+           + `<rect x="${x + w/2 - 2}" y="${y}" width="4" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x}" y="${y + h/2 - 2}" width="${w}" height="4" fill="#FFFFFF"/>`
+           + `<rect x="${x + w/2 - 1}" y="${y}" width="2" height="${h}" fill="#C8102E"/>`
+           + `<rect x="${x}" y="${y + h/2 - 1}" width="${w}" height="2" fill="#C8102E"/>`;
+      break;
+    case 'NL':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h/3}" fill="#AE1C28"/>`
+           + `<rect x="${x}" y="${y + h/3}" width="${w}" height="${h/3}" fill="#FFFFFF"/>`
+           + `<rect x="${x}" y="${y + 2*h/3}" width="${w}" height="${h/3}" fill="#21468B"/>`;
+      break;
+    case 'IT':
+      body = `<rect x="${x}" y="${y}" width="${w/3}" height="${h}" fill="#009246"/>`
+           + `<rect x="${x + w/3}" y="${y}" width="${w/3}" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x + 2*w/3}" y="${y}" width="${w/3}" height="${h}" fill="#CE2B37"/>`;
+      break;
+    case 'ES':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h/4}" fill="#AA151B"/>`
+           + `<rect x="${x}" y="${y + h/4}" width="${w}" height="${h/2}" fill="#F1BF00"/>`
+           + `<rect x="${x}" y="${y + 3*h/4}" width="${w}" height="${h/4}" fill="#AA151B"/>`;
+      break;
+    case 'CH':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FF0000"/>`
+           + `<rect x="${x + w/2 - 4}" y="${y + 4}" width="8" height="${h - 8}" fill="#FFFFFF"/>`
+           + `<rect x="${x + 6}" y="${y + h/2 - 4}" width="${w - 12}" height="8" fill="#FFFFFF"/>`;
+      break;
+    case 'SE':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#006AA7"/>`
+           + `<rect x="${x + 10}" y="${y}" width="4" height="${h}" fill="#FECC00"/>`
+           + `<rect x="${x}" y="${y + h/2 - 2}" width="${w}" height="4" fill="#FECC00"/>`;
+      break;
+    case 'NO':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#EF2B2D"/>`
+           + `<rect x="${x + 10}" y="${y}" width="6" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x}" y="${y + h/2 - 3}" width="${w}" height="6" fill="#FFFFFF"/>`
+           + `<rect x="${x + 11}" y="${y}" width="4" height="${h}" fill="#002868"/>`
+           + `<rect x="${x}" y="${y + h/2 - 2}" width="${w}" height="4" fill="#002868"/>`;
+      break;
+    case 'DK':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#C60C30"/>`
+           + `<rect x="${x + 10}" y="${y}" width="4" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x}" y="${y + h/2 - 2}" width="${w}" height="4" fill="#FFFFFF"/>`;
+      break;
+    case 'FI':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x + 10}" y="${y}" width="4" height="${h}" fill="#003580"/>`
+           + `<rect x="${x}" y="${y + h/2 - 2}" width="${w}" height="4" fill="#003580"/>`;
+      break;
+    case 'JP':
+      body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FFFFFF"/>`
+           + `<circle cx="${x + w/2}" cy="${y + h/2}" r="${h*0.3}" fill="#BC002D"/>`;
+      break;
+    case 'CA':
+      body = `<rect x="${x}" y="${y}" width="${w/4}" height="${h}" fill="#D52B1E"/>`
+           + `<rect x="${x + w/4}" y="${y}" width="${w/2}" height="${h}" fill="#FFFFFF"/>`
+           + `<rect x="${x + 3*w/4}" y="${y}" width="${w/4}" height="${h}" fill="#D52B1E"/>`;
+      break;
+    default:
+      return '';
+  }
+  return `<g><defs>${clip}</defs><g clip-path="url(#og-flag-clip-${country})">${body}</g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/></g>`;
+}
+
+// Sparkline 1 an : polyline du cours de cloture, derniers 365 jours.
+// Renvoie un fragment SVG vide si pas de points.
+function ogSparklineSvg(points, x, y, width, height, color) {
+  if (!Array.isArray(points) || points.length < 2) return '';
+  // Filtre 365 derniers jours via le timestamp ISO
+  const cutoff = new Date(Date.now() - 365 * 24 * 3600 * 1000);
+  const filtered = points
+    .filter(p => p && p.date && new Date(p.date) >= cutoff && Number.isFinite(p.close))
+    .map(p => ({ t: new Date(p.date).getTime(), v: p.close }));
+  if (filtered.length < 2) return '';
+  const minT = filtered[0].t;
+  const maxT = filtered[filtered.length - 1].t;
+  const tRange = Math.max(1, maxT - minT);
+  const vMin = Math.min(...filtered.map(p => p.v));
+  const vMax = Math.max(...filtered.map(p => p.v));
+  const vRange = Math.max(0.01, vMax - vMin);
+  // Marge interne pour eviter que la courbe touche les bords
+  const padY = 4;
+  const innerH = height - padY * 2;
+  const path = filtered.map((p, i) => {
+    const px = x + ((p.t - minT) / tRange) * width;
+    const py = y + padY + (1 - (p.v - vMin) / vRange) * innerH;
+    return `${i === 0 ? 'M' : 'L'}${px.toFixed(1)},${py.toFixed(1)}`;
+  }).join(' ');
+  // Aire sous la courbe (gradient subtil pour donner du volume)
+  const lastX = x + width;
+  const baseY = y + height;
+  const areaPath = `${path} L${lastX.toFixed(1)},${baseY.toFixed(1)} L${x.toFixed(1)},${baseY.toFixed(1)} Z`;
+  // Gradient unique base sur le color
+  return `<defs><linearGradient id="og-spark-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity="0.35"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`
+       + `<path d="${areaPath}" fill="url(#og-spark-grad)" stroke="none"/>`
+       + `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+
+// Radar 8 axes compact pour OG (pure SVG, sans HTML wrapper).
+// labels: dictionnaire des noms FR/EN par axe (key -> string).
+function ogRadarSvg(breakdown, total, color, labels, cx, cy, R) {
+  if (!breakdown) return '';
+  const axesOrder = [
+    { key: 'insider' },
+    { key: 'smartMoney' },
+    { key: 'momentum' },
+    { key: 'earnings' },
+    { key: 'analyst' },
+    { key: 'valuation' },
+    { key: 'health' },
+    { key: 'govGuru' },
+  ];
+  const N = axesOrder.length;
+  const points = [];
+  const grid = [];
+  axesOrder.forEach((axis, i) => {
+    const angle = (-Math.PI / 2) + (i * 2 * Math.PI / N);
+    const b = breakdown[axis.key];
+    const pctFill = (b && b.max > 0) ? Math.max(0.05, Math.min(1, b.score / b.max)) : 0.05;
+    const r = R * pctFill;
+    points.push({
+      x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle),
+      angle, score: b?.score ?? 0, max: b?.max ?? 0, label: labels[axis.key] || axis.key.toUpperCase(),
+    });
+    grid.push({ angle });
+  });
+  // Anneaux concentriques
+  const rings = [0.25, 0.5, 0.75, 1.0].map(frac => {
+    const pts = grid.map(p => `${(cx + R * frac * Math.cos(p.angle)).toFixed(1)},${(cy + R * frac * Math.sin(p.angle)).toFixed(1)}`).join(' ');
+    return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+  }).join('');
+  // Axes radiaux
+  const axesLines = grid.map(p => `<line x1="${cx}" y1="${cy}" x2="${(cx + R * Math.cos(p.angle)).toFixed(1)}" y2="${(cy + R * Math.sin(p.angle)).toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`).join('');
+  // Polygone des scores
+  const polyPath = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  // Dots aux sommets
+  const dots = points.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${color}" stroke="#0A0F1E" stroke-width="2"/>`).join('');
+  // Labels (nom axe + score/max sur 2 lignes)
+  const labelDist = R + 22;
+  const labelsXml = points.map(p => {
+    const lx = cx + labelDist * Math.cos(p.angle);
+    const ly = cy + labelDist * Math.sin(p.angle);
+    let anchor = 'middle';
+    if (Math.cos(p.angle) > 0.3) anchor = 'start';
+    else if (Math.cos(p.angle) < -0.3) anchor = 'end';
+    return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" font-size="13" font-weight="700" fill="${color}" letter-spacing="0.5">${svgEscape(p.label)}</text>`
+         + `<text x="${lx.toFixed(1)}" y="${(ly + 16).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="500" fill="#9CA3AF">${p.score}/${p.max}</text>`;
+  }).join('');
+  return rings + axesLines
+       + `<polygon points="${polyPath}" fill="${color}" fill-opacity="0.22" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`
+       + dots + labelsXml;
+}
+
+// Logo Kairos inline (cercle + courbe ascendante + point culminant).
+// Reproduit assets/logo.svg en pure SVG embedde, avec gradient propre.
+function ogKairosLogoSvg(x, y, size) {
+  const s = size / 40;
+  const tx = (n) => (x + n * s).toFixed(1);
+  const ty = (n) => (y + n * s).toFixed(1);
+  return `<g>`
+    + `<circle cx="${tx(20)}" cy="${ty(20)}" r="${(18.5 * s).toFixed(1)}" fill="none" stroke="url(#og-logo-grad)" stroke-width="${(2.2 * s).toFixed(2)}" opacity="0.95"/>`
+    + `<polyline points="${tx(9)},${ty(27)} ${tx(14)},${ty(22.5)} ${tx(20)},${ty(24.5)} ${tx(26)},${ty(14)} ${tx(31)},${ty(15.5)}" fill="none" stroke="url(#og-logo-grad)" stroke-width="${(2.4 * s).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`
+    + `<circle cx="${tx(26)}" cy="${ty(14)}" r="${(2.6 * s).toFixed(2)}" fill="url(#og-logo-dot)"/>`
+    + `<circle cx="${tx(25.3)}" cy="${ty(13.3)}" r="${(0.6 * s).toFixed(2)}" fill="#FCE7F3" opacity="0.9"/>`
+    + `</g>`;
+}
+
+const OG_I18N = {
+  fr: {
+    tagline: 'SMART MONEY EU + US · ANALYSE COMPLÈTE',
+    session: 'sur la session',
+    insiders: 'INITIÉS',
+    funds: 'FONDS SMART',
+    fundsUnit: 'positions',
+    insidersUnit: 'transactions',
+    ytd: 'YTD',
+    y1: 'SUR 1 AN',
+    chart1y: 'COURS 1 AN',
+    footerTag: 'Insiders · Smart Money · Seuils EU · Score 8 axes',
+    radar: {
+      insider: 'INITIÉS',
+      smartMoney: 'HEDGE FUNDS',
+      momentum: 'MOMENTUM',
+      earnings: 'EARNINGS',
+      analyst: 'ANALYSTES',
+      valuation: 'VALORISATION',
+      health: 'SANTÉ FIN.',
+      govGuru: 'POLI/GOUROUS',
+    },
+  },
+  en: {
+    tagline: 'SMART MONEY EU + US · FULL ANALYSIS',
+    session: 'today',
+    insiders: 'INSIDERS',
+    funds: 'SMART MONEY',
+    fundsUnit: 'positions',
+    insidersUnit: 'transactions',
+    ytd: 'YTD',
+    y1: '1 YEAR',
+    chart1y: '1Y CHART',
+    footerTag: 'Insiders · Smart Money · EU Thresholds · 8-axis Score',
+    radar: {
+      insider: 'INSIDERS',
+      smartMoney: 'HEDGE FUNDS',
+      momentum: 'MOMENTUM',
+      earnings: 'EARNINGS',
+      analyst: 'ANALYSTS',
+      valuation: 'VALUATION',
+      health: 'FINANCIALS',
+      govGuru: 'POLI/GURUS',
+    },
+  },
+};
+
+async function handleOgImage(rawTicker, env, fmt = 'png', lang = 'fr') {
   const ticker = String(rawTicker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
   if (!ticker || ticker.length > 12) {
     return new Response('Invalid ticker', { status: 400 });
   }
+  if (lang !== 'fr' && lang !== 'en') lang = 'fr';
+  const t = OG_I18N[lang];
 
   let data;
   try {
@@ -3746,12 +4028,12 @@ async function handleOgImage(rawTicker, env, fmt = 'png') {
     data = null;
   }
 
-  // Donnees a afficher (defaults gracieux si absent)
   const name = (data && data.company && data.company.name) || ticker;
   const sector = (data && data.company && data.company.sector) || '';
-  const country = (data && data.company && data.company.country) || '';
+  const country = ogDeriveCountry(data, ticker);
   const score = (data && data.score && data.score.total) || 0;
-  const sig = signalFromScoreSsr(score, 'fr');
+  const breakdown = (data && data.score && data.score.breakdown) || null;
+  const sig = signalFromScoreSsr(score, lang);
   const price = data && data.price && data.price.current;
   const currency = (data && data.price && data.price.currency) || 'USD';
   const changePct = data && data.price && data.price.changePct;
@@ -3759,18 +4041,31 @@ async function handleOgImage(rawTicker, env, fmt = 'png') {
   const change1y = data && data.price && data.price.change1yPct;
   const insiderCount = (data && data.insiders && (data.insiders._totalTransactions ?? (data.insiders.transactions || []).length)) || 0;
   const fundCount = (data && data.smartMoney && (data.smartMoney._totalFunds ?? (data.smartMoney.topFunds || []).length)) || 0;
+  const chartPoints = (data && data.chart && Array.isArray(data.chart.points)) ? data.chart.points : [];
 
   const scoreColor = ogScoreColor(score);
   const changeColor = ogPerfColor(changePct);
   const ytdColor = ogPerfColor(changeYtd);
   const y1Color = ogPerfColor(change1y);
+  const sparkColor = ogPerfColor(change1y);
 
-  // Tronque les noms longs (Snap-on Incorporated, BE Semiconductor Industries N.V., etc.)
-  const shortName = name.length > 32 ? name.slice(0, 30) + '…' : name;
+  const shortName = name.length > 28 ? name.slice(0, 26) + '…' : name;
   const shortSector = sector.length > 36 ? sector.slice(0, 34) + '…' : sector;
-  const subline = [shortSector, country].filter(Boolean).join(' · ');
 
-  const tickerFontSize = ticker.length > 7 ? 88 : (ticker.length > 5 ? 104 : 120);
+  // Ticker plus compact maintenant que le radar prend la place a droite
+  const tickerFontSize = ticker.length > 7 ? 56 : (ticker.length > 5 ? 64 : 76);
+
+  // Logo + titre top-left
+  const logoSize = 44;
+  const logoX = 60, logoY = 38;
+  // Position du flag a cote du company name
+  const flagX = 60, flagY = 280;
+  // Sparkline zone
+  const sparkX = 60, sparkY = 360, sparkW = 600, sparkH = 100;
+  // Stats inline row (4 chiffres)
+  const statsY = 510;
+  // Radar : centre sur la moitie droite
+  const radarCx = 935, radarCy = 310, radarR = 110;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
 <defs>
@@ -3783,47 +4078,55 @@ async function handleOgImage(rawTicker, env, fmt = 'png') {
 <stop offset="1" stop-color="${scoreColor}" stop-opacity="0"/>
 </radialGradient>
 <radialGradient id="glow2" cx="0.85" cy="0.9" r="0.7">
-<stop offset="0" stop-color="#8B5CF6" stop-opacity="0.12"/>
+<stop offset="0" stop-color="#8B5CF6" stop-opacity="0.10"/>
 <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
 </radialGradient>
 <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
 <stop offset="0" stop-color="#3B82F6"/>
-<stop offset="0.5" stop-color="#06B6D4"/>
-<stop offset="1" stop-color="#10B981"/>
+<stop offset="0.55" stop-color="#8B5CF6"/>
+<stop offset="1" stop-color="#EC4899"/>
 </linearGradient>
+<linearGradient id="og-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#3B82F6"/>
+<stop offset="55%" stop-color="#8B5CF6"/>
+<stop offset="100%" stop-color="#EC4899"/>
+</linearGradient>
+<radialGradient id="og-logo-dot" cx="50%" cy="50%" r="50%">
+<stop offset="0%" stop-color="#F9A8D4"/>
+<stop offset="100%" stop-color="#EC4899"/>
+</radialGradient>
 </defs>
 <rect width="1200" height="630" fill="url(#bg)"/>
 <rect width="1200" height="630" fill="url(#glow1)"/>
 <rect width="1200" height="630" fill="url(#glow2)"/>
-<text x="60" y="62" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="22" font-weight="800" fill="url(#brand)" letter-spacing="2">KAIROS INSIDER</text>
-<text x="60" y="86" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#9CA3AF" letter-spacing="1">SMART MONEY EU + US · ANALYSE COMPLÈTE</text>
-<text x="60" y="220" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="${tickerFontSize}" font-weight="900" fill="#F9FAFB" letter-spacing="-2">${svgEscape(ticker)}</text>
-<text x="60" y="262" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="28" font-weight="600" fill="#D1D5DB">${svgEscape(shortName)}</text>
-<text x="60" y="294" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="18" fill="#9CA3AF">${svgEscape(subline)}</text>
-<text x="1140" y="170" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="64" font-weight="700" fill="#F9FAFB">${svgEscape(ogFmtPrice(price, currency))}</text>
-<text x="1140" y="208" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="26" font-weight="600" fill="${changeColor}">${svgEscape(ogFmtPct(changePct))}<tspan fill="#9CA3AF" font-size="20" font-weight="500"> sur la session</tspan></text>
-<rect x="60" y="350" width="380" height="220" rx="20" fill="${scoreColor}" fill-opacity="0.12" stroke="${scoreColor}" stroke-opacity="0.6" stroke-width="2"/>
-<text x="80" y="394" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">KAIROS SCORE</text>
-<text x="80" y="500" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="120" font-weight="900" fill="${scoreColor}">${score}</text>
-<text x="${80 + (String(score).length * 62)}" y="500" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="38" font-weight="600" fill="#6B7280">/100</text>
-<rect x="80" y="520" width="${Math.max(40, sig.label.length * 14 + 24)}" height="34" rx="8" fill="${scoreColor}" fill-opacity="0.22"/>
-<text x="${80 + Math.max(40, sig.label.length * 14 + 24) / 2}" y="544" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="800" fill="${scoreColor}" letter-spacing="1">${svgEscape(sig.label)}</text>
-<rect x="480" y="350" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-<text x="500" y="384" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">INITIÉS</text>
-<text x="500" y="428" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="40" font-weight="800" fill="#3B82F6">${insiderCount}</text>
-<text x="${500 + (String(insiderCount).length * 22) + 8}" y="428" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" fill="#9CA3AF">transactions 6m</text>
-<rect x="480" y="470" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-<text x="500" y="504" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">FONDS SMART MONEY</text>
-<text x="500" y="548" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="40" font-weight="800" fill="#8B5CF6">${fundCount}</text>
-<text x="${500 + (String(fundCount).length * 22) + 8}" y="548" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" fill="#9CA3AF">positions</text>
-<rect x="820" y="350" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-<text x="840" y="384" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">YTD</text>
-<text x="840" y="428" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="36" font-weight="800" fill="${ytdColor}">${svgEscape(ogFmtPct(changeYtd))}</text>
-<rect x="820" y="470" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-<text x="840" y="504" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">SUR 1 AN</text>
-<text x="840" y="548" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="36" font-weight="800" fill="${y1Color}">${svgEscape(ogFmtPct(change1y))}</text>
-<text x="60" y="608" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="15" font-weight="600" fill="#6B7280">kairosinsider.fr/a/${svgEscape(ticker)}</text>
-<text x="1140" y="608" text-anchor="end" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#6B7280">Insiders · Smart Money · Seuils EU · Score 100 axes</text>
+${ogKairosLogoSvg(logoX, logoY, logoSize)}
+<text x="${logoX + logoSize + 14}" y="${logoY + 22}" font-family="Inter,sans-serif" font-size="22" font-weight="800" fill="url(#brand)" letter-spacing="2">KAIROS INSIDER</text>
+<text x="${logoX + logoSize + 14}" y="${logoY + 44}" font-family="Inter,sans-serif" font-size="12" fill="#9CA3AF" letter-spacing="1.5">${svgEscape(t.tagline)}</text>
+<text x="1140" y="78" text-anchor="end" font-family="Inter,sans-serif" font-size="48" font-weight="700" fill="#F9FAFB">${svgEscape(ogFmtPrice(price, currency))}</text>
+<text x="1140" y="110" text-anchor="end" font-family="Inter,sans-serif" font-size="22" font-weight="600" fill="${changeColor}">${svgEscape(ogFmtPct(changePct))}<tspan fill="#9CA3AF" font-size="16" font-weight="500"> ${svgEscape(t.session)}</tspan></text>
+<text x="60" y="220" font-family="Inter,sans-serif" font-size="${tickerFontSize}" font-weight="900" fill="#F9FAFB" letter-spacing="-1.5">${svgEscape(ticker)}</text>
+<text x="60" y="258" font-family="Inter,sans-serif" font-size="22" font-weight="600" fill="#D1D5DB">${svgEscape(shortName)}</text>
+${ogFlagSvg(country, flagX, flagY)}
+<text x="${flagX + (country ? 46 : 0)}" y="${flagY + 17}" font-family="Inter,sans-serif" font-size="15" fill="#9CA3AF">${svgEscape(shortSector)}</text>
+<text x="60" y="335" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#6B7280" letter-spacing="2">${svgEscape(t.chart1y)}</text>
+${ogSparklineSvg(chartPoints, sparkX, sparkY, sparkW, sparkH, sparkColor)}
+<text x="60" y="${statsY + 4}" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#6B7280" letter-spacing="2">${svgEscape(t.insiders)}</text>
+<text x="60" y="${statsY + 36}" font-family="Inter,sans-serif" font-size="32" font-weight="800" fill="#3B82F6">${insiderCount}</text>
+<text x="60" y="${statsY + 56}" font-family="Inter,sans-serif" font-size="11" fill="#9CA3AF">${svgEscape(t.insidersUnit)}</text>
+<text x="220" y="${statsY + 4}" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#6B7280" letter-spacing="2">${svgEscape(t.funds)}</text>
+<text x="220" y="${statsY + 36}" font-family="Inter,sans-serif" font-size="32" font-weight="800" fill="#8B5CF6">${fundCount}</text>
+<text x="220" y="${statsY + 56}" font-family="Inter,sans-serif" font-size="11" fill="#9CA3AF">${svgEscape(t.fundsUnit)}</text>
+<text x="380" y="${statsY + 4}" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#6B7280" letter-spacing="2">${svgEscape(t.ytd)}</text>
+<text x="380" y="${statsY + 36}" font-family="Inter,sans-serif" font-size="32" font-weight="800" fill="${ytdColor}">${svgEscape(ogFmtPct(changeYtd))}</text>
+<text x="540" y="${statsY + 4}" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#6B7280" letter-spacing="2">${svgEscape(t.y1)}</text>
+<text x="540" y="${statsY + 36}" font-family="Inter,sans-serif" font-size="32" font-weight="800" fill="${y1Color}">${svgEscape(ogFmtPct(change1y))}</text>
+${ogRadarSvg(breakdown, score, scoreColor, t.radar, radarCx, radarCy, radarR)}
+<text x="${radarCx}" y="${radarCy + 8}" text-anchor="middle" font-family="Inter,sans-serif" font-size="68" font-weight="900" fill="${scoreColor}" letter-spacing="-2">${score}</text>
+<text x="${radarCx}" y="${radarCy + 34}" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" font-weight="600" fill="#6B7280" letter-spacing="2">/100</text>
+<rect x="${radarCx - Math.max(40, sig.label.length * 7)}" y="${radarCy + 50}" width="${Math.max(80, sig.label.length * 14)}" height="30" rx="8" fill="${scoreColor}" fill-opacity="0.18"/>
+<text x="${radarCx}" y="${radarCy + 70}" text-anchor="middle" font-family="Inter,sans-serif" font-size="14" font-weight="800" fill="${scoreColor}" letter-spacing="1.5">${svgEscape(sig.label)}</text>
+<text x="60" y="608" font-family="Inter,sans-serif" font-size="14" font-weight="600" fill="#6B7280">kairosinsider.fr/a/${svgEscape(ticker)}${lang === 'en' ? '?lang=en' : ''}</text>
+<text x="1140" y="608" text-anchor="end" font-family="Inter,sans-serif" font-size="12" fill="#6B7280">${svgEscape(t.footerTag)}</text>
 </svg>`;
 
   // Format SVG demande explicitement (.svg) -> on retourne le SVG brut.
@@ -4028,7 +4331,7 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
 <meta property="og:url" content="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
-<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png">
+<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png?lang=${lang}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/png">
@@ -4037,7 +4340,7 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escHtmlSsr(title)}">
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
-<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png">
+<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png?lang=${lang}">
 <meta name="twitter:image:alt" content="${escHtmlSsr(title)}">
 
 <!-- Google Analytics 4 (RGPD-friendly) -->
