@@ -3796,7 +3796,7 @@ async function handleOgImage(rawTicker, env, fmt = 'png') {
 <rect width="1200" height="630" fill="url(#glow1)"/>
 <rect width="1200" height="630" fill="url(#glow2)"/>
 <text x="60" y="62" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="22" font-weight="800" fill="url(#brand)" letter-spacing="2">KAIROS INSIDER</text>
-<text x="60" y="86" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#9CA3AF" letter-spacing="1">SMART MONEY EU + US · ANALYSE COMPLETE</text>
+<text x="60" y="86" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#9CA3AF" letter-spacing="1">SMART MONEY EU + US · ANALYSE COMPLÈTE</text>
 <text x="60" y="220" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="${tickerFontSize}" font-weight="900" fill="#F9FAFB" letter-spacing="-2">${svgEscape(ticker)}</text>
 <text x="60" y="262" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="28" font-weight="600" fill="#D1D5DB">${svgEscape(shortName)}</text>
 <text x="60" y="294" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="18" fill="#9CA3AF">${svgEscape(subline)}</text>
@@ -3809,7 +3809,7 @@ async function handleOgImage(rawTicker, env, fmt = 'png') {
 <rect x="80" y="520" width="${Math.max(40, sig.label.length * 14 + 24)}" height="34" rx="8" fill="${scoreColor}" fill-opacity="0.22"/>
 <text x="${80 + Math.max(40, sig.label.length * 14 + 24) / 2}" y="544" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" font-weight="800" fill="${scoreColor}" letter-spacing="1">${svgEscape(sig.label)}</text>
 <rect x="480" y="350" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-<text x="500" y="384" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">INITIES</text>
+<text x="500" y="384" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">INITIÉS</text>
 <text x="500" y="428" font-family="system-ui,-apple-system,Segoe UI,Inter,sans-serif" font-size="40" font-weight="800" fill="#3B82F6">${insiderCount}</text>
 <text x="${500 + (String(insiderCount).length * 22) + 8}" y="428" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="16" fill="#9CA3AF">transactions 6m</text>
 <rect x="480" y="470" width="320" height="100" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
