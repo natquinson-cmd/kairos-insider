@@ -17636,10 +17636,31 @@
           }
           const data = await res.json();
           filings = data.filings || [];
-          // Filtre pays cote client si specifie
+          // FIX (mai 2026) : applique aussi les autres filtres cote client
+          // quand un ticker est present. Sinon les filtres period/forme/direction
+          // semblaient "casses" (ils n'avaient aucun effet visible).
+          // Filtre periode (jours)
+          const daysNum = parseInt(days, 10);
+          if (daysNum > 0) {
+            const cutoff = new Date(Date.now() - daysNum * 86400000).toISOString().slice(0, 10);
+            filings = filings.filter(f => (f.fileDate || '') >= cutoff);
+          }
+          // Filtre pays
           if (country) {
             const set = new Set(country.split(',').map(s => s.trim()));
             filings = filings.filter(f => set.has(f.country || 'US'));
+          }
+          // Filtre forme/direction (meme logique que la branche else)
+          if (filterMode === 'activists') {
+            filings = filings.filter(f => f.isActivist);
+          } else if (filterMode === '13D') {
+            filings = filings.filter(f => /^SCHEDULE 13D/.test(f.form));
+          } else if (filterMode === '13G') {
+            filings = filings.filter(f => /^SCHEDULE 13G/.test(f.form));
+          } else if (filterMode === 'up') {
+            filings = filings.filter(f => f.crossingDirection === 'up');
+          } else if (filterMode === 'down') {
+            filings = filings.filter(f => f.crossingDirection === 'down');
           }
         } else {
           // Fetch activists aggregated + recent filings en parallele
