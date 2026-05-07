@@ -6616,8 +6616,31 @@ async function loadAllThresholdsFilings(env) {
 
   // Enrichissement : runtime fixes pour les filings deja en KV
   // (effet immediat sans attendre le prochain cron)
+
+  // PASS 1 : detection US -> auto-flag 13D + collecte les filers activists
+  // pour deduire les activists EU (qui n'ont pas de form 13D equivalente).
+  // Cette approche AUTO-CONSTRUITE remplace le hardcode KNOWN_ACTIVISTS pour US.
+  const knownActivistFilers = new Set();
   for (const f of all) {
-    // 1. yahooSymbol pour les EU (LVMH -> MC.PA, BARCLAYS -> BARC.L, etc.)
+    const form = (f.form || '').toUpperCase();
+    // US : un filing 13D = activiste par definition SEC
+    if (f.country === 'US' && /^SCHEDULE\s*13D/.test(form)) {
+      if (!f.isActivist) {
+        f.isActivist = true;
+        if (!f.activistLabel) f.activistLabel = 'Filing 13D — intention activiste';
+      }
+      // Ajoute le filer a la liste des activists confirmes
+      if (f.filerName) {
+        // Normalise : lowercase, strip ponctuation/sociaux pour match futur
+        const norm = f.filerName.toLowerCase().replace(/[,.()&]+/g, ' ').replace(/\s+/g, ' ').trim();
+        if (norm.length >= 3) knownActivistFilers.add(norm);
+      }
+    }
+  }
+
+  // PASS 2 : EU enrichments (yahooSymbol + activist deduction)
+  for (const f of all) {
+    // yahooSymbol pour les EU (LVMH -> MC.PA, BARCLAYS -> BARC.L, etc.)
     if (f.country && f.country !== 'US' && !f.yahooSymbol) {
       const looked = lookupEuYahooSymbol(f.targetName, f.country);
       if (looked) f.yahooSymbol = looked;
@@ -6626,16 +6649,25 @@ async function loadAllThresholdsFilings(env) {
     if (f.country === 'US' && !f.yahooSymbol && f.ticker) {
       f.yahooSymbol = f.ticker;
     }
-    // 2. Auto-flag 13D / 13D/A comme activist par definition.
-    // Le formulaire 13D = "intention d'influencer la gestion" (vs 13G passif).
-    // SEC le definit ainsi : tout depot 13D signale une position avec INTENT
-    // activist, peu importe le nom du filer. Cette regle est plus fiable que
-    // le pattern-match sur ~27 noms connus (Elliott, Icahn, etc.) qui ratait
-    // 95% des vrais 13D.
-    const form = (f.form || '').toUpperCase();
-    if (!f.isActivist && /^SCHEDULE\s*13D/.test(form)) {
-      f.isActivist = true;
-      if (!f.activistLabel) f.activistLabel = 'Filing 13D — intention activiste';
+    // EU : on n'a pas de form 13D. On flag comme activist si :
+    // - le filer name a au moins 1 filing 13D en US (auto-derive)
+    // - OU il est dans le hardcode KNOWN_ACTIVISTS (filet de securite pour
+    //   les rares activists EU qui n'ont jamais file aux US)
+    // Cette logique remplace le hardcode pur et evite le maintenance des
+    // 62 noms ; la liste se construit toute seule depuis les vrais 13D.
+    if (f.country !== 'US' && !f.isActivist && f.filerName) {
+      const norm = f.filerName.toLowerCase().replace(/[,.()&]+/g, ' ').replace(/\s+/g, ' ').trim();
+      // Match exact ou containment (ex: "Elliott Investment Mgmt" contient "elliott")
+      let isKnown = knownActivistFilers.has(norm);
+      if (!isKnown) {
+        for (const known of knownActivistFilers) {
+          if (norm.includes(known) || known.includes(norm)) { isKnown = true; break; }
+        }
+      }
+      if (isKnown) {
+        f.isActivist = true;
+        if (!f.activistLabel) f.activistLabel = `Filer activist confirme (US 13D)`;
+      }
     }
   }
 

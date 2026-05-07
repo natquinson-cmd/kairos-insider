@@ -422,7 +422,6 @@ def fetch_day_filings(day_date):
                 ticker = extract_ticker_from_display(target_raw)
                 target_name = extract_name_from_display(target_raw)
                 filer_name = extract_name_from_display(filer_raw)
-                is_activist_named, activist_label = flag_activist(filer_name)
                 accession = hit.get('_id', '').split(':')[0]
                 ciks = src.get('ciks', [])
                 # Si display_names ne contient pas le ticker (~27% des cas),
@@ -430,11 +429,16 @@ def fetch_day_filings(day_date):
                 if not ticker and len(ciks) >= 1:
                     ticker = resolve_ticker_from_cik(ciks[0]) or ''
                 file_type = src.get('file_type', form.replace('+', ' ').replace('%2F', '/'))
-                # Flag activist : (a) match nom OU (b) tout depot 13D
-                # (le formulaire 13D = intention d'influencer par definition SEC)
-                is_activist = is_activist_named or is_form_activist(file_type)
-                if is_activist and not activist_label:
-                    activist_label = 'Filing 13D — intention activiste'
+                # FIX (mai 2026) : pour US le seul critere fiable est la forme :
+                # 13D = activist par definition SEC (intention d'influencer),
+                # 13G = passif. Pas de hardcode list de noms (qui ratait 95% des
+                # vrais 13D non-stars). KNOWN_ACTIVISTS est garde UNIQUEMENT pour
+                # produire un label plus informatif ("Elliott Management" plutot
+                # que "Filing 13D" generique) quand on reconnait le filer.
+                is_activist = is_form_activist(file_type)
+                _named_match, named_label = flag_activist(filer_name)
+                activist_label = (named_label if (is_activist and named_label)
+                                  else ('Filing 13D — intention activiste' if is_activist else None))
                 filings.append({
                     'fileDate': src.get('file_date', day_date),
                     'form': file_type,
