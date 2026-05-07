@@ -6614,9 +6614,10 @@ async function loadAllThresholdsFilings(env) {
     }
   }
 
-  // Enrichissement EU : ajouter yahooSymbol pour permettre fetch des cours Yahoo
-  // (LVMH -> MC.PA, BARCLAYS -> BARC.L, NESTLE -> NESN.SW, etc.)
+  // Enrichissement : runtime fixes pour les filings deja en KV
+  // (effet immediat sans attendre le prochain cron)
   for (const f of all) {
+    // 1. yahooSymbol pour les EU (LVMH -> MC.PA, BARCLAYS -> BARC.L, etc.)
     if (f.country && f.country !== 'US' && !f.yahooSymbol) {
       const looked = lookupEuYahooSymbol(f.targetName, f.country);
       if (looked) f.yahooSymbol = looked;
@@ -6624,6 +6625,17 @@ async function loadAllThresholdsFilings(env) {
     // Pour US, le ticker est deja le symbole Yahoo
     if (f.country === 'US' && !f.yahooSymbol && f.ticker) {
       f.yahooSymbol = f.ticker;
+    }
+    // 2. Auto-flag 13D / 13D/A comme activist par definition.
+    // Le formulaire 13D = "intention d'influencer la gestion" (vs 13G passif).
+    // SEC le definit ainsi : tout depot 13D signale une position avec INTENT
+    // activist, peu importe le nom du filer. Cette regle est plus fiable que
+    // le pattern-match sur ~27 noms connus (Elliott, Icahn, etc.) qui ratait
+    // 95% des vrais 13D.
+    const form = (f.form || '').toUpperCase();
+    if (!f.isActivist && /^SCHEDULE\s*13D/.test(form)) {
+      f.isActivist = true;
+      if (!f.activistLabel) f.activistLabel = 'Filing 13D — intention activiste';
     }
   }
 

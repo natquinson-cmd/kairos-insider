@@ -92,10 +92,12 @@ KNOWN_ACTIVISTS = [
     # Activistes les plus mediatiques
     ('elliott', 'Elliott Management'),
     ('pershing square', 'Pershing Square (Ackman)'),
+    ('pershing', 'Pershing Square'),  # catch variant
     ('icahn', 'Carl Icahn / Icahn Associates'),
     ('third point', 'Third Point (Loeb)'),
     ('starboard', 'Starboard Value'),
     ('trian', 'Trian Fund Management (Peltz)'),
+    ('nelson peltz', 'Nelson Peltz'),
     ('valueact', 'ValueAct Capital'),
     ('jana partners', 'JANA Partners'),
     ('corvex', 'Corvex Management'),
@@ -114,10 +116,55 @@ KNOWN_ACTIVISTS = [
     ('legion partners', 'Legion Partners'),
     ('scopia', 'Scopia Capital'),
     ('greenlight', 'Greenlight Capital (Einhorn)'),
-    ('pershing', 'Pershing Square'),  # catch variant
-    ('nelson peltz', 'Nelson Peltz'),
     ('paul singer', 'Paul Singer (Elliott)'),
+    # Ajouts mai 2026
+    ('saba capital', 'Saba Capital (Boaz Weinstein)'),
+    ('tci fund', 'TCI Fund Management'),
+    ('children\'s investment', 'TCI Fund Management'),
+    ('rc ventures', 'RC Ventures (Ryan Cohen)'),
+    ('ryan cohen', 'RC Ventures (Ryan Cohen)'),
+    ('inclusive capital', 'Inclusive Capital (Ubben)'),
+    ('jeffrey ubben', 'Jeffrey Ubben (Inclusive)'),
+    ('hindenburg', 'Hindenburg Research (short)'),
+    ('muddy waters', 'Muddy Waters (short)'),
+    ('mantle ridge', 'Mantle Ridge (Hilal)'),
+    ('paul hilal', 'Mantle Ridge (Hilal)'),
+    ('politan capital', 'Politan Capital (Koffey)'),
+    ('soroban capital', 'Soroban Capital'),
+    ('saint james capital', 'Saint James Capital'),
+    ('marcato capital', 'Marcato Capital'),
+    ('barington', 'Barington Capital (Mitarotonda)'),
+    ('blackwells', 'Blackwells Capital'),
+    ('pelham', 'Pelham Capital'),
+    ('teleios', 'Teleios Capital'),
+    ('caligan', 'Caligan Partners'),
+    ('macellum', 'Macellum Advisors'),
+    ('biglari', 'Biglari Capital (Sardar Biglari)'),
+    ('wynnefield', 'Wynnefield Capital'),
+    ('amber capital', 'Amber Capital (Ferrero)'),
+    ('cnh partners', 'CNH Partners'),
+    ('white tale', 'White Tale Holdings'),
+    ('kimmeridge', 'Kimmeridge Energy'),
+    ('cohen & steers', 'Cohen & Steers'),
+    ('p. schoenfeld', 'P. Schoenfeld Asset Mgmt'),
+    ('starwood capital', 'Starwood Capital (Sternlicht)'),
+    ('rocco capital', 'Rocco Capital'),
+    ('atlas capital', 'Atlas Capital'),
+    ('coliseum capital', 'Coliseum Capital'),
+    ('discerene', 'Discerene Group'),
+    ('newtyn', 'Newtyn Capital'),
+    ('clearway capital', 'Clearway Capital'),
 ]
+
+
+# Auto-flag 13D / 13D/A : tout depot 13D signale par definition une intention
+# activiste (vs 13G passif). Cette regle SEC est plus fiable que le pattern
+# match sur les noms (qui ratait 95% des vrais 13D non-stars).
+def is_form_activist(form):
+    if not form:
+        return False
+    f = form.upper().replace(' ', '')
+    return f.startswith('SCHEDULE13D') or f.startswith('13D')
 
 
 def _throttle():
@@ -375,7 +422,7 @@ def fetch_day_filings(day_date):
                 ticker = extract_ticker_from_display(target_raw)
                 target_name = extract_name_from_display(target_raw)
                 filer_name = extract_name_from_display(filer_raw)
-                is_activist, activist_label = flag_activist(filer_name)
+                is_activist_named, activist_label = flag_activist(filer_name)
                 accession = hit.get('_id', '').split(':')[0]
                 ciks = src.get('ciks', [])
                 # Si display_names ne contient pas le ticker (~27% des cas),
@@ -383,6 +430,11 @@ def fetch_day_filings(day_date):
                 if not ticker and len(ciks) >= 1:
                     ticker = resolve_ticker_from_cik(ciks[0]) or ''
                 file_type = src.get('file_type', form.replace('+', ' ').replace('%2F', '/'))
+                # Flag activist : (a) match nom OU (b) tout depot 13D
+                # (le formulaire 13D = intention d'influencer par definition SEC)
+                is_activist = is_activist_named or is_form_activist(file_type)
+                if is_activist and not activist_label:
+                    activist_label = 'Filing 13D — intention activiste'
                 filings.append({
                     'fileDate': src.get('file_date', day_date),
                     'form': file_type,
