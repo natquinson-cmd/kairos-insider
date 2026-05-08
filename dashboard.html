@@ -7022,9 +7022,47 @@
 
     // popstate : declenche par le bouton back/forward du navigateur
     // On reload la section/ticker selon le nouveau hash, sans re-push history.
+    // BUT : si auth overlay visible, le back BUTTON le ferme d'abord (modal pattern).
     window.addEventListener('popstate', (event) => {
+      const auth = document.getElementById('authOverlay');
+      if (auth && !auth.classList.contains('hidden')) {
+        // Overlay etait visible : on le ferme et on ne traite pas le pop
+        // (l'utilisateur s'attend a ce que le back ferme la modale, pas qu'il
+        // change de page). L'event popstate a deja consomme l'entree d'historique
+        // qu'on avait pushee a l'ouverture.
+        auth.classList.add('hidden');
+        return;
+      }
       navigateFromHash(window.location.hash);
     });
+
+    // ============================================================
+    // AUTH OVERLAY : open/close avec gestion de l'historique navigateur
+    // ============================================================
+    // Pattern modal : pousser une entree d'historique a l'ouverture pour
+    // que le bouton retour arriere ferme la modale au lieu de quitter la page.
+    // Compatible avec tous les call sites existants (boutons inline qui font
+    // classList.remove('hidden')) via un MutationObserver qui detecte le
+    // changement de classe.
+    (function setupAuthOverlayHistory(){
+      const overlay = document.getElementById('authOverlay');
+      if (!overlay) return;
+      let _authPushed = false;
+      // Observe les changements de la classe 'hidden' pour synchroniser l'historique
+      const observer = new MutationObserver(() => {
+        const isOpen = !overlay.classList.contains('hidden');
+        if (isOpen && !_authPushed) {
+          // Push entree d'historique pour intercepter le back button
+          try {
+            window.history.pushState({ authOverlay: true }, '', window.location.href);
+            _authPushed = true;
+          } catch (e) {}
+        } else if (!isOpen && _authPushed) {
+          _authPushed = false;
+        }
+      });
+      observer.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+    })();
 
     // ============================================================
     // MON PROFIL — avatar, identité, abonnement, préférences, sécurité
