@@ -2362,7 +2362,11 @@ async function computeTopSignals(env) {
   // NOTE : on merge dynamiquement les 4 sources pour faire ressortir les
   // signaux EU dans le top du jour (pas seulement les SEC US).
   try {
-    const [secData, amfData, bafinData, ukData, nlData, chData, itData, esData, seData, noData, dkData, fiData] = await Promise.all([
+    // Tier 3 Nordics (SE/NO/DK/FI) DESACTIVES (mai 2026) :
+    // volume tres faible (~24 filings cumules sur 30j) via Google News RSS,
+    // donnees peu fiables (heuristic title parsing). A reactiver quand
+    // sources officielles dispo. Voir ROADMAP.md "Reactivate Tier 3".
+    const [secData, amfData, bafinData, ukData, nlData, chData, itData, esData] = await Promise.all([
       env.CACHE.get('13dg-recent', 'json').catch(() => null),
       env.CACHE.get('amf-thresholds-recent', 'json').catch(() => null),
       env.CACHE.get('bafin-thresholds-recent', 'json').catch(() => null),
@@ -2371,11 +2375,8 @@ async function computeTopSignals(env) {
       env.CACHE.get('ch-thresholds-recent', 'json').catch(() => null),
       env.CACHE.get('it-thresholds-recent', 'json').catch(() => null),
       env.CACHE.get('es-thresholds-recent', 'json').catch(() => null),
-      env.CACHE.get('se-thresholds-recent', 'json').catch(() => null),
-      env.CACHE.get('no-thresholds-recent', 'json').catch(() => null),
-      env.CACHE.get('dk-thresholds-recent', 'json').catch(() => null),
-      env.CACHE.get('fi-thresholds-recent', 'json').catch(() => null),
     ]);
+    const seData = null, noData = null, dkData = null, fiData = null;
 
     const allFilings = [];
     if (secData?.filings) for (const f of secData.filings) allFilings.push({ ...f, country: f.country || 'US' });
@@ -7162,10 +7163,11 @@ async function loadAllThresholdsFilings(env) {
     env.CACHE.get('ch-thresholds-recent', 'json').catch(() => null),
     env.CACHE.get('it-thresholds-recent', 'json').catch(() => null),
     env.CACHE.get('es-thresholds-recent', 'json').catch(() => null),
-    env.CACHE.get('se-thresholds-recent', 'json').catch(() => null),
-    env.CACHE.get('no-thresholds-recent', 'json').catch(() => null),
-    env.CACHE.get('dk-thresholds-recent', 'json').catch(() => null),
-    env.CACHE.get('fi-thresholds-recent', 'json').catch(() => null),
+    // Tier 3 Nordics SE/NO/DK/FI desactives (mai 2026) - voir ROADMAP.md
+    Promise.resolve(null),
+    Promise.resolve(null),
+    Promise.resolve(null),
+    Promise.resolve(null),
   ]);
 
   let all = [];

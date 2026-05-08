@@ -450,7 +450,13 @@ def main():
     parser.add_argument('--country', help='Filtrer un seul pays (CH/IT/ES/SE/NO/DK/FI)')
     args = parser.parse_args()
 
-    countries = [args.country.upper()] if args.country else list(COUNTRY_CONFIG.keys())
+    # FIX (mai 2026) : skip les pays prefixes '_..._DEPRECATED' car ils ont
+    # leur propre fetcher dedie (fetch-ch-six.py, fetch-it-borsa.py, fetch-es-cnmv.py)
+    # qui produit de meilleures donnees. Avant, le script tier3 itere quand
+    # meme et ECRASE le KV avec des donnees Google News faibles (cas CH :
+    # 409 filings via SIX SER -> 7 via Google News).
+    available = [k for k in COUNTRY_CONFIG.keys() if not k.startswith('_')]
+    countries = [args.country.upper()] if args.country else available
     t0 = time.time()
     total_filings = 0
     for cc in countries:

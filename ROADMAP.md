@@ -4,7 +4,110 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 04 mai 2026 (v12 - Short Interest live + Fundamentals EU via Finnhub)
+**Dernière mise à jour** : 08 mai 2026 (v13 - Data quality EU + OG image dynamique + quotas anonymes)
+
+---
+
+## 🎯 v13 — Data quality EU + OG image + quotas anonymes (08 mai 2026)
+
+Plusieurs chantiers en parallèle :
+1. Qualité des données seuils (NL/AMF/13DG/UK/etc.)
+2. OG image dynamique par ticker pour Twitter Card
+3. Quotas anonymes pour visiteurs depuis tweet (2/j sans inscription)
+
+### ✅ Data quality - fixes deja deployes
+
+- ✅ **AFM (NL)** : `type_str` NameError + col_pct/sharesOwned non detectes
+  → 0% pct/shares → **100% pct + 100% shares** sur 6774 filings
+- ✅ **AMF (FR)** : max-pdf-enrich 80→400 + 5 patterns regex filer + parsing partiel
+  → 16% pct → **100% pct** sur 297 filings
+- ✅ **US 13DG** : XML namespace `sch:` non matche (Workiva 2024+)
+  → 27% pct → **38% pct** (en cours, multi-runs requis pour 95%+)
+- ✅ **EU ticker mapping** : word-boundary regex (Pharming→ING faux positif fix)
+  + 16 nouveaux tickers NL → top-30 NL **30%→94%** ticker coverage
+
+### ✅ OG image dynamique (`/og/[ticker].png`)
+
+- ✅ PNG dynamique par ticker via @resvg/resvg-wasm cote Worker
+- ✅ Layout v2 : logo Kairos + radar 8 axes avec noms complets + sparkline 1Y
+  + drapeau 14 pays SVG + ticker compact + 4 stats inline
+- ✅ i18n FR/EN via `?lang=` (radar labels traduits, signal achat/buy)
+- ✅ User-Agent split sur `/a/[ticker]` : bots SEO/social → SSR HTML, humains → 302
+  vers `dashboard.html#stockAnalysis?t=TICKER`
+- ✅ Bouton Share dashboard injecte `?lang=en` si user en mode EN
+
+### ✅ Quotas anonymes
+
+- ✅ Bypass `/api/stock/[ticker]` : visiteur sans token → quota IP-based 2/j
+- ✅ Inscrit Free : 4/j (avant 3)
+- ✅ Hard wall differencie : anonyme → "Crée un compte gratuit" / Free → "Pro"
+- ✅ Bandeau quota universel adapte au tier
+
+### 🔜 Tier 3 Nordics (SE/NO/DK/FI) - reactivation
+
+Volume tres faible (~24 filings cumules sur 30j) via Google News RSS scraping.
+Heuristic title parsing peu fiable. **DESACTIVE le 08 mai 2026** :
+- Job `tier3-thresholds` dans workflow → `if: false`
+- Worker `loadAllThresholdsFilings` → SE/NO/DK/FI = `null` (pas de KV read)
+- KV `se-thresholds-recent` etc. peuvent rester en place pour archive
+
+**A faire pour reactiver** :
+- [ ] **SE Finansinspektionen** : XBRL flagging register feed (https://marknadssok.fi.se)
+- [ ] **NO Finanstilsynet** : disclosure/large-shareholdings API
+- [ ] **DK Finanstilsynet** : storage area for fund managers (oasm.dk)
+- [ ] **FI Finanssivalvonta** : XBRL feed + storage area
+- Critere : si on peut obtenir 100+ filings/30j par pays avec pct/filer, on reactive
+
+### 🔜 UK FCA - extraction du % du document HTML
+
+Le scraper actuel extrait le % du **headline** ("Holding(s) in Company") qui ne
+contient JAMAIS le %. Le contenu reel est dans le HTML de chaque disclosure
+(data.fca.org.uk/NSM/RNS/UUID.html) mais ces fichiers retournent **403 Access
+Denied** depuis le Worker (S3 ACL restrictif).
+
+Resultat : 395 filings UK avec 0% pct extrait. Ticker (89%) et target (100%)
+fonctionnent bien.
+
+**A faire** :
+- [ ] Investiguer FCA web app pour voir comment le HTML est rendu (proxy ?
+  document API ?)
+- [ ] **Plan B** : scraper LSE RNS feed (https://www.londonstockexchange.com/news)
+  qui rediffuse les meme filings avec contenu accessible
+- [ ] **Plan C** : utiliser SharePad ou IGenisIQ comme source secondaire (paid)
+- [ ] **Plan D** : laisser pct=null mais prevenir dans l'UI ("UK : seuls
+  ticker + filer disponibles - voir document FCA pour le detail")
+
+### 🔜 CH (Suisse) SIX SER - 7 filings = source cassee
+
+KV `ch-thresholds-recent` ne contient que 7 filings (un marche actif normalement
+50-100/30j). Soit l'API SIX SER est down, soit `fetch-ch-six.py` a un bug.
+
+**A faire** :
+- [ ] Lancer `fetch-ch-six.py --debug --dry-run` localement et inspecter
+- [ ] Verifier que le job `ch-thresholds` du workflow tourne et publie en KV
+- [ ] Si l'API SIX a change : mettre a jour les endpoints
+
+### 🔜 IT/ES - volume faible (10/16 filings)
+
+Les fetchers dedies (`fetch-it-borsa.py`, `fetch-es-cnmv.py`) capturent peu.
+A diagnostiquer (peut-etre meme cause que CH).
+
+### 🔜 13D Alert temps reel (Pro/Elite)
+
+Cron worker toutes les 30min qui poll SEC EDGAR + FCA RNS pour detecter
+les nouveaux 13D filings d'activistes, et envoie push notif/email aux
+users avec ce ticker en watchlist.
+
+Latence : <40 min apres filing SEC. Comparable a Bloomberg Terminal.
+Argument tier Elite (49EUR/mois).
+
+**A faire** :
+- [ ] Cron `13d-alert.yml` toutes les 30min ou crontab Workers
+- [ ] Diff KV `last_seen_accession` vs nouveaux filings
+- [ ] Match filer ∈ KNOWN_ACTIVISTS + ticker ∈ user.watchlist
+- [ ] Send notif via Brevo / OneSignal
+- [ ] UI watchlist : flag "13D Alert ON/OFF" par ticker
+- [ ] Tarification : Pro 5 alerts max, Elite illimite
 
 ---
 

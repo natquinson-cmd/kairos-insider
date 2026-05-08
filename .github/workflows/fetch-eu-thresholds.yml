@@ -152,13 +152,20 @@ jobs:
           retention-days: 7
 
   # ===========================================================
-  # TIER 3 : 5 nouveaux marches en un seul script Google News
-  # CH (Suisse) + IT (Italie) + ES (Espagne) + SE/NO/DK/FI (Nordics)
-  # ===========================================================
+  # TIER 3 NORDICS (SE/NO/DK/FI) DESACTIVE (mai 2026)
+  # ---------------------------------------------------
+  # Volume tres faible : 24 filings cumules sur 30j via Google News RSS
+  # (heuristic title parsing peu fiable). On garde le code en place mais
+  # on ne lance plus le job pour reduire le bruit sur la KV + Fonds Offensifs.
+  # Reactivable avec sources officielles : Finansinspektionen XBRL feed
+  # (SE), Finanstilsynet API (NO/DK), Finanssivalvonta XBRL (FI).
+  # Voir ROADMAP.md > "Tier 3 Nordics reactivation".
+  # NB : CH (Suisse), IT (Italie), ES (Espagne) ont leurs propres jobs
+  # dedies via API officielles (ch-thresholds, it-thresholds, es-thresholds).
   tier3-thresholds:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: always()
+    if: false  # DESACTIVE - voir ROADMAP.md
     steps:
       - name: Checkout
         uses: actions/checkout@v4
