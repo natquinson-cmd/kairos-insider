@@ -360,7 +360,13 @@ async function handleRequest(request, env, ctx) {
       // que les cartes Twitter / Discord / LinkedIn fonctionnent, mais quand
       // un humain clique, il atterrit direct sur la page Decrypter.
       const ua = request.headers.get('User-Agent') || '';
-      const isBot = /bot|crawler|spider|crawling|scraper|preview|fetch|whatsapp|telegram|slack|twitter|facebook|linkedin|pinterest|discord|google|bing|yandex|duckduck|ahrefs|semrush|petal|applebot|chatgpt|claude|perplexity|embed/i.test(ua);
+      // FIX (mai 2026, v2) : regex plus stricte. Avant 'twitter' tout seul
+      // matchait aussi 'Twitter for iPhone' (UA du navigateur in-app de X
+      // mobile) -> les visiteurs cliquant un tweet depuis l'app X recevaient
+      // la page SSR au lieu de la redirection dashboard. Maintenant on
+      // matche UNIQUEMENT les UA de bots scrapers explicites (terminant
+      // par 'bot' ou contenant des noms connus avec qualifier).
+      const isBot = /bot|crawler|spider|crawling|scraper|preview|fetch\b|whatsapp\b|telegram\b|slackbot|twitterbot|facebookexternalhit|linkedinbot|pinterestbot|discordbot|googlebot|bingbot|yandex|duckduck|ahrefs|semrush|petalbot|applebot|chatgpt|claude-web|perplexity|gptbot|embedly|prerender|headless/i.test(ua);
       if (!isBot) {
         const cleanTicker = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
         if (cleanTicker && cleanTicker.length <= 12) {
