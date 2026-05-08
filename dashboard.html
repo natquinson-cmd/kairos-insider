@@ -16863,7 +16863,7 @@
       const btn = document.getElementById('tgConnectBtn');
       if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
       try {
-        const resp = await apiFetch('/api/telegram/init-link', { method: 'POST' });
+        const resp = await apiFetch('/api/telegram/init-link', {}, 'POST');
         if (resp && resp.alreadyLinked) {
           await loadTelegramStatus();
           return;
@@ -16928,7 +16928,7 @@
     async function unlinkTelegram() {
       if (!confirm('Délier Telegram ? Tu ne recevras plus d\'alertes sur ce chat.')) return;
       try {
-        await apiFetch('/api/telegram/unlink', { method: 'POST' });
+        await apiFetch('/api/telegram/unlink', {}, 'POST');
         Toast.success('Telegram délié.');
         _tgSetState('Unlinked');
       } catch (e) {
@@ -16938,7 +16938,7 @@
 
     async function testTelegram() {
       try {
-        const resp = await apiFetch('/api/telegram/test', { method: 'POST' });
+        const resp = await apiFetch('/api/telegram/test', {}, 'POST');
         if (resp && resp.sent) {
           Toast.success('Message de test envoyé sur Telegram ✅');
         } else {
