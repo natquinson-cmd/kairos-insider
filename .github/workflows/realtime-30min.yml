@@ -1,0 +1,259 @@
+name: Realtime Refresh 30 min (filings haute volatilite)
+
+# ============================================================================
+# Cron 30 minutes pour les sources de donnees ou un nouveau filing peut tomber
+# a tout moment de la journee de marche (SEC pendant 7am-6pm ET, AMF/BaFin
+# pendant les heures europeennes). 13F/ETF/Trends restent en daily car pas de
+# gain en frequence (publication trimestrielle/mensuelle).
+#
+# Strategie incremental :
+#   1. Download KV existant (snapshot 730j capacity)
+#   2. Fetch incremental --days 1 (uniquement les 24 dernieres heures)
+#   3. Merge + dedup par accession id
+#   4. Push KV mis a jour
+#
+# Cost : 48 runs/jour x ~5 min = ~240 min/jour. Sur GitHub Actions Pro 3000
+# min/mois c'est trop -> on parallelise les jobs (3-5 jobs simultanes via
+# matrix) pour ramener a ~80-100 min/jour effectif (les jobs paralleles ne
+# coutent qu'au-dela de leur duree max).
+#
+# Sources couvertes :
+#   - SEC 13D/A (activistes US + UK/EU via ADR mapping)
+#   - AMF FR declarations dirigeants
+#   - BaFin DE Directors' Dealings
+#   - Seuils EU (AMF FR + BaFin DE + AFM NL)
+#   - 13D-derived indexes : filer set + EU/UK ticker mapping
+# ============================================================================
+
+on:
+  schedule:
+    # Toutes les 30 minutes. *:15 et *:45 (decale de :00/:30 pour eviter
+    # la course avec update-13f.yml qui tourne a 1:30 UTC). GitHub Actions
+    # cron a typiquement 1-3 min de retard sous forte charge mais reste
+    # sous les 30 min entre 2 firings.
+    - cron: '15,45 * * * *'
+  workflow_dispatch:
+
+# Annule un run en cours s'il en arrive un nouveau (evite les empilements
+# si un run dure plus de 30 min). Garde uniquement le plus recent.
+concurrency:
+  group: realtime-30min
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  KV_NS: aca7ff9d2a244b06ae92d6a7129b4cc4
+
+jobs:
+
+  # ===========================================================================
+  # JOB 1 : SEC 13D/A (activistes US + UK/EU via ADR mapping)
+  # Run en premier car les autres jobs (filer-set, eu-uk-index) en dependent.
+  # ===========================================================================
+  sec-13dg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      ran_13dg: ${{ steps.fetch13dg.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - run: npm install -g wrangler
+
+      - name: Download existing 13D/G data from KV
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=$KV_NS --remote "13dg-recent" > 13dg_existing.json 2>/dev/null || echo '{}' > 13dg_existing.json
+          echo "Existing: $(wc -c < 13dg_existing.json) bytes"
+
+      - name: Fetch 13D/G last 1 day (incremental + merge)
+        id: fetch13dg
+        env:
+          PYTHONUNBUFFERED: '1'
+        # --days 1 suffit pour cron 30 min (3 cycles = 90 min de marge bien
+        # supérieure aux delais SEC d'enregistrement).
+        run: cd worker && python -u fetch-13dg.py --days 1 --merge-with 13dg_existing.json
+        timeout-minutes: 20
+
+      - name: Upload 13D/G filings to KV
+        if: hashFiles('worker/13dg_data.json') != ''
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=$KV_NS --remote "13dg-recent" --path=13dg_data.json
+          echo "13dg-recent uploaded ($(python -c 'import json; print(len(json.load(open(\"13dg_data.json\")).get(\"filings\",[])))') filings)"
+
+      # Build derived indexes immediatement apres fetch-13dg pour que les
+      # autres consommateurs (worker aggregate13F) aient de la donnee fraiche.
+      - name: Build 13D filer set (US activists factuels)
+        if: hashFiles('worker/13dg_data.json') != ''
+        run: cd worker && python build-13d-filer-set.py
+        timeout-minutes: 3
+
+      - name: Upload 13d-filer-ciks to KV
+        if: hashFiles('worker/13d_filer_ciks.json') != ''
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=$KV_NS --remote "13d-filer-ciks" --path=13d_filer_ciks.json
+
+      - name: Restore eu_primary_ticker_cache.json (mapping company -> .L/.PA/.AS/...)
+        uses: actions/cache@v4
+        with:
+          path: worker/eu_primary_ticker_cache.json
+          key: eu-primary-ticker-cache-v1
+
+      - name: Build EU/UK 13D index (Cevian/Pearson, Trian/JHG, etc.)
+        if: hashFiles('worker/13dg_data.json') != ''
+        run: cd worker && python build-eu-13d-index.py
+        timeout-minutes: 3
+
+      - name: Upload 13d-eu-uk-index to KV
+        if: hashFiles('worker/13d_eu_uk_index.json') != ''
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=$KV_NS --remote "13d-eu-uk-index" --path=13d_eu_uk_index.json
+
+  # ===========================================================================
+  # JOB 2 : AMF FR (declarations dirigeants + transactions insiders FR)
+  # Independant de sec-13dg, peut tourner en parallele.
+  # ===========================================================================
+  amf-fr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - run: npm install -g wrangler
+
+      - name: Fetch AMF declarations dirigeants (FR + Euronext)
+        run: cd worker && python fetch-amf.py
+        timeout-minutes: 10
+        continue-on-error: true
+
+      # NB : fetch-amf.py ecrit transactions_amf.json. Le merge avec SEC + BaFin
+      # est fait par merge-sources.py dans le cron quotidien (couteux : enrich
+      # tickers via OpenFIGI). Ici on push juste le snapshot AMF brut en KV
+      # dedie pour lecture rapide cote worker. Le merge complet reste daily.
+      - name: Upload AMF snapshot to KV
+        if: hashFiles('worker/transactions_amf.json') != ''
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=$KV_NS --remote "amf-recent-snapshot" --path=transactions_amf.json
+
+  # ===========================================================================
+  # JOB 3 : BaFin DE (Directors' Dealings)
+  # ===========================================================================
+  bafin-de:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - run: npm install -g wrangler
+
+      # NB : fetch-bafin.py overwrite tout le KV (pas de --merge-with). On
+      # laisse donc le defaut --days 90 pour preserver l'historique. Runtime
+      # ~2 min car le scraper BaFin est rapide.
+      - name: Fetch BaFin Directors' Dealings (full 90j refresh)
+        run: cd worker && python fetch-bafin.py
+        timeout-minutes: 6
+        continue-on-error: true
+
+      - name: Upload BaFin snapshot to KV
+        if: hashFiles('worker/transactions_bafin.json') != ''
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=$KV_NS --remote "bafin-recent-snapshot" --path=transactions_bafin.json
+
+  # ===========================================================================
+  # JOB 4 : EU thresholds (AMF FR + BaFin DE + AFM NL)
+  # Ces 3 sources tournent ensemble en sequence dans le meme job (chacune <2 min).
+  # Si un seuil est franchi par BlackRock/Norges/etc., signal smart money fort.
+  # ===========================================================================
+  eu-thresholds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - run: npm install -g wrangler
+
+      - name: Install Playwright (for AMF stealth scrape)
+        run: |
+          pip install playwright playwright-stealth
+          python -m playwright install chromium --with-deps
+        continue-on-error: true
+
+      # NB : ces 3 scripts overwrite tout le KV (pas de --merge-with). On
+      # laisse leur fenetre par defaut (30j) pour preserver l'historique.
+      # Runtime total ~6-8 min pour les 3 enchaines.
+      - name: Fetch AMF thresholds FR (full 30j refresh)
+        run: cd worker && python fetch-amf-thresholds.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Fetch BaFin thresholds DE (full 30j refresh)
+        run: cd worker && python fetch-bafin-thresholds.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Fetch AFM thresholds NL (full 30j refresh)
+        run: cd worker && python fetch-afm-thresholds.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      # Les fetchers ecrivent directement leur KV via wrangler (cf scripts).
+      # On verifie juste que tout a tourne via les *.tmp_*.json marker files.
+      - name: Summary
+        run: |
+          cd worker
+          echo "=== EU Thresholds 30-min run ==="
+          for src in amf bafin afm; do
+            f="${src}_thresholds_data.json"
+            if [ -f "$f" ]; then
+              count=$(python -c "import json; print(len(json.load(open('$f')).get('filings',[])))" 2>/dev/null || echo "?")
+              echo "  $src: $count filings"
+            else
+              echo "  $src: skipped/failed"
+            fi
+          done
+
+  # ===========================================================================
+  # JOB 5 : Summary + lastRun timestamps (pour badge "Frais < 30 min" UI)
+  # Tourne apres tous les autres jobs.
+  # ===========================================================================
+  summary:
+    runs-on: ubuntu-latest
+    needs: [sec-13dg, amf-fr, bafin-de, eu-thresholds]
+    if: always()
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install -g wrangler
+
+      - name: Update lastRun timestamps for realtime-30min sources
+        run: |
+          ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          # KV pattern : lastRun:<source> -> ISO timestamp. Lu par /api/sources/last-run
+          # pour afficher un badge "Frais X min" dans l'UI staleness check.
+          for source in 13dg-realtime amf-realtime bafin-realtime amf-thresholds-realtime bafin-thresholds-realtime afm-thresholds-realtime; do
+            payload="{\"timestamp\":\"$ts\",\"source\":\"$source\",\"trigger\":\"cron-30min\"}"
+            tmpfile=$(mktemp)
+            echo "$payload" > "$tmpfile"
+            wrangler kv key put --namespace-id=$KV_NS --remote "lastRun:$source" --path="$tmpfile" 2>&1 | tail -1
+            rm -f "$tmpfile"
+          done
+          echo "All lastRun timestamps updated to $ts"

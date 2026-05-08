@@ -326,6 +326,25 @@ En plus de `update-13f.yml` (pipeline data principal 1h30 UTC), trois workflows 
 - Sert le backtest long-terme et le tracking trimestriel des mouvements (entrées/sorties)
 - Run mensuel suffit : les 13F sont publiés trimestriellement avec 45 jours de lag
 
+**`.github/workflows/realtime-30min.yml`** (toutes les 30 min, :15 et :45) :
+- Refresh les sources haute volatilité (filings qui peuvent tomber à tout moment)
+- 4 jobs en parallèle pour minimiser la latence totale (~10 min max) :
+  1. **`sec-13dg`** : `fetch-13dg.py --days 1 --merge-with` (incremental SEC 13D/A) puis `build-13d-filer-set.py` + `build-eu-13d-index.py` pour rafraîchir les indexes activist EU/UK
+  2. **`amf-fr`** : `fetch-amf.py` (déclarations dirigeants Euronext Paris)
+  3. **`bafin-de`** : `fetch-bafin.py` (Directors' Dealings Allemagne)
+  4. **`eu-thresholds`** : `fetch-amf-thresholds.py` + `fetch-bafin-thresholds.py` + `fetch-afm-thresholds.py` (seuils >5% EU)
+- Job `summary` final : update `lastRun:13dg-realtime`, `lastRun:amf-realtime`, etc. en KV pour permettre l'affichage d'un badge UI "Frais < 30 min"
+- Décalé à `:15`/`:45` pour éviter la course avec `update-13f.yml` qui tourne à `1:30 UTC`
+- Concurrency : `cancel-in-progress: true` annule le run précédent si nouveau cron arrive (évite empilement)
+- Repo public → minutes Actions illimitées et gratuites
+
+Sources qui restent **quotidiennes** (publication trimestrielle ou mensuelle, pas de gain à 30 min) :
+- 13F (trimestriel)
+- ETFs NANC/GOP/GURU (NAV daily, holdings mensuels)
+- Google Trends (snapshot daily suffit)
+- Discovery hedge funds (hebdo, lundi seulement)
+- Short Interest (snapshot daily highshortinterest.com)
+
 ---
 
 ## 5. Structure des données
@@ -349,9 +368,18 @@ Le KV contient les données "chaudes" consultées à chaque requête. Namespace 
 | `13f-all-funds` | Tous les portefeuilles hedge funds (200 top) | 24 h | Écrit par le pipeline |
 | `13f-ticker-index` | Index inverse ticker → [fonds qui le détiennent] | 24 h | Pour la page "stock analysis" |
 | `13f-funds-list` | Liste des 200 top fonds (pour discovery) | 7 j | Écrit hebdo |
-| `13dg-recent` | 37k filings 13D/G SEC US (2 ans) | infini | Lu à chaque requête activists |
-| `amf-thresholds-recent` | Franchissements de seuils AMF France (30j-2 ans) | infini | Mergé avec 13dg-recent dans /api/13dg/* |
-| `bafin-thresholds-recent` | Stimmrechtsmitteilungen BaFin Allemagne | infini | Mergé idem |
+| `13dg-recent` | 37k filings 13D/G SEC US (2 ans), refresh 30min | infini | Lu à chaque requête activists |
+| `13d-filer-ciks` | Set des CIK qui ont filé ≥1 13D/A en 730j (~2800 CIKs) | 30 min refresh | `prefetch-13f.py` lit pour flag isOffensive |
+| `13d-eu-uk-index` | Mapping ticker primaire .L/.PA/.AS/.DE/etc. → activistes 13D US | 30 min refresh | `aggregate13F` worker merge dans topFunds EU/UK |
+| `amf-thresholds-recent` | Franchissements de seuils AMF France (30j-2 ans), refresh 30min | infini | Mergé avec 13dg-recent dans /api/13dg/* |
+| `bafin-thresholds-recent` | Stimmrechtsmitteilungen BaFin Allemagne, refresh 30min | infini | Mergé idem |
+| `afm-thresholds-recent` | Substantial holdings AFM Pays-Bas, refresh 30min | infini | Mergé idem |
+| `amf-recent-snapshot` | AMF declarations dirigeants snapshot 30min | infini | Lu pour insider transactions FR live |
+| `bafin-recent-snapshot` | BaFin Directors' Dealings snapshot 30min | infini | Lu pour insider transactions DE live |
+| `lastRun:13dg-realtime` | Timestamp dernier run cron 30min sur 13DG | 30 j | Badge UI "Frais < 30 min" |
+| `lastRun:amf-realtime` | Timestamp dernier run cron 30min sur AMF FR | 30 j | Idem |
+| `lastRun:bafin-realtime` | Timestamp dernier run cron 30min sur BaFin DE | 30 j | Idem |
+| `lastRun:{amf,bafin,afm}-thresholds-realtime` | Timestamp dernier run cron 30min sur seuils EU | 30 j | Idem |
 | `google-trends-data` | Indices Google Trends top 100 tickers | 24 h | Hot Stocks |
 | `google-trends-hot` | Top movers (intérêt retail qui explose) | 24 h | Home dashboard |
 | `lastRun:{job}` | Métadonnées dernier run d'un script Python | 30 j | Admin dashboard |

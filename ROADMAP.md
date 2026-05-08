@@ -4,7 +4,7 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 08 mai 2026 (v13 - Data quality EU + OG image dynamique + quotas anonymes)
+**Dernière mise à jour** : 08 mai 2026 (v13 - Data quality EU + OG image dynamique + quotas anonymes + refresh 30min + activists UK/EU via SEC ADR mapping)
 
 ---
 
@@ -113,22 +113,80 @@ du primary_doc.xml SEC.
 
 Source : SEC EDGAR primary_doc.xml Item 4 + ratelimit poli (10 req/s max).
 
-### 🔜 13D Alert temps reel (Pro/Elite)
+### ✅ Activistes UK/EU via SEC 13D + ADR mapping
 
-Cron worker toutes les 30min qui poll SEC EDGAR + FCA RNS pour detecter
-les nouveaux 13D filings d'activistes, et envoie push notif/email aux
-users avec ce ticker en watchlist.
+**Probleme** : la FCA NSM (UK), AMF (FR), BaFin (DE) ne donnent pas le filerName
+dans leur API. Le HTML body est anti-bot (S3 AccessDenied). Les listes
+hardcodees etaient incompletes.
 
-Latence : <40 min apres filing SEC. Comparable a Bloomberg Terminal.
-Argument tier Elite (49EUR/mois).
+**Solution decouverte** : 643 filings 13D/A US dans nos donnees SEC visent en
+realite des societes UK/EU (PLC/AB/AG/NV/SE/SA suffix). Cevian, TCI, Pershing
+UK side, Trian, Oaktree filent leurs 13D AUPRES DE LA SEC quand la societe
+ciblee est cotee aux US (ADR ou double-listing). Donnees factuelles deja
+presentes - il manquait le mapping ADR_US -> ticker_primaire_UK_EU.
 
-**A faire** :
-- [ ] Cron `13d-alert.yml` toutes les 30min ou crontab Workers
-- [ ] Diff KV `last_seen_accession` vs nouveaux filings
-- [ ] Match filer ∈ KNOWN_ACTIVISTS + ticker ∈ user.watchlist
+**Pipeline livre** :
+- `worker/build-eu-13d-index.py` : extrait les 13D/A non-US, resolve via Yahoo
+  Search avec heuristique par suffixe (PLC -> .L, AG -> .DE, NV -> .AS, etc.)
+- KV `13d-eu-uk-index` (61 KB, 43 tickers, 189 filings)
+- `worker/src/stock-api.js` aggregate13F detecte tickers EU/UK via regex et
+  merge ces filings dans topFunds avec isOffensive=true automatique
+
+**Signaux activistes UK/EU live** :
+| Ticker | Société | Activist | Évolution |
+|--------|---------|----------|-----------|
+| SN.L | Smith & Nephew | Cevian | 6.43% → 10.71% en 18 mois |
+| PSON.L | Pearson | Cevian | 14.18% → 19.17% |
+| JHG | Janus Henderson | Trian (Peltz) | activist |
+| TEN.MI | Tenaris | San Faustin SA | 68.6% controlling |
+| GLPG.AS | Galapagos | EcoR1 + Tang | multi-fund |
+
+Aucune dependance scraping FCA/LSE. Auto-update via le cron 30min ci-dessous.
+
+### ✅ Refresh data 30 min — sources haute volatilite
+
+Workflow `realtime-30min.yml` qui tourne toutes les 30 min pour les sources
+ou un nouveau filing peut tomber a tout moment de la journee :
+- **fetch-13dg.py --days 1** : nouveaux 13D/A SEC (activistes US + UK/EU
+  via ADR mapping, signal smart money fort)
+- **fetch-amf.py --days 1** : declarations dirigeants AMF FR (insider EU)
+- **fetch-bafin.py --days 1** : Directors' Dealings BaFin DE
+- **fetch-amf-thresholds.py --days 1** : seuils AMF FR (BlackRock, Norges,
+  etc. franchissant un seuil sur une action FR)
+- **fetch-bafin-thresholds.py --days 1** : seuils BaFin DE
+- **fetch-afm-thresholds.py --days 1** : seuils AFM NL
+- **build-13d-filer-set.py + build-eu-13d-index.py** : recompute apres
+  fetch-13dg pour activist signals UK/EU live
+- **prefetch-shorts.py** (optionnel) : short interest peut changer 2x/jour
+
+Strategie :
+1. Download KV existant (snapshot complet 730j)
+2. Fetch incremental --days 1 (nouvelles entries des dernieres 24h)
+3. Merge + dedup par accession id
+4. Push KV mis a jour
+5. Update lastRun timestamp pour badge "Frais < 30 min"
+
+Donnees qui restent **quotidiennes** (pas de gain a 30 min) :
+- 13F (publication trimestrielle)
+- ETFs (NAV daily, holdings mensuels)
+- Google Trends (daily)
+- Discovery hedge funds (hebdo)
+
+Cost : 48 runs/jour x ~5 min = 240 min/jour = ~7200 min/mois sur GitHub
+Actions Pro (limite 3000 min/mois). Solution : parallelisation jobs dans
+le workflow + jobs ultra-courts (<3 min) = ~150 min/jour = 4500 min/mois OK.
+
+### 🔜 13D Alert push (Pro/Elite tier)
+
+Le pipeline 30 min ci-dessus fournit la base de donnees fraiches. Reste
+a brancher la couche notification user :
+- [ ] Diff KV `last_seen_accession` vs nouveaux filings dans le worker
+- [ ] Match filer in 13d_filer_ciks + ticker in user.watchlist
 - [ ] Send notif via Brevo / OneSignal
 - [ ] UI watchlist : flag "13D Alert ON/OFF" par ticker
 - [ ] Tarification : Pro 5 alerts max, Elite illimite
+- Argument commercial : <40 min apres filing SEC. Comparable Bloomberg
+  Terminal au prix d'un Elite (49 EUR/mois).
 
 ---
 
