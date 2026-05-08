@@ -59,6 +59,7 @@ const SEC_USER_AGENT = 'KairosInsider contact@kairosinsider.fr';
 // quota — les gater casserait l'UX sans valeur business.
 const FREE_ROUTES = [
   '/api/feargreed', '/api/shorts', '/api/trends-hot',
+  '/api/ticker-tape',           // bandeau scrolling smart money sous navbar
   '/api/market-pulse',          // indices US + VIX + F&G (cockpit home, public data)
   '/api/13dg/ticker',           // gros actionnaires sur 1 ticker
   '/api/history/ticker-activity', // widget 'Activite recente 7j' (ETF+insiders+score delta)
@@ -1086,6 +1087,13 @@ async function handleApiRoute(path, url, env, origin) {
   }
   if (path === '/api/13dg/activists') {
     return handleScheduleDGActivists(url, env, origin);
+  }
+
+  // Ticker tape : flux de signaux smart money temps reel (sous la navbar)
+  // Aggregation des filings/insiders/clusters/scores les + recents et + importants.
+  // Cache 5 min. Public (FREE_ROUTES).
+  if (path === '/api/ticker-tape') {
+    return handleTickerTape(env, origin);
   }
 
   // Backtest Smart Money — feature gratuite (acquisition)
@@ -7568,6 +7576,185 @@ async function handleScheduleDGActivists(url, env, origin) {
     byFiler: aggregated,
     filings: activistFilings.slice(0, 100),
   }, 200, origin);
+}
+
+// ============================================================
+// TICKER TAPE : flux de signaux smart money pour bandeau scrolling
+// ============================================================
+// Aggregation multi-sources avec FILTRES IMPORTANCE :
+//  - 13D activists US : isActivist + |delta|>=0.5pt OU 1er depot, 7j
+//  - AMF/BaFin/AFM/SIX : pct >=5% (ou >=3% pour CH), 7j
+//  - Insider buys (Form 4) : value >= $1M, 7j
+//  - Clusters : 3+ insiders sur 30j
+//  - Top Kairos Score : score >=80 (top du jour)
+//  - Trending Google : spike >= +100%
+// Output : 30-50 items melanges (rotation aleatoire pour variete visuelle).
+// Cache 5 min KV. Public via /api/ticker-tape (FREE).
+async function handleTickerTape(env, origin) {
+  const cacheKey = 'ticker-tape:v2';
+  const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
+  if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
+    return jsonResponse(cached, 200, origin);
+  }
+
+  const cutoff7d = (new Date(Date.now() - 7 * 24 * 3600 * 1000)).toISOString().slice(0, 10);
+  const items = [];
+
+  // Helper : raccourcir nom filer pour ticker tape (60+ chars -> 30)
+  const shortFiler = (s) => {
+    if (!s) return '';
+    let n = String(s).replace(/\s+/g, ' ').trim();
+    // Remove common suffixes
+    n = n.replace(/\s*(LP|LLC|Inc\.?|Corp\.?|Corporation|Ltd|Limited|S\.A\.?|N\.V\.?|GmbH|AG|S\.r\.l\.?|S\.p\.A\.?|Plc|S\.E\.|SE)\s*$/i, '').trim();
+    return n.length > 28 ? n.slice(0, 26) + '…' : n;
+  };
+
+  // Helper : ticker prefere (ticker US ou yahooSymbol EU)
+  const pickTicker = (f) => f.yahooSymbol || f.ticker;
+
+  // Helper : direction badge selon delta
+  const directionStr = (delta) => {
+    if (delta == null) return '';
+    if (Math.abs(delta) < 0.01) return '';
+    return delta > 0 ? `▲+${Math.abs(delta).toFixed(2)}pt` : `▼-${Math.abs(delta).toFixed(2)}pt`;
+  };
+
+  try {
+    // === 1. ACTIVIST 13D (US) - filings activists avec delta >= 0.5pt ou 1er depot ===
+    const dgData = await env.CACHE.get('13dg-recent', 'json').catch(() => null);
+    if (dgData?.filings) {
+      const dgItems = dgData.filings
+        .filter(f => f.isActivist && f.fileDate >= cutoff7d && pickTicker(f))
+        .filter(f => /SCHEDULE\s+13D/i.test(f.form || ''))
+        .filter(f => {
+          // Important : nouveau 13D OU delta significatif (>= 0.5pt)
+          if (/SCHEDULE\s+13D$/i.test((f.form || '').trim())) return true; // initial filing
+          return f.percentDelta != null && Math.abs(f.percentDelta) >= 0.5;
+        })
+        .sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''))
+        .slice(0, 8);
+      for (const f of dgItems) {
+        items.push({
+          type: 'activist', flag: '🇺🇸', country: 'US',
+          ticker: pickTicker(f),
+          label: shortFiler(f.filerName) + ' · ⚡',
+          value: f.percentDelta != null
+            ? `${directionStr(f.percentDelta)} → ${(f.percentOfClass || 0).toFixed(1)}%`
+            : `${(f.percentOfClass || 0).toFixed(1)}% (1er dépôt)`,
+          date: f.fileDate,
+          color: f.percentDelta != null && f.percentDelta < 0 ? 'red' : 'orange',
+        });
+      }
+    }
+
+    // === 2-5. EU THRESHOLDS (AMF/BaFin/AFM/SIX) - pct >= 5% (3% pour CH) ===
+    const euSources = [
+      { kv: 'amf-thresholds-recent', flag: '🇫🇷', country: 'FR', minPct: 5, max: 5 },
+      { kv: 'bafin-thresholds-recent', flag: '🇩🇪', country: 'DE', minPct: 5, max: 5 },
+      { kv: 'nl-thresholds-recent', flag: '🇳🇱', country: 'NL', minPct: 5, max: 6 },
+      { kv: 'ch-thresholds-recent', flag: '🇨🇭', country: 'CH', minPct: 3, max: 5 },
+    ];
+    for (const src of euSources) {
+      const data = await env.CACHE.get(src.kv, 'json').catch(() => null);
+      if (!data?.filings) continue;
+      const passive = ['blackrock', 'vanguard', 'state street', 'norges bank', 'fmr llc', 'goldman sachs'];
+      const isPassive = (n) => passive.some(p => (n || '').toLowerCase().includes(p));
+      const euItems = data.filings
+        .filter(f => f.fileDate >= cutoff7d && f.percentOfClass != null && f.percentOfClass >= src.minPct)
+        .filter(f => f.targetName) // need at least target name
+        .sort((a, b) => {
+          // Trier par date desc puis pct desc
+          const dCmp = (b.fileDate || '').localeCompare(a.fileDate || '');
+          if (dCmp !== 0) return dCmp;
+          return (b.percentOfClass || 0) - (a.percentOfClass || 0);
+        })
+        .slice(0, src.max);
+      for (const f of euItems) {
+        const tk = pickTicker(f) || (f.targetName || '').slice(0, 16);
+        const filerN = shortFiler(f.filerName) || 'Filer';
+        const isInteresting = !isPassive(f.filerName);  // tag différent pour activists vs index funds
+        items.push({
+          type: 'threshold', flag: src.flag, country: src.country,
+          ticker: tk,
+          label: filerN + (isInteresting ? ' · ⚡' : ''),
+          value: f.percentDelta != null && Math.abs(f.percentDelta) >= 0.5
+            ? `${directionStr(f.percentDelta)} → ${f.percentOfClass.toFixed(2)}%`
+            : `${f.percentOfClass.toFixed(2)}%`,
+          date: f.fileDate,
+          color: isInteresting ? 'orange' : 'blue',
+        });
+      }
+    }
+
+    // === 6. INSIDER BUYS (Form 4) - value >= $1M, 7j ===
+    const insClusters = await env.CACHE.get('insider-clusters', 'json').catch(() => null);
+    if (insClusters?.clusters) {
+      const clusterItems = insClusters.clusters
+        .filter(c => c.totalValue >= 1000000)
+        .sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''))
+        .slice(0, 5);
+      for (const c of clusterItems) {
+        const valStr = c.totalValue >= 1e6 ? `$${(c.totalValue / 1e6).toFixed(1)}M` : `$${(c.totalValue / 1e3).toFixed(0)}K`;
+        items.push({
+          type: 'cluster', flag: '🟢', country: 'US',
+          ticker: c.ticker,
+          label: `CLUSTER · ${c.insiderCount || c.txCount || '?'} insiders`,
+          value: valStr,
+          date: c.lastDate,
+          color: 'green',
+        });
+      }
+    }
+
+    // === 7. TOP KAIROS SCORE - score >= 80 ===
+    const topSignals = await env.CACHE.get('home:top-signals:v7', 'json').catch(() => null);
+    if (topSignals?.topScores) {
+      const scoreItems = topSignals.topScores
+        .filter(s => s.score >= 80 && s.ticker)
+        .slice(0, 4);
+      for (const s of scoreItems) {
+        items.push({
+          type: 'score', flag: '🚀', country: '',
+          ticker: s.ticker,
+          label: 'TOP SCORE',
+          value: `${s.score}/100`,
+          color: 'green',
+        });
+      }
+    }
+
+    // === 8. TRENDING GOOGLE - spike >= +100% ===
+    const trends = await env.CACHE.get('google-trends-hot', 'json').catch(() => null);
+    if (trends?.tickers) {
+      const trendItems = trends.tickers
+        .filter(t => (t.spike || t.spikePct || 0) >= 100 && t.ticker)
+        .slice(0, 4);
+      for (const t of trendItems) {
+        const spike = t.spike || t.spikePct;
+        items.push({
+          type: 'trend', flag: '🔥', country: '',
+          ticker: t.ticker,
+          label: 'TRENDING',
+          value: `+${spike.toFixed(0)}%`,
+          color: 'red',
+        });
+      }
+    }
+  } catch (e) {
+    log.warn('ticker-tape.aggregate.error', { error: String(e && e.message || e) });
+  }
+
+  // Shuffle (rotation aleatoire pour variete visuelle entre refreshes)
+  const shuffled = items.sort(() => Math.random() - 0.5).slice(0, 40);
+
+  const payload = {
+    _cachedAt: Date.now(),
+    total: shuffled.length,
+    items: shuffled,
+  };
+  // Cache KV 5 min (synchro avec le client setInterval 5min)
+  await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 300 }).catch(() => {});
+  return jsonResponse(payload, 200, origin);
 }
 
 // GET /api/admin/db-stats

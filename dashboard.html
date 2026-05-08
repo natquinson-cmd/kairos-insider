@@ -336,6 +336,85 @@
     }
     .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .logo-text { background: var(--logo-text-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    /* ===== TICKER TAPE (sous la navbar) =====
+       Bandeau scrolling smart money en temps reel. Position fixed sous la
+       navbar reduite (top:45px). Hauteur 32px. Pause au hover. */
+    .ticker-tape {
+      position: fixed;
+      top: 45px; left: 0; right: 0;
+      height: 32px;
+      background: linear-gradient(90deg, var(--surface-1) 0%, var(--bg-secondary) 50%, var(--surface-1) 100%);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      z-index: 99;  /* sous la navbar (100) mais au-dessus du contenu */
+      display: flex;
+      align-items: center;
+      backdrop-filter: blur(8px);
+    }
+    .ticker-tape-track {
+      display: flex;
+      gap: 0;
+      white-space: nowrap;
+      animation: tickerScroll 90s linear infinite;
+      will-change: transform;
+    }
+    .ticker-tape:hover .ticker-tape-track {
+      animation-play-state: paused;
+    }
+    @keyframes tickerScroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+    .ticker-tape-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 18px;
+      border-right: 1px solid var(--border);
+      font-size: 12px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .ticker-tape-item:hover {
+      background: var(--surface-2);
+      color: var(--text-primary);
+    }
+    .ticker-tape-flag { font-size: 14px; line-height: 1; flex-shrink: 0; }
+    .ticker-tape-ticker {
+      font-weight: 700;
+      color: #74b9ff;
+      letter-spacing: 0.02em;
+      font-size: 12.5px;
+    }
+    .ticker-tape-label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .ticker-tape-value {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .ticker-tape-value.green { color: #10B981; }
+    .ticker-tape-value.red { color: #EF4444; }
+    .ticker-tape-value.orange { color: #F59E0B; }
+    .ticker-tape-value.blue { color: #60A5FA; }
+    .ticker-tape-loading {
+      padding: 0 24px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-style: italic;
+    }
+    /* Mobile : ticker plus dense, items plus serres */
+    @media (max-width: 700px) {
+      .ticker-tape { height: 28px; }
+      .ticker-tape-item { padding: 0 12px; font-size: 11px; gap: 6px; }
+      .ticker-tape-ticker { font-size: 11.5px; }
+      .ticker-tape-track { animation-duration: 70s; }
+    }
+
     .nav-links { display: flex; gap: 24px; align-items: center; list-style: none; }
     .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
     .nav-links a:hover, .nav-links a.active { color: var(--text-primary); }
@@ -1189,7 +1268,7 @@
     .dashboard-layout {
       display: flex;
       min-height: 100vh;
-      padding-top: 45px;  /* navbar reduite : 8+28+8 = 44px (vs 72px avant) */
+      padding-top: 77px;  /* navbar (45px) + ticker tape (32px) = 77px */
     }
 
     /* Sidebar */
@@ -1200,7 +1279,7 @@
       border-right: 1px solid var(--border);
       padding: 24px 0;
       position: fixed;
-      top: 45px;
+      top: 77px;  /* nav 45 + ticker 32 */
       left: 0;
       bottom: 0;
       overflow-y: auto;
@@ -2103,7 +2182,7 @@
     @media (max-width: 900px) {
       .sidebar {
         position: fixed;
-        top: 45px; left: 0; bottom: 0;
+        top: 73px; left: 0; bottom: 0;  /* nav 45 + ticker 28 mobile */
         width: 260px;
         z-index: 900;
         transform: translateX(-100%);
@@ -2191,8 +2270,8 @@
     }
     .funds-table-wrap thead th {
       position: sticky;
-      /* Sous la nav fixe : 44px (padding 8+8 + logo 28px) + 1px border = 45px */
-      top: 45px;
+      /* Sous nav (45px) + ticker tape (32px) = 77px */
+      top: 77px;
       z-index: 10;
       background: var(--bg-secondary);
       backdrop-filter: blur(8px);
@@ -2215,15 +2294,14 @@
     }
 
     /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows.
-       top: 45px = hauteur nav fixe reduite (padding 8+8 + logo 28px + 1px border).
-       Avant : 72px (nav padding 16+16 + logo 40px). Sans cet offset, le thead
+       top: 77px = nav (45) + ticker tape (32). Sans cet offset, le thead
        se collait sous la nav qui le masquait au scroll. */
     thead th {
       padding: 14px 16px; text-align: left; font-weight: 600; font-size: 12px;
       color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
       border-bottom: 1px solid var(--border); white-space: nowrap;
       position: sticky;
-      top: 45px;
+      top: 77px;
       z-index: 5;
       /* IMPORTANT : background OPAQUE (pas transparent) pour masquer les rows
          qui passent derriere le header sticky lors du scroll. Fallback en
@@ -3083,6 +3161,17 @@
       </ul>
     </div>
   </nav>
+
+  <!-- ===== TICKER TAPE (smart money flow scrolling) =====
+       Affiche les filings/insiders/scores les + recents et + importants sous
+       la navbar. Refresh 5 min via fetch /api/ticker-tape. Click item -> fiche
+       valeur. Pause au hover pour la lecture. -->
+  <div id="tickerTape" class="ticker-tape" aria-label="Smart money live signals">
+    <div class="ticker-tape-track" id="tickerTapeTrack">
+      <!-- Items rendus dynamiquement par JS -->
+      <span class="ticker-tape-loading">Chargement des signaux smart money…</span>
+    </div>
+  </div>
 
   <!-- ===== MODAL SUPPORT ===== -->
   <div id="supportModal" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle"
@@ -5331,6 +5420,69 @@
     // CONFIG
     // ============================================================
     const API_BASE = 'https://kairos-insider-api.natquinson.workers.dev';
+
+    // ============================================================
+    // TICKER TAPE (bandeau scrolling smart money sous navbar)
+    // ============================================================
+    // Fetch /api/ticker-tape (cache worker 5min) + render + setInterval 5min.
+    // Click sur item -> bascule sur Decrypter une valeur avec ticker preselect.
+    // L'animation CSS se fait sur la track, on duplique le contenu pour que le
+    // scroll soit infini sans gap visible (marquee classique).
+    async function loadTickerTape() {
+      const track = document.getElementById('tickerTapeTrack');
+      if (!track) return;
+      try {
+        const resp = await fetch(API_BASE + '/api/ticker-tape', { cache: 'no-store' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const items = data.items || [];
+        if (!items.length) {
+          track.innerHTML = '<span class="ticker-tape-loading">Aucun signal récent · sources en cache</span>';
+          return;
+        }
+        const renderItem = (it) => {
+          const ticker = String(it.ticker || '').replace(/[<>"'&]/g, '');
+          const label = String(it.label || '').replace(/[<>"'&]/g, '');
+          const value = String(it.value || '').replace(/[<>"'&]/g, '');
+          const flag = it.flag || '🌐';
+          const colorClass = ['green','red','orange','blue'].includes(it.color) ? it.color : 'orange';
+          const tickerEsc = ticker.replace(/'/g, "\\'");
+          return `<span class="ticker-tape-item" onclick="loadTickerFromTape('${tickerEsc}')" title="${label} · ${value}">
+            <span class="ticker-tape-flag">${flag}</span>
+            <span class="ticker-tape-ticker">${ticker}</span>
+            <span class="ticker-tape-label">${label}</span>
+            <span class="ticker-tape-value ${colorClass}">${value}</span>
+          </span>`;
+        };
+        // Duplique le contenu pour rendre le scroll infini sans saut visible
+        // (anim translate -50% = 1 cycle complet du contenu original).
+        const itemsHtml = items.map(renderItem).join('');
+        track.innerHTML = itemsHtml + itemsHtml;
+      } catch (e) {
+        // Best-effort : pas d'erreur visible, on retentera au prochain refresh
+        console.debug('[ticker-tape] fetch failed:', e.message || e);
+      }
+    }
+
+    // Click handler : bascule sur Decrypter une valeur avec ticker preselect
+    function loadTickerFromTape(ticker) {
+      if (!ticker) return;
+      try {
+        if (typeof switchSection === 'function') {
+          switchSection('stockAnalysis');
+          if (typeof loadStockAnalysis === 'function') {
+            setTimeout(() => loadStockAnalysis(ticker), 150);
+          }
+        } else {
+          // Fallback : mise a jour du hash
+          window.location.hash = `#stockAnalysis?t=${encodeURIComponent(ticker)}`;
+        }
+      } catch (e) { console.debug('[ticker-tape] click error:', e); }
+    }
+
+    // Auto-load au mount + refresh 5 min
+    loadTickerTape();
+    setInterval(loadTickerTape, 5 * 60 * 1000);
 
     // ============================================================
     // SÉCURITÉ — Helper anti-XSS
