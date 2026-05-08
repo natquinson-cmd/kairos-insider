@@ -2985,7 +2985,30 @@
        par defaut puis masque en JS apres firebase init -> flash visible pour
        les anonymes arrivant via /a/[ticker] depuis un tweet. -->
   <div class="auth-overlay hidden" id="authOverlay">
-    <div class="auth-card">
+    <div class="auth-card" style="position:relative">
+      <!-- Toggle langue FR/EN (top-right) : essentiel pour les visiteurs anonymes
+           qui n'ont pas encore acces au menu profil. Affiche la langue VERS
+           laquelle on switch (EN si on est en FR, FR si on est en EN). -->
+      <button type="button" id="authLangToggle" onclick="(function(){var L=window.KairosI18n;if(!L)return;L.setLang(L.getLang()==='fr'?'en':'fr');})()" style="position:absolute;top:14px;right:14px;padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--border-strong)'" onmouseout="this.style.color='var(--text-secondary)';this.style.borderColor='var(--border)'">
+        <span id="authLangFlag">🇬🇧</span>
+        <span id="authLangCode">EN</span>
+      </button>
+      <script>
+        // Update du toggle au chargement + a chaque switchLang
+        (function syncAuthLangToggle(){
+          var update = function(){
+            var L = window.KairosI18n;
+            if (!L) return setTimeout(update, 100);
+            var current = L.getLang();
+            var fl = document.getElementById('authLangFlag');
+            var co = document.getElementById('authLangCode');
+            if (fl) fl.textContent = current === 'fr' ? '🇬🇧' : '🇫🇷';
+            if (co) co.textContent = current === 'fr' ? 'EN' : 'FR';
+          };
+          if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', update); else update();
+          window.addEventListener('kairos:langchange', update);
+        })();
+      </script>
       <div class="logo-mark">
         <img src="assets/logo.svg" alt="Kairos Insider" />
       </div>
@@ -6286,10 +6309,25 @@
       const pctUsed = Math.min(100, (state.count / maxQuota) * 100);
       const emoji = remaining === 0 ? '🔒' : remaining === 1 ? '⚡' : '✨';
       const color = remaining === 0 ? '#EF4444' : remaining === 1 ? '#F59E0B' : '#10B981';
+      // FIX (mai 2026) : i18n FR/EN sur le bandeau quota (avant : tout en FR
+      // meme en mode EN). Utilise window.KairosI18n.getLang() pour switcher.
+      const __lang = (window.KairosI18n && window.KairosI18n.getLang()) || 'fr';
+      const __isEn = __lang === 'en';
       const subline = isAnon
-        ? `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour 4/jour + Tendances retail + Fear & Greed + Short Interest`
-        : `${state.count}/${maxQuota} utilisées · reset à minuit · passer Pro pour illimité + filings + hedge funds + watchlist`;
-      const ctaLabel = isAnon ? 'Créer un compte gratuit' : 'Passer Pro';
+        ? (__isEn
+            ? `${state.count}/${maxQuota} used · create a free account for 4/day + Retail trends + Fear & Greed + Short Interest`
+            : `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour 4/jour + Tendances retail + Fear & Greed + Short Interest`)
+        : (__isEn
+            ? `${state.count}/${maxQuota} used · resets at midnight · upgrade to Pro for unlimited + filings + hedge funds + watchlist`
+            : `${state.count}/${maxQuota} utilisées · reset à minuit · passer Pro pour illimité + filings + hedge funds + watchlist`);
+      const ctaLabel = isAnon
+        ? (__isEn ? 'Create a free account' : 'Créer un compte gratuit')
+        : (__isEn ? 'Upgrade to Pro' : 'Passer Pro');
+      const __remainingLabel = remaining === 0
+        ? (__isEn ? 'Daily quota reached' : 'Quota quotidien atteint')
+        : (__isEn
+            ? `<span style="color:${color}">${remaining} free analys${remaining > 1 ? 'es' : 'is'}</span> left today`
+            : `<span style="color:${color}">${remaining} analyse${remaining > 1 ? 's' : ''} gratuite${remaining > 1 ? 's' : ''}</span> restante${remaining > 1 ? 's' : ''} aujourd'hui`);
       // Gradient brand : aligne sur le logo et l'image OG (bleu -> violet -> rose)
       const ctaGradient = 'linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%)';
       const ctaOnclick = isAnon
@@ -6301,9 +6339,7 @@
           <div style="font-size:24px;line-height:1;flex-shrink:0">${emoji}</div>
           <div style="flex:1;min-width:220px">
             <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">
-              ${remaining === 0
-                ? 'Quota quotidien atteint'
-                : `<span style="color:${color}">${remaining} analyse${remaining > 1 ? 's' : ''} gratuite${remaining > 1 ? 's' : ''}</span> restante${remaining > 1 ? 's' : ''} aujourd'hui`}
+              ${__remainingLabel}
             </div>
             <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
               <div style="height:100%;width:${pctUsed}%;background:linear-gradient(90deg,${color},${color});border-radius:3px;transition:width 0.3s"></div>
