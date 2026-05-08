@@ -2988,9 +2988,11 @@
     <div class="auth-card" style="position:relative">
       <!-- Toggle langue FR/EN (top-right) : essentiel pour les visiteurs anonymes
            qui n'ont pas encore acces au menu profil. Affiche la langue VERS
-           laquelle on switch (EN si on est en FR, FR si on est en EN). -->
-      <button type="button" id="authLangToggle" onclick="(function(){var L=window.KairosI18n;if(!L)return;L.setLang(L.getLang()==='fr'?'en':'fr');})()" style="position:absolute;top:14px;right:14px;padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--border-strong)'" onmouseout="this.style.color='var(--text-secondary)';this.style.borderColor='var(--border)'">
-        <span id="authLangFlag">🇬🇧</span>
+           laquelle on switch (EN si on est en FR, FR si on est en EN).
+           Drapeau via flagcdn PNG (les emoji regional indicators ne s'affichent
+           pas sur Windows -> tombent sur 'GB'/'FR' en lettres). -->
+      <button type="button" id="authLangToggle" onclick="(function(){var L=window.KairosI18n;if(!L)return;L.setLang(L.getLang()==='fr'?'en':'fr');})()" style="position:absolute;top:14px;right:14px;padding:5px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--border-strong)'" onmouseout="this.style.color='var(--text-secondary)';this.style.borderColor='var(--border)'">
+        <img id="authLangFlag" src="https://flagcdn.com/w20/gb.png" width="18" height="13" alt="EN" style="border-radius:2px;flex-shrink:0">
         <span id="authLangCode">EN</span>
       </button>
       <script>
@@ -3000,10 +3002,12 @@
             var L = window.KairosI18n;
             if (!L) return setTimeout(update, 100);
             var current = L.getLang();
+            var nextFlag = current === 'fr' ? 'gb' : 'fr';
+            var nextCode = current === 'fr' ? 'EN' : 'FR';
             var fl = document.getElementById('authLangFlag');
             var co = document.getElementById('authLangCode');
-            if (fl) fl.textContent = current === 'fr' ? '🇬🇧' : '🇫🇷';
-            if (co) co.textContent = current === 'fr' ? 'EN' : 'FR';
+            if (fl) { fl.src = 'https://flagcdn.com/w20/' + nextFlag + '.png'; fl.alt = nextCode; }
+            if (co) co.textContent = nextCode;
           };
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', update); else update();
           window.addEventListener('kairos:langchange', update);
