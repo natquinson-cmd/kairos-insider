@@ -317,6 +317,26 @@ def main():
         }, f, indent=2)
     print(f'\nSaved {len(out_list)} funds to 13f_funds_list.json')
 
+    # ETAPE 4 : augmenter avec les MUST_HAVE manquants (Burry, Ackman,
+    # Trian, Icahn, Tepper, Klarman, Einhorn, Loeb, Wood, ...).
+    # Ces fonds "offensifs" / activistes / contrarians sont parfois sous le
+    # seuil AUM ou ont un nom non-detecte par le full-text search SEC. Ils
+    # sont CENTRAUX au signal smart money - on les force toujours dans la liste.
+    print('\n=== ETAPE 4 : Augment avec MUST_HAVE (activistes/contrarians) ===')
+    try:
+        # Run en sub-process pour eviter le couplage de namespace (script independant).
+        import subprocess
+        result = subprocess.run(
+            ['python', 'augment-funds-list.py'],
+            capture_output=True, text=True, timeout=300,
+        )
+        print(result.stdout)
+        if result.returncode != 0:
+            print(f'  Augment exited with code {result.returncode}: {result.stderr}')
+    except Exception as e:
+        print(f'  Augment failed (non-fatal): {e}')
+        print('  Run manually : python augment-funds-list.py')
+
 
 if __name__ == '__main__':
     main()

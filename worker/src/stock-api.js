@@ -2013,6 +2013,10 @@ async function aggregate13F(ticker, env, companyName) {
             deltaPct,
             status,
             reportDate: h.d || h.reportDate,
+            // 'o' = 1 si le fund est dans une categorie offensive (activist, contrarian,
+            // tiger cub, macro, innovation, multi-strat, etc.). Permet au frontend
+            // de mettre en avant ces fonds (badges, tri prioritaire) vs les mega passifs.
+            isOffensive: h.o === 1 || h.o === true || false,
           };
         });
       }

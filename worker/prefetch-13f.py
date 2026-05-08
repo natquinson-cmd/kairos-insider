@@ -398,9 +398,25 @@ def normalize_company_name_py(name):
 print(f'\n=== Building inverted index (name -> funds) ===')
 # Compression aggressive pour rentrer dans la limite KV (25 MB/valeur).
 # A top 50 fonds/ticker + payload verbeux, on explose a 51 MB.
-# Strategie : cap 20 fonds max + noms de champs single-char + seuil 50k$.
+# Strategie : cap 15 fonds max + noms de champs single-char + seuil 100k$.
 MAX_FUNDS_PER_TICKER = 15  # etait 20. KV limite 25MB force cette reduction.
 MIN_POSITION_VALUE_USD = 100000  # etait 50000. Filtre plus strict : pro investors only.
+
+# Categories "offensives" : activistes, contrarians, conviction haute.
+# Ces fonds ont prio sur les mega passifs (BlackRock/Vanguard/etc.) dans le
+# cap top-15. On reserve OFFENSIVE_SLOTS pour eux meme s'ils ne sont pas
+# top par $ absolu. Sans ca BlackRock + Vanguard + State Street + Fidelity
+# + Citadel + Norges + Goldman + JPMorgan eclipsent toujours Burry/Ackman.
+OFFENSIVE_CATEGORIES = {
+    'Activist', 'Activist Value', 'Contrarian', 'Distressed', 'Deep Value',
+    'Macro', 'Innovation', 'Multi-strategy',
+    'Tiger Cub', 'Tiger Cub Growth', 'Tiger Cub Long-Short', 'Tiger Grandcub',
+    'Growth Tech', 'Tech Long-Short', 'Tech Tiger Cub',
+    'Long-Short', 'Long-Short UK', 'Macro Family Office', 'Quant',
+    'Value investing',
+}
+OFFENSIVE_SLOTS = 8   # min slots reserves aux offensifs (sur 15)
+PASSIVE_SLOTS = 7     # le reste pour les mega/bank/pension/asset manager
 
 ticker_index = {}  # normalized_name -> [{compact fund}]
 total_positions = 0
@@ -410,7 +426,9 @@ for fund in all_funds:
     fund_name = fund.get('fundName')
     fund_cik = fund.get('cik')
     fund_label = fund.get('label')
+    fund_category = fund.get('category', '') or ''
     fund_report = fund.get('reportDate')
+    is_offensive = fund_category in OFFENSIVE_CATEGORIES
     for h in all_hold:
         if (h.get('value') or 0) < MIN_POSITION_VALUE_USD:
             continue
@@ -419,24 +437,54 @@ for fund in all_funds:
             continue
         if key not in ticker_index:
             ticker_index[key] = []
-        # Payload ultra-compact (5 champs seulement pour fit 25 MB) :
-        # n=fundName, v=value, p=pct, c=sharesChange, d=reportDate
-        # Omis (computables cote client): k=cik, l=label, s=shares, t=status
-        # -> status peut etre derive de sharesChange (>1%=increased, <-1%=decreased...)
+        # Payload ultra-compact (6 champs) :
+        # n=fundName, v=value, p=pct, c=sharesChange, d=reportDate, o=is_offensive
+        # 'o' : 1 byte qui evite de re-deviner cote worker (le category n'est plus
+        # dans le payload pour fit KV 25 MB). Utilise par le tri prioritaire.
         ticker_index[key].append({
             'n': fund_name,
             'v': h.get('value'),
             'p': h.get('pct'),
             'c': h.get('sharesChange'),
             'd': fund_report,
+            'o': 1 if is_offensive else 0,
         })
 
-# Tri par value DESC + cap au top MAX_FUNDS_PER_TICKER fonds par ticker
+# CAP HYBRIDE : top 8 offensifs (par value DESC) + top 7 passifs (par value DESC).
+# Si moins de 8 offensifs disponibles, on remplit avec passifs (et inversement).
+# Resultat : Burry/Ackman/Pershing apparaissent meme si BlackRock + 7 autres
+# mega ont des positions plus grosses en $ absolu.
 indexed_positions = 0
+offensive_only_count = 0
+fully_filled_count = 0
 for key in list(ticker_index.keys()):
-    ticker_index[key].sort(key=lambda f: (f.get('v') or 0), reverse=True)
-    ticker_index[key] = ticker_index[key][:MAX_FUNDS_PER_TICKER]
+    all_funds_for_ticker = ticker_index[key]
+    all_funds_for_ticker.sort(key=lambda f: (f.get('v') or 0), reverse=True)
+    offensive = [f for f in all_funds_for_ticker if f.get('o') == 1]
+    passive = [f for f in all_funds_for_ticker if f.get('o') != 1]
+    # Top OFFENSIVE_SLOTS offensifs par value
+    picked_off = offensive[:OFFENSIVE_SLOTS]
+    # Top PASSIVE_SLOTS passifs par value
+    picked_pas = passive[:PASSIVE_SLOTS]
+    # Si offensifs manquants, on complete avec passifs (et vice-versa)
+    deficit_off = OFFENSIVE_SLOTS - len(picked_off)
+    deficit_pas = PASSIVE_SLOTS - len(picked_pas)
+    if deficit_off > 0:
+        picked_pas += passive[PASSIVE_SLOTS:PASSIVE_SLOTS + deficit_off]
+    if deficit_pas > 0:
+        picked_off += offensive[OFFENSIVE_SLOTS:OFFENSIVE_SLOTS + deficit_pas]
+    combined = picked_off + picked_pas
+    # Re-tri global par value DESC pour affichage user (pas de bias visible)
+    combined.sort(key=lambda f: (f.get('v') or 0), reverse=True)
+    ticker_index[key] = combined[:MAX_FUNDS_PER_TICKER]
     indexed_positions += len(ticker_index[key])
+    if len(picked_off) >= OFFENSIVE_SLOTS:
+        fully_filled_count += 1
+    if len(picked_off) > 0 and len(picked_pas) == 0:
+        offensive_only_count += 1
+
+print(f'  Cap hybride applique : {OFFENSIVE_SLOTS} offensifs + {PASSIVE_SLOTS} passifs / ticker')
+print(f'  Tickers avec >={OFFENSIVE_SLOTS} offensifs : {fully_filled_count}')
 
 print(f'  Total positions brutes : {total_positions}')
 print(f'  Tickers uniques : {len(ticker_index)}')
