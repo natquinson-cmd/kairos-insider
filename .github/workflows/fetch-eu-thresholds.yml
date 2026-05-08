@@ -60,10 +60,12 @@ jobs:
           cd worker
           # 90 jours : capture les declarations sur grandes caps qui bougent peu
           # (ex: LVMH, FDJ - franchissements rares mais a montrer)
-          # --max-pdf-enrich 80 : parse les 80 PDFs les plus recents pour
-          # extraire le filer (Goldman Sachs, BlackRock, Norges, etc.)
-          # et activer le flag isActivist
-          python fetch-amf-bdif.py --days 90 --debug --max-pdf-enrich 80
+          # --max-pdf-enrich 400 : parse jusqu'a 400 PDFs (vs 80 avant) pour
+          # extraire le filer (Goldman Sachs, BlackRock, Norges, etc.) et le
+          # % seuil franchi. Avant : 84% des 297 filings AMF sortaient sans
+          # pct car limite a 80/run. 400 couvre 90j a ~3 filings/j.
+          # Cout : ~5 min de download/parse PDF (rate limit 0.15s/PDF).
+          python fetch-amf-bdif.py --days 90 --debug --max-pdf-enrich 400
         continue-on-error: true
 
       - name: Upload AMF data
