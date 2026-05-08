@@ -210,20 +210,32 @@ def parse_amf_pdf(pdf_bytes, debug=False):
         'currentPercent': None, 'transactionDate': None,
     }
 
-    # 1. FILER : "Par courrier recu le DATE, FILER (...) a declare"
-    m = re.search(
+    # 1. FILER : on tente plusieurs patterns. AMF PDFs ont 5+ formulations courantes :
+    #    - "Par courrier recu le DATE, FILER (...) a declare avoir franchi"
+    #    - "FILER a declare avoir franchi"
+    #    - "FILER (...) a informe l'AMF avoir franchi"           (variant 'informer')
+    #    - "FILER et Y ont conjointement declare avoir franchi" (multi-declarants)
+    #    - "FILER, agissant pour le compte de ..., a declare"   (mandataire)
+    # Avant : 42% des PDFs sortaient sans filer parce que seule la 1ere forme matchait.
+    patterns = [
+        # Forme 1 (la plus stricte avec "Par courrier")
         r'[Pp]ar\s+courrier[^,]+,\s+([^(]+?)\s*\([^)]*\)\s*a\s+d[ée]?clar[ée]?\s+avoir\s+franchi',
-        text_norm,
-    )
-    if m:
-        result['filer'] = m.group(1).strip()
-    else:
-        # Fallback : chercher "FILER a declare avoir franchi"
-        m2 = re.search(
-            r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s+a\s+d[ée]?clar[ée]?\s+avoir\s+franchi',
-            text_norm,
-        )
-        if m2: result['filer'] = m2.group(1).strip()
+        # Forme 2 : "FILER (...) a declare avoir franchi" (le simple direct)
+        r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s*\([^)]*\)\s*a\s+d[ée]?clar[ée]?\s+avoir\s+franchi',
+        # Forme 3 : "FILER a informe l'AMF avoir franchi"
+        r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s+a\s+inform[ée]?\s+l[\' ]?[Aa][Mm][Ff].{0,20}avoir\s+franchi',
+        # Forme 4 : "FILER agissant ... a declare"
+        r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s*,?\s*agissant.{0,50}\s+a\s+d[ée]?clar[ée]?',
+        # Forme 5 : "FILER et X ont conjointement declare avoir franchi"
+        r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s+(?:et\s+[A-Z][^,]+\s+)?ont\s+(?:conjointement\s+)?d[ée]?clar[ée]?\s+avoir\s+franchi',
+        # Forme 6 generique (last resort) : "FILER a declare avoir franchi"
+        r'([A-Z][A-Za-z0-9 &.,\'-]{3,80}?)\s+a\s+d[ée]?clar[ée]?\s+avoir\s+franchi',
+    ]
+    for pat in patterns:
+        m = re.search(pat, text_norm)
+        if m:
+            result['filer'] = m.group(1).strip()
+            break
 
     # NETTOYAGE du filer extrait : enlever artefacts du PDF parsing
     if result['filer']:
@@ -318,14 +330,25 @@ def enrich_filings_with_pdf(filings, max_enrich=80, debug=False):
             pdf_failed += 1
             continue
         parsed = parse_amf_pdf(pdf_bytes, debug=debug)
-        if not parsed or not parsed.get('filer'):
+        # FIX (mai 2026) : on accepte le parsing meme si le filer n'a pas ete extrait,
+        # tant qu'on a au moins le % ou la direction. Avant : skip total si filer
+        # absent -> on perdait pct/direction inutilement (42% des cas).
+        if not parsed:
             parse_failed += 1
             continue
-        # Enrichir le filing en place
-        filer = parsed['filer']
-        f['filerName'] = filer
-        f['isActivist'] = bool(is_known_activist(filer))
-        f['activistLabel'] = is_known_activist(filer)
+        has_anything = (
+            parsed.get('filer') or parsed.get('threshold') is not None
+            or parsed.get('currentPercent') is not None or parsed.get('direction')
+        )
+        if not has_anything:
+            parse_failed += 1
+            continue
+        # Enrichir le filing en place (chaque champ independamment)
+        filer = parsed.get('filer')
+        if filer:
+            f['filerName'] = filer
+            f['isActivist'] = bool(is_known_activist(filer))
+            f['activistLabel'] = is_known_activist(filer)
         if parsed.get('threshold') is not None:
             f['crossingThreshold'] = parsed['threshold']
         if parsed.get('currentPercent') is not None:
@@ -338,8 +361,10 @@ def enrich_filings_with_pdf(filings, max_enrich=80, debug=False):
         target = f.get('targetName', '')
         threshold = f.get('crossingThreshold')
         direction_str = '↗' if parsed.get('direction') == 'up' else ('↘' if parsed.get('direction') == 'down' else '→')
-        if threshold:
+        if threshold and filer:
             f['rawTitle'] = f'{filer} {direction_str} {target} (seuil {threshold:g}%)'
+        elif threshold:
+            f['rawTitle'] = f'Declarant {direction_str} {target} (seuil {threshold:g}%)'
         enriched += 1
         # Rate limit poli envers AMF
         time.sleep(0.15)
