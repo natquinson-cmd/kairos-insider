@@ -11925,13 +11925,15 @@
         ${news.length > 0 ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
             <h3 style="margin:0 0 12px;font-size:16px">${L.secNews}</h3>
-            <div style="display:grid;gap:8px">
-              ${news.slice(0, 10).map(n => `
-                <a href="${n.link}" target="_blank" rel="noopener" style="display:block;padding:10px;background:var(--bg-card);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--bg-card)'">
-                  <div style="font-size:13px;color:#74b9ff;margin-bottom:3px">${n.title}</div>
-                  <div style="font-size:11px;opacity:0.55">${n.source || ''} · ${n.pubDate ? new Date(n.pubDate).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : ''}</div>
+            <div style="display:grid;gap:4px">
+              ${news.slice(0, 10).map(n => {
+                const dateStr = n.pubDate ? new Date(n.pubDate).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+                return `
+                <a href="${n.link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;padding:7px 10px;background:var(--bg-card);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--bg-card)'">
+                  <div style="flex:1;font-size:13px;color:#74b9ff;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${n.title.replace(/"/g, '&quot;')}">${n.title}</div>
+                  <div style="font-size:11px;opacity:0.55;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums">${dateStr}${n.source ? ` · <span style="opacity:0.85">${n.source}</span>` : ''}</div>
                 </a>
-              `).join('')}
+              `; }).join('')}
             </div>
           </div>
         ` : ''}

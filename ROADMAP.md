@@ -176,17 +176,94 @@ Cost : 48 runs/jour x ~5 min = 240 min/jour = ~7200 min/mois sur GitHub
 Actions Pro (limite 3000 min/mois). Solution : parallelisation jobs dans
 le workflow + jobs ultra-courts (<3 min) = ~150 min/jour = 4500 min/mois OK.
 
-### 🔜 13D Alert push (Pro/Elite tier)
+### 🔜 Alertes Telegram (Pro/Elite tier) — prochain chantier
 
-Le pipeline 30 min ci-dessus fournit la base de donnees fraiches. Reste
-a brancher la couche notification user :
-- [ ] Diff KV `last_seen_accession` vs nouveaux filings dans le worker
-- [ ] Match filer in 13d_filer_ciks + ticker in user.watchlist
-- [ ] Send notif via Brevo / OneSignal
-- [ ] UI watchlist : flag "13D Alert ON/OFF" par ticker
-- [ ] Tarification : Pro 5 alerts max, Elite illimite
-- Argument commercial : <40 min apres filing SEC. Comparable Bloomberg
-  Terminal au prix d'un Elite (49 EUR/mois).
+Le pipeline 30 min livre des donnees fraiches : il manque la couche
+notification temps reel pour transformer la fraicheur data en valeur
+utilisateur. Telegram retenu vs email/push web :
+- Latence < 1 sec (push instant via Bot API)
+- Pas de friction (pas de mail a relever ni d'app a installer)
+- Format riche : titre + corps + bouton inline `Voir l'analyse`
+- Audience FinTwit FR/EN deja sur Telegram (channels signaux pop)
+- Cout : gratuit cote API Telegram (pas de Brevo/OneSignal)
+
+**Architecture** :
+
+```
+realtime-30min.yml -> KV {13dg-recent, amf-thresholds, ...}
+                              |
+                              v
+Worker scheduled (Cloudflare cron */5min)
+  - Diff KV avec snapshot precedent (last_seen_accession set)
+  - Detection nouveaux filings depuis dernier check
+  - Match contre user watchlists + filtres alerte
+  - Send Telegram via Bot API
+                              |
+                              v
+User Telegram chat
+```
+
+**Triggers d'alerte** :
+1. **13D nouveau** (le plus fort) : Cevian/Pershing/Trian/etc. depose un
+   13D sur un ticker en watchlist. Latence < 35 min apres filing SEC.
+2. **Score Kairos > seuil** : un de mes tickers passe 75/100 (FAVORABLE)
+3. **Insider buy cluster** : 3+ insiders achetent meme ticker en 7 jours
+4. **Seuil EU franchi** : BlackRock/Norges/etc. passe 5% sur ticker FR/DE/NL
+5. **Short interest spike** : SI > 20% sur un ticker en watchlist
+6. **Activist escalation** : meme filer + meme ticker + augmentation de %
+
+**Plan d'implementation** (3 phases) :
+
+**Phase 1 — Bot setup + auth user (1-2h)**
+- [ ] Creer @KairosInsiderBot via @BotFather sur Telegram
+- [ ] Stocker BOT_TOKEN dans Cloudflare Worker secrets (`wrangler secret put TELEGRAM_BOT_TOKEN`)
+- [ ] Endpoint worker `/telegram/connect` : genere un code unique pour le user (ex: `KAIROS-ABC123`)
+- [ ] User envoie ce code au bot pour link son chat Telegram avec son uid Firebase
+- [ ] KV `tg:{uid} -> {chatId, linkedAt, alertPrefs}` + `tg-chat:{chatId} -> uid` (reverse)
+- [ ] UI Settings : bouton "Connecter Telegram" qui ouvre `t.me/KairosInsiderBot?start=KAIROS-ABC123`
+
+**Phase 2 — Core alerting engine (3-4h)**
+- [ ] Cron worker `*/5 * * * *` (toutes les 5 min, dans `wrangler.toml`)
+- [ ] `checkNewFilings(env)` :
+  - Read KV `last_seen_accession_13dg` (set des accession deja notifies)
+  - Read 13dg-recent, filter accessions absents du set
+  - Pour chaque nouveau filing : iterate sur les users avec ticker dans watchlist
+  - Match alertPrefs (1-6 ci-dessus)
+  - Send Telegram message via `https://api.telegram.org/bot{TOKEN}/sendMessage`
+  - Update last_seen_accession_13dg avec accession traites
+- [ ] `formatAlertMessage(filing, user)` : titre + corps Markdown + bouton URL
+  ```
+  🚨 NOUVEAU 13D - $LVMH
+  Cevian Capital -> 5.3% (+0.4% vs precedent)
+  📅 il y a 28 min
+  [Voir l'analyse Kairos](https://kairosinsider.fr/a/LVMH)
+  ```
+- [ ] Throttle / dedup : 1 alerte max par user par filing (cle `tg-sent:{uid}:{accession}` TTL 7j)
+- [ ] Quiet hours : ne pas spam la nuit (par defaut 22h-7h Paris time, configurable)
+
+**Phase 3 — UI alertPrefs + tarification (2h)**
+- [ ] Settings UI : panel "Alertes Telegram" avec toggles par trigger
+  - 13D activist : ON/OFF
+  - Score >= 75 : ON/OFF + threshold custom
+  - Insider cluster : ON/OFF
+  - Seuils EU : ON/OFF + filtre filers (BlackRock, Norges, ...)
+  - Quiet hours : start/end picker
+- [ ] Quotas par tier :
+  - **Free** : pas d'alertes Telegram
+  - **Pro** (19 EUR/mo) : 5 tickers max, triggers 1-3 seulement, 50 alertes/mois
+  - **Elite** (49 EUR/mo) : illimite, tous triggers, priority delivery (<2 min)
+- [ ] Test funnel : `/test_alert $TICKER` commande bot pour user verifier sa config
+
+**KPIs cibles** :
+- Conversion Free -> Pro via promesse alertes : +20%
+- Retention Pro/Elite mensuelle : 95%+ (la valeur quotidienne fideisle)
+- Latence moyenne filing -> notif Telegram : < 8 min
+- NPS contributors : "Pourquoi pas Bloomberg ?" -> "L'alerte 13D Cevian sur SN.L"
+
+**Roadmap differents** :
+- **Plus tard** : channel Telegram public `@KairosInsiderFR` avec 3 alertes/jour gratuites (lead gen)
+- **Plus tard** : Discord webhook (audience crypto/young)
+- **Plus tard** : SMS via Twilio (Elite uniquement, < 30 sec latence)
 
 ---
 
