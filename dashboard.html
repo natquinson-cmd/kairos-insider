@@ -9067,13 +9067,11 @@
       let lastQuery = '';
       let yahooDebounce = null;
 
-      // Logo URL builder : essaye plusieurs sources avec fallback CSS
-      // companieslogo.com couvre la plupart des grosses caps US/EU
+      // Logo URL : parqet.com CDN (couverture US + EU + UK + ASIA, SVG).
+      // Test : MC.PA, AAPL, ASML, MOH.DE, LVMUY tous OK. Garde le suffix.
       const logoUrlForTicker = (ticker) => {
         if (!ticker) return '';
-        // Strip suffix EU (.PA, .DE, .L, .AS, .MI, .MC, .SW) pour avoir le base ticker
-        const base = String(ticker).split('.')[0].toUpperCase();
-        return `https://logos.stockanalysis.com/${base.toLowerCase()}.png`;
+        return `https://assets.parqet.com/logos/symbol/${encodeURIComponent(String(ticker).toUpperCase())}`;
       };
 
       // Format prix + variation (mini-bloc droite des suggestions)
@@ -9107,7 +9105,8 @@
           const q = t.quote;
           const mcStr = q && q.marketCap ? ' · ' + fmtMcShort(q.marketCap) : '';
           const curStr = q && q.currency && q.currency !== 'USD' && q.currency !== 'EUR' ? ' · ' + q.currency : '';
-          const subline = `${ticker}${mcStr}${curStr}`;
+          const marketStr = market ? ' · ' + market : '';
+          const subline = `${ticker}${marketStr}${mcStr}${curStr}`;
           const logoUrl = logoUrlForTicker(ticker);
           // Initiales fallback si logo ne charge pas
           const initials = (t.name || ticker || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || '?';

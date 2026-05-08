@@ -497,8 +497,8 @@ const CAC40_FAST_LOOKUP = {
 
 export async function searchTickersAutocomplete(query, env, limit = 10) {
   if (!query || query.length < 1) return [];
-  // v4 : bump apres ajout quote bulk (price + change + changePercent par item)
-  const cacheKey = `yahoo-autocomplete:v4:${String(query).toLowerCase().trim()}`;
+  // v5 : bump apres switch /v7 (401) -> /v8/chart pour les quotes (Promise.all)
+  const cacheKey = `yahoo-autocomplete:v5:${String(query).toLowerCase().trim()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -580,33 +580,37 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
       ...remaining.filter(r => r.type !== 'EQUITY'),
     ].slice(0, limit);
 
-    // ENRICHISSEMENT QUOTE BULK : derniere prix + variation pour chaque resultat.
-    // Yahoo /v7/finance/quote accepte une liste de symboles separes par virgule.
-    // 1 seul fetch pour tous les resultats (vs N fetch). Cache 5min via cle search
-    // donc pas de surcharge sur les recherches repetees.
+    // ENRICHISSEMENT QUOTE : derniere prix + variation pour chaque resultat.
+    // NOTE : Yahoo /v7/finance/quote retourne 401 Unauthorized depuis ~2024 sans
+    // cookie/crumb. On utilise donc /v8/finance/chart/{symbol}?range=1d qui n'a
+    // pas besoin d'auth et expose regularMarketPrice + chartPreviousClose.
+    // Promise.all parallelise les N fetches (10 max), latence ~300-500ms.
     try {
       const symbols = results.map(r => r.symbol).filter(Boolean).slice(0, limit);
       if (symbols.length > 0) {
-        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
-        const quoteResp = await fetch(quoteUrl, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
-        if (quoteResp.ok) {
-          const quoteData = await quoteResp.json();
-          const quotesArr = quoteData?.quoteResponse?.result || [];
-          const quoteBySymbol = {};
-          for (const q of quotesArr) {
-            if (q.symbol) {
-              quoteBySymbol[q.symbol] = {
-                price: q.regularMarketPrice,
-                change: q.regularMarketChange,
-                changePercent: q.regularMarketChangePercent,
-                currency: q.currency || q.financialCurrency,
-                marketCap: q.marketCap,
-              };
-            }
-          }
-          // Attache les quotes a chaque resultat (silencieux si manque)
-          results = results.map(r => ({ ...r, quote: quoteBySymbol[r.symbol] || null }));
-        }
+        const quoteBySymbol = {};
+        await Promise.all(symbols.map(async (sym) => {
+          try {
+            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`;
+            const r = await fetch(chartUrl, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
+            if (!r.ok) return;
+            const data = await r.json();
+            const meta = data?.chart?.result?.[0]?.meta;
+            if (!meta) return;
+            const price = meta.regularMarketPrice;
+            const prev = meta.chartPreviousClose ?? meta.previousClose;
+            const change = (typeof price === 'number' && typeof prev === 'number') ? price - prev : null;
+            const changePercent = (typeof change === 'number' && prev) ? (change / prev) * 100 : null;
+            quoteBySymbol[sym] = {
+              price,
+              change,
+              changePercent,
+              currency: meta.currency || null,
+              marketCap: null, // pas dispo via /v8/chart, ok
+            };
+          } catch {}
+        }));
+        results = results.map(r => ({ ...r, quote: quoteBySymbol[r.symbol] || null }));
       }
     } catch (e) {
       // Best-effort : on retourne quand meme les resultats sans prix
