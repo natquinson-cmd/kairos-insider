@@ -201,28 +201,61 @@ export const EU_YAHOO_SYMBOLS = [
   { match: 'SARTORIUS', symbol: 'SRT3.DE' },
   { match: 'SYMRISE', symbol: 'SY1.DE' },
 
-  // ========== PAYS-BAS (AEX) ==========
+  // ========== PAYS-BAS (AEX + AMX + ASCX) ==========
+  // NB : tries par specificite (cles longues d'abord) pour matcher correctement
+  // avec word boundary. Ex: 'ING GROEP' avant 'AKZO NOBEL' pour eviter conflits.
+  { match: 'AHOLD DELHAIZE', symbol: 'AD.AS' },
+  { match: 'AKZO NOBEL', symbol: 'AKZA.AS' },
+  { match: 'WOLTERS KLUWER', symbol: 'WKL.AS' },
+  { match: 'DSM-FIRMENICH', symbol: 'DSFIR.AS' },
+  { match: 'STELLANTIS', symbol: 'STLAP.PA' },
+  { match: 'UNIVERSAL MUSIC', symbol: 'UMG.AS' },
+  { match: 'ABN AMRO', symbol: 'ABN.AS' },
+  { match: 'NN GROUP', symbol: 'NN.AS' },
+  { match: 'ING GROEP', symbol: 'INGA.AS' },
+  { match: 'ING GROUP', symbol: 'INGA.AS' },
+  { match: 'BE SEMICONDUCTOR', symbol: 'BESI.AS' },
+  { match: 'BASIC-FIT', symbol: 'BFIT.AS' },
+  { match: 'BAM GROEP', symbol: 'BAMNB.AS' },
+  { match: 'AMG CRITICAL', symbol: 'AMG.AS' },
+  { match: 'AMG ADVANCED METALLURGICAL', symbol: 'AMG.AS' },
+  { match: 'PHARMING GROUP', symbol: 'PHARM.AS' },
+  { match: 'PHARMING', symbol: 'PHARM.AS' },
+  { match: 'ASR NEDERLAND', symbol: 'ASRNL.AS' },
+  { match: 'JUST EAT TAKEAWAY', symbol: 'TKWY.AS' },
+  { match: 'TAKEAWAY.COM', symbol: 'TKWY.AS' },
+  { match: 'GALAPAGOS', symbol: 'GLPG.AS' },
+  { match: 'INPOST', symbol: 'INPST.AS' },
+  { match: 'EURONEXT', symbol: 'ENX.PA' },
+  { match: 'AALBERTS', symbol: 'AALB.AS' },
+  { match: 'ALFEN', symbol: 'ALFEN.AS' },
+  { match: 'IMCD', symbol: 'IMCD.AS' },
+  { match: 'FUGRO', symbol: 'FUR.AS' },
+  { match: 'SBM OFFSHORE', symbol: 'SBMO.AS' },
+  { match: 'VOPAK', symbol: 'VPK.AS' },
+  { match: 'TOMTOM', symbol: 'TOM2.AS' },
+  { match: 'MAGNUM ICE CREAM', symbol: 'MAGNM.AS' },
+  { match: 'MAGNUM', symbol: 'MAGNM.AS' },
+  { match: 'CORBION', symbol: 'CRBN.AS' },
+  { match: 'REDCARE PHARMACY', symbol: 'RDC.DE' },
+  { match: 'SHOP APOTHEKE', symbol: 'RDC.DE' },  // ancien nom Redcare
+  { match: 'FLOW TRADERS', symbol: 'FLOW.AS' },
+  { match: 'BOSKALIS', symbol: 'BOKA.AS' },
+  { match: 'JDE PEET', symbol: 'JDEP.AS' },
+  { match: 'SIF HOLDING', symbol: 'SIFG.AS' },
+  { match: 'AMG', symbol: 'AMG.AS' },        // backup short
   { match: 'ASML', symbol: 'ASML.AS' },
   { match: 'PROSUS', symbol: 'PRX.AS' },
   { match: 'ADYEN', symbol: 'ADYEN.AS' },
-  { match: 'ING GROEP', symbol: 'INGA.AS' },
-  { match: 'ING GROUP', symbol: 'INGA.AS' },
   { match: 'AHOLD', symbol: 'AD.AS' },
-  { match: 'AHOLD DELHAIZE', symbol: 'AD.AS' },
   { match: 'HEINEKEN', symbol: 'HEIA.AS' },
-  { match: 'AKZO NOBEL', symbol: 'AKZA.AS' },
   { match: 'PHILIPS', symbol: 'PHIA.AS' },
   { match: 'KPN', symbol: 'KPN.AS' },
-  { match: 'NN GROUP', symbol: 'NN.AS' },
   { match: 'AEGON', symbol: 'AGN.AS' },
-  { match: 'WOLTERS KLUWER', symbol: 'WKL.AS' },
   { match: 'RANDSTAD', symbol: 'RAND.AS' },
   { match: 'SIGNIFY', symbol: 'LIGHT.AS' },
-  { match: 'DSM-FIRMENICH', symbol: 'DSFIR.AS' },
   { match: 'ARGENX', symbol: 'ARGX.AS' },
   { match: 'EXOR', symbol: 'EXO.AS' },
-  { match: 'STELLANTIS NV', symbol: 'STLAP.PA' },
-  { match: 'UNIVERSAL MUSIC', symbol: 'UMG.AS' },
 
   // ========== SUISSE (SMI) ==========
   { match: 'NESTLE SA', symbol: 'NESN.SW' },
@@ -382,17 +415,26 @@ export const EU_YAHOO_SYMBOLS = [
  * @param {string} country - ISO country code (FR, UK, DE, NL, CH, IT, ES, SE, NO, DK, FI)
  * @returns {string|null} Yahoo symbol with suffix (e.g., "MC.PA") or null if no match
  */
+// Cache des regex compilees (1 entry -> 1 regex word-boundary).
+// Construit a la 1ere lookup. Evite les faux positifs comme :
+//   'ING GROEP' matchant 'PHARMING GROUP N.V.' (substring includes => true)
+// Avec word boundary : 'ING GROEP' ne matche PAS 'PHARMING' (ING n'est pas
+// precede d'un word boundary la car 'M' avant est un char alphanumerique).
+let _regexCache = null;
+function _buildRegexCache() {
+  _regexCache = EU_YAHOO_SYMBOLS.map(entry => {
+    // Echappe les chars regex speciaux dans le pattern (apostrophes, dots, etc.)
+    const escaped = entry.match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return { regex: new RegExp(`\\b${escaped}\\b`), symbol: entry.symbol };
+  });
+}
+
 export function lookupEuYahooSymbol(companyName, country) {
   if (!companyName) return null;
   const upper = String(companyName).toUpperCase().trim();
-  // Match in order (entries are sorted by specificity - longest first)
-  for (const entry of EU_YAHOO_SYMBOLS) {
-    if (upper.includes(entry.match)) return entry.symbol;
+  if (!_regexCache) _buildRegexCache();
+  for (const entry of _regexCache) {
+    if (entry.regex.test(upper)) return entry.symbol;
   }
-  // Fallback : si rien trouvé, mais qu'on a un ticker brut fourni, ajouter le suffix par défaut du pays
-  const suffixByCountry = {
-    FR: '.PA', UK: '.L', DE: '.DE', NL: '.AS', CH: '.SW',
-    IT: '.MI', ES: '.MC', SE: '.ST', NO: '.OL', DK: '.CO', FI: '.HE',
-  };
   return null;
 }
