@@ -109,7 +109,7 @@
       --nav-bg: rgba(10,15,30,0.85);
       --overlay-bg: rgba(10,15,30,0.97);
       --sidebar-bg: rgba(10,15,30,0.6);
-      --logo-text-gradient: linear-gradient(135deg, #F9FAFB 0%, #9CA3AF 100%);
+      --logo-text-gradient: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 55%, #EC4899 100%);
     }
 
     /* ============================================================
@@ -155,7 +155,7 @@
       --nav-bg: rgba(255, 255, 255, 0.85);
       --overlay-bg: rgba(247, 248, 250, 0.95);
       --sidebar-bg: #FFFFFF;
-      --logo-text-gradient: linear-gradient(135deg, #0F172A 0%, #4B5563 100%);
+      --logo-text-gradient: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 55%, #EC4899 100%);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -10115,15 +10115,22 @@
       const signal = score?.signal || t(_sigKey, _sigFb);
 
       // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
+      // Labels radar : noms COMPLETS (vs abbreviations courtes avant). i18n FR/EN.
+      // Utilise dans le radar SVG pour afficher autour du polygone (uppercased CSS)
+      // et coherent avec les labels du Breakdown a droite + l'image OG /og/[ticker].
+      const _axisLang = (window.KairosI18n && window.KairosI18n.getLang()) || 'fr';
+      const _axisLabels = _axisLang === 'en'
+        ? { insider:'INSIDERS', smartMoney:'HEDGE FUNDS', momentum:'MOMENTUM', earnings:'EARNINGS', analyst:'ANALYSTS', valuation:'VALUATION', health:'FINANCIALS', govGuru:'POLI/GURUS' }
+        : { insider:'INITIÉS',  smartMoney:'HEDGE FUNDS', momentum:'MOMENTUM', earnings:'RÉSULTATS', analyst:'ANALYSTES', valuation:'VALORISATION', health:'SANTÉ FIN.', govGuru:'POLI/GOUROUS' };
       const axesOrder = [
-        { key: 'insider',    label: t('stock.axis.insider', 'Initiés'),       short: 'INS' },
-        { key: 'smartMoney', label: t('stock.axis.smartMoney', 'Hedge Funds'),short: 'HF'  },
-        { key: 'momentum',   label: t('stock.axis.momentum', 'Momentum'),     short: 'MOM' },
-        { key: 'earnings',   label: t('stock.axis.earnings', 'Résultats'),    short: 'EPS' },
-        { key: 'analyst',    label: t('stock.axis.analyst', 'Analystes'),     short: 'ANA' },
-        { key: 'valuation',  label: t('stock.axis.valuation', 'Valo'),        short: 'VAL' },
-        { key: 'health',     label: t('stock.axis.health', 'Santé'),          short: 'FIN' },
-        { key: 'govGuru',    label: t('stock.axis.govGuru', 'Politique'),     short: 'GOV' },
+        { key: 'insider',    label: t('stock.axis.insider', 'Initiés'),       short: _axisLabels.insider },
+        { key: 'smartMoney', label: t('stock.axis.smartMoney', 'Hedge Funds'),short: _axisLabels.smartMoney },
+        { key: 'momentum',   label: t('stock.axis.momentum', 'Momentum'),     short: _axisLabels.momentum },
+        { key: 'earnings',   label: t('stock.axis.earnings', 'Résultats'),    short: _axisLabels.earnings },
+        { key: 'analyst',    label: t('stock.axis.analyst', 'Analystes'),     short: _axisLabels.analyst },
+        { key: 'valuation',  label: t('stock.axis.valuation', 'Valo'),        short: _axisLabels.valuation },
+        { key: 'health',     label: t('stock.axis.health', 'Santé'),          short: _axisLabels.health },
+        { key: 'govGuru',    label: t('stock.axis.govGuru', 'Politique'),     short: _axisLabels.govGuru },
       ];
       const breakdown = score?.breakdown || {};
 
@@ -10162,9 +10169,11 @@
       // Axes (8 rayons)
       const axes = gridPoints.map(p => `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('');
 
-      // Labels autour
+      // Labels autour : noms complets uppercase (INSIDERS / HEDGE FUNDS / etc.)
+      // Font reduit a 10.5px + letter-spacing serre pour que VALORISATION et
+      // POLI/GOUROUS tiennent sans deborder du viewBox 400.
       const labels = points.map(p => {
-        const r = R + 28;
+        const r = R + 22;
         const x = CX + r * Math.cos(p.angle);
         const y = CY + r * Math.sin(p.angle);
         const anchor = p.angle > Math.PI/2 && p.angle < 3*Math.PI/2 ? 'end' :
@@ -10173,7 +10182,7 @@
         let xAdj = x;
         if (Math.abs(Math.cos(p.angle)) < 0.15) xAdj = CX;
         return `
-          <text x="${xAdj}" y="${y + 4}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="${palette.label}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.03em">${p.axis.short}</text>
+          <text x="${xAdj}" y="${y + 3}" text-anchor="${anchor}" font-size="10.5" font-weight="700" fill="${palette.label}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.04em">${p.axis.short}</text>
           <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${p.score}/${p.max}</text>
         `;
       }).join('');
@@ -10203,20 +10212,32 @@
         valuation:  t('stock.bd.valuation', 'Valorisation'),
         health:     t('stock.bd.health', 'Santé financière'),
       };
+      // Code couleur dynamique selon le % : permet de voir d'un coup d'oeil
+      // les axes faibles (rouge) vs forts (vert) au lieu d'avoir tout en violet.
+      // Gradient moderne (90deg) : couleur principale -> accent plus clair pour
+      // donner du volume. Aligne sur les paliers du Kairos Score (signal global).
+      const _barPalette = (pct) => {
+        if (pct >= 80) return { from: '#22C55E', to: '#86EFAC', text: '#22C55E' }; // vert vif
+        if (pct >= 60) return { from: '#10B981', to: '#6EE7B7', text: '#10B981' }; // vert
+        if (pct >= 40) return { from: '#EAB308', to: '#FDE047', text: '#EAB308' }; // jaune
+        if (pct >= 20) return { from: '#F59E0B', to: '#FCD34D', text: '#F59E0B' }; // orange
+        return                { from: '#EF4444', to: '#FCA5A5', text: '#EF4444' }; // rouge
+      };
       const breakdownRows = axesOrder.map(axis => {
         const b = breakdown[axis.key];
         if (!b) return '';
         const pct = b.max > 0 ? (b.score / b.max) * 100 : 0;
         const pctDisplay = Math.round(pct);
         const lbl = _bdLabel[axis.key] || b.label;
+        const c = _barPalette(pct);
         return `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider)">
             <div style="flex:0 0 110px;font-size:12px;color:var(--text-secondary)">${lbl}</div>
             <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;position:relative">
-              <div style="height:100%;background:linear-gradient(90deg, ${palette.main}, ${palette.light});width:${pct}%;border-radius:3px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
+              <div style="height:100%;background:linear-gradient(90deg, ${c.from}, ${c.to});width:${pct}%;border-radius:3px;box-shadow:0 0 10px ${c.from}33;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
             </div>
             <div style="flex:0 0 52px;text-align:right;font-size:12px;font-family:'Space Grotesk',sans-serif">
-              <strong style="color:${palette.main}">${pctDisplay}</strong><span style="opacity:0.5">%</span>
+              <strong style="color:${c.text}">${pctDisplay}</strong><span style="opacity:0.5">%</span>
             </div>
           </div>
         `;
@@ -10233,7 +10254,7 @@
             <!-- Radar SVG -->
             <div style="position:relative;text-align:center">
               <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;opacity:0.55;font-weight:600;margin-bottom:-6px">Kairos Score</div>
-              <svg viewBox="0 0 400 400" style="width:100%;max-width:380px;height:auto;display:block;margin:0 auto;filter:drop-shadow(0 12px 24px ${palette.glow})">
+              <svg viewBox="-50 -10 500 420" style="width:100%;max-width:440px;height:auto;display:block;margin:0 auto;overflow:visible;filter:drop-shadow(0 12px 24px ${palette.glow})">
                 <defs>
                   <radialGradient id="${gradId}" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" stop-color="${palette.main}" stop-opacity="0.45"/>
