@@ -403,6 +403,8 @@
       'stock.hf.fundsLabel': 'fonds',
       'stock.hf.deltaLabel': 'Δ positions',
       'stock.hf.totalValue': 'Valeur totale :',
+      'stock.hf.offensiveBadge': 'OFFENSIF',
+      'stock.hf.offensiveTooltip': 'Fonds offensif : activist, contrarian, tiger cub, macro ou conviction haute. Signal smart money plus fort que les mega passifs (BlackRock, Vanguard).',
       // Consensus vote cards
       'stock.cons.strongBuy': 'Achat fort',
       'stock.cons.buy': 'Achat',
@@ -1334,6 +1336,8 @@
       'stock.hf.fundsLabel': 'funds',
       'stock.hf.deltaLabel': 'Δ positions',
       'stock.hf.totalValue': 'Total value:',
+      'stock.hf.offensiveBadge': 'OFFENSIVE',
+      'stock.hf.offensiveTooltip': 'Offensive fund: activist, contrarian, tiger cub, macro or high-conviction. Smart money signal stronger than mega-passive (BlackRock, Vanguard).',
       'stock.cons.strongBuy': 'Strong buy',
       'stock.cons.buy': 'Buy',
       'stock.cons.hold': 'Hold',
