@@ -3720,10 +3720,18 @@
              Rendu dynamiquement par updatePremiumUI() → renderFreeQuotaBanner(). -->
         <div id="freeQuotaBanner" style="display:none"></div>
 
-        <div class="stock-search-bar" style="position:relative;max-width:600px;margin:14px 0 20px;">
-          <input id="stockSearchInput" type="text" placeholder="Ticker (ex. AAPL, MSFT, ASML, MC.PA)..." autocomplete="off"
-                 style="width:100%;padding:11px 16px;font-size:14.5px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;">
-          <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 8px 8px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
+        <!-- Search bar : centrale et mise en valeur (gradient border + icone + size).
+             Style 'X composer' pour ressentir l'importance du flux principal. -->
+        <div class="stock-search-bar" style="position:relative;max-width:680px;margin:14px 0 20px">
+          <div style="position:relative;border-radius:14px;padding:1.5px;background:linear-gradient(135deg,rgba(59,130,246,0.6),rgba(139,92,246,0.6),rgba(236,72,153,0.6));box-shadow:0 8px 24px rgba(59,130,246,0.18)">
+            <div style="position:relative;background:var(--bg-secondary);border-radius:12px;display:flex;align-items:center;gap:10px;padding:0 14px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#8B5CF6;flex-shrink:0"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+              <input id="stockSearchInput" type="text" placeholder="Tape un ticker (AAPL, MSFT) ou un nom (LVMH, Apple, ASML)…" autocomplete="off"
+                     style="flex:1;padding:14px 0;font-size:15px;background:transparent;border:none;color:var(--text-primary);outline:none;font-family:inherit">
+              <kbd style="font-size:10px;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:'SF Mono','Roboto Mono',monospace;flex-shrink:0">Enter ↵</kbd>
+            </div>
+          </div>
+          <div id="stockSearchSuggest" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:12px;max-height:420px;overflow-y:auto;z-index:100;box-shadow:0 12px 32px rgba(0,0,0,0.35)"></div>
         </div>
 
         <div id="stockAnalysisBody"></div>
@@ -9059,20 +9067,61 @@
       let lastQuery = '';
       let yahooDebounce = null;
 
+      // Logo URL builder : essaye plusieurs sources avec fallback CSS
+      // companieslogo.com couvre la plupart des grosses caps US/EU
+      const logoUrlForTicker = (ticker) => {
+        if (!ticker) return '';
+        // Strip suffix EU (.PA, .DE, .L, .AS, .MI, .MC, .SW) pour avoir le base ticker
+        const base = String(ticker).split('.')[0].toUpperCase();
+        return `https://logos.stockanalysis.com/${base.toLowerCase()}.png`;
+      };
+
+      // Format prix + variation (mini-bloc droite des suggestions)
+      const fmtSuggestPrice = (q) => {
+        if (!q || q.price == null) return '';
+        const cur = q.currency === 'EUR' ? '€' : (q.currency === 'GBP' ? '£' : '$');
+        const priceStr = q.price >= 100 ? q.price.toFixed(0) : q.price.toFixed(2);
+        const chg = q.changePercent;
+        const chgStr = chg != null ? (chg > 0 ? '+' : '') + chg.toFixed(2) + '%' : '';
+        const chgColor = chg == null ? 'var(--text-muted)' : (chg > 0 ? '#10B981' : (chg < 0 ? '#EF4444' : 'var(--text-muted)'));
+        return `<div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${priceStr} ${cur}</div>
+          ${chgStr ? `<div style="font-size:11.5px;color:${chgColor};font-weight:600;font-variant-numeric:tabular-nums">${chgStr}</div>` : ''}
+        </div>`;
+      };
+
+      // Format market cap court (5 Md / 200 Md)
+      const fmtMcShort = (mc) => {
+        if (!mc || !isFinite(mc)) return '';
+        if (mc >= 1e12) return (mc / 1e12).toFixed(1) + ' Trd';
+        if (mc >= 1e9)  return (mc / 1e9).toFixed(mc >= 1e10 ? 0 : 1) + ' Md';
+        if (mc >= 1e6)  return (mc / 1e6).toFixed(0) + ' M';
+        return '';
+      };
+
       const renderSuggestions = (matches) => {
         if (matches.length === 0) { suggest.style.display = 'none'; return; }
         suggest.innerHTML = matches.map((t, i) => {
+          const ticker = t.ticker || t.symbol || '';
           const market = t.market || t.region || t.exchange || t.exchangeFull || '';
-          const sourceTag = t._source === 'yahoo'
-            ? '<span style="font-size:10px;background:rgba(59,130,246,0.15);color:#3B82F6;padding:1px 6px;border-radius:8px;margin-left:6px">Yahoo</span>'
-            : '';
+          const q = t.quote;
+          const mcStr = q && q.marketCap ? ' · ' + fmtMcShort(q.marketCap) : '';
+          const curStr = q && q.currency && q.currency !== 'USD' && q.currency !== 'EUR' ? ' · ' + q.currency : '';
+          const subline = `${ticker}${mcStr}${curStr}`;
+          const logoUrl = logoUrlForTicker(ticker);
+          // Initiales fallback si logo ne charge pas
+          const initials = (t.name || ticker || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || '?';
           return `
-          <div class="ticker-suggest-item" data-idx="${i}" data-ticker="${t.ticker}" style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--divider)">
-            <div>
-              <strong style="color:var(--accent-blue)">${t.ticker}</strong>${sourceTag}
-              <span style="opacity:0.7;font-size:13px;margin-left:10px">${(t.name||'').slice(0,55)}</span>
+          <div class="ticker-suggest-item" data-idx="${i}" data-ticker="${ticker}" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--divider);transition:background 0.12s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+            <div style="width:36px;height:36px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text-secondary);overflow:hidden;flex-shrink:0;position:relative">
+              <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">${initials}</span>
+              <img src="${logoUrl}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:contain;background:#fff;position:relative;z-index:1" onerror="this.style.display='none'">
             </div>
-            <div style="font-size:12px;opacity:0.5">${market}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.name||ticker).slice(0,55)}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subline}</div>
+            </div>
+            ${fmtSuggestPrice(q)}
           </div>`;
         }).join('');
         suggest.querySelectorAll('.ticker-suggest-item').forEach(el => {
@@ -9112,6 +9161,7 @@
               name: y.name,
               market: y.exchangeFull || y.exchange,
               region: y.exchange,
+              quote: y.quote || null,  // price + changePercent + currency + marketCap depuis Yahoo bulk
               _source: 'yahoo',
             }));
           if (yahooDedup.length === 0) return;

@@ -497,8 +497,8 @@ const CAC40_FAST_LOOKUP = {
 
 export async function searchTickersAutocomplete(query, env, limit = 10) {
   if (!query || query.length < 1) return [];
-  // v3 : bump apres exclusion options/futures/currency (CRBP260515P0... etc.)
-  const cacheKey = `yahoo-autocomplete:v3:${String(query).toLowerCase().trim()}`;
+  // v4 : bump apres ajout quote bulk (price + change + changePercent par item)
+  const cacheKey = `yahoo-autocomplete:v4:${String(query).toLowerCase().trim()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -580,10 +580,43 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
       ...remaining.filter(r => r.type !== 'EQUITY'),
     ].slice(0, limit);
 
+    // ENRICHISSEMENT QUOTE BULK : derniere prix + variation pour chaque resultat.
+    // Yahoo /v7/finance/quote accepte une liste de symboles separes par virgule.
+    // 1 seul fetch pour tous les resultats (vs N fetch). Cache 5min via cle search
+    // donc pas de surcharge sur les recherches repetees.
+    try {
+      const symbols = results.map(r => r.symbol).filter(Boolean).slice(0, limit);
+      if (symbols.length > 0) {
+        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const quoteResp = await fetch(quoteUrl, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
+        if (quoteResp.ok) {
+          const quoteData = await quoteResp.json();
+          const quotesArr = quoteData?.quoteResponse?.result || [];
+          const quoteBySymbol = {};
+          for (const q of quotesArr) {
+            if (q.symbol) {
+              quoteBySymbol[q.symbol] = {
+                price: q.regularMarketPrice,
+                change: q.regularMarketChange,
+                changePercent: q.regularMarketChangePercent,
+                currency: q.currency || q.financialCurrency,
+                marketCap: q.marketCap,
+              };
+            }
+          }
+          // Attache les quotes a chaque resultat (silencieux si manque)
+          results = results.map(r => ({ ...r, quote: quoteBySymbol[r.symbol] || null }));
+        }
+      }
+    } catch (e) {
+      // Best-effort : on retourne quand meme les resultats sans prix
+    }
+
     if (env && env.CACHE) {
       try {
+        // Cache 5 min seulement (vs 7j avant) car maintenant on store les prix qui evoluent
         await env.CACHE.put(cacheKey, JSON.stringify({ results, fetchedAt: new Date().toISOString() }),
-          { expirationTtl: 7 * 86400 });
+          { expirationTtl: 300 });
       } catch {}
     }
     return results;
