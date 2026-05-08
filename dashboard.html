@@ -10626,12 +10626,30 @@
           <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,${palette.glow} 0%,transparent 65%);pointer-events:none;z-index:0;opacity:0.9"></div>
           <div style="position:absolute;bottom:-100px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,${palette.glow} 0%,transparent 60%);pointer-events:none;z-index:0;opacity:0.5"></div>
 
-          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(280px, 340px) 1fr;gap:24px;align-items:center">
+          <!-- HEADER COMPLET (signal + score + synthese) sur toute la largeur -->
+          <div style="position:relative;z-index:1;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:${palette.main}22;color:${palette.label};border:1px solid ${palette.main}55;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.06em">
+                <span style="width:6px;height:6px;background:${palette.main};border-radius:50%;box-shadow:0 0 10px ${palette.main}"></span>
+                ${signal}
+              </div>
+              <h2 style="font-size:22px;margin:0;letter-spacing:-0.01em;font-family:'Space Grotesk',sans-serif;font-weight:700">
+                Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:16px">/100</span>
+              </h2>
+            </div>
+            <!-- SYNTHESE DYNAMIQUE basee sur les 8 axes -->
+            <div style="background:linear-gradient(135deg, ${palette.main}10, transparent);border-left:3px solid ${palette.main};padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.55;color:var(--text-primary)">
+              ${generateScoreNarrative(score, tk, axesOrder, palette)}
+            </div>
+          </div>
 
-            <!-- Radar SVG -->
+          <!-- LIGNE 2 : radar (gauche, AGRANDI) | breakdown 8 axes (droite, plus serre) -->
+          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(380px, 1fr) minmax(320px, 1fr);gap:18px;align-items:center">
+
+            <!-- Radar SVG (column 1, max-width:520 vs 440 avant pour gain ~18%) -->
             <div style="position:relative;text-align:center">
               <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;opacity:0.55;font-weight:600;margin-bottom:-6px">Kairos Score</div>
-              <svg viewBox="-50 -10 500 420" style="width:100%;max-width:440px;height:auto;display:block;margin:0 auto;overflow:visible;filter:drop-shadow(0 12px 24px ${palette.glow})">
+              <svg viewBox="-50 -10 500 420" style="width:100%;max-width:520px;height:auto;display:block;margin:0 auto;overflow:visible;filter:drop-shadow(0 12px 24px ${palette.glow})">
                 <defs>
                   <radialGradient id="${gradId}" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" stop-color="${palette.main}" stop-opacity="0.45"/>
@@ -10652,27 +10670,13 @@
               </svg>
             </div>
 
-            <!-- Info panel -->
-            <div>
-              <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;background:${palette.main}22;color:${palette.label};border:1px solid ${palette.main}55;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.06em;margin-bottom:12px">
-                <span style="width:6px;height:6px;background:${palette.main};border-radius:50%;box-shadow:0 0 10px ${palette.main}"></span>
-                ${signal}
+            <!-- Breakdown 8 axes (column 2) -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <span>${t('stock.label.breakdown8axes', 'Décomposition (8 axes)')}</span>
+                <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400;font-size:9px">${t('stock.label.scorePerAxis', '0% = faible, 100% = excellent')}</span>
               </div>
-              <h2 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em;font-family:'Space Grotesk',sans-serif;font-weight:700">
-                Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:20px">/100</span>
-              </h2>
-              <!-- SYNTHESE DYNAMIQUE basee sur les 8 axes -->
-              <div style="background:linear-gradient(135deg, ${palette.main}10, transparent);border-left:3px solid ${palette.main};padding:14px 16px;border-radius:8px;margin-bottom:18px;font-size:13.5px;line-height:1.7;color:var(--text-primary)">
-                ${generateScoreNarrative(score, tk, axesOrder, palette)}
-              </div>
-
-              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span>${t('stock.label.breakdown8axes', 'Décomposition (8 axes)')}</span>
-                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">${t('stock.label.scorePerAxis', 'Score par axe — 0% = faible, 100% = excellent')}</span>
-                </div>
-                ${breakdownRows || `<div style="opacity:0.5;font-size:12px">${t('stock.empty.detailsUnavailable', 'Détails indisponibles')}</div>`}
-              </div>
+              ${breakdownRows || `<div style="opacity:0.5;font-size:12px">${t('stock.empty.detailsUnavailable', 'Détails indisponibles')}</div>`}
             </div>
           </div>
         </div>
