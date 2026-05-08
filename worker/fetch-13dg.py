@@ -202,11 +202,19 @@ def parse_13dg_primary_doc(xml_content):
 
     result = {}
     persons = []
-    # Extract toutes les reportingPersonInfo
-    for match in re.finditer(r'<reportingPersonInfo>(.*?)</reportingPersonInfo>', xml_content, re.DOTALL):
+    # FIX (mai 2026, v2) : matcher tags AVEC ou SANS prefixe namespace XML.
+    # Le schema X0202 moderne (Workiva, generateurs 2024+) emet les tags
+    # avec le prefixe `sch:` (ex: <sch:classPercent>8.6</sch:classPercent>)
+    # selon le namespace declare en racine. Notre regex `<classPercent>`
+    # ne matchait PAS ces filings -> 72% des US 13DG sortaient sans pct.
+    # Pattern (?:[a-z]+:)? = optionnel "sch:" / "ns:" / "ownership:" etc.
+    NS = r'(?:[a-z]+:)?'  # prefixe namespace optionnel
+
+    # Format 1 : <reportingPersonInfo> (schema 13D classique)
+    for match in re.finditer(rf'<{NS}reportingPersonInfo>(.*?)</{NS}reportingPersonInfo>', xml_content, re.DOTALL):
         block = match.group(1)
         def get_field(tag):
-            m = re.search(rf'<{tag}>([^<]+)</{tag}>', block)
+            m = re.search(rf'<{NS}{tag}>([^<]+)</{NS}{tag}>', block)
             return m.group(1).strip() if m else None
         name = get_field('reportingPersonName')
         amount_raw = get_field('aggregateAmountOwned')
@@ -228,10 +236,10 @@ def parse_13dg_primary_doc(xml_content):
     # <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
     # OU dans <item4> : <amountBeneficiallyOwned> + <classPercent>
     if not persons:
-        for match in re.finditer(r'<coverPageHeaderReportingPersonDetails>(.*?)</coverPageHeaderReportingPersonDetails>', xml_content, re.DOTALL):
+        for match in re.finditer(rf'<{NS}coverPageHeaderReportingPersonDetails>(.*?)</{NS}coverPageHeaderReportingPersonDetails>', xml_content, re.DOTALL):
             block = match.group(1)
             def get_x0202(tag):
-                m = re.search(rf'<{tag}>\s*([^<]+?)\s*</{tag}>', block)
+                m = re.search(rf'<{NS}{tag}>\s*([^<]+?)\s*</{NS}{tag}>', block)
                 return m.group(1).strip() if m else None
             name = get_x0202('reportingPersonName')
             shares_raw = get_x0202('reportingPersonBeneficiallyOwnedAggregateNumberOfShares')
@@ -250,7 +258,7 @@ def parse_13dg_primary_doc(xml_content):
     # Fallback Format 3 : <coverPage> (autre structure 13G/A passive)
     if not persons:
         def get_any(tag):
-            m = re.search(rf'<{tag}[^>]*>\s*([^<\s][^<]*?)\s*</{tag}>', xml_content, re.IGNORECASE)
+            m = re.search(rf'<{NS}{tag}[^>]*>\s*([^<\s][^<]*?)\s*</{NS}{tag}>', xml_content, re.IGNORECASE)
             return m.group(1).strip() if m else None
         pct_raw   = get_any('percentOfClass') or get_any('percentOwned') or get_any('classPercent')
         shares_raw = (get_any('sharesOrPrincipalAmountValue') or
