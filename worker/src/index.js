@@ -209,7 +209,7 @@ function getClientIP(request) {
 }
 
 // Routes exemptées du rate-limit IP (Stripe envoie depuis ses propres IPs)
-const RATE_LIMIT_EXEMPT_PATHS = new Set(['/stripe/webhook']);
+const RATE_LIMIT_EXEMPT_PATHS = new Set(['/stripe/webhook', '/telegram/webhook']);
 
 export default {
   async fetch(request, env, ctx) {
@@ -263,7 +263,7 @@ async function handleRequest(request, env, ctx) {
 
     // --- Vérification de l'origine (sauf webhook Stripe) ---
     const path = url.pathname;
-    if (path !== '/stripe/webhook' && !isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) {
+    if (path !== '/stripe/webhook' && path !== '/telegram/webhook' && !isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) {
       return jsonResponse({ error: 'Origin not allowed' }, 403, env.ALLOWED_ORIGIN);
     }
 
@@ -304,6 +304,14 @@ async function handleRequest(request, env, ctx) {
     // Stripe webhook (pas d'auth Firebase, vérifié par signature Stripe)
     if (request.method === 'POST' && path === '/stripe/webhook') {
       return handleStripeWebhook(request, env);
+    }
+
+    // Telegram webhook (pas d'auth Firebase, verifie par X-Telegram-Bot-Api-Secret-Token).
+    // Endpoint appele par les serveurs Telegram a chaque message envoye au bot.
+    // Ne PAS prefixer /api/ : on veut que le rate-limit ne s'applique pas (les
+    // serveurs Telegram peuvent burst), et l'origine n'est pas notre frontend.
+    if (request.method === 'POST' && path === '/telegram/webhook') {
+      return handleTelegramWebhook(request, env, ctx);
     }
 
     // Analyse action — version publique SEO (donnees tronquees)
@@ -678,6 +686,24 @@ async function handleRequest(request, env, ctx) {
             return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
           }
           return handleWatchlistTestNow(env, user, origin);
+        }
+        return jsonResponse({ error: 'Not found' }, 404, origin);
+      }
+
+      // --- Routes Telegram alerts (auth requise, gating premium dans Phase 3) ---
+      if (path.startsWith('/api/telegram/')) {
+        if (request.method === 'POST' && path === '/api/telegram/init-link') {
+          return handleTelegramInitLink(env, user, origin);
+        }
+        if (request.method === 'GET' && path === '/api/telegram/status') {
+          return handleTelegramStatus(env, user, origin);
+        }
+        if (request.method === 'POST' && path === '/api/telegram/unlink') {
+          return handleTelegramUnlink(env, user, origin);
+        }
+        if (request.method === 'POST' && path === '/api/telegram/test') {
+          // Envoi un message de test au chat lie. Premium gating en Phase 3.
+          return handleTelegramTestMessage(env, user, origin);
         }
         return jsonResponse({ error: 'Not found' }, 404, origin);
       }
@@ -9335,5 +9361,284 @@ p { font-size:14px; line-height:1.65; color:#9CA3AF; margin:0 0 16px; }
   if (!resp.ok) {
     const errText = await resp.text();
     throw new Error(`Brevo optin ${resp.status}: ${errText}`);
+  }
+}
+
+// ============================================================
+// TELEGRAM ALERTS — Phase 1 : link user uid <-> chatId
+// ============================================================
+// Architecture :
+//   1. User clique "Connecter Telegram" -> POST /api/telegram/init-link
+//      -> retourne { code: 'KAIROS-AB3X9K', deepLink: 't.me/KairosInsiderBot?start=KAIROS-AB3X9K' }
+//      -> KV stocke 'tg-link:{code}' -> { uid, expiresAt } TTL 15min
+//   2. User ouvre le deepLink, Telegram bot recoit '/start KAIROS-AB3X9K'
+//      -> bot envoie le message a notre webhook /telegram/webhook
+//      -> on lookup KV 'tg-link:{code}' pour trouver uid
+//      -> on store 'tg:{uid}' -> { chatId, linkedAt, alertPrefs:{...} }
+//      -> on store 'tg-chat:{chatId}' -> uid (reverse pour /stop /status commandes)
+//      -> on send message confirmation au user
+//
+// Securite :
+//   - Le webhook valide le header 'X-Telegram-Bot-Api-Secret-Token' (set via setWebhook)
+//   - Code de linking 6 char alphanumeric, single-use, TTL 15min
+//   - Les ID Telegram chatId sont des bigints, on les stocke en string
+// ============================================================
+
+function generateLinkCode() {
+  // 8 chars alphanum sans ambiguites (pas de 0/O/I/1) -> ~3.4e11 combinaisons
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  for (let i = 0; i < 8; i++) code += alphabet[bytes[i] % alphabet.length];
+  return `KAIROS-${code}`;
+}
+
+async function handleTelegramInitLink(env, user, origin) {
+  if (!user || !user.uid) {
+    return jsonResponse({ error: 'Auth required' }, 401, origin);
+  }
+  // Si deja lie, retourne directement le status (pas de code regenere)
+  const existing = await env.CACHE.get(`tg:${user.uid}`, 'json');
+  if (existing && existing.chatId) {
+    return jsonResponse({
+      alreadyLinked: true,
+      chatId: existing.chatId,
+      linkedAt: existing.linkedAt,
+    }, 200, origin);
+  }
+  const botUsername = env.TELEGRAM_BOT_USERNAME || 'KairosInsiderBot';
+  const code = generateLinkCode();
+  // Store le code -> uid pour 15 min, le webhook lookup avec ce code
+  await env.CACHE.put(`tg-link:${code}`, JSON.stringify({
+    uid: user.uid,
+    email: user.email || null,
+    createdAt: new Date().toISOString(),
+  }), { expirationTtl: 900 });
+  log.info('telegram.link.init', { uid: user.uid });
+  return jsonResponse({
+    code,
+    deepLink: `https://t.me/${botUsername}?start=${code}`,
+    botUsername,
+    expiresInSec: 900,
+  }, 200, origin);
+}
+
+async function handleTelegramStatus(env, user, origin) {
+  if (!user || !user.uid) {
+    return jsonResponse({ error: 'Auth required' }, 401, origin);
+  }
+  const data = await env.CACHE.get(`tg:${user.uid}`, 'json');
+  if (!data || !data.chatId) {
+    return jsonResponse({ linked: false }, 200, origin);
+  }
+  return jsonResponse({
+    linked: true,
+    linkedAt: data.linkedAt,
+    chatTitle: data.chatTitle || null,  // username/firstName du user Telegram
+    alertPrefs: data.alertPrefs || {},
+  }, 200, origin);
+}
+
+async function handleTelegramUnlink(env, user, origin) {
+  if (!user || !user.uid) {
+    return jsonResponse({ error: 'Auth required' }, 401, origin);
+  }
+  const data = await env.CACHE.get(`tg:${user.uid}`, 'json');
+  if (!data || !data.chatId) {
+    return jsonResponse({ wasLinked: false }, 200, origin);
+  }
+  // Best-effort : envoie un message d'au revoir au chat avant de delier
+  try {
+    await sendTelegramMessage(env, data.chatId,
+      '👋 Compte délié de Kairos Insider. Tape `/start` à tout moment pour relier ce chat à un nouveau compte.');
+  } catch {}
+  await env.CACHE.delete(`tg:${user.uid}`);
+  await env.CACHE.delete(`tg-chat:${data.chatId}`);
+  log.info('telegram.link.unlink', { uid: user.uid });
+  return jsonResponse({ wasLinked: true, unlinkedAt: new Date().toISOString() }, 200, origin);
+}
+
+async function handleTelegramTestMessage(env, user, origin) {
+  if (!user || !user.uid) {
+    return jsonResponse({ error: 'Auth required' }, 401, origin);
+  }
+  const data = await env.CACHE.get(`tg:${user.uid}`, 'json');
+  if (!data || !data.chatId) {
+    return jsonResponse({ error: 'Telegram not linked', code: 'NOT_LINKED' }, 400, origin);
+  }
+  const ok = await sendTelegramMessage(env, data.chatId,
+    '🚨 *Message de test Kairos Insider*\n\n' +
+    'Si tu lis ce message, ta liaison Telegram fonctionne ✅\n\n' +
+    'Tu recevras ici les alertes activistes 13D, franchissements de seuils EU, et mouvements de score sur ta watchlist.\n\n' +
+    'Geres tes preferences : [Settings sur kairosinsider.fr](https://kairosinsider.fr/dashboard.html#settings)');
+  return jsonResponse({ sent: ok, chatId: data.chatId }, ok ? 200 : 502, origin);
+}
+
+// Webhook Telegram : reçoit un Update JSON a chaque event sur le bot.
+// Spec : https://core.telegram.org/bots/api#update
+// On gere uniquement les /start, /status, /stop, /help pour Phase 1.
+async function handleTelegramWebhook(request, env, ctx) {
+  // Verification du secret token defini lors du setWebhook (anti-spoofing).
+  const expectedSecret = env.TELEGRAM_WEBHOOK_SECRET;
+  if (expectedSecret) {
+    const got = request.headers.get('X-Telegram-Bot-Api-Secret-Token') || '';
+    if (got !== expectedSecret) {
+      log.warn('telegram.webhook.bad-secret', { ip: request.headers.get('CF-Connecting-IP') });
+      return jsonResponse({ ok: false, error: 'Bad secret' }, 401);
+    }
+  }
+  let update;
+  try { update = await request.json(); } catch { return jsonResponse({ ok: false }, 400); }
+  const msg = update?.message;
+  if (!msg || !msg.text) {
+    // On ignore les events non-message (callback_query, edited, etc.) pour Phase 1
+    return jsonResponse({ ok: true });
+  }
+  const chatId = String(msg.chat.id);
+  const text = String(msg.text).trim();
+  const from = msg.from || {};
+  const chatTitle = from.username ? `@${from.username}` : (from.first_name || 'unknown');
+
+  // Commande /start [code]
+  if (text.startsWith('/start')) {
+    const parts = text.split(/\s+/);
+    const code = parts[1] || '';
+    if (!code) {
+      await sendTelegramMessage(env, chatId,
+        'Bienvenue sur *Kairos Insider* 🎯\n\n' +
+        'Pour activer les alertes smart money, lie ton compte :\n' +
+        '1. Connecte-toi sur kairosinsider.fr\n' +
+        '2. Settings → Connecter Telegram\n' +
+        '3. Clique sur le bouton qui apparaitra\n\n' +
+        'Tape /help pour voir les commandes disponibles.');
+      return jsonResponse({ ok: true });
+    }
+    // Lookup le code en KV
+    const linkData = await env.CACHE.get(`tg-link:${code}`, 'json');
+    if (!linkData || !linkData.uid) {
+      await sendTelegramMessage(env, chatId,
+        '❌ Code de liaison invalide ou expiré (15 min).\n\n' +
+        'Genere un nouveau code sur kairosinsider.fr → Settings → Connecter Telegram.');
+      return jsonResponse({ ok: true });
+    }
+    // Store la liaison
+    const tgRecord = {
+      chatId,
+      chatTitle,
+      uid: linkData.uid,
+      email: linkData.email,
+      linkedAt: new Date().toISOString(),
+      alertPrefs: {
+        new13d: true,           // nouveaux 13D activistes
+        scoreThreshold: 75,     // notifie quand un ticker watchlist passe ce score
+        insiderCluster: true,   // 3+ insiders meme ticker en 7j
+        euThreshold: true,      // franchissement seuil EU >= 5%
+        quietHoursStart: 22,    // 22h Paris
+        quietHoursEnd: 7,       // 7h Paris
+      },
+    };
+    await env.CACHE.put(`tg:${linkData.uid}`, JSON.stringify(tgRecord));
+    await env.CACHE.put(`tg-chat:${chatId}`, linkData.uid);
+    // Single-use : on supprime le code apres utilisation
+    await env.CACHE.delete(`tg-link:${code}`);
+    log.info('telegram.link.success', { uid: linkData.uid, chatTitle });
+    await sendTelegramMessage(env, chatId,
+      '✅ *Liaison reussie !*\n\n' +
+      `Compte Kairos lie a ${chatTitle}.\n\n` +
+      'Tu recevras ici tes alertes :\n' +
+      '• 🚨 Nouveaux 13D activistes (Cevian, Pershing, Trian, ...)\n' +
+      '• 📈 Score Kairos > 75 sur ta watchlist\n' +
+      '• 🤝 Cluster insiders (3+ achats meme ticker)\n' +
+      '• 🇪🇺 Franchissements seuils EU (BlackRock, Norges, ...)\n\n' +
+      'Configure tes preferences sur kairosinsider.fr → Settings.\n\n' +
+      'Commands : /status /stop /help');
+    return jsonResponse({ ok: true });
+  }
+
+  // Commande /status
+  if (text === '/status') {
+    const uid = await env.CACHE.get(`tg-chat:${chatId}`);
+    if (!uid) {
+      await sendTelegramMessage(env, chatId,
+        '⚠️ Ce chat n\'est lie a aucun compte.\nTape /start pour commencer.');
+      return jsonResponse({ ok: true });
+    }
+    const sub = await env.CACHE.get(`sub:${uid}`, 'json');
+    const tier = sub?.plan || 'free';
+    await sendTelegramMessage(env, chatId,
+      `📊 *Statut du compte*\n\n` +
+      `Tier : *${tier.toUpperCase()}*\n` +
+      `Liaison Telegram : ✅ active\n\n` +
+      'Configure les alertes : kairosinsider.fr → Settings.');
+    return jsonResponse({ ok: true });
+  }
+
+  // Commande /stop
+  if (text === '/stop') {
+    const uid = await env.CACHE.get(`tg-chat:${chatId}`);
+    if (!uid) {
+      await sendTelegramMessage(env, chatId, 'Ce chat n\'est pas lie a un compte.');
+      return jsonResponse({ ok: true });
+    }
+    await env.CACHE.delete(`tg:${uid}`);
+    await env.CACHE.delete(`tg-chat:${chatId}`);
+    await sendTelegramMessage(env, chatId,
+      '👋 Compte delie. Tu ne recevras plus d\'alertes.\n\n' +
+      'Pour reactiver, retourne sur kairosinsider.fr → Settings.');
+    return jsonResponse({ ok: true });
+  }
+
+  // Commande /help
+  if (text === '/help') {
+    await sendTelegramMessage(env, chatId,
+      '*Commandes Kairos Insider Bot*\n\n' +
+      '/start [code] - Lier ton compte (code genere depuis le site)\n' +
+      '/status - Voir le statut de ta liaison\n' +
+      '/stop - Delier ce chat (arrete les alertes)\n' +
+      '/help - Cette aide\n\n' +
+      'Site : kairosinsider.fr');
+    return jsonResponse({ ok: true });
+  }
+
+  // Texte inconnu : message d'aide
+  await sendTelegramMessage(env, chatId,
+    'Commande non reconnue. Tape /help pour la liste des commandes.');
+  return jsonResponse({ ok: true });
+}
+
+// Helper : envoie un message Markdown V2 au chat Telegram. Best-effort.
+// Doc : https://core.telegram.org/bots/api#sendmessage
+// Markdown : https://core.telegram.org/bots/api#markdownv2-style
+async function sendTelegramMessage(env, chatId, text, options = {}) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    log.error('telegram.send.no-token');
+    return false;
+  }
+  // Markdown V2 reclame d'echapper certains chars meme dans le texte normal
+  // (parenthese, point, dash, etc.). On utilise plutot Markdown legacy qui
+  // est plus permissif. Les *bold* et _italic_ marchent partout.
+  const body = {
+    chat_id: chatId,
+    text,
+    parse_mode: 'Markdown',
+    disable_web_page_preview: true,
+    ...options,
+  };
+  try {
+    const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      log.warn('telegram.send.failed', { chatId, status: resp.status, body: errText.slice(0, 200) });
+      return false;
+    }
+    return true;
+  } catch (e) {
+    log.error('telegram.send.error', { chatId, detail: String(e.message || e).slice(0, 200) });
+    return false;
   }
 }

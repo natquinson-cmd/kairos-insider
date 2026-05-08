@@ -67,6 +67,11 @@ BREVO_SENDER_NAME = "Kairos Insider"
 BREVO_SENDER_EMAIL = "contact@kairosinsider.fr"
 ALLOWED_ORIGIN = "https://kairosinsider.fr"
 FIREBASE_PROJECT_ID = "kairos-insider"
+# Telegram bot username (sans @) pour construire les deep-links t.me/xxx?start=CODE.
+# Le BOT_TOKEN et le WEBHOOK_SECRET sont des secrets (pas dans le code source) :
+#   wrangler secret put TELEGRAM_BOT_TOKEN
+#   wrangler secret put TELEGRAM_WEBHOOK_SECRET
+TELEGRAM_BOT_USERNAME = "KairosInsiderBot"
 # Ancien prix Premium 29€ (archive cote Stripe, grandfathered pour users existants).
 # Fallback si aucun plan=X ne matche (ex: anciens liens en cache).
 STRIPE_PRICE_ID = "price_1TM8ATDmX73q2YzDLtmLnk9k"

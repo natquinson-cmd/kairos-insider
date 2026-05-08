@@ -4931,6 +4931,74 @@
             Vos données sont conservees dans Firebase et Cloudflare KV (Europe). Vous pouvez les supprimer a tout moment via le bouton ci-dessus ou en cliquant sur "se desabonner" dans un email.
           </p>
         </div>
+
+        <!-- ===== TELEGRAM ALERTS (Phase 1) ===== -->
+        <div id="telegramPanel" style="margin-top:24px;padding:20px 22px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="font-size:22px">💬</span>
+            <h3 style="margin:0;font-size:15px;color:var(--text-primary)">Alertes Telegram <span style="font-size:11px;font-weight:600;background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);color:#fff;padding:2px 7px;border-radius:4px;letter-spacing:0.06em;margin-left:6px">NOUVEAU</span></h3>
+          </div>
+          <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;line-height:1.55">
+            Reçois sur Telegram les alertes activistes 13D, franchissements de seuils EU, mouvements de score Kairos. Latence < 8 min après filing SEC.
+          </p>
+
+          <!-- Etat : non lié -->
+          <div id="tgStateUnlinked" style="display:none">
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.06));border:1px solid rgba(139,92,246,0.25);border-radius:10px;margin-bottom:12px">
+              <div style="font-size:13px;color:var(--text-primary);margin-bottom:10px;line-height:1.5">
+                <strong>Comment ça marche :</strong><br>
+                1. Clique sur le bouton ci-dessous → un code unique apparaît<br>
+                2. Telegram s'ouvre avec @KairosInsiderBot<br>
+                3. Envoie le message pré-rempli pour lier ce chat à ton compte
+              </div>
+              <button id="tgConnectBtn" onclick="connectTelegram()" class="btn" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:linear-gradient(135deg,#0088cc,#229ED9);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+                Connecter Telegram
+              </button>
+            </div>
+          </div>
+
+          <!-- Etat : code généré, en attente de l'user -->
+          <div id="tgStateLinking" style="display:none">
+            <div style="padding:16px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.3);border-radius:10px;margin-bottom:12px">
+              <div style="font-size:13px;color:var(--text-primary);margin-bottom:10px">
+                <strong>Code de liaison généré ⏱</strong> · Expire dans <span id="tgCodeExpire">15:00</span>
+              </div>
+              <div style="font-family:monospace;font-size:18px;font-weight:700;color:#3B82F6;background:var(--bg-primary);padding:10px 14px;border-radius:8px;letter-spacing:0.04em;text-align:center;margin-bottom:10px" id="tgCodeDisplay">KAIROS-XXXXXX</div>
+              <a id="tgDeepLink" href="#" target="_blank" rel="noopener" class="btn" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;background:#0088cc;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;margin-bottom:10px">
+                Ouvrir Telegram et envoyer le code →
+              </a>
+              <div style="font-size:11px;color:var(--text-muted);text-align:center">
+                <button onclick="checkTelegramStatus()" style="background:none;border:none;color:#74b9ff;cursor:pointer;text-decoration:underline;font-size:11px">Vérifier la liaison</button>
+                ·
+                <button onclick="cancelTelegramLink()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;text-decoration:underline;font-size:11px">Annuler</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Etat : connecté -->
+          <div id="tgStateLinked" style="display:none">
+            <div style="padding:14px 16px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.3);border-radius:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:13px;color:#10B981;font-weight:600;margin-bottom:2px">✅ Telegram connecté</div>
+                <div style="font-size:11.5px;color:var(--text-muted)" id="tgLinkedInfo">—</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button onclick="testTelegram()" class="btn" style="padding:7px 13px;font-size:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;cursor:pointer">
+                  📤 Tester
+                </button>
+                <button onclick="unlinkTelegram()" class="btn" style="padding:7px 13px;font-size:12px;background:transparent;border:1px solid var(--accent-red);color:var(--accent-red);border-radius:6px;cursor:pointer">
+                  Délier
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Etat : loading -->
+          <div id="tgStateLoading" style="padding:14px;text-align:center;color:var(--text-muted);font-size:12px">
+            <span style="opacity:0.7">Chargement…</span>
+          </div>
+        </div>
       </div>
 
       <!-- ===== SECTION: MON PROFIL ===== -->
@@ -6964,7 +7032,7 @@
           // Affiche les rotations recentes si l'historique D1 existe
           loadEtfRotations();
         }
-        if (section === 'watchlist') loadWatchlist();
+        if (section === 'watchlist') { loadWatchlist(); loadTelegramStatus(); }
         if (section === 'activists') loadActivists();
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
@@ -16758,6 +16826,127 @@
       await persistWatchlist();
       renderWatchlist();
       updateStarButtons();
+    }
+
+    // ============================================================
+    // TELEGRAM ALERTS — Phase 1 : link UI
+    // ============================================================
+    let _tgExpireTimer = null;
+
+    function _tgSetState(state) {
+      ['Unlinked', 'Linking', 'Linked', 'Loading'].forEach(s => {
+        const el = document.getElementById('tgState' + s);
+        if (el) el.style.display = (s === state) ? 'block' : 'none';
+      });
+    }
+
+    async function loadTelegramStatus() {
+      _tgSetState('Loading');
+      try {
+        const resp = await apiFetch('/api/telegram/status');
+        if (resp && resp.linked) {
+          const dt = resp.linkedAt ? new Date(resp.linkedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+          const info = `Liée depuis le ${dt}` + (resp.chatTitle ? ` · ${resp.chatTitle}` : '');
+          const infoEl = document.getElementById('tgLinkedInfo');
+          if (infoEl) infoEl.textContent = info;
+          _tgSetState('Linked');
+        } else {
+          _tgSetState('Unlinked');
+        }
+      } catch (e) {
+        // Pas connecté ou erreur API → on retombe sur l'état "non lié"
+        _tgSetState('Unlinked');
+      }
+    }
+
+    async function connectTelegram() {
+      const btn = document.getElementById('tgConnectBtn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+      try {
+        const resp = await apiFetch('/api/telegram/init-link', { method: 'POST' });
+        if (resp && resp.alreadyLinked) {
+          await loadTelegramStatus();
+          return;
+        }
+        if (!resp || !resp.code) {
+          Toast.error('Impossible de générer un code de liaison.');
+          return;
+        }
+        // Affiche le code + deepLink
+        document.getElementById('tgCodeDisplay').textContent = resp.code;
+        document.getElementById('tgDeepLink').href = resp.deepLink;
+        _tgSetState('Linking');
+        // Ouvre Telegram dans un nouvel onglet automatiquement
+        window.open(resp.deepLink, '_blank', 'noopener');
+        // Compte a rebours 15 min
+        let remaining = resp.expiresInSec || 900;
+        const updateTimer = () => {
+          const m = Math.floor(remaining / 60);
+          const s = remaining % 60;
+          const el = document.getElementById('tgCodeExpire');
+          if (el) el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+          if (remaining <= 0) {
+            clearInterval(_tgExpireTimer);
+            _tgSetState('Unlinked');
+            Toast.warning('Le code de liaison a expiré. Recommence si besoin.');
+          }
+          remaining--;
+        };
+        if (_tgExpireTimer) clearInterval(_tgExpireTimer);
+        updateTimer();
+        _tgExpireTimer = setInterval(updateTimer, 1000);
+        // Poll toutes les 3s pour detecter quand le user a complete la liaison
+        const pollStart = Date.now();
+        const pollTimer = setInterval(async () => {
+          if (Date.now() - pollStart > 900000) { clearInterval(pollTimer); return; }
+          try {
+            const status = await apiFetch('/api/telegram/status');
+            if (status && status.linked) {
+              clearInterval(pollTimer);
+              if (_tgExpireTimer) clearInterval(_tgExpireTimer);
+              await loadTelegramStatus();
+              Toast.success('Telegram lié avec succès ! 🎉');
+            }
+          } catch {}
+        }, 3000);
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || e));
+      } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      }
+    }
+
+    function cancelTelegramLink() {
+      if (_tgExpireTimer) { clearInterval(_tgExpireTimer); _tgExpireTimer = null; }
+      _tgSetState('Unlinked');
+    }
+
+    async function checkTelegramStatus() {
+      await loadTelegramStatus();
+    }
+
+    async function unlinkTelegram() {
+      if (!confirm('Délier Telegram ? Tu ne recevras plus d\'alertes sur ce chat.')) return;
+      try {
+        await apiFetch('/api/telegram/unlink', { method: 'POST' });
+        Toast.success('Telegram délié.');
+        _tgSetState('Unlinked');
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || e));
+      }
+    }
+
+    async function testTelegram() {
+      try {
+        const resp = await apiFetch('/api/telegram/test', { method: 'POST' });
+        if (resp && resp.sent) {
+          Toast.success('Message de test envoyé sur Telegram ✅');
+        } else {
+          Toast.error('Échec de l\'envoi. Vérifie que le bot n\'est pas bloqué.');
+        }
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || e));
+      }
     }
 
     // ============================================================
