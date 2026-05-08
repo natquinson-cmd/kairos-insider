@@ -414,6 +414,12 @@ async function handleRequest(request, env, ctx) {
       return handleVixHistory(env, request.headers.get('Origin') || '');
     }
 
+    // Ticker tape : flux smart money temps reel (sous navbar dashboard).
+    // PUBLIC (pas d'auth) - aggregation publique (cache 5 min KV).
+    if (request.method === 'GET' && path === '/api/ticker-tape') {
+      return handleTickerTape(env, request.headers.get('Origin') || '');
+    }
+
     // ==========================================
     // SEARCH TICKER PUBLIC (autocomplete pour Analyse Action)
     // GET /api/search-ticker?q=Thales -> liste de candidats
