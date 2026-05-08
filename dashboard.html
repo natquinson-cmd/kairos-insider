@@ -5755,6 +5755,11 @@
     let firebaseAuth = null;
     let currentUser = null;
     let isPremium = false;
+    // FIX (mai 2026) : init window.isAnonymous=true par defaut. Avant Firebase
+    // ne se prononce, tout endpoint qui fire en arriere-plan et retourne 401
+    // ne doit PAS afficher l'authOverlay. Ce sera mis a false dans
+    // onAuthStateChanged si user authentifie.
+    window.isAnonymous = true;
     const STRIPE_PK = 'pk_live_51TM5gGDmX73q2YzD7u0ZOZPGRXU2frBhfBK3puhlZ3YV4m6mbyljIZL4hhCkldLW86Qc9ZfUwzXW2Tj13iilJQPK00d26oSAh8';
 
     // Initialisation Firebase Auth (module)
@@ -5776,6 +5781,7 @@
       onAuthStateChanged(firebaseAuth, async (user) => {
         if (user) {
           currentUser = user;
+          window.isAnonymous = false;  // user authentifie : permet a apiFetch d'afficher authOverlay sur 401 (token expire)
           document.getElementById('authOverlay').classList.add('hidden');
           await checkSubscription();
           // Deep link / browser navigation : tente de restaurer la section depuis l'URL
@@ -6480,7 +6486,16 @@
       const resp = await fetch(url.toString(), opts);
 
       if (resp.status === 401) {
-        document.getElementById('authOverlay').classList.remove('hidden');
+        // FIX (mai 2026) : ne PAS forcer l'authOverlay pour les visiteurs
+        // anonymes. Beaucoup d'endpoints (watchlist, notifications, brief)
+        // appelent apiFetch en arriere-plan au mount du dashboard et leur
+        // 401 bloquait l'experience anonyme (page Decrypter une valeur,
+        // accessible sans inscription). Les visiteurs anonymes voient juste
+        // un throw silencieux ; les features gatees s'affichent vides ou
+        // avec leur propre CTA d'inscription.
+        if (!window.isAnonymous) {
+          document.getElementById('authOverlay').classList.remove('hidden');
+        }
         throw new Error('Unauthorized');
       }
 
