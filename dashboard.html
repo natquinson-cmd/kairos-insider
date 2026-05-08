@@ -10216,16 +10216,19 @@
         valuation:  t('stock.bd.valuation', 'Valorisation'),
         health:     t('stock.bd.health', 'Santé financière'),
       };
-      // Code couleur dynamique selon le % : permet de voir d'un coup d'oeil
-      // les axes faibles (rouge) vs forts (vert) au lieu d'avoir tout en violet.
-      // Gradient moderne (90deg) : couleur principale -> accent plus clair pour
-      // donner du volume. Aligne sur les paliers du Kairos Score (signal global).
+      // Code couleur dynamique selon le % : 7 paliers pour une vraie progression
+      // visuelle entre faiblesse (rouge intense) et excellence (vert vif).
+      // Avant : 5 paliers, 20% tombait en orange. Maintenant 20% = rouge clair
+      // (deja un signal d'alerte fort), et tout l'interval bas (<25%) reste rouge.
+      // Gradient moderne (90deg) : couleur principale -> accent plus clair.
       const _barPalette = (pct) => {
-        if (pct >= 80) return { from: '#22C55E', to: '#86EFAC', text: '#22C55E' }; // vert vif
-        if (pct >= 60) return { from: '#10B981', to: '#6EE7B7', text: '#10B981' }; // vert
-        if (pct >= 40) return { from: '#EAB308', to: '#FDE047', text: '#EAB308' }; // jaune
-        if (pct >= 20) return { from: '#F59E0B', to: '#FCD34D', text: '#F59E0B' }; // orange
-        return                { from: '#EF4444', to: '#FCA5A5', text: '#EF4444' }; // rouge
+        if (pct >= 85) return { from: '#22C55E', to: '#86EFAC', text: '#22C55E' }; // vert vif (excellent)
+        if (pct >= 70) return { from: '#10B981', to: '#6EE7B7', text: '#10B981' }; // vert (très bon)
+        if (pct >= 55) return { from: '#84CC16', to: '#BEF264', text: '#65A30D' }; // lime (bon)
+        if (pct >= 40) return { from: '#EAB308', to: '#FDE047', text: '#CA8A04' }; // jaune (correct)
+        if (pct >= 25) return { from: '#F59E0B', to: '#FCD34D', text: '#D97706' }; // orange (faible)
+        if (pct >= 10) return { from: '#EF4444', to: '#FCA5A5', text: '#DC2626' }; // rouge clair (mauvais)
+        return                { from: '#DC2626', to: '#F87171', text: '#B91C1C' }; // rouge intense (critique)
       };
       const breakdownRows = axesOrder.map(axis => {
         const b = breakdown[axis.key];
