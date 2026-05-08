@@ -69,6 +69,18 @@ jobs:
           echo "13f-funds-list cached in KV"
         continue-on-error: true
 
+      # Restaure le set de CIK 13D filers (= activistes factuels) depuis KV.
+      # Genere la veille par build-13d-filer-set.py (cf. step plus bas apres fetch-13dg).
+      # Si premier run / KV vide : prefetch-13f.py degrade gracieusement (isOffensive=false partout).
+      - name: Restore 13d_filer_ciks.json from KV (used by prefetch-13f for OFFENSIF flag)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13d-filer-ciks" > 13d_filer_ciks.json 2>/dev/null && echo "Restored 13d_filer_ciks.json: $(wc -c < 13d_filer_ciks.json) bytes" || (rm -f 13d_filer_ciks.json && echo "No 13d_filer_ciks in KV yet (first run)")
+        continue-on-error: true
+
       # ===== 13F prefetch (tous les jours, utilise la liste dynamique) =====
       - name: Fetch 13F data from SEC EDGAR (uses dynamic funds list)
         run: cd worker && python prefetch-13f.py
@@ -148,6 +160,62 @@ jobs:
           cd worker
           wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13dg-recent" --path=13dg_data.json
           echo "13D/G data uploaded"
+        continue-on-error: true
+
+      # =================================================================
+      # 13D-DERIVED INDEXES : activistes factuels US + index UK/EU
+      # =================================================================
+      # Apres fetch-13dg, on derive 2 indexes critiques pour le badge OFFENSIF :
+      #
+      # 1. 13d_filer_ciks.json : set des CIK qui ont depose >=1 13D/A en 730j
+      #    (= activistes factuels SEC, vs auto-declaration de categorie).
+      #    Utilise par prefetch-13f le LENDEMAIN pour flag 'o' du ticker-index.
+      #
+      # 2. 13d_eu_uk_index.json : mapping ticker_primaire_EU/UK -> filings 13D
+      #    (Cevian/Pearson PSON.L, Cevian/Smith&Nephew SN.L, Trian/JHG, etc.).
+      #    Resolve les ADR US -> .L/.PA/.AS/.DE/.MI/etc. via Yahoo Search.
+      #    Utilise par worker aggregate13F pour merger les activistes EU sur
+      #    les tickers locaux (qui sinon n'ont pas de 13F-equivalent FCA/AMF).
+      - name: Build 13D filer set (US activists factuels)
+        if: hashFiles('worker/13dg_data.json') != ''
+        run: cd worker && python build-13d-filer-set.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Upload 13d-filer-ciks to KV
+        if: hashFiles('worker/13d_filer_ciks.json') != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13d-filer-ciks" --path=13d_filer_ciks.json
+          echo "13d-filer-ciks uploaded ($(python -c 'import json; print(len(json.load(open(\"13d_filer_ciks.json\")).get(\"cikList\",[])))') CIKs)"
+        continue-on-error: true
+
+      # Restaure le cache de mapping company_name -> primary_ticker UK/EU pour
+      # eviter de re-resolver via Yahoo Search a chaque run (~250ms/lookup, 60 targets).
+      - name: Restore eu_primary_ticker_cache.json
+        uses: actions/cache@v4
+        with:
+          path: worker/eu_primary_ticker_cache.json
+          key: eu-primary-ticker-cache-v1
+
+      - name: Build EU/UK 13D index (Cevian/Pearson, Trian/JHG, etc.)
+        if: hashFiles('worker/13dg_data.json') != ''
+        run: cd worker && python build-eu-13d-index.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      - name: Upload 13d-eu-uk-index to KV
+        if: hashFiles('worker/13d_eu_uk_index.json') != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13d-eu-uk-index" --path=13d_eu_uk_index.json
+          echo "13d-eu-uk-index uploaded ($(python -c 'import json; d=json.load(open(\"13d_eu_uk_index.json\")); print(d.get(\"tickerCount\",0))') tickers, $(python -c 'import json; d=json.load(open(\"13d_eu_uk_index.json\")); print(d.get(\"filingCount\",0))') filings)"
         continue-on-error: true
 
       - name: Fetch AMF Declarations dirigeants (FR + Euronext)
