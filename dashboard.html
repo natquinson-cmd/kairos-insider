@@ -10156,18 +10156,22 @@
       // Polygon outer (100% = max)
       const polyOuter = gridPoints.map(p => `${p.x},${p.y}`).join(' ');
 
-      // Anneaux concentriques (25%, 50%, 75%, 100%)
+      // Anneaux concentriques (25%, 50%, 75%, 100%) + axes radiaux.
+      // FIX (mai 2026) : utilise les variables CSS --chart-grid / --chart-grid-subtle
+      // pour s'adapter au theme clair vs sombre. Avant : `rgba(255,255,255,0.05)` en
+      // dur invisible sur fond clair. Maintenant variables CSS qui basculent
+      // automatiquement (cf. dashboard.html ligne 93-94 dark, 142-143 light).
       const rings = [0.25, 0.5, 0.75, 1.0].map(frac => {
         const pts = gridPoints.map(p => {
           const x = CX + (R * frac) * Math.cos(p.angle);
           const y = CY + (R * frac) * Math.sin(p.angle);
           return `${x},${y}`;
         }).join(' ');
-        return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+        return `<polygon points="${pts}" fill="none" stroke="var(--chart-grid)" stroke-width="1"/>`;
       }).join('');
 
-      // Axes (8 rayons)
-      const axes = gridPoints.map(p => `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('');
+      // Axes (8 rayons) avec la meme variable CSS
+      const axes = gridPoints.map(p => `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="var(--chart-grid)" stroke-width="1"/>`).join('');
 
       // Labels autour : noms complets uppercase (INSIDERS / HEDGE FUNDS / etc.)
       // Font reduit a 10.5px + letter-spacing serre pour que VALORISATION et
