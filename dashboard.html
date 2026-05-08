@@ -5572,6 +5572,22 @@
           </div>
         </div>
 
+        <!-- PANEL JOBS TIMELINE — Gantt 24h -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;min-width:0;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0;font-size:16px">📊 Timeline des jobs (24h)</h3>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Vue Gantt des cron jobs sur les 24 dernières heures. Vert = OK, rouge = échec, gris = à venir, ambre = en retard.</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button onclick="loadJobsTimeline()" class="tip" data-tip="Recharger les données" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+            </div>
+          </div>
+          <div id="adJobsTimelineBody" style="min-height:200px;min-width:0;overflow-x:auto">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>
+          </div>
+        </div>
+
         <!-- PANEL PONDÉRATION KAIROS SCORE -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
@@ -17394,9 +17410,10 @@
         renderAdminTrafficPanel(trafficRes);
         renderAdminDbPanel(dbRes);
         renderAdminJobsPanel(jobsRes);
-        // Load error tracking (non-blocking)
+        // Load error tracking + score weights + jobs timeline (non-blocking)
         loadAdminErrors().catch(() => {});
         loadAdminScoreWeights().catch(() => {});
+        loadJobsTimeline().catch(() => {});
 
         // Status : timestamp persiste + updater live pour "il y a Xs / Xmin"
         window._adminLastRefreshTs = Date.now();
@@ -18125,6 +18142,180 @@
           💡 <strong style="color:var(--text-primary)">Info</strong> — Les jobs <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">fetch-*</code> tournent via GitHub Actions (cron quotidien). Cliquer 🔗 GitHub ouvre le workflow pour trigger manuel. Le cron-watchlist-digest est interne au Worker et peut être lancé directement.
         </div>
       `;
+    }
+
+    // ============================================================
+    // JOBS TIMELINE — Gantt 24h
+    // ============================================================
+    async function loadJobsTimeline() {
+      const body = document.getElementById('adJobsTimelineBody');
+      if (!body) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/jobs-timeline?hours=24`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        renderJobsTimeline(data);
+      } catch (e) {
+        body.innerHTML = `<div style="padding:30px;text-align:center;color:#EF4444">Erreur : ${e.message || e}</div>`;
+      }
+    }
+
+    function renderJobsTimeline(data) {
+      const body = document.getElementById('adJobsTimelineBody');
+      if (!body || !data || !Array.isArray(data.jobs)) return;
+      const now = new Date(data.now).getTime();
+      const from = new Date(data.fromUtc).getTime();
+      const totalMs = now - from;
+      // Plage 24h : 24 graduations horaires
+      const hourStops = [];
+      for (let h = 0; h <= 24; h += 4) {
+        const t = from + (h / 24) * totalMs;
+        const d = new Date(t);
+        hourStops.push({
+          pct: (h / 24) * 100,
+          label: `${String(d.getHours()).padStart(2,'0')}h`,
+        });
+      }
+      // Statut d'un slot expected en fonction du timing + lastRun
+      const statusForSlot = (slotIso, lastRun, type) => {
+        const slotTs = new Date(slotIso).getTime();
+        // Tolerance : +/- 30 min entre expected et lastRun pour considerer match
+        const TOLERANCE_MS = 30 * 60 * 1000;
+        // Si le slot est dans le futur (> now) -> scheduled
+        if (slotTs > now + 60000) return 'scheduled';
+        if (lastRun && lastRun.ts) {
+          const lastTs = lastRun.ts * 1000;
+          // Si lastRun matche ce slot (proximite temporelle) -> status reel
+          if (Math.abs(lastTs - slotTs) < TOLERANCE_MS) {
+            return lastRun.status === 'failed' ? 'failed' : 'ok';
+          }
+          // Si lastRun est PLUS RECENT que ce slot, ce slot est passe sans data
+          if (lastTs > slotTs) return 'past-no-data';
+          // Sinon (slot plus recent que lastRun) -> missed
+          return 'missed';
+        }
+        // Pas de lastRun du tout : slot passe = missed
+        return slotTs < now ? 'missed' : 'scheduled';
+      };
+      const colorFor = (status) => {
+        if (status === 'ok') return { bg: '#10B981', border: 'rgba(16,185,129,0.4)' };
+        if (status === 'failed') return { bg: '#EF4444', border: 'rgba(239,68,68,0.4)' };
+        if (status === 'missed') return { bg: '#F59E0B', border: 'rgba(245,158,11,0.4)' };
+        if (status === 'scheduled') return { bg: '#374151', border: 'rgba(55,65,81,0.6)' };
+        if (status === 'past-no-data') return { bg: '#1F2937', border: 'rgba(31,41,55,0.5)' };
+        return { bg: '#374151', border: 'rgba(55,65,81,0.6)' };
+      };
+
+      const fmtSummary = (lr) => {
+        if (!lr || !lr.iso) return '<span style="opacity:0.5">jamais</span>';
+        const ageMin = (now - new Date(lr.iso).getTime()) / 60000;
+        const age = ageMin < 60 ? `${Math.round(ageMin)} min` : ageMin < 1440 ? `${Math.round(ageMin/60)} h` : `${Math.round(ageMin/1440)} j`;
+        const c = lr.status === 'failed' ? '#EF4444' : '#10B981';
+        return `<span style="color:${c}">${lr.status === 'failed' ? '✕' : '✓'}</span> il y a ${age}`;
+      };
+
+      const rows = data.jobs.map(j => {
+        // Calcule chaque bar segment
+        const segments = (j.expectedRuns || []).map(slotIso => {
+          const status = statusForSlot(slotIso, j.lastRun, j.type);
+          const slotTs = new Date(slotIso).getTime();
+          const xPct = ((slotTs - from) / totalMs) * 100;
+          // Largeur proportionnelle a la duree typique du job (clampee 0.5%-4%)
+          const widthPct = Math.max(0.5, Math.min(4, (j.avgDurationSec * 1000 / totalMs) * 100));
+          const c = colorFor(status);
+          const tip = `${new Date(slotIso).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })} — ${status}`;
+          return `<div title="${tip}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
+        }).join('');
+
+        // Bouton re-run selon le type
+        let runBtn = '';
+        if (j.runEndpoint) {
+          // CF cron : trigger via Worker endpoint
+          runBtn = `<button onclick="runJobNow('${j.id}', '${j.runEndpoint}', this)" class="admin-run-btn" style="white-space:nowrap">▶ Lancer</button>`;
+        } else if (j.workflowFile) {
+          // GitHub Actions : open workflow page
+          runBtn = `<a href="https://github.com/natquinson-cmd/kairos-insider/actions/workflows/${j.workflowFile}" target="_blank" rel="noopener" class="admin-run-btn" style="white-space:nowrap">🔗 GitHub</a>`;
+        } else {
+          runBtn = `<span style="opacity:0.4;font-size:11px">—</span>`;
+        }
+
+        return `
+          <div style="display:grid;grid-template-columns:240px 1fr 130px 100px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider)">
+            <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(j.name)} · cron ${j.cron} · ${j.expectedRunsTotal} runs prévus / 24h">
+              ${escapeHtml(j.name)}
+              <div style="font-size:10px;color:var(--text-muted);font-family:monospace;font-weight:400">${j.cron}</div>
+            </div>
+            <div style="position:relative;height:30px;background:rgba(255,255,255,0.02);border-radius:4px;border:1px solid var(--divider)">
+              ${segments}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);text-align:right">${fmtSummary(j.lastRun)}</div>
+            <div style="text-align:right">${runBtn}</div>
+          </div>
+        `;
+      }).join('');
+
+      // Echelle horaire en bas
+      const scale = `
+        <div style="display:grid;grid-template-columns:240px 1fr 130px 100px;gap:10px;margin-top:6px">
+          <div></div>
+          <div style="position:relative;height:18px;font-size:10px;color:var(--text-muted)">
+            ${hourStops.map(h => `<div style="position:absolute;left:${h.pct}%;transform:translateX(-50%)">${h.label}</div>`).join('')}
+          </div>
+          <div></div><div></div>
+        </div>
+      `;
+      // Legende
+      const legend = `
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--text-muted)">
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#10B981;border-radius:2px;display:inline-block"></span>OK</div>
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#EF4444;border-radius:2px;display:inline-block"></span>Failed</div>
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;display:inline-block"></span>Missed (en retard)</div>
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#374151;border-radius:2px;display:inline-block"></span>Scheduled (à venir)</div>
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#1F2937;border-radius:2px;display:inline-block"></span>Passé sans data</div>
+        </div>
+      `;
+
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:240px 1fr 130px 100px;gap:10px;padding:6px 0 8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">
+          <div>Job</div>
+          <div>Timeline 24h (UTC)</div>
+          <div style="text-align:right">Dernier run</div>
+          <div style="text-align:right">Action</div>
+        </div>
+        ${rows}
+        ${scale}
+        ${legend}
+      `;
+    }
+
+    // Re-run un job CF cron via son endpoint
+    async function runJobNow(jobId, endpoint, btn) {
+      if (!btn || !endpoint) return;
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ En cours…';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        if (data && data.ok) {
+          Toast.success(`Job ${jobId} lancé (${data.elapsedMs || 0} ms).`);
+          await new Promise(r => setTimeout(r, 1500));
+          loadJobsTimeline();
+        } else {
+          Toast.error(`Échec : ${data?.error || 'erreur inconnue'}`);
+        }
+      } catch (e) {
+        Toast.error(`Erreur : ${e.message || e}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }
     }
 
     // Déclencheur manuel du cron watchlist-digest (via Worker)

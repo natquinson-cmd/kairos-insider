@@ -813,6 +813,9 @@ async function handleRequest(request, env, ctx) {
         if (path === '/api/admin/db-stats') {
           return handleAdminDbStats(env, origin);
         }
+        if (path === '/api/admin/jobs-timeline') {
+          return handleAdminJobsTimeline(request, env, origin);
+        }
         if (path === '/api/admin/jobs') {
           return handleAdminJobs(env, origin);
         }
@@ -10016,6 +10019,155 @@ async function handleAdminTestTelegram13D(request, env, user, origin) {
   ].join('\n');
   const ok = await sendTelegramMessage(env, tg.chatId, text);
   return jsonResponse({ sent: ok, chatId: tg.chatId, message: text }, ok ? 200 : 502, origin);
+}
+
+// ============================================================
+// JOBS TIMELINE — Gantt 24h pour le dashboard admin
+// ============================================================
+// JOB_REGISTRY : reference centralisee de tous les jobs cron + leur schedule.
+// Permet de calculer les runs attendus dans les dernieres 24h et de les
+// matcher aux executions reelles (KV 'lastRun:*' + 'runHistory:*').
+const JOB_REGISTRY = [
+  // GitHub Actions workflows
+  { id: 'update-13f', name: 'Pipeline 13F + ETF (daily)', cron: '30 1 * * *', type: 'github-actions', workflowFile: 'update-13f.yml', kvKey: null, avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f' },
+  { id: 'realtime-30min', name: 'Refresh 30 min (13D + AMF + BaFin + seuils EU)', cron: '15,45 * * * *', type: 'github-actions', workflowFile: 'realtime-30min.yml', kvKey: null, avgDurationSec: 600, lastRunKey: 'lastRun:13dg-realtime' },
+  { id: 'backup', name: 'Backup D1 + KV → R2', cron: '0 1 * * *', type: 'github-actions', workflowFile: 'backup.yml', kvKey: null, avgDurationSec: 300, lastRunKey: 'lastRun:backup-to-r2' },
+  { id: 'daily-tweets', name: 'Daily Tweets Email', cron: '30 4 * * *', type: 'github-actions', workflowFile: 'daily-tweets.yml', kvKey: null, avgDurationSec: 60, lastRunKey: 'lastRun:daily-tweets' },
+  { id: 'daily-comment-digest', name: 'Daily Comment Digest', cron: '30 3 * * 1-5', type: 'github-actions', workflowFile: 'daily-comment-digest.yml', kvKey: null, avgDurationSec: 120, lastRunKey: 'lastRun:daily-comment-digest' },
+  { id: 'fetch-eu-thresholds', name: 'EU Thresholds Fetch', cron: '0 5 * * *', type: 'github-actions', workflowFile: 'fetch-eu-thresholds.yml', kvKey: null, avgDurationSec: 600, lastRunKey: 'lastRun:fetch-eu-thresholds' },
+  { id: 'fetch-13f-history', name: '13F History (mensuel)', cron: '0 2 1 * *', type: 'github-actions', workflowFile: 'fetch-13f-history.yml', kvKey: null, avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f-history' },
+  // Cloudflare Workers crons (definis dans wrangler.toml)
+  { id: 'cf-cron-watchlist', name: 'CF Cron : Watchlist + Health', cron: '0 4 * * *', type: 'cf-cron', workflowFile: null, kvKey: 'wl-last-cron-run', avgDurationSec: 5, lastRunKey: 'wl-last-cron-run', runEndpoint: '/api/admin/run-watchlist-cron' },
+  { id: 'cf-cron-telegram', name: 'CF Cron : Telegram Alerts', cron: '*/5 * * * *', type: 'cf-cron', workflowFile: null, kvKey: 'lastRun:telegram-alerts', avgDurationSec: 10, lastRunKey: 'lastRun:telegram-alerts', runEndpoint: '/api/admin/run-telegram-cron' },
+];
+
+// Parser cron simple : retourne les timestamps (Date) attendus dans la fenetre [from, to].
+// Supporte : minute=*|N|*\/N|N,N,N hour=*|N|N,N day=*|N (ignore mois/dow pour simplicite,
+// suffisant pour notre usage).
+// FIX (mai 2026) : ne supporte pas tous les patterns, mais couvre nos crons.
+function parseCronToRuns(cronExpr, fromDate, toDate) {
+  const parts = cronExpr.trim().split(/\s+/);
+  if (parts.length !== 5) return [];
+  const [minPart, hourPart, domPart, monthPart, dowPart] = parts;
+
+  // Parse une partie en set de valeurs valides ou null si '*'
+  const parsePart = (p, min, max) => {
+    if (p === '*') return null;
+    const result = new Set();
+    for (const seg of p.split(',')) {
+      const stepMatch = seg.match(/^\*\/(\d+)$/);
+      if (stepMatch) {
+        const step = parseInt(stepMatch[1], 10);
+        for (let i = min; i <= max; i += step) result.add(i);
+        continue;
+      }
+      const rangeMatch = seg.match(/^(\d+)-(\d+)$/);
+      if (rangeMatch) {
+        for (let i = parseInt(rangeMatch[1], 10); i <= parseInt(rangeMatch[2], 10); i++) result.add(i);
+        continue;
+      }
+      const n = parseInt(seg, 10);
+      if (!isNaN(n)) result.add(n);
+    }
+    return result;
+  };
+
+  const minSet = parsePart(minPart, 0, 59);
+  const hourSet = parsePart(hourPart, 0, 23);
+  const domSet = parsePart(domPart, 1, 31);
+  const dowSet = parsePart(dowPart, 0, 6);
+
+  const runs = [];
+  // Iterate par minute dans la fenetre, avec un cap raisonnable
+  const start = new Date(fromDate);
+  start.setUTCSeconds(0, 0);
+  // Cap a 24h x 60 = 1440 iterations max
+  const maxIter = 24 * 60 + 60;
+  let iter = 0;
+  for (let d = new Date(start); d <= toDate && iter < maxIter; d.setUTCMinutes(d.getUTCMinutes() + 1)) {
+    iter++;
+    const m = d.getUTCMinutes();
+    const h = d.getUTCHours();
+    const dom = d.getUTCDate();
+    const dow = d.getUTCDay();
+    if (minSet && !minSet.has(m)) continue;
+    if (hourSet && !hourSet.has(h)) continue;
+    if (domSet && !domSet.has(dom)) continue;
+    if (dowSet && !dowSet.has(dow)) continue;
+    runs.push(new Date(d));
+  }
+  return runs;
+}
+
+// Endpoint /api/admin/jobs-timeline?hours=24
+// Pour chaque job du registry :
+//   - Calcule les runs attendus dans la fenetre [now-hours, now]
+//   - Lit lastRun:* de KV pour le dernier run effectif
+//   - Match l'expected aux actual runs (tolerance 5 min) -> status par slot
+async function handleAdminJobsTimeline(request, env, origin) {
+  const url = new URL(request.url);
+  const hours = Math.max(1, Math.min(72, parseInt(url.searchParams.get('hours') || '24', 10)));
+  const now = new Date();
+  const from = new Date(now.getTime() - hours * 3600 * 1000);
+
+  const jobs = [];
+  for (const def of JOB_REGISTRY) {
+    let expectedRuns;
+    try {
+      expectedRuns = parseCronToRuns(def.cron, from, now);
+    } catch {
+      expectedRuns = [];
+    }
+    // Limite raisonnable pour l'affichage (sinon telegram-alerts = 288 slots / 24h)
+    let displayExpectedRuns = expectedRuns;
+    if (expectedRuns.length > 96) {
+      // Compress : groupe par tranche de 30 min
+      displayExpectedRuns = [];
+      let bucketStart = null;
+      for (const r of expectedRuns) {
+        if (!bucketStart || (r.getTime() - bucketStart.getTime()) >= 30 * 60 * 1000) {
+          displayExpectedRuns.push(r);
+          bucketStart = r;
+        }
+      }
+    }
+    // Lit le dernier run reel depuis KV
+    let lastRun = null;
+    if (def.lastRunKey) {
+      try {
+        const data = await env.CACHE.get(def.lastRunKey, 'json');
+        if (data) {
+          lastRun = {
+            ts: data.ts || (data.timestamp ? Math.floor(new Date(data.timestamp).getTime() / 1000) : null),
+            iso: data.iso || data.timestamp || null,
+            status: data.status || (data.error ? 'failed' : 'ok'),
+            durationSec: data.durationSec || null,
+            summary: data.summary || '',
+            error: data.error || '',
+          };
+        }
+      } catch {}
+    }
+    jobs.push({
+      id: def.id,
+      name: def.name,
+      cron: def.cron,
+      type: def.type,
+      workflowFile: def.workflowFile,
+      runEndpoint: def.runEndpoint || null,
+      avgDurationSec: def.avgDurationSec,
+      expectedRuns: displayExpectedRuns.map(d => d.toISOString()),
+      expectedRunsTotal: expectedRuns.length,
+      lastRun,
+    });
+  }
+  return jsonResponse({
+    now: now.toISOString(),
+    fromUtc: from.toISOString(),
+    windowHours: hours,
+    jobsCount: jobs.length,
+    jobs,
+  }, 200, origin);
 }
 
 async function runTelegramAlertingCron(env) {
