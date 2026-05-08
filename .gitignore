@@ -25,6 +25,8 @@ brevo-template.json
 *.secret
 # Script local de prefetch 13F qui contient un token Cloudflare en dur
 worker/prefetch-13f.sh
+# Script setup Telegram (contient TELEGRAM_WEBHOOK_SECRET en dur, single-use)
+worker/setup-telegram.sh
 # Donnees Google Trends generees localement (uploadees vers KV par GitHub Actions)
 worker/trends_data.json
 worker/trends_hot.json
