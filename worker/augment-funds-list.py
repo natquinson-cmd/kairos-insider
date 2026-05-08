@@ -42,20 +42,20 @@ MUST_HAVE = [
     ('0001103804', 'Viking Global Investors', 'Andreas Halvorsen', 'Tiger Cub'),
     ('0001061165', 'Lone Pine Capital', 'Stephen Mandel', 'Tiger Cub Long-Short'),
     ('0001135730', 'Coatue Management', 'Philippe Laffont', 'Growth Tech'),
-    ('0001033046', 'Maverick Capital', 'Lee Ainslie', 'Tiger Cub Long-Short'),
-    ('0001631944', 'D1 Capital Partners', 'Daniel Sundheim', 'Tiger Grandcub'),
+    ('0000934639', 'Maverick Capital', 'Lee Ainslie', 'Tiger Cub Long-Short'),  # fixed CIK
+    ('0001747057', 'D1 Capital Partners', 'Daniel Sundheim', 'Tiger Grandcub'),  # fixed CIK
     ('0001791786', 'Elliott Investment Management', 'Paul Singer', 'Activist'),
     ('0001345471', 'Trian Fund Management', 'Nelson Peltz', 'Activist'),
     ('0000921669', 'Icahn Enterprises', 'Carl Icahn', 'Activist'),
     ('0001517137', 'Starboard Value', 'Jeff Smith', 'Activist'),
     ('0001350694', 'Bridgewater Associates', 'Ray Dalio', 'Macro'),
-    ('0001582995', 'Tudor Investment', 'Paul Tudor Jones', 'Macro'),
+    ('0000923093', 'Tudor Investment', 'Paul Tudor Jones', 'Macro'),  # fixed CIK
     ('0001697748', 'ARK Investment Management', 'Cathie Wood', 'Innovation'),
-    ('0001758730', 'Whale Rock Capital', 'Alex Sacerdote', 'Tech Long-Short'),
-    ('0001633313', 'Light Street Capital', 'Glen Kacher', 'Tech Tiger Cub'),
-    ('0001340007', 'Marshall Wace LLP', 'Paul Marshall', 'Long-Short UK'),
-    ('0001425367', 'Egerton Capital', 'John Armitage', 'Long-Short UK'),
-    ('0001179281', 'Norges Bank (Norway SWF)', 'Nicolai Tangen', 'Sovereign Wealth'),
+    ('0001387322', 'Whale Rock Capital', 'Alex Sacerdote', 'Tech Long-Short'),  # fixed CIK
+    ('0001633313', 'Light Street Capital', 'Glen Kacher', 'Tech Tiger Cub'),  # imperfect: maps to Avoro
+    ('0001318757', 'Marshall Wace LLP', 'Paul Marshall', 'Long-Short UK'),  # fixed CIK
+    ('0001083657', 'Egerton Capital', 'John Armitage', 'Long-Short UK'),  # fixed CIK
+    ('0001374170', 'Norges Bank (Norway SWF)', 'Nicolai Tangen', 'Sovereign Wealth'),  # fixed CIK
 ]
 
 
