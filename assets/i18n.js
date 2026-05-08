@@ -932,6 +932,40 @@
       'hf.unchanged': 'Inchangée',
 
       'unknown': '—',
+
+      // ==== AUTH OVERLAY (login + signup) ====
+      'auth.google': 'Continuer avec Google',
+      'auth.divider_or': 'ou',
+      'auth.email_placeholder': 'Adresse email',
+      'auth.password_placeholder': 'Mot de passe',
+      // Login mode
+      'auth.login.title': 'Bon retour 👋',
+      'auth.login.subtitle': 'Reprends tes analyses smart money là où tu les avais laissées.',
+      'auth.login.submit': 'Se connecter',
+      'auth.login.no_account': 'Pas encore de compte ?',
+      'auth.login.create_link': 'Crée un compte gratuit →',
+      'auth.login.forgot': 'Mot de passe oublié ?',
+      // Signup mode
+      'auth.signup.title': 'Crée ton compte gratuit',
+      'auth.signup.subtitle': 'Aucune carte bancaire. 30 secondes. Pour toujours.',
+      'auth.signup.benefit_analyses_html': '<strong>4 analyses smart money / jour</strong> (au lieu de 2 en anonyme)',
+      'auth.signup.benefit_trends_html': '<strong>Tendances retail</strong> · les tickers qui explosent en recherche Google',
+      'auth.signup.benefit_fg_html': '<strong>Fear &amp; Greed Index</strong> · le pouls du marché en temps réel',
+      'auth.signup.benefit_short_html': '<strong>Short Interest</strong> · top 50 actions les plus shortées + delta 30j',
+      'auth.signup.upsell_pro_html': '<span style="color:#A78BFA;font-weight:700">Pro 19€/mois</span> débloque : filings 13D/G activistes, hedge funds 13F, brief quotidien, watchlist + alertes, screener, fonds offensifs sur 8 marchés.',
+      'auth.signup.password_placeholder': 'Mot de passe (6 caractères min)',
+      'auth.signup.consent_html': "J'accepte les <a href=\"cgv.html\" target=\"_blank\" rel=\"noopener\">CGV</a> et la <a href=\"privacy.html\" target=\"_blank\" rel=\"noopener\">Politique de confidentialité</a>.",
+      'auth.signup.submit': 'Crée mon compte gratuit',
+      'auth.signup.has_account': 'Déjà un compte ?',
+      'auth.signup.login_link': 'Se connecter',
+      // Sources + Security panel
+      'auth.sources_title': 'Sources officielles agrégées',
+      'auth.security_title': 'Sécurité de tes données',
+      'auth.security_1_html': 'Authentification chiffrée Firebase (Google Cloud, ISO 27001/27017)',
+      'auth.security_2_html': 'Hébergement <strong>Cloudflare EU</strong> · données chiffrées au repos',
+      'auth.security_3': 'Aucune revente, aucun partage à des tiers',
+      'auth.security_4': 'Analytics anonymisé (RGPD-friendly, IP tronquée)',
+      'auth.security_5_html': '<strong>Suppression du compte en 1 clic</strong> (purge complète sous 24h)',
     },
 
     // ==========================================================
@@ -1808,6 +1842,40 @@
       'hf.unchanged': 'Unchanged',
 
       'unknown': '—',
+
+      // ==== AUTH OVERLAY (login + signup) ====
+      'auth.google': 'Continue with Google',
+      'auth.divider_or': 'or',
+      'auth.email_placeholder': 'Email address',
+      'auth.password_placeholder': 'Password',
+      // Login mode
+      'auth.login.title': 'Welcome back 👋',
+      'auth.login.subtitle': 'Pick up your smart money analyses where you left off.',
+      'auth.login.submit': 'Sign in',
+      'auth.login.no_account': "Don't have an account yet?",
+      'auth.login.create_link': 'Create a free account →',
+      'auth.login.forgot': 'Forgot password?',
+      // Signup mode
+      'auth.signup.title': 'Create your free account',
+      'auth.signup.subtitle': 'No credit card. 30 seconds. Forever.',
+      'auth.signup.benefit_analyses_html': '<strong>4 smart money analyses / day</strong> (vs 2 anonymous)',
+      'auth.signup.benefit_trends_html': '<strong>Retail trends</strong> · tickers blowing up in Google search',
+      'auth.signup.benefit_fg_html': '<strong>Fear &amp; Greed Index</strong> · live market pulse',
+      'auth.signup.benefit_short_html': '<strong>Short Interest</strong> · top 50 most-shorted stocks + 30d delta',
+      'auth.signup.upsell_pro_html': '<span style="color:#A78BFA;font-weight:700">Pro €19/mo</span> unlocks: 13D/G activist filings, 13F hedge funds, daily brief, watchlist + alerts, screener, activist tracking on 8 markets.',
+      'auth.signup.password_placeholder': 'Password (6 chars min)',
+      'auth.signup.consent_html': 'I agree to the <a href="cgv.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.',
+      'auth.signup.submit': 'Create my free account',
+      'auth.signup.has_account': 'Already have an account?',
+      'auth.signup.login_link': 'Sign in',
+      // Sources + Security panel
+      'auth.sources_title': 'Official sources aggregated',
+      'auth.security_title': 'Your data security',
+      'auth.security_1_html': 'Encrypted Firebase auth (Google Cloud, ISO 27001/27017)',
+      'auth.security_2_html': 'Hosted on <strong>Cloudflare EU</strong> · encrypted at rest',
+      'auth.security_3': 'No resale, no third-party sharing',
+      'auth.security_4': 'Anonymized analytics (GDPR-friendly, truncated IP)',
+      'auth.security_5_html': '<strong>1-click account deletion</strong> (full purge within 24h)',
     },
   };
 
