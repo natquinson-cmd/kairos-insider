@@ -9217,9 +9217,9 @@ async function runDailyWatchlistDigest(env) {
 
   const duration = Date.now() - started;
   console.log(`[cron] watchlist digest done: scanned=${scanned} sent=${sent} skipped=${skipped} errors=${errors} duration=${duration}ms`);
-  // Log dans KV pour observabilite (format unifie lastRun:*)
+  // Log dans KV pour observabilite (format unifie lastRun:*) + runHistory pour Gantt 24h
   const now = new Date();
-  await env.CACHE.put('wl-last-cron-run', JSON.stringify({
+  const wlPayload = {
     ts: Math.floor(now.getTime() / 1000),
     iso: now.toISOString(),
     status: errors > 0 ? 'partial' : 'ok',
@@ -9228,7 +9228,9 @@ async function runDailyWatchlistDigest(env) {
     emailsSent: sent,
     // Ancien format conserve pour backcompat
     at: now.toISOString(), scanned, sent, skipped, errors, duration,
-  }));
+  };
+  await env.CACHE.put('wl-last-cron-run', JSON.stringify(wlPayload));
+  await appendRunHistory(env, 'watchlist-digest', wlPayload);
 }
 
 // ============================================================
@@ -10022,23 +10024,61 @@ async function handleAdminTestTelegram13D(request, env, user, origin) {
 }
 
 // ============================================================
+// RUN HISTORY — append helper pour le Gantt 24h
+// ============================================================
+// KV runHistory:{job} -> { jobId, updatedAt, count, runs:[...] }
+// Cap 300 entries / job (suffit pour 25h de cron */5min, 6j de */30min,
+// 300j de cron daily).
+// Read-modify-write : pas atomique mais OK car les jobs cron ne tournent
+// pas concurrement avec eux-memes.
+const RUN_HISTORY_CAP = 300;
+
+async function appendRunHistory(env, jobName, payload) {
+  try {
+    const key = `runHistory:${jobName}`;
+    const existing = (await env.CACHE.get(key, 'json')) || { runs: [] };
+    const entry = {
+      ts: payload.ts || Math.floor(Date.now() / 1000),
+      iso: payload.iso || new Date().toISOString(),
+      status: payload.status || 'ok',
+      summary: (payload.summary || '').slice(0, 200),
+      error: (payload.error || '').slice(0, 500),
+    };
+    if (typeof payload.durationSec === 'number') entry.durationSec = Math.round(payload.durationSec * 10) / 10;
+    const runs = Array.isArray(existing.runs) ? existing.runs : [];
+    runs.unshift(entry);
+    const capped = runs.length > RUN_HISTORY_CAP ? runs.slice(0, RUN_HISTORY_CAP) : runs;
+    await env.CACHE.put(key, JSON.stringify({
+      jobId: jobName,
+      updatedAt: new Date().toISOString(),
+      count: capped.length,
+      runs: capped,
+    }));
+  } catch (e) {
+    log.warn('runHistory.append.failed', { jobName, detail: String(e.message || e).slice(0, 200) });
+  }
+}
+
+// ============================================================
 // JOBS TIMELINE — Gantt 24h pour le dashboard admin
 // ============================================================
 // JOB_REGISTRY : reference centralisee de tous les jobs cron + leur schedule.
 // Permet de calculer les runs attendus dans les dernieres 24h et de les
 // matcher aux executions reelles (KV 'lastRun:*' + 'runHistory:*').
 const JOB_REGISTRY = [
-  // GitHub Actions workflows
-  { id: 'update-13f', name: 'Pipeline 13F + ETF (daily)', cron: '30 1 * * *', type: 'github-actions', workflowFile: 'update-13f.yml', kvKey: null, avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f' },
-  { id: 'realtime-30min', name: 'Refresh 30 min (13D + AMF + BaFin + seuils EU)', cron: '15,45 * * * *', type: 'github-actions', workflowFile: 'realtime-30min.yml', kvKey: null, avgDurationSec: 600, lastRunKey: 'lastRun:13dg-realtime' },
-  { id: 'backup', name: 'Backup D1 + KV → R2', cron: '0 1 * * *', type: 'github-actions', workflowFile: 'backup.yml', kvKey: null, avgDurationSec: 300, lastRunKey: 'lastRun:backup-to-r2' },
-  { id: 'daily-tweets', name: 'Daily Tweets Email', cron: '30 4 * * *', type: 'github-actions', workflowFile: 'daily-tweets.yml', kvKey: null, avgDurationSec: 60, lastRunKey: 'lastRun:daily-tweets' },
-  { id: 'daily-comment-digest', name: 'Daily Comment Digest', cron: '30 3 * * 1-5', type: 'github-actions', workflowFile: 'daily-comment-digest.yml', kvKey: null, avgDurationSec: 120, lastRunKey: 'lastRun:daily-comment-digest' },
-  { id: 'fetch-eu-thresholds', name: 'EU Thresholds Fetch', cron: '0 5 * * *', type: 'github-actions', workflowFile: 'fetch-eu-thresholds.yml', kvKey: null, avgDurationSec: 600, lastRunKey: 'lastRun:fetch-eu-thresholds' },
-  { id: 'fetch-13f-history', name: '13F History (mensuel)', cron: '0 2 1 * *', type: 'github-actions', workflowFile: 'fetch-13f-history.yml', kvKey: null, avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f-history' },
-  // Cloudflare Workers crons (definis dans wrangler.toml)
-  { id: 'cf-cron-watchlist', name: 'CF Cron : Watchlist + Health', cron: '0 4 * * *', type: 'cf-cron', workflowFile: null, kvKey: 'wl-last-cron-run', avgDurationSec: 5, lastRunKey: 'wl-last-cron-run', runEndpoint: '/api/admin/run-watchlist-cron' },
-  { id: 'cf-cron-telegram', name: 'CF Cron : Telegram Alerts', cron: '*/5 * * * *', type: 'cf-cron', workflowFile: null, kvKey: 'lastRun:telegram-alerts', avgDurationSec: 10, lastRunKey: 'lastRun:telegram-alerts', runEndpoint: '/api/admin/run-telegram-cron' },
+  // GitHub Actions workflows. historyKey = clef KV runHistory:* (peuplee par
+  // les scripts Python via kv_lastrun.append_run_history).
+  { id: 'update-13f',          name: 'Pipeline 13F + ETF (daily)', cron: '30 1 * * *', type: 'github-actions', workflowFile: 'update-13f.yml', avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f', historyKey: 'runHistory:fetch-13f' },
+  { id: 'realtime-30min',      name: 'Refresh 30 min (13D + AMF + BaFin + seuils EU)', cron: '15,45 * * * *', type: 'github-actions', workflowFile: 'realtime-30min.yml', avgDurationSec: 600, lastRunKey: 'lastRun:13dg-realtime', historyKey: 'runHistory:13dg-realtime' },
+  { id: 'backup',              name: 'Backup D1 + KV → R2', cron: '0 1 * * *', type: 'github-actions', workflowFile: 'backup.yml', avgDurationSec: 300, lastRunKey: 'lastRun:backup-to-r2', historyKey: 'runHistory:backup-to-r2' },
+  { id: 'daily-tweets',        name: 'Daily Tweets Email', cron: '30 4 * * *', type: 'github-actions', workflowFile: 'daily-tweets.yml', avgDurationSec: 60, lastRunKey: 'lastRun:daily-tweets', historyKey: 'runHistory:daily-tweets' },
+  { id: 'daily-comment-digest',name: 'Daily Comment Digest', cron: '30 3 * * 1-5', type: 'github-actions', workflowFile: 'daily-comment-digest.yml', avgDurationSec: 120, lastRunKey: 'lastRun:daily-comment-digest', historyKey: 'runHistory:daily-comment-digest' },
+  { id: 'fetch-eu-thresholds', name: 'EU Thresholds Fetch', cron: '0 5 * * *', type: 'github-actions', workflowFile: 'fetch-eu-thresholds.yml', avgDurationSec: 600, lastRunKey: 'lastRun:fetch-eu-thresholds', historyKey: 'runHistory:fetch-eu-thresholds' },
+  { id: 'fetch-13f-history',   name: '13F History (mensuel)', cron: '0 2 1 * *', type: 'github-actions', workflowFile: 'fetch-13f-history.yml', avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f-history', historyKey: 'runHistory:fetch-13f-history' },
+  // Cloudflare Workers crons (definis dans wrangler.toml). Le worker ecrit
+  // directement runHistory:* via appendRunHistory().
+  { id: 'cf-cron-watchlist',   name: 'CF Cron : Watchlist + Health', cron: '0 4 * * *', type: 'cf-cron', workflowFile: null, avgDurationSec: 5, lastRunKey: 'wl-last-cron-run', historyKey: 'runHistory:watchlist-digest', runEndpoint: '/api/admin/run-watchlist-cron' },
+  { id: 'cf-cron-telegram',    name: 'CF Cron : Telegram Alerts', cron: '*/5 * * * *', type: 'cf-cron', workflowFile: null, avgDurationSec: 10, lastRunKey: 'lastRun:telegram-alerts', historyKey: 'runHistory:telegram-alerts', runEndpoint: '/api/admin/run-telegram-cron' },
 ];
 
 // Parser cron simple : retourne les timestamps (Date) attendus dans la fenetre [from, to].
@@ -10131,7 +10171,7 @@ async function handleAdminJobsTimeline(request, env, origin) {
         }
       }
     }
-    // Lit le dernier run reel depuis KV
+    // Lit le dernier run reel depuis KV (lastRun:*)
     let lastRun = null;
     if (def.lastRunKey) {
       try {
@@ -10148,6 +10188,27 @@ async function handleAdminJobsTimeline(request, env, origin) {
         }
       } catch {}
     }
+    // Lit l'historique 24h depuis runHistory:* (v2 Gantt)
+    // Filtre dans la fenetre [from, now] pour reduire payload.
+    let actualRuns = [];
+    if (def.historyKey) {
+      try {
+        const hist = await env.CACHE.get(def.historyKey, 'json');
+        if (hist && Array.isArray(hist.runs)) {
+          const fromTs = Math.floor(from.getTime() / 1000);
+          actualRuns = hist.runs
+            .filter(r => r.ts && r.ts >= fromTs)
+            .map(r => ({
+              ts: r.ts,
+              iso: r.iso || new Date(r.ts * 1000).toISOString(),
+              status: r.status || 'ok',
+              durationSec: r.durationSec || null,
+              summary: r.summary || '',
+              error: r.error || '',
+            }));
+        }
+      } catch {}
+    }
     jobs.push({
       id: def.id,
       name: def.name,
@@ -10158,6 +10219,7 @@ async function handleAdminJobsTimeline(request, env, origin) {
       avgDurationSec: def.avgDurationSec,
       expectedRuns: displayExpectedRuns.map(d => d.toISOString()),
       expectedRunsTotal: expectedRuns.length,
+      actualRuns,
       lastRun,
     });
   }
@@ -10197,12 +10259,21 @@ async function runTelegramAlertingCron(env) {
     elapsedMs: elapsed, subs: subs.length,
     sent13d: r13d.sent || 0, sentEu: rEu.sent || 0, sentCluster: rCluster.sent || 0,
   });
-  // Update lastRun pour badge UI
-  try {
-    await env.CACHE.put('lastRun:telegram-alerts', JSON.stringify({
-      timestamp: new Date().toISOString(),
-      subs: subs.length,
-      sent: { '13d': r13d.sent, eu: rEu.sent, cluster: rCluster.sent },
-    }));
-  } catch {}
+  // Update lastRun + runHistory pour Gantt 24h et badge UI
+  const totalSent = (r13d.sent || 0) + (rEu.sent || 0) + (rCluster.sent || 0);
+  const summary = `${subs.length} subs · ${totalSent} alerts (13d=${r13d.sent || 0} eu=${rEu.sent || 0} cluster=${rCluster.sent || 0})`;
+  const tsSec = Math.floor(Date.now() / 1000);
+  const isoNow = new Date().toISOString();
+  const lastRunPayload = {
+    ts: tsSec,
+    iso: isoNow,
+    timestamp: isoNow,  // legacy
+    status: 'ok',
+    durationSec: elapsed / 1000,
+    summary,
+    subs: subs.length,
+    sent: { '13d': r13d.sent, eu: rEu.sent, cluster: rCluster.sent },
+  };
+  try { await env.CACHE.put('lastRun:telegram-alerts', JSON.stringify(lastRunPayload)); } catch {}
+  await appendRunHistory(env, 'telegram-alerts', lastRunPayload);
 }

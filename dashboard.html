@@ -18178,33 +18178,46 @@
           label: `${String(d.getHours()).padStart(2,'0')}h`,
         });
       }
-      // Statut d'un slot expected en fonction du timing + lastRun
-      const statusForSlot = (slotIso, lastRun, type) => {
+      // Statut d'un slot expected via match dans actualRuns (v2)
+      // Tolerance dynamique : pour un cron */5min on tolere 3 min, pour daily 30 min.
+      const statusForSlot = (slotIso, actualRuns, lastRun, expectedCount) => {
         const slotTs = new Date(slotIso).getTime();
-        // Tolerance : +/- 30 min entre expected et lastRun pour considerer match
-        const TOLERANCE_MS = 30 * 60 * 1000;
-        // Si le slot est dans le futur (> now) -> scheduled
-        if (slotTs > now + 60000) return 'scheduled';
+        // Tolerance proportionnelle a la frequence : intervalle moyen / 2.
+        // Cap min 2 min, max 30 min.
+        const intervalMs = expectedCount > 0 ? (24 * 60 * 60 * 1000) / expectedCount : 0;
+        const tolerance = Math.max(2 * 60 * 1000, Math.min(30 * 60 * 1000, intervalMs / 2));
+        // Si slot futur -> scheduled
+        if (slotTs > now + 60000) return { status: 'scheduled' };
+        // Cherche un actualRun dans la fenetre [slotTs - tolerance, slotTs + tolerance]
+        if (Array.isArray(actualRuns)) {
+          for (const ar of actualRuns) {
+            const arTs = ar.ts * 1000;
+            if (Math.abs(arTs - slotTs) < tolerance) {
+              return {
+                status: ar.status === 'failed' ? 'failed' : (ar.status === 'partial' ? 'partial' : 'ok'),
+                durationSec: ar.durationSec,
+                summary: ar.summary,
+              };
+            }
+          }
+        }
+        // Aucun match : fallback sur lastRun pour le slot le plus recent passe
+        // (utile au 1er deploiement quand runHistory est vide).
         if (lastRun && lastRun.ts) {
           const lastTs = lastRun.ts * 1000;
-          // Si lastRun matche ce slot (proximite temporelle) -> status reel
-          if (Math.abs(lastTs - slotTs) < TOLERANCE_MS) {
-            return lastRun.status === 'failed' ? 'failed' : 'ok';
+          if (Math.abs(lastTs - slotTs) < tolerance) {
+            return { status: lastRun.status === 'failed' ? 'failed' : 'ok' };
           }
-          // Si lastRun est PLUS RECENT que ce slot, ce slot est passe sans data
-          if (lastTs > slotTs) return 'past-no-data';
-          // Sinon (slot plus recent que lastRun) -> missed
-          return 'missed';
         }
-        // Pas de lastRun du tout : slot passe = missed
-        return slotTs < now ? 'missed' : 'scheduled';
+        // Slot passe sans aucun match -> missed
+        return { status: 'missed' };
       };
       const colorFor = (status) => {
         if (status === 'ok') return { bg: '#10B981', border: 'rgba(16,185,129,0.4)' };
         if (status === 'failed') return { bg: '#EF4444', border: 'rgba(239,68,68,0.4)' };
-        if (status === 'missed') return { bg: '#F59E0B', border: 'rgba(245,158,11,0.4)' };
+        if (status === 'partial') return { bg: '#F59E0B', border: 'rgba(245,158,11,0.4)' };
+        if (status === 'missed') return { bg: '#9CA3AF', border: 'rgba(156,163,175,0.4)' };
         if (status === 'scheduled') return { bg: '#374151', border: 'rgba(55,65,81,0.6)' };
-        if (status === 'past-no-data') return { bg: '#1F2937', border: 'rgba(31,41,55,0.5)' };
         return { bg: '#374151', border: 'rgba(55,65,81,0.6)' };
       };
 
@@ -18217,16 +18230,19 @@
       };
 
       const rows = data.jobs.map(j => {
-        // Calcule chaque bar segment
+        // Calcule chaque bar segment via actualRuns (v2)
         const segments = (j.expectedRuns || []).map(slotIso => {
-          const status = statusForSlot(slotIso, j.lastRun, j.type);
+          const slotInfo = statusForSlot(slotIso, j.actualRuns, j.lastRun, j.expectedRunsTotal);
           const slotTs = new Date(slotIso).getTime();
           const xPct = ((slotTs - from) / totalMs) * 100;
           // Largeur proportionnelle a la duree typique du job (clampee 0.5%-4%)
           const widthPct = Math.max(0.5, Math.min(4, (j.avgDurationSec * 1000 / totalMs) * 100));
-          const c = colorFor(status);
-          const tip = `${new Date(slotIso).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })} — ${status}`;
-          return `<div title="${tip}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
+          const c = colorFor(slotInfo.status);
+          const dt = new Date(slotIso).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          const dur = slotInfo.durationSec ? ` (${slotInfo.durationSec}s)` : '';
+          const sum = slotInfo.summary ? ` — ${slotInfo.summary.slice(0, 60)}` : '';
+          const tip = `${dt} — ${slotInfo.status}${dur}${sum}`;
+          return `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
         }).join('');
 
         // Bouton re-run selon le type
@@ -18271,9 +18287,9 @@
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--text-muted)">
           <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#10B981;border-radius:2px;display:inline-block"></span>OK</div>
           <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#EF4444;border-radius:2px;display:inline-block"></span>Failed</div>
-          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;display:inline-block"></span>Missed (en retard)</div>
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;display:inline-block"></span>Partial</div>
+          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#9CA3AF;border-radius:2px;display:inline-block"></span>Missed (pas de run)</div>
           <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#374151;border-radius:2px;display:inline-block"></span>Scheduled (à venir)</div>
-          <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#1F2937;border-radius:2px;display:inline-block"></span>Passé sans data</div>
         </div>
       `;
 
