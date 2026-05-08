@@ -2126,16 +2126,16 @@
     .section-page.active { display: block; }
     .section-page h2 {
       font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      /* PRO COMPRESS L1 (mai 2026) : 22 -> 19px (-14%) pour densite "outil pro"
-         vs "landing produit". Voir commit pour reverter. */
-      font-size: 19px;
+      /* PRO COMPRESS L1.5 (mai 2026) : 22 -> 17px (-23%) pour densite "outil pro" */
+      font-size: 17px;
       font-weight: 700;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
     .section-page .section-desc {
-      font-size: 12.5px;
+      font-size: 12px;
       color: var(--text-muted);
-      margin-bottom: 18px;
+      margin-bottom: 14px;
+      line-height: 1.45;
     }
 
     /* Accueil — hover sur les cartes fonctionnalités */
@@ -10233,7 +10233,7 @@
         const totalEtfs = res.etfs.length;
 
         slot.innerHTML = `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
               <div>
                 <h3 style="margin:0 0 4px;font-size:16px">📊 Présence dans les ETF suivis</h3>
@@ -11090,7 +11090,7 @@
           </div>
 
           <!-- SMART MONEY -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <h3 style="margin:0 0 12px;font-size:16px">💰 Hedge Funds</h3>
             <div style="display:flex;gap:12px;margin-bottom:12px">
               <div style="flex:1;padding:10px;background:rgba(116,185,255,0.08);border-radius:8px;text-align:center">
@@ -11133,7 +11133,7 @@
           </div>
 
           <!-- POLITICIENS / GURUS -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <h3 style="margin:0 0 12px;font-size:16px">${t('stock.section.politicians', '🏛️ Politiciens & Gurus')}</h3>
             ${gov.inEtfs && gov.inEtfs.length > 0 ? `
               <div style="font-size:13px;opacity:0.8;margin-bottom:12px">
@@ -11163,7 +11163,7 @@
         <!-- 2 COLONNES : Fondamentaux / Consensus -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
           <!-- FONDAMENTAUX (refonte UX : chiffres abreges + codes couleurs sur ratios) -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <h3 style="margin:0 0 14px;font-size:16px">${L.secFundamentals}</h3>
             ${(() => {
               // Helpers locaux
@@ -11351,7 +11351,7 @@
           </div>
 
           <!-- CONSENSUS ANALYSTES -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <h3 style="margin:0 0 14px;font-size:16px">${t('stock.section.consensus_full', '🎯 Consensus analystes')}</h3>
             ${consensus ? (() => {
               const tot = consensus.total || 1;
@@ -11508,12 +11508,12 @@
 
         <!-- 3 COLONNES : Santé / Earnings / Peers (align-items:stretch pour meme hauteur) -->
         ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (earnings.history && earnings.history.length) || earnings.next || peers.length > 0) ? `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px;align-items:stretch">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:16px;align-items:stretch">
 
           <!-- SANTE FINANCIERE -->
           ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (finPos.debtEquity && finPos.debtEquity.display) || (finPos.currentRatio && finPos.currentRatio.display)) ? `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
-            <h3 style="margin:0 0 12px;font-size:16px">${L.secHealth}</h3>
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <h3 style="margin:0 0 10px;font-size:14px">${L.secHealth}</h3>
             ${(() => {
               // === Helpers couleur pour interprétation des ratios ===
               // Renvoie {col, bg, label, tip} selon la valeur et le type de ratio.
@@ -11666,7 +11666,7 @@
 
           <!-- EARNINGS -->
           ${(earnings.history && earnings.history.length > 0) || earnings.next ? `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <h3 style="margin:0 0 12px;font-size:16px">${L.secEarnings}</h3>
             ${earnings.next ? `
               <div style="padding:12px;background:rgba(116,185,255,0.08);border:1px solid rgba(116,185,255,0.25);border-radius:8px;margin-bottom:14px">
@@ -11734,7 +11734,7 @@
 
         <!-- FAIR VALUE (Lynch + Graham) -->
         ${(fairValue.lynch && fairValue.lynch.display) || (fairValue.graham && fairValue.graham.display) ? `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
             <h3 style="margin:0 0 12px;font-size:16px">${L.secFairvalue}</h3>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
               ${fairValue.lynch && fairValue.lynch.display ? `
@@ -11768,7 +11768,7 @@
           const trendColor = !MEANINGFUL ? '#9CA3AF' : (tr.trend === 'rising' ? '#2ecc71' : tr.trend === 'falling' ? '#ff7675' : '#9CA3AF');
           const spikeDisplay = !MEANINGFUL ? 'n/a' : `${tr.spike7d > 0 ? '+' : ''}${tr.spike7d}%`;
           return `
-            <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+            <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
                 <h3 style="margin:0;font-size:16px">${L.secTrends}</h3>
                 ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">${L.emptyLowVol}</span>` : ''}
@@ -11801,7 +11801,7 @@
 
         <!-- NEWS -->
         ${news.length > 0 ? `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
             <h3 style="margin:0 0 12px;font-size:16px">${L.secNews}</h3>
             <div style="display:grid;gap:8px">
               ${news.slice(0, 10).map(n => `
@@ -11816,7 +11816,7 @@
 
         <!-- DESCRIPTION ENTREPRISE -->
         ${company.description ? `
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
             <h3 style="margin:0 0 12px;font-size:16px">${L.secAbout}</h3>
             <p style="font-size:13px;line-height:1.7;opacity:0.85;margin:0">${company.description}</p>
             ${company.website ? `<div style="margin-top:12px"><a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff;font-size:13px">${company.website}</a></div>` : ''}
