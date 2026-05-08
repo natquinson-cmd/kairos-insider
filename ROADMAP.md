@@ -92,6 +92,27 @@ KV `ch-thresholds-recent` ne contient que 7 filings (un marche actif normalement
 Les fetchers dedies (`fetch-it-borsa.py`, `fetch-es-cnmv.py`) capturent peu.
 A diagnostiquer (peut-etre meme cause que CH).
 
+### 🔜 Extraire "Purpose of Transaction" des 13D/A
+
+Les amendements 13D/A "procéduraux" (position inchangée vs filing précédent)
+sont actuellement **masqués par défaut** sur la page Fonds Offensifs car
+sans contexte ils sont du bruit pur. Mais ils sont triggers par des
+evenements MATERIELS (cooperation agreement, board seat, settlement, proxy
+fight notice...) qui sont decrits dans **Item 4 "Purpose of Transaction"**
+du primary_doc.xml SEC.
+
+**A faire** :
+- [ ] Parser Item 4 dans `parse_13dg_primary_doc()` — chercher
+  `<purposeOfTransaction>` ou variants namespaces
+- [ ] Stocker dans `f.purposeOfTransaction` (string, max 500 chars)
+- [ ] Afficher dans le tooltip de la ligne procédurale + chip badge
+  ("📝 Cooperation agreement" / "🪑 Board seat" / "⚖️ Settlement" via
+  classifier regex)
+- [ ] Update isProceduralAmendment(f) pour ne masquer que ceux SANS
+  purpose extrait (ceux avec purpose redeviennent visibles)
+
+Source : SEC EDGAR primary_doc.xml Item 4 + ratelimit poli (10 req/s max).
+
 ### 🔜 13D Alert temps reel (Pro/Elite)
 
 Cron worker toutes les 30min qui poll SEC EDGAR + FCA RNS pour detecter
