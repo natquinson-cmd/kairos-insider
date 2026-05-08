@@ -9405,9 +9405,20 @@
         // visible en chip colore. Reduit la hauteur du widget de ~330px a ~180px.
         // FIX (mai 2026) : ajout du delta percentDelta/sharesDelta + symbole
         // direction comme dans le tableau Fonds Offensifs (page activists).
+        // Skip les amendements procéduraux (= 0.00pt) sauf si on en a pas
+        // assez de "vrais" signaux pour remplir 3 lignes.
         const fmtShortD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
+        const isProceduralFiling = (f) => (
+          f.percentDelta != null && Math.abs(f.percentDelta) < 0.01
+          && (f.sharesDelta == null || Math.abs(f.sharesDelta) < 100)
+        );
+        const realFilings = res.filings.filter(f => !isProceduralFiling(f));
+        // Si moins de 3 vrais events, on complete avec les procéduraux récents
+        const filingsToShow = realFilings.length >= 3
+          ? realFilings.slice(0, 3)
+          : [...realFilings, ...res.filings.filter(isProceduralFiling)].slice(0, 3);
 
-        const top3 = res.filings.slice(0, 3).map(f => {
+        const top3 = filingsToShow.map(f => {
           const filerName = f.filerName || 'Investisseur non résolu';
           const initials = (f.filerName || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('') || '?';
           const activistTag = f.isActivist
@@ -17912,7 +17923,19 @@
         // donc format compact comme pour la valeur estimee
         const fmtPriceA = fmtUsdA;
 
-        const rows = filings.map(f => {
+        // FIX (mai 2026) : masque par defaut les amendements procéduraux
+        // (même filer/cible avec position INCHANGEE, ex: cooperation agreement,
+        // board nomination, settlement, schedule update). Sans la raison du
+        // filing, ces lignes sont du bruit pur. Toggle pour les revoir.
+        const isProceduralAmendment = (f) => (
+          f.percentDelta != null && Math.abs(f.percentDelta) < 0.01
+          && (f.sharesDelta == null || Math.abs(f.sharesDelta) < 100)
+        );
+        const showProcedural = window._actShowProcedural === true;
+        const proceduralCount = filings.filter(isProceduralAmendment).length;
+        const visibleFilings = showProcedural ? filings : filings.filter(f => !isProceduralAmendment(f));
+
+        const rows = visibleFilings.map(f => {
           // Badge adapte au relationType (mai 2026) :
           // - 'controlling' : holding/parent/founder maintenant son controle — bleu
           //   (ex: Imperial Petroleum -> C3is, founders detenant >40% de leur boite)
@@ -18069,8 +18092,9 @@
               <tbody>${rows}</tbody>
             </table>
           </div>
-          <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px">
-            ${filings.length} déclaration${filings.length > 1 ? 's' : ''} affichées. Cliquez sur une ligne pour ouvrir l'analyse action.
+          <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap">
+            <span>${visibleFilings.length} déclaration${visibleFilings.length > 1 ? 's' : ''} affichée${visibleFilings.length > 1 ? 's' : ''}${proceduralCount > 0 && !showProcedural ? ` <span style="color:var(--text-muted);font-style:italic">(${proceduralCount} amendement${proceduralCount > 1 ? 's' : ''} procédural${proceduralCount > 1 ? 'aux' : ''} masqué${proceduralCount > 1 ? 's' : ''})</span>` : ''}. Cliquez sur une ligne pour ouvrir l'analyse action.</span>
+            ${proceduralCount > 0 ? `<button type="button" onclick="window._actShowProcedural=${!showProcedural};loadActivists()" style="padding:5px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-size:11px;font-weight:600" title="Les amendements procéduraux (cooperation agreement, board nomination, settlement…) ont une position INCHANGEE par rapport au filing précédent. Souvent du bruit sans le contexte de la raison.">${showProcedural ? '🙈 Masquer' : '👁️ Voir'} les ${proceduralCount} amendement${proceduralCount > 1 ? 's' : ''} procédura${proceduralCount > 1 ? 'ux' : 'l'}</button>` : ''}
           </div>
         `;
       } catch (e) {
