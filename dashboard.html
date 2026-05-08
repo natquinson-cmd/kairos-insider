@@ -1207,10 +1207,13 @@
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 48px;
+      padding: 40px 44px;
       text-align: center;
-      max-width: 420px;
-      width: 90%;
+      max-width: 540px;  /* 420 -> 540 : evite le wrapping inutile sur les benefices */
+      width: 92%;
+    }
+    @media (max-width: 600px) {
+      .auth-card { padding: 32px 22px; max-width: 100%; }
     }
     .auth-card .logo-mark { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 16px; }
     .auth-card h2 { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 24px; margin-bottom: 8px; }
@@ -3059,23 +3062,31 @@
           <button type="submit" class="btn btn-primary" id="signupBtn">Crée mon compte gratuit</button>
         </form>
 
-        <!-- Réassurance + sources officielles -->
+        <!-- Sources officielles + securite donnees -->
         <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;text-align:center;font-weight:600">Sources officielles agrégées</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
-            <span title="Securities and Exchange Commission" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇺🇸 SEC</span>
-            <span title="Autorité des Marchés Financiers" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇫🇷 AMF</span>
-            <span title="Bundesanstalt für Finanzdienstleistungsaufsicht" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇩🇪 BaFin</span>
-            <span title="Financial Conduct Authority" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇬🇧 FCA</span>
-            <span title="Autoriteit Financiële Markten" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇳🇱 AFM</span>
-            <span title="SIX Swiss Exchange Regulation" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇨🇭 SIX</span>
-            <span title="Commissione Nazionale per le Società e la Borsa" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇮🇹 CONSOB</span>
-            <span title="Comisión Nacional del Mercado de Valores" style="font-size:10px;font-weight:700;padding:3px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.04em">🇪🇸 CNMV</span>
+          <!-- 8 regulateurs avec drapeaux PNG (les emojis ne s'affichent pas sur Windows) -->
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;text-align:center;font-weight:600">Sources officielles agrégées</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center">
+            <span title="Securities and Exchange Commission" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/us.png" width="14" height="10" alt="" style="border-radius:1px">SEC</span>
+            <span title="Autorité des Marchés Financiers" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/fr.png" width="14" height="10" alt="" style="border-radius:1px">AMF</span>
+            <span title="Bundesanstalt für Finanzdienstleistungsaufsicht" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/de.png" width="14" height="10" alt="" style="border-radius:1px">BaFin</span>
+            <span title="Financial Conduct Authority" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/gb.png" width="14" height="10" alt="" style="border-radius:1px">FCA</span>
+            <span title="Autoriteit Financiële Markten" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/nl.png" width="14" height="10" alt="" style="border-radius:1px">AFM</span>
+            <span title="SIX Swiss Exchange Regulation" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/ch.png" width="14" height="10" alt="" style="border-radius:1px;box-shadow:0 0 0 1px rgba(255,255,255,0.08)">SIX</span>
+            <span title="Commissione Nazionale per le Società e la Borsa" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/it.png" width="14" height="10" alt="" style="border-radius:1px">CONSOB</span>
+            <span title="Comisión Nacional del Mercado de Valores" style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 7px 3px 5px;background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);letter-spacing:0.03em"><img src="https://flagcdn.com/w20/es.png" width="14" height="10" alt="" style="border-radius:1px">CNMV</span>
           </div>
-          <div style="margin-top:12px;display:flex;gap:14px;justify-content:center;font-size:11px;color:var(--text-muted)">
-            <span>🔒 RGPD-friendly</span>
-            <span>🇫🇷 100% français</span>
-            <span>⚡ Données live</span>
+
+          <!-- Securite donnees personnelles : reassurance RGPD + technique -->
+          <div style="margin-top:14px;padding:12px 14px;background:linear-gradient(135deg,rgba(16,185,129,0.06),rgba(59,130,246,0.04));border:1px solid rgba(16,185,129,0.18);border-radius:10px;text-align:left">
+            <div style="font-size:10px;color:#10B981;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px"><span>🔒</span><span>Sécurité de tes données</span></div>
+            <ul style="list-style:none;margin:0;padding:0;font-size:11.5px;color:var(--text-secondary);line-height:1.55">
+              <li style="display:flex;gap:8px;margin-bottom:4px"><span style="color:#10B981;flex-shrink:0">·</span>Authentification chiffrée Firebase (Google Cloud, ISO 27001/27017)</li>
+              <li style="display:flex;gap:8px;margin-bottom:4px"><span style="color:#10B981;flex-shrink:0">·</span>Hébergement <strong style="color:var(--text-primary)">Cloudflare EU</strong> · données chiffrées au repos</li>
+              <li style="display:flex;gap:8px;margin-bottom:4px"><span style="color:#10B981;flex-shrink:0">·</span>Aucune revente, aucun partage à des tiers</li>
+              <li style="display:flex;gap:8px;margin-bottom:4px"><span style="color:#10B981;flex-shrink:0">·</span>Analytics anonymisé (RGPD-friendly, IP tronquée)</li>
+              <li style="display:flex;gap:8px"><span style="color:#10B981;flex-shrink:0">·</span><strong style="color:var(--text-primary)">Suppression du compte en 1 clic</strong> (purge complète sous 24h)</li>
+            </ul>
           </div>
         </div>
 
