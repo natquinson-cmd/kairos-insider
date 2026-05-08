@@ -4006,6 +4006,43 @@ function ogKairosLogoSvg(x, y, size) {
     + `</g>`;
 }
 
+// Fetch le logo de la company depuis parqet.com en PNG, retourne data URI base64.
+// Cache KV 24h pour eviter de hammer parqet a chaque OG render.
+// Retourne null si fetch echoue (le SVG OG affichera juste le ticker textuel).
+async function fetchCompanyLogoDataUri(ticker, env) {
+  if (!ticker) return null;
+  const cacheKey = `og-logo:v1:${ticker}`;
+  if (env && env.CACHE) {
+    try {
+      const cached = await env.CACHE.get(cacheKey, 'text');
+      if (cached === '__none__') return null;
+      if (cached) return cached;
+    } catch {}
+  }
+  try {
+    // PNG 128px : suffisant pour rendu 60x60 dans l'OG, ~400-1500 bytes seulement.
+    const url = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(ticker)}?format=png&size=128`;
+    const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 KairosInsider/1.0' } });
+    if (!resp.ok) {
+      if (env && env.CACHE) await env.CACHE.put(cacheKey, '__none__', { expirationTtl: 3600 });
+      return null;
+    }
+    const buf = await resp.arrayBuffer();
+    // Base64 encode (atob/btoa work on strings, on passe par Uint8Array -> binary string)
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    const dataUri = `data:image/png;base64,${b64}`;
+    if (env && env.CACHE) {
+      try { await env.CACHE.put(cacheKey, dataUri, { expirationTtl: 86400 }); } catch {}
+    }
+    return dataUri;
+  } catch {
+    return null;
+  }
+}
+
 const OG_I18N = {
   fr: {
     tagline: 'SMART MONEY EU + US · ANALYSE COMPLÈTE',
@@ -4096,8 +4133,14 @@ async function handleOgImage(rawTicker, env, fmt = 'png', lang = 'fr') {
   const shortName = name.length > 28 ? name.slice(0, 26) + '…' : name;
   const shortSector = sector.length > 36 ? sector.slice(0, 34) + '…' : sector;
 
+  // Logo company (parqet) en data URI base64 -> rendu inline par resvg-wasm.
+  // Best-effort : null si parqet ne couvre pas le ticker (fallback layout sans logo).
+  const companyLogoDataUri = await fetchCompanyLogoDataUri(ticker, env);
+
   // Ticker plus compact maintenant que le radar prend la place a droite
   const tickerFontSize = ticker.length > 7 ? 56 : (ticker.length > 5 ? 64 : 76);
+  // Si logo present, on shift le ticker pour laisser la place. Sinon on reste a 60.
+  const tickerX = companyLogoDataUri ? 140 : 60;
 
   // Logo + titre top-left
   const logoSize = 44;
@@ -4148,8 +4191,9 @@ ${ogKairosLogoSvg(logoX, logoY, logoSize)}
 <text x="${logoX + logoSize + 14}" y="${logoY + 44}" font-family="Inter,sans-serif" font-size="12" fill="#9CA3AF" letter-spacing="1.5">${svgEscape(t.tagline)}</text>
 <text x="1140" y="78" text-anchor="end" font-family="Inter,sans-serif" font-size="48" font-weight="700" fill="#F9FAFB">${svgEscape(ogFmtPrice(price, currency))}</text>
 <text x="1140" y="110" text-anchor="end" font-family="Inter,sans-serif" font-size="22" font-weight="600" fill="${changeColor}">${svgEscape(ogFmtPct(changePct))}<tspan fill="#9CA3AF" font-size="16" font-weight="500"> ${svgEscape(t.session)}</tspan></text>
-<text x="60" y="220" font-family="Inter,sans-serif" font-size="${tickerFontSize}" font-weight="900" fill="#F9FAFB" letter-spacing="-1.5">${svgEscape(ticker)}</text>
-<text x="60" y="258" font-family="Inter,sans-serif" font-size="22" font-weight="600" fill="#D1D5DB">${svgEscape(shortName)}</text>
+${companyLogoDataUri ? `<rect x="60" y="158" width="64" height="64" rx="10" fill="#FFFFFF"/><image href="${companyLogoDataUri}" x="64" y="162" width="56" height="56" preserveAspectRatio="xMidYMid meet"/>` : ''}
+<text x="${tickerX}" y="220" font-family="Inter,sans-serif" font-size="${tickerFontSize}" font-weight="900" fill="#F9FAFB" letter-spacing="-1.5">${svgEscape(ticker)}</text>
+<text x="${tickerX}" y="258" font-family="Inter,sans-serif" font-size="22" font-weight="600" fill="#D1D5DB">${svgEscape(shortName)}</text>
 ${ogFlagSvg(country, flagX, flagY)}
 <text x="${flagX + (country ? 46 : 0)}" y="${flagY + 17}" font-family="Inter,sans-serif" font-size="15" fill="#9CA3AF">${svgEscape(shortSector)}</text>
 <text x="60" y="335" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#6B7280" letter-spacing="2">${svgEscape(t.chart1y)}</text>
