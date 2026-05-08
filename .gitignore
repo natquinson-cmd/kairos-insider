@@ -41,6 +41,19 @@ worker/_score_history_chunk.sql
 # Wrangler local state
 worker/.wrangler/
 
+# Local temp / scratch files (jamais committer)
+.tmp/
+worker/.tmp_*.json
+worker/_tmp_*.json
+worker/13d_eu_uk_index.json
+worker/13d_filer_ciks.json
+worker/13dg_full_kv.json
+worker/afm_thresholds_data.json
+worker/ch_thresholds_data.json
+worker/shorts_data.json
+worker/eu_primary_ticker_cache.json
+wrangler.jsonc
+
 # Données générées (régénérées par les scripts/workflows)
 worker/transactions_data.json
 worker/transactions_bafin.json
