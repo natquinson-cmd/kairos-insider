@@ -339,11 +339,18 @@
       'stock.label.scorePerAxis': 'Score par axe — 0% = faible, 100% = excellent',
       'stock.empty.detailsUnavailable': 'Détails indisponibles',
       // Score signal badges
+      // Legacy (Achat/Vente) - garde pour fallback ailleurs sur le site
       'stock.signal.strongBuy': 'ACHAT FORT',
       'stock.signal.buy': 'ACHAT',
       'stock.signal.neutral': 'NEUTRE',
       'stock.signal.sell': 'VENTE',
       'stock.signal.strongSell': 'VENTE FORTE',
+      // Neutralise (descriptif des SIGNAUX, pas une recommandation - cf reglementation AMF)
+      'stock.signal.veryStrong': 'Signal très favorable',
+      'stock.signal.strong': 'Signal favorable',
+      'stock.signal.mixed': 'Signal mitigé',
+      'stock.signal.weak': 'Signal défavorable',
+      'stock.signal.veryWeak': 'Signal très défavorable',
       // Radar axis labels (short)
       'stock.axis.insider': 'Initiés',
       'stock.axis.smartMoney': 'Hedge Funds',
@@ -1265,11 +1272,18 @@
       'stock.label.scorePerAxis': 'Score per axis — 0% = weak, 100% = excellent',
       'stock.empty.detailsUnavailable': 'Details unavailable',
       // Score signal badges
+      // Legacy
       'stock.signal.strongBuy': 'STRONG BUY',
       'stock.signal.buy': 'BUY',
       'stock.signal.neutral': 'NEUTRAL',
       'stock.signal.sell': 'SELL',
       'stock.signal.strongSell': 'STRONG SELL',
+      // Neutralized (descriptive only - no advice)
+      'stock.signal.veryStrong': 'Very strong signal',
+      'stock.signal.strong': 'Strong signal',
+      'stock.signal.mixed': 'Mixed signal',
+      'stock.signal.weak': 'Weak signal',
+      'stock.signal.veryWeak': 'Very weak signal',
       // Radar axis labels (short)
       'stock.axis.insider': 'Insiders',
       'stock.axis.smartMoney': 'Hedge Funds',

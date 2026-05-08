@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260508-auth1"></script>
+  <script src="assets/i18n.js?v=20260508-signal2"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -10468,12 +10468,20 @@
                     : total >= 25 ? { main: '#F59E0B', glow: 'rgba(245,158,11,0.30)', label: '#FBBF24', light: '#FCD34D' }
                                   : { main: '#EF4444', glow: 'rgba(239,68,68,0.30)', label: '#F87171', light: '#FCA5A5' };
 
-      const _sigKey = total >= 75 ? 'stock.signal.strongBuy'
-                    : total >= 60 ? 'stock.signal.buy'
-                    : total >= 40 ? 'stock.signal.neutral'
-                    : total >= 25 ? 'stock.signal.sell'
-                    :               'stock.signal.strongSell';
-      const _sigFb  = total >= 75 ? 'ACHAT FORT' : total >= 60 ? 'ACHAT' : total >= 40 ? 'NEUTRE' : total >= 25 ? 'VENTE' : 'VENTE FORTE';
+      // FIX (mai 2026) : labels neutralises pour eviter d'etre percus comme
+      // un conseil financier (regulation AMF / FCA art. L. 541-1 CMF).
+      // Avant : 'ACHAT FORT' / 'ACHAT' / 'NEUTRE' / 'VENTE' / 'VENTE FORTE'.
+      // Apres : termes descriptifs des SIGNAUX ('Très favorable' etc.) qui
+      // ne suggerent pas une action a poser (pas de 'achat'/'vente').
+      const _sigKey = total >= 75 ? 'stock.signal.veryStrong'
+                    : total >= 60 ? 'stock.signal.strong'
+                    : total >= 40 ? 'stock.signal.mixed'
+                    : total >= 25 ? 'stock.signal.weak'
+                    :               'stock.signal.veryWeak';
+      const _isLangEn = (window.KairosI18n && window.KairosI18n.getLang() === 'en');
+      const _sigFb  = _isLangEn
+        ? (total >= 75 ? 'Very strong signal' : total >= 60 ? 'Strong signal' : total >= 40 ? 'Mixed signal' : total >= 25 ? 'Weak signal' : 'Very weak signal')
+        : (total >= 75 ? 'Signal très favorable' : total >= 60 ? 'Signal favorable' : total >= 40 ? 'Signal mitigé' : total >= 25 ? 'Signal défavorable' : 'Signal très défavorable');
       const signal = score?.signal || t(_sigKey, _sigFb);
 
       // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
@@ -10613,12 +10621,12 @@
       }).join('');
 
       return `
-        <div class="kairos-score-card" style="background:linear-gradient(135deg,var(--surface-1) 0%,rgba(255,255,255,0.01) 100%);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden">
+        <div class="kairos-score-card" style="background:linear-gradient(135deg,var(--surface-1) 0%,rgba(255,255,255,0.01) 100%);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:12px;position:relative;overflow:hidden">
           <!-- Halo de couleur en fond (signature branding) -->
           <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,${palette.glow} 0%,transparent 65%);pointer-events:none;z-index:0;opacity:0.9"></div>
           <div style="position:absolute;bottom:-100px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,${palette.glow} 0%,transparent 60%);pointer-events:none;z-index:0;opacity:0.5"></div>
 
-          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(320px, 380px) 1fr;gap:36px;align-items:center">
+          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(280px, 340px) 1fr;gap:24px;align-items:center">
 
             <!-- Radar SVG -->
             <div style="position:relative;text-align:center">
@@ -10962,7 +10970,7 @@
         ${resolvedNotice}
         ${coverageBanner}
         <!-- HERO -->
-        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;padding:18px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;padding:14px 16px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
           <div style="flex:1;min-width:280px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
               <h1 style="margin:0;font-size:28px;letter-spacing:-0.01em">${d.ticker}</h1>
