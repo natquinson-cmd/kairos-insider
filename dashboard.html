@@ -3020,13 +3020,13 @@
         <h2 style="font-size:22px;margin-bottom:4px;background:linear-gradient(135deg,#3B82F6,#8B5CF6 55%,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800">Crée ton compte gratuit</h2>
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Aucune carte bancaire. 30 secondes. Pour toujours.</p>
 
-        <!-- Bénéfices clés (ce que l'inscription débloque) -->
+        <!-- Bénéfices clés du tier Free (vs anonyme) -->
         <div style="background:linear-gradient(135deg,rgba(59,130,246,0.07),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.20);border-radius:12px;padding:14px 16px;margin-bottom:16px">
           <ul style="list-style:none;margin:0;padding:0;font-size:13px;color:var(--text-secondary);line-height:1.6">
-            <li style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span><strong style="color:var(--text-primary)">4 analyses smart money / jour</strong> (au lieu de 2)</span></li>
-            <li style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span><strong style="color:var(--text-primary)">Watchlist + alertes</strong> sur tes valeurs préférées</span></li>
+            <li style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span><strong style="color:var(--text-primary)">4 analyses smart money / jour</strong> (au lieu de 2 en anonyme)</span></li>
             <li style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span><strong style="color:var(--text-primary)">Brief hebdomadaire</strong> chaque dimanche : 13D activistes, franchissements EU, achats d'initiés</span></li>
-            <li style="display:flex;gap:10px;align-items:flex-start"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span>Accès à toutes les fiches valeurs (US + EU 8 marchés)</span></li>
+            <li style="display:flex;gap:10px;align-items:flex-start;margin-bottom:6px"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span>Accès aux <strong style="color:var(--text-primary)">8 marchés</strong> (SEC + AMF + BaFin + FCA + AFM + SIX + CONSOB + CNMV)</span></li>
+            <li style="display:flex;gap:10px;align-items:flex-start"><span style="color:#10B981;font-weight:800;flex-shrink:0">✓</span><span>Suivi des fonds offensifs (Elliott, Ackman, Icahn, Cevian…)</span></li>
           </ul>
         </div>
 
@@ -6272,7 +6272,7 @@
       const emoji = remaining === 0 ? '🔒' : remaining === 1 ? '⚡' : '✨';
       const color = remaining === 0 ? '#EF4444' : remaining === 1 ? '#F59E0B' : '#10B981';
       const subline = isAnon
-        ? `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour passer à 4/jour + watchlist + brief`
+        ? `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour passer à 4/jour + brief hebdomadaire`
         : `${state.count}/${maxQuota} utilisées · reset à minuit · passer Pro pour illimité + watchlist + fonds offensifs`;
       const ctaLabel = isAnon ? 'Créer un compte gratuit' : 'Passer Pro';
       // Gradient brand : aligne sur le logo et l'image OG (bleu -> violet -> rose)
@@ -9444,7 +9444,7 @@
                 <div style="font-size:48px;margin-bottom:12px">✨</div>
                 <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">Tu as épuisé tes ${ANON_DAILY_QUOTA} analyses gratuites du jour</h2>
                 <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.</p>
-                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu accèdes aussi à la watchlist, aux alertes et au brief quotidien.</p>
+                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu débloques aussi le brief hebdomadaire et le suivi des fonds offensifs sur 8 marchés.</p>
                 <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
                   <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(139,92,246,0.35)">Créer un compte gratuit</button>
                   <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showLogin==='function')showLogin()" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">J'ai déjà un compte</button>
@@ -9531,7 +9531,7 @@
               <div style="font-size:48px;margin-bottom:12px">✨</div>
               <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">Tu as épuisé tes ${qd.quotaMax || 2} analyses gratuites du jour</h2>
               <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.</p>
-              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu accèdes aussi à la watchlist, aux alertes et au brief quotidien.</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu débloques aussi le brief hebdomadaire et le suivi des fonds offensifs sur 8 marchés.</p>
               <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
                 <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(139,92,246,0.35)">Créer un compte gratuit</button>
                 <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showLogin==='function')showLogin()" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">J'ai déjà un compte</button>
