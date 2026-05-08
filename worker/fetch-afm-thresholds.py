@@ -145,9 +145,30 @@ def parse_csv(text, lookback_days, debug=False):
     col_date = find_col('publicationdate', 'datum', 'publication date', 'date')
     col_holder = find_col('holder', 'meldingsplichtige', 'name', 'naam', 'belanghebbende')
     col_target = find_col('issuer', 'uitgevende', 'institution', 'company', 'instelling')
-    col_pct = find_col('percentage', 'percent', 'totaalbelang', 'capital')
-    col_pct_voting = find_col('voting', 'stemrecht')
-    col_type = find_col('soort', 'type', 'classification')
+    # FIX (mai 2026, v2) : structure reelle du CSV AFM (en-tetes neerlandais).
+    # Apres analyse de 266k lignes, voici la realite des colonnes :
+    #
+    #   - 'Kapitaalbelang' / 'Stemrecht' : type label ("Reëel" ou "Potentieel"),
+    #     PAS un %. Mes candidats precedents matchaient ces colonnes et
+    #     extrayaient `null` car les valeurs ne sont pas numeriques.
+    #
+    #   - 'Totale deelneming' : participation TOTALE (capital + droits de vote
+    #     combines, direct + indirect). Format : "8,50 %". 99% des lignes
+    #     remplies. C'est LA metrique pour le franchissement de seuil sur
+    #     Fonds Offensifs. PRIMARY.
+    #
+    #   - 'Totaal kapitaalbelang' : % capital seul (~2,44% si Totale=8,50%).
+    #     Fallback si Totale absent. Le delta Totale - Kapitaal = derives.
+    #
+    #   - 'Aantal aandelen' : nombre d'actions detenues (sharesOwned).
+    col_pct = find_col(
+        'totale deelneming',       # PRIMARY : participation totale (cap + vote)
+        'totaal kapitaalbelang',   # fallback : capital total seul
+        'percentage', 'percent', 'capital',  # legacy/EN fallbacks
+    )
+    col_pct_voting = find_col('stemrecht totaal', 'stemrecht', 'voting')
+    col_shares = find_col('aantal aandelen', 'aandelen', 'shares')
+    col_type = find_col('soort aandeel', 'soort', 'type', 'classification')
 
     if not col_date or not col_holder or not col_target:
         print(f'[AFM] ERREUR : colonnes obligatoires manquantes (date={col_date}, holder={col_holder}, target={col_target})')
@@ -167,17 +188,25 @@ def parse_csv(text, lookback_days, debug=False):
         target = (row.get(col_target) or '').strip()
         if not holder or not target: continue
         pct_str = (row.get(col_pct) or '').strip().replace(',', '.')
-        pct_voting_str = (row.get(col_pct_voting) or '').strip().replace(',', '.')
+        pct_voting_str = (row.get(col_pct_voting) or '').strip().replace(',', '.') if col_pct_voting else ''
         threshold = None
         m = re.search(r'(\d+(?:\.\d+)?)', pct_str)
         if m:
             try: threshold = float(m.group(1))
             except: pass
         # Backup : prendre voting % si capital absent
-        if threshold is None:
+        if threshold is None and pct_voting_str:
             m = re.search(r'(\d+(?:\.\d+)?)', pct_voting_str)
             if m:
                 try: threshold = float(m.group(1))
+                except: pass
+        # Aantal aandelen format AFM : "1405847.00000" (point decimal, 5 zeros)
+        shares_owned = None
+        if col_shares:
+            shares_str = (row.get(col_shares) or '').strip()
+            m = re.search(r'(\d+)', shares_str)
+            if m:
+                try: shares_owned = int(m.group(1))
                 except: pass
         # FIX (mai 2026) : `type_str` (col_type='soort/type') contenait le
         # share class NL ("Gewoon aandeel" = action ordinaire) qui n'est PAS
@@ -198,7 +227,7 @@ def parse_csv(text, lookback_days, debug=False):
             'filerCik': None,
             'isActivist': bool(is_known_activist(holder)),
             'activistLabel': is_known_activist(holder),
-            'sharesOwned': None,
+            'sharesOwned': shares_owned,
             'percentOfClass': threshold,
             'crossingDirection': 'up',
             'crossingThreshold': threshold,
@@ -206,7 +235,7 @@ def parse_csv(text, lookback_days, debug=False):
             'country': 'NL',
             'regulator': 'AFM',
             'sourceUrl': 'https://www.afm.nl/registers/meldingenregisters/substantiele-deelnemingen',
-            'announcementType': type_str.lower() if type_str else 'substantial',
+            'announcementType': share_class.lower() if share_class else 'substantial',
             'rawTitle': f'{holder} → {target} ({threshold:g}%)' if threshold else f'{holder} → {target}',
         })
     if debug:
