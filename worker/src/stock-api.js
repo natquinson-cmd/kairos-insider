@@ -2058,6 +2058,71 @@ async function aggregate13F(ticker, env, companyName) {
       }
     }
 
+    // ============================================================
+    // ENRICHISSEMENT : 13D activists EU/UK depuis SEC EDGAR
+    // ============================================================
+    // Beaucoup d'activistes EU (Cevian, Trian, Pershing UK side, Oaktree)
+    // filent leurs 13D a la SEC pour les societes UK/EU cotees en ADR ou
+    // double-listing aux US. Ces filings sont DEJA dans nos donnees SEC,
+    // il suffit de les retrouver via le mapping ADR_US -> ticker_primaire
+    // construit par build-eu-13d-index.py (KV '13d-eu-uk-index').
+    //
+    // Strategie : pour les tickers EU/UK (.L, .AS, .PA, .DE, .MI, ...), on
+    // ajoute les filers 13D du KV en topFunds avec isOffensive=true (par
+    // definition: 13D = activist intent SEC).
+    //
+    // Pour les ADR US (INDV, TIGO, JHG, etc.), pas besoin : ils sont deja
+    // dans le 13F ticker-index principal cote US.
+    try {
+      const isEuTicker = /\.(L|PA|AS|DE|MI|MC|SW|ST|CO|BR|HE|OL|IR|LS|WA|VI|F|MU|HA|SG|DU|TO|HK)$/i.test(ticker);
+      if (isEuTicker) {
+        const euIndex = await env.CACHE.get('13d-eu-uk-index', 'json');
+        const tickerEntry = euIndex && euIndex.index && euIndex.index[ticker];
+        if (tickerEntry && Array.isArray(tickerEntry.filings)) {
+          // Dedupe par filerName + filerCik (un meme filer peut avoir plusieurs 13D/A)
+          // Garde le filing le plus recent par filer (latest disclosure)
+          const filerLatest = {};
+          for (const f of tickerEntry.filings) {
+            const key = (f.filerCik || f.filerName || '').toLowerCase();
+            if (!key) continue;
+            if (!filerLatest[key] || (f.fileDate || '') > (filerLatest[key].fileDate || '')) {
+              filerLatest[key] = f;
+            }
+          }
+          // Convertir en format topFunds compatible (champs alignes)
+          const eu13dFunds = Object.values(filerLatest).map(f => ({
+            fundName: f.filerName || 'Activist (13D filer)',
+            cik: f.filerCik || '',
+            label: f.filerName,
+            category: 'Activist (13D)',
+            shares: Number(f.sharesOwned) || 0,
+            value: 0,  // 13D ne donne pas la valeur, juste % et shares
+            pctOfPortfolio: 0,
+            deltaPct: 0,
+            status: 'activist',
+            reportDate: f.fileDate,
+            // CRITERE FACTUEL : 13D filer = activist intent SEC (pas auto-declare)
+            isOffensive: true,
+            // Specifique 13D : pourcentage du capital de la societe-cible
+            percentOfClass: Number(f.percentOfClass) || null,
+            sourceUrl: f.sourceUrl || null,
+            _source: '13d-eu-uk',
+          }));
+          // Merge : on ajoute les 13D EU/UK aux matches 13F existants.
+          // Si un filer apparait deja dans matches 13F (par ex. Cevian si registered
+          // 13F ailleurs), on prefere l'entree 13F (plus de details : value, shares).
+          const existingNames = new Set(matches.map(m => (m.fundName || '').toLowerCase()));
+          const newEntries = eu13dFunds.filter(e =>
+            !existingNames.has((e.fundName || '').toLowerCase())
+          );
+          matches = matches.concat(newEntries);
+          result._eu13dCount = newEntries.length;
+        }
+      }
+    } catch (e) {
+      console.error('aggregate13F EU 13D enrichment error:', e.message || e);
+    }
+
     matches.sort((a, b) => (b.value || 0) - (a.value || 0));
     result.topFunds = matches.slice(0, 20);
     result.fundCount = matches.length;
