@@ -318,17 +318,20 @@
     .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
 
     /* ===== NAV ===== */
+    /* FIX (mai 2026) : navbar plus compacte. Avant : padding 16+16 + logo 40px
+       = 72px de hauteur. Apres : padding 8+8 + logo 28px = 44px (-39%).
+       Plus d'espace utile pour le contenu sous la navbar. */
     nav {
       position: fixed; top: 0; left: 0; right: 0;
-      padding: 16px 0; z-index: 100;
+      padding: 8px 0; z-index: 100;
       background: var(--nav-bg);
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
     }
     .nav-container { display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; }
     .logo-mark {
-      width: 40px; height: 40px; min-width: 40px; flex-shrink: 0;
+      width: 28px; height: 28px; min-width: 28px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
     }
     .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -1186,7 +1189,7 @@
     .dashboard-layout {
       display: flex;
       min-height: 100vh;
-      padding-top: 65px;
+      padding-top: 45px;  /* navbar reduite : 8+28+8 = 44px (vs 72px avant) */
     }
 
     /* Sidebar */
@@ -1197,7 +1200,7 @@
       border-right: 1px solid var(--border);
       padding: 24px 0;
       position: fixed;
-      top: 65px;
+      top: 45px;
       left: 0;
       bottom: 0;
       overflow-y: auto;
@@ -2100,7 +2103,7 @@
     @media (max-width: 900px) {
       .sidebar {
         position: fixed;
-        top: 65px; left: 0; bottom: 0;
+        top: 45px; left: 0; bottom: 0;
         width: 260px;
         z-index: 900;
         transform: translateX(-100%);
@@ -2188,8 +2191,8 @@
     }
     .funds-table-wrap thead th {
       position: sticky;
-      /* Sous la nav fixe (~72px = padding 16+16 + contenu ~40) */
-      top: 72px;
+      /* Sous la nav fixe : 44px (padding 8+8 + logo 28px) + 1px border = 45px */
+      top: 45px;
       z-index: 10;
       background: var(--bg-secondary);
       backdrop-filter: blur(8px);
@@ -2201,7 +2204,7 @@
        (ex: min-width:1100px sur small screens) MAIS sans creer de scroll
        context, contrairement a overflow:hidden/auto/scroll. Donc le
        sticky thead reste cale sur le viewport et fige correctement.
-       top: 72px = hauteur nav fixe (padding 16+16 + contenu ~40px). */
+       top: 45px = hauteur nav fixe reduite (padding 8+8 + logo 28px + 1px border). */
     .funds-table-wrap,
     .sig-table-wrap,
     .table-scroll {
@@ -2212,14 +2215,15 @@
     }
 
     /* Sticky headers : opaque + blur + z-index pour rester au-dessus des rows.
-       top: 72px = hauteur nav fixe (padding 16+16 + contenu ~40px). Sans cet
-       offset, le thead se collait sous la nav qui le masquait au scroll. */
+       top: 45px = hauteur nav fixe reduite (padding 8+8 + logo 28px + 1px border).
+       Avant : 72px (nav padding 16+16 + logo 40px). Sans cet offset, le thead
+       se collait sous la nav qui le masquait au scroll. */
     thead th {
       padding: 14px 16px; text-align: left; font-weight: 600; font-size: 12px;
       color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
       border-bottom: 1px solid var(--border); white-space: nowrap;
       position: sticky;
-      top: 72px;
+      top: 45px;
       z-index: 5;
       /* IMPORTANT : background OPAQUE (pas transparent) pour masquer les rows
          qui passent derriere le header sticky lors du scroll. Fallback en
