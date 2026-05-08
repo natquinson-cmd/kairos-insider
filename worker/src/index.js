@@ -3465,13 +3465,15 @@ function fmtIntSsr(n) {
   catch { return String(n); }
 }
 function signalFromScoreSsr(total, lang = 'fr') {
-  // SSR_I18N defini plus loin dans le fichier ; fallback FR si pas dispo
-  const t = (k) => (typeof SSR_I18N !== 'undefined' && SSR_I18N[lang] && SSR_I18N[lang][k]) || k;
-  if (total >= 75) return { label: t('sig_strong_buy') || 'ACHAT FORT', color: '#10B981' };
-  if (total >= 60) return { label: t('sig_buy') || 'ACHAT', color: '#34D399' };
-  if (total >= 40) return { label: t('sig_neutral') || 'NEUTRE', color: '#9CA3AF' };
-  if (total >= 25) return { label: t('sig_sell') || 'VENTE', color: '#F87171' };
-  return { label: t('sig_strong_sell') || 'VENTE FORTE', color: '#EF4444' };
+  // FIX (mai 2026) : labels neutralises (Signal favorable / defavorable) pour
+  // eviter d'etre percus comme un conseil financier (AMF / FCA art. L. 541-1).
+  // Apparait a la fois sur la SSR /a/[ticker] ET sur l'OG image /og/[ticker].png.
+  const en = lang === 'en';
+  if (total >= 75) return { label: en ? 'VERY STRONG' : 'TRÈS FAVORABLE', color: '#10B981' };
+  if (total >= 60) return { label: en ? 'STRONG' : 'FAVORABLE', color: '#34D399' };
+  if (total >= 40) return { label: en ? 'MIXED' : 'MITIGÉ', color: '#9CA3AF' };
+  if (total >= 25) return { label: en ? 'WEAK' : 'DÉFAVORABLE', color: '#F87171' };
+  return { label: en ? 'VERY WEAK' : 'TRÈS DÉFAVORABLE', color: '#EF4444' };
 }
 
 // ============================================================
@@ -6550,19 +6552,20 @@ function generateCommentTemplate(ticker, score, tweetLang) {
   }
   const s = score.total;
   const sig = score.signal || '';
+  // FIX (mai 2026) : labels neutralises (pas de ACHAT/VENTE) pour conformite AMF.
   if (tweetLang === 'en') {
-    if (s >= 75) return `Confirmed : Kairos Score on $${ticker} = ${s}/100 (STRONG BUY). Insiders + 13F funds are aligned. kairosinsider.fr/a/${ticker}`;
-    if (s >= 60) return `Kairos Score on $${ticker} = ${s}/100 (BUY). Smart money slightly positive, worth watching. kairosinsider.fr/a/${ticker}`;
-    if (s >= 40) return `Kairos Score = ${s}/100 (NEUTRAL) on $${ticker}. No strong smart money signal either way. kairosinsider.fr/a/${ticker}`;
-    if (s >= 25) return `Careful : Kairos Score on $${ticker} = ${s}/100 (SELL). Insiders + funds leaning negative. kairosinsider.fr/a/${ticker}`;
-    return `Red flag : $${ticker} Kairos Score = ${s}/100 (STRONG SELL). Insider selling + fund outflows aligned. kairosinsider.fr/a/${ticker}`;
+    if (s >= 75) return `Confirmed : Kairos Score on $${ticker} = ${s}/100 (very strong signal). Insiders + 13F funds are aligned. kairosinsider.fr/a/${ticker}`;
+    if (s >= 60) return `Kairos Score on $${ticker} = ${s}/100 (favorable signal). Smart money slightly positive, worth watching. kairosinsider.fr/a/${ticker}`;
+    if (s >= 40) return `Kairos Score = ${s}/100 (mixed signal) on $${ticker}. No strong smart money signal either way. kairosinsider.fr/a/${ticker}`;
+    if (s >= 25) return `Careful : Kairos Score on $${ticker} = ${s}/100 (weak signal). Insiders + funds leaning negative. kairosinsider.fr/a/${ticker}`;
+    return `Red flag : $${ticker} Kairos Score = ${s}/100 (very weak signal). Insider selling + fund outflows aligned. kairosinsider.fr/a/${ticker}`;
   }
   // FR
-  if (s >= 75) return `Confirmé par la data : Kairos Score $${ticker} = ${s}/100 (ACHAT FORT). Insiders + hedge funds alignés. kairosinsider.fr/a/${ticker}`;
-  if (s >= 60) return `Kairos Score sur $${ticker} = ${s}/100 (ACHAT). Smart money légèrement positif, à surveiller. kairosinsider.fr/a/${ticker}`;
-  if (s >= 40) return `Kairos Score = ${s}/100 (NEUTRE) sur $${ticker}. Pas de signal smart money tranché. kairosinsider.fr/a/${ticker}`;
-  if (s >= 25) return `Attention : Kairos Score $${ticker} = ${s}/100 (VENTE). Insiders + fonds négatifs. kairosinsider.fr/a/${ticker}`;
-  return `Red flag sur $${ticker} : Kairos Score = ${s}/100 (VENTE FORTE). Ventes insiders + sorties de fonds alignées. kairosinsider.fr/a/${ticker}`;
+  if (s >= 75) return `Confirmé par la data : Kairos Score $${ticker} = ${s}/100 (signal très favorable). Insiders + hedge funds alignés. kairosinsider.fr/a/${ticker}`;
+  if (s >= 60) return `Kairos Score sur $${ticker} = ${s}/100 (signal favorable). Smart money légèrement positif, à surveiller. kairosinsider.fr/a/${ticker}`;
+  if (s >= 40) return `Kairos Score = ${s}/100 (signal mitigé) sur $${ticker}. Pas de signal smart money tranché. kairosinsider.fr/a/${ticker}`;
+  if (s >= 25) return `Attention : Kairos Score $${ticker} = ${s}/100 (signal défavorable). Insiders + fonds négatifs. kairosinsider.fr/a/${ticker}`;
+  return `Red flag sur $${ticker} : Kairos Score = ${s}/100 (signal très défavorable). Ventes insiders + sorties de fonds alignées. kairosinsider.fr/a/${ticker}`;
 }
 
 // Genere le digest complet : parcourt les 15 handles, detecte les tickers,
@@ -6759,7 +6762,7 @@ async function handleCommentDigestEmail(request, env, origin) {
       if (!score || score.total == null) return '<span style="font-size:11px;color:#9CA3AF">— pas en cache</span>';
       const s = score.total;
       const color = s >= 75 ? '#10B981' : s >= 60 ? '#84CC16' : s >= 40 ? '#9CA3AF' : s >= 25 ? '#F59E0B' : '#EF4444';
-      const label = score.signal || (s >= 75 ? 'ACHAT FORT' : s >= 60 ? 'ACHAT' : s >= 40 ? 'NEUTRE' : s >= 25 ? 'VENTE' : 'VENTE FORTE');
+      const label = score.signal || (s >= 75 ? 'Très favorable' : s >= 60 ? 'Favorable' : s >= 40 ? 'Mitigé' : s >= 25 ? 'Défavorable' : 'Très défavorable');
       return `<span style="display:inline-block;padding:2px 8px;background:${color}20;color:${color};border-radius:6px;font-size:11px;font-weight:700">${s}/100 · ${label}</span>`;
     };
 

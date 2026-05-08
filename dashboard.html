@@ -3705,7 +3705,7 @@
             </div>
             <div>
               <strong style="color:#74b9ff">3. Kairos Score ≥ 75</strong><br>
-              <span style="opacity:0.75">Notre score composite agrège 8 dimensions (initiés, hedge funds, ETF, momentum, valo, consensus, santé, earnings). Au-delà de 75, c'est un ACHAT FORT.</span>
+              <span style="opacity:0.75">Notre score composite agrège 8 dimensions (initiés, hedge funds, ETF, momentum, valo, consensus, santé, earnings). Au-delà de 75, le signal est très favorable.</span>
             </div>
           </div>
         </details>
@@ -10531,7 +10531,10 @@
       const _sigFb  = _isLangEn
         ? (total >= 75 ? 'Very strong signal' : total >= 60 ? 'Strong signal' : total >= 40 ? 'Mixed signal' : total >= 25 ? 'Weak signal' : 'Very weak signal')
         : (total >= 75 ? 'Signal très favorable' : total >= 60 ? 'Signal favorable' : total >= 40 ? 'Signal mitigé' : total >= 25 ? 'Signal défavorable' : 'Signal très défavorable');
-      const signal = score?.signal || t(_sigKey, _sigFb);
+      // FIX (mai 2026) : on n'utilise PLUS score?.signal (legacy ACHAT/VENTE) meme
+      // si l'API le renvoie, pour eviter d'etre percu comme un conseil financier
+      // (regulation AMF / FCA art. L. 541-1 CMF). Toujours le label localise neutre.
+      const signal = t(_sigKey, _sigFb);
 
       // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
       // Labels radar : noms COMPLETS (vs abbreviations courtes avant). i18n FR/EN.

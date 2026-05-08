@@ -2467,13 +2467,18 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   // --- Total ---
   const total = Object.values(breakdown).reduce((s, b) => s + b.score, 0);
 
-  let signal = 'NEUTRE';
+  // FIX (mai 2026) : labels neutralises pour eviter d'etre percus comme un
+  // conseil financier (regulation AMF / FCA art. L. 541-1 CMF).
+  // Avant : ACHAT FORT / ACHAT / NEUTRE / VENTE / VENTE FORTE.
+  // Apres : termes descriptifs des SIGNAUX (Signal favorable/defavorable etc.)
+  // qui ne suggerent pas une action a poser.
+  let signal = 'Signal mitigé';
   let signalColor = 'gray';
-  if (total >= 75) { signal = 'ACHAT FORT'; signalColor = 'green'; }
-  else if (total >= 60) { signal = 'ACHAT'; signalColor = 'greenLight'; }
-  else if (total >= 40) { signal = 'NEUTRE'; signalColor = 'gray'; }
-  else if (total >= 25) { signal = 'VENTE'; signalColor = 'redLight'; }
-  else { signal = 'VENTE FORTE'; signalColor = 'red'; }
+  if (total >= 75) { signal = 'Signal très favorable'; signalColor = 'green'; }
+  else if (total >= 60) { signal = 'Signal favorable'; signalColor = 'greenLight'; }
+  else if (total >= 40) { signal = 'Signal mitigé'; signalColor = 'gray'; }
+  else if (total >= 25) { signal = 'Signal défavorable'; signalColor = 'redLight'; }
+  else { signal = 'Signal très défavorable'; signalColor = 'red'; }
 
   return {
     total,
