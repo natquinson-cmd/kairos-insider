@@ -9150,11 +9150,25 @@
           if (yahooResults.length === 0) return;
           if (input.value.trim().toUpperCase() !== q) return;
 
-          // Fusion : on dedup par ticker (les locaux gardent la priorite)
-          const localTickers = new Set(localMatches.map(m => m.ticker));
+          // ENRICHISSEMENT : on injecte le quote Yahoo dans les matches LOCAUX
+          // qui n'ont pas de prix (sinon LOGI/AAPL/MSFT.. apparaissent sans prix
+          // dans la liste). Les locaux restent en tete par priorite.
+          const yahooBySymbol = {};
+          for (const y of yahooResults) yahooBySymbol[y.symbol] = y;
+          const localEnriched = localMatches.map(m => {
+            if (m.quote) return m;
+            const y = yahooBySymbol[m.ticker];
+            if (y && y.quote) {
+              return { ...m, quote: y.quote, market: m.market || y.exchangeFull || y.exchange };
+            }
+            return m;
+          });
+
+          // Fusion : on dedup par ticker (les locaux enrichis gardent la priorite)
+          const localTickers = new Set(localEnriched.map(m => m.ticker));
           const yahooDedup = yahooResults
             .filter(y => !localTickers.has(y.symbol))
-            .slice(0, Math.max(0, 10 - localMatches.length))
+            .slice(0, Math.max(0, 10 - localEnriched.length))
             .map(y => ({
               ticker: y.symbol,
               name: y.name,
@@ -9163,8 +9177,7 @@
               quote: y.quote || null,  // price + changePercent + currency + marketCap depuis Yahoo bulk
               _source: 'yahoo',
             }));
-          if (yahooDedup.length === 0) return;
-          const combined = [...localMatches, ...yahooDedup];
+          const combined = [...localEnriched, ...yahooDedup];
           renderSuggestions(combined);
         }, 300);
       };
