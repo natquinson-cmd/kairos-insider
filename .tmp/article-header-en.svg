@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A0F1E"/>
+      <stop offset="0.5" stop-color="#0F1729"/>
+      <stop offset="1" stop-color="#0A0F1E"/>
+    </linearGradient>
+    <radialGradient id="glowGreen" cx="0.25" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#10B981" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#10B981" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowBlue" cx="0.75" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3B82F6" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="0.55" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="55%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <radialGradient id="logoDot" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F9A8D4"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glowGreen)"/>
+  <rect width="1200" height="630" fill="url(#glowBlue)"/>
+
+  <g transform="translate(60, 40)">
+    <circle cx="22" cy="22" r="20" fill="none" stroke="url(#logoGrad)" stroke-width="2.4" opacity="0.95"/>
+    <polyline points="9.9,29.7 15.4,24.75 22,27 28.6,15.4 34.1,17" fill="none" stroke="url(#logoGrad)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="28.6" cy="15.4" r="2.9" fill="url(#logoDot)"/>
+    <circle cx="27.8" cy="14.6" r="0.7" fill="#FCE7F3" opacity="0.9"/>
+  </g>
+  <text x="115" y="62" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="800" fill="url(#brand)" letter-spacing="2">KAIROS INSIDER</text>
+  <text x="115" y="83" font-family="Inter,Arial,sans-serif" font-size="11" fill="#9CA3AF" letter-spacing="1.4">SMART MONEY EU + US — OFFICIAL FILINGS</text>
+
+  <rect x="950" y="38" width="190" height="38" rx="19" fill="none" stroke="#3B82F6" stroke-opacity="0.45" stroke-width="1"/>
+  <circle cx="970" cy="57" r="4" fill="#10B981"/>
+  <text x="985" y="62" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" fill="#D1D5DB" letter-spacing="1.5">PUBLIC DATA · 2024</text>
+
+  <text x="600" y="170" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="42" font-weight="900" fill="#F9FAFB" letter-spacing="-1">PELOSI BEAT BUFFETT IN 2024</text>
+  <text x="600" y="215" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="500" fill="#9CA3AF" letter-spacing="0.5">Here are the official numbers most retail traders never read.</text>
+
+  <text x="280" y="320" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700" fill="#10B981" letter-spacing="3">NANCY PELOSI · US CONGRESS</text>
+  <text x="280" y="430" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="120" font-weight="900" fill="#10B981" letter-spacing="-4">+71%</text>
+  <text x="280" y="465" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#6EE7B7" letter-spacing="2">2024 RETURN · STOCK ACT</text>
+
+  <line x1="600" y1="290" x2="600" y2="470" stroke="#374151" stroke-width="1" stroke-dasharray="3,4"/>
+  <circle cx="600" cy="380" r="32" fill="#0F1729" stroke="#4B5563" stroke-width="1.5"/>
+  <text x="600" y="389" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="900" fill="#9CA3AF" letter-spacing="1">VS</text>
+
+  <text x="920" y="320" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700" fill="#60A5FA" letter-spacing="3">WARREN BUFFETT · BERKSHIRE</text>
+  <text x="920" y="430" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="120" font-weight="900" fill="#60A5FA" letter-spacing="-4">+25%</text>
+  <text x="920" y="465" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#93C5FD" letter-spacing="2">2024 RETURN · BRK.A</text>
+
+  <rect x="60" y="510" width="1080" height="56" rx="10" fill="#111827" fill-opacity="0.65" stroke="#1F2937" stroke-width="1"/>
+  <text x="80" y="535" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" fill="#9CA3AF" letter-spacing="2">OFFICIAL SOURCES</text>
+  <text x="80" y="556" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="500" fill="#D1D5DB">house.gov/disclosures-clerk · sec.gov/edgar · amf-france.org · bafin.de · fca.org.uk</text>
+
+  <text x="60" y="600" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="600" fill="#6B7280">kairosinsider.fr</text>
+  <text x="1140" y="600" text-anchor="end" font-family="Inter,Arial,sans-serif" font-size="12" fill="#6B7280">SEC · STOCK Act · AMF · BaFin · FCA · AFM · CONSOB</text>
+</svg>

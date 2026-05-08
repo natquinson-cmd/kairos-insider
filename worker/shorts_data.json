@@ -1,0 +1,1231 @@
+{
+  "fetchedAt": "2026-05-04T09:01:44Z",
+  "source": "highshortinterest.com",
+  "sourceUrl": "https://highshortinterest.com/",
+  "count": 50,
+  "historyDays": 35,
+  "stocks": [
+    {
+      "ticker": "GRPN",
+      "company": "Groupon Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 54.71,
+      "sharesShort": 24000000,
+      "floatM": 40740000,
+      "sector": "Retailers - Discount Stores",
+      "squeezeRisk": "EXTREME",
+      "sparkline": [
+        54.71
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 1
+    },
+    {
+      "ticker": "HTZ",
+      "company": "Hertz Global Holdings Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 46.88,
+      "sharesShort": 127380000,
+      "floatM": 315050000,
+      "sector": "Passenger Transportation, Ground & Sea",
+      "squeezeRisk": "EXTREME",
+      "sparkline": [
+        46.88
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 2
+    },
+    {
+      "ticker": "CRML",
+      "company": "Critical Metals Corp.",
+      "exchange": "Nasdaq",
+      "shortPct": 41.16,
+      "sharesShort": 53420000,
+      "floatM": 132229999,
+      "sector": "Metals & Mining",
+      "squeezeRisk": "EXTREME",
+      "sparkline": [
+        41.16
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 3
+    },
+    {
+      "ticker": "AI",
+      "company": "C3.ai Inc",
+      "exchange": "NYSE",
+      "shortPct": 38.12,
+      "sharesShort": 115180000,
+      "floatM": 141790000,
+      "sector": "Software",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        38.12
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 4
+    },
+    {
+      "ticker": "NFE",
+      "company": "New Fortress Energy Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 36.84,
+      "sharesShort": 129620000,
+      "floatM": 285630000,
+      "sector": "Oil, Gas & Consumable Fuels",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        36.84
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 5
+    },
+    {
+      "ticker": "SOUN",
+      "company": "SoundHound AI Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 36.59,
+      "sharesShort": 386930000,
+      "floatM": 393670000,
+      "sector": "IT Services & Consulting",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        36.59
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 6
+    },
+    {
+      "ticker": "LFVN",
+      "company": "LifeVantage Corporation",
+      "exchange": "Nasdaq",
+      "shortPct": 36.5,
+      "sharesShort": 9370000,
+      "floatM": 12800000,
+      "sector": "Personal Care Products",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        36.5
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 7
+    },
+    {
+      "ticker": "BETR",
+      "company": "Better Home & Finance Holding",
+      "exchange": "Nasdaq",
+      "shortPct": 35.89,
+      "sharesShort": 6730000,
+      "floatM": 10640000,
+      "sector": "Financial Services",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        35.89
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 8
+    },
+    {
+      "ticker": "SPRY",
+      "company": "ARS Pharmaceuticals Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 35.79,
+      "sharesShort": 41040000,
+      "floatM": 99300000,
+      "sector": "Biotechnology & Medical Research",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        35.79
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 9
+    },
+    {
+      "ticker": "PCT",
+      "company": "Purecycle Technologies Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 35.51,
+      "sharesShort": 141590000,
+      "floatM": 180730000,
+      "sector": "Environmental Services & Equipment",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        35.51
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 10
+    },
+    {
+      "ticker": "HIMS",
+      "company": "Hims & Hers Health, Inc.",
+      "exchange": "NYSE",
+      "shortPct": 34.85,
+      "sharesShort": 207420000,
+      "floatM": 219560000,
+      "sector": "Health Care Providers & Services",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        34.85
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 11
+    },
+    {
+      "ticker": "TTEC",
+      "company": "TTEC Holdings, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 34.16,
+      "sharesShort": 19950000,
+      "floatM": 48610000,
+      "sector": "Professional Services",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        34.16
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 12
+    },
+    {
+      "ticker": "RXRX",
+      "company": "Recursion Pharmaceuticals, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 34.14,
+      "sharesShort": 510290000,
+      "floatM": 521950000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        34.14
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 13
+    },
+    {
+      "ticker": "BEAM",
+      "company": "Beam Therapeutics Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 33.53,
+      "sharesShort": 87910000,
+      "floatM": 102750000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        33.53
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 14
+    },
+    {
+      "ticker": "EVGO",
+      "company": "Evgo Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 32.91,
+      "sharesShort": 132490000,
+      "floatM": 140780000,
+      "sector": "Utilities - Electric",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        32.91
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 15
+    },
+    {
+      "ticker": "PLCE",
+      "company": "The Children's Place, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 32.75,
+      "sharesShort": 8770000,
+      "floatM": 22210000,
+      "sector": "Specialty Retail",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        32.75
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 16
+    },
+    {
+      "ticker": "INDI",
+      "company": "indie Semiconductor, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 32.56,
+      "sharesShort": 204090000,
+      "floatM": 210690000,
+      "sector": "Semiconductors & Semiconductor Equipment",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        32.56
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 17
+    },
+    {
+      "ticker": "LCID",
+      "company": "Lucid Group, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 32.26,
+      "sharesShort": 131220000,
+      "floatM": 366200000,
+      "sector": "Automobiles",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        32.26
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 18
+    },
+    {
+      "ticker": "GCTK",
+      "company": "GlucoTrack, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 31.69,
+      "sharesShort": 2790000,
+      "floatM": 2940000,
+      "sector": "Health Care Equipment & Supplies",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        31.69
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 19
+    },
+    {
+      "ticker": "FBGL",
+      "company": "FBS Global Limited",
+      "exchange": "Nasdaq",
+      "shortPct": 31.67,
+      "sharesShort": 4580000,
+      "floatM": 13500000,
+      "sector": "Construction & Engineering",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        31.67
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 20
+    },
+    {
+      "ticker": "IOVA",
+      "company": "Iovance Biotherapeutics Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 31.41,
+      "sharesShort": 353450000,
+      "floatM": 411960000,
+      "sector": "Biotechnology & Medical Research",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        31.41
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 21
+    },
+    {
+      "ticker": "BYND",
+      "company": "Beyond Meat, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 31.11,
+      "sharesShort": 447150000,
+      "floatM": 463560000,
+      "sector": "Food Products",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        31.11
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 22
+    },
+    {
+      "ticker": "SPHR",
+      "company": "Sphere Entertainment Co.",
+      "exchange": "NYSE",
+      "shortPct": 30.94,
+      "sharesShort": 24360000,
+      "floatM": 28640000,
+      "sector": "Entertainment",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        30.94
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 23
+    },
+    {
+      "ticker": "MARA",
+      "company": "MARA Holdings, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 30.32,
+      "sharesShort": 371430000,
+      "floatM": 380230000,
+      "sector": "Software",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        30.32
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 24
+    },
+    {
+      "ticker": "SERV",
+      "company": "Serve Robotics Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 30.17,
+      "sharesShort": 62860000,
+      "floatM": 75690000,
+      "sector": "Hotels, Restaurants & Leisure",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        30.17
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 25
+    },
+    {
+      "ticker": "EOSE",
+      "company": "Eos Energy Enterprises Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 30.11,
+      "sharesShort": 334900000,
+      "floatM": 339500000,
+      "sector": "Electrical Components & Equipment",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        30.11
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 26
+    },
+    {
+      "ticker": "ABEO",
+      "company": "Abeona Therapeutics Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 29.68,
+      "sharesShort": 52520000,
+      "floatM": 57050000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        29.68
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 27
+    },
+    {
+      "ticker": "CYPH",
+      "company": "Cypherpunk Technologies Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 29.63,
+      "sharesShort": 34910000,
+      "floatM": 126650000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        29.63
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 28
+    },
+    {
+      "ticker": "FLWS",
+      "company": "1-800-FLOWERS.COM, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 29.49,
+      "sharesShort": 10580000,
+      "floatM": 37000000,
+      "sector": "Specialty Retail",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        29.49
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 29
+    },
+    {
+      "ticker": "ENVX",
+      "company": "Enovix Corp",
+      "exchange": "Nasdaq",
+      "shortPct": 29.4,
+      "sharesShort": 185500000,
+      "floatM": 217220000,
+      "sector": "Electrical Components & Equipment",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        29.4
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 30
+    },
+    {
+      "ticker": "SNBR",
+      "company": "Sleep Number Corporation",
+      "exchange": "Nasdaq",
+      "shortPct": 29.19,
+      "sharesShort": 18830000,
+      "floatM": 23040000,
+      "sector": "Specialty Retail",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        29.19
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 31
+    },
+    {
+      "ticker": "JCSE",
+      "company": "JE Cleantech Holdings Limited",
+      "exchange": "Nasdaq",
+      "shortPct": 28.92,
+      "sharesShort": 1810000,
+      "floatM": 5260000,
+      "sector": "Machinery",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        28.92
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 32
+    },
+    {
+      "ticker": "MPT",
+      "company": "Medical Properties Trust Inc",
+      "exchange": "NYSE",
+      "shortPct": 28.69,
+      "sharesShort": 491210000,
+      "floatM": 612940000,
+      "sector": "REITs - Specialized",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        28.69
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 33
+    },
+    {
+      "ticker": "KRUS",
+      "company": "Kura Sushi USA Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 28.66,
+      "sharesShort": 6970000,
+      "floatM": 11150000,
+      "sector": "Restaurants & Bars",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        28.66
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 34
+    },
+    {
+      "ticker": "MNPR",
+      "company": "Monopar Therapeutics Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 28.61,
+      "sharesShort": 5600000,
+      "floatM": 6690000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        28.61
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 35
+    },
+    {
+      "ticker": "KSS",
+      "company": "Kohl's Corporation",
+      "exchange": "NYSE",
+      "shortPct": 28.19,
+      "sharesShort": 110610000,
+      "floatM": 112250000,
+      "sector": "Retailers - Department Stores",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        28.19
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 36
+    },
+    {
+      "ticker": "SRPT",
+      "company": "Sarepta Therapeutics, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 27.9,
+      "sharesShort": 91780000,
+      "floatM": 104990000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        27.9
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 37
+    },
+    {
+      "ticker": "PGY",
+      "company": "Pagaya Technologies Ltd.",
+      "exchange": "Nasdaq",
+      "shortPct": 27.56,
+      "sharesShort": 62720000,
+      "floatM": 71240000,
+      "sector": "Software",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        27.56
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 38
+    },
+    {
+      "ticker": "NVAX",
+      "company": "Novavax Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 27.54,
+      "sharesShort": 160220000,
+      "floatM": 162940000,
+      "sector": "Biotechnology & Medical Research",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        27.54
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 39
+    },
+    {
+      "ticker": "CRDF",
+      "company": "Cardiff Oncology, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 27.5,
+      "sharesShort": 66709999,
+      "floatM": 68370000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        27.5
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 40
+    },
+    {
+      "ticker": "ACHC",
+      "company": "Acadia Healthcare Company, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 27.17,
+      "sharesShort": 83220000,
+      "floatM": 92030000,
+      "sector": "Health Care Providers & Services",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        27.17
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 41
+    },
+    {
+      "ticker": "NVTS",
+      "company": "Navitas Semiconductor Corp",
+      "exchange": "Nasdaq",
+      "shortPct": 27.01,
+      "sharesShort": 173150000,
+      "floatM": 230790000,
+      "sector": "Semiconductors & Semiconductor Equipment",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        27.01
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 42
+    },
+    {
+      "ticker": "OMER",
+      "company": "Omeros Corporation",
+      "exchange": "Nasdaq",
+      "shortPct": 26.34,
+      "sharesShort": 69280000,
+      "floatM": 72000000,
+      "sector": "Pharmaceuticals",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        26.34
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 43
+    },
+    {
+      "ticker": "WGS",
+      "company": "GeneDx Holdings Corp.",
+      "exchange": "Nasdaq",
+      "shortPct": 26.31,
+      "sharesShort": 15850000,
+      "floatM": 29290000,
+      "sector": "Health Care Providers & Services",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        26.31
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 44
+    },
+    {
+      "ticker": "BBAI",
+      "company": "BigBear.ai Holdings, Inc.",
+      "exchange": "NYSE",
+      "shortPct": 26.29,
+      "sharesShort": 470660000,
+      "floatM": 476060000,
+      "sector": "IT Services",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        26.29
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 45
+    },
+    {
+      "ticker": "ABSI",
+      "company": "Absci Corporation",
+      "exchange": "Nasdaq",
+      "shortPct": 26.1,
+      "sharesShort": 143280000,
+      "floatM": 155450000,
+      "sector": "Biotechnology",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        26.1
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 46
+    },
+    {
+      "ticker": "STIM",
+      "company": "Neuronetics, Inc.",
+      "exchange": "Nasdaq",
+      "shortPct": 25.78,
+      "sharesShort": 35660000,
+      "floatM": 69580000,
+      "sector": "Health Care Equipment & Supplies",
+      "squeezeRisk": "ELEVE",
+      "sparkline": [
+        25.78
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 47
+    },
+    {
+      "ticker": "HRTX",
+      "company": "Heron Therapeutics Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 24.84,
+      "sharesShort": 153740000,
+      "floatM": 188540000,
+      "sector": "Biotechnology & Medical Research",
+      "squeezeRisk": "MODERE",
+      "sparkline": [
+        24.84
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 48
+    },
+    {
+      "ticker": "SATS",
+      "company": "EchoStar Corporation",
+      "exchange": "Nasdaq",
+      "shortPct": 24.65,
+      "sharesShort": 135940000,
+      "floatM": 157530000,
+      "sector": "Media",
+      "squeezeRisk": "MODERE",
+      "sparkline": [
+        24.65
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 49
+    },
+    {
+      "ticker": "PLUG",
+      "company": "Plug Power Inc",
+      "exchange": "Nasdaq",
+      "shortPct": 24.46,
+      "sharesShort": 1330000000,
+      "floatM": 1390000000,
+      "sector": "Renewable Energy Equipment & Services",
+      "squeezeRisk": "MODERE",
+      "sparkline": [
+        24.46
+      ],
+      "delta7d": null,
+      "delta30d": null,
+      "_rank": 50
+    }
+  ],
+  "history": {
+    "GRPN": [
+      {
+        "date": "2026-05-04",
+        "pct": 54.71
+      }
+    ],
+    "HTZ": [
+      {
+        "date": "2026-05-04",
+        "pct": 46.88
+      }
+    ],
+    "CRML": [
+      {
+        "date": "2026-05-04",
+        "pct": 41.16
+      }
+    ],
+    "AI": [
+      {
+        "date": "2026-05-04",
+        "pct": 38.12
+      }
+    ],
+    "NFE": [
+      {
+        "date": "2026-05-04",
+        "pct": 36.84
+      }
+    ],
+    "SOUN": [
+      {
+        "date": "2026-05-04",
+        "pct": 36.59
+      }
+    ],
+    "LFVN": [
+      {
+        "date": "2026-05-04",
+        "pct": 36.5
+      }
+    ],
+    "BETR": [
+      {
+        "date": "2026-05-04",
+        "pct": 35.89
+      }
+    ],
+    "SPRY": [
+      {
+        "date": "2026-05-04",
+        "pct": 35.79
+      }
+    ],
+    "PCT": [
+      {
+        "date": "2026-05-04",
+        "pct": 35.51
+      }
+    ],
+    "HIMS": [
+      {
+        "date": "2026-05-04",
+        "pct": 34.85
+      }
+    ],
+    "TTEC": [
+      {
+        "date": "2026-05-04",
+        "pct": 34.16
+      }
+    ],
+    "RXRX": [
+      {
+        "date": "2026-05-04",
+        "pct": 34.14
+      }
+    ],
+    "BEAM": [
+      {
+        "date": "2026-05-04",
+        "pct": 33.53
+      }
+    ],
+    "EVGO": [
+      {
+        "date": "2026-05-04",
+        "pct": 32.91
+      }
+    ],
+    "PLCE": [
+      {
+        "date": "2026-05-04",
+        "pct": 32.75
+      }
+    ],
+    "INDI": [
+      {
+        "date": "2026-05-04",
+        "pct": 32.56
+      }
+    ],
+    "LCID": [
+      {
+        "date": "2026-05-04",
+        "pct": 32.26
+      }
+    ],
+    "GCTK": [
+      {
+        "date": "2026-05-04",
+        "pct": 31.69
+      }
+    ],
+    "FBGL": [
+      {
+        "date": "2026-05-04",
+        "pct": 31.67
+      }
+    ],
+    "IOVA": [
+      {
+        "date": "2026-05-04",
+        "pct": 31.41
+      }
+    ],
+    "BYND": [
+      {
+        "date": "2026-05-04",
+        "pct": 31.11
+      }
+    ],
+    "SPHR": [
+      {
+        "date": "2026-05-04",
+        "pct": 30.94
+      }
+    ],
+    "MARA": [
+      {
+        "date": "2026-05-04",
+        "pct": 30.32
+      }
+    ],
+    "SERV": [
+      {
+        "date": "2026-05-04",
+        "pct": 30.17
+      }
+    ],
+    "EOSE": [
+      {
+        "date": "2026-05-04",
+        "pct": 30.11
+      }
+    ],
+    "ABEO": [
+      {
+        "date": "2026-05-04",
+        "pct": 29.68
+      }
+    ],
+    "CYPH": [
+      {
+        "date": "2026-05-04",
+        "pct": 29.63
+      }
+    ],
+    "FLWS": [
+      {
+        "date": "2026-05-04",
+        "pct": 29.49
+      }
+    ],
+    "ENVX": [
+      {
+        "date": "2026-05-04",
+        "pct": 29.4
+      }
+    ],
+    "SNBR": [
+      {
+        "date": "2026-05-04",
+        "pct": 29.19
+      }
+    ],
+    "JCSE": [
+      {
+        "date": "2026-05-04",
+        "pct": 28.92
+      }
+    ],
+    "MPT": [
+      {
+        "date": "2026-05-04",
+        "pct": 28.69
+      }
+    ],
+    "KRUS": [
+      {
+        "date": "2026-05-04",
+        "pct": 28.66
+      }
+    ],
+    "MNPR": [
+      {
+        "date": "2026-05-04",
+        "pct": 28.61
+      }
+    ],
+    "KSS": [
+      {
+        "date": "2026-05-04",
+        "pct": 28.19
+      }
+    ],
+    "SRPT": [
+      {
+        "date": "2026-05-04",
+        "pct": 27.9
+      }
+    ],
+    "PGY": [
+      {
+        "date": "2026-05-04",
+        "pct": 27.56
+      }
+    ],
+    "NVAX": [
+      {
+        "date": "2026-05-04",
+        "pct": 27.54
+      }
+    ],
+    "CRDF": [
+      {
+        "date": "2026-05-04",
+        "pct": 27.5
+      }
+    ],
+    "ACHC": [
+      {
+        "date": "2026-05-04",
+        "pct": 27.17
+      }
+    ],
+    "NVTS": [
+      {
+        "date": "2026-05-04",
+        "pct": 27.01
+      }
+    ],
+    "OMER": [
+      {
+        "date": "2026-05-04",
+        "pct": 26.34
+      }
+    ],
+    "WGS": [
+      {
+        "date": "2026-05-04",
+        "pct": 26.31
+      }
+    ],
+    "BBAI": [
+      {
+        "date": "2026-05-04",
+        "pct": 26.29
+      }
+    ],
+    "ABSI": [
+      {
+        "date": "2026-05-04",
+        "pct": 26.1
+      }
+    ],
+    "STIM": [
+      {
+        "date": "2026-05-04",
+        "pct": 25.78
+      }
+    ],
+    "HRTX": [
+      {
+        "date": "2026-05-04",
+        "pct": 24.84
+      }
+    ],
+    "SATS": [
+      {
+        "date": "2026-05-04",
+        "pct": 24.65
+      }
+    ],
+    "PLUG": [
+      {
+        "date": "2026-05-04",
+        "pct": 24.46
+      }
+    ]
+  },
+  "byRisk": {
+    "extreme": 3,
+    "eleve": 44,
+    "modere": 3,
+    "faible": 0
+  },
+  "bySector": {
+    "Retailers - Discount Stores": [
+      "GRPN"
+    ],
+    "Passenger Transportation, Ground & Sea": [
+      "HTZ"
+    ],
+    "Metals & Mining": [
+      "CRML"
+    ],
+    "Software": [
+      "AI",
+      "MARA",
+      "PGY"
+    ],
+    "Oil, Gas & Consumable Fuels": [
+      "NFE"
+    ],
+    "IT Services & Consulting": [
+      "SOUN"
+    ],
+    "Personal Care Products": [
+      "LFVN"
+    ],
+    "Financial Services": [
+      "BETR"
+    ],
+    "Biotechnology & Medical Research": [
+      "SPRY",
+      "IOVA",
+      "NVAX",
+      "HRTX"
+    ],
+    "Environmental Services & Equipment": [
+      "PCT"
+    ],
+    "Health Care Providers & Services": [
+      "HIMS",
+      "ACHC",
+      "WGS"
+    ],
+    "Professional Services": [
+      "TTEC"
+    ],
+    "Biotechnology": [
+      "RXRX",
+      "BEAM",
+      "ABEO",
+      "CYPH",
+      "MNPR",
+      "SRPT",
+      "CRDF",
+      "ABSI"
+    ],
+    "Utilities - Electric": [
+      "EVGO"
+    ],
+    "Specialty Retail": [
+      "PLCE",
+      "FLWS",
+      "SNBR"
+    ],
+    "Semiconductors & Semiconductor Equipment": [
+      "INDI",
+      "NVTS"
+    ],
+    "Automobiles": [
+      "LCID"
+    ],
+    "Health Care Equipment & Supplies": [
+      "GCTK",
+      "STIM"
+    ],
+    "Construction & Engineering": [
+      "FBGL"
+    ],
+    "Food Products": [
+      "BYND"
+    ],
+    "Entertainment": [
+      "SPHR"
+    ],
+    "Hotels, Restaurants & Leisure": [
+      "SERV"
+    ],
+    "Electrical Components & Equipment": [
+      "EOSE",
+      "ENVX"
+    ],
+    "Machinery": [
+      "JCSE"
+    ],
+    "REITs - Specialized": [
+      "MPT"
+    ],
+    "Restaurants & Bars": [
+      "KRUS"
+    ],
+    "Retailers - Department Stores": [
+      "KSS"
+    ],
+    "Pharmaceuticals": [
+      "OMER"
+    ],
+    "IT Services": [
+      "BBAI"
+    ],
+    "Media": [
+      "SATS"
+    ],
+    "Renewable Energy Equipment & Services": [
+      "PLUG"
+    ]
+  }
+}

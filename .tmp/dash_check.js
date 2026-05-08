@@ -1,0 +1,12688 @@
+
+    // ============================================================
+    // CONFIG
+    // ============================================================
+    const API_BASE = 'https://kairos-insider-api.natquinson.workers.dev';
+
+    // ============================================================
+    // SÉCURITÉ — Helper anti-XSS
+    // ============================================================
+    // Échappe les caractères HTML dangereux. À utiliser sur tout contenu
+    // d'origine externe (API, user input, error messages) avant injection
+    // dans .innerHTML / template literals HTML.
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    window.escapeHtml = escapeHtml;
+
+    // ============================================================
+    // Helper Skeleton — générateurs HTML pour loading states
+    // ============================================================
+    window.Skeleton = {
+      // N lignes type paragraphe
+      lines: (n = 3) => Array.from({length: n}, () => '<div class="skeleton skeleton-line"></div>').join(''),
+      // Un titre
+      title: () => '<div class="skeleton skeleton-title"></div>',
+      // Une card complète (titre + N lignes)
+      card: (lines = 3) => `<div class="skeleton-card">${this.title ? '' : ''}<div class="skeleton skeleton-title"></div>${Array.from({length: lines}, () => '<div class="skeleton skeleton-line"></div>').join('')}</div>`,
+      // Grille de N cards
+      grid: (n = 4, lines = 2) => `<div class="skeleton-grid">${Array.from({length: n}, () => `<div class="skeleton-card"><div class="skeleton skeleton-title"></div>${Array.from({length: lines}, () => '<div class="skeleton skeleton-line"></div>').join('')}</div>`).join('')}</div>`,
+      // Un bloc simple
+      block: (height = 80) => `<div class="skeleton skeleton-block" style="height:${height}px"></div>`,
+      // Tableau skeleton (N rows, M cols)
+      table: (rows = 5, cols = 4) => {
+        const rowHTML = `<tr>${Array.from({length: cols}, () => '<td style="padding:10px"><div class="skeleton skeleton-line" style="margin:0"></div></td>').join('')}</tr>`;
+        return `<table style="width:100%;border-collapse:collapse">${Array.from({length: rows}, () => rowHTML).join('')}</table>`;
+      },
+    };
+
+    // Traductions
+    const TX_TYPES = {
+      'P': 'Achat', 'S': 'Vente', 'A': 'Attribution', 'D': 'Cession',
+      'G': 'Don', 'M': 'Exercice', 'F': 'Retenue fiscale', 'X': 'Exercice',
+      'C': 'Conversion', 'E': 'Expiration', 'H': 'Expiration anticipée',
+      'I': 'Acquisition discrétionnaire', 'W': 'Acquisition volontaire',
+    };
+
+    const AD_TYPES = { 'A': 'Achat', 'D': 'Vente' };
+
+    // Map EN + DE → FR. Les patterns longs sont appliques en premier (tri par longueur decroissante)
+    // pour eviter que "CEO" ne pollue "Chief Executive Officer", etc.
+    const POSITIONS = {
+      // --- Allemand (BaFin / MAR art. 19) ---
+      'Vorsitzender des Aufsichtsrats': 'Président du conseil de surveillance',
+      'Aufsichtsratsvorsitzender': 'Président du conseil de surveillance',
+      'Vorsitzender des Vorstands': 'Président du directoire',
+      'Vorstandsvorsitzender': 'Président du directoire',
+      'Sonstige Führungsperson': 'Autre dirigeant',
+      'Stellvertretender Vorsitzender': 'Vice-président',
+      'Vorstandsmitglied': 'Membre du directoire',
+      'Geschäftsführer': 'Gérant',
+      'Aufsichtsrat': 'Conseil de surveillance',
+      'Vorstand': 'Membre du directoire',
+      'in enger Beziehung': 'Personne liée',
+
+      // --- Anglais — formes longues ---
+      'Chief Executive Officer': 'Dir. général',
+      'Chief Financial Officer': 'DAF',
+      'Chief Operating Officer': 'DG Adjoint',
+      'Chief Technology Officer': 'Dir. technique',
+      'Chief Accounting Officer': 'Dir. comptable',
+      'Chief Legal Officer': 'Dir. juridique',
+      'Chief Medical Officer': 'Dir. médical',
+      'Chief Strategy Officer': 'Dir. stratégie',
+      'Chief People Officer': 'DRH',
+      'Chief Human Resources Officer': 'DRH',
+      'Chief Commercial Officer': 'Dir. commercial',
+      'Chief Development Officer': 'Dir. développement',
+      'Chief Marketing Officer': 'Dir. marketing',
+      'Chief Risk Officer': 'Dir. des risques',
+      'Chief Compliance Officer': 'Dir. conformité',
+      'Chief Information Officer': 'DSI',
+      'Chief Security Officer': 'Dir. sécurité',
+      'Chief Revenue Officer': 'Dir. revenus',
+      'Chief Product Officer': 'Dir. produit',
+      'Chief Investment Officer': 'Dir. investissements',
+      'Chief Scientific Officer': 'Dir. scientifique',
+      'Executive Vice President': 'VP Exécutif',
+      'Senior Vice President': 'VP Senior',
+      'Vice President': 'VP',
+      'General Counsel': 'Dir. juridique',
+      'Executive Chairman': 'Président exécutif',
+      'Co-Portfolio Manager': 'Co-gestionnaire',
+      'Portfolio Manager': 'Gestionnaire de portefeuille',
+      'Managing Director': 'Directeur général',
+      'See Remarks': 'Voir remarques',
+
+      // --- Anglais — mots seuls & acronymes ---
+      'Chairperson': 'Président',
+      'Chairman': 'Président',
+      'President': 'Président',
+      'Director': 'Administrateur',
+      'Treasurer': 'Trésorier',
+      'Secretary': 'Secrétaire',
+      'Controller': 'Contrôleur',
+      'Officer': 'Dirigeant',
+      'CEO': 'PDG',
+      'CFO': 'DAF',
+      'COO': 'DG Adjoint',
+      'CTO': 'DT',
+      'CIO': 'DSI',
+      'CMO': 'DM',
+      'EVP': 'VP Exécutif',
+      'SVP': 'VP Senior',
+      'VP': 'VP',
+      'and': 'et',
+      '&': 'et',
+    };
+
+    // Formatters
+    const fmtNum = (n) => n != null ? new Intl.NumberFormat('fr-FR').format(n) : '—';
+    const fmtCur = (n, currency = 'USD') => n != null ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n) : '—';
+    // Badge drapeau marche : images SVG via flagcdn.com (fonctionne sur Windows, contrairement
+    // aux emoji drapeaux qui ne sont pas rendus par Segoe UI Emoji).
+    // Mapping de quelques codes non-ISO vers le code flagcdn correspondant.
+    const FLAG_ALIASES = { UK: 'gb' };
+    function fmtMarket(market) {
+      if (!market) return '<span title="Marche inconnu" style="opacity:.5">🌐</span>';
+      const code = (FLAG_ALIASES[market] || market).toLowerCase();
+      // w20 = 20px de large, 2x DPI pour ecrans haute densite
+      return `<img src="https://flagcdn.com/w20/${code}.png" srcset="https://flagcdn.com/w40/${code}.png 2x" width="20" height="15" alt="${market}" title="${market}" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.1)" onerror="this.style.display='none';this.insertAdjacentText('afterend','${market}')">`;
+    }
+
+    // Mapping marche pays -> suffixe Yahoo Finance.
+    // Utile pour les transactions insiders AMF/BaFin/etc. qui stockent le ticker
+    // brut (ex: 'DG' pour Vinci) sans suffixe Yahoo. Sans ca, click sur 'DG'
+    // -> Dollar General US au lieu de Vinci FR. Avec : 'DG' + market='FR' -> 'DG.PA'.
+    const MARKET_TO_YAHOO_SUFFIX = {
+      FR: '.PA', DE: '.DE', GB: '.L', UK: '.L', NL: '.AS', CH: '.SW',
+      IT: '.MI', ES: '.MC', SE: '.ST', DK: '.CO', FI: '.HE', NO: '.OL',
+      PT: '.LS', BE: '.BR', AT: '.VI', IE: '.IR',
+    };
+    function toYahooTicker(ticker, market) {
+      if (!ticker) return ticker;
+      // Deja un ticker complet (contient '.') -> ne pas double-suffixer
+      if (String(ticker).includes('.')) return ticker;
+      const suffix = MARKET_TO_YAHOO_SUFFIX[(market || '').toUpperCase()];
+      return suffix ? ticker + suffix : ticker;
+    }
+
+    // Mapping code exchange (Yahoo / stockanalysis / SEC) → code pays ISO-2
+    // pour afficher le drapeau correspondant dans le hero fiche action.
+    // Source exchange : d.price.exchange (Yahoo : 'NMS', 'NYQ', 'PNK', 'ASE', 'LSE'...)
+    const EXCHANGE_TO_COUNTRY = {
+      // États-Unis
+      NYSE: 'US', NASDAQ: 'US', AMEX: 'US', ASE: 'US', NYQ: 'US', NMS: 'US',
+      PNK: 'US', OTC: 'US', OTCB: 'US', OTCM: 'US', BATS: 'US', IEX: 'US',
+      NGM: 'US', NCM: 'US', NSM: 'US',
+      // Canada
+      TSX: 'CA', TSXV: 'CA', TOR: 'CA', CNSX: 'CA', NEO: 'CA', CNQ: 'CA',
+      // Royaume-Uni
+      LSE: 'GB', LON: 'GB', AIM: 'GB',
+      // France
+      EPA: 'FR', PAR: 'FR', ENX: 'FR',
+      // Allemagne
+      ETR: 'DE', XETRA: 'DE', FRA: 'DE', BER: 'DE', GER: 'DE', MUN: 'DE',
+      // Italie
+      BIT: 'IT', MIL: 'IT',
+      // Espagne
+      BME: 'ES', MAD: 'ES', MCE: 'ES',
+      // Pays-Bas
+      AEX: 'NL', AMS: 'NL',
+      // Suisse
+      SIX: 'CH', SWX: 'CH', EBS: 'CH', VTX: 'CH',
+      // Belgique
+      BRU: 'BE', EBR: 'BE',
+      // Portugal
+      LIS: 'PT',
+      // Irlande
+      ISE: 'IE', DUB: 'IE',
+      // Nordiques
+      STO: 'SE', HEL: 'FI', CPH: 'DK', OSL: 'NO', ICE: 'IS',
+      // Japon
+      TSE: 'JP', TYO: 'JP', JPX: 'JP', OSE: 'JP',
+      // Hong Kong
+      HKEX: 'HK', HKG: 'HK', SEHK: 'HK',
+      // Chine
+      SSE: 'CN', SZSE: 'CN', SHA: 'CN', SHE: 'CN',
+      // Taiwan
+      TWSE: 'TW', TPE: 'TW',
+      // Corée
+      KRX: 'KR', KOSPI: 'KR', KOSDAQ: 'KR', KSC: 'KR', KOE: 'KR',
+      // Australie
+      ASX: 'AU',
+      // Nouvelle-Zélande
+      NZX: 'NZ', NZE: 'NZ',
+      // Inde
+      BSE: 'IN', NSE: 'IN', NSI: 'IN', BOM: 'IN',
+      // Brésil
+      BVMF: 'BR', SAO: 'BR',
+      // Mexique
+      BMV: 'MX', MEX: 'MX',
+      // Afrique du Sud
+      JSE: 'ZA', JNB: 'ZA',
+      // Singapour
+      SGX: 'SG', SES: 'SG',
+      // Émirats
+      DFM: 'AE', ADX: 'AE',
+      // Arabie saoudite
+      TADAWUL: 'SA',
+      // Autriche
+      VIE: 'AT',
+      // Pologne
+      WSE: 'PL', WAR: 'PL',
+      // Turquie
+      BIST: 'TR', IST: 'TR',
+      // Russie
+      MCX: 'RU', MOEX: 'RU',
+    };
+    function exchangeToFlag(exchange) {
+      if (!exchange) return '';
+      const country = EXCHANGE_TO_COUNTRY[String(exchange).toUpperCase()];
+      if (!country) return ''; // exchange inconnu → pas de drapeau, seulement la pill texte
+      const code = country.toLowerCase();
+      return `<img src="https://flagcdn.com/w20/${code}.png" srcset="https://flagcdn.com/w40/${code}.png 2x" width="22" height="16" alt="${country}" title="Coté sur ${exchange} (${country})" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.12)">`;
+    }
+    const fmtDate = (s) => {
+      if (!s) return '—';
+      const d = new Date(s + 'T00:00:00');
+      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    // Pre-compile une fois : tri par longueur decroissante + escape regex + \b word boundaries
+    const POSITIONS_SORTED = Object.entries(POSITIONS)
+      .sort((a, b) => b[0].length - a[0].length)
+      .map(([en, fr]) => {
+        const escaped = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // \b marche sur ASCII ; les patterns avec accents (Führungsperson) gardent \b aux extremites ASCII
+        const rx = new RegExp('(^|[^\\p{L}])(' + escaped + ')(?=[^\\p{L}]|$)', 'giu');
+        return { rx, fr };
+      });
+
+    function translatePosition(title) {
+      if (!title) return '—';
+      let t = title.replace(/&amp;/g, '&');
+      for (const { rx, fr } of POSITIONS_SORTED) {
+        t = t.replace(rx, (m, p1) => p1 + fr);
+      }
+      return t;
+    }
+
+    function getTxLabel(code, ad) {
+      if (code === 'P' || ad === 'A') return { label: 'Achat', cls: 'buy' };
+      if (code === 'S' || ad === 'D') return { label: 'Vente', cls: 'sell' };
+      return { label: TX_TYPES[code] || code || '—', cls: 'other' };
+    }
+
+    // ============================================================
+    // FIREBASE AUTH + STRIPE
+    // ============================================================
+    let firebaseAuth = null;
+    let currentUser = null;
+    let isPremium = false;
+    const STRIPE_PK = 'pk_live_51TM5gGDmX73q2YzD7u0ZOZPGRXU2frBhfBK3puhlZ3YV4m6mbyljIZL4hhCkldLW86Qc9ZfUwzXW2Tj13iilJQPK00d26oSAh8';
+
+    // Initialisation Firebase Auth (module)
+    async function initAuth() {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+      const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, signInWithPopup, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+
+      const app = initializeApp({
+        apiKey: 'AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw',
+        authDomain: 'kairos-insider.firebaseapp.com',
+        projectId: 'kairos-insider',
+        // REQUIS pour Realtime Database (sauvegarde du portefeuille) — region europe-west1
+        databaseURL: 'https://kairos-insider-default-rtdb.europe-west1.firebasedatabase.app',
+      });
+
+      firebaseAuth = getAuth(app);
+      window.__fbAuth = { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, signInWithPopup, GoogleAuthProvider };
+
+      onAuthStateChanged(firebaseAuth, async (user) => {
+        if (user) {
+          currentUser = user;
+          document.getElementById('authOverlay').classList.add('hidden');
+          await checkSubscription();
+          // Deep link / browser navigation : tente de restaurer la section depuis l'URL
+          // Couvre TOUTES les sections (pas juste signals-*) + le ticker dans #stockAnalysis?t=X
+          // Format URL : #section ou #stockAnalysis?t=AAPL
+          const navigated = (typeof navigateFromHash === 'function')
+            ? navigateFromHash(window.location.hash)
+            : false;
+          if (!navigated) {
+            // Accueil : affichage immédiat (nom + stats)
+            loadHome();
+            loadedSections['home'] = true;
+          }
+          // Charge l'avatar de la navbar (Firebase RTDB)
+          loadProfileAvatar().catch(() => {});
+          // Pré-chargement insiders en arrière-plan SEULEMENT pour les premium
+          if (isPremium) {
+            setTimeout(() => { loadInsiderTrades(); loadedSections['insider'] = true; }, 400);
+            // Pre-chargement watchlist pour que le bouton ★ reflete le bon etat partout
+            loadWatchlist().catch(() => {});
+          }
+
+          // Auto-trigger checkout Stripe avec DOUBLE garde-fou :
+          //
+          // 1. localStorage.kairos_auto_checkout — flag cross-session pose par
+          //    initPlanBillingFromUrl quand ?plan= est dans l'URL (= clic
+          //    'S'abonner Pro/Elite' depuis la landing). Consomme immediatement.
+          //
+          // 2. sessionStorage.kairos_checkout_fired — flag per-tab pose des
+          //    qu'on fire startCheckout. Empeche le retrigger quand l'user
+          //    revient via 'Back' du navigateur depuis Stripe (bfcache peut
+          //    restaurer la page dans un etat intermediaire). Efface auto
+          //    a la fermeture de l'onglet.
+          //
+          // 3. Nettoyage des anciens flags orphelins (migration v1 → v2) :
+          //    si kairos_plan existe sans auto_checkout flag, c'est un
+          //    residu de l'ancien code buggue — on le nettoie sans declencher.
+          try {
+            const autoCheckout = localStorage.getItem('kairos_auto_checkout');
+            const alreadyFired = sessionStorage.getItem('kairos_checkout_fired');
+            console.log('[auto-checkout]', { autoCheckout: !!autoCheckout, alreadyFired: !!alreadyFired, isPremium, plan: getPlanPreference(), billing: getBillingPreference() });
+
+            if (autoCheckout && !isPremium && !alreadyFired) {
+              // Cas normal : user free avec flag one-shot → lance checkout direct
+              localStorage.removeItem('kairos_auto_checkout');
+              sessionStorage.setItem('kairos_checkout_fired', '1');
+              startCheckout();
+            } else if (autoCheckout && isPremium) {
+              // User deja abonne clique 'S'abonner' sur la landing → portail Stripe
+              localStorage.removeItem('kairos_auto_checkout');
+              hidePendingCheckoutOverlay();
+              setTimeout(() => {
+                try {
+                  if (window.Toast && Toast.info) {
+                    Toast.info('Vous êtes déjà abonné. Pour changer de plan, utilisez le portail de facturation Stripe.');
+                  }
+                  if (typeof openStripePortal === 'function') openStripePortal();
+                } catch (e) {}
+              }, 300);
+            } else if (autoCheckout && alreadyFired) {
+              // Defense-in-depth : le flag localStorage a survecu dans un
+              // contexte ou sessionStorage indique deja un checkout fire
+              // (ex: tab reste ouvert depuis un essai precedent). On evite
+              // le re-trigger auto (boucle) mais on ouvre le PAYWALL pour
+              // que l'user puisse relancer manuellement s'il veut.
+              console.log('[auto-checkout] Flag survivant + session deja fired → fallback paywall');
+              localStorage.removeItem('kairos_auto_checkout');
+              hidePendingCheckoutOverlay();
+              setTimeout(() => {
+                try {
+                  document.getElementById('paywallOverlay')?.classList.remove('hidden');
+                  if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+                } catch (e) {}
+              }, 200);
+            } else {
+              // Aucun auto-checkout en attente : cache l'overlay par precaution.
+              hidePendingCheckoutOverlay();
+            }
+
+            // Retour depuis Stripe avec annulation (?checkout=cancelled) →
+            // rouvre automatiquement le paywall pour que l'user puisse
+            // re-tenter ou changer de plan sans avoir a re-naviguer.
+            if (!isPremium && sessionStorage.getItem('kairos_reopen_paywall')) {
+              sessionStorage.removeItem('kairos_reopen_paywall');
+              setTimeout(() => {
+                try {
+                  if (window.Toast && Toast.info) {
+                    Toast.info('Paiement annulé. Vous pouvez réessayer quand vous voulez.');
+                  }
+                  document.getElementById('paywallOverlay')?.classList.remove('hidden');
+                  if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+                } catch (e) {}
+              }, 400);
+            }
+          } catch (e) {
+            console.error('[auto-checkout] error:', e);
+            hidePendingCheckoutOverlay();
+          }
+
+          window.dispatchEvent(new CustomEvent('kairos:auth-ready'));
+        } else {
+          currentUser = null;
+          isPremium = false;
+          document.getElementById('authOverlay').classList.remove('hidden');
+          // L'user doit se login d'abord : retire l'overlay 'pending-checkout'
+          // pour que le login apparaisse. Le flag localStorage reste en place,
+          // il declenchera le checkout auto apres login.
+          hidePendingCheckoutOverlay();
+        }
+      });
+    }
+
+    initAuth();
+
+    // UI toggle login/signup
+    function showSignup() {
+      document.getElementById('authLogin').style.display = 'none';
+      document.getElementById('authSignup').style.display = 'block';
+    }
+    function showLogin() {
+      document.getElementById('authLogin').style.display = 'block';
+      document.getElementById('authSignup').style.display = 'none';
+    }
+
+    // Auto-show signup si ?action=signup dans l'URL (depuis backtest.html CTA)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('action') === 'signup') {
+        // Attendre que le DOM soit pret pour s'assurer que les elements existent
+        const trySignup = () => {
+          const loginEl = document.getElementById('authLogin');
+          const signupEl = document.getElementById('authSignup');
+          if (loginEl && signupEl) {
+            showSignup();
+          } else {
+            setTimeout(trySignup, 100);
+          }
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', trySignup);
+        } else {
+          trySignup();
+        }
+      }
+    } catch {}
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const errEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      errEl.style.display = 'none';
+      btn.textContent = 'Connexion...';
+      btn.disabled = true;
+      try {
+        await window.__fbAuth.signInWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (err) {
+        const messages = {
+          'auth/user-not-found': 'Aucun compte avec cet email.',
+          'auth/wrong-password': 'Mot de passe incorrect.',
+          'auth/invalid-email': 'Email invalide.',
+          'auth/too-many-requests': 'Trop de tentatives. Reessayez plus tard.',
+          'auth/invalid-credential': 'Email ou mot de passe incorrect.',
+        };
+        errEl.textContent = messages[err.code] || err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.textContent = 'Se connecter';
+        btn.disabled = false;
+      }
+      return false;
+    }
+
+    // Enregistre le consentement CGV/RGPD dans Firebase (preuve d'acceptation)
+    async function recordConsent(uid, method) {
+      try {
+        const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        await set(ref(db, `users/${uid}/consent`), {
+          cgv: true,
+          privacy: true,
+          acceptedAt: new Date().toISOString(),
+          method: method, // 'email' ou 'google'
+          version: '1.0',
+          userAgent: navigator.userAgent.slice(0, 200),
+        });
+      } catch (err) {
+        console.error('Erreur enregistrement consentement:', err);
+      }
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault();
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+      const consent = document.getElementById('signupConsent').checked;
+      const errEl = document.getElementById('signupError');
+      const btn = document.getElementById('signupBtn');
+      errEl.style.display = 'none';
+
+      if (!consent) {
+        errEl.textContent = 'Vous devez accepter les CGV et la Politique de confidentialite.';
+        errEl.style.display = 'block';
+        return false;
+      }
+
+      btn.textContent = 'Creation...';
+      btn.disabled = true;
+      try {
+        const cred = await window.__fbAuth.createUserWithEmailAndPassword(firebaseAuth, email, password);
+        if (cred?.user?.uid) recordConsent(cred.user.uid, 'email');
+      } catch (err) {
+        const messages = {
+          'auth/email-already-in-use': 'Cet email est déjà utilise.',
+          'auth/weak-password': 'Mot de passe trop faible (6 caracteres minimum).',
+          'auth/invalid-email': 'Email invalide.',
+        };
+        errEl.textContent = messages[err.code] || err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.textContent = 'Creer mon compte';
+        btn.disabled = false;
+      }
+      return false;
+    }
+
+    async function handleForgotPassword() {
+      const email = document.getElementById('loginEmail').value;
+      if (!email) { Toast.warning('Entrez votre email puis cliquez sur « Mot de passe oublié »'); return; }
+      try {
+        await window.__fbAuth.sendPasswordResetEmail(firebaseAuth, email);
+        Toast.success('Email de réinitialisation envoyé ! Vérifiez votre boîte.');
+      } catch (err) {
+        Toast.error('Erreur : ' + err.message);
+      }
+    }
+
+    async function handleGoogleLogin() {
+      // Detecte si l'utilisateur est sur l'onglet Inscription -> consentement CGV obligatoire
+      const signupVisible = document.getElementById('authSignup').style.display !== 'none';
+      if (signupVisible) {
+        const consent = document.getElementById('signupConsent')?.checked;
+        if (!consent) {
+          const errEl = document.getElementById('signupError');
+          errEl.textContent = 'Vous devez accepter les CGV et la Politique de confidentialite avant de continuer.';
+          errEl.style.display = 'block';
+          return;
+        }
+      }
+
+      // Le bouton actif depend de l'onglet affiche (login ou signup)
+      const btn = signupVisible ? document.getElementById('googleSignupBtn') : document.getElementById('googleBtn');
+      if (btn) { btn.textContent = 'Connexion...'; btn.disabled = true; }
+      try {
+        const provider = new window.__fbAuth.GoogleAuthProvider();
+        const cred = await window.__fbAuth.signInWithPopup(firebaseAuth, provider);
+        // Enregistre le consentement uniquement pour les nouveaux comptes (premier Google sign-in)
+        const isNewUser = cred?._tokenResponse?.isNewUser === true;
+        if (isNewUser && cred?.user?.uid) {
+          recordConsent(cred.user.uid, 'google');
+        }
+      } catch (err) {
+        if (err.code !== 'auth/popup-closed-by-user') {
+          Toast.error('Erreur Google : ' + err.message);
+        }
+      } finally {
+        if (btn) { btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Continuer avec Google'; btn.disabled = false; }
+      }
+    }
+
+    async function logout() {
+      await window.__fbAuth.signOut(firebaseAuth);
+    }
+
+    // Vérifier l'abonnement Stripe
+    async function checkSubscription() {
+      try {
+        const data = await apiFetch('/stripe/status');
+        isPremium = data.hasSubscription;
+        // Expose le plan (free | pro | elite | legacy) pour les gatings
+        // feature-by-feature (ex: exports CSV reserves Elite).
+        window._currentPlan = data.plan || (isPremium ? 'pro' : 'free');
+        updatePremiumUI();
+      } catch (err) {
+        isPremium = false;
+        window._currentPlan = 'free';
+        updatePremiumUI();
+      }
+    }
+
+    function updatePremiumUI() {
+      // Badges sidebar : toujours "PRO" mais couleur verte si premium, rouge si free
+      document.querySelectorAll('.premium-badge').forEach(badge => {
+        badge.textContent = 'PRO';
+        if (isPremium) {
+          badge.classList.add('unlocked');
+          badge.title = 'Abonnement actif';
+        } else {
+          badge.classList.remove('unlocked');
+          badge.title = 'Reserve aux abonnes Premium';
+        }
+      });
+      renderUpgradeBanner();
+    }
+
+    // Bouton 'Passer Pro' dans la navbar : visible uniquement pour les users
+    // non-premium. Petit, bien visible (gradient anime), ouvre le paywall au
+    // clic. Pas de dismiss : c'est un simple icone en bout de barre, ne gene
+    // pas. Permet a tout moment de re-acceder au pricing.
+    function renderUpgradeBanner() {
+      const li = document.getElementById('navUpgradeItem');
+      if (!li) return;
+      li.style.display = isPremium ? 'none' : '';
+      renderFreeQuotaBanner();
+      applyHomeDataLocking();
+    }
+
+    // Nettoyage potentiel des anciens overlays pose sur .home-card
+    // (migration v1 → v2 du locking : avant on floutait les tuiles de
+    // navigation, maintenant on floute les blocs de donnees reelles).
+    function clearLegacyHomeCardLocks() {
+      document.querySelectorAll('.home-card[data-locked]').forEach(card => {
+        card.removeAttribute('data-locked');
+        card.removeAttribute('data-required-plan');
+        const overlay = card.querySelector('.home-card-lock-overlay');
+        if (overlay) overlay.remove();
+      });
+    }
+
+    // Applique le floutage 'sneak peek' sur les DONNEES des cards 'Top signaux
+    // du jour' (score movers, clusters, ETF, activists). Pour chaque card,
+    // on conserve le HEADER visible (titre + sous-titre + icone → le user voit
+    // QUEL contenu il rate) et on floute uniquement la zone .signal-card-body
+    // (tickers/prix/deltas). Un overlay avec badge PRO + CTA se superpose a
+    // la zone body et ouvre le paywall au clic. Les cards de navigation
+    // (.home-card) restent totalement claires.
+    function applyHomeDataLocking() {
+      clearLegacyHomeCardLocks(); // nettoyage ponctuel post-refactor
+      const wrap = document.getElementById('homeTopSignalsWrap');
+      if (!wrap) return;
+
+      // Nettoie d'eventuels verrous poses sur le wrap (v2 du refactor)
+      wrap.classList.remove('sneak-peek-locked');
+      const prevWrapOverlay = wrap.querySelector(':scope > .home-card-lock-overlay');
+      if (prevWrapOverlay) prevWrapOverlay.remove();
+
+      const cards = wrap.querySelectorAll('.signal-card');
+      // Premium : retire tous les verrous existants et stop.
+      if (isPremium) {
+        cards.forEach(card => {
+          card.classList.remove('sneak-peek-locked');
+          const ov = card.querySelector(':scope > .signal-card-lock-overlay');
+          if (ov) ov.remove();
+        });
+        return;
+      }
+
+      // Free : verrouille chaque card individuellement.
+      cards.forEach(card => {
+        if (card.classList.contains('sneak-peek-locked')) {
+          // deja verrouillee, pas besoin de recreer l'overlay
+          return;
+        }
+        card.classList.add('sneak-peek-locked');
+
+        // Calcule la hauteur du header pour positionner precisement l'overlay
+        // (evite de masquer le titre meme si la hauteur varie entre cards).
+        const head = card.querySelector('.signal-card-head');
+        if (head) {
+          const h = head.getBoundingClientRect().height;
+          if (h > 0) card.style.setProperty('--signal-head-h', `${Math.round(h)}px`);
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'signal-card-lock-overlay';
+        overlay.innerHTML = `
+          <div class="signal-card-lock-badge">🔒 PRO</div>
+          <div class="signal-card-lock-cta">
+            Débloquer les signaux
+            <small>19€/mois — voir tickers &amp; montants</small>
+          </div>
+        `;
+        overlay.onclick = (e) => {
+          e.stopPropagation();
+          try { localStorage.setItem('kairos_plan', 'pro'); } catch (err) {}
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        };
+        card.appendChild(overlay);
+
+        // Intercepte aussi les clics sur le header clickable : pour un Free,
+        // cliquer sur "Ouvrir l'analyse" ouvre le paywall au lieu de naviguer
+        // vers une section bloquee (meilleure UX).
+        const clickableHead = card.querySelector('.signal-card-head-clickable');
+        if (clickableHead && !clickableHead.dataset.lockBound) {
+          clickableHead.dataset.lockBound = '1';
+          clickableHead.addEventListener('click', (e) => {
+            if (!card.classList.contains('sneak-peek-locked')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            try { localStorage.setItem('kairos_plan', 'pro'); } catch (err) {}
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+            document.getElementById('paywallOverlay')?.classList.remove('hidden');
+          }, true);
+        }
+      });
+    }
+
+    // Bandeau 'Quota Free X/3 analyses' affiche en tete de la section
+    // stockAnalysis pour les users non-premium. Rafraichi apres chaque analyse
+    // pour refleter le quota restant.
+    function renderFreeQuotaBanner() {
+      const el = document.getElementById('freeQuotaBanner');
+      if (!el) return;
+      if (isPremium) { el.style.display = 'none'; return; }
+      const state = getFreeQuotaState();
+      const remaining = Math.max(0, FREE_DAILY_QUOTA - state.count);
+      const pctUsed = Math.min(100, (state.count / FREE_DAILY_QUOTA) * 100);
+      const emoji = remaining === 0 ? '🔒' : remaining === 1 ? '⚡' : '✨';
+      const color = remaining === 0 ? '#EF4444' : remaining === 1 ? '#F59E0B' : '#10B981';
+      el.style.display = 'block';
+      el.innerHTML = `
+        <div style="position:relative;padding:14px 18px;margin-bottom:20px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.22);border-radius:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="font-size:24px;line-height:1;flex-shrink:0">${emoji}</div>
+          <div style="flex:1;min-width:220px">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">
+              ${remaining === 0
+                ? 'Quota quotidien atteint'
+                : `<span style="color:${color}">${remaining} analyse${remaining > 1 ? 's' : ''} gratuite${remaining > 1 ? 's' : ''}</span> restante${remaining > 1 ? 's' : ''} aujourd'hui`}
+            </div>
+            <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
+              <div style="height:100%;width:${pctUsed}%;background:linear-gradient(90deg,${color},${color});border-radius:3px;transition:width 0.3s"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">${state.count}/${FREE_DAILY_QUOTA} utilisées · reset à minuit · passer Pro pour illimité + watchlist + fonds offensifs</div>
+          </div>
+          <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:9px 16px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.25)">Passer Pro</button>
+        </div>
+      `;
+    }
+
+    // Billing preference (monthly | yearly) — peut etre set via ?billing= dans l'URL depuis la landing
+    function getBillingPreference() {
+      try {
+        const url = new URL(window.location.href);
+        const fromUrl = url.searchParams.get('billing');
+        if (fromUrl === 'yearly' || fromUrl === 'monthly') {
+          localStorage.setItem('kairos_billing', fromUrl);
+          return fromUrl;
+        }
+        const stored = localStorage.getItem('kairos_billing');
+        if (stored === 'yearly' || stored === 'monthly') return stored;
+      } catch (e) {}
+      return 'monthly';
+    }
+
+    // Prix des 4 combinaisons plan x billing (synchro avec landing + worker).
+    const PAYWALL_PRICES = {
+      'pro:monthly':   { amount: '19€',  period: '/mois', subline: 'Sans engagement — Annulable en 1 clic', cta: "S'abonner Pro — 19€/mois" },
+      'pro:yearly':    { amount: '190€', period: '/an',   subline: 'Soit 15,83€/mois · 2 mois offerts',       cta: "S'abonner Pro — 190€/an" },
+      'elite:monthly': { amount: '49€',  period: '/mois', subline: 'API + alertes temps-réel + backtests',    cta: "S'abonner Elite — 49€/mois" },
+      'elite:yearly':  { amount: '490€', period: '/an',   subline: 'Soit 40,83€/mois · 2 mois offerts',       cta: "S'abonner Elite — 490€/an" },
+    };
+
+    // Liste des features par plan affichees dans le paywall overlay.
+    // Tick vert = inclus, croix grise = pas dans ce plan (comparatif clair).
+    const PAYWALL_FEATURES = {
+      pro: [
+        { ok: true,  text: '<strong>Kairos Score</strong> complet — 8 axes · 3 349 tickers' },
+        { ok: true,  text: 'Initiés : transactions · signaux · convergences · screener' },
+        { ok: true,  text: '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)' },
+        { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
+        { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
+        { ok: true,  text: 'Watchlist + Brief quotidien par email' },
+        { ok: true,  text: 'Historique 2 ans (scores, rotations, 13F)' },
+        { ok: false, text: 'API REST · alertes temps-réel · backtests historiques' },
+      ],
+      elite: [
+        { ok: true,  text: '<strong style="color:var(--text-primary)">Tout le plan Pro</strong>, plus :' },
+        { ok: true,  text: '<strong>API REST</strong> pour intégrer la data' },
+        { ok: true,  text: '<strong>Alertes temps-réel</strong> (push + email) sur convergences & 13D' },
+        { ok: true,  text: '<strong>Backtests historiques</strong> (coming soon)' },
+        { ok: true,  text: '<strong>Exports CSV</strong> (screener, insiders, hedge funds)' },
+        { ok: true,  text: 'Support prioritaire (&lt; 4h)' },
+        { ok: true,  text: 'Accès anticipé aux nouvelles features' },
+        { ok: true,  text: 'Kit presse pour créateurs de contenu' },
+      ],
+    };
+
+    function applyPaywallDisplay() {
+      const plan = getPlanPreference();        // 'pro' ou 'elite'
+      const billing = getBillingPreference();  // 'monthly' ou 'yearly'
+      const key = `${plan}:${billing}`;
+      const p = PAYWALL_PRICES[key] || PAYWALL_PRICES['pro:monthly'];
+      const amount = document.getElementById('pwAmount');
+      const period = document.getElementById('pwPeriod');
+      const subline = document.getElementById('pwSubline');
+      const cta = document.getElementById('pwCta');
+      if (amount) amount.textContent = p.amount;
+      if (period) period.textContent = p.period;
+      if (subline) subline.textContent = p.subline;
+      if (cta) cta.textContent = p.cta;
+
+      // Liste des features du plan selectionne
+      const featuresEl = document.getElementById('pwFeatures');
+      if (featuresEl) {
+        const features = PAYWALL_FEATURES[plan] || PAYWALL_FEATURES.pro;
+        featuresEl.innerHTML = features.map(f => {
+          const icon = f.ok
+            ? '<span style="color:#10B981;font-weight:700;flex-shrink:0">✓</span>'
+            : '<span style="color:var(--text-muted);flex-shrink:0;opacity:0.5">✕</span>';
+          const textColor = f.ok ? 'var(--text-primary)' : 'var(--text-muted)';
+          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:13px;line-height:1.5;color:${textColor}">${icon}<span>${f.text}</span></div>`;
+        }).join('');
+      }
+
+      // Toggle visuel Pro/Elite
+      const tabPro = document.getElementById('pwTabPro');
+      const tabElite = document.getElementById('pwTabElite');
+      if (tabPro) {
+        if (plan === 'pro') {
+          tabPro.style.cssText = 'padding:10px 8px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:1px solid #3B82F6;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;text-align:center';
+        } else {
+          tabPro.style.cssText = 'padding:10px 8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;text-align:center';
+        }
+      }
+      if (tabElite) {
+        if (plan === 'elite') {
+          tabElite.style.cssText = 'padding:10px 8px;background:linear-gradient(135deg,#F59E0B,#EC4899);border:1px solid #F59E0B;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;text-align:center';
+        } else {
+          tabElite.style.cssText = 'padding:10px 8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;text-align:center';
+        }
+      }
+
+      // Toggle visuel Monthly/Yearly
+      const tabM = document.getElementById('pwTabMonthly');
+      const tabY = document.getElementById('pwTabYearly');
+      const activeStyle = 'flex:1;background:var(--surface-1);border:none;color:var(--text-primary);cursor:pointer;padding:8px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.2)';
+      const inactiveStyle = 'flex:1;background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:8px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;transition:all 0.15s';
+      if (tabM) tabM.style.cssText = (billing === 'monthly' ? activeStyle : inactiveStyle);
+      if (tabY) tabY.style.cssText = (billing === 'yearly' ? activeStyle : inactiveStyle) + ';display:inline-flex;align-items:center;justify-content:center;gap:6px';
+    }
+
+    function setPaywallPlan(plan) {
+      if (plan !== 'pro' && plan !== 'elite') return;
+      try { localStorage.setItem('kairos_plan', plan); } catch (e) {}
+      applyPaywallDisplay();
+    }
+
+    function setPaywallBilling(mode) {
+      if (mode !== 'monthly' && mode !== 'yearly') return;
+      try { localStorage.setItem('kairos_billing', mode); } catch (e) {}
+      applyPaywallDisplay();
+    }
+    // Au chargement, synchronise l'UI avec la préférence stockée
+    window.addEventListener('DOMContentLoaded', () => {
+      applyPaywallDisplay();
+    });
+
+    // Au chargement : si ?plan= et/ou ?billing= sont dans l'URL, on les stocke
+    // en localStorage (preference cross-session) + on pose un flag one-shot
+    // 'kairos_auto_checkout' pour declencher Stripe automatiquement APRES
+    // login (consomme des la 1ere fois). Evite la boucle 'annule Stripe →
+    // retour dashboard → re-redirect Stripe' en ne l'auto-triggerant qu'une fois.
+    (function initPlanBillingFromUrl() {
+      try {
+        const url = new URL(window.location.href);
+        const planUrl = (url.searchParams.get('plan') || '').toLowerCase();
+        const billingUrl = (url.searchParams.get('billing') || '').toLowerCase();
+        const hasPricingIntent = (planUrl === 'pro' || planUrl === 'elite');
+        if (hasPricingIntent) {
+          localStorage.setItem('kairos_plan', planUrl);
+          localStorage.setItem('kairos_auto_checkout', '1'); // one-shot
+          // Reset le flag per-tab : c'est une NOUVELLE intention d'achat, meme
+          // si l'user a deja declenche un checkout precedemment dans ce tab.
+          // Sinon, le user qui revient de la landing apres un back Stripe
+          // resterait bloque sans redirect.
+          sessionStorage.removeItem('kairos_checkout_fired');
+          url.searchParams.delete('plan');
+        }
+        if (billingUrl === 'yearly' || billingUrl === 'monthly') {
+          localStorage.setItem('kairos_billing', billingUrl);
+          url.searchParams.delete('billing');
+        }
+        // Cas : retour annule depuis Stripe (cancel_url inclut ?checkout=cancelled)
+        // → clear le flag pour eviter le retrigger infini + pose un flag qui
+        // demande au onAuthStateChanged de ROUVRIR le paywall (plus friendly
+        // UX que de renvoyer au dashboard vide apres annulation).
+        let wasCheckoutCancelled = false;
+        if (url.searchParams.get('checkout') === 'cancelled') {
+          localStorage.removeItem('kairos_auto_checkout');
+          url.searchParams.delete('checkout');
+          wasCheckoutCancelled = true;
+          sessionStorage.setItem('kairos_reopen_paywall', '1');
+        }
+        if (planUrl || billingUrl || url.searchParams.get('checkout')) {
+          window.history.replaceState({}, '', url.toString());
+        }
+
+        // Active l'overlay plein ecran 'Redirection vers le paiement...' TOUT DE
+        // SUITE si un auto-checkout est en attente. Cache le dashboard flash
+        // entre login et redirect Stripe (UX continue : landing → loader → Stripe).
+        if (localStorage.getItem('kairos_auto_checkout') && !sessionStorage.getItem('kairos_checkout_fired')) {
+          document.documentElement.classList.add('pending-checkout');
+        }
+      } catch (e) {}
+    })();
+
+    // Retire l'overlay plein ecran (utilise apres auto-checkout fire ou si
+    // le flow est annule, pour revealer le dashboard).
+    function hidePendingCheckoutOverlay() {
+      document.documentElement.classList.remove('pending-checkout');
+    }
+
+    function getPlanPreference() {
+      try {
+        const p = localStorage.getItem('kairos_plan');
+        return (p === 'pro' || p === 'elite') ? p : 'pro';
+      } catch (e) { return 'pro'; }
+    }
+
+    // Stripe Checkout
+    async function startCheckout() {
+      const btn = document.getElementById('checkoutBtn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Redirection vers Stripe...';
+      btn.disabled = true;
+      try {
+        const billing = getBillingPreference();
+        const plan = getPlanPreference();
+        const data = await apiFetch('/stripe/create-checkout', { plan, billing }, 'POST');
+        if (data && data.error) {
+          // Cas : plan annuel demande mais pas encore configure cote Stripe
+          if (data.code === 'YEARLY_NOT_CONFIGURED' || data.code === 'PRICE_NOT_CONFIGURED') {
+            Toast.warning(data.detail || 'Ce plan n\'est pas encore disponible. Contactez le support.');
+            try { localStorage.setItem('kairos_billing', 'monthly'); } catch (e) {}
+          } else {
+            Toast.error('Erreur : ' + (data.detail || data.error));
+          }
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
+        }
+        const stripe = Stripe(STRIPE_PK);
+        await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      } catch (err) {
+        Toast.error('Erreur lors de la création du paiement. Réessayez.');
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    // API fetch avec Firebase ID token
+    async function apiFetch(endpoint, params = {}, method = 'GET') {
+      const url = new URL(API_BASE + endpoint);
+      if (method === 'GET') {
+        Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+      }
+
+      const idToken = currentUser ? await currentUser.getIdToken() : '';
+      const opts = {
+        method,
+        headers: { 'Authorization': `Bearer ${idToken}` },
+      };
+      if (method === 'POST') {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(params);
+      }
+
+      const resp = await fetch(url.toString(), opts);
+
+      if (resp.status === 401) {
+        document.getElementById('authOverlay').classList.remove('hidden');
+        throw new Error('Unauthorized');
+      }
+
+      if (resp.status === 403) {
+        const data = await resp.json();
+        // Quota Free atteint sur analyse action : le front doit afficher
+        // l'ecran 'Quota atteint' dedie (deja gere dans loadStockAnalysis).
+        // On re-throw avec un marqueur pour que l'appelant puisse distinguer.
+        if (data.code === 'FREE_QUOTA_EXCEEDED') {
+          const err = new Error(data.error || 'Free daily quota reached');
+          err.code = 'FREE_QUOTA_EXCEEDED';
+          err.quotaData = data;
+          throw err;
+        }
+        if (data.code === 'PREMIUM_REQUIRED') {
+          document.getElementById('paywallOverlay').classList.remove('hidden');
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          throw new Error('Premium required');
+        }
+      }
+
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+      return resp.json();
+    }
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    // Pattern 'Voir plus' (mai 2026) : on cumule les transactions affichees au
+    // lieu d'avoir une pagination Page X/Y. insiderDisplayedCount est le nombre
+    // de transactions visibles ; le bouton 'Voir plus' incremente de 25 et
+    // re-render. Reset a INSIDER_INITIAL_COUNT a chaque changement de filtre.
+    const INSIDER_INITIAL_COUNT = 25;
+    let insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+    let totalTrades = 0;
+    let currentDays = 30;
+    let currentType = 'all'; // 'all', 'buy', 'sell'
+    let currentRegion = 'all'; // 'all', 'US', 'Europe'
+
+    // ============================================================
+    // PERIOD SELECTOR
+    // ============================================================
+    function selectPeriod(days) {
+      currentDays = days;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+      document.querySelectorAll('[data-days]').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.days) === days)
+      );
+      renderInsiderPage();
+    }
+
+    function selectType(type) {
+      currentType = type;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+      document.querySelectorAll('[data-type]').forEach(b =>
+        b.classList.toggle('active', b.dataset.type === type)
+      );
+      renderInsiderPage();
+    }
+
+    function selectRegion(region) {
+      currentRegion = region;
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+      document.querySelectorAll('[data-region]').forEach(b =>
+        b.classList.toggle('active', b.dataset.region === region)
+      );
+      renderInsiderPage();
+    }
+
+    // ============================================================
+    // TABS
+    // ============================================================
+    // ============================================================
+    // SIDEBAR & NAVIGATION
+    // ============================================================
+    function toggleSidebar() {
+      const sb = document.getElementById('sidebar');
+      const backdrop = document.querySelector('.sidebar-backdrop');
+      // Mobile/tablette (<=900px) : open/close ; Desktop : collapse/expand
+      if (window.matchMedia('(max-width: 900px)').matches) {
+        const willOpen = !sb.classList.contains('open');
+        sb.classList.toggle('open', willOpen);
+        if (backdrop) backdrop.style.display = willOpen ? 'block' : 'none';
+      } else {
+        sb.classList.toggle('collapsed');
+      }
+    }
+    // Ferme la sidebar mobile après clic sur un item de nav
+    document.addEventListener('click', (e) => {
+      if (!window.matchMedia('(max-width: 900px)').matches) return;
+      if (e.target.closest?.('.sidebar-item')) {
+        const sb = document.getElementById('sidebar');
+        const backdrop = document.querySelector('.sidebar-backdrop');
+        sb?.classList.remove('open');
+        if (backdrop) backdrop.style.display = 'none';
+      }
+    });
+
+    // ============================================================
+    // THÈME clair / sombre
+    // ============================================================
+    // Lit la valeur actuelle d'une CSS variable sur <html>.
+    // Utilisé par Chart.js pour récupérer les couleurs du thème courant.
+    function getCssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    // ============================================================
+    // I18N — Module de traductions minimaliste
+    // ============================================================
+    // Architecture : Map { lang -> { key -> translation } }
+    // Helper t(key, fallback?) lit dans la langue courante.
+    // Langue = localStorage.kairos-lang ou 'fr' par defaut.
+    // Pour ajouter une langue : etoffer DICT[lang], puis exposer un toggle
+    // dans la nav (similaire au theme dark/light déjà en place).
+    // I18N : le module global est charge via assets/i18n.js (window.KairosI18n).
+    // On expose des aliases locaux 't' et 'getLang' pour compatibilite ascendante
+    // avec le code existant qui utilisait l'ancien I18N_DICT inline.
+    function getLang() { return (window.KairosI18n && window.KairosI18n.getLang()) || 'fr'; }
+    function t(key, fallback) {
+      return (window.KairosI18n && window.KairosI18n.t(key, fallback)) || fallback || key;
+    }
+    // Helpers traductions speciales avec emojis pour la lisibilite UX
+    function txStatusLabel(type) {
+      // type peut être 'buy' | 'sell' | code SEC ('P','S','A','D'...) | autre
+      if (!type) return t('unknown', '—');
+      const lc = String(type).toLowerCase();
+      if (lc === 'buy')  return '🟢 ' + t('tx.buy', 'Achat');
+      if (lc === 'sell') return '🔴 ' + t('tx.sell', 'Vente');
+      // Codes SEC bruts
+      const code = String(type).toUpperCase();
+      if (['A','D','P','S','M','F','X','G','C'].includes(code)) {
+        const isAcq = ['A','P','M','X','C'].includes(code);
+        const dot = isAcq ? '🟢' : ['D','S','F'].includes(code) ? '🔴' : '⚪';
+        return `${dot} ${t('tx.' + code, code)}`;
+      }
+      return '⚪ ' + t('tx.other', 'Autre');
+    }
+    function hfStatusLabel(status) {
+      if (!status) return '—';
+      const lc = String(status).toLowerCase();
+      if (lc === 'new')       return '🆕 ' + t('hf.new', 'Nouvelle position');
+      if (lc === 'sold')      return '❌ ' + t('hf.sold', 'Sortie complète');
+      if (lc === 'closed')    return '❌ ' + t('hf.closed', 'Position fermée');
+      if (lc === 'increased') return '📈 ' + t('hf.increased', 'Renforcée');
+      if (lc === 'decreased') return '📉 ' + t('hf.decreased', 'Réduite');
+      if (lc === 'unchanged') return '➖ ' + t('hf.unchanged', 'Inchangée');
+      return status;
+    }
+
+    // ============================================================
+    // Plugin Chart.js : ligne verticale crosshair qui suit le curseur.
+    // S'active automatiquement quand le tooltip est visible.
+    // A appliquer sur tous les charts en ligne pour un meilleur UX
+    // (toute la colonne X devient hoverable, plus besoin de cibler un point).
+    // ============================================================
+    const KairosCrosshairPlugin = {
+      id: 'kairosCrosshair',
+      afterDraw(chart) {
+        const ttip = chart.tooltip;
+        if (!ttip || !ttip.opacity || !ttip._active || !ttip._active.length) return;
+        const x = ttip._active[0].element.x;
+        const top = chart.chartArea.top;
+        const bot = chart.chartArea.bottom;
+        const c = chart.ctx;
+        c.save();
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bot);
+        c.lineWidth = 1;
+        c.setLineDash([4, 4]);
+        c.strokeStyle = 'rgba(116, 185, 255, 0.55)';
+        c.stroke();
+        c.restore();
+      }
+    };
+
+    function applyThemeIcon() {
+      const icon = document.getElementById('themeToggleIcon');
+      if (!icon) return;
+      const theme = document.documentElement.getAttribute('data-theme');
+      icon.textContent = theme === 'light' ? '☀️' : '🌙';
+    }
+
+    // Synchronise le drapeau du toggle FR/EN selon la langue courante
+    // Utilise un vrai SVG inline (les emojis flag ne sont pas rendus sur Windows)
+    function applyLangFlagIcon() {
+      const flag = document.getElementById('navLangFlagDash');
+      if (!flag || !window.KairosI18n) return;
+      flag.innerHTML = window.KairosI18n.targetFlagSvg
+        ? window.KairosI18n.targetFlagSvg()
+        : (window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷');
+    }
+    document.addEventListener('DOMContentLoaded', applyLangFlagIcon);
+    window.addEventListener('kairos:langchange', applyLangFlagIcon);
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('kairos-theme', next); } catch (e) {}
+      applyThemeIcon();
+      // Redessine les charts Chart.js pour prendre les nouvelles couleurs de texte/grid
+      if (typeof Chart !== 'undefined' && Chart.instances) {
+        Object.values(Chart.instances).forEach(c => {
+          try {
+            // Met à jour les options de scales + legend + recolore
+            const opts = c.options;
+            if (opts?.plugins?.legend?.labels) opts.plugins.legend.labels.color = getCssVar('--chart-text-strong');
+            if (opts?.scales) {
+              Object.values(opts.scales).forEach(s => {
+                if (s.ticks) s.ticks.color = getCssVar('--chart-text');
+                if (s.grid) s.grid.color = getCssVar('--chart-grid');
+              });
+            }
+            c.update('none');
+          } catch (e) { /* silencieux */ }
+        });
+      }
+    }
+
+    // Applique l'icône au chargement (le thème lui-même est déjà appliqué par le script inline dans <head>)
+    document.addEventListener('DOMContentLoaded', applyThemeIcon);
+
+    let loadedSections = {};
+    // Mapping des sous-onglets hub → leur parent dans la sidebar.
+    // Quand on switch vers screener/clustering/consensus13f (qui ne sont plus
+    // dans la sidebar), on active quand meme le bouton sidebar du parent
+    // (insider ou 13f) pour que l'utilisateur voit clairement ou il est.
+    const HUB_PARENT = {
+      screener: 'insider',
+      clustering: 'insider',
+      consensus13f: '13f',
+    };
+
+    function switchSection(section, opts = {}) {
+      // Alias 'screener' -> 'insider' avec auto-deplier des filtres avances.
+      // L'ancienne section dediee a ete fusionnee dans 'Explorer les transactions'
+      // (mai 2026). Les liens existants (URL hash, bookmarks) continuent de
+      // marcher en redirigeant + ouvrant directement le bloc dépliable.
+      if (section === 'screener') {
+        section = 'insider';
+        // Defer : attendre que la section soit montee avant de toggle <details>
+        setTimeout(() => {
+          const adv = document.getElementById('advFiltersDetails');
+          if (adv && !adv.open) adv.open = true;
+        }, 100);
+      }
+      // Alias 'signals-clusters' -> 'clustering' (mai 2026 : ex-page Signal
+      // Detail accessible depuis l'Accueil widget, fusionnee dans la sidebar
+      // Inities > Signaux & Clusters > Clusters). Preserve l'URL hash
+      // partageable (#signals-clusters&days=7&direction=bullish ...).
+      if (section === 'signals-clusters') section = 'clustering';
+      // Gate premium : la section cible OU son parent hub doit etre premium.
+      // Comme screener/clustering n'ont plus de bouton sidebar, on cherche
+      // le premium flag via le parent hub.
+      // opts.silent = true : ne pas pousser dans l'historique (cas du popstate
+      // back/forward du navigateur, pour eviter une double-entree).
+      const hubParent = HUB_PARENT[section] || section;
+      const btn = document.querySelector(`[data-section="${hubParent}"]`);
+      const isPremiumSection = btn?.dataset.premium === 'true';
+      const isEliteSection = btn?.dataset.elite === 'true';
+
+      // Gate Elite : l'user doit etre plan='elite'. Pro + Free → paywall
+      // avec Elite preselectionne pour conversion directe.
+      if (isEliteSection) {
+        const plan = (window._currentPlan || '').toLowerCase();
+        if (plan !== 'elite') {
+          try { localStorage.setItem('kairos_plan', 'elite'); } catch (e) {}
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          document.getElementById('paywallOverlay').classList.remove('hidden');
+          return;
+        }
+      }
+
+      if (isPremiumSection && !isPremium) {
+        document.getElementById('paywallOverlay').classList.remove('hidden');
+        if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+        return;
+      }
+
+      // Sidebar : active le parent hub (ou le bouton direct si pas dans un hub)
+      document.querySelectorAll('.sidebar-item').forEach(b => b.classList.toggle('active', b.dataset.section === hubParent));
+      // Section visible : la vraie section cible (incluant sous-onglets hub)
+      document.querySelectorAll('.section-page').forEach(c => c.classList.toggle('active', c.id === `section-${section}`));
+      // Hub tabs : active tous les boutons hub qui correspondent a la section cible
+      document.querySelectorAll('.hub-tab').forEach(b => b.classList.toggle('active', b.dataset.hubTarget === section));
+
+      // Lazy load des données
+      if (!loadedSections[section]) {
+        loadedSections[section] = true;
+        if (section === 'home') loadHome();
+        if (section === '13f') { loadQuarterActivity(); load13FFunds(); }
+        if (section === 'feargreed') loadFearGreed();
+        if (section === 'vix') loadVix();
+        if (section === 'shorts') loadShortInterest();
+        if (section === 'portfolio') loadPortfolioFromFirebase();
+        if (section === 'stockAnalysis') initStockAnalysis();
+        if (section === 'hotStocks') loadHotStocks();
+        if (section === 'consensus13f') loadSmartMoneyConsensus();
+        if (section === 'insider') { initInsiderSearch(); loadInsiderTrades(); }
+        if (section === 'etf') {
+          renderEtfTabs();
+          // Charge NANC par defaut au premier passage sur l'onglet
+          loadEtf('congress', 'NANC');
+          // Affiche les rotations recentes si l'historique D1 existe
+          loadEtfRotations();
+        }
+        if (section === 'watchlist') loadWatchlist();
+        if (section === 'activists') loadActivists();
+        if (section === 'admin') loadAdminDashboard();
+        if (section === 'profile') loadProfileSection();
+        if (section === 'clustering') {
+          // FIX merge (mai 2026) : section-signals-clusters fusionnee dans
+          // section-clustering. On lit l'URL (compat avec ancien hash
+          // #signals-clusters&days=7&direction=bullish) AVANT loadClustering
+          // pour rehydrater les selects, sinon le fetch part avec les valeurs
+          // par defaut.
+          ['signals-clusters', 'clustering'].forEach(urlKey => {
+            const urlFilters = readSignalUrl(urlKey);
+            if (Object.keys(urlFilters).length > 0) {
+              ['days','minTx','direction','minValue','roles','sort'].forEach(k => {
+                const el = document.getElementById('cluster' + k.charAt(0).toUpperCase() + k.slice(1));
+                if (el && urlFilters[k] != null) el.value = urlFilters[k];
+              });
+            }
+          });
+          loadClustering();
+        }
+        if (section === 'signals-score') {
+          const urlFilters = readSignalUrl('signals-score');
+          if (Object.keys(urlFilters).length > 0) {
+            ['days','direction','minDelta','sort'].forEach(k => {
+              const el = document.getElementById('sigScore' + k.charAt(0).toUpperCase() + k.slice(1));
+              if (el && urlFilters[k] != null) el.value = urlFilters[k];
+            });
+          }
+          loadSignalsScore();
+        }
+        if (section === 'signals-etf') {
+          const urlFilters = readSignalUrl('signals-etf');
+          if (Object.keys(urlFilters).length > 0) {
+            const map = { days: 'sigEtfDays', etf: 'sigEtfFilter', type: 'sigEtfType', minDelta: 'sigEtfMinDelta' };
+            Object.entries(map).forEach(([k, id]) => {
+              const el = document.getElementById(id);
+              if (el && urlFilters[k] != null) el.value = urlFilters[k];
+            });
+          }
+          loadSignalsEtf();
+        }
+      }
+      // Auto-refresh admin : start/stop selon la section active + la preference
+      if (typeof startAdminAutoRefresh === 'function') {
+        if (section === 'admin' && document.getElementById('adminAutoRefresh')?.checked) {
+          startAdminAutoRefresh();
+        } else {
+          stopAdminAutoRefresh();
+        }
+      }
+
+      // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
+      // (Chart.js echoue silencieusement si le canvas a 0px au moment de l'init)
+      // setTimeout plutot que rAF car rAF ne se declenche pas si la tab n'est pas focus
+      if (section === 'portfolio' && typeof portfolioTrades !== 'undefined' && portfolioTrades.length > 0) {
+        setTimeout(() => {
+          try { renderPortfolioCharts(); buildPortfolioDailyCal(); renderMonthlyHeatmap(); } catch (e) { console.error('[portfolio] render error:', e); }
+        }, 50);
+      }
+
+      // === HISTORY NAVIGATION : push state pour back/forward du navigateur ===
+      // Le user peut maintenant utiliser Alt+Left ou le bouton "back" du navigateur
+      // pour revenir a la section precedemment consultee. Skip si silent (ex: appel
+      // depuis popstate listener qui doit rester cote consume sans re-pousser).
+      if (!opts.silent && typeof window !== 'undefined' && window.history) {
+        const targetHash = '#' + section;
+        // Ne pas push si on est deja sur cette section (eviter doublons)
+        if (window.location.hash !== targetHash && window.location.hash.split('&')[0].split('?')[0] !== targetHash) {
+          try {
+            window.history.pushState({ section, source: 'switchSection' }, '', targetHash);
+          } catch (e) { /* SecurityError sur sandboxes */ }
+        }
+      }
+    }
+
+    // ============================================================
+    // BROWSER HISTORY : back/forward navigation
+    // ============================================================
+    // Parse #section ou #stockAnalysis?t=AAPL et naviguer en consequence.
+    // Appele au chargement initial + sur popstate (back/forward du navigateur).
+    function navigateFromHash(hash) {
+      const raw = (hash || '').replace(/^#/, '');
+      if (!raw) return false;
+      // Format : section[?param=value][&param=value]
+      const [sectionPart, queryPart] = raw.split('?');
+      const section = sectionPart.split('&')[0];  // Compat ancien format signals-clusters&direction=bullish
+      if (!section) return false;
+      // Parse query params si present
+      const params = {};
+      if (queryPart) {
+        for (const kv of queryPart.split('&')) {
+          const [k, v] = kv.split('=');
+          if (k) params[k] = decodeURIComponent(v || '');
+        }
+      }
+      // Navigate to section (silent : on ne re-pousse pas dans l'historique)
+      switchSection(section, { silent: true });
+      // Cas special : ticker dans l'URL pour Analyse Action
+      if (section === 'stockAnalysis' && params.t) {
+        // Charge l'analyse du ticker (silent pour ne pas re-pousser)
+        setTimeout(() => loadStockAnalysis(params.t, null, { silent: true }), 80);
+      }
+      return true;
+    }
+
+    // popstate : declenche par le bouton back/forward du navigateur
+    // On reload la section/ticker selon le nouveau hash, sans re-push history.
+    window.addEventListener('popstate', (event) => {
+      navigateFromHash(window.location.hash);
+    });
+
+    // ============================================================
+    // MON PROFIL — avatar, identité, abonnement, préférences, sécurité
+    // ============================================================
+    let _profilePhotoURL = null;
+
+    // Retourne les initiales depuis un nom ou email
+    function profileInitials(u) {
+      if (!u) return '?';
+      const base = (u.displayName || u.email || '').trim();
+      if (!base) return '?';
+      const parts = base.split(/[\s@._-]+/).filter(Boolean);
+      if (parts.length === 0) return base[0].toUpperCase();
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    // ============================================================
+    // SUPPORT — modal + formulaire de contact
+    // ============================================================
+    function openSupportModal() {
+      const modal = document.getElementById('supportModal');
+      if (!modal) return;
+      // Pré-remplit l'email user
+      const emEl = document.getElementById('supportUserEmail');
+      if (emEl && currentUser) emEl.textContent = currentUser.email || '—';
+      // Reset form state
+      const msg = document.getElementById('supportFormMsg');
+      if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+      const btn = document.getElementById('supportSubmitBtn');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span>📤 Envoyer</span>'; }
+      modal.style.display = 'flex';
+      // Focus sur le sujet
+      setTimeout(() => document.getElementById('supportSubject')?.focus(), 50);
+    }
+
+    function closeSupportModal() {
+      const modal = document.getElementById('supportModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    // Ferme modal au clic extérieur + touche Escape
+    document.addEventListener('click', (e) => {
+      const modal = document.getElementById('supportModal');
+      if (modal && modal.style.display === 'flex' && e.target === modal) closeSupportModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('supportModal');
+        if (modal && modal.style.display === 'flex') closeSupportModal();
+      }
+    });
+
+    // Compteur de caractères du message
+    document.addEventListener('input', (e) => {
+      if (e.target && e.target.id === 'supportMessage') {
+        const count = document.getElementById('supportCharCount');
+        if (count) count.textContent = e.target.value.length;
+      }
+    });
+
+    async function submitSupportForm(event) {
+      event.preventDefault();
+      if (!currentUser) { Toast.warning('Vous devez être connecté.'); return false; }
+      const subject = document.getElementById('supportSubject').value;
+      const message = document.getElementById('supportMessage').value.trim();
+      const msgBox = document.getElementById('supportFormMsg');
+      const btn = document.getElementById('supportSubmitBtn');
+      if (message.length < 10) {
+        msgBox.style.background = 'rgba(245,158,11,0.15)';
+        msgBox.style.color = '#F59E0B';
+        msgBox.textContent = 'Le message doit contenir au moins 10 caractères.';
+        msgBox.style.display = 'block';
+        return false;
+      }
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳ Envoi…</span>';
+      msgBox.style.display = 'none';
+      try {
+        const idToken = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + '/support/contact', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ subject, message }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          msgBox.style.background = 'rgba(34,197,94,0.15)';
+          msgBox.style.color = '#22C55E';
+          msgBox.textContent = '✓ Message envoyé ! Nous vous répondrons par email sous 24h ouvrées.';
+          msgBox.style.display = 'block';
+          document.getElementById('supportMessage').value = '';
+          document.getElementById('supportCharCount').textContent = '0';
+          setTimeout(() => closeSupportModal(), 2500);
+        } else {
+          throw new Error(data.error || 'Erreur serveur');
+        }
+      } catch (e) {
+        msgBox.style.background = 'rgba(239,68,68,0.15)';
+        msgBox.style.color = '#F87171';
+        msgBox.textContent = 'Erreur : ' + (e.message || 'envoi échoué') + '. Réessayez ou écrivez directement à contact@kairosinsider.fr';
+        msgBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>📤 Envoyer</span>';
+      }
+      return false;
+    }
+
+    // Ouvre/ferme le menu déroulant profil (style Google)
+    function toggleProfileMenu(ev) {
+      if (ev) ev.stopPropagation();
+      const menu = document.getElementById('navProfileMenu');
+      const btn = document.getElementById('navProfileBtn');
+      if (!menu) return;
+      const isOpen = menu.style.display === 'block';
+      if (isOpen) {
+        menu.style.display = 'none';
+        btn?.setAttribute('aria-expanded', 'false');
+      } else {
+        refreshProfileMenuHeader();
+        menu.style.display = 'block';
+        btn?.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    // Ferme le menu si clic en dehors
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('navProfileMenu');
+      const btn = document.getElementById('navProfileBtn');
+      if (!menu || menu.style.display !== 'block') return;
+      if (menu.contains(e.target) || btn?.contains(e.target)) return;
+      menu.style.display = 'none';
+      btn?.setAttribute('aria-expanded', 'false');
+    });
+    // Ferme avec Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const menu = document.getElementById('navProfileMenu');
+        if (menu && menu.style.display === 'block') {
+          menu.style.display = 'none';
+          document.getElementById('navProfileBtn')?.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
+    // MAJ du header du menu (nom, email, plan, avatar, toggle langue)
+    function refreshProfileMenuHeader() {
+      if (!currentUser) return;
+      const nameEl = document.getElementById('navProfileMenuName');
+      const emailEl = document.getElementById('navProfileMenuEmail');
+      const badgeEl = document.getElementById('navProfileMenuBadge');
+      const avEl = document.getElementById('navProfileMenuAvatar');
+      const langEl = document.getElementById('navProfileMenuLang');
+      let name = currentUser.displayName;
+      if (!name && currentUser.email) {
+        const local = currentUser.email.split('@')[0];
+        name = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      if (nameEl) nameEl.textContent = name || 'Utilisateur';
+      if (emailEl) emailEl.textContent = currentUser.email || '';
+      if (badgeEl) {
+        if (typeof isPremium !== 'undefined' && isPremium) {
+          badgeEl.textContent = 'PREMIUM';
+          badgeEl.style.background = 'linear-gradient(135deg,rgba(245,158,11,0.2),rgba(249,115,22,0.2))';
+          badgeEl.style.color = '#F59E0B';
+        } else {
+          badgeEl.textContent = 'FREE';
+          badgeEl.style.background = 'rgba(148,163,184,0.15)';
+          badgeEl.style.color = '#94A3B8';
+        }
+      }
+      if (avEl) {
+        if (_profilePhotoURL) {
+          avEl.textContent = '';
+          avEl.style.background = `url('${_profilePhotoURL}') center/cover no-repeat`;
+        } else {
+          avEl.textContent = profileInitials(currentUser);
+          avEl.style.background = 'linear-gradient(135deg,#3B82F6,#8B5CF6)';
+        }
+      }
+      if (langEl && window.KairosI18n) {
+        const current = window.KairosI18n.getLang();
+        langEl.textContent = current === 'fr' ? 'English' : 'Français';
+      }
+    }
+
+    // Va sur la section Mon Profil + scroll vers une carte précise
+    function gotoProfileCard(target) {
+      toggleProfileMenu();
+      switchSection('profile');
+      if (!target) return;
+      // Map target → nom de section dans la page
+      const anchors = {
+        sub: 'profileSubBody',
+        prefs: 'profileThemeLabel',
+        security: 'profileCreatedAt',
+      };
+      const id = anchors[target];
+      if (id) {
+        setTimeout(() => {
+          const el = document.getElementById(id);
+          if (el) {
+            // Scroll vers le parent .card
+            const card = el.closest('.card');
+            (card || el).scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 80);
+      }
+    }
+
+    // Charge la photo de profil depuis Firebase RTDB et met à jour l'avatar navbar
+    async function loadProfileAvatar() {
+      if (!currentUser) return;
+      const navAvatar = document.getElementById('navProfileAvatar');
+      const bigAvatar = document.getElementById('profileAvatarBig');
+      const initials = profileInitials(currentUser);
+      if (navAvatar) navAvatar.textContent = initials;
+      if (bigAvatar) bigAvatar.textContent = initials;
+      try {
+        const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        const snap = await get(ref(db, `users/${currentUser.uid}/profile/photoURL`));
+        const url = snap.val();
+        if (url) {
+          _profilePhotoURL = url;
+          if (navAvatar) { navAvatar.textContent = ''; navAvatar.style.background = `url('${url}') center/cover no-repeat`; }
+          if (bigAvatar) { bigAvatar.textContent = ''; bigAvatar.style.background = `url('${url}') center/cover no-repeat`; }
+          const rm = document.getElementById('profilePhotoRemoveBtn');
+          if (rm) rm.style.display = 'inline-block';
+        }
+      } catch (e) { console.warn('[profile] loadAvatar:', e); }
+    }
+
+    // Upload photo : resize 128x128 → dataURL → Firebase RTDB
+    async function handleProfilePhoto(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file || !currentUser) return;
+      if (!file.type.startsWith('image/')) { Toast.warning('Veuillez choisir une image.'); return; }
+      if (file.size > 5 * 1024 * 1024) { Toast.warning('Image trop lourde (max 5 Mo).'); return; }
+      try {
+        const img = new Image();
+        const fr = new FileReader();
+        fr.onload = () => { img.src = fr.result; };
+        img.onload = async () => {
+          // Resize carré 128x128 (crop centré)
+          const size = 128;
+          const canvas = document.createElement('canvas');
+          canvas.width = size; canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          const minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2;
+          const sy = (img.height - minSide) / 2;
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+          const dataURL = canvas.toDataURL('image/jpeg', 0.85);
+          // Stockage RTDB
+          const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+          const db = getDatabase();
+          await set(ref(db, `users/${currentUser.uid}/profile/photoURL`), dataURL);
+          _profilePhotoURL = dataURL;
+          // MAJ UI
+          const navAvatar = document.getElementById('navProfileAvatar');
+          const bigAvatar = document.getElementById('profileAvatarBig');
+          if (navAvatar) { navAvatar.textContent = ''; navAvatar.style.background = `url('${dataURL}') center/cover no-repeat`; }
+          if (bigAvatar) { bigAvatar.textContent = ''; bigAvatar.style.background = `url('${dataURL}') center/cover no-repeat`; }
+          document.getElementById('profilePhotoRemoveBtn').style.display = 'inline-block';
+        };
+        fr.readAsDataURL(file);
+      } catch (e) { console.error('[profile] photo upload:', e); Toast.error('Erreur lors du chargement de la photo.'); }
+    }
+
+    async function removeProfilePhoto() {
+      if (!currentUser) return;
+      if (!confirm('Supprimer votre photo de profil ?')) return;
+      try {
+        const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        await remove(ref(db, `users/${currentUser.uid}/profile/photoURL`));
+        _profilePhotoURL = null;
+        const navAvatar = document.getElementById('navProfileAvatar');
+        const bigAvatar = document.getElementById('profileAvatarBig');
+        const initials = profileInitials(currentUser);
+        const grad = 'linear-gradient(135deg,#3B82F6,#8B5CF6)';
+        if (navAvatar) { navAvatar.style.background = grad; navAvatar.textContent = initials; }
+        if (bigAvatar) { bigAvatar.style.background = grad; bigAvatar.textContent = initials; }
+        document.getElementById('profilePhotoRemoveBtn').style.display = 'none';
+      } catch (e) { console.error('[profile] photo remove:', e); }
+    }
+
+    // Sauvegarde displayName via Firebase Auth updateProfile
+    async function saveProfileDisplayName() {
+      if (!currentUser) return;
+      const input = document.getElementById('profileDisplayName');
+      const newName = (input.value || '').trim();
+      if (!newName) { Toast.warning('Le nom ne peut pas être vide.'); return; }
+      try {
+        const { updateProfile } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+        await updateProfile(currentUser, { displayName: newName });
+        // MAJ UI (accueil + initiales fallback)
+        setHomeUserName();
+        if (!_profilePhotoURL) {
+          const init = profileInitials(currentUser);
+          const navAvatar = document.getElementById('navProfileAvatar');
+          const bigAvatar = document.getElementById('profileAvatarBig');
+          if (navAvatar) navAvatar.textContent = init;
+          if (bigAvatar) bigAvatar.textContent = init;
+        }
+        Toast.success('Nom enregistré');
+      } catch (e) { console.error(e); Toast.error('Erreur lors de la sauvegarde.'); }
+    }
+
+    // Envoie un email de reset password
+    async function sendPasswordResetFromProfile() {
+      if (!currentUser || !currentUser.email) return;
+      try {
+        await window.__fbAuth.sendPasswordResetEmail(firebaseAuth, currentUser.email);
+        const msg = document.getElementById('profilePasswordMsg');
+        if (msg) {
+          msg.textContent = `Email envoyé à ${currentUser.email}. Vérifiez votre boîte de réception.`;
+          msg.style.display = 'block';
+          setTimeout(() => { msg.style.display = 'none'; }, 8000);
+        }
+      } catch (e) { console.error(e); Toast.error('Erreur : ' + (e.message || e.code)); }
+    }
+
+    // Ouvre le portail client Stripe (gestion abonnement + facturation)
+    async function openStripePortal() {
+      if (!currentUser) return;
+      try {
+        const idToken = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + '/stripe/portal', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+        const data = await resp.json();
+        if (data.url) window.location.href = data.url;
+        else Toast.error('Impossible d\'ouvrir le portail : ' + (data.error || 'erreur inconnue'));
+      } catch (e) { console.error(e); Toast.error('Erreur connexion au portail Stripe.'); }
+    }
+
+    function fmtProfileDate(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) +
+          ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) { return iso; }
+    }
+
+    // Populate la section Profil à chaque visite
+    async function loadProfileSection() {
+      if (!currentUser) return;
+      // Hero
+      let displayName = currentUser.displayName;
+      if (!displayName && currentUser.email) {
+        const local = currentUser.email.split('@')[0];
+        displayName = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      const heroName = document.getElementById('profileHeroName');
+      const heroEmail = document.getElementById('profileHeroEmail');
+      const heroBadge = document.getElementById('profileHeroBadge');
+      const heroMember = document.getElementById('profileHeroMember');
+      if (heroName) heroName.textContent = displayName || 'Utilisateur';
+      if (heroEmail) heroEmail.textContent = currentUser.email || '';
+      if (heroBadge) {
+        if (typeof isPremium !== 'undefined' && isPremium) {
+          heroBadge.textContent = '⭐ PREMIUM';
+          heroBadge.className = 'profile-pill profile-pill-premium';
+        } else {
+          heroBadge.textContent = 'FREE';
+          heroBadge.className = 'profile-pill profile-pill-free';
+        }
+      }
+      if (heroMember && currentUser.metadata?.creationTime) {
+        const d = new Date(currentUser.metadata.creationTime);
+        heroMember.textContent = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      }
+      // Identité
+      const nameInput = document.getElementById('profileDisplayName');
+      const emailInput = document.getElementById('profileEmail');
+      if (nameInput) nameInput.value = currentUser.displayName || '';
+      if (emailInput) emailInput.value = currentUser.email || '';
+      // Avatar (au cas où pas encore chargé)
+      loadProfileAvatar().catch(() => {});
+      // Sécurité
+      const cEl = document.getElementById('profileCreatedAt');
+      const lEl = document.getElementById('profileLastLogin');
+      if (cEl && currentUser.metadata) cEl.textContent = fmtProfileDate(currentUser.metadata.creationTime);
+      if (lEl && currentUser.metadata) lEl.textContent = fmtProfileDate(currentUser.metadata.lastSignInTime);
+      // Abonnement
+      await loadProfileSubscription();
+      // Préférences : highlight l'option active
+      refreshProfilePrefsActive();
+    }
+
+    // Active visuellement le bon segment (langue + thème)
+    function refreshProfilePrefsActive() {
+      const lang = window.KairosI18n ? window.KairosI18n.getLang() : 'fr';
+      const fr = document.getElementById('profileLangFr');
+      const en = document.getElementById('profileLangEn');
+      if (fr) fr.classList.toggle('active', lang === 'fr');
+      if (en) en.classList.toggle('active', lang === 'en');
+      const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const tl = document.getElementById('profileThemeLight');
+      const td = document.getElementById('profileThemeDark');
+      if (tl) tl.classList.toggle('active', theme === 'light');
+      if (td) td.classList.toggle('active', theme === 'dark');
+    }
+
+    // Force un thème spécifique (utilisé par les boutons segmentés)
+    function setThemeProfile(theme) {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      if (current === theme) return;
+      toggleTheme();
+      refreshProfilePrefsActive();
+    }
+
+    async function loadProfileSubscription() {
+      const body = document.getElementById('profileSubBody');
+      if (!body || !currentUser) return;
+      body.innerHTML = window.Skeleton.lines(3);
+      try {
+        const idToken = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + '/stripe/status', {
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+        const data = await resp.json();
+        const status = data.status || 'free';
+        const hasSub = !!data.hasSubscription;
+        const billing = data.billing || 'monthly';
+        const plan = (data.plan || 'legacy').toLowerCase();  // 'pro' | 'elite' | 'legacy' (ancien 29€)
+        const until = data.currentPeriodEnd ? new Date(data.currentPeriodEnd * 1000) : null;
+        const untilStr = until ? until.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+
+        if (!hasSub) {
+          body.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">Plan actuel</div>
+                <div style="font-size:20px;font-weight:700;color:var(--text-primary)">🆓 Gratuit</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Accès limité. Passez Pro pour débloquer tout le dashboard.</div>
+              </div>
+              <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden')" class="btn btn-primary" style="padding:10px 18px;width:auto;flex-shrink:0;border:none;cursor:pointer">⭐ Voir les plans</button>
+            </div>`;
+          return;
+        }
+
+        // Libelle plan selon nouvelle architecture 3 plans.
+        // 'legacy' = abonnes 29€ historiques (pre avril 2026), affiches comme Pro
+        // pour ne pas les perturber et aligner l'UX.
+        const planNameMap = { pro: 'Pro', elite: 'Elite', legacy: 'Pro' };
+        const planEmojiMap = { pro: '⭐', elite: '⚡', legacy: '⭐' };
+        const planName = planNameMap[plan] || 'Pro';
+        const planEmoji = planEmojiMap[plan] || '⭐';
+        const planLabel = `${planEmoji} Kairos ${planName} ${billing === 'yearly' ? 'Annuel' : 'Mensuel'}`;
+        const statusBadge = status === 'active'
+          ? '<span style="background:rgba(34,197,94,0.15);color:#22C55E;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">ACTIF</span>'
+          : status === 'past_due'
+          ? '<span style="background:rgba(245,158,11,0.15);color:#F59E0B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">PAIEMENT EN RETARD</span>'
+          : `<span style="background:rgba(148,163,184,0.15);color:#94A3B8;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${(status || '').toUpperCase()}</span>`;
+
+        // Banniere upsell Pro → Elite : affichee aux users Pro ou legacy (29€).
+        // Elite = API REST + alertes temps-reel + backtests + exports CSV.
+        // Cachee si deja Elite.
+        const upsellBanner = (plan !== 'elite' && status === 'active')
+          ? `<div style="margin-top:14px;padding:16px 18px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:12px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap">
+                <div style="flex:1;min-width:220px">
+                  <div style="font-size:12px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:6px">⚡ Débloquer plus</div>
+                  <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Passer Elite — 49€/mois</div>
+                  <div style="font-size:12px;color:var(--text-muted);line-height:1.55">API REST · alertes temps-réel (push/email) · backtests historiques · exports CSV · support prioritaire</div>
+                </div>
+                <button type="button" onclick="try{localStorage.setItem('kairos_plan','elite');}catch(e){} if(typeof applyPaywallDisplay==='function') applyPaywallDisplay(); document.getElementById('paywallOverlay').classList.remove('hidden');" class="btn btn-primary" style="padding:9px 16px;width:auto;flex-shrink:0;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;font-size:13px;cursor:pointer">Passer Elite</button>
+              </div>
+            </div>`
+          : '';
+
+        body.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+            <div>
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px">Plan actuel</div>
+              <div style="font-size:20px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:10px">${planLabel} ${statusBadge}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${status === 'active' ? 'Prochain renouvellement' : 'Fin de période'} : <strong style="color:var(--text-primary)">${untilStr}</strong></div>
+            </div>
+            <button class="btn btn-primary" onclick="openStripePortal()" style="padding:10px 18px;width:auto;flex-shrink:0">💳 Gérer mon abonnement</button>
+          </div>
+          ${upsellBanner}
+          <div style="background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;padding:12px;font-size:12px;color:var(--text-muted);line-height:1.6">
+            Via le portail Stripe, vous pouvez : mettre à jour votre carte, télécharger vos factures, passer au plan annuel (économisez 20%), ou annuler à tout moment.
+          </div>`;
+      } catch (e) {
+        console.error('[profile] sub:', e);
+        body.innerHTML = '<div style="color:#F87171">Impossible de charger le statut d\'abonnement.</div>';
+      }
+    }
+
+    // Export RGPD : télécharge un JSON avec le profil + watchlist + sub
+    async function exportMyData() {
+      if (!currentUser) return;
+      try {
+        const idToken = await currentUser.getIdToken();
+        const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        const [subResp, userSnap] = await Promise.all([
+          fetch(API_BASE + '/stripe/status', { headers: { 'Authorization': `Bearer ${idToken}` } }).then(r => r.json()).catch(() => ({})),
+          get(ref(db, `users/${currentUser.uid}`)).catch(() => null),
+        ]);
+        const dump = {
+          exportedAt: new Date().toISOString(),
+          account: {
+            uid: currentUser.uid,
+            email: currentUser.email,
+            displayName: currentUser.displayName,
+            createdAt: currentUser.metadata?.creationTime,
+            lastSignInAt: currentUser.metadata?.lastSignInTime,
+          },
+          firebase: userSnap ? userSnap.val() : null,
+          subscription: subResp,
+        };
+        const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `kairos-insider-data-${currentUser.uid.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) { console.error(e); Toast.error('Erreur lors de l\'export.'); }
+    }
+
+    // Suppression de compte : Firebase Auth + RTDB + KV (via Worker)
+    async function deleteMyAccount() {
+      if (!currentUser) return;
+      const typed = prompt('Action IRRÉVERSIBLE. Pour confirmer, tapez : SUPPRIMER');
+      if (typed !== 'SUPPRIMER') return;
+      try {
+        const idToken = await currentUser.getIdToken();
+        // Appel Worker pour purge KV + watchlist
+        await fetch(API_BASE + '/account/delete', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        }).catch(() => {}); // best-effort
+        // Purge RTDB
+        try {
+          const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+          const db = getDatabase();
+          await remove(ref(db, `users/${currentUser.uid}`));
+        } catch (e) { console.warn('RTDB purge failed:', e); }
+        // Suppression Firebase Auth
+        try {
+          await currentUser.delete();
+        } catch (e) {
+          // Si Firebase demande une reconnexion récente
+          if (e.code === 'auth/requires-recent-login') {
+            Toast.warning('Pour votre sécurité, veuillez vous reconnecter puis retenter la suppression.');
+            await window.__fbAuth.signOut(firebaseAuth);
+            return;
+          }
+          throw e;
+        }
+        Toast.success('Compte supprimé. À bientôt !');
+        window.location.href = 'index.html';
+      } catch (e) { console.error(e); Toast.error('Erreur : ' + (e.message || 'suppression échouée')); }
+    }
+
+    // ============================================================
+    // ACCUEIL — nom utilisateur + stats rapides
+    // ============================================================
+    function setHomeUserName() {
+      const el = document.getElementById('homeUserName');
+      if (!el || !currentUser) return;
+      let name = currentUser.displayName;
+      if (!name && currentUser.email) {
+        // Capitalise la partie avant @ si pas de displayName
+        const local = currentUser.email.split('@')[0];
+        name = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      el.textContent = name || 'trader';
+    }
+
+    function fmtHomeStat(n) {
+      if (n == null || isNaN(n)) return '—';
+      if (n >= 1000) return Math.round(n / 100) / 10 + 'k';
+      return String(Math.round(n));
+    }
+
+    // ============================================================
+    // ANIMATIONS — Kit d'helpers reutilisables
+    // ============================================================
+    // Respecte prefers-reduced-motion : si l'user a active cette option
+    // systeme, on skip les animations qui pourraient le deranger
+    // (seul le Fear & Greed gauge fait exception car c'est un graphique
+    // informatif, pas decoratif).
+    const _prefersReducedMotion = (() => {
+      try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+      catch { return false; }
+    })();
+
+    // Count-up : anime un nombre de 0 a target en duration ms.
+    // Supporte les strings type "5k+" ou "—" via auto-detection.
+    function animateCountUp(el, target, options = {}) {
+      if (!el) return;
+      const duration = options.duration || 1400;
+      const suffix = options.suffix || '';
+      // Parse le target : si string "5k", "1.2k+", "—", on extrait le nombre
+      let numTarget;
+      let outSuffix = suffix;
+      if (typeof target === 'number') {
+        numTarget = target;
+      } else {
+        const s = String(target).trim();
+        if (s === '—' || s === '-' || s === '') { el.textContent = s; return; }
+        const m = s.match(/^([\d.,]+)\s*([kKmM])?\s*([+]?)$/);
+        if (!m) { el.textContent = s; return; }
+        numTarget = parseFloat(m[1].replace(',', '.'));
+        if (m[2]) {
+          const mult = m[2].toLowerCase() === 'k' ? 1000 : 1000000;
+          numTarget *= mult;
+        }
+        if (m[3]) outSuffix = m[3] + outSuffix;
+      }
+      if (!isFinite(numTarget)) { el.textContent = String(target); return; }
+
+      // Si reduced-motion, on skip l'animation et set direct la valeur finale
+      if (_prefersReducedMotion) { el.textContent = fmtHomeStat(numTarget) + outSuffix; return; }
+
+      let start = null;
+      function frame(now) {
+        if (start === null) start = now;
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        // easeOutCubic : rapide au debut, decelere a la fin
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = numTarget * eased;
+        el.textContent = fmtHomeStat(current) + (progress === 1 ? outSuffix : '');
+        if (progress < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    // Scroll reveal : attache un IntersectionObserver qui ajoute la classe
+    // .is-visible aux elements .reveal-on-scroll quand ils entrent dans le
+    // viewport. Couple avec un CSS transition (opacity + translateY).
+    // Init appele une seule fois par section (cf loadHome).
+    let _revealObserver = null;
+    function initScrollReveal(scope) {
+      if (_prefersReducedMotion) {
+        // Pas d'animation : revele tout direct
+        (scope || document).querySelectorAll('.reveal-on-scroll').forEach(el => el.classList.add('is-visible'));
+        return;
+      }
+      if (!_revealObserver) {
+        _revealObserver = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              _revealObserver.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+      }
+      (scope || document).querySelectorAll('.reveal-on-scroll:not(.is-visible)').forEach(el => {
+        _revealObserver.observe(el);
+      });
+    }
+
+    // Applique un stagger a une liste d'elements enfants d'un container
+    // (apparition decalee de 50ms entre chaque element, max 12 pour eviter
+    // un delai trop long sur les grandes listes).
+    function applyStagger(container, selector = '> *', stepMs = 50) {
+      if (!container) return;
+      if (_prefersReducedMotion) return;
+      const items = Array.from(container.querySelectorAll(selector.replace('> ', ':scope > ')));
+      items.forEach((el, i) => {
+        const delay = Math.min(i, 12) * stepMs;
+        el.style.animation = `kairosStaggerIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms both`;
+      });
+    }
+
+    // Fetch silencieux : ne déclenche pas l'overlay paywall sur 403 (utilisé pour les stats d'accueil)
+    async function silentFetch(endpoint) {
+      if (!currentUser) return null;
+      try {
+        const idToken = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + endpoint, { headers: { 'Authorization': `Bearer ${idToken}` } });
+        if (!resp.ok) return null;
+        return await resp.json();
+      } catch (e) { return null; }
+    }
+
+    // ============================================================
+    // COCKPIT HEADER : greeting sobre + date + badge plan
+    // ============================================================
+    function renderCockpitHeader() {
+      const dateEl = document.getElementById('cockpitDate');
+      const updateEl = document.getElementById('cockpitUpdate');
+      const planBadge = document.getElementById('cockpitPlanBadge');
+      if (dateEl) {
+        const now = new Date();
+        dateEl.textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' });
+      }
+      if (updateEl) {
+        const now = new Date();
+        updateEl.textContent = 'Mis à jour ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      }
+      if (planBadge) {
+        // Lit le plan reel OU le preview override (pour admins qui veulent voir les cadenas)
+        const realPlan = (window._currentPlan || 'free').toLowerCase();
+        let previewPlan = null;
+        try { previewPlan = localStorage.getItem('kairos_preview_plan'); } catch (e) {}
+        const plan = (previewPlan && ['free', 'pro', 'elite'].includes(previewPlan)) ? previewPlan : realPlan;
+        const labels = {
+          free: { text: 'FREE', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.04)', border: 'var(--border)' },
+          pro: { text: 'PRO', color: '#74b9ff', bg: 'rgba(116,185,255,0.1)', border: 'rgba(116,185,255,0.35)' },
+          elite: { text: 'ELITE', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.4)' },
+          legacy: { text: 'PREMIUM', color: '#74b9ff', bg: 'rgba(116,185,255,0.1)', border: 'rgba(116,185,255,0.35)' },
+        };
+        const cfg = labels[plan] || labels.free;
+        // Si preview actif, suffix l'etiquette pour signaler
+        planBadge.textContent = previewPlan ? cfg.text + ' (preview)' : cfg.text;
+        planBadge.style.color = cfg.color;
+        planBadge.style.background = cfg.bg;
+        planBadge.style.borderColor = cfg.border;
+        // Badge toujours cliquable. Comportement selon user :
+        //   - Admin (isAdminUser) : cycle preview plan free→pro→elite→reset pour tester les cadenas
+        //   - User non-admin FREE : ouvre le paywall (upgrade prompt)
+        //   - User non-admin PREMIUM/PRO/ELITE : ouvre le portail Stripe
+        planBadge.style.cursor = 'pointer';
+        planBadge.style.userSelect = 'none';
+        planBadge.onclick = function() {
+          const adminOn = (typeof isAdminUser !== 'undefined' && isAdminUser);
+          if (adminOn) {
+            // Cycle preview : null → free → pro → elite → null
+            const cycle = { '': 'free', 'free': 'pro', 'pro': 'elite', 'elite': '' };
+            const current = (localStorage.getItem('kairos_preview_plan') || '');
+            const next = cycle[current] ?? '';
+            if (next) localStorage.setItem('kairos_preview_plan', next);
+            else localStorage.removeItem('kairos_preview_plan');
+            Toast.info(next ? 'Preview : ' + next.toUpperCase() : 'Preview désactivé (plan réel)');
+            renderCockpitHeader();
+            applyHomeCardLocking();
+          } else if (realPlan === 'free') {
+            // Non-admin free : upgrade prompt
+            document.getElementById('paywallOverlay')?.classList.remove('hidden');
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          } else {
+            // Non-admin premium : ouvre le portail Stripe pour gérer l'abonnement
+            switchSection('profile');
+          }
+        };
+        // Hint visuel selon l'état
+        if (typeof isAdminUser !== 'undefined' && isAdminUser) {
+          planBadge.title = 'Admin : cliquer pour cycler preview free / pro / elite (voir les cadenas comme un user lambda)';
+        } else if (realPlan === 'free') {
+          planBadge.title = 'Cliquer pour découvrir les plans Pro et Elite';
+        } else {
+          planBadge.title = 'Cliquer pour gérer votre abonnement';
+        }
+      }
+    }
+
+    // ============================================================
+    // MARKET PULSE : S&P 500, NASDAQ, Dow, VIX, Fear & Greed live
+    // ============================================================
+    async function loadMarketPulse() {
+      const container = document.getElementById('marketPulse');
+      if (!container) return;
+      try {
+        // Public endpoint (pas besoin d'auth), mais on utilise quand meme apiFetch
+        // pour la symétrie — si ça échoue en auth on fallback sur fetch direct.
+        let data;
+        try {
+          data = await apiFetch('/api/market-pulse');
+        } catch (e) {
+          const r = await fetch(API_BASE + '/api/market-pulse');
+          data = await r.json();
+        }
+        if (!data || !data.indices) return;
+        const { sp500, nasdaq, dow, vix } = data.indices;
+        const fg = data.feargreed;
+        const fmtPct = (n) => (n == null) ? '—' : ((n > 0 ? '+' : '') + n.toFixed(2) + '%');
+        const fmtPrice = (n) => (n == null) ? '—' : n >= 1000 ? Math.round(n).toLocaleString('fr-FR') : n.toFixed(2);
+        const pulse = (label, data, small) => {
+          if (!data) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${label}</div><div>—</div></div>`;
+          const color = data.changePct > 0 ? '#10B981' : data.changePct < 0 ? '#EF4444' : 'var(--text-muted)';
+          const arrow = data.changePct > 0 ? '▲' : data.changePct < 0 ? '▼' : '—';
+          return `
+            <div style="padding:10px 14px;text-align:center">
+              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">${label}</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:${small ? '16px' : '19px'};font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtPrice(data.price)}</div>
+              <div style="font-size:11px;color:${color};font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(data.changePct)}</div>
+            </div>`;
+        };
+        const fgCard = () => {
+          if (!fg || fg.score == null) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">F&amp;G Index</div><div>—</div></div>`;
+          const s = fg.score;
+          const color = s <= 25 ? '#EF4444' : s <= 45 ? '#F97316' : s <= 55 ? '#94A3B8' : s <= 75 ? '#84CC16' : '#10B981';
+          // Delta vs la veille (comme les autres indices)
+          const delta = fg.delta;
+          const deltaColor = (delta == null) ? 'var(--text-muted)' : delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : 'var(--text-muted)';
+          const arrow = (delta == null) ? '' : delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
+          const deltaStr = (delta == null) ? '—' : (delta > 0 ? '+' : '') + delta + 'pt';
+          // Mini barometre horizontal : 5 segments colorés (peur ext → avidité ext)
+          // + marker vertical à la position du score
+          const pctPos = Math.max(0, Math.min(100, s));
+          const barometer = `
+            <svg viewBox="0 0 100 14" style="width:70px;height:12px;display:block;margin:3px auto">
+              <rect x="0"  width="19" height="8" y="3" fill="#EF4444" rx="1"/>
+              <rect x="20" width="19" height="8" y="3" fill="#F97316" rx="1"/>
+              <rect x="40" width="19" height="8" y="3" fill="#94A3B8" rx="1"/>
+              <rect x="60" width="19" height="8" y="3" fill="#84CC16" rx="1"/>
+              <rect x="80" width="19" height="8" y="3" fill="#10B981" rx="1"/>
+              <polygon points="${pctPos - 2},0 ${pctPos + 2},0 ${pctPos},4" fill="${color}"/>
+              <polygon points="${pctPos - 2},14 ${pctPos + 2},14 ${pctPos},10" fill="${color}"/>
+            </svg>`;
+          return `
+            <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="F&amp;G hier: ${fg.previousClose != null ? fg.previousClose : '?'} · cliquer pour voir l'historique 1 an">
+              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">Fear &amp; Greed</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${color};line-height:1">${s}<span style="font-size:12px;opacity:0.65;font-weight:600">/100</span></div>
+              ${barometer}
+              <div style="font-size:11px;color:${deltaColor};font-weight:600;font-variant-numeric:tabular-nums">${arrow} ${deltaStr}</div>
+            </div>`;
+        };
+        // VIX cliquable : onclick → section VIX dedicated
+        const vixCard = () => {
+          if (!vix) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">VIX</div><div>—</div></div>`;
+          const color = vix.changePct > 0 ? '#10B981' : vix.changePct < 0 ? '#EF4444' : 'var(--text-muted)';
+          const arrow = vix.changePct > 0 ? '▲' : vix.changePct < 0 ? '▼' : '—';
+          // VIX zones : calme <15, normal 15-20, stress 20-25, panique 25-40, crash >40
+          const v = vix.price;
+          const zone = v < 15 ? 'Calme' : v < 20 ? 'Normal' : v < 25 ? 'Stress' : v < 40 ? 'Panique' : 'Crash';
+          const zoneColor = v < 15 ? '#10B981' : v < 20 ? '#84CC16' : v < 25 ? '#F59E0B' : v < 40 ? '#EF4444' : '#B91C1C';
+          return `
+            <div onclick="switchSection('vix')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="VIX — indice de peur (volatilité implicite S&P). Cliquer pour voir l'historique 1 an.">
+              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">VIX</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtPrice(vix.price)}</div>
+              <div style="font-size:10px;color:${zoneColor};font-weight:700;margin-top:1px;text-transform:uppercase;letter-spacing:0.04em">${zone}</div>
+              <div style="font-size:11px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(vix.changePct)}</div>
+            </div>`;
+        };
+        container.innerHTML = `
+          ${pulse('S&P 500', sp500)}
+          ${pulse('NASDAQ', nasdaq)}
+          ${pulse('DOW JONES', dow)}
+          ${vixCard()}
+          ${fgCard()}
+        `;
+      } catch (e) {
+        console.warn('[market-pulse]', e);
+        container.innerHTML = `<div style="padding:10px 12px;color:var(--text-muted);font-size:11px;grid-column:1/-1;text-align:center">Impossible de charger le pouls du marché.</div>`;
+      }
+    }
+
+    // ============================================================
+    // CADENAS sur les home-card verrouillees (selon plan user)
+    // ============================================================
+    // Chaque card a data-required-plan="free|pro|elite". Si le plan user
+    // est insuffisant → la card est visuellement verrouillee (opacity +
+    // cadenas + overlay hover) et le clic redirige vers le paywall au
+    // lieu d'ouvrir la section (evite le loop section-vide/paywall).
+    function applyHomeCardLocking() {
+      let userPlan = (window._currentPlan || 'free').toLowerCase();
+      // Preview mode admin : override le plan via localStorage pour tester les cadenas.
+      // Active via le badge plan (clic) ou via console : localStorage.kairos_preview_plan='free'
+      try {
+        const preview = localStorage.getItem('kairos_preview_plan');
+        if (preview && ['free', 'pro', 'elite'].includes(preview)) {
+          userPlan = preview;
+        }
+      } catch (e) {}
+      const planRank = { free: 0, pro: 1, legacy: 1, elite: 2 };
+      const userRank = planRank[userPlan] ?? 0;
+      document.querySelectorAll('#section-home .home-card[data-required-plan]').forEach(card => {
+        const requiredPlan = (card.dataset.requiredPlan || 'free').toLowerCase();
+        const requiredRank = planRank[requiredPlan] ?? 0;
+        const locked = requiredRank > userRank;
+        card.classList.toggle('locked', locked);
+        card.dataset.locked = locked ? '1' : '0';
+        // Si deja un click interceptor, on ne re-bind pas
+        if (locked && !card.dataset.lockBound) {
+          card.dataset.lockBound = '1';
+          card.addEventListener('click', function(e) {
+            if (!card.classList.contains('locked')) return;
+            e.preventDefault(); e.stopPropagation();
+            try { localStorage.setItem('kairos_plan', requiredPlan); } catch (err) {}
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+            document.getElementById('paywallOverlay')?.classList.remove('hidden');
+          }, true);
+        }
+      });
+    }
+
+    async function loadHome() {
+      setHomeUserName();
+
+      // Cockpit header : date + update time + plan badge
+      try { renderCockpitHeader(); } catch (e) {}
+      // Market Pulse : indices live (fetch async, non bloquant)
+      loadMarketPulse().catch(() => {});
+      // Cadenas sur les cards selon le plan user
+      try { applyHomeCardLocking(); } catch (e) {}
+
+      // Date du jour formatée (FR)
+      const upd = document.getElementById('homeStatUpdate');
+      if (upd) {
+        const now = new Date();
+        const months = ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+        upd.textContent = now.getDate() + ' ' + months[now.getMonth()];
+      }
+
+      const setText = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+      // Count-up wrapper : anime de 0 vers la valeur (numerique ou string type "5k+")
+      const animateStat = (id, target) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        animateCountUp(el, target);
+      };
+
+      // Initialise le scroll reveal + stagger sur les cards home
+      setTimeout(() => {
+        try { initScrollReveal(document.getElementById('section-home')); } catch (e) {}
+        const homeStats = document.getElementById('homeStats');
+        if (homeStats) applyStagger(homeStats, '> *', 80);
+      }, 50);
+
+      // Utilisateur non-premium : affiche des placeholders engageants au lieu de fetcher
+      if (!isPremium) {
+        animateStat('homeStatInsider', '5k+');
+        animateStat('homeStatClusters', '50+');
+        animateStat('homeStatFunds', '100+');
+        // Affiche les 4 cards 'Top signaux du jour' avec des donnees placeholder
+        // realistes mais floutees → le user Free voit la structure + les titres
+        // et comprend quel contenu smart money il rate. Overlay PRO au-dessus.
+        try { renderHomeTopSignalsPlaceholder(); } catch (e) {}
+        return;
+      }
+
+      // Fetch stats en parallèle (silencieux — évite le paywall pop si erreur)
+      silentFetch('/api/all-transactions').then(d => {
+        if (!d) { setText('homeStatInsider', '—'); return; }
+        const txs = d.transactions || [];
+        const today = new Date().toISOString().split('T')[0];
+        const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+        const recent = txs.filter(t => {
+          const dt = t.date || t.fileDate || '';
+          return dt <= today && dt >= cutoff;
+        });
+        animateStat('homeStatInsider', recent.length);
+      });
+
+      silentFetch('/api/clusters').then(d => {
+        if (!d) { setText('homeStatClusters', '—'); return; }
+        const clusters = d.clusters || [];
+        animateStat('homeStatClusters', clusters.length);
+      });
+
+      silentFetch('/api/13f-funds').then(d => {
+        if (!d) { setText('homeStatFunds', '—'); return; }
+        const funds = Array.isArray(d) ? d : (d && d.funds) || [];
+        animateStat('homeStatFunds', funds.length);
+      });
+
+      // Top signaux du jour (Phase C) — premium only
+      loadHomeTopSignals().catch(() => {});
+    }
+
+    // ============================================================
+    // Home : Top signaux du jour — placeholder Free users
+    // ============================================================
+    // Rend les 4 cards 'Top signaux du jour' avec des donnees fictives mais
+    // coherentes (vrais tickers grand public, chiffres realistes) pour les
+    // users Free. La zone body sera automatiquement floutee + overlayee via
+    // applyHomeDataLocking(). But : montrer la structure + donner envie, sans
+    // jamais exposer de vraie data smart money aux non-abonnes.
+    function renderHomeTopSignalsPlaceholder() {
+      const wrap = document.getElementById('homeTopSignalsWrap');
+      if (!wrap) return;
+      // Donnees bidon mais plausibles — la blur les rend illisibles de toute
+      // facon, mais on garde un rendu coherent au cas ou.
+      const mkRow = (ticker, sub, right, rightColor) => `
+        <div class="signal-row" style="cursor:default">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0">
+            <strong style="color:var(--text-primary);font-size:13px">${ticker}</strong>
+            <span style="color:var(--text-muted);font-size:11px">${sub}</span>
+          </div>
+          <div style="color:${rightColor};font-weight:700;font-size:13px;flex-shrink:0">${right}</div>
+        </div>`;
+
+      const scoreBody = [
+        mkRow('NVDA', '72→81', '▲ +9pt', '#10B981'),
+        mkRow('TSLA', '64→55', '▼ -9pt', '#EF4444'),
+        mkRow('META', '68→74', '▲ +6pt', '#10B981'),
+        mkRow('AMZN', '70→65', '▼ -5pt', '#EF4444'),
+        mkRow('GOOGL','66→70', '▲ +4pt', '#10B981'),
+      ].join('');
+
+      const clusterBody = [
+        mkRow('AAPL', '5🟢 / 1🔴', '🟢 $12.4M', '#10B981'),
+        mkRow('MSFT', '4🟢 / 0🔴', '🟢 $8.1M',  '#10B981'),
+        mkRow('CRM',  '1🟢 / 3🔴', '🔴 $3.2M',  '#EF4444'),
+        mkRow('ORCL', '3🟢 / 0🔴', '🟢 $2.7M',  '#10B981'),
+      ].join('');
+
+      const etfBody = [
+        mkRow('NANC', '+ politique', '↑ +2.1pt', '#10B981'),
+        mkRow('KRUZ', '− politique', '↓ -1.8pt', '#EF4444'),
+        mkRow('ARKK', '+ innovation', '↑ +1.2pt', '#10B981'),
+        mkRow('SMH',  '+ semi',       '↑ +0.9pt', '#10B981'),
+      ].join('');
+
+      const activistBody = [
+        mkRow('DIS',  'Trian Partners',   '13D · 14 avr', '#F59E0B'),
+        mkRow('SBUX', 'Elliott Mgmt',     '13D · 12 avr', '#F59E0B'),
+        mkRow('NFLX', 'Pershing Square',  '13G · 11 avr', '#10B981'),
+        mkRow('HLT',  'Starboard Value',  '13D · 09 avr', '#F59E0B'),
+      ].join('');
+
+      const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+
+      wrap.innerHTML = `
+        <style>
+          .top-signals-header { display:flex;align-items:center;justify-content:space-between;margin:0 0 14px; }
+          .top-signals-header h3 { font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0; }
+          .top-signals-date { font-size:12px;color:var(--text-muted);padding:4px 10px;background:var(--surface-2);border-radius:100px; }
+          .signals-grid { display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+          .signal-card { background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow:hidden; }
+          .signal-card-head { display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid; }
+          .signal-card-head-clickable { cursor: pointer; transition: background 0.15s; }
+          .signal-card-head-clickable:hover { background: var(--surface-2); }
+          .signal-card-head-clickable:hover .signal-card-chevron { transform: translateX(4px); color: var(--text-primary); }
+          .signal-card-chevron { color: var(--text-muted); font-size: 18px; font-weight: 600; transition: all 0.2s; flex-shrink: 0; opacity: 0.7; }
+          .signal-card-icon { width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+          .signal-card-icon svg { width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round; }
+          .signal-card-title { font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.2; }
+          .signal-card-sub { font-size:11px;color:var(--text-muted);margin-top:2px; }
+          .signal-card-body { padding:6px 14px 12px; }
+          .signal-row { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider);border-radius:4px;margin:0 -6px;padding-left:6px;padding-right:6px; }
+          .signal-row:last-child { border-bottom:none; }
+        </style>
+        <div class="top-signals-header">
+          <h3>🔔 Top signaux du jour</h3>
+          <span class="top-signals-date">${today}</span>
+        </div>
+        <div class="signals-grid">
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)">
+              <div class="signal-card-icon icon-blue"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Kairos Score — gros deltas</div>
+                <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${scoreBody}</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)">
+              <div class="signal-card-icon icon-green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Convergences d'initiés</div>
+                <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${clusterBody}</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)">
+              <div class="signal-card-icon icon-orange"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Rotations ETF</div>
+                <div class="signal-card-sub">Plus gros changements de poids</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${etfBody}</div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)">
+              <div class="signal-card-icon icon-pink"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Fonds offensifs frais</div>
+                <div class="signal-card-sub">Derniers dépôts 13D/G</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${activistBody}</div>
+          </div>
+        </div>
+      `;
+      wrap.style.display = 'block';
+      try { applyHomeDataLocking(); } catch (e) {}
+      try {
+        initScrollReveal(wrap);
+        applyStagger(wrap.querySelector('.signals-grid'), '> .signal-card', 90);
+      } catch (e) {}
+    }
+
+    // ============================================================
+    // Home : Top signaux du jour
+    // ============================================================
+    async function loadHomeTopSignals() {
+      const wrap = document.getElementById('homeTopSignalsWrap');
+      if (!wrap) return;
+      try {
+        const data = await silentFetch('/api/home/top-signals');
+        if (!data || data.error) return;
+        const hasScores = (data.scoreMovers || []).length > 0;
+        const hasClusters = (data.insiderClusters || []).length > 0;
+        const hasEtf = (data.etfMovers || []).length > 0;
+        const hasActivists = (data.activistsFresh || []).length > 0;
+        if (!hasScores && !hasClusters && !hasEtf && !hasActivists) return;
+
+        const fmtUsd = (n) => {
+          if (n == null || !isFinite(n)) return '';
+          const abs = Math.abs(n);
+          if (abs >= 1e9) return (n < 0 ? '-' : '') + '$' + (abs / 1e9).toFixed(1) + 'B';
+          if (abs >= 1e6) return (n < 0 ? '-' : '') + '$' + (abs / 1e6).toFixed(1) + 'M';
+          if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
+          return (n < 0 ? '-' : '') + '$' + Math.round(abs);
+        };
+        const fmtD = (d) => {
+          if (!d) return '';
+          try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+        };
+        const goTicker = (t) => `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(t).replace(/'/g,'\\\'')}'),150)"`;
+
+        // Card 1 : Score Movers
+        const scoreItems = (data.scoreMovers || []).slice(0, 6).map(s => {
+          const color = s.delta > 0 ? '#10B981' : '#EF4444';
+          const arrow = s.delta > 0 ? '▲' : '▼';
+          const sign = s.delta > 0 ? '+' : '';
+          return `
+            <div class="signal-row" ${goTicker(s.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(s.ticker)}</strong>
+                <span style="color:var(--text-muted);font-size:11px">${s.scorePrev}→${s.scoreNow}</span>
+              </div>
+              <div style="color:${color};font-weight:700;font-size:13px;flex-shrink:0">${arrow} ${sign}${s.delta}pt</div>
+            </div>`;
+        }).join('');
+        const scoreCard = hasScores ? `
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)" onclick="switchSection('signals-score')" title="Ouvrir l'analyse détaillée">
+              <div class="signal-card-icon icon-blue"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Kairos Score — gros deltas</div>
+                <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${scoreItems || '<div class="signal-empty">Aucun gros mouvement aujourd&rsquo;hui</div>'}</div>
+          </div>` : '';
+
+        // Card 2 : Insider Clusters
+        // UI UPDATE (mai 2026) : suppression bulles emoji 🟢🔴 trop visuelles.
+        // Remplace par chips compactes "Nb ach. / Nb vt." avec couleurs sur les
+        // chiffres uniquement. Plus pro et plus lisible.
+        // Backend renvoie maintenant les INSIDERS DISTINCTS (pas les lignes brutes).
+        const _today = new Date().toISOString().slice(0, 10);
+        const clusterItems = (data.insiderClusters || []).slice(0, 5).map(c => {
+          const buy = c.buyCount || 0;
+          const sell = c.sellCount || 0;
+          const isBullish = buy > sell;
+          const isBalanced = buy > 0 && sell > 0;
+          const valueColor = isBullish ? '#10B981' : isBalanced ? '#F59E0B' : '#EF4444';
+          const arrow = isBullish ? '↑' : isBalanced ? '⇄' : '↓';
+          const isNew = c.lastDate && c.lastDate >= _today;
+          const newBadge = isNew
+            ? `<span style="font-size:10px;font-weight:700;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:1px 5px;flex-shrink:0;letter-spacing:0.03em">NEW</span>`
+            : '';
+          // Format chip : "8 ach · 13 vt" couleur sur chiffres
+          const chip = `<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">
+            <strong style="color:${buy>0?'#10B981':'var(--text-muted)'}">${buy}</strong>&nbsp;ach
+            <span style="opacity:0.5;margin:0 4px">·</span>
+            <strong style="color:${sell>0?'#EF4444':'var(--text-muted)'}">${sell}</strong>&nbsp;vt
+          </span>`;
+          return `
+            <div class="signal-row" ${goTicker(c.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0">${escapeHtmlClient(c.ticker)}</strong>
+                ${newBadge}
+                ${chip}
+              </div>
+              <div style="color:${valueColor};font-weight:600;font-size:12px;flex-shrink:0">${arrow} ${fmtUsd(c.totalValue)}</div>
+            </div>`;
+        }).join('');
+        const clusterCard = hasClusters ? `
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('clustering')" title="Ouvrir l'analyse détaillée">
+              <div class="signal-card-icon icon-green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Convergences d'initiés</div>
+                <div class="signal-card-sub">≥ 3 dirigeants distincts sur 7j</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${clusterItems || '<div class="signal-empty">Aucun cluster</div>'}</div>
+          </div>` : '';
+
+        // Card 3 : ETF Movers
+        const etfItems = (data.etfMovers || []).slice(0, 6).map(e => {
+          const color = e.delta > 0 ? '#10B981' : '#EF4444';
+          const arrow = e.delta > 0 ? '↑' : '↓';
+          return `
+            <div class="signal-row" ${goTicker(e.ticker)}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(e.ticker)}</strong>
+                <span style="color:var(--text-muted);font-size:11px">${escapeHtmlClient(e.etf)}</span>
+              </div>
+              <div style="color:${color};font-weight:600;font-size:12px;flex-shrink:0">${arrow} ${e.delta > 0 ? '+' : ''}${e.delta.toFixed(2)}pt</div>
+            </div>`;
+        }).join('');
+        const etfCard = hasEtf ? `
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)" onclick="switchSection('signals-etf')" title="Ouvrir l'analyse détaillée">
+              <div class="signal-card-icon icon-orange"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Rotations ETF</div>
+                <div class="signal-card-sub">Plus gros changements de poids</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${etfItems || '<div class="signal-empty">Aucune rotation</div>'}</div>
+          </div>` : '';
+
+        // Card 4 : Activists Fresh
+        // Normalise le nom du formulaire SEC : 'SCHEDULE 13D/A' → '13D/A',
+        // 'SCHEDULE 13G' → '13G', etc. Le prefix 'SCHEDULE ' est bruit visuel.
+        const shortForm = (form) => {
+          if (!form) return '';
+          return String(form)
+            .replace(/^SCHEDULE\s+/i, '')
+            .replace(/^SC\s+/i, '')
+            .trim();
+        };
+        const activistItems = (data.activistsFresh || []).slice(0, 5).map(a => {
+          const formColor = /13D/.test(a.form || '') ? '#F59E0B' : '#10B981';
+          const form = shortForm(a.form);
+          const date = fmtD(a.date);
+          const rightText = [form, date].filter(Boolean).join(' · ');
+          // Pour les filings EU (AMF/FCA/SIX/AFM/BaFin), ticker est souvent vide.
+          const queryForAnalysis = a.ticker || a.targetName || '';
+          const displayLabel = a.ticker || a.targetName || '?';
+          // UI FIX (mai 2026) : on n'utilise plus slice() pour tronquer (illisible).
+          // Le truncate est fait par CSS text-overflow:ellipsis avec tooltip complet
+          // au survol. La card est aussi plus large (cf. minmax 320px dans la grid).
+          const fullLabel = displayLabel || '';
+          const fullFiler = a.filer || '';
+          return `
+            <div class="signal-row" ${queryForAnalysis ? goTicker(queryForAnalysis) : ''}>
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden">
+                <strong style="color:var(--text-primary);font-size:13px;flex-shrink:0;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(fullLabel)}">${escapeHtmlClient(fullLabel)}</strong>
+                <span style="color:var(--text-muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="${escapeHtmlClient(fullFiler)}">${escapeHtmlClient(fullFiler)}</span>
+              </div>
+              <div style="color:${formColor};font-weight:600;font-size:11px;flex-shrink:0;white-space:nowrap">${escapeHtmlClient(rightText)}</div>
+            </div>`;
+        }).join('');
+        const activistCard = hasActivists ? `
+          <div class="signal-card">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)" onclick="switchSection('activists')" title="Ouvrir l'analyse détaillée">
+              <div class="signal-card-icon icon-pink"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+              <div style="flex:1">
+                <div class="signal-card-title">Fonds offensifs frais</div>
+                <div class="signal-card-sub">Derniers dépôts 13D/G</div>
+              </div>
+              <span class="signal-card-chevron">→</span>
+            </div>
+            <div class="signal-card-body">${activistItems || '<div class="signal-empty">Aucun récent</div>'}</div>
+          </div>` : '';
+
+        wrap.innerHTML = `
+          <style>
+            .top-signals-header {
+              display:flex;align-items:center;justify-content:space-between;
+              margin:0 0 14px;
+            }
+            .top-signals-header h3 {
+              font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0;
+            }
+            .top-signals-date {
+              font-size:12px;color:var(--text-muted);
+              padding:4px 10px;background:var(--surface-2);border-radius:100px;
+            }
+            .signals-grid {
+              display:grid;gap:14px;
+              /* minmax 340px : plus large que 280 pour laisser respirer les content
+                  les plus denses (Fonds offensifs avec ticker + filer + form + date). */
+              grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+            }
+            .signal-card {
+              background:var(--surface-1);
+              border:1px solid var(--border);
+              border-radius:12px;
+              overflow:hidden;
+            }
+            .signal-card-head {
+              display:flex;align-items:center;gap:10px;
+              padding:12px 14px;
+              border-bottom:1px solid;
+            }
+            .signal-card-head-clickable { cursor: pointer; transition: background 0.15s; }
+            .signal-card-head-clickable:hover { background: var(--surface-2); }
+            .signal-card-head-clickable:hover .signal-card-chevron { transform: translateX(4px); color: var(--text-primary); }
+            .signal-card-chevron {
+              color: var(--text-muted); font-size: 18px; font-weight: 600;
+              transition: all 0.2s; flex-shrink: 0;
+              opacity: 0.7;
+            }
+            .signal-card-icon {
+              width:32px;height:32px;border-radius:8px;
+              display:flex;align-items:center;justify-content:center;
+              flex-shrink:0;
+            }
+            .signal-card-icon svg { width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round; }
+            .signal-card-title {
+              font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.2;
+            }
+            .signal-card-sub {
+              font-size:11px;color:var(--text-muted);margin-top:2px;
+            }
+            .signal-card-body { padding:6px 14px 12px; }
+            .signal-row {
+              display:flex;justify-content:space-between;align-items:center;gap:10px;
+              padding:8px 0;
+              border-bottom:1px solid var(--divider);
+              cursor:pointer;transition:background 0.15s;
+              border-radius:4px;
+              margin:0 -6px;padding-left:6px;padding-right:6px;
+            }
+            .signal-row:last-child { border-bottom:none; }
+            .signal-row:hover { background:var(--surface-2); }
+            .signal-empty {
+              padding:16px 0;text-align:center;color:var(--text-muted);font-size:12px;
+            }
+          </style>
+          <div class="top-signals-header">
+            <h3>🔔 Top signaux du jour</h3>
+            <span class="top-signals-date">${fmtD(data.date)}</span>
+          </div>
+          <div class="signals-grid">${scoreCard}${clusterCard}${etfCard}${activistCard}</div>
+        `;
+        wrap.style.display = 'block';
+        // Re-applique le locking sneak-peek apres injection des cards
+        // (sinon les .signal-card n'existaient pas encore au 1er appel).
+        try { applyHomeDataLocking(); } catch (e) {}
+        try {
+          initScrollReveal(wrap);
+          applyStagger(wrap.querySelector('.signals-grid'), '> .signal-card', 90);
+        } catch (e) {}
+      } catch (e) {
+        console.warn('[home top-signals]', e);
+      }
+    }
+
+    // ============================================================
+    // SIGNAL DETAIL PAGES — helpers partagés pour les 4 écrans
+    // ============================================================
+    // Gère la sync URL ↔ filtres pour partager un lien (ex: /#signals-clusters&direction=bullish)
+    function updateSignalUrl(section, filters) {
+      try {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+          if (v != null && v !== '' && v !== 'all' && v !== 0 && v !== '0') params.set(k, v);
+        });
+        const hash = `#${section}${params.toString() ? '&' + params.toString() : ''}`;
+        if (window.location.hash !== hash) history.replaceState(null, '', hash);
+      } catch (e) {}
+    }
+    // Lit l'URL hash et restaure les filtres à l'ouverture d'une section signal
+    function readSignalUrl(section) {
+      const raw = (window.location.hash || '').slice(1); // retire #
+      if (!raw.startsWith(section)) return {};
+      const after = raw.slice(section.length);
+      if (!after.startsWith('&')) return {};
+      return Object.fromEntries(new URLSearchParams(after.slice(1)));
+    }
+
+    // ============================================================
+    // SIGNAL DETAIL — Score Movers (Lot 2)
+    // ============================================================
+    const SCORE_PRESETS = {
+      default: { days: '7', direction: 'all', minDelta: '3', sort: 'delta' },
+      winners24: { days: '1', direction: 'up', minDelta: '3', sort: 'delta' },
+      losers24: { days: '1', direction: 'down', minDelta: '3', sort: 'delta' },
+      breakouts: { days: '7', direction: 'all', minDelta: '15', sort: 'abs' },
+      movers30: { days: '30', direction: 'all', minDelta: '10', sort: 'abs' },
+    };
+
+    function applyScorePreset(preset) {
+      const f = SCORE_PRESETS[preset];
+      if (!f) return;
+      document.getElementById('sigScoreDays').value = f.days;
+      document.getElementById('sigScoreDirection').value = f.direction;
+      document.getElementById('sigScoreMinDelta').value = f.minDelta;
+      document.getElementById('sigScoreSort').value = f.sort;
+      document.querySelectorAll('#sigScoreQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadSignalsScore();
+    }
+    window.applyScorePreset = applyScorePreset;
+
+    async function loadSignalsScore() {
+      if (!currentUser) return;
+      const body = document.getElementById('sigScoreBody');
+      const countEl = document.getElementById('sigScoreCount');
+      if (!body) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.table(8, 5) : '<div class="sig-empty">Chargement…</div>';
+      const filters = {
+        days: document.getElementById('sigScoreDays').value,
+        direction: document.getElementById('sigScoreDirection').value,
+        minDelta: document.getElementById('sigScoreMinDelta').value,
+        sort: document.getElementById('sigScoreSort').value,
+      };
+      updateSignalUrl('signals-score', filters);
+      try {
+        const token = await currentUser.getIdToken();
+        const qs = new URLSearchParams(filters).toString();
+        const res = await fetch(`${API_BASE}/api/signals/score-movers?${qs}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          if (countEl) countEl.textContent = '—';
+          return;
+        }
+        renderSignalsScore(data);
+      } catch (e) {
+        body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+    window.loadSignalsScore = loadSignalsScore;
+
+    function renderSignalsScore(data) {
+      const body = document.getElementById('sigScoreBody');
+      const countEl = document.getElementById('sigScoreCount');
+      if (!body) return;
+      const items = data.items || [];
+      if (countEl) countEl.textContent = `${data.total || 0} mouvement${data.total > 1 ? 's' : ''}`;
+
+      if (items.length === 0) {
+        body.innerHTML = `
+          <div class="sig-empty">
+            <div style="font-size:40px;margin-bottom:10px">📉</div>
+            <div style="font-size:14px">Aucune variation significative détectée.</div>
+            <div style="font-size:12px;margin-top:6px;opacity:0.7">Les scores commenceront à bouger quand plusieurs jours de données seront accumulés.</div>
+          </div>`;
+        return;
+      }
+
+      const fmtD = (d) => {
+        if (!d) return '—';
+        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+      };
+
+      const rows = items.map(s => {
+        const positive = s.delta > 0;
+        const color = positive ? '#10B981' : '#EF4444';
+        const arrow = positive ? '▲' : '▼';
+        const sign = positive ? '+' : '';
+        const onclick = `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(s.ticker).replace(/'/g,'\\\'')}'),150)"`;
+        return `
+          <tr ${onclick}>
+            <td><span class="sig-ticker-cell">${escapeHtmlClient(s.ticker)}</span></td>
+            <td style="text-align:right;color:${color};font-weight:700;font-size:15px">${arrow} ${sign}${s.delta}pt</td>
+            <td style="text-align:right;font-weight:600">${s.scoreNow}<span style="color:var(--text-muted);font-size:11px">/100</span></td>
+            <td style="text-align:right;color:var(--text-muted)">${s.scorePrev}</td>
+            <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtD(s.datePrev)} → ${fmtD(s.dateNow)}</td>
+          </tr>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="sig-table-wrap">
+          <table class="sig-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th style="text-align:right">Delta</th>
+                <th style="text-align:right">Score actuel</th>
+                <th style="text-align:right">Score avant</th>
+                <th>Dates</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text-muted);text-align:right">
+          Cliquez sur un ticker pour ouvrir son analyse · Recalculé chaque jour à 7h UTC
+        </div>`;
+    }
+
+    // Préfiltres Score listener
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#sigScoreQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyScorePreset(btn.dataset.preset);
+    });
+
+    // ============================================================
+    // SIGNAL DETAIL — ETF Rotations (Lot 3)
+    // ============================================================
+    const ETF_PRESETS = {
+      default: { days: '7', etf: '', type: 'all', minDelta: '0.3' },
+      newEntries: { days: '7', etf: '', type: 'new', minDelta: '0.3' },
+      exits: { days: '7', etf: '', type: 'exit', minDelta: '0.3' },
+      politicsUs: { days: '30', etf: 'NANC', type: 'all', minDelta: '0.3' },
+      heavy: { days: '30', etf: '', type: 'all', minDelta: '3' },
+    };
+
+    function applyEtfPreset(preset) {
+      const f = ETF_PRESETS[preset];
+      if (!f) return;
+      document.getElementById('sigEtfDays').value = f.days;
+      document.getElementById('sigEtfFilter').value = f.etf;
+      document.getElementById('sigEtfType').value = f.type;
+      document.getElementById('sigEtfMinDelta').value = f.minDelta;
+      document.querySelectorAll('#sigEtfQuickFilters .sig-qf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.preset === preset);
+      });
+      loadSignalsEtf();
+    }
+    window.applyEtfPreset = applyEtfPreset;
+
+    async function loadSignalsEtf() {
+      if (!currentUser) return;
+      const body = document.getElementById('sigEtfBody');
+      const countEl = document.getElementById('sigEtfCount');
+      if (!body) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.table(8, 6) : '<div class="sig-empty">Chargement…</div>';
+      const filters = {
+        days: document.getElementById('sigEtfDays').value,
+        etf: document.getElementById('sigEtfFilter').value,
+        type: document.getElementById('sigEtfType').value,
+        minDelta: document.getElementById('sigEtfMinDelta').value,
+      };
+      updateSignalUrl('signals-etf', filters);
+      try {
+        const token = await currentUser.getIdToken();
+        const qs = new URLSearchParams(filters).toString();
+        const res = await fetch(`${API_BASE}/api/signals/etf-rotations?${qs}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          if (countEl) countEl.textContent = '—';
+          return;
+        }
+        renderSignalsEtf(data);
+      } catch (e) {
+        body.innerHTML = `<div class="sig-empty" style="color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+    window.loadSignalsEtf = loadSignalsEtf;
+
+    function renderSignalsEtf(data) {
+      const body = document.getElementById('sigEtfBody');
+      const countEl = document.getElementById('sigEtfCount');
+      if (!body) return;
+      const items = data.items || [];
+      if (countEl) countEl.textContent = `${data.total || 0} mouvement${data.total > 1 ? 's' : ''}`;
+
+      if (items.length === 0) {
+        body.innerHTML = `
+          <div class="sig-empty">
+            <div style="font-size:40px;margin-bottom:10px">📊</div>
+            <div style="font-size:14px">Aucune rotation détectée avec ces filtres.</div>
+            <div style="font-size:12px;margin-top:6px;opacity:0.7">Essayez une amplitude plus faible ou une période plus longue.</div>
+          </div>`;
+        return;
+      }
+
+      const fmtD = (d) => {
+        if (!d) return '—';
+        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+      };
+      const statusIcon = (s) => ({ new: '🆕', exit: '❌', increased: '📈', decreased: '📉' }[s] || '•');
+      const statusLabel = (s) => ({ new: 'Entrée', exit: 'Sortie', increased: 'Augment.', decreased: 'Diminut.' }[s] || s);
+      const statusColor = (s) => ({ new: '#10B981', exit: '#EF4444', increased: '#10B981', decreased: '#EF4444' }[s] || '#94A3B8');
+
+      const rows = items.map(r => {
+        const color = statusColor(r.status);
+        const prev = r.prevWeight != null ? r.prevWeight.toFixed(2) + '%' : '—';
+        const curr = r.currWeight != null ? r.currWeight.toFixed(2) + '%' : '—';
+        const deltaSign = r.delta > 0 ? '+' : '';
+        const onclick = `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(r.ticker).replace(/'/g,'\\\'')}'),150)"`;
+        return `
+          <tr ${onclick}>
+            <td><span class="sig-ticker-cell">${escapeHtmlClient(r.ticker)}</span></td>
+            <td><strong style="color:var(--text-primary);font-size:13px">${escapeHtmlClient(r.etf)}</strong></td>
+            <td><span class="sig-pill" style="background:${color}22;color:${color}">${statusIcon(r.status)} ${statusLabel(r.status)}</span></td>
+            <td style="text-align:right;color:var(--text-muted)">${prev}</td>
+            <td style="text-align:right;font-weight:600">${curr}</td>
+            <td style="text-align:right;color:${color};font-weight:700">${deltaSign}${r.delta.toFixed(2)}pt</td>
+            <td style="color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtD(r.datePrev)} → ${fmtD(r.dateNow)}</td>
+          </tr>`;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="sig-table-wrap">
+          <table class="sig-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>ETF</th>
+                <th>Type</th>
+                <th style="text-align:right">Poids avant</th>
+                <th style="text-align:right">Poids actuel</th>
+                <th style="text-align:right">Delta</th>
+                <th>Dates</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text-muted);text-align:right">
+          Cliquez sur un ticker pour ouvrir son analyse · Snapshots quotidiens
+        </div>`;
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('#sigEtfQuickFilters .sig-qf-btn');
+      if (btn && btn.dataset.preset) applyEtfPreset(btn.dataset.preset);
+    });
+
+    // ============================================================
+    // SIGNAL DETAIL — Activists (Lot 4, enrichissement section existante)
+    // ============================================================
+    const ACTIVISTS_PRESETS = {
+      default: { days: '30', filter: 'activists', ticker: '' },
+      week: { days: '7', filter: 'all', ticker: '' },
+      '13donly': { days: '30', filter: '13D', ticker: '' },
+      bigOnes: { days: '90', filter: 'activists', ticker: '' }, // le filtre "méga" se fait via le tri côté table
+      all90: { days: '90', filter: 'all', ticker: '' },
+    };
+
+    function applyActivistsPreset(preset) {
+      const f = ACTIVISTS_PRESETS[preset];
+      if (!f) return;
+      const dSel = document.getElementById('actDays');
+      const fSel = document.getElementById('actFilter');
+      if (dSel) dSel.value = f.days;
+      if (fSel) fSel.value = f.filter;
+      const tkInput = document.getElementById('actTicker');
+      if (tkInput) tkInput.value = f.ticker || '';
+      loadActivists();
+    }
+    window.applyActivistsPreset = applyActivistsPreset;
+
+    function setActPreset(field, value, el) {
+      const ids = { days: 'actDays', filter: 'actFilter', country: 'actCountry' };
+      const sel = document.getElementById(ids[field]);
+      if (sel) sel.value = value;
+      // Les données EU (BaFin, FCA, AMF…) sont des déclarations réglementaires de seuil,
+      // pas des fonds activistes reconnus. Auto-passer à "toutes déclarations" pour éviter
+      // un résultat vide (le filtre 'activists' exige isActivist:true, rare en EU).
+      if (field === 'country' && value && value !== 'US') {
+        const filterSel = document.getElementById('actFilter');
+        if (filterSel && filterSel.value === 'activists') filterSel.value = 'all';
+      }
+      const parent = el?.closest?.('.period-buttons');
+      if (parent) parent.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b === el));
+      loadActivists();
+    }
+    window.setActPreset = setActPreset;
+
+    // ============================================================
+    // INSIDER TRADES — données pré-calculées depuis KV
+    // ============================================================
+    let allInsiderTx = [];
+    const INSIDER_PAGE_SIZE = 25;
+
+    async function loadInsiderTrades() {
+      currentPage = 0;
+      const area = document.getElementById('insiderTableArea');
+      area.innerHTML = window.Skeleton.grid(4, 2);
+
+      try {
+        const data = await apiFetch('/api/all-transactions');
+
+        // Overlay auth succèss
+        document.getElementById('authOverlay').classList.add('hidden');
+
+        // Filtrer les dates futures (erreurs de saisie SEC)
+        const today = new Date().toISOString().split('T')[0];
+        allInsiderTx = (data.transactions || []).filter(t => (t.date || t.fileDate || '') <= today);
+        totalTrades = allInsiderTx.length;
+        renderInsiderPage();
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
+        }
+      }
+    }
+
+    function getFilteredInsiderTx() {
+      let txs = allInsiderTx;
+
+      // Filtre recherche (ticker, ISIN, company, insider)
+      if (insiderSearchQuery) {
+        txs = txs.filter(t =>
+          (t.ticker || '').toUpperCase().includes(insiderSearchQuery) ||
+          (t.isin || '').toUpperCase().includes(insiderSearchQuery) ||
+          (t.company || '').toUpperCase().includes(insiderSearchQuery) ||
+          (t.insider || '').toUpperCase().includes(insiderSearchQuery)
+        );
+      }
+
+      // Filtre période
+      if (currentDays < 90) {
+        const cutoff = new Date(Date.now() - currentDays * 86400000).toISOString().split('T')[0];
+        txs = txs.filter(t => (t.date || t.fileDate) >= cutoff);
+      }
+
+      // Filtre type (achat/vente)
+      if (currentType !== 'all') {
+        txs = txs.filter(t => t.type === currentType);
+      }
+
+      // Filtre region (US / Europe / ...). Les anciennes tx sans 'region' sont considerees US.
+      if (currentRegion !== 'all') {
+        txs = txs.filter(t => (t.region || 'US') === currentRegion);
+      }
+
+      return txs;
+    }
+
+    function renderInsiderPage() {
+      const area = document.getElementById('insiderTableArea');
+      const filtered = getFilteredInsiderTx();
+      // Pattern 'Voir plus' : on rend de 0 a insiderDisplayedCount (cumulatif),
+      // le bouton 'Voir plus' en bas incremente de INSIDER_INITIAL_COUNT.
+      const visibleCount = Math.min(insiderDisplayedCount, filtered.length);
+      const pageTx = filtered.slice(0, visibleCount);
+
+      if (filtered.length === 0) {
+        area.innerHTML = '<div class="empty-state"><p>Aucune transaction trouvee pour ces criteres.</p></div>';
+        return;
+      }
+
+      let rows = '';
+      for (const t of pageTx) {
+        const typeLabel = t.type === 'buy' ? '<span class="pill buy">ACHAT</span>'
+          : t.type === 'sell' ? '<span class="pill sell">VENTE</span>'
+          : '<span class="pill other">AUTRE</span>';
+
+        // Marché / devise (défaut US/USD pour les anciennes transactions SEC non taguées)
+        const market = t.market || 'US';
+        const currency = t.currency || 'USD';
+        const flag = fmtMarket(market);
+        // Suffixe Yahoo selon le marche : 'DG' + FR -> 'DG.PA' (Vinci, pas Dollar General)
+        // Indispensable pour que click ouvre la BONNE action et pas un ticker US homonyme.
+        const yahooTicker = toYahooTicker(t.ticker, market);
+        // Pour les rows Europe, le ticker est vide : on affiche l'ISIN court à la place (ex: DE000A1RFMZ1 -> DE..FMZ1)
+        let tickerDisplay = yahooTicker || '';
+        if (!tickerDisplay && t.isin) {
+          tickerDisplay = t.isin.length > 8 ? `${t.isin.slice(0, 2)}..${t.isin.slice(-4)}` : t.isin;
+        }
+        if (!tickerDisplay) tickerDisplay = '—';
+
+        // Date : la fileDate (déclaration officielle) pilote le tri ; on l'affiche en principal,
+        // la date de transaction en sous-ligne si elle differe.
+        const primaryDate = t.fileDate || t.date;
+        const showTxDate = t.date && t.date !== t.fileDate;
+        const dateCell = showTxDate
+          ? `<div>${fmtDate(primaryDate)}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px" title="Date de la transaction">tx : ${fmtDate(t.date)}</div>`
+          : fmtDate(primaryDate);
+
+        // Insider truncation TRES compacte : max 22 chars + tooltip complet au survol
+        // Pour "personne morale liee a X" (entites EU), on affiche directement X
+        // (la VRAIE personne) au lieu du nom de la societe holding qui pollue.
+        const insiderFull = t.insider || '—';
+        let insiderShort = insiderFull;
+        const lieM = insiderFull.match(/personne morale li[ée]e [aà]\s+(.+?)(?:$|,)/i);
+        if (lieM && lieM[1]) {
+          // Cas entité morale : afficher uniquement la VRAIE personne (FABRICE COLONNAWALEWSKI)
+          insiderShort = lieM[1].trim();
+        }
+        if (insiderShort.length > 22) {
+          insiderShort = insiderShort.slice(0, 21) + '…';
+        }
+
+        rows += `<tr>
+          <td style="white-space:nowrap">${dateCell}</td>
+          <td style="white-space:nowrap;text-align:center" title="${market} · ${t.region || 'US'}${t.source ? ' · ' + t.source : ''}">${flag}</td>
+          ${t.ticker ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(yahooTicker).replace(/'/g, "\\'")}'), 150)" title="${t.isin || ''} · Cliquer pour analyser ${yahooTicker}">${tickerDisplay}</td>` : `<td class="ticker" title="${t.isin || ''}">${tickerDisplay}</td>`}
+          <td style="color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.company || '').replace(/"/g, '&quot;')}">${t.company || '—'}</td>
+          <td style="text-align:center">${typeLabel}</td>
+          <td style="text-align:right;font-weight:600">${fmtNum(t.shares)}</td>
+          <td style="text-align:right">${t.price > 0 ? fmtCur(t.price, currency) : '—'}</td>
+          <td style="text-align:right;font-weight:600">${t.value > 0 ? fmtCurShort(t.value, currency) : '—'}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${insiderFull.replace(/"/g, '&quot;')}">${insiderShort}</td>
+          <td style="font-size:11px;color:var(--text-muted)">${translatePosition(t.title)}</td>
+        </tr>`;
+      }
+
+      // Footer 'Voir plus' via le helper generique (uniformise sur tout le site)
+      const footerHtml = renderLoadMoreFooter({
+        visible: visibleCount,
+        total: filtered.length,
+        onLoadMore: 'loadMoreInsiders()',
+        initialCount: INSIDER_INITIAL_COUNT,
+        label: 'transactions',
+      });
+
+      area.innerHTML = `
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length.toLocaleString('fr-FR')} transactions trouvées</p>
+        <div class="table-wrap">
+          <table style="min-width:1100px">
+            <thead><tr>
+              <th>Date</th>
+              <th>Marché</th>
+              <th>Ticker</th>
+              <th>Entreprise</th>
+              <th style="text-align:center">Type</th>
+              <th style="text-align:right">Actions</th>
+              <th style="text-align:right">Prix</th>
+              <th style="text-align:right">Valeur</th>
+              <th>Declarant</th>
+              <th>Poste</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${footerHtml}`;
+    }
+
+    // 'Voir plus' : on ajoute un INSIDER_INITIAL_COUNT supplementaire de
+    // transactions visibles puis on re-render. Le scroll reste a la position
+    // courante (les nouvelles lignes apparaissent en bas, pattern infinite-scroll).
+    function loadMoreInsiders() {
+      insiderDisplayedCount += INSIDER_INITIAL_COUNT;
+      renderInsiderPage();
+    }
+
+    // Helper generique 'Voir plus' : a reutiliser pour TOUTES les tables paginees
+    // du site (mai 2026, demande user uniformisation). Genere le footer standard
+    // avec bouton 'Voir plus (X restantes)' + compteur 'Y sur Z affichées'.
+    // Usage :
+    //   renderLoadMoreFooter({ visible, total, onLoadMore: 'maFonctionLoadMore()' })
+    function renderLoadMoreFooter({ visible, total, onLoadMore, initialCount = 25, label = 'éléments' }) {
+      const remaining = Math.max(0, total - visible);
+      if (remaining > 0) {
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 0">
+          <button onclick="${onLoadMore}" style="padding:12px 28px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 12px rgba(116,185,255,0.25)">
+            Voir plus <span style="opacity:0.8;font-weight:500;margin-left:4px">(${remaining.toLocaleString('fr-FR')} restant${remaining > 1 ? 's' : ''})</span>
+          </button>
+          <div style="font-size:11px;color:var(--text-muted)">${visible.toLocaleString('fr-FR')} sur ${total.toLocaleString('fr-FR')} ${label} affiché${total > 1 ? 's' : ''}</div>
+        </div>`;
+      }
+      if (total > initialCount) {
+        return `<div style="padding:18px 0;text-align:center;color:var(--text-muted);font-size:12px">Tous les ${total.toLocaleString('fr-FR')} ${label} sont affichés.</div>`;
+      }
+      return '';
+    }
+
+    // ============================================================
+    // ANALYSE ACTION — Ticker deep-dive (Kairos Score + insiders + 13F + ETF + prix + news)
+    // ============================================================
+    let stockTickerList = null; // { ticker, name, region, market }[]
+    let stockChart = null;
+
+    // Fetch la liste de tickers une seule fois (partagee par Analyse action + Transactions Insiders)
+    async function ensureTickerList() {
+      if (stockTickerList && stockTickerList.length) return stockTickerList;
+      try {
+        const resp = await fetch(`${API_BASE}/public/tickers`);
+        const data = await resp.json();
+        stockTickerList = data.tickers || [];
+      } catch (e) {
+        stockTickerList = [];
+      }
+      return stockTickerList;
+    }
+
+    // Helper generique : cable autocomplete sur un input + dropdown, callback onChoose(ticker)
+    // Stocke l'etat "wired" dans dataset pour ne le brancher qu'une fois par input.
+    //
+    // STRATEGIE 2 SOURCES :
+    //   1. stockTickerList LOCAL (filings SEC + AMF + BaFin + insiders) - instantane
+    //   2. Yahoo Search API (Thales, LVMH, Nestle, ASML, ...) - debounce 300ms
+    //   On affiche les locaux en premier puis on fusionne les Yahoo results dedoublonnes.
+    async function searchYahooTickers(query) {
+      if (!query || query.length < 2) return [];
+      try {
+        // Routes wrangler ne couvrent pas /api/* sur kairosinsider.fr -> appel direct worker
+        const apiBase = 'https://kairos-insider-api.natquinson.workers.dev/api';
+        const r = await fetch(`${apiBase}/search-ticker?q=${encodeURIComponent(query)}`);
+        if (!r.ok) return [];
+        const d = await r.json();
+        return Array.isArray(d.results) ? d.results : [];
+      } catch { return []; }
+    }
+
+    function wireTickerAutocomplete(input, suggest, onChoose) {
+      if (!input || !suggest) return;
+      if (input.dataset.autocompleteWired === '1') return;
+      input.dataset.autocompleteWired = '1';
+
+      let selectedIdx = -1;
+      let lastQuery = '';
+      let yahooDebounce = null;
+
+      const renderSuggestions = (matches) => {
+        if (matches.length === 0) { suggest.style.display = 'none'; return; }
+        suggest.innerHTML = matches.map((t, i) => {
+          const market = t.market || t.region || t.exchange || t.exchangeFull || '';
+          const sourceTag = t._source === 'yahoo'
+            ? '<span style="font-size:10px;background:rgba(59,130,246,0.15);color:#3B82F6;padding:1px 6px;border-radius:8px;margin-left:6px">Yahoo</span>'
+            : '';
+          return `
+          <div class="ticker-suggest-item" data-idx="${i}" data-ticker="${t.ticker}" style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--divider)">
+            <div>
+              <strong style="color:var(--accent-blue)">${t.ticker}</strong>${sourceTag}
+              <span style="opacity:0.7;font-size:13px;margin-left:10px">${(t.name||'').slice(0,55)}</span>
+            </div>
+            <div style="font-size:12px;opacity:0.5">${market}</div>
+          </div>`;
+        }).join('');
+        suggest.querySelectorAll('.ticker-suggest-item').forEach(el => {
+          el.addEventListener('click', () => {
+            suggest.style.display = 'none';
+            onChoose(el.dataset.ticker);
+          });
+        });
+        suggest.style.display = 'block';
+      };
+
+      const updateSuggestions = (q) => {
+        // 1. Resultats LOCAUX (instantanes, prioritaires)
+        const localMatches = (stockTickerList || [])
+          .filter(t => t.ticker.startsWith(q) || (t.name && t.name.toUpperCase().includes(q)))
+          .slice(0, 10);
+
+        // Render immediat avec les locaux
+        renderSuggestions(localMatches);
+
+        // 2. Yahoo Search (debounce 300ms) si peu de resultats locaux ou >=2 chars
+        if (yahooDebounce) clearTimeout(yahooDebounce);
+        if (q.length < 2) return;
+        yahooDebounce = setTimeout(async () => {
+          if (input.value.trim().toUpperCase() !== q) return; // user a continue de taper
+          const yahooResults = await searchYahooTickers(q);
+          if (yahooResults.length === 0) return;
+          if (input.value.trim().toUpperCase() !== q) return;
+
+          // Fusion : on dedup par ticker (les locaux gardent la priorite)
+          const localTickers = new Set(localMatches.map(m => m.ticker));
+          const yahooDedup = yahooResults
+            .filter(y => !localTickers.has(y.symbol))
+            .slice(0, Math.max(0, 10 - localMatches.length))
+            .map(y => ({
+              ticker: y.symbol,
+              name: y.name,
+              market: y.exchangeFull || y.exchange,
+              region: y.exchange,
+              _source: 'yahoo',
+            }));
+          if (yahooDedup.length === 0) return;
+          const combined = [...localMatches, ...yahooDedup];
+          renderSuggestions(combined);
+        }, 300);
+      };
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toUpperCase();
+        selectedIdx = -1;
+        if (q.length < 1) { suggest.style.display = 'none'; return; }
+        if (q === lastQuery) return;
+        lastQuery = q;
+        updateSuggestions(q);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        const items = suggest.querySelectorAll('.ticker-suggest-item');
+        if (e.key === 'ArrowDown') { e.preventDefault(); selectedIdx = Math.min(items.length - 1, selectedIdx + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIdx = Math.max(-1, selectedIdx - 1); }
+        else if (e.key === 'Enter') {
+          e.preventDefault();
+          const ticker = (selectedIdx >= 0 && items[selectedIdx]) ? items[selectedIdx].dataset.ticker : input.value.trim().toUpperCase();
+          if (ticker) { suggest.style.display = 'none'; onChoose(ticker); }
+          return;
+        } else if (e.key === 'Escape') { suggest.style.display = 'none'; return; }
+        items.forEach((it, i) => it.style.background = i === selectedIdx ? 'rgba(59,130,246,0.15)' : 'transparent');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest(`#${input.id}`) && !e.target.closest(`#${suggest.id}`)) {
+          suggest.style.display = 'none';
+        }
+      });
+    }
+
+    async function initStockAnalysis() {
+      await ensureTickerList();
+      const input = document.getElementById('stockSearchInput');
+      const suggest = document.getElementById('stockSearchSuggest');
+      wireTickerAutocomplete(input, suggest, (ticker) => loadStockAnalysis(ticker));
+      // Render le dashboard discovery (etat vide enrichi) si pas deja une analyse
+      const body = document.getElementById('stockAnalysisBody');
+      if (body && !body._hasAnalysis && !body.innerHTML.trim()) {
+        renderStockDiscovery(body);
+      }
+    }
+
+    // ============================================================
+    // STOCK DISCOVERY : etat vide enrichi avec tickers populaires + apercu
+    // Affiche au lieu d'une page vide quand l'utilisateur entre dans Analyse Action
+    // ============================================================
+    function renderStockDiscovery(body) {
+      const popularUS = [
+        ['AAPL', 'Apple', 'Tech', '#A8E6CF'],
+        ['MSFT', 'Microsoft', 'Tech', '#74b9ff'],
+        ['NVDA', 'NVIDIA', 'Semiconducteurs', '#a29bfe'],
+        ['GOOGL', 'Alphabet', 'Tech', '#fdcb6e'],
+        ['META', 'Meta Platforms', 'Tech', '#74b9ff'],
+        ['AMZN', 'Amazon', 'E-commerce', '#fab1a0'],
+        ['TSLA', 'Tesla', 'Auto / Energy', '#fd79a8'],
+        ['BRK-B', 'Berkshire Hathaway', 'Conglomérat', '#55efc4'],
+      ];
+      const popularEU = [
+        ['MC.PA', 'LVMH', 'Luxe FR', '#a29bfe'],
+        ['RMS.PA', 'Hermès', 'Luxe FR', '#fdcb6e'],
+        ['OR.PA', "L'Oréal", 'Cosmétique FR', '#fd79a8'],
+        ['ASML.AS', 'ASML', 'Semis NL', '#74b9ff'],
+        ['NESN.SW', 'Nestlé', 'Conso CH', '#A8E6CF'],
+        ['SAP.DE', 'SAP', 'Tech DE', '#a29bfe'],
+        ['SAN.PA', 'Sanofi', 'Pharma FR', '#74b9ff'],
+        ['SHEL.L', 'Shell', 'Énergie UK', '#fdcb6e'],
+      ];
+      const dimensions = [
+        ['🕴️', 'Insiders', 'SEC + AMF + BaFin'],
+        ['🏦', 'Hedge funds', '13F filings (47 fonds)'],
+        ['🏛️', 'Politiques', 'NANC + GOP + Pelosi'],
+        ['📈', 'Prix & timeline', '5 ans cours + variations'],
+        ['💰', 'Fondamentaux', 'MarketCap, P/E, ROE…'],
+        ['🎯', 'Consensus', 'Analystes US + EU'],
+        ['🛡️', 'Santé financière', 'Altman Z + Piotroski F'],
+        ['📰', 'News récentes', 'Yahoo + Google Trends'],
+      ];
+
+      const renderCard = ([t, n, s, c]) => `
+        <button onclick="loadStockAnalysis('${t.replace(/'/g, "\\'")}'); document.getElementById('stockSearchInput').value='${t}'" style="text-align:left;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;gap:4px;font-family:inherit;color:var(--text-primary)" onmouseover="this.style.borderColor='${c}';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px ${c}40'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
+          <div style="font-family:monospace;font-weight:800;color:var(--text-primary);font-size:15px">${t}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${n}</div>
+          <div style="font-size:10px;color:${c};text-transform:uppercase;letter-spacing:0.05em;font-weight:600">${s}</div>
+        </button>
+      `;
+
+      const renderDim = ([icon, label, sub]) => `
+        <div style="text-align:center;padding:14px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+          <div style="font-size:26px;margin-bottom:6px">${icon}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${label}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:3px;line-height:1.3">${sub}</div>
+        </div>
+      `;
+
+      body.innerHTML = `
+        <!-- Hero mini : value props -->
+        <div style="text-align:center;padding:8px 16px 4px">
+          <div style="display:inline-flex;align-items:center;gap:10px;padding:8px 18px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(162,155,254,0.08));border:1px solid rgba(116,185,255,0.25);border-radius:30px;font-size:13px;color:#74b9ff;font-weight:600">
+            ⚡ Analyse complète en 30 secondes
+          </div>
+        </div>
+
+        <!-- TICKERS POPULAIRES US -->
+        <div style="margin-top:24px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="font-size:20px">🇺🇸</span>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Tickers populaires US</h3>
+            <span style="flex:1;height:1px;background:var(--border)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+            ${popularUS.map(renderCard).join('')}
+          </div>
+        </div>
+
+        <!-- TICKERS POPULAIRES EU -->
+        <div style="margin-top:28px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <span style="font-size:20px">🇪🇺</span>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Tickers populaires Europe</h3>
+            <span style="flex:1;height:1px;background:var(--border)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+            ${popularEU.map(renderCard).join('')}
+          </div>
+        </div>
+
+        <!-- APERCU DES 8 DIMENSIONS -->
+        <div style="margin-top:32px;padding:22px;background:linear-gradient(135deg,rgba(116,185,255,0.04),rgba(162,155,254,0.03));border:1px solid var(--border);border-radius:14px">
+          <div style="text-align:center;margin-bottom:18px">
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Ce que tu obtiens à chaque analyse</h3>
+            <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary)">8 dimensions synthétisées en un Kairos Score 0-100</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+            ${dimensions.map(renderDim).join('')}
+          </div>
+        </div>
+
+        <!-- TIPS -->
+        <div style="margin-top:18px;text-align:center;font-size:12px;color:var(--text-muted)">
+          💡 Tu peux aussi rechercher par <strong>nom</strong> (ex: "Hermès", "Nestlé") ou <strong>ISIN</strong> (ex: FR0000121014).
+        </div>
+      `;
+    }
+
+    async function initInsiderSearch() {
+      await ensureTickerList();
+      const input = document.getElementById('searchInsider');
+      const suggest = document.getElementById('searchInsiderSuggest');
+      wireTickerAutocomplete(input, suggest, (ticker) => {
+        input.value = ticker;
+        searchInsider();
+      });
+    }
+
+    // FIX UX (mai 2026, regression) : event delegation document-level pour
+    // garantir que le live filter sur #searchInsider tourne TOUJOURS, meme
+    // si initInsiderSearch n'a pas encore wire l'autocomplete (race condition
+    // avec ensureTickerList async). Avant : wire direct sur input.addEventListener
+    // qui pouvait ne pas etre en place si l'user tapait avant la fin du await.
+    // Maintenant : listener au document, actif des le 1er DOMContentLoaded.
+    let _insiderSearchDebounce = null;
+    document.addEventListener('input', (e) => {
+      if (!e || !e.target || e.target.id !== 'searchInsider') return;
+      clearTimeout(_insiderSearchDebounce);
+      _insiderSearchDebounce = setTimeout(() => {
+        if (typeof searchInsider === 'function') searchInsider();
+      }, 250);
+    });
+
+    let _stockLoaderInterval = null;
+
+    function renderStockLoader(body, ticker) {
+      const steps = [
+        { icon: '🔍', label: "Recherche des transactions d'initiés (SEC + AMF + BaFin)" },
+        { icon: '💰', label: "Interrogation des portefeuilles des hedge funds" },
+        { icon: '🏛️', label: "Vérification dans les ETF politiciens & gurus" },
+        { icon: '📈', label: "Récupération du cours et de l'historique 1 an" },
+        { icon: '📊', label: "Chargement des fondamentaux (P/E, ROE, marge…)" },
+        { icon: '🎯', label: "Agrégation du consensus analystes" },
+        { icon: '📰', label: "Recherche des news récentes" },
+        { icon: '🧮', label: "Calcul du Kairos Score composite" },
+      ];
+
+      body.innerHTML = `
+        <div style="max-width:560px;margin:40px auto 0;padding:40px 32px;background:var(--surface-1);border:1px solid var(--border);border-radius:16px">
+          <div style="text-align:center;margin-bottom:28px">
+            <div class="ki-spinner" style="display:inline-block;width:56px;height:56px;border:3px solid rgba(116,185,255,0.15);border-top-color:#74b9ff;border-radius:50%;animation:kiSpin 0.9s linear infinite"></div>
+            <h3 style="margin:18px 0 4px;font-size:20px;font-weight:600">Analyse de <span style="color:#74b9ff">${ticker}</span></h3>
+            <div style="font-size:13px;opacity:0.6">Nous croisons les données de plusieurs sources, cela peut prendre un peu de temps…</div>
+          </div>
+
+          <div style="height:4px;background:var(--surface-2);border-radius:2px;overflow:hidden;margin-bottom:22px">
+            <div id="kiLoaderBar" style="height:100%;width:0;background:linear-gradient(90deg,#74b9ff,#a29bfe);border-radius:2px;transition:width 0.6s ease"></div>
+          </div>
+
+          <div id="kiLoaderSteps" style="display:flex;flex-direction:column;gap:10px">
+            ${steps.map((s, i) => `
+              <div class="ki-step" data-idx="${i}" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:8px;background:var(--surface-0);font-size:13px;opacity:0.35;transition:all 0.4s">
+                <span class="ki-step-icon" style="font-size:16px;width:20px;display:inline-block;text-align:center">${s.icon}</span>
+                <span class="ki-step-label" style="flex:1">${s.label}</span>
+                <span class="ki-step-status" style="font-size:12px;color:#2ecc71;opacity:0;transition:opacity 0.4s">✓</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <style>
+          @keyframes kiSpin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+          @keyframes kiPulse { 0%, 100% { background: rgba(116,185,255,0.08) } 50% { background: rgba(116,185,255,0.18) } }
+          .ki-step.active { opacity: 1 !important; background: rgba(116,185,255,0.08) !important; animation: kiPulse 1.1s ease-in-out infinite }
+          .ki-step.done { opacity: 0.7 !important; background: transparent !important; animation: none }
+          .ki-step.done .ki-step-status { opacity: 1 !important }
+          .ki-step.done .ki-step-label { text-decoration: line-through; text-decoration-color: rgba(46,204,113,0.4) }
+        </style>
+      `;
+
+      // Lancer la progression animee (par paliers)
+      let currentStep = 0;
+      const bar = document.getElementById('kiLoaderBar');
+      const total = steps.length;
+
+      function nextStep() {
+        const stepsEls = document.querySelectorAll('#kiLoaderSteps .ki-step');
+        if (currentStep > 0 && stepsEls[currentStep - 1]) {
+          stepsEls[currentStep - 1].classList.remove('active');
+          stepsEls[currentStep - 1].classList.add('done');
+        }
+        if (currentStep < total && stepsEls[currentStep]) {
+          stepsEls[currentStep].classList.add('active');
+        }
+        if (bar) {
+          // On avance jusqu'a 90% max pendant la progression (les 10% restants a la reception)
+          const pct = Math.min(90, ((currentStep + 1) / total) * 90);
+          bar.style.width = pct + '%';
+        }
+        currentStep++;
+      }
+
+      nextStep();
+      // Delais progressifs (plus rapide au debut, plus lent vers la fin)
+      const delays = [700, 900, 1100, 1300, 1500, 1800, 2100, 2500];
+      clearStockLoader();
+      let tick = 0;
+      _stockLoaderInterval = setInterval(() => {
+        if (currentStep >= total) return;
+        nextStep();
+        tick++;
+      }, 1200);
+    }
+
+    function clearStockLoader() {
+      if (_stockLoaderInterval) { clearInterval(_stockLoaderInterval); _stockLoaderInterval = null; }
+    }
+
+    function finishStockLoader() {
+      const bar = document.getElementById('kiLoaderBar');
+      if (bar) bar.style.width = '100%';
+      document.querySelectorAll('#kiLoaderSteps .ki-step').forEach(el => {
+        el.classList.remove('active');
+        el.classList.add('done');
+      });
+      clearStockLoader();
+    }
+
+    // ============================================================
+    // HOT STOCKS - Google Trends (top risers / hot tickers)
+    // ============================================================
+    async function loadHotStocks() {
+      const body = document.getElementById('hotStocksBody');
+      try {
+        const data = await apiFetch('/api/trends-hot');
+        if (!data || (!data.topRising && !data.topHot)) {
+          body.innerHTML = '<div style="text-align:center;padding:60px 20px;opacity:0.6"><p>Aucune donnée de tendance disponible (les données sont mises à jour une fois par jour).</p></div>';
+          return;
+        }
+
+        const renderCard = (entry, rank) => {
+          const spikeColor = entry.spike7d > 25 ? '#2ecc71' : entry.spike7d > 5 ? '#52b788' : entry.spike7d < -25 ? '#e74c3c' : entry.spike7d < -5 ? '#ff7675' : '#9CA3AF';
+          const spikeEmoji = entry.spike7d > 50 ? '🚀' : entry.spike7d > 10 ? '📈' : entry.spike7d < -25 ? '📉' : '→';
+          const rankColors = ['#fbbf24', '#e5e7eb', '#f59e0b']; // gold, silver, bronze for top 3
+          const rankBg = rank <= 3 ? rankColors[rank - 1] : 'rgba(255,255,255,0.1)';
+          const rankFg = rank <= 3 ? '#0A0F1E' : 'var(--text-primary)';
+          return `
+            <div onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${entry.ticker}'), 200)" style="padding:18px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='rgba(116,185,255,0.5)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
+              <div style="width:32px;height:32px;border-radius:50%;background:${rankBg};color:${rankFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">#${rank}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em">${entry.ticker}</div>
+                <div style="font-size:12px;opacity:0.6;margin-top:2px">Intérêt : ${entry.interestNow}/100</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:16px;font-weight:700;color:${spikeColor}">${spikeEmoji} ${entry.spike7d > 0 ? '+' : ''}${entry.spike7d}%</div>
+                <div style="font-size:10px;opacity:0.5;text-transform:uppercase">7 jours</div>
+              </div>
+            </div>
+          `;
+        };
+
+        const rising = (data.topRising || []).filter(e => e.spike7d > 0).slice(0, 12);
+        const hot = (data.topHot || []).slice(0, 12);
+        const falling = (data.topFalling || []).filter(e => e.spike7d < 0).slice(0, 10);
+
+        const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'}) : '';
+
+        body.innerHTML = `
+          ${updatedAt ? `<p style="font-size:12px;opacity:0.5;margin-bottom:20px">Dernière mise à jour : ${updatedAt}</p>` : ''}
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
+            <!-- Top Rising -->
+            <div>
+              <h3 style="font-size:18px;margin-bottom:14px">📈 En forte hausse (7j)</h3>
+              <div style="display:grid;gap:10px">
+                ${rising.length > 0 ? rising.map((e, i) => renderCard(e, i + 1)).join('') : '<p style="opacity:0.5">Aucune tendance détectée</p>'}
+              </div>
+            </div>
+
+            <!-- Top Hot (absolute interest) -->
+            <div>
+              <h3 style="font-size:18px;margin-bottom:14px">🔥 Les plus recherchées</h3>
+              <div style="display:grid;gap:10px">
+                ${hot.length > 0 ? hot.map((e, i) => renderCard(e, i + 1)).join('') : '<p style="opacity:0.5">Aucune donnée</p>'}
+              </div>
+            </div>
+          </div>
+
+          ${falling.length > 0 ? `
+            <div style="margin-top:32px">
+              <h3 style="font-size:18px;margin-bottom:14px">📉 En baisse d'intérêt (7j)</h3>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">
+                ${falling.map((e, i) => renderCard(e, i + 1)).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <details class="explainer-collapsible" style="margin-top:24px;padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+            <summary style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
+              <span>💡</span>
+              <span>Comment interpréter ces données ?</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+            </summary>
+            <div style="padding:14px 4px 4px 28px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+              Google Trends mesure l'intérêt de recherche relatif sur une échelle de 0 à 100 (100 = pic de la période). Un pic soudain d'intérêt précède souvent un mouvement de prix, surtout sur les small caps. Attention : l'intérêt peut aussi résulter d'une news négative — vérifie toujours le contexte avec l'analyse complète.
+            </div>
+          </details>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    // Stocke le ticker + range courant pour le period selector sur le chart
+    let currentStockTicker = null;
+    let currentChartRange = '1y';
+    // Cache la derniere reponse API pour permettre un re-render sans refetch
+    // (utilise par le listener kairos:langchange ci-dessous pour traduire la
+    // page Decode a stock quand l'utilisateur switche FR<->EN sans avoir a
+    // re-fetch /api/stock/:ticker).
+    let currentStockData = null;
+
+    // Change la periode du chart SANS re-rendre toute la page Analyse Action.
+    // Fetch uniquement /api/stock avec nouveau range, rebuild le chart via
+    // window._rebuildStockPriceChart (closure defini dans renderStockAnalysis),
+    // puis re-injecte les markers fonds offensifs.
+    async function changeChartRange(range) {
+      if (!currentStockTicker) return;
+      currentChartRange = range;
+      // Update visual state des boutons
+      document.querySelectorAll('.chart-range-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.range === range);
+      });
+      // Fade subtil du canvas chart le temps du fetch
+      const canvas = document.getElementById('stockPriceChart');
+      if (canvas) {
+        canvas.style.transition = 'opacity 0.15s';
+        canvas.style.opacity = '0.4';
+      }
+      try {
+        const data = await apiFetch(`/api/stock/${encodeURIComponent(currentStockTicker)}?range=${encodeURIComponent(range)}`);
+        if (data && data.chart && typeof window._rebuildStockPriceChart === 'function') {
+          window._rebuildStockPriceChart(data);
+          // Re-ajoute les markers fonds offensifs (le rebuild reset les datasets)
+          loadActivistsForTicker(currentStockTicker).catch(() => {});
+        }
+      } catch (e) {
+        console.error('changeChartRange error:', e);
+      } finally {
+        if (canvas) canvas.style.opacity = '1';
+      }
+    }
+
+    // Quota Free : 3 analyses / jour. Permet au user gratuit de tester
+    // le vrai Kairos Score, pas une 'vue tronquée'. Trial-like.
+    // Stockage : kairos_free_analyses = JSON { date: 'YYYY-MM-DD', tickers: [...], count: N }
+    // (on stocke les tickers deja analyses → permet de re-consulter un ticker
+    //  deja analyse aujourd'hui sans decrementer le quota).
+    const FREE_DAILY_QUOTA = 3;
+    function getFreeQuotaState() {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const raw = localStorage.getItem('kairos_free_analyses');
+        if (!raw) return { date: today, tickers: [], count: 0 };
+        const parsed = JSON.parse(raw);
+        if (parsed.date !== today) return { date: today, tickers: [], count: 0 }; // reset quotidien
+        return { date: today, tickers: parsed.tickers || [], count: parsed.count || 0 };
+      } catch (e) {
+        return { date: new Date().toISOString().slice(0, 10), tickers: [], count: 0 };
+      }
+    }
+    function recordFreeAnalysis(ticker) {
+      const state = getFreeQuotaState();
+      if (!state.tickers.includes(ticker)) {
+        state.tickers.push(ticker);
+        state.count = state.tickers.length;
+      }
+      try { localStorage.setItem('kairos_free_analyses', JSON.stringify(state)); } catch (e) {}
+      return state;
+    }
+    function freeQuotaRemaining() {
+      return Math.max(0, FREE_DAILY_QUOTA - getFreeQuotaState().count);
+    }
+
+    async function loadStockAnalysis(ticker, chartRange, opts = {}) {
+      ticker = ticker.toUpperCase().trim();
+      currentStockTicker = ticker;
+      if (chartRange) currentChartRange = chartRange;
+      const body = document.getElementById('stockAnalysisBody');
+      const input = document.getElementById('stockSearchInput');
+      const suggest = document.getElementById('stockSearchSuggest');
+      if (input) input.value = ticker;
+      if (suggest) suggest.style.display = 'none';
+
+      // === HISTORY NAVIGATION : push state avec le ticker ===
+      // L'URL devient #stockAnalysis?t=AAPL pour permettre back/forward et
+      // partage de lien direct vers une analyse specifique.
+      if (!opts.silent && typeof window !== 'undefined' && window.history) {
+        const targetHash = `#stockAnalysis?t=${encodeURIComponent(ticker)}`;
+        if (window.location.hash !== targetHash) {
+          try {
+            window.history.pushState({ section: 'stockAnalysis', ticker }, '', targetHash);
+          } catch (e) {}
+        }
+      }
+
+      // Gate Free : quota 3 analyses/jour. Les premium (Pro/Elite) passent.
+      if (!isPremium) {
+        const state = getFreeQuotaState();
+        // Autorise si : ticker deja analyse aujourd'hui OU quota pas atteint
+        if (!state.tickers.includes(ticker) && state.count >= FREE_DAILY_QUOTA) {
+          body.innerHTML = `
+            <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
+              <div style="font-size:48px;margin-bottom:12px">🔒</div>
+              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
+              <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
+              </div>
+              <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.<br>Compteur remis à zéro chaque jour à minuit.</div>
+            </div>`;
+          return;
+        }
+        // Enregistre le ticker (idempotent : n'augmente pas si deja dans la liste)
+        recordFreeAnalysis(ticker);
+        renderFreeQuotaBanner(); // met a jour le bandeau quota avec le nouveau count
+      }
+
+      renderStockLoader(body, ticker);
+      const startedAt = Date.now();
+
+      try {
+        const rangeQS = currentChartRange && currentChartRange !== '1y' ? `?range=${encodeURIComponent(currentChartRange)}` : '';
+        const data = await apiFetch(`/api/stock/${encodeURIComponent(ticker)}${rangeQS}`);
+        finishStockLoader();
+        // Petit delai pour laisser la barre se remplir joliment si c'etait ultra rapide (cache)
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 400) await new Promise(r => setTimeout(r, 400 - elapsed));
+        currentStockData = data;  // cache pour re-render sur kairos:langchange
+        renderStockAnalysis(data);
+        // Charge l'historique D1 en parallele (non-bloquant pour le rendu principal)
+        loadEtfHistoryFor(ticker).catch(() => {});
+        // Charge les filings 13D/G recents sur ce ticker (banner + markers chart)
+        loadActivistsForTicker(ticker).catch(() => {});
+        // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta score.
+        // FIX (mai 2026) : on passe le score LIVE (data.score.total) pour aligner
+        // l'affichage du widget avec le radar/score affiche en haut de page.
+        // Sans ca : radar montrait 38 (live) et widget montrait 42 (snapshot D1
+        // d'hier), creant une incoherence visible pour l'utilisateur.
+        const liveScoreTotal = data && data.score && typeof data.score.total === 'number' ? data.score.total : null;
+        const liveBreakdown = data && data.score && data.score.breakdown ? data.score.breakdown : null;
+        loadTickerActivity(ticker, 7, liveScoreTotal, liveBreakdown).catch(() => {});
+      } catch (e) {
+        clearStockLoader();
+        // Cas special : backend dit 'FREE_QUOTA_EXCEEDED' → on affiche
+        // l'ecran quota avec les vrais chiffres du backend + on sync le
+        // localStorage pour que le bandeau soit correct.
+        if (e.code === 'FREE_QUOTA_EXCEEDED' && e.quotaData) {
+          const qd = e.quotaData;
+          try {
+            const today = new Date().toISOString().slice(0, 10);
+            localStorage.setItem('kairos_free_analyses', JSON.stringify({
+              date: today, tickers: qd.analyzedToday || [], count: qd.quotaUsed || FREE_DAILY_QUOTA,
+            }));
+          } catch (ex) {}
+          body.innerHTML = `
+            <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
+              <div style="font-size:48px;margin-bottom:12px">🔒</div>
+              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${qd.quotaMax || FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
+              <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
+              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${qd.analyzedToday.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.</div>` : ''}
+            </div>`;
+          renderFreeQuotaBanner();
+          return;
+        }
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    // ============================================================
+    // Activists : "ce ticker a X filings 13D/G recents" (injecte en haut du hero)
+    // ============================================================
+    async function loadActivistsForTicker(ticker) {
+      if (!ticker) return;
+      try {
+        const res = await apiFetch(`/api/13dg/ticker?ticker=${encodeURIComponent(ticker)}`);
+        if (!res || !res.total || res.total === 0) return;
+        const body = document.getElementById('stockAnalysisBody');
+        if (!body) return;
+
+        // Cherche/cree le slot JUSTE APRES le chart de cours (card principale
+        // de la fiche action). L'utilisateur voit d'abord le graphique, puis
+        // les gros actionnaires detectes — ordre plus logique que de mettre
+        // les filings tout en haut apres le score.
+        let slot = document.getElementById('activistBannerSlot');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.id = 'activistBannerSlot';
+          slot.style.cssText = 'margin:0 0 24px';
+          const chartCard = body.querySelector('#stockChartCard');
+          const scoreCard = body.querySelector('.kairos-score-card');
+          const anchor = chartCard || scoreCard || body.firstElementChild;
+          if (anchor && anchor.nextSibling) anchor.parentNode.insertBefore(slot, anchor.nextSibling);
+          else if (anchor) anchor.parentNode.appendChild(slot);
+          else body.appendChild(slot);
+        }
+
+        const isActivist = res.hasActivist;
+        const color = isActivist ? '#F59E0B' : '#10B981';
+        const bgGrad = isActivist
+          ? 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(236,72,153,0.06))'
+          : 'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.04))';
+        const borderColor = isActivist ? 'rgba(245,158,11,0.32)' : 'rgba(16,185,129,0.25)';
+        const title = isActivist
+          ? `⚡ Fonds offensif détecté sur ${escapeHtmlClient(ticker)}`
+          : `Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
+        const subtitle = isActivist
+          ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · <strong style="color:#F59E0B">${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}</strong>`
+          : `${res.total} déclaration${res.total > 1 ? 's' : ''} > 5% du capital`;
+
+        const fmtLongD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+
+        // Badge de forme en pill colorée (13D/13D-A offensif / 13G/13G-A passif)
+        const formBadgeHtml = (form) => {
+          if (!form) return '';
+          if (/13D\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D/A</span>';
+          if (/13D/.test(form))   return '<span style="padding:3px 10px;background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.35);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D</span>';
+          if (/13G\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(107,114,128,0.15);color:#9CA3AF;border:1px solid rgba(107,114,128,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13G/A</span>';
+          if (/13G/.test(form))   return '<span style="padding:3px 10px;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13G</span>';
+          return `<span style="padding:3px 10px;background:var(--surface-2);color:var(--text-muted);border-radius:100px;font-size:10px">${escapeHtmlClient(form)}</span>`;
+        };
+        // Description lisible de la forme (pour enrichir la ligne)
+        const formDesc = (form) => {
+          if (!form) return '';
+          if (/13D\/A/.test(form)) return 'Mise à jour position offensive';
+          if (/13D/.test(form))   return 'Nouvelle prise offensive >5%';
+          if (/13G\/A/.test(form)) return 'Mise à jour position passive';
+          if (/13G/.test(form))   return 'Nouvelle prise passive >5%';
+          return '';
+        };
+
+        // Formatters pour les infos d'ownership (parfois absentes si l'enrichissement
+        // XML n'a pas pu parser le filing — on affiche ce qu'on a).
+        const fmtShares = (n) => {
+          if (n == null) return null;
+          if (n >= 1e9) return (n / 1e9).toFixed(1).replace('.0', '') + 'B';
+          if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M';
+          if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+          return String(Math.round(n));
+        };
+        const fmtUsdShort = (n) => {
+          if (n == null) return null;
+          if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+          if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+          if (n >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+          return '$' + Math.round(n);
+        };
+
+        const top3 = res.filings.slice(0, 3).map(f => {
+          const filerName = f.filerName || 'Investisseur non résolu';
+          const initials = (f.filerName || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('') || '?';
+          const avatarBg = f.isActivist
+            ? 'linear-gradient(135deg,#EF4444,#F59E0B)'
+            : 'linear-gradient(135deg,#10B981,#059669)';
+          const activistTag = f.isActivist
+            ? `<span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:100px;font-size:9px;font-weight:700;letter-spacing:0.05em;margin-left:8px;vertical-align:middle">OFFENSIF</span>`
+            : '';
+
+          // Infos d'ownership enrichies (depuis le XML primary_doc parse cote pipeline)
+          const pctStr = f.percentOfClass != null ? `${f.percentOfClass.toFixed(1)}%` : null;
+          const sharesStr = f.sharesOwned != null ? fmtShares(f.sharesOwned) : null;
+          const priceStr = f.purchasePriceApprox != null ? fmtUsdShort(f.purchasePriceApprox) : null;
+          const ownershipChips = [];
+          if (pctStr) ownershipChips.push(`<span style="padding:2px 8px;background:rgba(59,130,246,0.14);color:#60A5FA;border:1px solid rgba(59,130,246,0.28);border-radius:100px;font-size:10px;font-weight:700">${pctStr} du capital</span>`);
+          if (sharesStr) ownershipChips.push(`<span style="padding:2px 8px;background:var(--surface-3);color:var(--text-primary);border:1px solid var(--border);border-radius:100px;font-size:10px;font-weight:600">${sharesStr} titres</span>`);
+          if (priceStr) ownershipChips.push(`<span style="padding:2px 8px;background:rgba(16,185,129,0.14);color:#34D399;border:1px solid rgba(16,185,129,0.28);border-radius:100px;font-size:10px;font-weight:600">~${priceStr} invest.</span>`);
+          const ownershipRow = ownershipChips.length
+            ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${ownershipChips.join('')}</div>`
+            : '';
+
+          // Lien vers le filing complet sur SEC EDGAR. Utile surtout quand
+          // l'enrichissement XML n'a pas tourne (pas de shares/percent) : l'user
+          // peut voir les details directement a la source.
+          const filerCikClean = (f.filerCik || '').replace(/^0+/, '') || (f.targetCik || '').replace(/^0+/, '');
+          const accessionClean = (f.accession || '').replace(/-/g, '');
+          const secUrl = (filerCikClean && accessionClean)
+            ? `https://www.sec.gov/Archives/edgar/data/${filerCikClean}/${accessionClean}/`
+            : (f.targetCik ? `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${(f.targetCik || '').replace(/^0+/, '')}&type=SC&dateb=&owner=include&count=40` : '');
+          const secLink = secUrl
+            ? `<a href="${secUrl}" target="_blank" rel="noopener noreferrer" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-left:auto;flex-shrink:0;transition:all 0.15s" onmouseover="this.style.color='var(--accent-blue)';this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'" title="Voir le filing complet sur SEC EDGAR">SEC ↗</a>`
+            : '';
+
+          return `
+            <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;align-items:flex-start;gap:12px">
+              <div style="width:34px;height:34px;border-radius:50%;background:${avatarBg};color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-0.3px;box-shadow:0 0 12px ${f.isActivist ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}">${escapeHtmlClient(initials)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;color:var(--text-primary);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span style="word-break:break-word">${escapeHtmlClient(filerName)}</span>
+                  ${activistTag}
+                  <span style="flex-shrink:0;margin-left:auto;display:flex;align-items:center;gap:6px">${formBadgeHtml(f.form)}${secLink}</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:3px">${formDesc(f.form)} · ${fmtLongD(f.fileDate)}</div>
+                ${ownershipRow}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        slot.innerHTML = `
+          <div style="padding:18px 20px;background:${bgGrad};border:1px solid ${borderColor};border-radius:12px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+              <strong style="color:${color};font-size:15px">${title}</strong>
+              <span style="font-size:12px;color:var(--text-muted)">${subtitle}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.5">
+              ${isActivist
+                ? 'Un <strong>fonds offensif</strong> (activist investor) détient >5% du capital et va pousser pour des changements stratégiques. Ces catalyseurs font souvent monter le cours à court-moyen terme.'
+                : 'Gros investisseurs institutionnels détenant >5% du capital en déclaration passive (type Vanguard, BlackRock).'}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${top3}
+            </div>
+            ${res.total > 3 ? `<div style="margin-top:12px;text-align:right"><a href="#" onclick="switchSection('activists'); setTimeout(()=>{ document.getElementById('actTicker').value='${escapeHtmlClient(ticker)}'; loadActivists(); }, 150); return false" style="color:${color};font-size:12px;font-weight:600;text-decoration:none">Voir les ${res.total} déclarations →</a></div>` : ''}
+          </div>
+        `;
+
+        // Ajoute les markers fonds offensifs sur le chart prix (en dynamique,
+        // apres que le chart principal ait ete cree par renderStockAnalysis)
+        addActivistMarkersToChart(res.filings);
+      } catch (e) {
+        // silent fail - donnees 13dg peuvent ne pas etre encore loaded en KV
+      }
+    }
+
+    // ============================================================
+    // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta Kairos Score
+    // ============================================================
+    async function loadTickerActivity(ticker, days = 7, liveScoreTotal = null, liveBreakdown = null) {
+      if (!ticker) return;
+      try {
+        const data = await apiFetch(`/api/history/ticker-activity?ticker=${encodeURIComponent(ticker)}&days=${days}`);
+        if (!data || data.error) return;
+
+        // FIX coherence (mai 2026) : si on a recu le score LIVE depuis le radar,
+        // on l'utilise comme valeur 'now' au lieu du snapshot D1 d'hier soir.
+        // Recalcule aussi delta + contributions pour rester coherent.
+        // Mapping snake_case D1 -> camelCase live breakdown :
+        const D1_TO_LIVE_KEY = {
+          insider: 'insider', smart_money: 'smartMoney', gov_guru: 'govGuru',
+          momentum: 'momentum', valuation: 'valuation', analyst: 'analyst',
+          health: 'health', earnings: 'earnings',
+        };
+        if (liveScoreTotal != null && data.score && data.score.previous != null) {
+          const prevScore = data.score.previous;
+          data.score.now = liveScoreTotal;
+          data.score.delta = liveScoreTotal - prevScore;
+          // Recalcule les contributions par axe : (live sub-score) - (D1 prev sub-score)
+          // FIX (mai 2026 / IVU) : on filtre les piliers avec dataOk=false côté live
+          // pour eviter les "phantom rises" — quand les donnees insiders/13F/etc.
+          // disparaissent du lookback, le sub-score retombe au neutre (10) ce qui
+          // cree un faux signal positif si l'ancien score etait bas (ex: IVU
+          // insider 4 -> 10 alors qu'il n'y a aucun nouveau buy, juste les sells
+          // qui sortent de la fenetre 90j). Avec dataOk=false on cache le delta.
+          if (liveBreakdown && Array.isArray(data.score.contributions)) {
+            data.score.contributions = data.score.contributions.map(c => {
+              const liveKey = D1_TO_LIVE_KEY[c.key];
+              const liveAxis = liveKey ? liveBreakdown[liveKey] : null;
+              const liveSub = (liveAxis && typeof liveAxis.score === 'number') ? liveAxis.score : null;
+              if (liveSub == null || c.previous == null) return c;
+              // Si la donnee live est manquante (dataOk=false), on ne peut pas
+              // calculer un delta fiable -> on neutralise (delta=0) pour l'exclure
+              // du tri et du resume "Cette hausse vient principalement de...".
+              if (liveAxis && liveAxis.dataOk === false) {
+                return { ...c, now: liveSub, delta: 0, dataOk: false };
+              }
+              const newDelta = Number((liveSub - c.previous).toFixed(2));
+              return { ...c, now: liveSub, delta: newDelta, dataOk: true };
+            }).filter(c => Math.abs(c.delta) >= 0.1)
+              .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+          }
+        }
+
+        const hasScore = data.score && data.score.delta !== null;
+        const hasEtf = data.etfChanges && data.etfChanges.length > 0;
+        const hasInsider = data.insiderTrades && data.insiderTrades.length > 0;
+        if (!hasScore && !hasEtf && !hasInsider) return; // rien à afficher
+
+        const body = document.getElementById('stockAnalysisBody');
+        if (!body) return;
+
+        let slot = document.getElementById('recentActivitySlot');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.id = 'recentActivitySlot';
+          slot.style.cssText = 'margin:0 0 24px';
+          // Insère APRÈS le slot activist (ou la kairos-score-card si pas d'activist)
+          const activistSlot = document.getElementById('activistBannerSlot');
+          const scoreCard = body.querySelector('.kairos-score-card');
+          const anchor = activistSlot || scoreCard;
+          if (anchor) {
+            if (anchor.nextSibling) anchor.parentNode.insertBefore(slot, anchor.nextSibling);
+            else anchor.parentNode.appendChild(slot);
+          } else {
+            body.appendChild(slot);
+          }
+        }
+
+        // Helpers
+        const fmtShares = (n) => {
+          if (n == null) return '—';
+          if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+          if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+          if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+          return String(Math.round(n));
+        };
+        const fmtUsd = (n) => {
+          if (n == null) return '';
+          if (Math.abs(n) >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+          if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+          if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+          return '$' + Math.round(n);
+        };
+        const fmtD = (d) => {
+          if (!d) return '';
+          try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+        };
+
+        // Score delta card avec BREAKDOWN explicatif (mai 2026)
+        // Quand le score change, on affiche les 3 dimensions qui ont le plus
+        // contribue (positivement ou negativement) pour expliquer la variation.
+        let scoreHTML = '';
+        if (hasScore) {
+          const delta = data.score.delta;
+          const deltaColor = delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : '#9CA3AF';
+          const deltaArrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+          const deltaSign = delta > 0 ? '+' : '';
+
+          // Breakdown : top 3 dimensions par |delta|, avec narratif et liste
+          let breakdownHTML = '';
+          const contribs = Array.isArray(data.score.contributions) ? data.score.contributions : [];
+          if (contribs.length > 0) {
+            const top3 = contribs.slice(0, 3);
+            // Narratif court : "Variation portee par X (-5pt), Y (-3pt) et Z (+1pt)"
+            // FIX (mai 2026 / LBTY) : on separe drivers (meme sens que le total)
+            // et offsetters (sens inverse) pour eviter le texte incoherent
+            // "Cette baisse vient principalement de Momentum (+2pt)" quand les
+            // vraies dimensions baissieres sont absentes/masquees.
+            const direction = delta > 0 ? 'hausse' : 'baisse';
+            const expectedSign = delta > 0 ? 1 : -1;
+            const renderPiece = c => {
+              const sign = c.delta > 0 ? '+' : '';
+              const col = c.delta > 0 ? '#10B981' : c.delta < 0 ? '#EF4444' : '#9CA3AF';
+              return `<strong style="color:${col}">${c.label}</strong> (${sign}${c.delta}pt)`;
+            };
+            const drivers = contribs.filter(c => Math.sign(c.delta) === expectedSign).slice(0, 3);
+            const offsetters = contribs.filter(c => Math.sign(c.delta) === -expectedSign).slice(0, 2);
+            let narr = '';
+            if (drivers.length > 0) {
+              const driverPieces = drivers.map(renderPiece);
+              narr = drivers.length === 1
+                ? `Cette ${direction} vient principalement de ${driverPieces[0]}.`
+                : `Cette ${direction} vient principalement de ${driverPieces.slice(0, -1).join(', ')} et ${driverPieces[driverPieces.length - 1]}.`;
+              if (offsetters.length > 0) {
+                const offsetPieces = offsetters.map(renderPiece);
+                narr += ` Partiellement compensée par ${offsetPieces.join(', ')}.`;
+              }
+            } else if (offsetters.length > 0) {
+              // Aucun driver dans le sens du total : variations mixtes contradictoires.
+              // Probable cumul de micro-variations + erreurs d'arrondi cote D1.
+              const offsetPieces = offsetters.map(renderPiece);
+              narr = `Variation contre-intuitive : seules ${offsetPieces.join(', ')} ressortent (sens inverse du total).`;
+            }
+
+            // Petite liste detaillee : barres horizontales par dimension
+            const maxAbs = Math.max(...contribs.map(c => Math.abs(c.delta)), 1);
+            const rowsHTML = top3.map(c => {
+              const isPos = c.delta > 0;
+              const col = isPos ? '#10B981' : '#EF4444';
+              const widthPct = Math.min(100, (Math.abs(c.delta) / maxAbs) * 100);
+              const sign = isPos ? '+' : '';
+              return `
+                <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px">
+                  <div style="width:130px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.label}">${c.label}</div>
+                  <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;position:relative">
+                    <div style="height:100%;width:${widthPct.toFixed(1)}%;background:${col};border-radius:3px"></div>
+                  </div>
+                  <div style="width:60px;text-align:right;color:${col};font-weight:700">${sign}${c.delta}pt</div>
+                </div>
+              `;
+            }).join('');
+
+            breakdownHTML = `
+              <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--divider)">
+                <div style="font-size:11px;color:var(--text-secondary);line-height:1.55;margin-bottom:8px">
+                  💡 ${narr}
+                </div>
+                <div>${rowsHTML}</div>
+              </div>`;
+          }
+
+          scoreHTML = `
+            <div class="activity-card">
+              <div class="activity-card-label">📊 Kairos Score</div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
+                <div style="font-size:28px;font-weight:800;color:var(--text-primary)">${data.score.now}</div>
+                <div style="font-size:12px;color:var(--text-muted)">/100</div>
+                <div style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:${deltaColor}22;color:${deltaColor};border-radius:100px;font-size:12px;font-weight:700">
+                  ${deltaArrow} ${deltaSign}${delta}pt
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">vs ${fmtD(data.score.datePrevious)} (${data.score.previous}/100)</div>
+              ${breakdownHTML}
+            </div>`;
+        }
+
+        // ETF changes card
+        let etfHTML = '';
+        if (hasEtf) {
+          const top = data.etfChanges.slice(0, 5);
+          // Format compact de la date (ex: "3 avr."). Pour 'new' = date d'entree,
+          // 'exit' = date de derniere presence avant sortie, 'increased'/'decreased'
+          // = date du snapshot le plus recent (pas de date precise de transition).
+          const fmtEventDate = (iso) => {
+            if (!iso) return '';
+            try { return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+            catch { return iso; }
+          };
+          const rows = top.map(e => {
+            const statusIcon = e.status === 'new' ? '🆕' : e.status === 'exit' ? '❌' : e.status === 'increased' ? '📈' : '📉';
+            const statusColor = e.status === 'new' || e.status === 'increased' ? '#10B981' : '#EF4444';
+            const deltaText = e.status === 'new'
+              ? `entrée ${e.currWeight.toFixed(2)}%`
+              : e.status === 'exit'
+              ? `sorti (était ${e.prevWeight.toFixed(2)}%)`
+              : `${e.delta > 0 ? '+' : ''}${e.delta.toFixed(2)}pt (${e.prevWeight.toFixed(2)}% → ${e.currWeight.toFixed(2)}%)`;
+            const dateLabel = fmtEventDate(e.eventDate);
+            const dateTooltip = e.status === 'new' ? 'Date d\'entrée dans l\'ETF'
+                              : e.status === 'exit' ? 'Dernière date où le ticker était encore dans l\'ETF'
+                              : 'Date du dernier snapshot observé';
+            const dateChip = dateLabel
+              ? `<span title="${dateTooltip}" style="font-size:10px;color:var(--text-muted);margin-left:8px;padding:1px 6px;border:1px solid var(--border);border-radius:6px;white-space:nowrap">${dateLabel}</span>`
+              : '';
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
+                <div><span style="margin-right:6px">${statusIcon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient(e.etf)}</strong></div>
+                <div style="display:flex;align-items:center;justify-content:flex-end">
+                  <span style="color:${statusColor};font-weight:600">${deltaText}</span>
+                  ${dateChip}
+                </div>
+              </div>`;
+          }).join('');
+          etfHTML = `
+            <div class="activity-card" style="flex:1.4">
+              <div class="activity-card-label">💼 ETF (${data.etfChanges.length} mouvement${data.etfChanges.length > 1 ? 's' : ''})</div>
+              <div style="margin-top:6px">${rows}</div>
+            </div>`;
+        }
+
+        // Insider trades card
+        let insiderHTML = '';
+        if (hasInsider) {
+          const buys = data.insiderTrades.filter(t => t.type === 'buy').length;
+          const sells = data.insiderTrades.filter(t => t.type === 'sell').length;
+          const top = data.insiderTrades.slice(0, 4);
+          const rows = top.map(t => {
+            const isBuy = t.type === 'buy';
+            const color = isBuy ? '#10B981' : t.type === 'sell' ? '#EF4444' : '#9CA3AF';
+            const icon = isBuy ? '🟢' : t.type === 'sell' ? '🔴' : '⚪';
+            return `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">
+                  <span style="margin-right:5px">${icon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient((t.filer || '').slice(0, 24))}</strong>
+                  ${t.role ? `<span style="color:var(--text-muted);font-size:10px;margin-left:4px">${escapeHtmlClient(t.role.slice(0, 12))}</span>` : ''}
+                </div>
+                <div style="color:${color};font-weight:600;flex-shrink:0;text-align:right">
+                  <div>${fmtShares(t.shares)} sh${t.value ? ' · ' + fmtUsd(t.value) : ''}</div>
+                  <div style="font-size:10px;opacity:0.7">${fmtD(t.date)}</div>
+                </div>
+              </div>`;
+          }).join('');
+          insiderHTML = `
+            <div class="activity-card" style="flex:1.4">
+              <div class="activity-card-label">🕴️ Insiders (${buys ? buys + ' 🟢' : ''}${buys && sells ? ' / ' : ''}${sells ? sells + ' 🔴' : ''}${!buys && !sells ? data.insiderTrades.length : ''})</div>
+              <div style="margin-top:6px">${rows}</div>
+            </div>`;
+        }
+
+        slot.innerHTML = `
+          <style>
+            .activity-widget-wrap {
+              background: linear-gradient(135deg, rgba(139,92,246,0.06), rgba(59,130,246,0.03));
+              border: 1px solid rgba(139,92,246,0.22);
+              border-radius: 14px;
+              padding: 18px 20px;
+            }
+            .activity-widget-title {
+              display:flex; align-items:center; gap:8px;
+              font-size:14px; color: var(--text-primary); font-weight:700;
+              margin-bottom:14px;
+            }
+            .activity-widget-title .pill {
+              font-size:10px; padding:2px 8px; border-radius:10px;
+              background: rgba(139,92,246,0.18); color: #A78BFA; font-weight:600;
+            }
+            .activity-cards { display:flex; gap:12px; flex-wrap:wrap; }
+            .activity-card {
+              flex: 1; min-width: 220px;
+              background: var(--surface-1);
+              border: 1px solid var(--border);
+              border-radius: 10px; padding: 12px 14px;
+            }
+            .activity-card-label {
+              font-size: 11px; color: var(--text-muted);
+              text-transform: uppercase; letter-spacing: 0.04em; font-weight:600;
+            }
+          </style>
+          <div class="activity-widget-wrap">
+            <div class="activity-widget-title">
+              📍 Activité récente <span class="pill">${data.days} derniers jours</span>
+            </div>
+            <div class="activity-cards">${scoreHTML}${etfHTML}${insiderHTML}</div>
+          </div>`;
+      } catch (e) {
+        // silent fail — widget non bloquant
+        console.warn('[ticker-activity]', e);
+      }
+    }
+
+    // Ajoute une dataset supplementaire au stockChart : markers pour chaque filing 13D/G
+    function addActivistMarkersToChart(filings) {
+      if (!stockChart || !filings || !filings.length) return;
+      const labels = stockChart.data.labels || [];
+      const priceData = stockChart.data.datasets[0]?.data;
+      if (!labels.length || !priceData) return;
+
+      // Retire dataset activist existant (si rechargement)
+      stockChart.data.datasets = stockChart.data.datasets.filter(ds => ds.label !== 'Fonds offensifs');
+
+      const overlay = new Array(labels.length).fill(null);
+      const meta = new Array(labels.length).fill(null);
+      const radii = new Array(labels.length).fill(0);
+
+      // Index rapide date -> position
+      const byDate = new Map();
+      labels.forEach((d, i) => byDate.set(d, i));
+      const firstDate = labels[0];
+      const lastDate = labels[labels.length - 1];
+
+      filings.forEach(f => {
+        if (!f.fileDate) return;
+        let idx = byDate.get(f.fileDate);
+        if (idx === undefined) {
+          // Date non-trouvee : cherche la premiere date >= target (souvent filings
+          // tombent sur weekends qui ne sont pas dans le chart daily).
+          if (f.fileDate < firstDate || f.fileDate > lastDate) return;
+          for (let i = 0; i < labels.length; i++) {
+            if (labels[i] >= f.fileDate) { idx = i; break; }
+          }
+          if (idx === undefined) return;
+        }
+        const y = priceData[idx];
+        if (y == null) return;
+        // Radius : plus gros pour les activists que les 13G passifs
+        const r = f.isActivist ? 9 : 6;
+        // Empiler : si plusieurs filings meme date, garder le plus important
+        if (r > radii[idx]) {
+          overlay[idx] = y;
+          radii[idx] = r;
+          meta[idx] = {
+            filerName: f.filerName,
+            form: f.form,
+            date: f.fileDate,
+            isActivist: f.isActivist,
+            percentOfClass: f.percentOfClass,
+            sharesOwned: f.sharesOwned,
+            purchasePriceApprox: f.purchasePriceApprox,
+            count: (meta[idx]?.count || 0) + 1,
+          };
+        } else if (meta[idx]) {
+          meta[idx].count = (meta[idx].count || 1) + 1;
+        }
+      });
+
+      const hasMarkers = overlay.some(v => v !== null);
+      if (!hasMarkers) return;
+
+      stockChart.data.datasets.push({
+        label: 'Fonds offensifs',
+        data: overlay,
+        _meta: meta,
+        // pointStyle 'star' est dessine en ligne (borderColor fait la couleur).
+        // On utilise jaune vibrant pour matcher la legende et bien ressortir.
+        borderColor: '#FACC15',          // yellow-400
+        backgroundColor: '#FACC15',
+        pointBorderColor: '#FACC15',
+        pointBorderWidth: 2.5,            // plus epais pour visibilite
+        pointBackgroundColor: '#FACC15',
+        pointStyle: 'star',              // etoile 5 branches
+        pointRadius: radii,
+        pointHoverRadius: radii.map(r => r ? r + 3 : 0),
+        pointHoverBackgroundColor: '#FEF08A',   // yellow-200 lighter on hover
+        pointHoverBorderColor: '#FDE047',       // yellow-300 halo
+        pointHoverBorderWidth: 3.5,
+        showLine: false,
+        order: -1,  // au-dessus des autres markers
+      });
+      stockChart.update('none'); // animation:'none' pour update instantane
+    }
+
+    // ============================================================
+    // Historique ETF : "ce ticker apparait dans X ETF depuis Y jours"
+    // Affiche en bas de l'analyse action si data D1 dispo.
+    // ============================================================
+    async function loadEtfHistoryFor(ticker) {
+      try {
+        const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=180`);
+        if (!res || !res.etfs || res.etfs.length === 0) return;
+
+        // Cherche/cree le slot d'affichage juste après le hero ticker
+        const body = document.getElementById('stockAnalysisBody');
+        if (!body) return;
+        let slot = document.getElementById('etfHistorySlot');
+        if (!slot) {
+          slot = document.createElement('div');
+          slot.id = 'etfHistorySlot';
+          slot.style.cssText = 'margin-top:24px';
+          body.appendChild(slot);
+        }
+
+        const fmtD = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}); } catch { return s; } };
+        const totalEtfs = res.etfs.length;
+
+        slot.innerHTML = `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+              <div>
+                <h3 style="margin:0 0 4px;font-size:16px">📊 Présence dans les ETF suivis</h3>
+                <p style="margin:0;font-size:12px;opacity:0.6">${ticker} apparaît actuellement dans <strong style="color:var(--text-primary)">${totalEtfs} ETF</strong> sur les 180 derniers jours</p>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+              ${res.etfs.map(e => {
+                const points = e.series || [];
+                if (!points.length) return '';
+                const minW = Math.min(...points.map(p => p.weight));
+                const maxW = Math.max(...points.map(p => p.weight));
+                const trend = points.length > 1 ? (points[points.length-1].weight - points[0].weight) : 0;
+                const trendCol = trend > 0 ? '#2ecc71' : trend < 0 ? '#ff7675' : '#9CA3AF';
+                const trendIcon = trend > 0.05 ? '↗' : trend < -0.05 ? '↘' : '→';
+                // Sparkline SVG simple
+                const w = 200, h = 32;
+                const xStep = points.length > 1 ? w / (points.length - 1) : w;
+                const yMin = minW, yMax = maxW > minW ? maxW : minW + 0.01;
+                const path = points.map((p, i) => {
+                  const x = i * xStep;
+                  const y = h - ((p.weight - yMin) / (yMax - yMin)) * h;
+                  return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+                }).join(' ');
+                return `
+                  <div style="padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                      <strong style="font-size:13px;color:var(--accent-blue)">${e.symbol}</strong>
+                      <span style="font-size:11px;color:${trendCol};font-weight:600">${trendIcon} ${e.currentWeight.toFixed(2)}%</span>
+                    </div>
+                    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:32px">
+                      <path d="${path}" fill="none" stroke="${trendCol}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+                    </svg>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;opacity:0.5;margin-top:2px">
+                      <span>${fmtD(e.firstSeen)}</span>
+                      <span>Rang #${e.currentRank}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <p style="font-size:11px;opacity:0.5;margin:14px 0 0">
+              Évolution du poids de ${ticker} dans chaque ETF qui le détient. Les rotations rapides (entrées/sorties) sont des signaux de momentum.
+            </p>
+          </div>
+        `;
+      } catch (e) {
+        // Silencieux : si D1 vide ou route absente, on n'affiche rien (UX progressive)
+        console.debug('ETF history not available:', e.message || e);
+      }
+    }
+
+    // Copie l'URL publique de partage (SSR /a/:ticker) dans le presse-papier.
+    // Pointe vers la version SSR (HTML riche pre-rendu) plutot que action.html
+    // (SPA skeleton) pour que les partages sociaux + bots Google indexent la bonne URL.
+    async function shareStockAnalysis(ticker) {
+      if (!ticker) return;
+      const url = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
+      const label = document.getElementById(`shareBtnLabel-${ticker}`);
+      const reset = (txt) => { if (label) setTimeout(() => { label.textContent = txt; }, 2000); };
+      try {
+        // Web Share API (mobile) si dispo
+        if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+          await navigator.share({
+            title: `Analyse ${ticker} — Kairos Insider`,
+            text: `Kairos Score et analyse smart money de ${ticker}`,
+            url,
+          });
+          return;
+        }
+        await navigator.clipboard.writeText(url);
+        if (label) { label.textContent = t('stock.action.linkCopied', '✓ Lien copié !'); reset(t('stock.action.share', 'Partager')); }
+      } catch (e) {
+        // Fallback : prompt classique
+        window.prompt('Copie ce lien pour partager l\'analyse :', url);
+        if (label) { label.textContent = t('stock.action.share', 'Partager'); }
+      }
+    }
+
+    // ============================================================
+    // KAIROS SCORE - genere une synthese textuelle dynamique en
+    // identifiant les points forts (>= 70%), faibles (<= 30%) et
+    // une conclusion adaptee au signal global.
+    // Retourne du HTML (a injecter directement).
+    // ============================================================
+    function generateScoreNarrative(score, ticker, axesOrder, palette) {
+      const total = score?.total || 0;
+      const breakdown = score?.breakdown || {};
+      const tk = ticker || 'cette action';
+
+      // Classer les 8 axes par % de remplissage (score / max)
+      const ranked = axesOrder
+        .map(axis => {
+          const b = breakdown[axis.key];
+          if (!b || !b.max) return null;
+          return {
+            key: axis.key,
+            label: b.label || axis.label,
+            short: axis.short,
+            pct: b.score / b.max,
+            score: b.score,
+            max: b.max,
+            detail: b.detail || '',
+          };
+        })
+        .filter(Boolean);
+
+      if (ranked.length === 0) return '';
+
+      // Points forts (>= 70%) et faibles (<= 30%)
+      const strong = ranked.filter(a => a.pct >= 0.7).sort((a, b) => b.pct - a.pct);
+      const weak = ranked.filter(a => a.pct <= 0.3).sort((a, b) => a.pct - b.pct);
+      const moderate = ranked.filter(a => a.pct > 0.3 && a.pct < 0.7);
+
+      // Helpers pour le ton (positif/negatif selon le contexte)
+      const phraseStrong = (axes) => {
+        if (!axes.length) return '';
+        const n = axes.length;
+        const list = axes.slice(0, 3).map(a => `<strong style="color:${palette.label}">${a.label.toLowerCase()}</strong>`).join(', ');
+        const introKey = n >= 3 ? 'stock.synth.strongIntro3' : n === 2 ? 'stock.synth.strongIntro2' : 'stock.synth.strongIntro1';
+        const introFb  = n >= 3 ? 'Les signaux les plus forts viennent de' : n === 2 ? 'Deux dimensions ressortent particulièrement :' : 'Le signal le plus marqué vient de';
+        const intro = t(introKey, introFb);
+        const more = axes.length > 3
+          ? t('stock.synth.andOthers', ' et {n} autre{plural}').replace('{n}', axes.length - 3).replace('{plural}', axes.length - 3 > 1 ? 's' : '')
+          : '';
+        return `${intro} ${list}${more}.`;
+      };
+      const phraseWeak = (axes) => {
+        if (!axes.length) return '';
+        const n = axes.length;
+        const list = axes.slice(0, 3).map(a => `<strong style="color:#FBBF24">${a.label.toLowerCase()}</strong>`).join(', ');
+        const introKey = n >= 3 ? 'stock.synth.weakIntro3' : n === 2 ? 'stock.synth.weakIntro2' : 'stock.synth.weakIntro1';
+        const introFb  = n >= 3 ? 'En revanche, plusieurs faiblesses sont à noter :' : n === 2 ? 'Deux points faibles à surveiller :' : 'Un point faible à surveiller :';
+        const intro = t(introKey, introFb);
+        return `${intro} ${list}.`;
+      };
+
+      // Conclusion selon le score
+      const _conKey = total >= 75 ? 'stock.synth.veryFavorable'
+                    : total >= 60 ? 'stock.synth.positive'
+                    : total >= 40 ? 'stock.synth.mixed'
+                    : total >= 25 ? 'stock.synth.unfavorable'
+                    :               'stock.synth.veryUnfavorable';
+      const _conFb = total >= 75 ? "Le consensus smart money est <strong style=\"color:{color}\">très favorable</strong> sur {tk}. Plusieurs dimensions clés sont alignées dans le sens de l'achat."
+                   : total >= 60 ? 'Le profil global de {tk} est <strong style="color:{color}">positif</strong>, avec des signaux smart money majoritairement favorables.'
+                   : total >= 40 ? 'Le signal sur {tk} est <strong style="color:{color}">mitigé</strong>. Aucune tendance institutionnelle nette ne se dégage.'
+                   : total >= 25 ? 'Le profil global de {tk} est <strong style="color:{color}">défavorable</strong>. Plusieurs dimensions clés envoient des signaux négatifs.'
+                   :               'Les signaux smart money sont <strong style="color:{color}">très défavorables</strong> sur {tk}. La majorité des dimensions sont dans le rouge.';
+      const conclusion = t(_conKey, _conFb).replace('{color}', palette.main).replace('{tk}', tk);
+
+      // Cas particulier : tout neutre (ni fort ni faible)
+      if (strong.length === 0 && weak.length === 0) {
+        return `<p style="margin:0">${conclusion} ${t('stock.synth.neutral', 'Toutes les dimensions affichent des scores moyens (entre 30 et 70%) — pas de signal contrarié, mais pas de catalyseur fort non plus.')}</p>`;
+      }
+
+      // Construction de l'analyse en 2-3 phrases
+      const parts = [conclusion];
+      if (strong.length) parts.push(phraseStrong(strong));
+      if (weak.length) parts.push(phraseWeak(weak));
+
+      // Note conviction si insider OU smartMoney sont tres forts
+      const insiderAxis = ranked.find(a => a.key === 'insider');
+      const hfAxis = ranked.find(a => a.key === 'smartMoney');
+      let convictionNote = '';
+      if (insiderAxis && insiderAxis.pct >= 0.75 && hfAxis && hfAxis.pct >= 0.5) {
+        convictionNote = ` <em style="opacity:0.85">${t('stock.synth.convictionPositive', "À noter : forte activité d'achat des dirigeants combinée à un soutien institutionnel — un alignement souvent observé sur les retournements haussiers.")}</em>`;
+      } else if (insiderAxis && insiderAxis.pct <= 0.2) {
+        convictionNote = ` <em style="opacity:0.85">${t('stock.synth.convictionNegative', "À noter : les dirigeants vendent ou n'achètent pas, ce qui réduit la conviction interne.")}</em>`;
+      }
+
+      return `<p style="margin:0">${parts.join(' ')}${convictionNote}</p>`;
+    }
+
+    // ============================================================
+    // KAIROS SCORE - composant brande avec radar SVG 8 dimensions
+    // Genere la card complete (score global + radar + breakdown)
+    // ============================================================
+    function renderKairosScoreCard(score, ticker) {
+      _ensureKairosRadarAnim();
+      const total = score && typeof score.total === 'number' ? score.total : 0;
+      const tk = ticker || '';
+      // Palette de couleurs selon le score (continue)
+      const palette = total >= 75 ? { main: '#10B981', glow: 'rgba(16,185,129,0.35)', label: '#34D399', light: '#6EE7B7' }
+                    : total >= 60 ? { main: '#3B82F6', glow: 'rgba(59,130,246,0.35)', label: '#60A5FA', light: '#93C5FD' }
+                    : total >= 40 ? { main: '#8B5CF6', glow: 'rgba(139,92,246,0.30)', label: '#A78BFA', light: '#C4B5FD' }
+                    : total >= 25 ? { main: '#F59E0B', glow: 'rgba(245,158,11,0.30)', label: '#FBBF24', light: '#FCD34D' }
+                                  : { main: '#EF4444', glow: 'rgba(239,68,68,0.30)', label: '#F87171', light: '#FCA5A5' };
+
+      const _sigKey = total >= 75 ? 'stock.signal.strongBuy'
+                    : total >= 60 ? 'stock.signal.buy'
+                    : total >= 40 ? 'stock.signal.neutral'
+                    : total >= 25 ? 'stock.signal.sell'
+                    :               'stock.signal.strongSell';
+      const _sigFb  = total >= 75 ? 'ACHAT FORT' : total >= 60 ? 'ACHAT' : total >= 40 ? 'NEUTRE' : total >= 25 ? 'VENTE' : 'VENTE FORTE';
+      const signal = score?.signal || t(_sigKey, _sigFb);
+
+      // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
+      const axesOrder = [
+        { key: 'insider',    label: t('stock.axis.insider', 'Initiés'),       short: 'INS' },
+        { key: 'smartMoney', label: t('stock.axis.smartMoney', 'Hedge Funds'),short: 'HF'  },
+        { key: 'momentum',   label: t('stock.axis.momentum', 'Momentum'),     short: 'MOM' },
+        { key: 'earnings',   label: t('stock.axis.earnings', 'Résultats'),    short: 'EPS' },
+        { key: 'analyst',    label: t('stock.axis.analyst', 'Analystes'),     short: 'ANA' },
+        { key: 'valuation',  label: t('stock.axis.valuation', 'Valo'),        short: 'VAL' },
+        { key: 'health',     label: t('stock.axis.health', 'Santé'),          short: 'FIN' },
+        { key: 'govGuru',    label: t('stock.axis.govGuru', 'Politique'),     short: 'GOV' },
+      ];
+      const breakdown = score?.breakdown || {};
+
+      // Construction des points du polygon (percentage de remplissage par dimension)
+      // Radar centre (200, 200), rayon 150
+      const CX = 200, CY = 200, R = 150;
+      const N = axesOrder.length;
+      const points = [];
+      const gridPoints = []; // max values per axis pour les lignes grises
+      axesOrder.forEach((axis, i) => {
+        const angle = (-Math.PI / 2) + (i * 2 * Math.PI / N);  // top puis clockwise
+        const b = breakdown[axis.key];
+        const pctFill = (b && b.max > 0) ? (b.score / b.max) : 0;
+        const r = R * Math.max(0.05, Math.min(1, pctFill));  // floor a 5% pour etre visible
+        const x = CX + r * Math.cos(angle);
+        const y = CY + r * Math.sin(angle);
+        points.push({ x, y, pctFill, axis, angle, score: b?.score || 0, max: b?.max || 0, label: b?.label || axis.label, detail: b?.detail || '' });
+        gridPoints.push({ x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle), angle, axis });
+      });
+
+      // Polygon des points (fill polygon)
+      const polyPath = points.map(p => `${p.x},${p.y}`).join(' ');
+      // Polygon outer (100% = max)
+      const polyOuter = gridPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+      // Anneaux concentriques (25%, 50%, 75%, 100%)
+      const rings = [0.25, 0.5, 0.75, 1.0].map(frac => {
+        const pts = gridPoints.map(p => {
+          const x = CX + (R * frac) * Math.cos(p.angle);
+          const y = CY + (R * frac) * Math.sin(p.angle);
+          return `${x},${y}`;
+        }).join(' ');
+        return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+      }).join('');
+
+      // Axes (8 rayons)
+      const axes = gridPoints.map(p => `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`).join('');
+
+      // Labels autour
+      const labels = points.map(p => {
+        const r = R + 28;
+        const x = CX + r * Math.cos(p.angle);
+        const y = CY + r * Math.sin(p.angle);
+        const anchor = p.angle > Math.PI/2 && p.angle < 3*Math.PI/2 ? 'end' :
+                       Math.abs(p.angle - Math.PI/2) < 0.1 || Math.abs(p.angle + Math.PI/2) < 0.1 ? 'middle' : 'start';
+        // Ajuster le X si anchor est middle (top/bottom)
+        let xAdj = x;
+        if (Math.abs(Math.cos(p.angle)) < 0.15) xAdj = CX;
+        return `
+          <text x="${xAdj}" y="${y + 4}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="${palette.label}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.03em">${p.axis.short}</text>
+          <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${p.score}/${p.max}</text>
+        `;
+      }).join('');
+
+      // Points sur le polygon
+      const dots = points.map(p => `
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="${palette.main}" stroke="var(--bg-primary)" stroke-width="2">
+          <title>${p.label}: ${p.score}/${p.max}${p.detail ? ' — ' + p.detail : ''}</title>
+        </circle>
+      `).join('');
+
+      // ID unique pour le gradient (eviter les conflits entre rendus)
+      const gradId = 'kairosGrad_' + Math.random().toString(36).slice(2, 8);
+
+      // Mini barres de detail (sous le radar, pour explications).
+      // On n'expose PAS le poids de chaque axe (b.max) a l'utilisateur final
+      // — c'est une info de calibration paramatrable dans la console admin.
+      // A la place : pourcentage normalise 0-100% (meme echelle pour tous les axes).
+      // Mapping de fallback FR -> client labels traduits (override l'API qui renvoie du FR)
+      const _bdLabel = {
+        insider:    t('stock.bd.insider', 'Signal des initiés'),
+        smartMoney: t('stock.bd.smartMoney', 'Hedge funds (13F)'),
+        govGuru:    t('stock.bd.govGuru', 'Politiciens & gourous'),
+        momentum:   t('stock.bd.momentum', 'Momentum du cours'),
+        earnings:   t('stock.bd.earnings', 'Momentum résultats'),
+        analyst:    t('stock.bd.analyst', 'Consensus analystes'),
+        valuation:  t('stock.bd.valuation', 'Valorisation'),
+        health:     t('stock.bd.health', 'Santé financière'),
+      };
+      const breakdownRows = axesOrder.map(axis => {
+        const b = breakdown[axis.key];
+        if (!b) return '';
+        const pct = b.max > 0 ? (b.score / b.max) * 100 : 0;
+        const pctDisplay = Math.round(pct);
+        const lbl = _bdLabel[axis.key] || b.label;
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider)">
+            <div style="flex:0 0 110px;font-size:12px;color:var(--text-secondary)">${lbl}</div>
+            <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;position:relative">
+              <div style="height:100%;background:linear-gradient(90deg, ${palette.main}, ${palette.light});width:${pct}%;border-radius:3px;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
+            </div>
+            <div style="flex:0 0 52px;text-align:right;font-size:12px;font-family:'Space Grotesk',sans-serif">
+              <strong style="color:${palette.main}">${pctDisplay}</strong><span style="opacity:0.5">%</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="kairos-score-card" style="background:linear-gradient(135deg,var(--surface-1) 0%,rgba(255,255,255,0.01) 100%);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px;position:relative;overflow:hidden">
+          <!-- Halo de couleur en fond (signature branding) -->
+          <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,${palette.glow} 0%,transparent 65%);pointer-events:none;z-index:0;opacity:0.9"></div>
+          <div style="position:absolute;bottom:-100px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,${palette.glow} 0%,transparent 60%);pointer-events:none;z-index:0;opacity:0.5"></div>
+
+          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(320px, 380px) 1fr;gap:36px;align-items:center">
+
+            <!-- Radar SVG -->
+            <div style="position:relative;text-align:center">
+              <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;opacity:0.55;font-weight:600;margin-bottom:-6px">Kairos Score</div>
+              <svg viewBox="0 0 400 400" style="width:100%;max-width:380px;height:auto;display:block;margin:0 auto;filter:drop-shadow(0 12px 24px ${palette.glow})">
+                <defs>
+                  <radialGradient id="${gradId}" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="${palette.main}" stop-opacity="0.45"/>
+                    <stop offset="70%" stop-color="${palette.main}" stop-opacity="0.2"/>
+                    <stop offset="100%" stop-color="${palette.main}" stop-opacity="0.05"/>
+                  </radialGradient>
+                </defs>
+                <!-- Grille -->
+                ${axes}
+                ${rings}
+                <!-- Polygon du score (animation via CSS via scale) -->
+                <polygon points="${polyPath}" fill="url(#${gradId})" stroke="${palette.main}" stroke-width="2.2" stroke-linejoin="round" style="transform-origin:${CX}px ${CY}px;animation:kairosRadarGrow 0.8s cubic-bezier(0.22,1,0.36,1) forwards"/>
+                ${dots}
+                ${labels}
+                <!-- Score central -->
+                <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="52" font-weight="700" fill="${palette.main}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="-0.02em">${total}</text>
+                <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.08em">/ 100</text>
+              </svg>
+            </div>
+
+            <!-- Info panel -->
+            <div>
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;background:${palette.main}22;color:${palette.label};border:1px solid ${palette.main}55;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.06em;margin-bottom:12px">
+                <span style="width:6px;height:6px;background:${palette.main};border-radius:50%;box-shadow:0 0 10px ${palette.main}"></span>
+                ${signal}
+              </div>
+              <h2 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em;font-family:'Space Grotesk',sans-serif;font-weight:700">
+                Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:20px">/100</span>
+              </h2>
+              <!-- SYNTHESE DYNAMIQUE basee sur les 8 axes -->
+              <div style="background:linear-gradient(135deg, ${palette.main}10, transparent);border-left:3px solid ${palette.main};padding:14px 16px;border-radius:8px;margin-bottom:18px;font-size:13.5px;line-height:1.7;color:var(--text-primary)">
+                ${generateScoreNarrative(score, tk, axesOrder, palette)}
+              </div>
+
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                  <span>${t('stock.label.breakdown8axes', 'Décomposition (8 axes)')}</span>
+                  <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400">${t('stock.label.scorePerAxis', 'Score par axe — 0% = faible, 100% = excellent')}</span>
+                </div>
+                ${breakdownRows || `<div style="opacity:0.5;font-size:12px">${t('stock.empty.detailsUnavailable', 'Détails indisponibles')}</div>`}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      `;
+    }
+
+    // Injection unique de l'animation CSS du radar (appele après render)
+    function _ensureKairosRadarAnim() {
+      if (document.getElementById('kairosRadarAnim')) return;
+      const s = document.createElement('style');
+      s.id = 'kairosRadarAnim';
+      s.textContent = '@keyframes kairosRadarGrow { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }';
+      document.head.appendChild(s);
+    }
+
+    // Re-render la page Decode a stock quand l'utilisateur switche FR<->EN
+    // (sans avoir a refetch /api/stock/:ticker).
+    // L = { ... } est recalcule a chaque appel donc les nouveaux labels prennent
+    // effet immediatement.
+    if (typeof window !== 'undefined' && !window._kairosStockLangListener) {
+      window._kairosStockLangListener = true;
+      window.addEventListener('kairos:langchange', () => {
+        if (currentStockData && document.getElementById('section-stockAnalysis')?.classList.contains('active')) {
+          try { renderStockAnalysis(currentStockData); } catch (e) { console.warn('re-render stockAnalysis failed:', e); }
+        }
+      });
+    }
+
+    function renderStockAnalysis(d) {
+      const body = document.getElementById('stockAnalysisBody');
+      const price = d.price || {};
+      const fund = d.fundamentals || {};
+      const score = d.score || {};
+      const insiders = d.insiders || {};
+      const sm = d.smartMoney || {};
+      const gov = d.govEtf || {};
+      const news = d.news || [];
+      const trends = d.googleTrends || null;
+
+      // ===== i18n labels (vague 1 - mai 2026) =====
+      // Centralise les traductions pour eviter les t() inline dans les templates.
+      // Vague 2 a venir : tooltips, sub-labels, dates, dynamiques.
+      const L = {
+        secFundamentals: t('stock.section.fundamentals', '📊 Fondamentaux'),
+        secAbout: t('stock.section.about', '🏢 À propos'),
+        secHealth: t('stock.section.health', '🏥 Santé financière'),
+        secFairvalue: t('stock.section.fairvalue', '💎 Valeur intrinsèque'),
+        secEarnings: t('stock.section.earnings', '📅 Résultats trimestriels'),
+        secConsensus: t('stock.section.consensus', '📊 Consensus'),
+        secNews: t('stock.section.news', '📰 Actualités récentes'),
+        secTrends: t('stock.section.trends', '🔎 Intérêt de recherche Google'),
+        secShorts: t('stock.section.shorts', '🔻 Ventes à découvert'),
+        secInsiders: t('stock.section.insiders', '🕴️ Initiés'),
+        secLastQuarter: t('stock.section.lastQuarter', '📊 Activité du dernier trimestre'),
+        marketCap: t('stock.label.marketCap', 'Capitalisation'),
+        enterpriseValue: t('stock.label.enterpriseValue', "Valeur d'entreprise"),
+        revenue: t('stock.label.revenue', "Chiffre d'affaires"),
+        netIncome: t('stock.label.netIncome', 'Résultat net'),
+        valMultiples: t('stock.label.valMultiples', 'Multiples de valorisation'),
+        characteristics: t('stock.label.characteristics', 'Caractéristiques'),
+        margins: t('stock.label.margins', 'Marges & rentabilité'),
+        finStructure: t('stock.label.finStructure', 'Structure financière'),
+        eps: t('stock.label.eps', 'BPA'),
+        beta: t('stock.label.beta', 'Bêta'),
+        dividend: t('stock.label.dividend', 'Dividende'),
+        healthScore: t('stock.label.healthScore', 'Score Santé Kairos'),
+        heldByInsiders: t('stock.label.heldByInsiders', 'Détenu par initiés'),
+        recentInterest: t('stock.label.recentInterest', 'Intérêt actuel'),
+        daysToCover: t('stock.label.daysToCover', 'jours pour racheter'),
+        employees: t('stock.label.employees', 'employés'),
+        emptyTransactions: t('stock.empty.noTransactions', 'Aucune transaction récente'),
+        emptyConsensus: t('stock.empty.noConsensus', 'Aucune donnée de consensus disponible.'),
+        emptyTarget: t('stock.empty.noTarget', 'Objectif non renseigné'),
+        emptyLimited: t('stock.empty.limitedCoverage', 'Couverture de données limitée pour ce ticker'),
+        emptyLowVol: t('stock.empty.lowVolume', '⚠️ Volume trop faible pour un signal fiable'),
+        howToRead: t('stock.helper.howToRead', 'Comment lire ces données ?'),
+        clickToExpand: t('stock.helper.click2expand', 'Cliquer pour déplier'),
+        peersIntro: t('stock.helper.peersIntro', 'entreprises du même secteur — cliquez pour analyser'),
+        // ===== Wave 2 =====
+        consStrongBuy: t('stock.consensus.strongBuy', 'Achat fort'),
+        consBuy: t('stock.consensus.buy', 'Achat'),
+        consHold: t('stock.consensus.hold', 'Conserver'),
+        consSell: t('stock.consensus.sell', 'Vente'),
+        consStrongSell: t('stock.consensus.strongSell', 'Vente forte'),
+        consUnavailable: t('stock.consensus.unavailable', 'Consensus analystes indisponible pour {ticker}'),
+        consSmallCapNote: t('stock.consensus.smallCapNote', 'Possible pour les small caps européennes peu suivies par les analystes US.'),
+        consBullishMaj: t('stock.consensus.bullishMaj', 'très majoritairement haussiers'),
+        consCautiousMaj: t('stock.consensus.cautiousMaj', 'majorité prudente'),
+        consMajShort: t('stock.consensus.majorityShort', 'majorité'),
+        earnEpsEst: t('stock.earnings.epsEstimated', 'BPA estimé'),
+        earnVsExp: t('stock.earnings.vsExpected', 'vs {n} attendu'),
+        earnBeatRate: t('stock.earnings.beatRate', 'Taux de dépassement'),
+        earnConfirmed: t('stock.earnings.confirmed', 'CONFIRMÉE'),
+        earnEstimated: t('stock.earnings.estimated', 'estimée'),
+        shortsLabel: t('stock.shorts.label', '🔻 Ventes à découvert :'),
+        shortsDays: t('stock.shorts.daysToCover', '{n} jours pour racheter'),
+        insBuy: t('stock.insider.tradeBuy', 'achat initié'),
+        insSell: t('stock.insider.tradeSell', 'vente initié'),
+        insBuys: t('stock.insider.buys', 'Achats insiders'),
+        actAddWl: t('stock.action.addWatchlist', 'Ajouter à ma watchlist'),
+        actCopy: t('stock.action.copyShare', 'Copier le lien public de partage'),
+        tagDistress: t('stock.tag.distress', 'DÉTRESSE'),
+        tagCheap: t('stock.tag.cheap', 'Bon marché'),
+        tagFair: t('stock.tag.fair', 'Correct'),
+        tagNone: t('stock.tag.none', 'Aucun'),
+        tagBearish: t('stock.tag.bearish', 'Baissier'),
+        healthFundQuality: t('stock.health.fundQuality', 'qualité fondamentale sur 9 critères. ≥ 7 solide · 4–6 moyen · < 4 fragile'),
+        healthBankruptcy: t('stock.health.bankruptcyRisk', 'risque de faillite 2 ans. > 2.99 sûr · 1.81–2.99 gris · < 1.81 détresse'),
+        realtimePrice: t('stock.helper.realtimePrice', '❌ Prix temps réel'),
+        intradaySession: t('stock.helper.intradaySession', 'sur la séance'),
+        // ===== Wave 3 =====
+        coFounded: t('stock.company.founded', 'Fondée en'),
+        coHeadquarters: t('stock.company.headquarters', 'Siège'),
+        coEmployees: t('stock.company.employees', 'Employés'),
+        coMarket: t('stock.company.market', 'Marché'),
+        actExits: t('stock.activity.exits', 'Sorties complètes'),
+        actIncreased: t('stock.activity.increased', 'Renforcées (+20%)'),
+        actDecreased: t('stock.activity.decreased', 'Réduites (-20%)'),
+        googleInterest: t('stock.label.googleInterest', 'Intérêt Google'),
+        consSplit: t('stock.consensus.split', 'partagé'),
+        consBullishLabel: t('stock.consensus.bullishLabel', 'haussiers'),
+        sentVeryBullish: t('stock.sentiment.veryBullish', 'Très haussier'),
+        sentBullish: t('stock.sentiment.bullish', 'Haussier'),
+        sentMixed: t('stock.sentiment.mixed', 'Mitigé'),
+        sentBearish: t('stock.sentiment.bearish', 'Baissier'),
+        sentVeryBearish: t('stock.sentiment.veryBearish', 'Très baissier'),
+        zoneSafe: t('stock.healthZone.safe', 'SAINE'),
+        zoneGrey: t('stock.healthZone.grey', 'ZONE GRISE'),
+        zoneDistress: t('stock.healthZone.distress', 'DÉTRESSE'),
+        rateCheap: t('stock.rate.cheap', 'Bon marché'),
+        rateGood: t('stock.rate.good', 'Bon'),
+        rateNeutral: t('stock.rate.neutral', 'Neutre'),
+        rateExpensive: t('stock.rate.expensive', 'Cher'),
+        rateVeryExpensive: t('stock.rate.veryExpensive', 'Très cher'),
+        rateHigh: t('stock.rate.high', 'Élevé'),
+        rateVeryHigh: t('stock.rate.veryHigh', 'Très élevé'),
+        rateUndervalued: t('stock.rate.undervalued', 'Sous-évalué'),
+        rateFairPrice: t('stock.rate.fairPrice', 'Juste prix'),
+        rateOvervalued: t('stock.rate.overvalued', 'Surévalué'),
+        rateDefensive: t('stock.rate.defensive', 'Défensif'),
+        rateMarket: t('stock.rate.market', 'Marché'),
+        rateVolatile: t('stock.rate.volatile', 'Volatile'),
+        rateNone: t('stock.rate.none', 'Aucun'),
+        rateWeak: t('stock.rate.weak', 'Faible'),
+        rateFair: t('stock.rate.fair', 'Correct'),
+        // ===== Wave 4 =====
+        range52w: t('stock.label.range52w', 'Plage 52 sem. :'),
+        sizeProportional: t('stock.label.sizeProportional', '· taille ∝ montant'),
+        forwardPE: t('stock.label.forwardPE', 'P/E prévisionnel'),
+        noHedgeFunds: t('stock.empty.noHedgeFunds', 'Aucun des hedge funds suivis ne détient ce titre.'),
+        noHedgeFundsNote: t('stock.empty.noHedgeFundsNote', "Recherche sur l'intégralité des positions (pas seulement top 50). Note : les 13F SEC ne couvrent que les titres cotés aux USA."),
+        debtLow: t('stock.debt.low', 'PEU ENDETTÉ'),
+        debtControlled: t('stock.debt.controlled', 'MAÎTRISÉ'),
+        debtHigh: t('stock.debt.high', 'ÉLEVÉ'),
+        debtVeryHigh: t('stock.debt.veryHigh', 'TRÈS ÉLEVÉ'),
+        debtModerate: t('stock.debt.moderate', 'MODÉRÉ'),
+        ratioCurrentRatio: t('stock.ratio.currentRatio', 'Liquidité générale'),
+        ratioQuickRatio: t('stock.ratio.quickRatio', 'Liquidité réduite'),
+        ratioDebtEquity: t('stock.ratio.debtEquity', 'Dette / Fonds propres'),
+        ratioDebtEbitda: t('stock.ratio.debtEbitda', 'Dette / EBITDA'),
+        ratioInterestCoverage: t('stock.ratio.interestCoverage', 'Couverture des intérêts'),
+        earnBmo: t('stock.earnings.bmo', 'avant ouverture'),
+        earnAmc: t('stock.earnings.amc', 'après clôture'),
+        earnTimeUnknown: t('stock.earnings.timeUnknown', 'heure non précisée'),
+        peersEmployees: t('stock.peers.employees', 'employés'),
+        chartInsiderBuys: t('stock.chart.insiderBuys', 'Achats insiders'),
+        chartBuyLegend: t('stock.chart.buyLegend', '🟢 ACHAT'),
+        chartSellLegend: t('stock.chart.sellLegend', '🔴 VENTE'),
+        // ===== Wave 7 health labels =====
+        healthSolid: t('stock.healthRatio.solid', 'SOLIDE'),
+        healthAverage: t('stock.healthRatio.average', 'MOYEN'),
+        healthWeak: t('stock.healthRatio.weak', 'FAIBLE'),
+        healthFair: t('stock.healthRatio.fair', 'JUSTE'),
+        healthGood: t('stock.healthRatio.good', 'BONNE'),
+        healthExcellent: t('stock.healthRatio.excellent', 'EXCELLENTE'),
+        healthDangerous: t('stock.healthRatio.dangerous', 'DANGEREUSE'),
+        healthCritical: t('stock.healthRatio.critical', 'CRITIQUE'),
+      };
+
+      // Fallback : si company.name est absent mais qu'on connait le ticker dans
+      // stockTickerList (la liste publique alimentee par les filings SEC/BaFin/AMF),
+      // on recupere au moins name + region/market pour ne pas afficher des '—' partout.
+      const companyRaw = d.company || {};
+      let tickerInfo = null;
+      if (stockTickerList && Array.isArray(stockTickerList)) {
+        tickerInfo = stockTickerList.find(t => t.ticker && d.ticker && t.ticker.toUpperCase() === String(d.ticker).toUpperCase());
+      }
+      const company = {
+        ...companyRaw,
+        name: companyRaw.name || tickerInfo?.name || null,
+        country: companyRaw.country || tickerInfo?.region || tickerInfo?.market || null,
+        // Les autres champs restent tels quels (pas de fallback dispo)
+      };
+      // Enrichit aussi price.exchange si absent (pour le badge a cote du ticker dans le hero)
+      if (!price.exchange && tickerInfo?.market) price.exchange = tickerInfo.market;
+      const consensus = d.consensus;
+      const extRatios = d.extendedRatios || {};
+      const margins = d.margins || {};
+      const returns = d.returns || {};
+      const finPos = d.financialPosition || {};
+      const health = d.health || {};
+      const shortInt = d.shortInterest || {};
+      const fairValue = d.fairValue || {};
+      const earnings = d.earnings || { history: [], next: null };
+      const peers = d.peers || [];
+
+      const changePct = price.changePct;
+      const changeColor = changePct > 0 ? '#2ecc71' : changePct < 0 ? '#ff7675' : '#999';
+      const changeSign = changePct > 0 ? '+' : '';
+      const cur = price.currency || 'USD';
+      const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat('fr-FR', { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
+      const fmtBig = (n) => { if (n==null) return '—'; if (n>=1e12) return (n/1e12).toFixed(1)+'T'; if (n>=1e9) return (n/1e9).toFixed(1)+'B'; if (n>=1e6) return (n/1e6).toFixed(1)+'M'; return n.toLocaleString('fr-FR'); };
+      const pct = (n) => n != null ? (n > 0 ? '+' : '') + (n * (Math.abs(n) < 1 ? 100 : 1)).toFixed(1) + '%' : '—';
+
+      // Couleur du score
+      const sc = score.total || 0;
+      const scoreColor = sc >= 75 ? '#2ecc71' : sc >= 60 ? '#52b788' : sc >= 40 ? '#f39c12' : sc >= 25 ? '#e67e22' : '#e74c3c';
+
+      // ============================================================
+      // DETECTION DE COUVERTURE LIMITEE
+      // Certains tickers (small caps EU regionales, ADRs obscurs) ne sont pas
+      // couverts par Alpha Vantage / SEC 13F / Google Trends.
+      // On construit un rapport de couverture pour l'utilisateur.
+      // ============================================================
+      const coverage = {
+        price: !!(price.current || price.last || price.close),
+        fundamentals: !!(fund.marketCap || fund.peRatio || fund.eps),
+        insider: (insiders.transactions && insiders.transactions.length > 0) || (insiders.buyCount || 0) + (insiders.sellCount || 0) > 0,
+        hedgeFunds: (sm.fundCount || 0) > 0,
+        etf: (gov.inEtfs && gov.inEtfs.length > 0),
+        trends: !!trends,
+        news: news.length > 0,
+        consensus: !!(consensus && consensus.targetMean),
+      };
+      const coverageCount = Object.values(coverage).filter(Boolean).length;
+      const isSparse = coverageCount <= 2 && !coverage.price && !coverage.fundamentals;
+
+      // Si l'utilisateur a tape "LVMH" mais on a resolu vers MC.PA, on n'affiche
+      // PAS le banner "couverture limitee" car en fait on a tout. On affiche
+      // a la place une info "Ticker resolu LVMH -> MC.PA (Paris)".
+      const wasResolvedFromName = !!d.resolvedFromName;
+      const resolvedNotice = wasResolvedFromName ? `
+        <div style="padding:12px 18px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;margin-bottom:16px;font-size:13px;color:var(--text-secondary)">
+          ${t('stock.banner.searchedFor', '🔎 Tu as cherché <strong style="color:var(--text-primary)">{input}</strong> — ticker Yahoo : <strong style="color:#3B82F6">{ticker}</strong>').replace('{input}', d.originalInput || '').replace('{ticker}', d.ticker)}
+        </div>` : '';
+
+      // BLOC ZONEBOURSE CONSENSUS supprime du HEADER (mai 2026) :
+      // Le user a demande que le consensus EU soit AU MEME ENDROIT que les
+      // valeurs US, dans le panneau "Consensus analystes" principal en bas.
+      // Le breakdown buy/hold/sell est synthetise (cf. worker synthesizeConsensusFromZonebourse).
+      // La data Zonebourse reste exposee via `zb` pour ajout en bas du panneau Consensus.
+      const zb = d.zonebourseConsensus || null;
+
+      const coverageBanner = (isSparse && !wasResolvedFromName) ? `
+        <div style="padding:16px 20px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1px solid rgba(245,158,11,0.25);border-radius:12px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start">
+          <div style="font-size:22px;flex-shrink:0">ℹ️</div>
+          <div style="flex:1">
+            <div style="font-weight:600;color:#F59E0B;margin-bottom:6px;font-size:14px">${L.emptyLimited}</div>
+            <div style="font-size:13px;opacity:0.85;line-height:1.5;margin-bottom:8px">
+              ${t('stock.banner.smallCap', 'Ce titre est probablement une <strong>small cap européenne régionale</strong> (ex. Munich/Francfort non-XETRA) ou un ADR peu liquide. Les bases gratuites (Alpha Vantage, SEC 13F, Google Trends) ne le couvrent pas.')}<br>
+              ${t('stock.banner.smallCapTip', '💡 <strong>Astuce</strong> : pour les grandes EU, essaie le ticker Yahoo : LVMH → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">MC.PA</code>, Barclays → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">BARC.L</code>, Nestlé → <code style="background:rgba(59,130,246,0.15);padding:1px 5px;border-radius:4px;color:#3B82F6">NESN.SW</code>.')}
+            </div>
+            <div style="font-size:12px;opacity:0.8">
+              <strong>${t('stock.coverage.available', 'Disponible :')}</strong>
+              ${coverage.insider ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.insider', '✅ Transactions insider (BaFin/AMF)')}</span>` : ''}
+              ${coverage.price ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.price', '✅ Prix')}</span>` : ''}
+              ${coverage.fundamentals ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.fundamentals', '✅ Fondamentaux')}</span>` : ''}
+              ${coverage.hedgeFunds ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.hedgeFunds', '✅ Hedge funds')}</span>` : ''}
+              ${coverage.news ? `<span style="color:#10B981;margin-right:10px">${t('stock.coverage.news', '✅ News')}</span>` : ''}
+              <br>
+              <strong>${t('stock.coverage.unavailable', 'Non disponible :')}</strong>
+              ${!coverage.price ? `<span style="color:var(--text-muted);margin-right:10px">${L.realtimePrice}</span>` : ''}
+              ${!coverage.fundamentals ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noFundamentals', '❌ Fondamentaux / ratios')}</span>` : ''}
+              ${!coverage.hedgeFunds ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noHedgeFunds', '❌ Hedge funds 13F (US only)')}</span>` : ''}
+              ${!coverage.etf ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noEtf', '❌ ETF politiciens (US only)')}</span>` : ''}
+              ${!coverage.news ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noNews', '❌ News / analystes')}</span>` : ''}
+              ${!coverage.trends ? `<span style="color:var(--text-muted);margin-right:10px">${t('stock.coverage.noTrends', '❌ Google Trends')}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      ` : '';
+
+      // Helpers pour les variations (jour / YTD / 1 an)
+      const ytdPct = price.changeYtdPct;
+      const y1Pct = price.change1yPct;
+      const perfCol = (p) => p == null ? '#999' : p > 0 ? '#2ecc71' : p < 0 ? '#ff7675' : '#999';
+      const perfSign = (p) => p == null ? '' : (p > 0 ? '+' : '');
+      const perfTxt = (p) => p == null ? '—' : perfSign(p) + p.toFixed(2) + '%';
+
+      // Petite fonction pour afficher une "ligne info" dans le hero
+      const infoRow = (label, value) => value ? `<div style="font-size:12px"><span style="opacity:0.55">${label} :</span> <strong style="opacity:0.95">${value}</strong></div>` : '';
+
+      body.innerHTML = `
+        ${resolvedNotice}
+        ${coverageBanner}
+        <!-- HERO -->
+        <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:24px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:14px;margin-bottom:24px">
+          <div style="flex:1;min-width:280px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+              <h1 style="margin:0;font-size:32px">${d.ticker}</h1>
+              ${price.exchange ? exchangeToFlag(price.exchange) : ''}
+              ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
+              ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
+              <button data-wl-star="${d.ticker}" onclick="toggleWatchlistStar('${d.ticker}')"
+                      title="${L.actAddWl}"
+                      class="wl-star-btn ${isInWatchlist(d.ticker) ? 'active' : ''}"
+                      style="margin-left:auto;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
+                      onmouseover="this.style.borderColor='#FBBF24';this.style.background='rgba(251,191,36,0.08)'"
+                      onmouseout="if(!this.classList.contains('active')){this.style.borderColor='var(--border)';this.style.background='var(--surface-2)';}">
+                ${isInWatchlist(d.ticker) ? t('stock.action.inWatchlist', '★ Dans la watchlist') : t('stock.action.addWatchlistShort', '☆ Ajouter à ma watchlist')}
+              </button>
+              <button onclick="shareStockAnalysis('${d.ticker}')" title="${L.actCopy}"
+                      style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s"
+                      onmouseover="this.style.borderColor='var(--accent-blue)';this.style.background='rgba(59,130,246,0.08)'"
+                      onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface-2)'">
+                <span>🔗</span><span id="shareBtnLabel-${d.ticker}">${t('stock.action.share', 'Partager')}</span>
+              </button>
+            </div>
+            <div style="font-size:18px;opacity:0.9;margin-bottom:4px">${company.name || ''}</div>
+            <div style="font-size:13px;opacity:0.6;margin-bottom:14px">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 20px">
+              ${infoRow('PDG', company.ceo)}
+              ${infoRow(L.coFounded, company.founded)}
+              ${infoRow(L.coHeadquarters, company.headquarters)}
+              ${infoRow(t('stock.label.ipo', 'Introduction en bourse'), company.ipoDate)}
+              ${company.employees ? infoRow(L.coEmployees, fmtBig(company.employees) + (company.employeesGrowth != null ? ` <span style="font-size:11px;color:${company.employeesGrowth>0?'#2ecc71':'#ff7675'}">(${company.employeesGrowth>0?'+':''}${company.employeesGrowth.toFixed(1)}% / an)</span>` : '')) : ''}
+              ${infoRow('Exercice fiscal', company.fiscalYearEnd)}
+              ${company.website ? `<div style="font-size:12px"><span style="opacity:0.55">Site :</span> <a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff">${company.website.replace(/^https?:\/\//,'').replace(/\/$/,'')}</a></div>` : ''}
+            </div>
+          </div>
+          <div style="text-align:right;min-width:240px">
+            <div style="font-size:36px;font-weight:600;line-height:1.1">${fmtCurr(price.current)}</div>
+            <div style="color:${changeColor};font-size:16px;margin-top:4px">
+              ${changePct != null ? `${changeSign}${changePct.toFixed(2)}%` : '—'}
+              ${price.change != null ? ` <span style="opacity:0.7;font-size:13px">(${changeSign}${fmtCurr(price.change)})</span>` : ''}
+              <span style="font-size:11px;opacity:0.55;margin-left:4px">${L.intradaySession}</span>
+            </div>
+
+            <!-- Tableau de performance multi-horizon -->
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+              <div style="text-align:center;min-width:64px;padding:6px 10px;background:var(--surface-1);border-radius:6px">
+                <div style="font-size:10px;opacity:0.6">${t('stock.label.sinceJan1', 'Depuis 1er janv.')}</div>
+                <div style="font-size:13px;font-weight:600;color:${perfCol(ytdPct)}">${perfTxt(ytdPct)}</div>
+              </div>
+              <div style="text-align:center;min-width:64px;padding:6px 10px;background:var(--surface-1);border-radius:6px">
+                <div style="font-size:10px;opacity:0.6">${t('stock.label.oneYear', 'Sur 1 an')}</div>
+                <div style="font-size:13px;font-weight:600;color:${perfCol(y1Pct)}">${perfTxt(y1Pct)}</div>
+              </div>
+            </div>
+
+            <div style="font-size:12px;opacity:0.5;margin-top:10px">
+              ${L.range52w} ${fmtCurr(price.low52w)} – ${fmtCurr(price.high52w)}
+            </div>
+            ${price.current && price.low52w && price.high52w ? (() => {
+              const pos = ((price.current - price.low52w) / (price.high52w - price.low52w)) * 100;
+              return `<div style="height:4px;background:var(--surface-3);border-radius:2px;margin-top:6px;overflow:hidden;position:relative">
+                <div style="height:100%;background:linear-gradient(90deg,#ff7675,#f39c12,#2ecc71);border-radius:2px"></div>
+                <div style="position:absolute;top:-3px;left:${Math.max(0,Math.min(100,pos))}%;width:2px;height:10px;background:#fff;transform:translateX(-50%)"></div>
+              </div>`;
+            })() : ''}
+          </div>
+        </div>
+
+        <!-- KAIROS SCORE BRANDED CARD -->
+        ${renderKairosScoreCard(score, d.ticker)}
+
+        <!-- CHART prix avec superposition insiders + fonds offensifs + period selector -->
+        <div id="stockChartCard" style="position:relative;background:linear-gradient(135deg,var(--surface-1) 0%,rgba(59,130,246,0.03) 100%);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:24px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.04)">
+          <!-- Halo decoratif haut-droite (signature brand Kairos) -->
+          <div aria-hidden="true" style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,rgba(139,92,246,0.12) 0%,transparent 65%);pointer-events:none;z-index:0"></div>
+          <div aria-hidden="true" style="position:absolute;bottom:-120px;left:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(236,72,153,0.08) 0%,transparent 60%);pointer-events:none;z-index:0"></div>
+
+          <div style="position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+            <h3 style="margin:0;font-size:16px;font-weight:700;letter-spacing:-0.01em;display:inline-flex;align-items:center;gap:10px">
+              <span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#EC4899);box-shadow:0 0 12px rgba(139,92,246,0.6)"></span>
+              ${t('stock.chart.title', 'Cours & signaux smart money')}
+            </h3>
+            <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)" id="chartPeriodSelector">
+              ${[
+                ['1mo','1M'], ['3mo','3M'], ['6mo','6M'], ['1y','1A'],
+                ['2y','2A'], ['5y','5A'], ['max','MAX']
+              ].map(([range, label]) => `
+                <button type="button" onclick="changeChartRange('${range}')" data-range="${range}" class="chart-range-btn${currentChartRange === range ? ' active' : ''}">${label}</button>
+              `).join('')}
+            </div>
+          </div>
+          <div style="position:relative;z-index:1;display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.8;flex-wrap:wrap">
+            <span><span style="color:#10B981">◆</span> ${L.insBuy}</span>
+            <span><span style="color:#EF4444">▼</span> ${L.insSell}</span>
+            <span><span style="color:#FACC15;font-size:13px">★</span> ${t('stock.chart.activistMarker', 'fonds offensif (13D/G)')}</span>
+            <span style="opacity:0.6">${L.sizeProportional}</span>
+          </div>
+          <div style="position:relative;z-index:1;height:300px"><canvas id="stockPriceChart"></canvas></div>
+        </div>
+
+        <!-- 3 COLONNES : Insiders / Smart Money / Politiciens -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
+          <!-- INSIDERS -->
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px" data-saInsiderCard data-ticker="${(d.ticker||'').toUpperCase()}">
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secInsiders} ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
+            <!-- Filtres period + type -->
+            <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
+              <select id="saInsiderDays" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
+                <option value="30">30j</option>
+                <option value="90" selected>90j</option>
+                <option value="180">6m</option>
+                <option value="365">1 an</option>
+                <option value="1095">3 ans</option>
+                <option value="1825">5 ans</option>
+              </select>
+              <select id="saInsiderType" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
+                <option value="">${t('stock.insider.allTypes', 'Tous types')}</option>
+                <option value="buy">${t('stock.cons.buy', 'Achat')}</option>
+                <option value="sell">${t('stock.cons.sell', 'Vente')}</option>
+              </select>
+              <select id="saInsiderRole" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
+                <option value="">${t('stock.insider.allRoles', 'Tous roles')}</option>
+                <option value="CEO">CEO</option>
+                <option value="CFO">CFO</option>
+                <option value="Director">Director</option>
+                <option value="President">President</option>
+                <option value="10%">10% Owner</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:12px" id="saInsiderStats">
+              <div style="flex:1;padding:10px;background:rgba(46,204,113,0.08);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#2ecc71" id="saInsiderBuyCount">${insiders.buyCount || 0}</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.insider.buys_label', 'achats')}</div>
+              </div>
+              <div style="flex:1;padding:10px;background:rgba(255,118,117,0.08);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#ff7675" id="saInsiderSellCount">${insiders.sellCount || 0}</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.insider.sells_label', 'ventes')}</div>
+              </div>
+            </div>
+            <div style="font-size:13px;opacity:0.8;margin-bottom:10px" id="saInsiderFlux">
+              ${t('stock.insider.netFlow', 'Flux net :')} <strong style="color:${(insiders.netValueUsd||0)+(insiders.netValueEur||0) >= 0 ? '#2ecc71' : '#ff7675'}">${fmtCurr((insiders.netValueUsd||0)+(insiders.netValueEur||0), cur)}</strong><br>
+              ${t('stock.label.distinctInsiders', '{n} initiés distincts').replace('{n}', insiders.uniqueInsiders || 0)}
+            </div>
+            <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px" id="saInsiderList">
+              ${(insiders.transactions || []).slice(0, 15).map(t => `
+                <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
+                  <div style="display:flex;justify-content:space-between">
+                    <div>
+                      <strong>${(t.insider||'').slice(0,25)}</strong>
+                      <span style="font-size:11px;opacity:0.5;margin-left:6px">${t.title || ''}</span>
+                    </div>
+                    <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(t.type)}</span>
+                  </div>
+                  <div style="font-size:11px;opacity:0.6;margin-top:2px">
+                    ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
+                  </div>
+                </div>
+              `).join('') || `<div style="opacity:0.5;padding:12px 0">${L.emptyTransactions}</div>`}
+            </div>
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--divider);text-align:center">
+              <a href="#" onclick="openScreenerForTicker('${(d.ticker||'').replace(/'/g, '').toUpperCase()}');return false" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#74b9ff;text-decoration:none;font-weight:500">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                Voir tout avec filtres (historique 5 ans)
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            </div>
+          </div>
+
+          <!-- SMART MONEY -->
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">💰 Hedge Funds</h3>
+            <div style="display:flex;gap:12px;margin-bottom:12px">
+              <div style="flex:1;padding:10px;background:rgba(116,185,255,0.08);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:#74b9ff">${sm.fundCount || 0}</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.hf.fundsLabel', 'fonds')}</div>
+              </div>
+              <div style="flex:1;padding:10px;background:var(--surface-2);border-radius:8px;text-align:center">
+                <div style="font-size:20px;font-weight:600;color:${sm.avgDeltaPct>0?'#2ecc71':sm.avgDeltaPct<0?'#ff7675':'#fff'}">${sm.avgDeltaPct > 0 ? '+' : ''}${(sm.avgDeltaPct||0).toFixed(1)}%</div>
+                <div style="font-size:11px;opacity:0.7">${t('stock.hf.deltaLabel', 'Δ positions')}</div>
+              </div>
+            </div>
+            <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
+              ${t('stock.hf.totalValue', 'Valeur totale :')} <strong>$${fmtBig(sm.totalValue)}</strong>
+            </div>
+            <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px">
+              ${(sm.topFunds || []).map(f => `
+                <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
+                  <div style="display:flex;justify-content:space-between">
+                    <div>
+                      <strong>${f.label || f.fundName || 'Inconnu'}</strong>
+                      <div style="font-size:11px;opacity:0.55">${f.category || ''} · ${f.reportDate || ''}</div>
+                    </div>
+                    ${(() => {
+                      // Couleur : status prioritaire sur deltaPct. Un 'new' a deltaPct=null
+                      // mais est clairement bullish → vert. Idem sold/closed → rouge.
+                      const s = (f.status || '').toLowerCase();
+                      const isBullish = s === 'new' || s === 'increased' || (f.deltaPct > 0 && !s);
+                      const isBearish = s === 'sold' || s === 'closed' || s === 'exit' || s === 'decreased' || (f.deltaPct < 0 && !s);
+                      const color = isBullish ? '#2ecc71' : isBearish ? '#ff7675' : '#9CA3AF';
+                      const label = f.status ? hfStatusLabel(f.status) : (f.deltaPct>0?'📈 +'+f.deltaPct.toFixed(0)+'%':f.deltaPct<0?'📉 '+f.deltaPct.toFixed(0)+'%':'➖ —');
+                      return `<span style="color:${color};font-size:11px;font-weight:600">${label}</span>`;
+                    })()}
+                  </div>
+                  <div style="font-size:11px;opacity:0.7;margin-top:2px">
+                    $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
+                  </div>
+                </div>
+              `).join('') || `<div style="opacity:0.5;padding:12px 0;line-height:1.5">${L.noHedgeFunds}<br><span style="font-size:11px;opacity:0.7">${L.noHedgeFundsNote}</span></div>`}
+            </div>
+          </div>
+
+          <!-- POLITICIENS / GURUS -->
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">${t('stock.section.politicians', '🏛️ Politiciens & Gurus')}</h3>
+            ${gov.inEtfs && gov.inEtfs.length > 0 ? `
+              <div style="font-size:13px;opacity:0.8;margin-bottom:12px">
+                ${t('stock.gov.presentIn', 'Présent dans <strong>{n}</strong> ETF suivis').replace('{n}', gov.inEtfs.length)}<br>
+                ${t('stock.gov.cumulatedWeight', 'Poids cumulé : <strong>{pct}%</strong>').replace('{pct}', (gov.totalPct||0).toFixed(2))}
+              </div>
+              ${gov.inEtfs.map(e => {
+                // Override le fullName API (FR-only) par une trad i18n keyed sur le symbol ETF
+                const _etfKey = `stock.etfLabel.${e.etf}`;
+                const _etfName = t(_etfKey, e.fullName) === _etfKey ? e.fullName : t(_etfKey, e.fullName);
+                return `
+                <div style="padding:10px;background:var(--surface-1);border-radius:8px;margin-bottom:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                      <strong style="font-size:14px">${e.etf}</strong>
+                      <span style="font-size:11px;opacity:0.6;margin-left:6px">${_etfName}</span>
+                    </div>
+                    <strong style="color:#74b9ff">${e.weight.toFixed(2)}%</strong>
+                  </div>
+                  ${e.shares ? `<div style="font-size:11px;opacity:0.55;margin-top:3px">${e.shares.toLocaleString('fr-FR')} ${t('stock.etfLabel.shares', 'titres')}</div>` : ''}
+                </div>
+              `;}).join('')}
+            ` : `<div style="opacity:0.5;padding:12px 0;font-size:13px">${t('stock.gov.absent', 'Absent des ETF suivis (NANC, GOP, GURU)')}</div>`}
+          </div>
+        </div>
+
+        <!-- 2 COLONNES : Fondamentaux / Consensus -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px">
+          <!-- FONDAMENTAUX (refonte UX : chiffres abreges + codes couleurs sur ratios) -->
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 14px;font-size:16px">${L.secFundamentals}</h3>
+            ${(() => {
+              // Helpers locaux
+              // Format compact pour les grandes valeurs : 177.8B$, 125.6B$, 3.2T$
+              const fmtCurrShort = (n, c=cur) => {
+                if (n == null) return '—';
+                const symbol = c === 'EUR' ? '€' : c === 'USD' ? '$' : c === 'GBP' ? '£' : c === 'CHF' ? 'Fr' : ' ' + c;
+                const abs = Math.abs(n);
+                const sign = n < 0 ? '-' : '';
+                if (abs >= 1e12) return `${sign}${(abs/1e12).toFixed(1)}T${symbol}`;
+                if (abs >= 1e9) return `${sign}${(abs/1e9).toFixed(1)}B${symbol}`;
+                if (abs >= 1e6) return `${sign}${(abs/1e6).toFixed(1)}M${symbol}`;
+                if (abs >= 1e3) return `${sign}${(abs/1e3).toFixed(1)}K${symbol}`;
+                return `${sign}${abs.toFixed(0)}${symbol}`;
+              };
+              // Parse ratio (peut etre string "8.3" ou number)
+              const parseR = (v) => {
+                if (v == null) return null;
+                if (typeof v === 'number') return v;
+                const n = parseFloat(String(v).replace(',', '.'));
+                return isNaN(n) ? null : n;
+              };
+              // Rating : verdict color + label selon le type de ratio
+              // Retourne {color, bg, label, tooltip}
+              const rate = (val, type) => {
+                if (val == null) return { color: 'var(--text-muted)', bg: 'rgba(156,163,175,0.08)', label: '—', tooltip: '' };
+                const thresholds = {
+                  pe:        [{ max: 15, c: '#2ecc71', l: L.rateCheap, tip: 'P/E < 15 = peu cher' }, { max: 25, c: '#9CA3AF', l: L.rateNeutral, tip: 'P/E entre 15 et 25 = valorisation moyenne' }, { max: 40, c: '#f39c12', l: L.rateExpensive, tip: 'P/E entre 25 et 40 = valorisation élevée' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryExpensive, tip: 'P/E > 40 = valorisation très élevée' }],
+                  ps:        [{ max: 2, c: '#2ecc71', l: L.rateGood, tip: 'P/S < 2 = sous-évalué vs ventes' }, { max: 5, c: '#9CA3AF', l: L.rateNeutral, tip: 'P/S entre 2 et 5 = juste prix' }, { max: 10, c: '#f39c12', l: L.rateHigh, tip: 'P/S entre 5 et 10 = cher vs ventes' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: 'P/S > 10 = très cher vs ventes' }],
+                  pb:        [{ max: 1.5, c: '#2ecc71', l: L.rateGood, tip: 'P/B < 1.5 = sous-évalué vs actif net' }, { max: 3, c: '#9CA3AF', l: L.rateNeutral, tip: 'P/B entre 1.5 et 3' }, { max: 5, c: '#f39c12', l: L.rateHigh, tip: 'P/B entre 3 et 5 = cher vs actif' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: 'P/B > 5' }],
+                  pfcf:      [{ max: 15, c: '#2ecc71', l: L.rateGood, tip: 'P/FCF < 15 = bon flux de trésorerie' }, { max: 25, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 40, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  evEbitda:  [{ max: 10, c: '#2ecc71', l: L.rateGood, tip: 'EV/EBITDA < 10 = peu cher' }, { max: 15, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 25, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  evSales:   [{ max: 3, c: '#2ecc71', l: L.rateGood, tip: '' }, { max: 6, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 12, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  evFcf:     [{ max: 20, c: '#2ecc71', l: L.rateGood, tip: '' }, { max: 35, c: '#9CA3AF', l: L.rateNeutral, tip: '' }, { max: 60, c: '#f39c12', l: L.rateHigh, tip: '' }, { max: 1e9, c: '#e74c3c', l: L.rateVeryHigh, tip: '' }],
+                  peg:       [{ max: 1, c: '#2ecc71', l: L.rateUndervalued, tip: 'PEG < 1 = sous-évalué vs croissance' }, { max: 2, c: '#9CA3AF', l: L.rateFairPrice, tip: 'PEG entre 1 et 2' }, { max: 1e9, c: '#e74c3c', l: L.rateOvervalued, tip: 'PEG > 2 = trop cher vs croissance' }],
+                  beta:      [{ max: 0.7, c: '#3498db', l: L.rateDefensive, tip: 'Beta < 0.7 = moins volatile que le marché' }, { max: 1.3, c: '#9CA3AF', l: L.rateMarket, tip: 'Beta proche de 1 = bouge comme le marché' }, { max: 1e9, c: '#f39c12', l: L.rateVolatile, tip: 'Beta > 1.3 = plus volatile que le marché' }],
+                  divYield:  [{ max: 0.01, c: 'var(--text-muted)', l: L.rateNone, tip: '' }, { max: 0.02, c: '#9CA3AF', l: L.rateWeak, tip: '' }, { max: 0.05, c: '#52b788', l: L.rateFair, tip: '' }, { max: 1e9, c: '#2ecc71', l: L.rateHigh, tip: 'Dividende > 5% = haut rendement' }],
+                };
+                const t = thresholds[type];
+                if (!t) return { color: 'var(--text-primary)', bg: 'rgba(255,255,255,0.05)', label: '', tooltip: '' };
+                const v = Math.abs(val);
+                for (const lvl of t) {
+                  if (v <= lvl.max) {
+                    return { color: lvl.c, bg: lvl.c.startsWith('#') ? `${lvl.c}1a` : 'rgba(156,163,175,0.08)', label: lvl.l, tooltip: lvl.tip };
+                  }
+                }
+                return { color: 'var(--text-primary)', bg: 'rgba(255,255,255,0.05)', label: '', tooltip: '' };
+              };
+
+              // Carte d'un ratio avec verdict couleur
+              const ratioCard = (label, value, type, displayVal) => {
+                const v = parseR(value);
+                if (v == null) return '';
+                const r = rate(v, type);
+                const display = displayVal != null ? displayVal : (typeof v === 'number' ? v.toFixed(2) : v);
+                return `
+                  <div title="${r.tooltip}" style="padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;border-left:3px solid ${r.color};transition:transform 0.15s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${label}</div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+                      <span style="font-size:18px;font-weight:700;color:${r.color}">${display}</span>
+                      ${r.label ? `<span style="font-size:10px;padding:2px 7px;background:${r.bg};color:${r.color};border-radius:20px;font-weight:600">${r.label}</span>` : ''}
+                    </div>
+                  </div>
+                `;
+              };
+
+              const peg = parseR(extRatios.peg);
+              const ps = parseR(extRatios.ps);
+              const pb = parseR(extRatios.pb);
+              const pfcf = parseR(extRatios.pfcf);
+              const evEbitda = parseR(extRatios.evEbitda);
+              const evSales = parseR(extRatios.evSales);
+              const evFcf = parseR(extRatios.evFcf);
+              const divPct = fund.dividendYield != null ? fund.dividendYield * 100 : null;
+
+              return `
+                <!-- BLOC 1 : Taille de l'entreprise (cards principales) -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+                  ${fund.marketCap ? `
+                    <div style="padding:14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid rgba(116,185,255,0.15);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.marketCap}</div>
+                      <div style="font-size:20px;font-weight:700;color:#74b9ff">${fmtCurrShort(fund.marketCap)}</div>
+                    </div>
+                  ` : ''}
+                  ${fund.enterpriseValue ? `
+                    <div style="padding:14px;background:linear-gradient(135deg,rgba(162,155,254,0.08),rgba(162,155,254,0.02));border:1px solid rgba(162,155,254,0.15);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.enterpriseValue}</div>
+                      <div style="font-size:20px;font-weight:700;color:#a29bfe">${fmtCurrShort(fund.enterpriseValue)}</div>
+                    </div>
+                  ` : ''}
+                  ${fund.revenue ? `
+                    <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.revenue}</div>
+                      <div style="font-size:20px;font-weight:700">${fmtCurrShort(fund.revenue)}</div>
+                    </div>
+                  ` : ''}
+                  ${fund.netIncome ? `
+                    <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;margin-bottom:4px">${L.netIncome}</div>
+                      <div style="font-size:20px;font-weight:700;color:${fund.netIncome > 0 ? '#2ecc71' : '#ff7675'}">${fmtCurrShort(fund.netIncome)}</div>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- BLOC 2 : Multiples de valorisation avec verdict couleur -->
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.valMultiples}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px">
+                  ${ratioCard('P/E (12 mois)', fund.peRatio, 'pe')}
+                  ${ratioCard(L.forwardPE, fund.forwardPE, 'pe')}
+                  ${peg != null ? ratioCard('PEG', peg, 'peg') : ''}
+                  ${ps != null ? ratioCard('P/S (cours/ventes)', ps, 'ps') : ''}
+                  ${pb != null ? ratioCard('P/B (cours/actif)', pb, 'pb') : ''}
+                  ${pfcf != null ? ratioCard('P/FCF', pfcf, 'pfcf') : ''}
+                  ${evEbitda != null ? ratioCard('VE/EBITDA', evEbitda, 'evEbitda') : ''}
+                  ${evSales != null ? ratioCard('VE/Ventes', evSales, 'evSales') : ''}
+                  ${evFcf != null ? ratioCard('VE/FCF', evFcf, 'evFcf') : ''}
+                </div>
+
+                <!-- BLOC 3 : Caracteristiques (BPA, Beta, dividende, ownership) -->
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.characteristics}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px">
+                  ${fund.eps != null ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.eps}</div>
+                      <strong style="font-size:14px">${fund.eps.toFixed(2)}</strong>
+                    </div>` : ''}
+                  ${divPct != null ? (() => {
+                    const r = rate(fund.dividendYield, 'divYield');
+                    return `<div style="padding:10px 12px;background:${r.bg};border-radius:8px;font-size:12px;border-left:3px solid ${r.color}" title="${r.tooltip}">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.dividend}</div>
+                      <strong style="font-size:14px;color:${r.color}">${divPct.toFixed(2)}%</strong>
+                      ${r.label ? `<div style="font-size:9px;color:${r.color};opacity:0.85;margin-top:2px">${r.label}</div>` : ''}
+                    </div>`;
+                  })() : ''}
+                  ${fund.beta != null ? (() => {
+                    const r = rate(fund.beta, 'beta');
+                    return `<div style="padding:10px 12px;background:${r.bg};border-radius:8px;font-size:12px;border-left:3px solid ${r.color}" title="${r.tooltip}">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.beta}</div>
+                      <strong style="font-size:14px;color:${r.color}">${fund.beta.toFixed(2)}</strong>
+                      ${r.label ? `<div style="font-size:9px;color:${r.color};opacity:0.85;margin-top:2px">${r.label}</div>` : ''}
+                    </div>`;
+                  })() : ''}
+                  ${fund.sharesOut ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Actions en circulation</div>
+                      <strong style="font-size:14px">${fmtBig(fund.sharesOut)}</strong>
+                    </div>` : ''}
+                  ${fund.insiderOwnership != null ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">${L.heldByInsiders}</div>
+                      <strong style="font-size:14px">${fund.insiderOwnership.toFixed(1)}%</strong>
+                    </div>` : ''}
+                  ${fund.institutionalOwnership != null ? `
+                    <div style="padding:10px 12px;background:var(--bg-card);border-radius:8px;font-size:12px">
+                      <div style="opacity:0.6;font-size:10px;text-transform:uppercase">Institutionnels</div>
+                      <strong style="font-size:14px">${fund.institutionalOwnership.toFixed(1)}%</strong>
+                    </div>` : ''}
+                </div>
+              `;
+            })()}
+
+            ${(margins.gross && margins.gross.display) || (returns.roe && returns.roe.display) ? `
+              <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)">
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.margins}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:12px">
+                  ${margins.gross && margins.gross.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge brute</div><strong style="color:#2ecc71;font-size:14px">${margins.gross.display}</strong></div>` : ''}
+                  ${margins.operating && margins.operating.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge op.</div><strong style="color:#2ecc71;font-size:14px">${margins.operating.display}</strong></div>` : ''}
+                  ${margins.profit && margins.profit.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge nette</div><strong style="color:#2ecc71;font-size:14px">${margins.profit.display}</strong></div>` : ''}
+                  ${margins.fcf && margins.fcf.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge FCF</div><strong style="color:#2ecc71;font-size:14px">${margins.fcf.display}</strong></div>` : ''}
+                  ${returns.roe && returns.roe.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROE</div><strong style="color:#74b9ff;font-size:14px">${returns.roe.display}</strong></div>` : ''}
+                  ${returns.roa && returns.roa.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROA</div><strong style="color:#74b9ff;font-size:14px">${returns.roa.display}</strong></div>` : ''}
+                  ${returns.roic && returns.roic.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROIC</div><strong style="color:#74b9ff;font-size:14px">${returns.roic.display}</strong></div>` : ''}
+                  ${returns.roce && returns.roce.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROCE</div><strong style="color:#74b9ff;font-size:14px">${returns.roce.display}</strong></div>` : ''}
+                </div>
+              </div>
+            ` : ''}
+            ${shortInt.shortPctFloat && shortInt.shortPctFloat.display ? `
+              <div style="margin-top:12px;padding:10px 12px;background:rgba(255,118,117,0.06);border-left:3px solid #ff7675;border-radius:6px;font-size:12px">
+                <span style="opacity:0.7">${L.shortsLabel}</span>
+                <strong style="color:#ff7675;font-size:14px">${shortInt.shortPctFloat.display}</strong>
+                <span style="opacity:0.5"> ${t('stock.shorts.ofFloat', 'du flottant')}</span>
+                ${shortInt.daysToCover && shortInt.daysToCover.display ? ` · <span style="opacity:0.65">${L.shortsDays.replace('{n}', shortInt.daysToCover.display)}</span>` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- CONSENSUS ANALYSTES -->
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 14px;font-size:16px">${t('stock.section.consensus_full', '🎯 Consensus analystes')}</h3>
+            ${consensus ? (() => {
+              const tot = consensus.total || 1;
+              const sbPct = (consensus.strongBuy / tot) * 100;
+              const bPct  = (consensus.buy / tot) * 100;
+              const hPct  = (consensus.hold / tot) * 100;
+              const sPct  = (consensus.sell / tot) * 100;
+              const ssPct = (consensus.strongSell / tot) * 100;
+              const bullPct = consensus.bullishPct || 0;
+              const bearPct = ((consensus.sell + consensus.strongSell) / tot) * 100;
+              const neutPct = (consensus.hold / tot) * 100;
+              // Couleur dominante
+              const sentColor = bullPct >= 65 ? '#2ecc71' : bullPct >= 45 ? '#74b9ff' : bullPct >= 30 ? '#f39c12' : '#e74c3c';
+              const sentLabel = bullPct >= 75 ? L.sentVeryBullish : bullPct >= 55 ? L.sentBullish : bullPct >= 40 ? L.sentMixed : bullPct >= 25 ? L.sentBearish : L.sentVeryBearish;
+              // Objectif de cours
+              const target = fund.targetMeanPrice;
+              const upside = (target && price.current) ? ((target - price.current) / price.current) * 100 : null;
+              const upColor = upside == null ? 'var(--text-muted)' : upside > 5 ? '#2ecc71' : upside < -5 ? '#e74c3c' : '#f39c12';
+
+              // Synthese textuelle dynamique
+              let narrative = '';
+              if (bullPct >= 75) {
+                narrative = t('stock.consensus.narrative.veryBullish', 'Les analystes sont <strong style="color:#2ecc71">très majoritairement haussiers</strong> ({n}/{tot}).')
+                  .replace('{n}', consensus.strongBuy + consensus.buy)
+                  .replace('{tot}', tot);
+              } else if (bullPct >= 55) {
+                narrative = t('stock.consensus.narrative.bullish', "Une <strong style=\"color:#52b788\">majorité</strong> d'analystes recommande l'achat{cautious}.")
+                  .replace('{cautious}', consensus.hold > 0
+                    ? t('stock.consensus.narrative.bullishCautious', ', mais {hold} restent prudents').replace('{hold}', consensus.hold)
+                    : '');
+              } else if (bullPct >= 40) {
+                narrative = t('stock.consensus.narrative.split', 'Le consensus est <strong style="color:#74b9ff">partagé</strong>{wait}.')
+                  .replace('{wait}', consensus.hold > 0
+                    ? t('stock.consensus.narrative.splitWait', ", avec {hold} analystes en position d'attente").replace('{hold}', consensus.hold)
+                    : '');
+              } else if (bullPct >= 25) {
+                narrative = t('stock.consensus.narrative.cautious', "Une <strong style=\"color:#f39c12\">majorité prudente</strong> : {n}/{tot} analystes ne recommandent pas l'achat.")
+                  .replace('{n}', consensus.hold + consensus.sell + consensus.strongSell)
+                  .replace('{tot}', tot);
+              } else {
+                narrative = t('stock.consensus.narrative.veryBearish', 'Les analystes sont <strong style="color:#e74c3c">majoritairement baissiers</strong> ({n}/{tot} avis négatifs).')
+                  .replace('{n}', consensus.sell + consensus.strongSell)
+                  .replace('{tot}', tot);
+              }
+              if (upside != null) {
+                narrative += ` Objectif moyen ${target.toFixed(2)}${cur === 'USD' ? ' $' : cur === 'EUR' ? ' €' : ' ' + cur} ${upside > 0 ? `(<strong style="color:#2ecc71">+${upside.toFixed(1)}%</strong> vs cours actuel)` : `(<strong style="color:#e74c3c">${upside.toFixed(1)}%</strong> vs cours actuel)`}.`;
+              }
+
+              return `
+                <!-- Sentiment dominant + objectif (top row) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+                  <div style="padding:14px;background:linear-gradient(135deg,${sentColor}20,${sentColor}08);border:1px solid ${sentColor}40;border-radius:10px">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">Sentiment global</div>
+                    <div style="font-size:22px;font-weight:700;color:${sentColor};line-height:1.1">${bullPct.toFixed(0)}% <span style="font-size:13px;opacity:0.7">${L.consBullishLabel}</span></div>
+                    <div style="font-size:11px;color:${sentColor};margin-top:4px;font-weight:600">${sentLabel}</div>
+                  </div>
+                  ${target ? `
+                  <div style="padding:14px;background:linear-gradient(135deg,${upColor}20,${upColor}08);border:1px solid ${upColor}40;border-radius:10px">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">Objectif moyen 12 mois</div>
+                    <div style="font-size:22px;font-weight:700;color:${upColor};line-height:1.1">${fmtCurr(target, cur)}</div>
+                    ${upside != null ? `<div style="font-size:11px;color:${upColor};margin-top:4px;font-weight:600">${upside > 0 ? '↗ Potentiel' : '↘ Risque'} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}%</div>` : ''}
+                  </div>
+                  ` : `
+                  <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;opacity:0.55">
+                    <span style="font-size:12px">${L.emptyTarget}</span>
+                  </div>
+                  `}
+                </div>
+
+                <!-- Barre stackée des 5 catégories -->
+                <div style="margin-bottom:14px">
+                  <div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--surface-3)">
+                    ${sbPct > 0 ? `<div title="${L.consStrongBuy} : ${consensus.strongBuy}" style="width:${sbPct}%;background:#2ecc71"></div>` : ''}
+                    ${bPct  > 0 ? `<div title="${L.consBuy} : ${consensus.buy}" style="width:${bPct}%;background:#52b788"></div>` : ''}
+                    ${hPct  > 0 ? `<div title="${L.consHold} : ${consensus.hold}" style="width:${hPct}%;background:#9CA3AF"></div>` : ''}
+                    ${sPct  > 0 ? `<div title="${L.consSell} : ${consensus.sell}" style="width:${sPct}%;background:#e67e22"></div>` : ''}
+                    ${ssPct > 0 ? `<div title="${L.consStrongSell} : ${consensus.strongSell}" style="width:${ssPct}%;background:#e74c3c"></div>` : ''}
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;opacity:0.55;text-transform:uppercase;letter-spacing:0.04em">
+                    <span style="color:#2ecc71">★ ${(sbPct + bPct).toFixed(0)}% Achat</span>
+                    <span style="color:#9CA3AF">${neutPct.toFixed(0)}% Neutre</span>
+                    <span style="color:#e74c3c">${bearPct.toFixed(0)}% Vente ★</span>
+                  </div>
+                </div>
+
+                <!-- Détail des 5 catégories -->
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px">
+                  <div style="text-align:center;padding:8px 4px;background:rgba(46,204,113,0.15);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#2ecc71">${consensus.strongBuy}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.strongBuy', 'Achat fort').replace(' ', '<br>')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(46,204,113,0.08);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#52b788">${consensus.buy}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.buy', 'Achat')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:var(--surface-2);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#9CA3AF">${consensus.hold}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.hold', 'Conserver')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(255,118,117,0.08);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#e67e22">${consensus.sell}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.sell', 'Vente')}</div></div>
+                  <div style="text-align:center;padding:8px 4px;background:rgba(255,118,117,0.15);border-radius:6px"><div style="font-size:16px;font-weight:700;color:#e74c3c">${consensus.strongSell}</div><div style="font-size:9px;opacity:0.7;line-height:1.2;margin-top:2px">${t('stock.cons.strongSell', 'Vente forte').replace(' ', '<br>')}</div></div>
+                </div>
+
+                <!-- Synthèse textuelle -->
+                <div style="padding:12px 14px;background:linear-gradient(135deg,${sentColor}10,transparent);border-left:3px solid ${sentColor};border-radius:6px;font-size:13px;line-height:1.65">
+                  ${narrative}
+                </div>
+
+                <div style="font-size:11px;opacity:0.5;margin-top:8px;text-align:right">${t('stock.cons.analystsTracked', '{n} analystes suivis').replace('{n}', tot)}</div>
+              `;
+            })() : (() => {
+              // Pas de consensus structure — fallback : objectif + recommandation Yahoo
+              if (fund.targetMeanPrice && price.current) {
+                const target = fund.targetMeanPrice;
+                const upside = ((target - price.current) / price.current) * 100;
+                const upColor = upside > 5 ? '#2ecc71' : upside < -5 ? '#e74c3c' : '#f39c12';
+                return `
+                  <div style="padding:18px;background:linear-gradient(135deg,${upColor}15,transparent);border:1px solid ${upColor}40;border-radius:10px;text-align:center">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:6px">Objectif de cours moyen</div>
+                    <div style="font-size:32px;font-weight:700;color:${upColor};line-height:1">${fmtCurr(target, cur)}</div>
+                    <div style="font-size:14px;color:${upColor};margin-top:6px;font-weight:600">${upside > 0 ? '↗ Potentiel' : '↘ Risque'} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}% vs ${fmtCurr(price.current, cur)}</div>
+                    ${fund.numberOfAnalystOpinions ? `<div style="font-size:11px;opacity:0.6;margin-top:8px">${t('stock.helper.consensusIntro', "D'après {n} analystes").replace('{n}', fund.numberOfAnalystOpinions)}</div>` : ''}
+                  </div>
+                `;
+              }
+              return `
+                <div style="text-align:center;padding:40px 20px;opacity:0.5">
+                  <div style="font-size:32px;margin-bottom:8px">🤷</div>
+                  <p style="font-size:13px">${L.consUnavailable.replace('{ticker}', d.ticker)}</p>
+                  <p style="font-size:11px;margin-top:4px;opacity:0.7">${L.consSmallCapNote}</p>
+                </div>
+              `;
+            })()}
+            ${fund.recommendationKey ? `
+              <div style="margin-top:14px;padding:10px 12px;background:rgba(116,185,255,0.08);border-left:3px solid #74b9ff;border-radius:6px;font-size:12px;display:flex;justify-content:space-between;align-items:center">
+                <span style="opacity:0.8">${t('stock.cons.recommendationYahoo', 'Recommandation Yahoo Finance')}</span>
+                <strong style="text-transform:uppercase;letter-spacing:0.04em;color:#74b9ff">${fund.recommendationKey}</strong>
+              </div>
+            ` : ''}
+            ${zb && (zb.consensus || zb.recommendationMean || zb.targetMean) ? (() => {
+              // Box Zonebourse appendue en bas du panneau Consensus (mai 2026, demande user) :
+              // affiche source + recommandation textuelle + objectif EUR + analystes pour les EU.
+              const zbColor = ['Achat','Surperformer','ACCUMULER','ACHETER'].some(s => (zb.recommendationMean || '').includes(s) || (zb.consensus || '').includes(s))
+                ? '#10B981'
+                : ['Vendre','Sous-performer','VENDRE','ALLEGER'].some(s => (zb.recommendationMean || '').includes(s) || (zb.consensus || '').includes(s))
+                  ? '#e74c3c' : '#f39c12';
+              const ecartCol = (zb.ecartTargetPct || 0) > 0 ? '#10B981' : (zb.ecartTargetPct || 0) < 0 ? '#e74c3c' : '#94A3B8';
+              return `
+                <div style="margin-top:10px;padding:12px 14px;background:linear-gradient(135deg,${zbColor}10,transparent);border-left:3px solid ${zbColor};border-radius:6px;font-size:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+                    <span style="opacity:0.85">📊 Consensus <a href="${zb.sourceUrl||'#'}" target="_blank" rel="noopener" style="color:#3B82F6;text-decoration:underline">Zonebourse</a> (analystes EU)</span>
+                    <strong style="text-transform:uppercase;letter-spacing:0.04em;color:${zbColor}">${zb.recommendationMean || zb.consensus || '—'}</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;opacity:0.85">
+                    ${zb.targetMean ? `<span>Objectif EU : <strong>${zb.targetMean.toLocaleString('fr-FR')} ${zb.targetCurrency || ''}</strong>${zb.ecartTargetPct != null ? ` <span style="color:${ecartCol};font-weight:600">${zb.ecartTargetPct > 0 ? '+' : ''}${zb.ecartTargetPct}%</span>` : ''}</span>` : '<span></span>'}
+                    ${zb.analystCount ? `<span>${zb.analystCount} analystes EU</span>` : ''}
+                  </div>
+                </div>
+              `;
+            })() : ''}
+          </div>
+        </div>
+
+        <!-- 3 COLONNES : Santé / Earnings / Peers (align-items:stretch pour meme hauteur) -->
+        ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (earnings.history && earnings.history.length) || earnings.next || peers.length > 0) ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px;align-items:stretch">
+
+          <!-- SANTE FINANCIERE -->
+          ${(health.altmanZ != null || health.piotroskiF != null || health.kairosScore || (finPos.debtEquity && finPos.debtEquity.display) || (finPos.currentRatio && finPos.currentRatio.display)) ? `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secHealth}</h3>
+            ${(() => {
+              // === Helpers couleur pour interprétation des ratios ===
+              // Renvoie {col, bg, label, tip} selon la valeur et le type de ratio.
+              const rateRatio = (val, type) => {
+                if (val == null) return null;
+                let col, label;
+                if (type === 'currentRatio') {
+                  if (val >= 2)      { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 1.5){ col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 1)  { col = '#f39c12'; label = L.healthFair; }
+                  else                { col = '#e74c3c'; label = L.healthWeak; }
+                } else if (type === 'quickRatio') {
+                  if (val >= 1.2)     { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 0.8){ col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 0.5){ col = '#f39c12'; label = L.healthAverage; }
+                  else                { col = '#e74c3c'; label = L.healthWeak; }
+                } else if (type === 'debtEquity') {
+                  // Plus c'est BAS, mieux c'est
+                  if (val <= 0.3)     { col = '#2ecc71'; label = L.debtLow; }
+                  else if (val <= 1)  { col = '#27ae60'; label = L.debtControlled; }
+                  else if (val <= 2)  { col = '#f39c12'; label = L.debtHigh; }
+                  else                { col = '#e74c3c'; label = L.debtVeryHigh; }
+                } else if (type === 'debtEbitda') {
+                  if (val <= 2)       { col = '#2ecc71'; label = L.healthWeak; }
+                  else if (val <= 4)  { col = '#27ae60'; label = L.debtModerate; }
+                  else if (val <= 6)  { col = '#f39c12'; label = L.debtHigh; }
+                  else                { col = '#e74c3c'; label = L.healthCritical; }
+                } else if (type === 'interestCoverage') {
+                  if (val >= 5)       { col = '#2ecc71'; label = L.healthExcellent; }
+                  else if (val >= 2.5){ col = '#27ae60'; label = L.healthGood; }
+                  else if (val >= 1.5){ col = '#f39c12'; label = L.healthFair; }
+                  else                { col = '#e74c3c'; label = L.healthDangerous; }
+                }
+                return { col, label };
+              };
+              const ratioRow = (label, finPosKey, type, tip) => {
+                const fp = finPos[finPosKey];
+                if (!fp || !fp.display) return '';
+                const r = rateRatio(fp.raw != null ? fp.raw : parseFloat(fp.display), type);
+                const valCol = r ? r.col : 'var(--text-primary)';
+                const tag = r ? `<span style="display:inline-block;padding:1px 7px;background:${r.col}22;color:${r.col};border-radius:10px;font-size:9px;font-weight:700;letter-spacing:0.04em;margin-left:6px">${r.label}</span>` : '';
+                return `<tr title="${tip || ''}">
+                  <td style="padding:6px 0;opacity:0.75">${label}</td>
+                  <td style="text-align:right">
+                    <strong style="color:${valCol};font-size:14px">${fp.display}</strong>${tag}
+                  </td>
+                </tr>`;
+              };
+              return ''; // helpers seulement
+            })()}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+              ${health.altmanZ != null ? (() => {
+                const zoneCol = health.altmanZone === 'safe' ? '#2ecc71' : health.altmanZone === 'grey' ? '#f39c12' : '#e74c3c';
+                const zoneTxt = health.altmanZone === 'safe' ? L.zoneSafe : health.altmanZone === 'grey' ? L.zoneGrey : L.zoneDistress;
+                return `<div style="padding:12px;background:rgba(${health.altmanZone==='safe'?'46,204,113':health.altmanZone==='grey'?'243,156,18':'231,76,60'},0.08);border:1px solid rgba(${health.altmanZone==='safe'?'46,204,113':health.altmanZone==='grey'?'243,156,18':'231,76,60'},0.2);border-radius:8px;text-align:center">
+                  <div style="font-size:11px;opacity:0.65;margin-bottom:3px">Altman Z-Score</div>
+                  <div style="font-size:26px;font-weight:700;color:${zoneCol}">${health.altmanZ.toFixed(2)}</div>
+                  <div style="font-size:10px;font-weight:600;color:${zoneCol};letter-spacing:0.5px;margin-top:2px">${zoneTxt}</div>
+                </div>`;
+              })() : ''}
+              ${health.piotroskiF != null ? (() => {
+                const zoneCol = health.piotroskiZone === 'strong' ? '#2ecc71' : health.piotroskiZone === 'mid' ? '#f39c12' : '#e74c3c';
+                const zoneTxt = health.piotroskiZone === 'strong' ? L.healthSolid : health.piotroskiZone === 'mid' ? L.healthAverage : L.healthWeak;
+                return `<div style="padding:12px;background:rgba(${health.piotroskiZone==='strong'?'46,204,113':health.piotroskiZone==='mid'?'243,156,18':'231,76,60'},0.08);border:1px solid rgba(${health.piotroskiZone==='strong'?'46,204,113':health.piotroskiZone==='mid'?'243,156,18':'231,76,60'},0.2);border-radius:8px;text-align:center">
+                  <div style="font-size:11px;opacity:0.65;margin-bottom:3px">Piotroski F-Score</div>
+                  <div style="font-size:26px;font-weight:700;color:${zoneCol}">${health.piotroskiF}<span style="opacity:0.5;font-size:16px">/9</span></div>
+                  <div style="font-size:10px;font-weight:600;color:${zoneCol};letter-spacing:0.5px;margin-top:2px">${zoneTxt}</div>
+                </div>`;
+              })() : ''}
+              ${(health.altmanZ == null && health.piotroskiF == null && health.kairosScore) ? (() => {
+                // EU stocks : Health Score Kairos (proxy 7 criteres) depuis Finnhub
+                const ks = health.kairosScore;
+                const zoneCol = ks.zone === 'strong' ? '#2ecc71' : ks.zone === 'mid' ? '#f39c12' : '#e74c3c';
+                return `<div style="padding:12px;background:rgba(${ks.zone==='strong'?'46,204,113':ks.zone==='mid'?'243,156,18':'231,76,60'},0.08);border:1px solid rgba(${ks.zone==='strong'?'46,204,113':ks.zone==='mid'?'243,156,18':'231,76,60'},0.2);border-radius:8px;text-align:center;grid-column:1 / -1">
+                  <div style="font-size:11px;opacity:0.65;margin-bottom:3px">${L.healthScore} <span style="opacity:0.6;font-size:9px;margin-left:4px">(EU proxy)</span></div>
+                  <div style="font-size:26px;font-weight:700;color:${zoneCol}">${ks.score}<span style="opacity:0.5;font-size:16px">/${ks.total}</span></div>
+                  <div style="font-size:10px;font-weight:600;color:${zoneCol};letter-spacing:0.5px;margin-top:2px">${ks.label} · ${ks.ratio}%</div>
+                  <div style="font-size:10px;opacity:0.6;margin-top:6px;line-height:1.4;text-align:left">
+                    ${(ks.criteria || []).map(c => `<div>${c.ok ? '✓' : '✗'} <span style="opacity:${c.ok?0.85:0.5}">${c.label}</span></div>`).join('')}
+                  </div>
+                </div>`;
+              })() : ''}
+            </div>
+            <div style="font-size:11px;opacity:0.55;line-height:1.5;margin-bottom:12px">
+              ${health.altmanZ != null ? t('stock.health.altmanTip', '<strong>Altman Z</strong> : risque de faillite 2 ans. > 2.99 sûr · 1.81–2.99 gris · < 1.81 détresse.') : ''}
+              ${health.altmanZ != null && health.piotroskiF != null ? '<br>' : ''}
+              ${health.piotroskiF != null ? t('stock.health.piotroskiTip', '<strong>Piotroski F</strong> : qualité fondamentale sur 9 critères. ≥ 7 solide · 4–6 moyen · < 4 faible.') : ''}
+              ${(health.altmanZ == null && health.piotroskiF == null && health.kairosScore) ? t('stock.health.kairosTip', "<strong>Score Kairos</strong> : 7 critères de santé fondamentale (rentabilité, liquidité, endettement). Approximation pour les actions EU où Altman Z et Piotroski F ne sont pas disponibles. ≥ 5/7 solide · 3–4 moyen · < 3 faible.") : ''}
+            </div>
+            ${(finPos.currentRatio && finPos.currentRatio.display) || (finPos.debtEquity && finPos.debtEquity.display) ? (() => {
+              // Helpers couleur (réinjectés ici car les helpers de l'IIFE supérieure ne sont pas accessibles)
+              const rateRatio = (val, type) => {
+                if (val == null || isNaN(val)) return null;
+                let col, label;
+                if (type === 'currentRatio') {
+                  if (val >= 2) { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 1.5) { col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 1) { col = '#f39c12'; label = L.healthFair; }
+                  else { col = '#e74c3c'; label = L.healthWeak; }
+                } else if (type === 'quickRatio') {
+                  if (val >= 1.2) { col = '#2ecc71'; label = L.healthSolid; }
+                  else if (val >= 0.8) { col = '#27ae60'; label = L.healthSolid; }
+                  else if (val >= 0.5) { col = '#f39c12'; label = L.healthAverage; }
+                  else { col = '#e74c3c'; label = L.healthWeak; }
+                } else if (type === 'debtEquity') {
+                  if (val <= 0.3) { col = '#2ecc71'; label = L.debtLow; }
+                  else if (val <= 1) { col = '#27ae60'; label = L.debtControlled; }
+                  else if (val <= 2) { col = '#f39c12'; label = L.debtHigh; }
+                  else { col = '#e74c3c'; label = L.debtVeryHigh; }
+                } else if (type === 'debtEbitda') {
+                  if (val <= 2) { col = '#2ecc71'; label = L.healthWeak; }
+                  else if (val <= 4) { col = '#27ae60'; label = L.debtModerate; }
+                  else if (val <= 6) { col = '#f39c12'; label = L.debtHigh; }
+                  else { col = '#e74c3c'; label = L.healthCritical; }
+                } else if (type === 'interestCoverage') {
+                  if (val >= 5) { col = '#2ecc71'; label = L.healthExcellent; }
+                  else if (val >= 2.5) { col = '#27ae60'; label = L.healthGood; }
+                  else if (val >= 1.5) { col = '#f39c12'; label = L.healthFair; }
+                  else { col = '#e74c3c'; label = L.healthDangerous; }
+                }
+                return { col, label };
+              };
+              const ratioRow = (label, finPosKey, type, tip) => {
+                const fp = finPos[finPosKey];
+                if (!fp || !fp.display) return '';
+                const num = fp.raw != null ? fp.raw : parseFloat(String(fp.display).replace(',', '.'));
+                const r = rateRatio(num, type);
+                const valCol = r ? r.col : 'var(--text-primary)';
+                const tag = r ? `<span style="display:inline-block;padding:1px 7px;background:${r.col}22;color:${r.col};border-radius:10px;font-size:9px;font-weight:700;letter-spacing:0.04em;margin-left:6px;vertical-align:middle">${r.label}</span>` : '';
+                return `<tr title="${tip || ''}">
+                  <td style="padding:6px 0;opacity:0.75">${label}</td>
+                  <td style="text-align:right;white-space:nowrap">
+                    <strong style="color:${valCol};font-size:14px">${fp.display}</strong>${tag}
+                  </td>
+                </tr>`;
+              };
+              return `<div style="padding-top:12px;border-top:1px solid var(--border-subtle)">
+                <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.finStructure}</div>
+                <table style="width:100%;font-size:12px">
+                  ${ratioRow(L.ratioCurrentRatio, 'currentRatio', 'currentRatio', 'Actifs courants / passifs courants. > 1.5 = solide, < 1 = tendu')}
+                  ${ratioRow(L.ratioQuickRatio, 'quickRatio', 'quickRatio', 'Actifs liquides / passifs courants (sans stocks). > 1 = solide')}
+                  ${ratioRow(L.ratioDebtEquity, 'debtEquity', 'debtEquity', 'Levier financier. < 1 = peu endetté, > 2 = très endetté')}
+                  ${ratioRow(L.ratioDebtEbitda, 'debtEbitda', 'debtEbitda', 'Capacité de remboursement. < 2 = sain, > 4 = à surveiller')}
+                  ${ratioRow(L.ratioInterestCoverage, 'interestCoverage', 'interestCoverage', 'EBIT / charges intérêts. > 5 = solide, < 1.5 = dangereux')}
+                </table>
+              </div>`;
+            })() : ''}
+          </div>
+          ` : ''}
+
+          <!-- EARNINGS -->
+          ${(earnings.history && earnings.history.length > 0) || earnings.next ? `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px">
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secEarnings}</h3>
+            ${earnings.next ? `
+              <div style="padding:12px;background:rgba(116,185,255,0.08);border:1px solid rgba(116,185,255,0.25);border-radius:8px;margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                  <div style="font-size:11px;opacity:0.75;text-transform:uppercase;letter-spacing:0.5px">${t('stock.earnings.nextPublication', 'PROCHAINE PUBLICATION')}</div>
+                  ${earnings.next.confirmed ? `<span style="font-size:10px;color:#2ecc71;background:rgba(46,204,113,0.15);padding:2px 6px;border-radius:4px">${L.earnConfirmed}</span>` : `<span style="font-size:10px;opacity:0.5">${L.earnEstimated}</span>`}
+                </div>
+                <div style="font-size:18px;font-weight:600;color:#74b9ff">${earnings.next.date ? new Date(earnings.next.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'}) : '—'}</div>
+                ${earnings.next.period && earnings.next.year ? `<div style="font-size:11px;opacity:0.6;margin-top:2px">${earnings.next.period} ${earnings.next.year} · ${earnings.next.time === 'bmo' ? L.earnBmo : earnings.next.time === 'amc' ? L.earnAmc : L.earnTimeUnknown}</div>` : ''}
+                ${earnings.next.epsEst != null ? `<div style="font-size:12px;margin-top:6px;opacity:0.8">${L.earnEpsEst} : <strong>${earnings.next.epsEst.toFixed(2)}</strong></div>` : ''}
+              </div>
+            ` : ''}
+            ${earnings.history && earnings.history.length > 0 ? `
+              <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${t('stock.earnings.historyTitle', 'HISTORIQUE DES SURPRISES')}</div>
+              <div style="font-size:12px">
+                ${earnings.history.slice(0, 6).map(h => {
+                  const beatCol = h.beat ? '#2ecc71' : '#ff7675';
+                  const surprisePct = h.epsSurprisePct != null ? (h.epsSurprisePct > 0 ? '+' : '') + h.epsSurprisePct.toFixed(1) + '%' : '—';
+                  return `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--divider)">
+                      <div>
+                        <strong>${h.period || ''} ${h.year || ''}</strong>
+                        <span style="font-size:11px;opacity:0.55;margin-left:8px">${h.date ? new Date(h.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'2-digit'}) : ''}</span>
+                      </div>
+                      <div style="text-align:right">
+                        <div style="font-size:11px;opacity:0.65">${L.eps} <strong>${h.epsActual != null ? h.epsActual.toFixed(2) : '—'}</strong> <span style="opacity:0.5">${L.earnVsExp.replace('{n}', h.epsEst != null ? h.epsEst.toFixed(2) : '—')}</span></div>
+                        <div style="font-weight:600;color:${beatCol}">${h.beat ? '✓' : '✗'} ${surprisePct}</div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+              ${(() => {
+                const beats = earnings.history.filter(h => h.beat).length;
+                const total = earnings.history.length;
+                const pct = total > 0 ? (beats/total*100).toFixed(0) : 0;
+                const beatCol = pct >= 75 ? '#2ecc71' : pct >= 50 ? '#f39c12' : '#ff7675';
+                return `<div style="margin-top:10px;font-size:12px;opacity:0.85">${L.earnBeatRate} : <strong style="color:${beatCol}">${beats}/${total}</strong> <span style="opacity:0.55">(${pct}%)</span></div>`;
+              })()}
+            ` : ''}
+          </div>
+          ` : ''}
+
+          <!-- PEERS : layout flex pour epouser la hauteur des autres cards de la row -->
+          ${peers.length > 0 ? `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;min-height:0">
+            <h3 style="margin:0 0 12px;font-size:16px;flex-shrink:0">${t('stock.section.peers', '🎯 Concurrents sectoriels')}</h3>
+            <div style="font-size:11px;opacity:0.55;margin-bottom:10px;flex-shrink:0">${peers.length} ${L.peersIntro}</div>
+            <div class="scroll-y-hover" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px;max-height:600px">
+              ${peers.map(p => `
+                <div onclick="loadStockAnalysis('${p.ticker}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px;margin-bottom:6px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;font-size:13px" onmouseover="this.style.background='rgba(116,185,255,0.08)';this.style.borderColor='rgba(116,185,255,0.3)'" onmouseout="this.style.background='var(--bg-card)';this.style.borderColor='var(--border)'">
+                  <div style="flex:1;min-width:0;overflow:hidden">
+                    <div style="font-weight:700;color:#74b9ff;font-size:13px">${p.ticker}</div>
+                    ${p.name ? `<div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px" title="${escapeHtmlClient(p.name)}">${escapeHtmlClient(p.name)}</div>` : ''}
+                  </div>
+                  ${p.employees ? `<div style="text-align:right;font-size:11px;opacity:0.7;margin-left:8px;flex-shrink:0"><div>${fmtBig(p.employees)}</div><div style="opacity:0.55">${L.peersEmployees}</div></div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+        </div>
+        ` : ''}
+
+        <!-- FAIR VALUE (Lynch + Graham) -->
+        ${(fairValue.lynch && fairValue.lynch.display) || (fairValue.graham && fairValue.graham.display) ? `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secFairvalue}</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+              ${fairValue.lynch && fairValue.lynch.display ? `
+                <div style="padding:12px;background:var(--surface-1);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;margin-bottom:4px">${t('stock.fv.lynchTitle', 'Juste valeur selon Peter Lynch')}</div>
+                  <div style="font-size:20px;font-weight:600">${fairValue.lynch.display}</div>
+                  ${fairValue.lynchUpside && fairValue.lynchUpside.display ? `<div style="font-size:12px;margin-top:3px;color:${(fairValue.lynchUpside.numeric||0)>0?'#2ecc71':'#ff7675'}">${t('stock.fv.potentialLabel', 'Potentiel :')} ${fairValue.lynchUpside.display}</div>` : ''}
+                </div>
+              ` : ''}
+              ${fairValue.graham && fairValue.graham.display ? `
+                <div style="padding:12px;background:var(--surface-1);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;margin-bottom:4px">${t('stock.fv.grahamTitle', 'Nombre de Graham')}</div>
+                  <div style="font-size:20px;font-weight:600">${fairValue.graham.display}</div>
+                  ${fairValue.grahamUpside && fairValue.grahamUpside.display ? `<div style="font-size:12px;margin-top:3px;color:${(fairValue.grahamUpside.numeric||0)>0?'#2ecc71':'#ff7675'}">${t('stock.fv.potentialLabel', 'Potentiel :')} ${fairValue.grahamUpside.display}</div>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- GOOGLE TRENDS -->
+        ${trends ? (() => {
+          const tr = trends;
+          // Seuil anti-bruit : si l'intérêt est trop faible, le spike est du bruit statistique
+          const LOW_VOLUME = tr.interestMax < 8;
+          const MEANINGFUL = tr.interestNow >= 8;
+          // On n'affiche le spike colore que si le signal est significatif
+          const spikeColor = !MEANINGFUL ? '#6B7280' : (tr.spike7d > 10 ? '#2ecc71' : tr.spike7d > 0 ? '#52b788' : tr.spike7d < -10 ? '#e74c3c' : tr.spike7d < 0 ? '#ff7675' : '#9CA3AF');
+          const spikeEmoji = !MEANINGFUL ? '·' : (tr.spike7d > 10 ? '🚀' : tr.spike7d > 0 ? '📈' : tr.spike7d < -10 ? '📉' : tr.spike7d < 0 ? '🔻' : '→');
+          const trendLabel = !MEANINGFUL ? 'bruit de fond' : (tr.trend === 'rising' ? '↗️ en hausse' : tr.trend === 'falling' ? '↘️ en baisse' : '→ stable');
+          const trendColor = !MEANINGFUL ? '#9CA3AF' : (tr.trend === 'rising' ? '#2ecc71' : tr.trend === 'falling' ? '#ff7675' : '#9CA3AF');
+          const spikeDisplay = !MEANINGFUL ? 'n/a' : `${tr.spike7d > 0 ? '+' : ''}${tr.spike7d}%`;
+          return `
+            <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+                <h3 style="margin:0;font-size:16px">${L.secTrends}</h3>
+                ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">${L.emptyLowVol}</span>` : ''}
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">${L.recentInterest}</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestNow}/100</div>
+                </div>
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Spike 7j</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px;color:${spikeColor}">${spikeEmoji} ${spikeDisplay}</div>
+                </div>
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Tendance 30j</div>
+                  <div style="font-size:15px;font-weight:600;margin-top:8px;color:${trendColor}">${trendLabel}</div>
+                </div>
+                <div style="padding:14px;background:var(--bg-card);border-radius:8px">
+                  <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Pic max 90j</div>
+                  <div style="font-size:22px;font-weight:600;margin-top:4px">${tr.interestMax}/100</div>
+                </div>
+              </div>
+              ${!LOW_VOLUME ? `<canvas id="trendsChart" style="max-height:180px"></canvas>` : `<p style="opacity:0.55;font-size:13px;padding:20px 0">${t('stock.trends.lowVolume', "Le volume de recherche pour \"{ticker}\" est trop faible sur les 90 derniers jours pour qu'un signal soit exploitable (max {max}/100 sur la période). Ce ticker n'attire pas encore l'attention retail sur Google.").replace('{ticker}', d.ticker).replace('{max}', tr.interestMax)}</p>`}
+              <p style="font-size:11px;opacity:0.55;margin:10px 0 0">
+                ${t('stock.trends.desc', 'Volume de recherche Google pour "{ticker}" sur 90 jours (Google Trends, échelle 0-100, 100 = pic de la période). Les pics précèdent souvent les mouvements de prix sur les small caps.').replace('{ticker}', d.ticker)}
+              </p>
+            </div>
+          `;
+        })() : ''}
+
+        <!-- NEWS -->
+        ${news.length > 0 ? `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secNews}</h3>
+            <div style="display:grid;gap:8px">
+              ${news.slice(0, 10).map(n => `
+                <a href="${n.link}" target="_blank" rel="noopener" style="display:block;padding:10px;background:var(--bg-card);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--bg-card)'">
+                  <div style="font-size:13px;color:#74b9ff;margin-bottom:3px">${n.title}</div>
+                  <div style="font-size:11px;opacity:0.55">${n.source || ''} · ${n.pubDate ? new Date(n.pubDate).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : ''}</div>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- DESCRIPTION ENTREPRISE -->
+        ${company.description ? `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+            <h3 style="margin:0 0 12px;font-size:16px">${L.secAbout}</h3>
+            <p style="font-size:13px;line-height:1.7;opacity:0.85;margin:0">${company.description}</p>
+            ${company.website ? `<div style="margin-top:12px"><a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff;font-size:13px">${company.website}</a></div>` : ''}
+          </div>
+        ` : ''}
+      `;
+
+      // ============================================================
+      // Chart prix + superposition insiders — ENCAPSULÉ dans un closure
+      // reutilisable par changeChartRange() pour rebuilder le chart sans
+      // re-rendre tout le body.innerHTML de stockAnalysis.
+      // Save sur window pour acces cross-scope.
+      // ============================================================
+      window._rebuildStockPriceChart = function(newD) {
+        const d = newD;
+        const insiders = d.insiders || {};
+        const cur = d.price?.currency || 'USD';
+        const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat('fr-FR', { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
+        const fmtDate = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }); } catch { return s; } };
+
+      // Render chart prix + superposition insiders
+      if (d.chart && d.chart.points && d.chart.points.length > 0) {
+        const ctx = document.getElementById('stockPriceChart')?.getContext('2d');
+        if (ctx) {
+          if (stockChart) stockChart.destroy();
+          const points = d.chart.points;
+          const labels = points.map(p => p.date);
+          const values = points.map(p => p.close);
+
+          // Index rapide : date YYYY-MM-DD -> index + close
+          const byDate = new Map();
+          points.forEach((p, i) => byDate.set(p.date, { i, close: p.close }));
+          const firstDate = labels[0];
+          const lastDate = labels[labels.length - 1];
+
+          // Fonction : trouver l'index de la premiere date >= targetDate
+          function findIndexForDate(targetDate) {
+            if (!targetDate) return -1;
+            // Date exacte
+            if (byDate.has(targetDate)) return byDate.get(targetDate).i;
+            if (targetDate < firstDate || targetDate > lastDate) return -1;
+            // Recherche lineaire de la premiere date >= target (ok car ~250 points max)
+            for (let i = 0; i < labels.length; i++) {
+              if (labels[i] >= targetDate) return i;
+            }
+            return -1;
+          }
+
+          // Construire les arrays d'overlay : null partout sauf aux dates d'insider
+          // Pour gerer plusieurs trades le meme jour, on utilise un tableau d'arrays
+          const buyOverlay = new Array(labels.length).fill(null);
+          const sellOverlay = new Array(labels.length).fill(null);
+          const buyMeta = new Array(labels.length).fill(null);   // metadata pour tooltip
+          const sellMeta = new Array(labels.length).fill(null);
+          const buyRadii = new Array(labels.length).fill(0);
+          const sellRadii = new Array(labels.length).fill(0);
+
+          const txs = (insiders.transactions || []).filter(t => t.fileDate);
+          // Calculer les tailles de points proportionnelles au volume
+          const values_arr = txs.map(t => Math.abs(t.value || 0)).filter(v => v > 0);
+          const maxVal = values_arr.length ? Math.max(...values_arr) : 0;
+          function radiusFor(value) {
+            if (!value || !maxVal) return 5;
+            const ratio = Math.min(Math.abs(value) / maxVal, 1);
+            return 4 + Math.round(ratio * 8); // 4 a 12px
+          }
+
+          txs.forEach(t => {
+            const idx = findIndexForDate(t.fileDate);
+            if (idx < 0) return;
+            const y = values[idx];
+            const r = radiusFor(t.value);
+            if (t.type === 'buy') {
+              // Empiler : si déjà un point, garder le plus gros radius
+              if (r > buyRadii[idx]) {
+                buyOverlay[idx] = y;
+                buyRadii[idx] = r;
+                buyMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: t.fileDate, count: (buyMeta[idx]?.count || 0) + 1 };
+              } else if (buyMeta[idx]) {
+                buyMeta[idx].count = (buyMeta[idx].count || 1) + 1;
+              }
+            } else if (t.type === 'sell') {
+              if (r > sellRadii[idx]) {
+                sellOverlay[idx] = y;
+                sellRadii[idx] = r;
+                sellMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: t.fileDate, count: (sellMeta[idx]?.count || 0) + 1 };
+              } else if (sellMeta[idx]) {
+                sellMeta[idx].count = (sellMeta[idx].count || 1) + 1;
+              }
+            }
+          });
+
+          // Gradient vertical pour le remplissage sous la ligne : plus intense
+          // en haut, disparait en bas. Donne un effet "glow" propre au cours.
+          const fillGradient = ctx.createLinearGradient(0, 0, 0, 280);
+          fillGradient.addColorStop(0, 'rgba(116, 185, 255, 0.35)');
+          fillGradient.addColorStop(0.55, 'rgba(139, 92, 246, 0.12)');
+          fillGradient.addColorStop(1, 'rgba(116, 185, 255, 0)');
+          // Gradient horizontal pour la couleur de la ligne elle-meme
+          // (signature brand Kairos : bleu → violet → rose)
+          const strokeGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+          strokeGradient.addColorStop(0, '#3B82F6');
+          strokeGradient.addColorStop(0.55, '#8B5CF6');
+          strokeGradient.addColorStop(1, '#EC4899');
+          const datasets = [{
+            label: d.ticker,
+            data: values,
+            borderColor: strokeGradient,
+            backgroundColor: fillGradient,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#F9A8D4',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            fill: true,
+            tension: 0.35,                           // courbe lisse (monotone-cubic feeling)
+            cubicInterpolationMode: 'monotone',      // evite les overshoots bizarres
+            borderJoinStyle: 'round',
+            borderCapStyle: 'round',
+            order: 2,
+          }];
+
+          const hasBuys = buyOverlay.some(v => v !== null);
+          const hasSells = sellOverlay.some(v => v !== null);
+
+          // Markers achat/vente : pointStyle Chart.js natif (rectRot pour
+          // achat = losange/diamant, triangle pour vente). Couleurs vives
+          // avec border-color contraste pour faire ressortir.
+          // Plus simple et plus fiable que des canvas custom.
+          if (hasBuys) {
+            datasets.push({
+              label: L.chartInsiderBuys,
+              data: buyOverlay,
+              _meta: buyMeta,
+              borderColor: '#0A0F1E',           // bordure sombre = halo de contraste
+              backgroundColor: '#10B981',       // emerald-500
+              pointBorderColor: '#0A0F1E',
+              pointBorderWidth: 1.5,
+              pointBackgroundColor: '#10B981',
+              pointStyle: 'rectRot',            // losange pointe vers le haut/bas
+              pointRadius: buyRadii,
+              pointHoverRadius: buyRadii.map(r => r ? r + 3 : 0),
+              pointHoverBackgroundColor: '#34D399',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              showLine: false,
+              order: 1,
+            });
+          }
+          if (hasSells) {
+            datasets.push({
+              label: t('stock.chart.insiderSells', 'Ventes insiders'),
+              data: sellOverlay,
+              _meta: sellMeta,
+              borderColor: '#0A0F1E',
+              backgroundColor: '#EF4444',       // red-500
+              pointBorderColor: '#0A0F1E',
+              pointBorderWidth: 1.5,
+              pointBackgroundColor: '#EF4444',
+              pointStyle: 'triangle',           // triangle pointe vers le haut
+              pointRadius: sellRadii,
+              pointHoverRadius: sellRadii.map(r => r ? r + 3 : 0),
+              pointHoverBackgroundColor: '#F87171',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              rotation: 180,                    // pointe vers le bas (= vente)
+              showLine: false,
+              order: 0,
+            });
+          }
+
+          stockChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            plugins: [KairosCrosshairPlugin],
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              // 'index' = tooltip activé pour TOUTE la colonne verticale
+              // intersect:false = pas besoin de toucher exactement un point
+              interaction: { mode: 'index', intersect: false, axis: 'x' },
+              hover: { mode: 'index', intersect: false, axis: 'x' },
+              plugins: {
+                legend: {
+                  display: hasBuys || hasSells,
+                  position: 'top',
+                  align: 'end',
+                  labels: {
+                    color: getCssVar('--chart-text-strong'),
+                    boxWidth: 12, boxHeight: 12, padding: 12,
+                    font: { size: 11 },
+                    usePointStyle: true,  // utilise pointStyle (canvas) dans la legende
+                  },
+                },
+                tooltip: {
+                  enabled: true,
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#D1D5DB',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  borderWidth: 1,
+                  padding: 12,
+                  cornerRadius: 8,
+                  titleFont: { size: 12, weight: '600' },
+                  bodyFont: { size: 12 },
+                  bodySpacing: 4,
+                  // Filtre : ne montre que les datasets qui ont une valeur a cet index
+                  filter: (item) => item.parsed.y !== null && item.parsed.y !== undefined,
+                  callbacks: {
+                    title: function(items) {
+                      if (!items.length) return '';
+                      return fmtDate(items[0].label);
+                    },
+                    label: function(ctx) {
+                      const ds = ctx.dataset;
+                      if (ds.label === d.ticker) {
+                        return `Cours : ${fmtCurr(ctx.parsed.y)}`;
+                      }
+                      const meta = ds._meta && ds._meta[ctx.dataIndex];
+                      if (!meta) return ds.label;
+                      const lines = [];
+                      if (ds.label === 'Fonds offensifs') {
+                        const icon = meta.isActivist ? '⚡ FONDS OFFENSIF' : '📋 Gros actionnaire';
+                        lines.push(`${icon}${meta.count > 1 ? ' (+' + (meta.count - 1) + ' autre' + (meta.count > 2 ? 's' : '') + ')' : ''}`);
+                        if (meta.filerName) lines.push(meta.filerName);
+                        if (meta.form) lines.push(meta.form.replace('SCHEDULE ', 'Schedule '));
+                        // Infos d'ownership enrichies si dispo
+                        if (meta.percentOfClass != null) {
+                          lines.push(`${meta.percentOfClass.toFixed(1)}% du capital`);
+                        }
+                        if (meta.sharesOwned != null) {
+                          const s = meta.sharesOwned;
+                          const sStr = s >= 1e9 ? (s/1e9).toFixed(1)+'B' : s >= 1e6 ? (s/1e6).toFixed(1)+'M' : s >= 1e3 ? (s/1e3).toFixed(0)+'K' : String(Math.round(s));
+                          lines.push(`${sStr} titres`);
+                        }
+                        if (meta.purchasePriceApprox != null) {
+                          const p = meta.purchasePriceApprox;
+                          const pStr = p >= 1e9 ? '$'+(p/1e9).toFixed(2)+'B' : p >= 1e6 ? '$'+(p/1e6).toFixed(1)+'M' : '$'+Math.round(p/1e3)+'K';
+                          lines.push(`~${pStr} investis`);
+                        }
+                      } else {
+                        const prefix = ds.label === L.chartInsiderBuys ? L.chartBuyLegend : L.chartSellLegend;
+                        lines.push(`${prefix}${meta.count > 1 ? ' (+' + (meta.count - 1) + ' autre' + (meta.count > 2 ? 's' : '') + ')' : ''}`);
+                        if (meta.insider) lines.push(meta.insider + (meta.title ? ' · ' + meta.title : ''));
+                        if (meta.shares) lines.push(meta.shares.toLocaleString('fr-FR') + ' titres');
+                        if (meta.value) lines.push(fmtCurr(meta.value, meta.currency));
+                      }
+                      return lines;
+                    },
+                  },
+                },
+              },
+              scales: {
+                x: { ticks: { color: getCssVar('--chart-text'), maxTicksLimit: 8 }, grid: { color: getCssVar('--chart-grid-subtle') } },
+                y: { ticks: { color: getCssVar('--chart-text') }, grid: { color: getCssVar('--chart-grid-subtle') } },
+              },
+            },
+          });
+        }
+      }
+      }; // end window._rebuildStockPriceChart
+      // Initial build (render complet)
+      window._rebuildStockPriceChart(d);
+
+      // Render Google Trends chart
+      if (trends && Array.isArray(trends.series) && trends.series.length > 0) {
+        const trCtx = document.getElementById('trendsChart')?.getContext('2d');
+        if (trCtx) {
+          if (window._trendsChartInstance) window._trendsChartInstance.destroy();
+          const trLabels = trends.series.map(p => p.date);
+          const trValues = trends.series.map(p => p.value);
+          window._trendsChartInstance = new Chart(trCtx, {
+            type: 'line',
+            data: {
+              labels: trLabels,
+              datasets: [{
+                label: L.googleInterest,
+                data: trValues,
+                borderColor: '#74b9ff',
+                backgroundColor: 'rgba(116,185,255,0.15)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+              }]
+            },
+            plugins: [KairosCrosshairPlugin],
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false, axis: 'x' },
+              hover: { mode: 'index', intersect: false, axis: 'x' },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(15,23,42,0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#D1D5DB',
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  borderWidth: 1,
+                  cornerRadius: 8,
+                  padding: 12,
+                  callbacks: {
+                    title: (items) => items.length ? fmtDate(items[0].label) : '',
+                    label: (ctx) => t('stock.trends.tooltipLabel', 'Intérêt : {value}/100').replace('{value}', ctx.parsed.y),
+                  },
+                },
+              },
+              scales: {
+                x: { ticks: { color: getCssVar('--chart-text'), maxTicksLimit: 6 }, grid: { display: false } },
+                y: { min: 0, max: 100, ticks: { color: getCssVar('--chart-text'), stepSize: 25 }, grid: { color: getCssVar('--chart-grid-subtle') } },
+              },
+            },
+          });
+        }
+      }
+    }
+
+    // ============================================================
+    // 13F — FONDS CELEBRES AVEC LIGNES DEPLIABLES
+    // ============================================================
+    // ============================================================
+    // 13F : Activite du dernier trimestre (mouvements significatifs)
+    // ============================================================
+    async function loadQuarterActivity() {
+      const area = document.getElementById('quarterActivityArea');
+      if (!area) return;
+      try {
+        const data = await apiFetch('/api/13f-activity');
+        if (!data || !data.summary) {
+          area.innerHTML = '';
+          return;
+        }
+        const s = data.summary;
+        const fmtV = (v) => { if (v == null) return '—'; const a = Math.abs(v); if (a >= 1e9) return (a/1e9).toFixed(1)+'B$'; if (a >= 1e6) return (a/1e6).toFixed(0)+'M$'; return (a/1e3).toFixed(0)+'k$'; };
+
+        const renderRow = (e) => `
+          <div onclick="${e.ticker ? `switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${e.ticker}'), 200)` : ''}" style="display:grid;grid-template-columns:1.6fr 1.6fr 0.7fr 0.7fr;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--divider);font-size:12px;${e.ticker ? 'cursor:pointer' : ''}" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <strong style="color:var(--accent-blue);font-size:13px">${e.ticker || '—'}</strong>
+              <div style="opacity:0.6;font-size:11px;margin-top:1px">${(e.name || '').slice(0, 35)}</div>
+            </div>
+            <div>
+              <strong>${e.label || e.fundName}</strong>
+              ${e.category ? `<div style="opacity:0.5;font-size:10px;margin-top:1px">${e.category}</div>` : ''}
+            </div>
+            <div style="text-align:right;font-weight:600">${fmtV(e.value)}</div>
+            <div style="text-align:right;${e.sharesChange > 0 ? 'color:#2ecc71' : e.sharesChange < 0 ? 'color:#ff7675' : 'opacity:0.6'}">
+              ${e.status === 'new' ? '🆕 Nouveau' : e.status === 'sold' ? '❌ Sorti' : e.sharesChange != null ? `${e.sharesChange > 0 ? '+' : ''}${e.sharesChange.toFixed(0)}%` : '—'}
+            </div>
+          </div>
+        `;
+
+        const card = (title, color, items, emoji) => `
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-left:3px solid ${color};border-radius:10px;overflow:hidden">
+            <div style="padding:12px 14px;background:${color}15;display:flex;justify-content:space-between;align-items:center">
+              <strong style="color:${color}">${emoji} ${title}</strong>
+              <span style="font-size:11px;opacity:0.7">${items.length} mouvements</span>
+            </div>
+            <div style="max-height:280px;overflow-y:auto">
+              ${items.length > 0 ? items.slice(0, 15).map(renderRow).join('') : '<p style="padding:14px;font-size:13px;opacity:0.5;text-align:center">Aucun mouvement</p>'}
+            </div>
+          </div>
+        `;
+
+        area.innerHTML = `
+          <h3 style="font-size:16px;margin:0 0 12px">${L.secLastQuarter}</h3>
+          <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
+            Mouvements significatifs détectés dans les top holdings des fonds suivis :
+            <strong>${s.newCount}</strong> nouvelles positions ·
+            <strong>${s.soldCount}</strong> sorties ·
+            <strong>${s.increasedCount}</strong> renforcées (+20%) ·
+            <strong>${s.decreasedCount}</strong> réduites (-20%)
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px">
+            ${card('Nouvelles positions', '#2ecc71', data.newPositions, '🆕')}
+            ${card(L.actExits, '#e74c3c', data.soldPositions, '❌')}
+            ${card(L.actIncreased, '#74b9ff', data.increased, '📈')}
+            ${card(L.actDecreased, '#f39c12', data.decreased, '📉')}
+          </div>
+          <hr style="margin:24px 0;border:none;border-top:1px solid var(--border-subtle)">
+        `;
+      } catch (e) {
+        area.innerHTML = '';
+      }
+    }
+
+    // ============================================================
+    // 13F : Smart Money Consensus (top holdings par # de fonds)
+    // ============================================================
+    async function loadSmartMoneyConsensus() {
+      const body = document.getElementById('consensus13fBody');
+      try {
+        const data = await apiFetch('/api/13f-consensus');
+        if (!data || !data.consensus || data.consensus.length === 0) {
+          body.innerHTML = `<div style="text-align:center;padding:60px 20px;opacity:0.6"><p>${t('stock.empty.noConsensus', 'Aucune donnée de consensus disponible.')}</p></div>`;
+          return;
+        }
+
+        const fmtBig2 = (n) => { if (n == null) return '—'; const a = Math.abs(n); if (a >= 1e12) return (a/1e12).toFixed(1)+'T$'; if (a >= 1e9) return (a/1e9).toFixed(1)+'B$'; if (a >= 1e6) return (a/1e6).toFixed(0)+'M$'; return a.toFixed(0)+'$'; };
+        const total = data.totalFunds;
+
+        // Tableau principal : top 50
+        const top = data.consensus.slice(0, 50);
+        const lonelyPicks = data.consensus.filter(c => c.fundCount === 1).slice(0, 12);
+        // Ultra-consensus = plusieurs fonds en CONVICTION (pas juste detention passive)
+        const ultraConsensus = data.consensus.filter(c => (c.convictionCount || 0) >= 3).length;
+
+        // Couleur basée sur le ratio de fonds qui détiennent EN CONVICTION
+        const dotColor = (convictionCount) => {
+          if (convictionCount >= 5) return '#2ecc71';
+          if (convictionCount >= 3) return '#74b9ff';
+          if (convictionCount >= 1) return '#a29bfe';
+          return '#9CA3AF';
+        };
+
+        const renderRow = (c, rank) => {
+          // Distingue visuellement conviction vs passifs dans la liste des fonds
+          const convictionFunds = c.fundsHolding.filter(f => f.isConviction).slice(0, 2);
+          const passiveFunds = c.fundsHolding.filter(f => !f.isConviction).slice(0, 2);
+          const fundsChips = [
+            ...convictionFunds.map(f => `<span style="display:inline-block;padding:2px 7px;background:rgba(46,204,113,0.15);color:#2ecc71;border-radius:10px;font-size:10px;font-weight:600;margin-right:4px;margin-bottom:2px">★ ${(f.label || f.fundName || '').slice(0, 16)}</span>`),
+            ...passiveFunds.map(f => `<span style="display:inline-block;padding:2px 7px;background:var(--surface-3);opacity:0.7;border-radius:10px;font-size:10px;margin-right:4px;margin-bottom:2px">${(f.label || f.fundName || '').slice(0, 16)}</span>`),
+          ].join('');
+          const more = c.fundsHolding.length - convictionFunds.length - passiveFunds.length;
+          const moreChip = more > 0 ? `<span style="opacity:0.5;font-size:11px">+${more}</span>` : '';
+
+          const convBadge = (c.convictionCount || 0) > 0
+            ? `<div style="font-size:10px;margin-top:2px;color:#2ecc71">★ ${c.convictionCount} conviction</div>`
+            : `<div style="font-size:10px;margin-top:2px;opacity:0.5">aucune conviction</div>`;
+
+          return `
+            <tr ${c.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${c.ticker}'), 200)" style="cursor:pointer"` : ''}>
+              <td style="text-align:center;font-weight:600;opacity:0.5">${rank}</td>
+              <td>
+                <strong style="color:${c.ticker ? 'var(--accent-blue)' : 'var(--text-primary)'}">${c.ticker || '—'}</strong>
+                <div style="opacity:0.6;font-size:11px;margin-top:2px">${(c.name || '').slice(0, 50)}</div>
+              </td>
+              <td style="text-align:center">
+                <div style="display:inline-flex;align-items:center;gap:6px">
+                  <span style="width:8px;height:8px;border-radius:50%;background:${dotColor(c.convictionCount || 0)}"></span>
+                  <strong style="font-size:14px">${c.fundCount}</strong>
+                  <span style="opacity:0.5;font-size:11px">/ ${total}</span>
+                </div>
+                ${convBadge}
+              </td>
+              <td style="text-align:right;font-weight:600">${fmtBig2(c.totalValue)}</td>
+              <td style="text-align:right">${c.avgPctOfPortfolio ? c.avgPctOfPortfolio.toFixed(1) + '%' : '—'}</td>
+              <td style="font-size:11px">${fundsChips}${moreChip}</td>
+            </tr>
+          `;
+        };
+
+        const updatedAt = data.updatedAt ? new Date(data.updatedAt).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'}) : '';
+
+        body.innerHTML = `
+          <!-- Stats résumé -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px">
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(46,204,113,0.08),rgba(46,204,113,0.02));border:1px solid rgba(46,204,113,0.15);border-radius:10px">
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Fonds suivis</div>
+              <div style="font-size:24px;font-weight:700;color:#2ecc71;margin-top:4px">${total}</div>
+            </div>
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid rgba(116,185,255,0.15);border-radius:10px">
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Actions uniques</div>
+              <div style="font-size:24px;font-weight:700;color:#74b9ff;margin-top:4px">${data.totalUniqueStocks}</div>
+            </div>
+            <div style="padding:16px;background:linear-gradient(135deg,rgba(162,155,254,0.08),rgba(162,155,254,0.02));border:1px solid rgba(162,155,254,0.15);border-radius:10px">
+              <div style="font-size:11px;text-transform:uppercase;opacity:0.6;letter-spacing:0.05em">Ultra-conviction (≥3 fonds ★)</div>
+              <div style="font-size:24px;font-weight:700;color:#a29bfe;margin-top:4px">${ultraConsensus}</div>
+            </div>
+          </div>
+
+          <h3 style="font-size:18px;margin:0 0 12px">🏆 Top 50 actions partagées</h3>
+          <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
+            Triées par nombre de fonds en <strong>conviction</strong> (position ≥ 0.3% du portefeuille). Les puces vertes ★ indiquent les convictions, les grises sont les positions passives.
+          </p>
+          <div class="table-scroll" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:var(--surface-2)">
+                  <th style="text-align:center;padding:12px 8px;font-size:11px;text-transform:uppercase;opacity:0.7">#</th>
+                  <th style="text-align:left;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Action</th>
+                  <th style="text-align:center;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7" title="Total de fonds qui détiennent + badge conviction (≥0.3% du portefeuille)">Fonds (total / conviction)</th>
+                  <th style="text-align:right;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Value totale</th>
+                  <th style="text-align:right;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">% portefeuille moy.</th>
+                  <th style="text-align:left;padding:12px;font-size:11px;text-transform:uppercase;opacity:0.7">Détenue par</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${top.map((c, i) => renderRow(c, i + 1)).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          ${lonelyPicks.length > 0 ? `
+            <div style="margin-top:32px">
+              <h3 style="font-size:18px;margin:0 0 12px">🎯 Lonely Picks — paris uniques</h3>
+              <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
+                Actions détenues par <strong>un seul fonds</strong> dans notre liste. Soit pari contrarian / niche, soit position que les autres n'ont pas encore découverte.
+              </p>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px">
+                ${lonelyPicks.map(c => `
+                  <div ${c.ticker ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${c.ticker}'), 200)" style="cursor:pointer"` : ''} style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;transition:all 0.2s" onmouseover="this.style.borderColor='rgba(116,185,255,0.4)'" onmouseout="this.style.borderColor='var(--border)'">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                      <strong style="color:${c.ticker ? 'var(--accent-blue)' : 'var(--text-primary)'};font-size:15px">${c.ticker || '—'}</strong>
+                      <span style="font-size:12px;opacity:0.6">${fmtBig2(c.totalValue)}</span>
+                    </div>
+                    <div style="opacity:0.7;font-size:12px;margin-bottom:6px">${(c.name || '').slice(0, 45)}</div>
+                    <div style="font-size:11px;opacity:0.55">Détenue par <strong>${c.fundsHolding[0]?.label || c.fundsHolding[0]?.fundName}</strong> · ${c.fundsHolding[0]?.pct}% du portefeuille</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <details class="explainer-collapsible" style="margin-top:24px;padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+            <summary style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
+              <span>💡</span>
+              <span>Comment lire ces données ?</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+            </summary>
+            <div style="padding:14px 4px 4px 28px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+              • <strong style="color:var(--text-primary)">Nombre de fonds</strong> (${total} suivis) : combien détiennent la position, même infime. Rassurant car montre que les institutionnels valident le titre.<br>
+              • <span style="color:#2ecc71">★ <strong>Conviction</strong></span> : fonds dont la position représente <strong>≥ 0.3% du portefeuille</strong> (signal fort : ils l'ont choisie activement, ce n'est pas juste de l'indexation passive type BlackRock/Vanguard).<br>
+              • Le tri privilégie les <strong>actions avec plusieurs fonds en conviction simultanément</strong> — c'est le vrai smart money consensus.
+              ${updatedAt ? `<br><span style="opacity:0.5;font-size:11px">Mis à jour : ${updatedAt}</span>` : ''}
+            </div>
+          </details>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff7675"><strong>Erreur :</strong> ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    // Filtre le tableau Hedge Funds par nom (Berkshire, Pershing, Buffett, Soros...)
+    // Utilise les data-fund-search attributes ajoutes a chaque row
+    function filterHedgeFunds(query) {
+      const area = document.getElementById('thirteenFArea');
+      if (!area) return;
+      const q = String(query || '').toLowerCase().trim();
+      const hint = document.getElementById('hedgeFundsSearchHint');
+      const rows = area.querySelectorAll('tr.fund-row');
+      let visible = 0;
+      rows.forEach(row => {
+        const searchableText = (row.dataset.fundSearch || '').toLowerCase();
+        const matches = !q || searchableText.includes(q);
+        // On cache aussi les ligne details (qui ont id="fund-detail-X")
+        const idx = row.dataset.fundIdx;
+        const detailRow = idx ? area.querySelector(`#fund-detail-${idx}`) : null;
+        if (matches) {
+          row.style.display = '';
+          if (detailRow && detailRow.classList.contains('expanded')) detailRow.style.display = '';
+          visible++;
+        } else {
+          row.style.display = 'none';
+          if (detailRow) detailRow.style.display = 'none';
+        }
+      });
+      if (hint) {
+        hint.textContent = q ? `${visible} fonds trouvé${visible > 1 ? 's' : ''}` : 'Tape pour filtrer';
+        hint.style.color = q && visible === 0 ? '#EF4444' : 'var(--text-muted)';
+      }
+    }
+
+    async function load13FFunds() {
+      const area = document.getElementById('thirteenFArea');
+      try {
+        const funds = await apiFetch('/api/13f-funds');
+        if (!funds || funds.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucune donnee de fonds disponible.</p></div>';
+          return;
+        }
+
+        let rows = '';
+        for (let i = 0; i < funds.length; i++) {
+          const f = funds[i];
+          const aum = f.totalValue > 0 ? fmtCurShort(f.totalValue) : 'N/A';
+          const holdings = f.holdingsCount || 0;
+
+          const perf = f.performance;
+          const perfStr = perf !== null && perf !== undefined
+            ? `<span style="color:var(--accent-${perf >= 0 ? 'green' : 'red'});font-weight:700">${perf >= 0 ? '+' : ''}${perf}%</span>`
+            : '—';
+
+          const perfY = f.perfAnnual;
+          const perfYStr = perfY !== null && perfY !== undefined
+            ? `<span style="color:var(--accent-${perfY >= 0 ? 'green' : 'red'});font-weight:700">${perfY >= 0 ? '+' : ''}${perfY}%</span>`
+            : '—';
+
+          // Fusion Investisseur + Fonds + Categorie : tout regroupe dans
+          // une seule cellule (label gros + sous-titres) -> 9 colonnes -> 6
+          const labelTxt = f.label || f.fundName || 'Inconnu';
+          const fundTxt = f.fundName && f.fundName !== labelTxt ? f.fundName : '';
+          const categoryTxt = f.category || '';
+          const subline = [fundTxt, categoryTxt].filter(Boolean).join(' · ');
+
+          // Searchable text : label + fundName + category - utilise pour filterHedgeFunds()
+          const searchableText = [labelTxt, fundTxt, categoryTxt].filter(Boolean).join(' ').toLowerCase();
+          rows += `<tr class="fund-row" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
+            <td style="opacity:0.6">${i + 1}</td>
+            <td>
+              <div style="font-weight:600;color:var(--text-primary)">${labelTxt} <span class="chevron">&#9654;</span></div>
+              ${subline ? `<div style="font-size:11px;opacity:0.55;margin-top:2px">${subline}</div>` : ''}
+            </td>
+            <td style="text-align:right;font-weight:600">${aum}</td>
+            <td style="text-align:right">${perfStr}</td>
+            <td style="text-align:right">${perfYStr}</td>
+            <td style="text-align:right">${holdings > 0 ? fmtNum(holdings) : '—'}</td>
+            <td class="last-update" style="text-align:right;white-space:nowrap">${fmtDate(f.filingDate)}</td>
+          </tr>`;
+
+          // Ligne dépliable avec les top holdings
+          let detailContent = '';
+          if (f.topHoldings && f.topHoldings.length > 0) {
+            let holdingRows = '';
+            for (const h of f.topHoldings) {
+              const barWidth = Math.min(Math.max(h.pct * 2, 2), 100);
+
+              // Indicateur de variation
+              let changeHtml = '';
+              if (h.status === 'new') {
+                changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
+              } else if (h.sharesChange !== null && h.sharesChange !== undefined) {
+                const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
+                changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
+              } else {
+                changeHtml = '<span style="color:var(--text-muted)">—</span>';
+              }
+
+              holdingRows += `<tr>
+                <td style="color:var(--text-primary)">${h.name}</td>
+                <td style="text-align:right">${fmtNum(h.shares)}</td>
+                <td style="text-align:right">${fmtCurShort(h.value)}</td>
+                <td style="text-align:right"><span class="pct-bar" style="width:${barWidth}px"></span>${h.pct}%</td>
+                <td style="text-align:right">${changeHtml}</td>
+              </tr>`;
+            }
+
+            const prevLabel = f.prevReportDate ? ` vs ${fmtDate(f.prevReportDate)}` : '';
+            detailContent = `
+              <div id="fund-charts-${i}"></div>
+              <div class="sub-header">
+                <span>Top ${f.topHoldings.length} positions</span>
+                <span class="last-update">Positions au ${fmtDate(f.reportDate)}${prevLabel}</span>
+              </div>
+              <div class="table-wrap" style="border:none">
+                <table>
+                  <thead><tr>
+                    <th>Action</th>
+                    <th style="text-align:right">Nb d'actions</th>
+                    <th style="text-align:right">Valeur</th>
+                    <th style="text-align:right">% du portefeuille</th>
+                    <th style="text-align:right">Variation</th>
+                  </tr></thead>
+                  <tbody>${holdingRows}</tbody>
+                </table>
+              </div>`;
+          } else {
+            detailContent = '<p style="color:var(--text-muted);padding:8px 0;">Donnees de positions indisponibles pour ce fonds (format XML non standard).</p>';
+          }
+
+          rows += `<tr class="fund-detail-row" id="fund-detail-${i}">
+            <td colspan="7" class="fund-detail-cell">
+              <div class="fund-detail-inner">${detailContent}</div>
+            </td>
+          </tr>`;
+        }
+
+        area.innerHTML = `
+          <div class="table-wrap funds-table-wrap">
+            <table>
+              <thead><tr>
+                <th style="width:40px">#</th>
+                <th>Investisseur</th>
+                <th style="text-align:right;white-space:nowrap">AUM estimé</th>
+                <th style="text-align:right;white-space:nowrap" title="Performance du dernier trimestre">Perf. trim.</th>
+                <th style="text-align:right;white-space:nowrap" title="Performance sur 1 an">Perf. 1 an</th>
+                <th style="text-align:right">Positions</th>
+                <th style="text-align:right;white-space:nowrap">Dernière MàJ</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
+        }
+      }
+    }
+
+    let fundChartsLoaded = {};
+
+    function toggleFund(idx) {
+      const detailRow = document.getElementById(`fund-detail-${idx}`);
+      const fundRow = detailRow.previousElementSibling;
+      const isOpen = detailRow.classList.contains('open');
+
+      // Fermer tous les autres
+      document.querySelectorAll('.fund-detail-row.open').forEach(r => {
+        r.classList.remove('open');
+        r.previousElementSibling.classList.remove('expanded');
+      });
+      destroyCharts();
+
+      if (!isOpen) {
+        detailRow.classList.add('open');
+        fundRow.classList.add('expanded');
+
+        // Charger les charts si pas encore fait
+        if (!fundChartsLoaded[idx]) {
+          fundChartsLoaded[idx] = true;
+          // Récupérer les données du fonds depuis la dernière réponse API
+          apiFetch('/api/13f-funds').then(funds => {
+            if (funds && funds[idx] && funds[idx].topHoldings) {
+              setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName, { treemapOnly: true }), 200);
+              // Charge l'historique D1 du fond (AUM + top holdings sur N trimestres)
+              loadFundHistoryFor(idx, funds[idx].cik, funds[idx].label || funds[idx].fundName);
+            }
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // ============================================================
+    // Historique D1 d'un fonds : évolution AUM + holdings sur 4-8 trim
+    // Affiche dans la ligne dépliable, sous les charts existants.
+    // ============================================================
+    async function loadFundHistoryFor(idx, cik, fundLabel) {
+      const wrap = document.getElementById(`fund-charts-${idx}`);
+      if (!wrap || !cik) return;
+      try {
+        // 1. Lecture historique : on prend toutes les positions du fond
+        //    sur tous les trimestres connus
+        const data = await apiFetch(`/api/history/fund?cik=${encodeURIComponent(cik)}`);
+        if (!data || !data.quarters || data.quarters.length === 0) {
+          return; // Silencieux si pas d'historique encore
+        }
+        const rows = data.quarters;
+
+        // 2. Calcul AUM par trimestre (somme de la value)
+        const byQuarter = new Map();
+        for (const r of rows) {
+          if (!byQuarter.has(r.report_date)) byQuarter.set(r.report_date, { totalValue: 0, holdings: [] });
+          const e = byQuarter.get(r.report_date);
+          e.totalValue += Number(r.value) || 0;
+          e.holdings.push(r);
+        }
+        const quarters = Array.from(byQuarter.entries())
+          .map(([date, info]) => ({ date, ...info }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (quarters.length < 2) return; // Au moins 2 points pour faire une courbe
+
+        // 3. Sparkline AUM
+        const aumValues = quarters.map(q => q.totalValue);
+        const aumMin = Math.min(...aumValues), aumMax = Math.max(...aumValues);
+        const W = 600, H = 60;
+        const xStep = W / (quarters.length - 1);
+        const path = quarters.map((q, i) => {
+          const x = i * xStep;
+          const y = H - ((q.totalValue - aumMin) / (aumMax - aumMin || 1)) * H;
+          return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        const fillPath = path + ` L${W},${H} L0,${H} Z`;
+        const aumChange = ((aumValues[aumValues.length - 1] - aumValues[0]) / aumValues[0]) * 100;
+        const aumColor = aumChange > 0 ? '#10B981' : '#EF4444';
+
+        // 4. Top 5 holdings actuels avec leur évolution sur la période
+        const lastQ = quarters[quarters.length - 1];
+        const firstQ = quarters[0];
+        const lastByName = new Map(lastQ.holdings.map(h => [h.name, h]));
+        const firstByName = new Map(firstQ.holdings.map(h => [h.name, h]));
+        // Top 5 par value du dernier trimestre
+        const topHoldings = lastQ.holdings.sort((a, b) => b.value - a.value).slice(0, 5);
+
+        const fmtBigShort = (n) => {
+          if (n == null) return '—';
+          if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T$';
+          if (n >= 1e9)  return (n / 1e9).toFixed(1)  + 'B$';
+          if (n >= 1e6)  return (n / 1e6).toFixed(0)  + 'M$';
+          return n.toFixed(0) + '$';
+        };
+        const fmtQ = (d) => {
+          try {
+            const date = new Date(d);
+            const q = Math.ceil((date.getMonth() + 1) / 3);
+            return `Q${q} ${date.getFullYear()}`;
+          } catch { return d; }
+        };
+
+        // 5. Render
+        const histDiv = document.createElement('div');
+        histDiv.style.cssText = 'margin-top:24px;padding:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px';
+        histDiv.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+            <div>
+              <h4 style="margin:0 0 4px;font-size:15px;color:var(--text-primary)">📈 Évolution sur ${quarters.length} trimestre${quarters.length > 1 ? 's' : ''}</h4>
+              <p style="margin:0;font-size:12px;opacity:0.6">${fmtQ(quarters[0].date)} → ${fmtQ(lastQ.date)}</p>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em">AUM</div>
+              <div style="font-size:18px;font-weight:700">${fmtBigShort(lastQ.totalValue)}</div>
+              <div style="font-size:11px;font-weight:600;color:${aumColor}">${aumChange > 0 ? '+' : ''}${aumChange.toFixed(1)}% sur la période</div>
+            </div>
+          </div>
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:60px;display:block;margin-bottom:14px">
+            <defs>
+              <linearGradient id="aumGrad${idx}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${aumColor}" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="${aumColor}" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="${fillPath}" fill="url(#aumGrad${idx})"/>
+            <path d="${path}" fill="none" stroke="${aumColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+
+          <div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Top 5 positions actuelles · évolution depuis ${fmtQ(firstQ.date)}</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${topHoldings.map(h => {
+              const first = firstByName.get(h.name);
+              const sharesNow = h.shares || 0;
+              const sharesBefore = first ? (first.shares || 0) : 0;
+              let trendTxt, trendCol;
+              if (!first) {
+                trendTxt = '🆕 Nouvelle';
+                trendCol = '#10B981';
+              } else if (sharesBefore === 0) {
+                trendTxt = '🆕 Nouvelle';
+                trendCol = '#10B981';
+              } else {
+                const pct = ((sharesNow - sharesBefore) / sharesBefore) * 100;
+                if (Math.abs(pct) < 1) { trendTxt = '➖ Inchangée'; trendCol = '#9CA3AF'; }
+                else if (pct > 0) { trendTxt = `📈 +${pct.toFixed(0)}%`; trendCol = '#10B981'; }
+                else { trendTxt = `📉 ${pct.toFixed(0)}%`; trendCol = '#EF4444'; }
+              }
+              return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface-2);border-radius:6px;font-size:12px">
+                  <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    ${h.ticker ? `<strong style="color:var(--accent-blue)">${h.ticker}</strong> · ` : ''}<span style="opacity:0.85">${h.name}</span>
+                  </div>
+                  <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
+                    <span style="opacity:0.6">${(h.pct || 0).toFixed(1)}%</span>
+                    <span style="color:${trendCol};font-weight:600;min-width:90px;text-align:right">${trendTxt}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        wrap.parentNode.insertBefore(histDiv, wrap.nextSibling);
+      } catch (e) {
+        console.debug('Fund history not available:', e.message || e);
+      }
+    }
+
+    // Format notation courte (ex: $274 Md ou 274 Md €). Symbole par devise.
+    function fmtCurShort(n, currency = 'USD') {
+      const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+      // USD : prefixe $, EUR : suffixe €
+      const place = currency === 'USD' ? 'prefix' : 'suffix';
+      let val;
+      if (n >= 1e12) val = `${(n / 1e12).toFixed(1)} T`;
+      else if (n >= 1e9) val = `${(n / 1e9).toFixed(1)} Md`;
+      else if (n >= 1e6) val = `${(n / 1e6).toFixed(0)} M`;
+      else if (n >= 1e3) val = `${(n / 1e3).toFixed(0)} k`;
+      else val = `${n}`;
+      return place === 'prefix' ? `${sym}${val}` : `${val} ${sym}`;
+    }
+
+    // ============================================================
+    // INSIDER SEARCH
+    // ============================================================
+    let insiderSearchQuery = '';
+
+    function searchInsider() {
+      insiderSearchQuery = document.getElementById('searchInsider').value.trim().toUpperCase();
+      // Affiche/masque le bouton 'Effacer' selon que l'input est rempli ou vide.
+      // Avant : on retournait early si query vide -> impossible de reset apres
+      // un clic sur l'input puis effacement manuel.
+      const clearBtn = document.getElementById('clearInsiderBtn');
+      if (clearBtn) clearBtn.style.display = insiderSearchQuery ? 'inline-flex' : 'none';
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+      renderInsiderPage();
+    }
+
+    function clearInsiderSearch() {
+      insiderSearchQuery = '';
+      document.getElementById('searchInsider').value = '';
+      document.getElementById('clearInsiderBtn').style.display = 'none';
+      insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+      renderInsiderPage();
+    }
+
+    // ============================================================
+    // ETF LIVE
+    // ============================================================
+    let currentEtf = null;
+    let etfAllHoldings = [];
+    let etfHasChanges = false;
+    let etfPrevDate = null;
+    // Pattern 'Voir plus' (mai 2026) : etfDisplayedCount au lieu de etfPage.
+    const ETF_INITIAL_COUNT = 25;
+    let etfDisplayedCount = ETF_INITIAL_COUNT;
+
+    // Definition des onglets ETF groupes par catégorie (UI + endpoint mapping)
+    const ETF_GROUPS = [
+      { label: 'Politique US', badge: 'dem',
+        items: [
+          { symbol: 'NANC', name: 'Démocrates US',  type: 'congress', badgeCls: 'dem' },
+          { symbol: 'GOP',  name: 'Républicains',   type: 'congress', badgeCls: 'rep' },
+        ]},
+      { label: 'Hedge funds',
+        items: [
+          { symbol: 'GURU', name: 'Top 60 hedge funds', type: 'guru', badgeCls: 'guru' },
+        ]},
+      { label: 'Innovation (ARK)',
+        items: [
+          { symbol: 'ARKK', name: 'Innovation', type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKW', name: 'Internet',   type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKG', name: 'Biotech',    type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKF', name: 'Fintech',    type: 'ark', badgeCls: 'ark' },
+          { symbol: 'ARKQ', name: 'Robotique',  type: 'ark', badgeCls: 'ark' },
+        ]},
+      { label: 'Sentiment retail',
+        items: [
+          { symbol: 'BUZZ', name: 'Social Sentiment', type: 'generic', badgeCls: 'sentiment' },
+          { symbol: 'MEME', name: 'MEME stocks',      type: 'generic', badgeCls: 'sentiment' },
+        ]},
+      { label: 'Income (Covered call)',
+        items: [
+          { symbol: 'JEPI', name: 'JPM Equity Premium',  type: 'generic', badgeCls: 'income' },
+          { symbol: 'JEPQ', name: 'JPM Nasdaq Premium',  type: 'generic', badgeCls: 'income' },
+        ]},
+      { label: 'Thématiques',
+        items: [
+          { symbol: 'ITA', name: 'Defense & Aerospace', type: 'generic', badgeCls: 'thematic' },
+          { symbol: 'URA', name: 'Uranium',              type: 'generic', badgeCls: 'thematic' },
+          { symbol: 'UFO', name: 'Espace',               type: 'generic', badgeCls: 'thematic' },
+          { symbol: 'MJ',  name: 'Cannabis',             type: 'generic', badgeCls: 'thematic' },
+        ]},
+    ];
+
+    // Fiche detaillee par ETF (objectif, strategie, profil de risque, cas d'usage)
+    const ETF_INFO = {
+      NANC: { icon: '🏛️', color: '#60A5FA', title: 'Democrats Trading ETF',
+        purpose: 'Réplique les trades récents déclarés par les <strong>élus démocrates du Congrès US</strong> et leur famille (obligation STOCK Act).',
+        strategy: 'Pondération par fréquence et volume d\'achat. Renouvelé mensuellement quand de nouvelles déclarations arrivent.',
+        useCase: 'Indicateur d\'information asymétrique : les élus votent les lois qui bougent les marchés (défense, santé, tech, énergie). Utile pour détecter des rotations sectorielles précoces.',
+        risk: 'Concentré sur les large caps tech. Volatilité proche du S&P 500.' },
+      GOP:  { icon: '🏛️', color: '#EF4444', title: 'Republicans Trading ETF',
+        purpose: 'Réplique les trades récents déclarés par les <strong>élus républicains du Congrès US</strong> et leur famille.',
+        strategy: 'Même méthodologie que NANC côté construction, mais biais sectoriels différents (énergie fossile, défense, finance).',
+        useCase: 'Compare avec NANC pour voir les divergences de consensus entre les deux bords politiques — très instructif.',
+        risk: 'Biais énergie/industriel : sensibilité aux prix du pétrole et aux cycles macro.' },
+      GURU: { icon: '💼', color: '#A78BFA', title: 'Top Hedge Fund Holdings',
+        purpose: 'Agrège les positions <strong>long-only</strong> des 60 plus grands hedge funds mondiaux, déclarées via les 13F à la SEC.',
+        strategy: 'Chaque trimestre, sélectionne les titres qui reviennent le plus souvent dans les top holdings. Équipondéré top-N.',
+        useCase: 'Consensus smart money pur. Quand une action entre ou sort de GURU, c\'est un signal de conviction collective.',
+        risk: 'Lag inhérent : les 13F sont déclarés avec 45 jours de décalage. Ne pas utiliser pour du trading court terme.' },
+      ARKK: { icon: '🚀', color: '#22D3EE', title: 'ARK Innovation — Cathie Wood',
+        purpose: 'Portefeuille <strong>disruptive innovation</strong> à forte conviction (35-55 positions) : IA, séquençage ADN, blockchain, robotique, stockage d\'énergie.',
+        strategy: 'Gestion 100% active, transparente (mises à jour quotidiennes). Horizon 5+ ans, forte volatilité court terme.',
+        useCase: 'Exposition growth/tech pure-play. Suivre les achats/ventes d\'ARK = voir où Cathie Wood voit de la valeur en temps réel.',
+        risk: 'Beta élevé (~1.5-2). Drawdowns réguliers de 30-50%. Réservé au long terme et aux investisseurs tolérants au risque.' },
+      ARKW: { icon: '🌐', color: '#22D3EE', title: 'ARK Next Generation Internet',
+        purpose: 'Focus sur les acteurs de l\'<strong>internet next-gen</strong> : cloud, e-commerce, SaaS, DeFi, IA, social, gaming.',
+        strategy: 'Sous-ensemble d\'ARKK avec biais plus marqué sur les plateformes numériques et la blockchain.',
+        useCase: 'Jouer la thèse "internet eats the world" sans achetér 50 actions individuelles.',
+        risk: 'Très corrélé au NASDAQ et aux taux longs. Forte concentration top 10.' },
+      ARKG: { icon: '🧬', color: '#22D3EE', title: 'ARK Genomic Révolution',
+        purpose: 'Expose aux acteurs de la <strong>révolution génomique</strong> : thérapie génique, séquençage, CRISPR, diagnostic moléculaire.',
+        strategy: 'Small + mid caps biotech principalement. Horizon 5-10 ans, cycles cliniques longs.',
+        useCase: 'Thèse "décode du vivant" — paris sur une baisse drastique du coût du séquençage (déjà 100 000x en 20 ans).',
+        risk: 'Très volatil. Issue binaire par titre (FDA approval / échec phase 3). Diversifie le risque mais reste spéculatif.' },
+      ARKF: { icon: '💳', color: '#22D3EE', title: 'ARK Fintech Innovation',
+        purpose: 'Focus <strong>fintech</strong> : paiements digitaux, néobanques, DeFi, infra blockchain, investissement social.',
+        strategy: 'Concentrée sur les acteurs qui désintermédient les banques traditionnelles.',
+        useCase: 'Capter la migration massive vers la finance digitale (Square, PayPal, Coinbase, Shopify-like).',
+        risk: 'Sensible aux taux d\'intérêt et à la régulation crypto.' },
+      ARKQ: { icon: '🤖', color: '#22D3EE', title: 'ARK Autonomous Tech & Robotics',
+        purpose: 'Expose aux <strong>véhicules autonomes, drones, robotique industrielle, impression 3D, IA/ML appliqués</strong>.',
+        strategy: 'Mélange pure-players et incumbents en transformation (Tesla, Komatsu, Trimble...).',
+        useCase: 'Thèse productivité / substitution du travail manuel par l\'automation.',
+        risk: 'Cyclique industriel + exposition à l\'IA générative. Corrélation élevée avec capex tech.' },
+      BUZZ: { icon: '📱', color: '#F472B6', title: 'VanEck Social Sentiment ETF',
+        purpose: 'Track les <strong>75 grandes caps US</strong> avec le meilleur <strong>sentiment positif</strong> sur les réseaux sociaux, forums, news — mesuré par une IA de NLP.',
+        strategy: 'Rebalancement mensuel. Pondération tiltée vers les titres avec la plus forte positive buzz.',
+        useCase: 'Capter l\'humeur collective (retail + médias). Outil de momentum et contrarien à la fois selon le contexte.',
+        risk: 'Biais momentum : peut surperformer en marché haussier, sous-performer en correction rapide.' },
+      MEME: { icon: '🐸', color: '#F472B6', title: 'Roundhill MEME ETF',
+        purpose: 'Suit les <strong>25 actions les plus discutées sur Reddit (WallStreetBets), Twitter et forums</strong> avec un fort short interest.',
+        strategy: 'Rebalancement bi-mensuel. Pondération par niveau de conversation retail + short squeeze potential.',
+        useCase: 'Jouer les dynamiques meme-stock (GME, AMC, PLTR, BBBY-like). Très spéculatif mais instructif pour le sentiment.',
+        risk: 'Très volatil. Usage tactique uniquement — pas un véhicule buy-and-hold.' },
+      JEPI: { icon: '💵', color: '#34D399', title: 'JPMorgan Equity Premium Income',
+        purpose: 'Stratégie <strong>covered call defensive</strong> : panier d\'actions S&P 500 à faible volatilité + vente d\'options call mensuelles pour générer un income.',
+        strategy: '~80% actions large cap stables + ~20% ELN (equity-linked notes) qui simulent la vente d\'options.',
+        useCase: 'Rendement mensuel 7-9% /an, volatilité bien inférieure au S&P 500. Parfait pour un profil income ou retraite.',
+        risk: 'Plafonne les gains en marché très haussier (capped upside). En baisse, comportement proche du marché mais amorti.' },
+      JEPQ: { icon: '💵', color: '#34D399', title: 'JPMorgan Nasdaq Equity Premium',
+        purpose: 'Même stratégie que JEPI mais appliquée au <strong>NASDAQ 100</strong>. Rendement plus élevé car volatilité sous-jacente plus grande.',
+        strategy: 'Large cap tech + ELN sur index NASDAQ. Rebalancement mensuel.',
+        useCase: 'Exposer au NASDAQ tout en encaissant un rendement mensuel de 9-11% /an.',
+        risk: 'Plafond sur les fortes hausses tech. Comportement moins défensif que JEPI en cas de crash.' },
+      ITA: { icon: '🛡️', color: '#FBBF24', title: 'iShares US Aerospace & Defense',
+        purpose: 'Exposition pure aux <strong>industries de la défense et de l\'aérospatial US</strong> : Boeing, Lockheed, RTX, Northrop, General Dynamics...',
+        strategy: 'Cap-weighted sur les acteurs listés US. Biais large cap.',
+        useCase: 'Jouer la thèse "réarmement mondial" + commandes long terme (contrats 10-20 ans avec l\'armée US).',
+        risk: 'Sensible aux budgets fédéraux US et aux cycles géopolitiques. Faible volatilité en régime normal.' },
+      URA: { icon: '☢️', color: '#FBBF24', title: 'Global X Uranium ETF',
+        purpose: 'Expose à la <strong>chaîne de valeur de l\'uranium</strong> : miners (Cameco, Kazatomprom), enrichissement, utilities nucléaires.',
+        strategy: 'Concentré sur une poignée de producteurs mondiaux. Couverture physique du prix spot de l\'uranium.',
+        useCase: 'Jouer le renouveau du nucléaire (SMR, décarbonation, tensions géopolitiques sur le gaz).',
+        risk: 'Très volatil, cyclique matière première. Liquidité des miners parfois limitée.' },
+      UFO: { icon: '🛸', color: '#FBBF24', title: 'Procure Space ETF',
+        purpose: 'Premier ETF <strong>dédié à l\'économie spatiale</strong> : lanceurs, satellites, imagerie, télécoms spatiales, défense orbitale.',
+        strategy: 'Sélection globale (US, Europe, Asie). Mélange pure-players (Maxar, Iridium) et incumbents (Boeing, Lockheed).',
+        useCase: 'Thèse "space economy" à horizon 10-20 ans. Commercialisation de l\'orbite basse.',
+        risk: 'Thème émergent, peu de pure-players rentables. Volatilité élevée.' },
+      MJ:  { icon: '🌿', color: '#FBBF24', title: 'ETFMG Alternative Harvest',
+        purpose: 'Exposition à l\'<strong>industrie du cannabis</strong> (légal, médical, récréatif) : producteurs, distributeurs, biotech.',
+        strategy: 'Mix US + Canada. Rebalancement trimestriel.',
+        useCase: 'Pari sur la légalisation fédérale US et la normalisation réglementaire (thèse 3-5 ans).',
+        risk: 'Très volatil. Contingences réglementaires fortes. Nombreux faux départs depuis 2018.' },
+    };
+
+    function renderEtfDescBox(symbol) {
+      const box = document.getElementById('etfDescBox');
+      if (!box) return;
+      const info = ETF_INFO[symbol];
+      if (!info) { box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      box.style.borderLeftColor = info.color;
+      box.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="font-size:26px;line-height:1">${info.icon}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;color:var(--text-primary);font-size:14px;margin-bottom:8px">${symbol} — ${info.title}</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">🎯 Objectif :</strong> ${info.purpose}</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">⚙️ Stratégie :</strong> ${info.strategy}</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">💡 Cas d'usage :</strong> ${info.useCase}</div>
+            <div style="font-size:12px;opacity:0.75"><strong style="color:var(--text-primary);opacity:0.9">⚠️ Profil de risque :</strong> ${info.risk}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // ETF rotations recentes (depuis D1 historique)
+    // S'affiche uniquement si on a au moins 2 snapshots espaces.
+    // ============================================================
+    async function loadEtfRotations() {
+      const area = document.getElementById('etfRotationsArea');
+      if (!area) return;
+      try {
+        const data = await apiFetch('/api/history/etf-rotations?days=7');
+        if (!data || !data.rotations || data.rotations.length === 0) {
+          // Premier jour ou historique vide : on n'affiche rien (UX gracieuse)
+          return;
+        }
+        // Filtre : on ne montre que les ETF avec au moins 1 entree/sortie
+        const meaningful = data.rotations.filter(r => r.summary.entriesCount + r.summary.exitsCount > 0);
+        if (meaningful.length === 0) return;
+
+        const fmtD = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}); } catch { return s; } };
+
+        area.innerHTML = `
+          <div style="background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:14px;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+              <div>
+                <h3 style="margin:0 0 4px;font-size:15px;color:var(--text-primary)">🔄 Rotations récentes (${data.days} derniers jours)</h3>
+                <p style="margin:0;font-size:12px;opacity:0.65">${meaningful.length} ETF ont rebalancé leur portefeuille</p>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+              ${meaningful.slice(0, 6).map(r => `
+                <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <strong style="color:var(--accent-blue);font-size:14px">${r.etf}</strong>
+                    <span style="font-size:10px;opacity:0.5">${fmtD(r.fromDate)} → ${fmtD(r.toDate)}</span>
+                  </div>
+                  ${r.entries.length > 0 ? `
+                    <div style="font-size:11px;margin-bottom:6px">
+                      <span style="color:#34D399;font-weight:600">+ ${r.summary.entriesCount} entrée${r.summary.entriesCount > 1 ? 's' : ''} :</span>
+                      <span style="opacity:0.85"> ${r.entries.slice(0, 4).map(e => `<span class="clickable-ticker" onclick="loadEtf('generic','${e.ticker}')" style="color:#34D399;cursor:pointer" title="Cliquer">${e.ticker}</span>`).join(', ')}${r.entries.length > 4 ? ` +${r.entries.length - 4}` : ''}</span>
+                    </div>
+                  ` : ''}
+                  ${r.exits.length > 0 ? `
+                    <div style="font-size:11px;margin-bottom:6px">
+                      <span style="color:#F87171;font-weight:600">− ${r.summary.exitsCount} sortie${r.summary.exitsCount > 1 ? 's' : ''} :</span>
+                      <span style="opacity:0.85"> ${r.exits.slice(0, 4).map(e => `<span style="color:#F87171">${e.ticker}</span>`).join(', ')}${r.exits.length > 4 ? ` +${r.exits.length - 4}` : ''}</span>
+                    </div>
+                  ` : ''}
+                  ${r.movers.length > 0 ? `
+                    <div style="font-size:11px">
+                      <span style="opacity:0.6">Gros mouvements :</span>
+                      <span style="opacity:0.85"> ${r.movers.slice(0, 3).map(m => {
+                        const c = m.delta > 0 ? '#34D399' : '#F87171';
+                        const arrow = m.delta > 0 ? '↗' : '↘';
+                        return `<strong style="color:${c}">${m.ticker}</strong> <span style="color:${c}">${arrow}${Math.abs(m.delta).toFixed(1)}pt</span>`;
+                      }).join(' · ')}</span>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+            <p style="font-size:11px;opacity:0.5;margin:14px 0 0">
+              Comparaison entre le snapshot du jour et celui d'il y a 7 jours. Plus l'historique s'étoffe, plus les signaux deviennent fiables.
+            </p>
+          </div>
+        `;
+      } catch (e) {
+        console.debug('ETF rotations not available:', e.message || e);
+      }
+    }
+
+    function renderEtfTabs() {
+      const wrap = document.getElementById('etfTabs');
+      if (!wrap) return;
+      wrap.innerHTML = ETF_GROUPS.map(group => `
+        <div class="etf-cat-group">
+          <div class="etf-cat-label">${group.label}</div>
+          <div class="etf-cat-buttons">
+            ${group.items.map(it => `
+              <button class="etf-subtab" data-type="${it.type}" data-symbol="${it.symbol}" onclick="loadEtf('${it.type}','${it.symbol}', this)">
+                ${it.symbol} <span class="etf-badge ${it.badgeCls}">${it.name}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function loadEtf(type, symbol, btnEl) {
+      etfDisplayedCount = ETF_INITIAL_COUNT;  // reset 'Voir plus'
+      // Activer le sous-onglet (par data-attribute, plus fiable que event.target)
+      document.querySelectorAll('.etf-subtab').forEach(b => b.classList.remove('active'));
+      const target = btnEl || document.querySelector(`.etf-subtab[data-symbol="${symbol}"][data-type="${type}"]`);
+      if (target) target.classList.add('active');
+      currentEtf = symbol;
+
+      const area = document.getElementById('etfTableArea');
+      area.innerHTML = window.Skeleton.table(6, 5);
+
+      try {
+        let data;
+        if (type === 'ark') {
+          data = await apiFetch('/api/etf-ark', { symbol });
+        } else if (type === 'congress') {
+          data = await apiFetch('/api/etf-congress', { symbol });
+        } else if (type === 'guru') {
+          data = await apiFetch('/api/etf-guru');
+        } else if (type === 'generic') {
+          data = await apiFetch('/api/etf', { symbol });
+        }
+
+        if (!data || !data.holdings || data.holdings.length === 0) {
+          area.innerHTML = '<div class="empty-state"><p>Aucune donnee disponible pour cet ETF.</p></div>';
+          return;
+        }
+
+        // Info bar
+        const infoBar = document.getElementById('etfInfoBar');
+        infoBar.style.display = 'flex';
+        document.getElementById('etfInfoLabel').innerHTML =
+          `<strong>${data.symbol}</strong> — ${data.label || ''} · ${data.holdingsCount} positions · AUM: ${fmtCurShort(data.totalValue)}`;
+        document.getElementById('etfInfoDate').textContent = `Donnees au ${data.date || '—'}`;
+
+        // Fiche explicative de l'ETF (objectif, strategie, cas d'usage, risque)
+        renderEtfDescBox(data.symbol);
+
+        // Tableau
+        let rows = '';
+        // Stocker toutes les positions pour la pagination
+        etfAllHoldings = data.holdings;
+        etfHasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
+        etfPrevDate = data.prevDate || null;
+
+        // Graphiques (ETF Live = heatmap seul, pas de donut + bar redondants avec le tableau)
+        destroyCharts();
+        renderEtfPage();
+        setTimeout(() => renderChartsForHoldings('etfCharts', data.holdings, data.symbol + ' — ' + (data.label || ''), { treemapOnly: true }), 100);
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
+        }
+      }
+    }
+
+    function renderEtfPage() {
+      const area = document.getElementById('etfTableArea');
+      // Pattern 'Voir plus' : on rend de 0 a etfDisplayedCount (cumulatif)
+      const visibleCount = Math.min(etfDisplayedCount, etfAllHoldings.length);
+      const pageHoldings = etfAllHoldings.slice(0, visibleCount);
+      const hasChanges = etfHasChanges;
+
+      let rows = '';
+      for (const h of pageHoldings) {
+          // Indicateur d'évolution
+          let changeHtml = '';
+          if (h.status === 'new') {
+            changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
+          } else if (h.sharesChange !== null && h.sharesChange !== undefined && Math.abs(h.sharesChange) > 0.5) {
+            const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
+            changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
+          } else if (hasChanges) {
+            changeHtml = '<span style="color:var(--text-muted)">—</span>';
+          }
+
+          // Ticker cliquable : ouvre l'Analyse action
+          const tickerClickable = h.ticker
+            ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(h.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${h.ticker}">${h.ticker}</td>`
+            : `<td class="ticker">—</td>`;
+
+          rows += `<tr>
+            <td style="text-align:center;color:var(--text-muted)">${h.rank}</td>
+            ${tickerClickable}
+            <td style="color:var(--text-primary)">${h.company || '—'}</td>
+            <td style="text-align:right">${fmtNum(h.shares)}</td>
+            <td style="text-align:right">${h.price ? fmtCur(h.price) : '—'}</td>
+            <td style="text-align:right;font-weight:600">${fmtCurShort(h.value)}</td>
+            <td style="text-align:right"><span class="pct-bar" style="width:${Math.min(Math.max(h.weight * 4, 2), 100)}px"></span>${h.weight}%</td>
+            ${hasChanges ? `<td style="text-align:right">${changeHtml}</td>` : ''}
+          </tr>`;
+        }
+
+        const prevLabel = etfPrevDate ? ` (vs ${etfPrevDate})` : '';
+        const footerHtml = renderLoadMoreFooter({
+          visible: visibleCount,
+          total: etfAllHoldings.length,
+          onLoadMore: 'loadMoreEtf()',
+          initialCount: ETF_INITIAL_COUNT,
+          label: 'positions',
+        });
+
+        area.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th style="text-align:center">#</th>
+                <th>Ticker</th>
+                <th>Entreprise</th>
+                <th style="text-align:right">Actions</th>
+                <th style="text-align:right">Prix</th>
+                <th style="text-align:right">Valeur</th>
+                <th style="text-align:right">Poids</th>
+                ${hasChanges ? `<th style="text-align:right">Variation${prevLabel}</th>` : ''}
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          ${footerHtml}`;
+    }
+
+    function loadMoreEtf() {
+      etfDisplayedCount += ETF_INITIAL_COUNT;
+      renderEtfPage();
+    }
+
+    // ============================================================
+    // INSIDER CLUSTERING — Données pré-calculées depuis KV
+    // ============================================================
+    let allClusters = [];
+    let clusterData = null;
+
+    // ============================================================
+    // SIGNAUX INSIDERS — Switch 4 sous-onglets + lazy loading
+    // ============================================================
+    let currentClusterTab = 'clusters';
+    const clusterTabLoaded = { clusters: false, netflow: false, crossticker: false, contrarian: true }; // contrarian = placeholder, rien a charger
+
+    function switchClusterTab(tab) {
+      if (!['clusters','netflow','crossticker','contrarian'].includes(tab)) return;
+      currentClusterTab = tab;
+
+      document.querySelectorAll('.cl-tab').forEach(b => {
+        b.classList.toggle('active', b.dataset.cltab === tab);
+      });
+      document.querySelectorAll('.cl-panel').forEach(p => {
+        p.hidden = (p.id !== `cl-panel-${tab}`);
+      });
+
+      if (!clusterTabLoaded[tab]) {
+        clusterTabLoaded[tab] = true;
+        if (tab === 'netflow') loadNetFlow();
+        else if (tab === 'crossticker') loadCrossTicker();
+      }
+    }
+
+    // FIX merge (mai 2026) : section-signals-clusters fusionnee dans cette section.
+    // Lit les 6 filtres avances + sync URL pour partage de lien (?days=7&direction=bullish...).
+    async function loadClustering() {
+      const area = document.getElementById('clusteringArea');
+      try {
+        // Lecture des filtres depuis le DOM (lazy : on tolere absence des selects
+        // si l'user atterrit sur la section sans avoir interagi).
+        const filters = {
+          days: document.getElementById('clusterDays')?.value || '7',
+          minTx: document.getElementById('clusterMinTx')?.value || '3',
+          direction: document.getElementById('clusterDirection')?.value || 'all',
+          minValue: document.getElementById('clusterMinValue')?.value || '0',
+          roles: document.getElementById('clusterRoles')?.value || 'all',
+          sort: document.getElementById('clusterSort')?.value || 'count',
+        };
+        // Sync URL pour permettre le partage de lien
+        try { updateSignalUrl('clustering', filters); } catch {}
+        // Reset 'Voir plus' a chaque nouvelle requete
+        clustersDisplayedCount = CLUSTERS_INITIAL_COUNT;
+        const qs = new URLSearchParams(filters).toString();
+        clusterData = await apiFetch(`/api/signals/insider-clusters?${qs}`);
+        allClusters = (clusterData.items || []).slice();
+        renderClusters();
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement des convergences.</p></div>';
+        }
+      }
+    }
+
+    // Click sur une ligne de cluster -> ouvre Explorer (section-insider) avec :
+    //   - ticker pre-rempli (search insider)
+    //   - meme periode que celle des filtres clusters (Option A)
+    //   - type derive de la direction (bullish->buy, bearish->sell, sinon all)
+    // L'utilisateur retrouve toutes les transactions de ce cluster dans le contexte
+    // familier d'Explorer (avec ses filtres avances depliables, export CSV, etc.).
+    function openExplorerForCluster(ticker, clusterDays, clusterDirection) {
+      if (!ticker) return;
+      // Mapping periode clusters -> periode Explorer (qui supporte 7/30/90).
+      // 1j et 14j ne sont pas dispo dans Explorer KV -> fallback sur 7/30.
+      let explorerDays = 30;
+      const d = parseInt(clusterDays, 10);
+      if (d <= 7) explorerDays = 7;
+      else if (d <= 30) explorerDays = 30;
+      else explorerDays = 90;
+      // Mapping direction clusters -> type Explorer
+      let explorerType = 'all';
+      if (clusterDirection === 'bullish') explorerType = 'buy';
+      else if (clusterDirection === 'bearish') explorerType = 'sell';
+      // Switch + setup
+      switchSection('insider');
+      setTimeout(() => {
+        const input = document.getElementById('searchInsider');
+        if (input) {
+          input.value = ticker;
+        }
+        const clearBtn = document.getElementById('clearInsiderBtn');
+        if (clearBtn) clearBtn.style.display = 'inline-flex';
+        // State globals : insiderSearchQuery, currentDays, currentType, insiderDisplayedCount
+        if (typeof window !== 'undefined') {
+          insiderSearchQuery = String(ticker).toUpperCase();
+          currentDays = explorerDays;
+          currentType = explorerType;
+          insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+        }
+        // UI : active le bon bouton periode + type
+        document.querySelectorAll('[data-days]').forEach(b =>
+          b.classList.toggle('active', parseInt(b.dataset.days) === explorerDays));
+        document.querySelectorAll('[data-type]').forEach(b =>
+          b.classList.toggle('active', b.dataset.type === explorerType));
+        // Re-render avec les nouveaux filtres
+        if (typeof renderInsiderPage === 'function') renderInsiderPage();
+      }, 150);
+    }
+    window.openExplorerForCluster = openExplorerForCluster;
+
+    // Pattern 'Voir plus' (mai 2026) : on cumule les clusters affiches au lieu
+    // de paginer Page X/Y. CLUSTERS_INITIAL_COUNT (15) est l'increment par clic.
+    const CLUSTERS_INITIAL_COUNT = 15;
+    let clustersDisplayedCount = CLUSTERS_INITIAL_COUNT;
+
+    function loadMoreClusters() {
+      clustersDisplayedCount += CLUSTERS_INITIAL_COUNT;
+      renderClusters();
+    }
+
+    function renderClusters() {
+      const area = document.getElementById('clusteringArea');
+      const data = clusterData;
+
+      // FIX uniformisation : nouveau format coherent avec /api/signals/insider-clusters
+      // utilise depuis l'Accueil. Le filtre par type est applique cote serveur
+      // (loadClustering refetch quand selectClusterType change).
+      const clusters = allClusters;
+
+      if (clusters.length === 0) {
+        area.innerHTML = '<div class="empty-state"><p>Aucune convergence correspondante a ce filtre. Essayez "Tous" ou augmentez la periode.</p></div>';
+        return;
+      }
+
+      // Pattern 'Voir plus' : slice(0, displayedCount) cumulatif
+      const totalClusters = clusters.length;
+      const visibleCount = Math.min(clustersDisplayedCount, totalClusters);
+      const pageClusters = clusters.slice(0, visibleCount);
+
+      // Format coherent avec page Signal Detail (depuis l'Accueil) : direction
+      // pill, breakdown achat/vente, NET, insiders top 3.
+      const fmtUsdShort = (n) => {
+        if (n == null || !isFinite(n) || n === 0) return '—';
+        const abs = Math.abs(n);
+        if (abs >= 1e9) return (n < 0 ? '-' : '') + '$' + (abs / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return (n < 0 ? '-' : '') + '$' + (abs / 1e6).toFixed(1) + 'M';
+        if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
+        return (n < 0 ? '-' : '') + '$' + Math.round(abs);
+      };
+
+      // Recupere les filtres actuels pour les passer a openExplorerForCluster
+      const currentDaysFilter = document.getElementById('clusterDays')?.value || '7';
+      const currentDirectionFilter = document.getElementById('clusterDirection')?.value || 'all';
+
+      let rows = '';
+      for (let i = 0; i < pageClusters.length; i++) {
+        const c = pageClusters[i];
+        const directionPill = c.direction === 'bullish'
+          ? '<span class="pill buy">BULLISH</span>'
+          : c.direction === 'bearish'
+          ? '<span class="pill sell">BEARISH</span>'
+          : '<span class="pill other">MIXTE</span>';
+        const netColor = c.netValue > 0 ? 'var(--accent-green)' : c.netValue < 0 ? 'var(--accent-red)' : 'var(--text-muted)';
+        const insidersPreview = (c.insiders || []).slice(0, 3).join(', ');
+        const rolesPreview = (c.roles || []).slice(0, 2).join(', ');
+        const tickerEsc = String(c.ticker || '').replace(/'/g, "\\'");
+
+        // 2 clics distincts (mai 2026) :
+        //   - Click sur la LIGNE -> openExplorerForCluster (detail des transactions
+        //     sur la meme periode + type) dans l'onglet Explorer
+        //   - Click sur le TICKER (avec stopPropagation) -> Decrypter une valeur
+        //     (fiche action complete avec Kairos Score, fondamentaux, etc.)
+        const rowOnclick = `onclick="openExplorerForCluster('${tickerEsc}', '${currentDaysFilter}', '${currentDirectionFilter}')"`;
+        const tickerOnclick = `onclick="event.stopPropagation();switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${tickerEsc}'),150)"`;
+
+        rows += `<tr class="fund-row" ${rowOnclick} style="cursor:pointer" title="Voir le détail des transactions de ce cluster dans Explorer">
+          <td class="ticker clickable-ticker" ${tickerOnclick} title="Décrypter ${escapeHtmlClient(c.ticker || '')} (analyse complète)">${escapeHtmlClient(c.ticker || '—')}
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px" title="${escapeHtmlClient(c.company || '')}">${escapeHtmlClient((c.company || '').slice(0, 35))}</div></td>
+          <td style="text-align:center">${directionPill}</td>
+          <td style="text-align:center"><strong>${c.count}</strong>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${c.buyCount}🟢 / ${c.sellCount}🔴</div></td>
+          <td style="text-align:right;font-weight:600">${fmtUsdShort(c.totalValue)}</td>
+          <td style="text-align:right;color:${netColor};font-weight:600">${fmtUsdShort(c.netValue)}</td>
+          <td style="font-size:11px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(insidersPreview)}">${escapeHtmlClient(insidersPreview)}${c.insiders && c.insiders.length > 3 ? ` +${c.insiders.length - 3}` : ''}
+              <div style="font-size:10px;opacity:0.6;margin-top:2px">${escapeHtmlClient(rolesPreview)}</div></td>
+          <td class="last-update" style="white-space:nowrap">${fmtDate(c.lastDate)} <span class="chevron" title="Cliquez pour voir le détail">&#9654;</span></td>
+        </tr>`;
+      }
+
+      // Direction lue depuis le filtre (au lieu de l'ancien clusterTypeFilter
+      // local qui a ete supprime lors du merge avec les filtres avances).
+      const directionFilter = currentDirectionFilter || 'all';
+      const filterHint = directionFilter === 'bullish' ? 'achats nets'
+                       : directionFilter === 'bearish' ? 'ventes nettes'
+                       : directionFilter === 'mixed' ? 'mixtes'
+                       : 'tous';
+      const periodLabel = currentDaysFilter === '1' ? "aujourd'hui"
+                        : `sur ${currentDaysFilter} jours`;
+      const generated = data.generatedAt ? new Date(data.generatedAt).toLocaleDateString('fr-FR') : '—';
+      // data.total = nombre TOTAL de clusters post-filter cote serveur (avant cap 500).
+      // totalClusters = ce qui a ete reellement retourne (items.length, capped).
+      const realTotal = (data && typeof data.total === 'number') ? data.total : totalClusters;
+      const isCapped = realTotal > totalClusters;
+      const headerCount = isCapped
+        ? `${totalClusters.toLocaleString('fr-FR')} convergence${totalClusters > 1 ? 's' : ''} affichées sur ${realTotal.toLocaleString('fr-FR')} (${filterHint}) — ${periodLabel}`
+        : `${realTotal.toLocaleString('fr-FR')} convergence${realTotal > 1 ? 's' : ''} (${filterHint}) ${periodLabel}`;
+      const footerHtml = renderLoadMoreFooter({
+        visible: visibleCount,
+        total: totalClusters,
+        onLoadMore: 'loadMoreClusters()',
+        initialCount: CLUSTERS_INITIAL_COUNT,
+        label: 'convergences',
+      });
+
+      area.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="color:var(--text-muted);font-size:13px">${headerCount}</span>
+          <span class="last-update">Mis a jour le ${generated}</span>
+        </div>
+        <!-- Hint navigation : 2 clics distincts (mai 2026) -->
+        <div style="background:linear-gradient(135deg,rgba(116,185,255,0.06),rgba(162,155,254,0.03));border:1px solid rgba(116,185,255,0.18);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:14px">💡</span>
+          <span>Clic sur le <strong style="color:var(--accent-blue)">ticker</strong> → décrypter la valeur · Clic sur la <strong>ligne</strong> → détail des transactions du cluster dans Explorer</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Ticker</th>
+              <th style="text-align:center">Direction</th>
+              <th style="text-align:center"># Insiders</th>
+              <th style="text-align:right">Valeur totale</th>
+              <th style="text-align:right">Net achat/vente</th>
+              <th>Insiders (top 3)</th>
+              <th>Derniere</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${footerHtml}
+        <p style="color:var(--text-muted);font-size:12px;margin-top:16px;font-style:italic">
+          Une convergence indique que ≥3 dirigeants d'une meme entreprise ont declare des transactions ${periodLabel}.
+          La <strong>direction</strong> reflete le NET en valeur (achat $ - vente $).
+        </p>`;
+    }
+
+    // Cache des detail transactions par ticker (evite refetch a chaque reouverture)
+    const clusterDetailCache = {};
+
+    function toggleCluster(idx) {
+      const detailRow = document.getElementById(`cluster-detail-${idx}`);
+      const mainRow = detailRow.previousElementSibling;
+      const isOpen = detailRow.classList.contains('open');
+
+      document.querySelectorAll('#clusteringArea .fund-detail-row.open').forEach(r => {
+        r.classList.remove('open');
+        r.previousElementSibling.classList.remove('expanded');
+      });
+
+      if (!isOpen) {
+        detailRow.classList.add('open');
+        mainRow.classList.add('expanded');
+        // Lazy load : fetch 1 ligne par tx (D1) a la premiere ouverture
+        const ticker = detailRow.dataset.ticker;
+        const company = detailRow.dataset.company;
+        if (ticker) loadClusterDetail(idx, ticker, company);
+      }
+    }
+
+    async function loadClusterDetail(idx, ticker, company) {
+      const content = document.getElementById(`cluster-detail-content-${idx}`);
+      if (!content) return;
+      // Deja charge ? On rerend juste (pas de fetch)
+      if (clusterDetailCache[ticker]) {
+        renderClusterDetail(content, ticker, company, clusterDetailCache[ticker]);
+        return;
+      }
+      try {
+        const data = await apiFetch('/api/signals/insider-cluster-detail', { ticker, days: 90 });
+        clusterDetailCache[ticker] = data;
+        renderClusterDetail(content, ticker, company, data);
+      } catch (err) {
+        content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--accent-red);font-size:13px">Erreur chargement : ${escapeHtml(err.message || String(err))}</div>`;
+      }
+    }
+
+    function renderClusterDetail(content, ticker, company, data) {
+      const txs = (data && Array.isArray(data.transactions)) ? data.transactions : [];
+      if (!txs.length) {
+        content.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Aucune transaction détaillée en base pour ${escapeHtml(ticker)} sur 90j.</div>`;
+        return;
+      }
+      const rows = txs.map(t => {
+        const typeLabel = t.transType === 'buy' ? '<span class="pill buy" style="font-size:10px">ACHAT</span>'
+          : t.transType === 'sell' ? '<span class="pill sell" style="font-size:10px">VENTE</span>'
+          : t.transType === 'option-exercise' ? '<span class="pill other" style="font-size:10px">OPTION</span>'
+          : '<span class="pill other" style="font-size:10px">AUTRE</span>';
+        const shares = t.shares ? fmtNum(t.shares) : '—';
+        const price = t.price && t.price > 0 ? '$' + Number(t.price).toFixed(2) : '—';
+        const value = t.value && t.value > 0 ? fmtCurShort(t.value) : '—';
+        const valueColor = t.transType === 'buy' ? 'var(--accent-green)'
+                        : t.transType === 'sell' ? 'var(--accent-red)'
+                        : 'var(--text-primary)';
+        const title = t.title ? escapeHtml(translatePosition(t.title)) : '—';
+        const source = t.source ? `<span style="font-size:9px;color:var(--text-muted);padding:1px 6px;border:1px solid var(--border);border-radius:4px">${escapeHtml(t.source)}</span>` : '';
+        return `<tr>
+          <td style="color:var(--text-secondary);font-size:12px;white-space:nowrap">${fmtDate(t.transDate)}</td>
+          <td style="color:var(--text-primary);font-weight:500">${escapeHtml(t.insider || '—')}</td>
+          <td style="color:var(--text-secondary);font-size:12px">${title}</td>
+          <td style="text-align:center">${typeLabel}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${shares}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text-secondary)">${price}</td>
+          <td style="text-align:right;font-weight:600;color:${valueColor};font-variant-numeric:tabular-nums">${value}</td>
+          <td style="text-align:center">${source}</td>
+        </tr>`;
+      }).join('');
+
+      content.innerHTML = `
+        <div class="sub-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <span style="color:var(--text-primary);font-size:13px;font-weight:600">${txs.length} transaction${txs.length > 1 ? 's' : ''} · ${escapeHtml(company || ticker)} · triees par date decroissante</span>
+          <span class="last-update">90 derniers jours</span>
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;max-height:500px;border:1px solid var(--border);border-radius:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead style="position:sticky;top:0;background:var(--surface-2);z-index:1">
+              <tr>
+                <th style="text-align:left;padding:8px 12px;white-space:nowrap">Date</th>
+                <th style="text-align:left;padding:8px 12px">Déclarant</th>
+                <th style="text-align:left;padding:8px 12px">Poste</th>
+                <th style="text-align:center;padding:8px 12px">Type</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">Actions</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">Prix unit.</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">Valeur</th>
+                <th style="text-align:center;padding:8px 12px">Source</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // SIGNAUX INSIDERS — Onglet FLUX NET
+    // ============================================================
+    const fmtUsdCompact = (v) => {
+      if (v == null || isNaN(v)) return '—';
+      const abs = Math.abs(v);
+      const sign = v < 0 ? '−' : '';
+      if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+      if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
+      if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
+      return `${sign}$${abs.toFixed(0)}`;
+    };
+    const fmtDateShort = (d) => {
+      if (!d) return '';
+      try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); }
+      catch { return d; }
+    };
+    const clTickerClick = (ticker) => ticker
+      ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(ticker).replace(/'/g, "\\'")}'), 150)" style="cursor:pointer"`
+      : '';
+
+    async function loadNetFlow() {
+      const area = document.getElementById('nfArea');
+      if (!area) return;
+      area.innerHTML = `<div class="loading"><div class="spinner"></div>Calcul du flux net insiders…</div>`;
+
+      const days = document.getElementById('nfDays')?.value || '30';
+      const direction = document.getElementById('nfDirection')?.value || 'all';
+      const minValue = document.getElementById('nfMinValue')?.value || '0';
+      const limit = document.getElementById('nfLimit')?.value || '20';
+
+      try {
+        const data = await apiFetch('/api/signals/insider-netflow', { days, direction, minValue, limit });
+        renderNetFlow(data);
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = `<div class="empty-state"><p>Erreur : ${escapeHtml(err.message || String(err))}</p></div>`;
+        }
+      }
+    }
+
+    function renderNetFlow(data) {
+      const area = document.getElementById('nfArea');
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      if (!items.length) {
+        area.innerHTML = `<div class="empty-state"><p>Aucun ticker ne correspond aux filtres. Essaye d'elargir la periode ou la direction.</p></div>`;
+        return;
+      }
+
+      const maxAbs = Math.max(1, ...items.map(i => Math.abs(i.netValue || 0)));
+      const rows = items.map((it, idx) => {
+        const net = it.netValue || 0;
+        const netColor = net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        const barPct = Math.min(100, (Math.abs(net) / maxAbs) * 100);
+        const barColor = net >= 0 ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)';
+        return `
+          <tr ${clTickerClick(it.ticker)}>
+            <td style="text-align:center;color:var(--text-muted);width:36px">${idx + 1}</td>
+            <td class="sig-ticker-cell">${escapeHtml(it.ticker || '—')}</td>
+            <td style="color:var(--text-primary)">${escapeHtml(it.company || '')}</td>
+            <td style="text-align:right;color:var(--accent-green);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.buyValue)}</td>
+            <td style="text-align:right;color:var(--accent-red);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.sellValue)}</td>
+            <td style="text-align:right;font-weight:700;color:${netColor};font-variant-numeric:tabular-nums">
+              <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                <div style="flex:1;max-width:110px;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${barPct}%;background:${barColor};${net < 0 ? 'margin-left:auto' : ''}"></div></div>
+                <span>${fmtUsdCompact(net)}</span>
+              </div>
+            </td>
+            <td style="text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums">${it.txCount || 0}</td>
+            <td style="text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums">${it.insiderCount || 0}</td>
+            <td style="text-align:right;font-size:11px;color:var(--text-muted)">${fmtDateShort(it.lastDate)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+          <table class="sig-table" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr>
+                <th style="text-align:center">#</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.ticker">Ticker</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.company">Société</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.buys">Achats</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.sells">Ventes</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.net">Net</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.tx">Tx</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.insiders">Insiders</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.last">Dernière</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:right">${items.length} ticker${items.length > 1 ? 's' : ''} · periode ${data.filters?.days || '?'}j · genere ${fmtDateShort(data.generatedAt)}</div>
+      `;
+    }
+
+    // ============================================================
+    // SIGNAUX INSIDERS — Onglet INSIDERS TRANSVERSAUX (cross-ticker)
+    // ============================================================
+    async function loadCrossTicker() {
+      const area = document.getElementById('ctArea');
+      if (!area) return;
+      area.innerHTML = `<div class="loading"><div class="spinner"></div>Recherche des insiders transversaux…</div>`;
+
+      const days = document.getElementById('ctDays')?.value || '90';
+      const minTickers = document.getElementById('ctMinTickers')?.value || '3';
+      const role = document.getElementById('ctRole')?.value || 'all';
+      const limit = document.getElementById('ctLimit')?.value || '30';
+
+      try {
+        const data = await apiFetch('/api/signals/insider-crossticker', { days, minTickers, role, limit });
+        renderCrossTicker(data);
+      } catch (err) {
+        if (err.message !== 'Unauthorized') {
+          area.innerHTML = `<div class="empty-state"><p>Erreur : ${escapeHtml(err.message || String(err))}</p></div>`;
+        }
+      }
+    }
+
+    function renderCrossTicker(data) {
+      const area = document.getElementById('ctArea');
+      const items = (data && Array.isArray(data.items)) ? data.items : [];
+      if (!items.length) {
+        area.innerHTML = `<div class="empty-state"><p>Aucun insider multi-tickers trouve. Essaye d'elargir la periode ou de reduire le seuil min tickers.</p></div>`;
+        return;
+      }
+
+      const rows = items.map((it, idx) => {
+        const net = it.netValue || 0;
+        const netColor = net >= 0 ? 'var(--accent-green)' : net < 0 ? 'var(--accent-red)' : 'var(--text-secondary)';
+        const tickersList = (it.tickers || []).slice(0, 8).map(t =>
+          `<span class="cl-ticker-pill" ${clTickerClick(t)}>${escapeHtml(t)}</span>`
+        ).join('');
+        const moreCount = Math.max(0, (it.tickerCount || 0) - 8);
+        const insiderEsc = escapeHtml((it.insider || '').replace(/'/g, ''));
+        return `
+          <tr>
+            <td style="text-align:center;color:var(--text-muted);width:36px">${idx + 1}</td>
+            <td><strong style="color:var(--text-primary);cursor:pointer" onclick="openScreenerForInsider('${insiderEsc}')" title="Voir toutes ses transactions dans le Screener">${escapeHtml(it.insider || '—')}</strong></td>
+            <td style="font-size:12px;color:var(--text-secondary)">${escapeHtml(it.title || '—')}</td>
+            <td style="text-align:center"><span style="display:inline-block;padding:3px 10px;background:rgba(99,102,241,0.2);color:#818CF8;border-radius:100px;font-weight:700;font-variant-numeric:tabular-nums">${it.tickerCount || 0}</span></td>
+            <td>${tickersList}${moreCount ? `<span style="font-size:11px;color:var(--text-muted);margin-left:4px">+${moreCount}</span>` : ''}</td>
+            <td style="text-align:right;color:var(--accent-green);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.buyValue)}</td>
+            <td style="text-align:right;color:var(--accent-red);font-variant-numeric:tabular-nums">${fmtUsdCompact(it.sellValue)}</td>
+            <td style="text-align:right;font-weight:700;color:${netColor};font-variant-numeric:tabular-nums">${fmtUsdCompact(net)}</td>
+            <td style="text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums">${it.txCount || 0}</td>
+            <td style="text-align:right;font-size:11px;color:var(--text-muted)">${fmtDateShort(it.lastDate)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="sig-table-wrap" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+          <table class="sig-table" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr>
+                <th style="text-align:center">#</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.insider">Insider</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.role">Rôle</th>
+                <th style="text-align:center" data-i18n="dash.clustering.col.nb_tickers">Nb tickers</th>
+                <th style="text-align:left" data-i18n="dash.clustering.col.tickers">Tickers</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.buys">Achats</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.sells">Ventes</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.net">Net</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.tx">Tx</th>
+                <th style="text-align:right" data-i18n="dash.clustering.col.last">Dernière</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:right">${items.length} insider${items.length > 1 ? 's' : ''} transversaux · periode ${data.filters?.days || '?'}j · clic sur le nom pour ouvrir le Screener</div>
+      `;
+    }
+
+    // ============================================================
+    // FEAR & GREED INDEX
+    // ============================================================
+    // Proxifie via le worker Kairos (CNN ne supporte pas les appels
+    // cross-origin depuis un navigateur). Retourne score + rating +
+    // historique 1Y + 7 composantes. Affichage : gauge circulaire (actuel)
+    // + chart Chart.js line format 'Analyse action' pour l'historique.
+    let _fgHistoryChart = null;
+    async function loadFearGreed() {
+      const area = document.getElementById('fearGreedArea');
+      try {
+        // Passe par apiFetch (auth Firebase) → worker → cache KV → CNN
+        const data = await apiFetch('/api/feargreed');
+        if (!data || data.error) throw new Error(data?.error || 'Fear & Greed API error');
+
+        const score = Math.round(data.score || 50);
+        const rating = data.rating || 'Neutral';
+        const history = Array.isArray(data.history) ? data.history : [];
+        const components = data.components || {};
+        const lastUpdate = data.timestamp ? new Date(data.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+        const ratingFR = {
+          'Extreme Fear': 'Peur extrême',
+          'Fear': 'Peur',
+          'Neutral': 'Neutre',
+          'Greed': 'Cupidité',
+          'Extreme Greed': 'Cupidité extrême',
+        }[rating] || rating;
+
+        const color = score <= 25 ? 'var(--accent-red)' : score <= 45 ? '#F97316' : score <= 55 ? 'var(--text-secondary)' : score <= 75 ? '#84CC16' : 'var(--accent-green)';
+
+        const targetDash = score * 5.97;
+
+        area.innerHTML = `
+          <style>
+            @keyframes scoreCount {
+              from { opacity: 0; transform: scale(0.6); }
+              to { opacity: 1; transform: scale(1); }
+            }
+            @keyframes needlePulse {
+              0%, 100% { filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.5)); }
+              50%      { filter: drop-shadow(0 0 16px rgba(236, 72, 153, 0.8)); }
+            }
+            #fgNeedle {
+              filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+            }
+            #fgNeedle > polygon:last-child {
+              animation: needlePulse 3s ease-in-out 2.5s infinite;
+            }
+            .fg-score {
+              animation: scoreCount 0.6s ease-out 1.8s forwards;
+              opacity: 0;
+            }
+            /* Tooltip custom sur les 7 indicateurs — hover/focus reveal */
+            .fg-tip { position: relative; transition: background 0.15s, color 0.15s; }
+            .fg-tip:hover, .fg-tip:focus {
+              background: var(--accent-blue) !important;
+              color: #fff !important;
+              outline: none;
+            }
+            .fg-tip-body {
+              position: absolute;
+              bottom: calc(100% + 10px);
+              left: 50%;
+              transform: translateX(-50%) translateY(4px);
+              width: 280px;
+              padding: 12px 14px;
+              background: var(--bg-secondary);
+              color: var(--text-primary);
+              border: 1px solid var(--border-strong);
+              border-radius: 10px;
+              font-size: 12px;
+              font-weight: 400;
+              line-height: 1.5;
+              text-transform: none;
+              letter-spacing: normal;
+              text-align: left;
+              box-shadow: 0 10px 32px rgba(0,0,0,0.45);
+              opacity: 0;
+              visibility: hidden;
+              pointer-events: none;
+              transition: opacity 0.15s, transform 0.15s, visibility 0s linear 0.15s;
+              z-index: 50;
+              white-space: normal;
+            }
+            .fg-tip-body::after {
+              content: '';
+              position: absolute;
+              top: 100%;
+              left: 50%;
+              transform: translateX(-50%);
+              border: 6px solid transparent;
+              border-top-color: var(--bg-secondary);
+            }
+            .fg-tip:hover .fg-tip-body,
+            .fg-tip:focus .fg-tip-body {
+              opacity: 1;
+              visibility: visible;
+              transform: translateX(-50%) translateY(0);
+              transition: opacity 0.2s, transform 0.2s, visibility 0s linear 0s;
+            }
+            /* Evite que le tooltip deborde a gauche/droite sur mobile */
+            @media (max-width: 640px) {
+              .fg-tip-body { width: 240px; max-width: 80vw; }
+            }
+          </style>
+          <div style="text-align:center;padding:32px 20px 24px;">
+            <!-- Gauge speedometer semi-circulaire avec segments colores + aiguille animee.
+                 Helpers geometriques :
+                 - Score 0   → aiguille pointe a gauche (rotation -90deg)
+                 - Score 50  → aiguille pointe en haut  (rotation   0deg)
+                 - Score 100 → aiguille pointe a droite (rotation +90deg)
+                 Formule : rotation = score * 1.8 - 90   (range 0-100 → -90° à +90°) -->
+            <div style="position:relative;width:min(440px,92vw);margin:0 auto 8px;aspect-ratio:440/260">
+              <svg viewBox="0 0 440 260" style="width:100%;height:100%;overflow:visible">
+                <defs>
+                  <!-- Glow color-matched au score final -->
+                  <filter id="fgGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
+                  </filter>
+                  <!-- Gradient lineaire pour l'aiguille (bleu → violet Kairos) -->
+                  <linearGradient id="fgNeedleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#F9FAFB"/>
+                    <stop offset="100%" stop-color="#A78BFA"/>
+                  </linearGradient>
+                  <radialGradient id="fgHubGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#F9A8D4"/>
+                    <stop offset="70%" stop-color="#8B5CF6"/>
+                    <stop offset="100%" stop-color="#3B82F6"/>
+                  </radialGradient>
+                </defs>
+
+                <!-- 5 segments colores en arc semi-circulaire, avec gaps de 2° entre eux -->
+                ${(() => {
+                  const cx = 220, cy = 230, rOuter = 180, rInner = 150;
+                  const segments = [
+                    { from: 0,  to: 25,  color: '#EF4444' }, // Peur extreme
+                    { from: 25, to: 45,  color: '#F97316' }, // Peur
+                    { from: 45, to: 55,  color: '#94A3B8' }, // Neutre
+                    { from: 55, to: 75,  color: '#84CC16' }, // Cupidite
+                    { from: 75, to: 100, color: '#10B981' }, // Cupidite extreme
+                  ];
+                  const GAP = 1.2; // degres de gap visuel entre chaque segment
+                  // Score 0 = angle 180° (left), Score 100 = angle 0° (right) — SVG math
+                  const scoreToAngle = (s) => 180 - (s / 100) * 180;
+                  const polar = (r, a) => {
+                    const rad = a * Math.PI / 180;
+                    return [cx + r * Math.cos(rad), cy - r * Math.sin(rad)];
+                  };
+                  return segments.map(seg => {
+                    const a1 = scoreToAngle(seg.from) - GAP / 2;
+                    const a2 = scoreToAngle(seg.to)   + GAP / 2;
+                    // a1 > a2 (on va dans le sens horaire visuellement)
+                    const [x1o, y1o] = polar(rOuter, a1);
+                    const [x2o, y2o] = polar(rOuter, a2);
+                    const [x2i, y2i] = polar(rInner, a2);
+                    const [x1i, y1i] = polar(rInner, a1);
+                    const largeArc = Math.abs(a1 - a2) > 180 ? 1 : 0;
+                    const d = [
+                      `M ${x1o} ${y1o}`,
+                      `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2o} ${y2o}`,
+                      `L ${x2i} ${y2i}`,
+                      `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x1i} ${y1i}`,
+                      `Z`,
+                    ].join(' ');
+                    return `<path d="${d}" fill="${seg.color}" opacity="0.88"/>`;
+                  }).join('');
+                })()}
+
+                <!-- Tick marks secondaires (5, 15, 35, 65, 85, 95) discrets -->
+                ${(() => {
+                  const cx = 220, cy = 230, rIn = 152, rOut = 148;
+                  const scoreToAngle = (s) => 180 - (s / 100) * 180;
+                  const ticks = [10, 20, 30, 40, 60, 70, 80, 90];
+                  return ticks.map(s => {
+                    const a = scoreToAngle(s) * Math.PI / 180;
+                    const x1 = cx + rIn * Math.cos(a);
+                    const y1 = cy - rIn * Math.sin(a);
+                    const x2 = cx + rOut * Math.cos(a);
+                    const y2 = cy - rOut * Math.sin(a);
+                    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-linecap="round"/>`;
+                  }).join('');
+                })()}
+
+                <!-- Labels numeriques 0, 25, 50, 75, 100 au-dessus de l'arc -->
+                ${(() => {
+                  const cx = 220, cy = 230, rLabel = 200;
+                  const scoreToAngle = (s) => 180 - (s / 100) * 180;
+                  const labels = [
+                    { s: 0,   text: '0'   },
+                    { s: 25,  text: '25'  },
+                    { s: 50,  text: '50'  },
+                    { s: 75,  text: '75'  },
+                    { s: 100, text: '100' },
+                  ];
+                  return labels.map(l => {
+                    const a = scoreToAngle(l.s) * Math.PI / 180;
+                    const x = cx + rLabel * Math.cos(a);
+                    const y = cy - rLabel * Math.sin(a);
+                    return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="var(--text-muted)" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="600">${l.text}</text>`;
+                  }).join('');
+                })()}
+
+                <!-- Aiguille : triangle fin. Position initiale via attribut SVG transform
+                     (pas via style CSS) pour compat maximale. L'animation est piloteea
+                     par Web Animations API cote JS (needle.animate()), ce qui garantit
+                     qu'elle joue bien peu importe le timing de repaint browser.
+                     On ne compte PAS sur une transition CSS ici. -->
+                <g id="fgNeedle" transform="rotate(-90 220 230)">
+                  <!-- aiguille : triangle fin et long -->
+                  <polygon points="220,70 215,232 225,232" fill="url(#fgNeedleGrad)" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-linejoin="round"/>
+                </g>
+
+                <!-- Hub central (le pivot de l'aiguille) -->
+                <circle cx="220" cy="230" r="16" fill="url(#fgHubGrad)"/>
+                <circle cx="220" cy="230" r="6" fill="#0A0F1E"/>
+              </svg>
+            </div>
+
+            <!-- Score + rating sous la gauge (pas d'overlay qui chevauche l'aiguille) -->
+            <div class="fg-score" style="text-align:center;margin-top:-8px">
+              <div id="fgCounter" style="font-family:'Space Grotesk';font-size:64px;font-weight:800;color:${color};line-height:1;text-shadow:0 4px 24px ${color}55">0</div>
+              <div style="font-size:15px;color:${color};font-weight:700;margin-top:6px;letter-spacing:0.04em;text-transform:uppercase">${ratingFR}</div>
+            </div>
+
+            <!-- Legende des zones alignee sur l'arc -->
+            <div style="display:flex;justify-content:center;gap:16px;margin:16px auto 22px;flex-wrap:wrap;max-width:600px">
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#EF4444;display:inline-block"></span>Peur extrême</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#F97316;display:inline-block"></span>Peur</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#94A3B8;display:inline-block"></span>Neutre</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#84CC16;display:inline-block"></span>Cupidité</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);font-weight:500"><span style="width:10px;height:10px;border-radius:50%;background:#10B981;display:inline-block"></span>Cupidité extrême</span>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;max-width:500px;margin:0 auto;">
+              Le Fear & Greed Index mesure le sentiment des investisseurs de 0 (peur extrême) à 100 (cupidité extrême).
+              Un score bas peut indiquer une opportunité d'achat, un score haut un excès d'optimisme.
+            </p>
+            <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Dernière mise à jour CNN : ${lastUpdate}${data._stale ? ' · <span style="color:#F97316">cache (CNN indisponible)</span>' : ''}</div>
+          </div>
+
+          <!-- Comparaisons historiques (snapshot) -->
+          ${(data.previous_close != null || data.previous_1_week != null || data.previous_1_month != null || data.previous_1_year != null) ? `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:0 auto 24px;max-width:720px">
+            ${[
+              { label: 'Hier', val: data.previous_close },
+              { label: 'Il y a 1 semaine', val: data.previous_1_week },
+              { label: 'Il y a 1 mois', val: data.previous_1_month },
+              { label: 'Il y a 1 an', val: data.previous_1_year },
+            ].filter(c => c.val != null).map(c => {
+              const delta = score - c.val;
+              const deltaColor = delta > 0 ? 'var(--accent-green)' : delta < 0 ? 'var(--accent-red)' : 'var(--text-muted)';
+              const deltaArrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
+              const deltaAbs = Math.abs(delta);
+              return `
+                <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;text-align:center">
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${c.label}</div>
+                  <div style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:'Space Grotesk'">${c.val}</div>
+                  <div style="font-size:11px;color:${deltaColor};margin-top:2px">${deltaArrow} ${delta > 0 ? '+' : delta < 0 ? '-' : ''}${deltaAbs}pt</div>
+                </div>`;
+            }).join('')}
+          </div>` : ''}
+
+          <!-- Graphique historique 1 an (format Analyse action) -->
+          ${history.length > 10 ? `
+          <div style="margin:32px 0;padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+              <div>
+                <h4 style="margin:0;font-size:15px;font-weight:700">📈 Historique 1 an</h4>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Évolution du Fear &amp; Greed Index — ${history.length} jours</div>
+              </div>
+              <div class="chart-period-btns" role="group" aria-label="Période">
+                <button onclick="setFgChartPeriod(30)" data-fg-period="30">1M</button>
+                <button onclick="setFgChartPeriod(90)" data-fg-period="90">3M</button>
+                <button onclick="setFgChartPeriod(180)" data-fg-period="180">6M</button>
+                <button onclick="setFgChartPeriod(365)" data-fg-period="365" class="active">1A</button>
+              </div>
+            </div>
+            <div style="position:relative;height:320px"><canvas id="fgHistoryChart"></canvas></div>
+          </div>` : ''}
+
+          <!-- 7 composantes CNN -->
+          ${components && Object.values(components).some(c => c) ? `
+          <div style="margin:32px 0">
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+              <h4 style="margin:0;font-size:15px;font-weight:700">🧭 Les 7 indicateurs CNN qui composent l'indice</h4>
+              <span style="font-size:11px;color:var(--text-muted)">Survolez chaque ℹ️ pour le détail</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+              ${[
+                {
+                  key: 'momentum',
+                  labelFR: 'Momentum de marché',
+                  labelEN: 'Market Momentum',
+                  shortDesc: 'S&P 500 vs moyenne mobile 125j',
+                  fullDesc: 'Compare le cours actuel du S&P 500 à sa moyenne mobile sur 125 jours. Au-dessus = tendance haussière durable (avidité). En dessous = correction ou récession en cours (peur).'
+                },
+                {
+                  key: 'breadth',
+                  labelFR: 'Largeur de marché',
+                  labelEN: 'Stock Price Breadth',
+                  shortDesc: 'Volume acheteur vs vendeur',
+                  fullDesc: 'Mesure le volume cumulé des actions qui montent moins celles qui baissent (McClellan Volume Summation Index). Volume acheteur dominant = avidité. Volume vendeur dominant = peur.'
+                },
+                {
+                  key: 'strength',
+                  labelFR: 'Force des cours',
+                  labelEN: 'Stock Price Strength',
+                  shortDesc: 'Plus-hauts vs plus-bas 52 sem.',
+                  fullDesc: 'Ratio entre le nombre d\'actions au plus haut 52 semaines sur le NYSE et celles au plus bas. Beaucoup de plus-hauts = avidité généralisée. Beaucoup de plus-bas = bear market.'
+                },
+                {
+                  key: 'putCall',
+                  labelFR: 'Options Put / Call',
+                  labelEN: 'Put / Call Options',
+                  shortDesc: 'Ratio options baissières / haussières',
+                  fullDesc: 'Rapport entre les options de vente (puts = pari baissier) et d\'achat (calls = pari haussier). Ratio < 0,7 → beaucoup de calls, avidité. Ratio > 1,1 → beaucoup de puts, peur extrême.'
+                },
+                {
+                  key: 'volatility',
+                  labelFR: 'Volatilité (VIX)',
+                  labelEN: 'Market Volatility',
+                  shortDesc: 'Indice de la peur · CBOE',
+                  fullDesc: 'Le VIX mesure la volatilité implicite à 30 jours du S&P 500, surnommé "l\'indice de la peur". VIX < 15 = calme, avidité. VIX > 25 = stress. VIX > 40 = panique type 2008 ou Covid.'
+                },
+                {
+                  key: 'safeHaven',
+                  labelFR: 'Demande valeurs refuges',
+                  labelEN: 'Safe Haven Demand',
+                  shortDesc: 'Actions vs obligations Treasury 20 ans',
+                  fullDesc: 'Compare la performance des actions aux obligations Treasury 20 ans sur 20 jours glissants. Actions > obligations = appétit pour le risque (avidité). Obligations > actions = fuite vers qualité (peur).'
+                },
+                {
+                  key: 'junkBond',
+                  labelFR: 'Demande obligations à risque',
+                  labelEN: 'Junk Bond Demand',
+                  shortDesc: 'Spread high-yield vs Treasury',
+                  fullDesc: 'Écart de rendement entre les obligations high-yield (notation BB ou moins) et les Treasury. Spread faible = les investisseurs acceptent le risque crédit (avidité). Spread élargi = fuite vers la qualité (peur).'
+                },
+              ].map(c => {
+                const comp = components[c.key];
+                if (!comp || comp.score == null) return '';
+                const s = comp.score;
+                const col = s <= 25 ? 'var(--accent-red)' : s <= 45 ? '#F97316' : s <= 55 ? 'var(--text-muted)' : s <= 75 ? '#84CC16' : 'var(--accent-green)';
+                const pct = Math.max(0, Math.min(100, s));
+                const ratingFR = {
+                  'Extreme Fear': 'Peur extrême', 'Fear': 'Peur', 'Neutral': 'Neutre',
+                  'Greed': 'Cupidité', 'Extreme Greed': 'Cupidité extrême',
+                }[comp.rating] || comp.rating || '';
+                return `
+                  <div class="fg-indicator" style="position:relative;padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <div style="font-size:13px;font-weight:600;color:var(--text-primary);line-height:1.2">${c.labelFR}</div>
+                          <span class="fg-tip" tabindex="0" aria-label="Explication" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--surface-2);color:var(--text-secondary);font-size:10px;font-weight:700;cursor:help;user-select:none;flex-shrink:0">i<span class="fg-tip-body">${c.fullDesc}</span></span>
+                        </div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em">${c.labelEN}</div>
+                      </div>
+                      <div style="font-size:18px;font-weight:800;color:${col};font-family:'Space Grotesk';line-height:1;flex-shrink:0">${s}</div>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);margin:6px 0 8px;line-height:1.35">${c.shortDesc}</div>
+                    <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+                      <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width 0.6s ease-out"></div>
+                    </div>
+                    ${ratingFR ? `<div style="margin-top:6px;font-size:10px;color:${col};font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${ratingFR}</div>` : ''}
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>` : ''}
+        `;
+
+        // Animation : Web Animations API (element.animate) pour l'aiguille.
+        // Plus fiable que CSS transition pour les SVG car :
+        //   - N'est pas sujette au "optimize & skip" quand initial/final states
+        //     sont appliques rapidement
+        //   - Ne depend pas du timing de repaint
+        //   - Anime via la propriete 'transform' SVG natif (attribut + style)
+        // Le compteur est anime via rAF en parallele avec la meme duree.
+        const counter = document.getElementById('fgCounter');
+        const needle = document.getElementById('fgNeedle');
+        const ANIM_DURATION = 2400;
+        const ANIM_DELAY = 250;
+
+        if (needle) {
+          const finalRotation = (score * 1.8 - 90).toFixed(2);
+          try {
+            needle.animate(
+              [
+                { transform: 'rotate(-90deg)' },
+                { transform: `rotate(${finalRotation}deg)` },
+              ],
+              {
+                duration: ANIM_DURATION,
+                easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)',
+                fill: 'forwards',
+                delay: ANIM_DELAY,
+              }
+            );
+            // Setup transform-origin via style pour le cas ou le browser
+            // utilise le style pour ancrer (sinon rotation a partir du 0,0).
+            needle.style.transformBox = 'view-box';
+            needle.style.transformOrigin = '220px 230px';
+          } catch (e) {
+            // Fallback (browsers tres anciens) : set direct
+            needle.setAttribute('transform', `rotate(${finalRotation} 220 230)`);
+          }
+        }
+
+        if (counter) {
+          let current = 0;
+          let animStart = null;
+          function animate(now) {
+            if (animStart === null) animStart = now + ANIM_DELAY;
+            const elapsed = Math.max(0, now - animStart);
+            const progress = Math.min(elapsed / ANIM_DURATION, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            current = Math.round(eased * score);
+            counter.textContent = current;
+            if (progress < 1) requestAnimationFrame(animate);
+          }
+          requestAnimationFrame(animate);
+        }
+
+        // Render chart historique 1 an (toute la data dispo, ~365 points)
+        if (history.length > 10) {
+          _fgHistoryData = history;
+          renderFgHistoryChart(365);
+        }
+
+      } catch (err) {
+        console.warn('[feargreed] fetch failed', err);
+        area.innerHTML = `
+          <div class="empty-state" style="padding:60px 20px;text-align:center">
+            <div style="font-size:48px;margin-bottom:14px">😶‍🌫️</div>
+            <p style="margin:0 0 10px;font-size:16px;color:var(--text-primary);font-weight:600">Indicateur indisponible</p>
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">
+              Nous ne parvenons pas à récupérer le Fear &amp; Greed Index pour le moment. Réessayez dans quelques minutes, ou consultez-le sur
+              <a href="https://edition.cnn.com/markets/fear-and-greed" target="_blank" rel="noopener" style="color:var(--accent-blue)">CNN Markets →</a>
+            </p>
+          </div>`;
+      }
+    }
+
+    // State + render pour le chart historique Fear & Greed
+    // Le payload contient ~365 points (1/jour). On slice selon la periode.
+    let _fgHistoryData = [];
+    function setFgChartPeriod(days) {
+      document.querySelectorAll('[data-fg-period]').forEach(b => {
+        b.classList.toggle('active', Number(b.dataset.fgPeriod) === days);
+      });
+      renderFgHistoryChart(days);
+    }
+    function renderFgHistoryChart(days) {
+      const canvas = document.getElementById('fgHistoryChart');
+      if (!canvas || !_fgHistoryData.length) return;
+      const ctx = canvas.getContext('2d');
+      if (_fgHistoryChart) _fgHistoryChart.destroy();
+
+      // Slice sur les N derniers jours
+      const n = Math.min(days || 365, _fgHistoryData.length);
+      const slice = _fgHistoryData.slice(-n);
+      // Pre-formate les labels en dates FR (pas d'adapter date Chart.js dans ce projet)
+      const labels = slice.map(p => {
+        const d = new Date(p.t);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+      });
+      const timestamps = slice.map(p => p.t);
+      const values = slice.map(p => p.s);
+
+      // Gradient stroke cohérent Kairos (bleu → violet → rose)
+      const strokeGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+      strokeGradient.addColorStop(0, '#3B82F6');
+      strokeGradient.addColorStop(0.55, '#8B5CF6');
+      strokeGradient.addColorStop(1, '#EC4899');
+
+      // Gradient fill vertical
+      const fillGradient = ctx.createLinearGradient(0, 0, 0, 320);
+      fillGradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      fillGradient.addColorStop(0.55, 'rgba(59, 130, 246, 0.12)');
+      fillGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+      // Plugin custom pour zones colorees en background (peur/neutre/cupidite)
+      const fgZonesPlugin = {
+        id: 'fgZones',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const yScale = scales.y;
+          ctx.save();
+          // Zones colorees subtiles en background (peur rouge → cupidite verte).
+          // Opacites augmentees vs v1 pour bien se voir en dark mode ET en light mode.
+          const zones = [
+            { min: 0,  max: 25,  color: 'rgba(239, 68, 68, 0.16)' },   // Peur extreme
+            { min: 25, max: 45,  color: 'rgba(249, 115, 22, 0.12)' },  // Peur
+            { min: 45, max: 55,  color: 'rgba(148, 163, 184, 0.08)' }, // Neutre
+            { min: 55, max: 75,  color: 'rgba(132, 204, 22, 0.12)' },  // Cupidite
+            { min: 75, max: 100, color: 'rgba(16, 185, 129, 0.16)' },  // Cupidite extreme
+          ];
+          zones.forEach(z => {
+            const yTop = yScale.getPixelForValue(z.max);
+            const yBot = yScale.getPixelForValue(z.min);
+            ctx.fillStyle = z.color;
+            ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBot - yTop);
+          });
+          ctx.restore();
+        }
+      };
+
+      _fgHistoryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Fear & Greed',
+            data: values,
+            borderColor: strokeGradient,
+            backgroundColor: fillGradient,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#F9A8D4',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            tension: 0.25,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 22, 41, 0.96)',
+              borderColor: 'rgba(139, 92, 246, 0.35)',
+              borderWidth: 1,
+              titleColor: '#F9FAFB',
+              bodyColor: '#CBD5E1',
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const t = timestamps[idx];
+                  return t ? new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+                },
+                label: (ctx) => {
+                  const s = ctx.parsed.y;
+                  const r = s <= 25 ? 'Peur extrême' : s <= 45 ? 'Peur' : s <= 55 ? 'Neutre' : s <= 75 ? 'Cupidité' : 'Cupidité extrême';
+                  return `Score : ${Math.round(s)} · ${r}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: getCssVar('--chart-grid-subtle'), display: false },
+              ticks: { color: getCssVar('--chart-text-strong'), maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 12, weight: 500 } },
+            },
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: getCssVar('--chart-grid') },
+              ticks: {
+                color: getCssVar('--chart-text-strong'),
+                stepSize: 25,
+                font: { size: 12, weight: 500 },
+                callback: (v) => v + (v === 0 ? ' Peur ext.' : v === 25 ? ' Peur' : v === 50 ? ' Neutre' : v === 75 ? ' Cupid.' : v === 100 ? ' Extrême' : ''),
+              },
+            }
+          }
+        },
+        plugins: [fgZonesPlugin]
+      });
+    }
+
+    // ============================================================
+    // VIX — Indice de volatilité (Cboe) historique 1 an
+    // ============================================================
+    // Load depuis /api/vix-history (public). Affiche :
+    //   - Valeur actuelle + badge zone (Calme/Normal/Stress/Panique/Crash)
+    //   - Stats 1 an (high/low/avg/percentile)
+    //   - Chart Chart.js line avec zones colorees en background
+    //   - Tableau explicatif des 5 zones
+    let _vixChart = null;
+    async function loadVix() {
+      const area = document.getElementById('vixArea');
+      if (!area) return;
+      try {
+        const resp = await fetch(API_BASE + '/api/vix-history');
+        const data = await resp.json();
+        if (!data || data.error) throw new Error(data?.error || 'VIX fetch failed');
+
+        const v = data.current;
+        const prev = data.previousClose;
+        const changePct = data.changePct;
+        const stats = data.stats || {};
+        const history = data.history || [];
+
+        // Zone courante
+        const zoneOf = (val) => {
+          if (val < 15) return { label: 'Calme', color: '#10B981', desc: 'Marché serein, volatilité minimale' };
+          if (val < 20) return { label: 'Normal', color: '#84CC16', desc: 'Volatilité historique moyenne' };
+          if (val < 25) return { label: 'Stress', color: '#F59E0B', desc: 'Nervosité en hausse, prudence' };
+          if (val < 40) return { label: 'Panique', color: '#EF4444', desc: 'Baisse rapide attendue, contrarians actifs' };
+          return { label: 'Crash', color: '#B91C1C', desc: 'Événement majeur (Covid 2020, 2008...)' };
+        };
+        const zone = zoneOf(v);
+
+        // Color delta changePct
+        const deltaColor = changePct > 0 ? '#10B981' : changePct < 0 ? '#EF4444' : 'var(--text-muted)';
+        const arrow = changePct > 0 ? '▲' : changePct < 0 ? '▼' : '—';
+
+        area.innerHTML = `
+          <style>
+            .vix-zones-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 10px; margin-top: 12px; }
+            .vix-zone-card { padding:12px 14px; background:var(--surface-1); border:1px solid var(--border); border-radius:10px; }
+            .vix-zone-badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:700; letter-spacing:0.04em; }
+          </style>
+
+          <!-- Top stats : valeur courante + zone + comparaison 1 an -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px">
+            <div style="padding:18px 20px;background:linear-gradient(135deg,${zone.color}14,${zone.color}05);border:1px solid ${zone.color}33;border-radius:12px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">VIX actuel</div>
+              <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+                <div style="font-family:'Space Grotesk';font-size:38px;font-weight:800;color:${zone.color};line-height:1">${v.toFixed(2)}</div>
+                <div style="font-size:12px;color:${deltaColor};font-weight:700">${arrow} ${(changePct > 0 ? '+' : '') + changePct}%</div>
+              </div>
+              <div style="margin-top:8px">
+                <span class="vix-zone-badge" style="background:${zone.color}22;color:${zone.color};border:1px solid ${zone.color}44">${zone.label.toUpperCase()}</span>
+                <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${zone.desc}</span>
+              </div>
+            </div>
+            <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Percentile 1 an</div>
+              <div style="font-family:'Space Grotesk';font-size:38px;font-weight:800;color:var(--text-primary);line-height:1">${stats.percentile}%</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px">du temps, le VIX était inférieur au niveau actuel</div>
+            </div>
+            <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Fourchette 1 an</div>
+              <div style="display:flex;gap:14px;align-items:baseline;margin-top:4px">
+                <div>
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Bas</div>
+                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#10B981">${stats.low}</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Moyenne</div>
+                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:var(--text-primary)">${stats.avg}</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Haut</div>
+                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#EF4444">${stats.high}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Graphique historique 1 an -->
+          <div style="margin:0 0 24px;padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div>
+                <h4 style="margin:0;font-size:15px;font-weight:700">📈 Historique 1 an</h4>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${history.length} séances · zones colorées en fond</div>
+              </div>
+            </div>
+            <div style="position:relative;height:340px"><canvas id="vixHistoryChart"></canvas></div>
+          </div>
+
+          <!-- 5 zones expliquees -->
+          <h4 style="margin:0 0 12px;font-size:15px;font-weight:700">🧭 Comprendre les 5 zones du VIX</h4>
+          <div class="vix-zones-grid">
+            ${[
+              { label: 'Calme', range: '< 15', color: '#10B981', desc: 'Marché serein, faible volatilité attendue. Souvent en fin de bull market — attention complacence.' },
+              { label: 'Normal', range: '15-20', color: '#84CC16', desc: 'Moyenne historique du VIX (~19). Comportement neutre.' },
+              { label: 'Stress', range: '20-25', color: '#F59E0B', desc: 'Nervosité croissante. Correction possible, revoir exposition risque.' },
+              { label: 'Panique', range: '25-40', color: '#EF4444', desc: 'Baisse forte probable. Historiquement excellent pour contrarians (achat long-terme).' },
+              { label: 'Crash', range: '> 40', color: '#B91C1C', desc: 'Événement systémique (Covid mars 2020 : 82 · 2008 : 80). Opportunité historique d\'achat.' },
+            ].map(z => `
+              <div class="vix-zone-card" style="border-color:${v >= parseInt(z.range.match(/\\d+/)?.[0] || '0') && (z.label === 'Crash' || v < parseInt(z.range.split('-')[1] || '999')) ? z.color : 'var(--border)'}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span class="vix-zone-badge" style="background:${z.color}22;color:${z.color};border:1px solid ${z.color}44">${z.label}</span>
+                  <span style="font-family:'Space Grotesk';font-size:13px;font-weight:700;color:var(--text-primary)">${z.range}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">${z.desc}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        // Render chart avec zones colorées
+        renderVixHistoryChart(history);
+      } catch (e) {
+        console.warn('[vix]', e);
+        area.innerHTML = `
+          <div class="empty-state" style="padding:60px 20px;text-align:center">
+            <div style="font-size:48px;margin-bottom:14px">📉</div>
+            <p style="margin:0 0 10px;font-size:16px;color:var(--text-primary);font-weight:600">VIX indisponible</p>
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">Impossible de récupérer l'historique VIX. Réessayez dans quelques minutes.</p>
+          </div>`;
+      }
+    }
+
+    function renderVixHistoryChart(history) {
+      const canvas = document.getElementById('vixHistoryChart');
+      if (!canvas || !history || !history.length) return;
+      const ctx = canvas.getContext('2d');
+      if (_vixChart) _vixChart.destroy();
+
+      const labels = history.map(p => {
+        const d = new Date(p.t);
+        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+      });
+      const timestamps = history.map(p => p.t);
+      const values = history.map(p => p.v);
+
+      // Gradient stroke Kairos bleu → violet → rose
+      const strokeGradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+      strokeGradient.addColorStop(0, '#3B82F6');
+      strokeGradient.addColorStop(0.55, '#8B5CF6');
+      strokeGradient.addColorStop(1, '#EC4899');
+
+      // Gradient fill vertical
+      const fillGradient = ctx.createLinearGradient(0, 0, 0, 340);
+      fillGradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+      fillGradient.addColorStop(0.55, 'rgba(59, 130, 246, 0.12)');
+      fillGradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+      // Plugin custom : zones colorées en background (calme→crash)
+      const vixZonesPlugin = {
+        id: 'vixZones',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales } = chart;
+          if (!chartArea) return;
+          const yScale = scales.y;
+          ctx.save();
+          const zones = [
+            { min: 0, max: 15, color: 'rgba(16, 185, 129, 0.10)' },     // Calme
+            { min: 15, max: 20, color: 'rgba(132, 204, 22, 0.08)' },    // Normal
+            { min: 20, max: 25, color: 'rgba(245, 158, 11, 0.10)' },    // Stress
+            { min: 25, max: 40, color: 'rgba(239, 68, 68, 0.13)' },     // Panique
+            { min: 40, max: 100, color: 'rgba(185, 28, 28, 0.16)' },    // Crash
+          ];
+          zones.forEach(z => {
+            const yTop = yScale.getPixelForValue(z.max);
+            const yBot = yScale.getPixelForValue(z.min);
+            ctx.fillStyle = z.color;
+            ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBot - yTop);
+          });
+          ctx.restore();
+        },
+      };
+
+      _vixChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'VIX',
+            data: values,
+            borderColor: strokeGradient,
+            backgroundColor: fillGradient,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#F9A8D4',
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            tension: 0.2,
+            fill: true,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 22, 41, 0.96)',
+              borderColor: 'rgba(139, 92, 246, 0.35)',
+              borderWidth: 1,
+              titleColor: '#F9FAFB',
+              bodyColor: '#CBD5E1',
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const t = timestamps[idx];
+                  return t ? new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+                },
+                label: (c) => {
+                  const v = c.parsed.y;
+                  const z = v < 15 ? 'Calme' : v < 20 ? 'Normal' : v < 25 ? 'Stress' : v < 40 ? 'Panique' : 'Crash';
+                  return `VIX : ${v.toFixed(2)} · ${z}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: getCssVar('--chart-text-strong'), maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 12, weight: 500 } },
+            },
+            y: {
+              grid: { color: getCssVar('--chart-grid') },
+              ticks: { color: getCssVar('--chart-text-strong'), font: { size: 12, weight: 500 } },
+            },
+          },
+        },
+        plugins: [vixZonesPlugin],
+      });
+    }
+
+    // ============================================================
+    // SHORT INTEREST — Top 50 actions US les plus shortees, MAJ quotidienne
+    // Source : highshortinterest.com via prefetch-shorts.py (cron daily)
+    // Donnees : %short, sharesShort, float, sector, delta7d/30d, sparkline 30j
+    // ============================================================
+    async function loadShortInterest() {
+      const area = document.getElementById('shortsArea');
+      area.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)">⏳ Chargement du Short Interest...</div>';
+
+      let data;
+      try {
+        data = await apiFetch('/api/shorts');
+      } catch (e) {
+        area.innerHTML = `<div style="text-align:center;padding:48px;color:var(--accent-red)">⚠️ Erreur : ${e.message || 'fetch failed'}</div>`;
+        return;
+      }
+
+      const stocks = (data && Array.isArray(data.stocks)) ? data.stocks : [];
+      if (stocks.length === 0) {
+        area.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-muted)">${data?.message || 'Aucune donnée disponible'}</div>`;
+        return;
+      }
+
+      // === Aggregats top : ratio extreme/eleve, sectors ===
+      const byRisk = data.byRisk || { extreme: 0, eleve: 0, modere: 0, faible: 0 };
+      const fetchedAt = data.fetchedAt ? new Date(data.fetchedAt) : null;
+      const ageHours = fetchedAt ? Math.round((Date.now() - fetchedAt.getTime()) / 3600000) : null;
+
+      // Render mini sparkline en SVG
+      const renderSparkline = (arr) => {
+        if (!Array.isArray(arr) || arr.length < 2) return '';
+        const w = 80, h = 22, p = 2;
+        const min = Math.min(...arr), max = Math.max(...arr);
+        const range = max - min || 1;
+        const xStep = (w - 2 * p) / (arr.length - 1);
+        const pts = arr.map((v, i) => {
+          const x = p + i * xStep;
+          const y = h - p - ((v - min) / range) * (h - 2 * p);
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        const last = arr[arr.length - 1], first = arr[0];
+        const trendCol = last > first ? '#e74c3c' : '#10B981';
+        return `<svg viewBox="0 0 ${w} ${h}" style="width:${w}px;height:${h}px;display:block">
+          <polyline points="${pts}" fill="none" stroke="${trendCol}" stroke-width="1.5" />
+          <circle cx="${(p + (arr.length - 1) * xStep).toFixed(1)}" cy="${(h - p - ((last - min) / range) * (h - 2 * p)).toFixed(1)}" r="2" fill="${trendCol}" />
+        </svg>`;
+      };
+
+      // === Stat cards ===
+      const statCards = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
+          <div style="padding:12px 14px;background:rgba(231,76,60,0.10);border:1px solid rgba(231,76,60,0.25);border-radius:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">🔥 Extrême (>40%)</div>
+            <div style="font-size:22px;font-weight:700;color:#e74c3c">${byRisk.extreme || 0}</div>
+          </div>
+          <div style="padding:12px 14px;background:rgba(231,165,76,0.10);border:1px solid rgba(231,165,76,0.25);border-radius:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">⚠️ Élevé (25-40%)</div>
+            <div style="font-size:22px;font-weight:700;color:#f39c12">${byRisk.eleve || 0}</div>
+          </div>
+          <div style="padding:12px 14px;background:rgba(116,185,255,0.10);border:1px solid rgba(116,185,255,0.25);border-radius:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">📊 Modéré (15-25%)</div>
+            <div style="font-size:22px;font-weight:700;color:#74b9ff">${byRisk.modere || 0}</div>
+          </div>
+          <div style="padding:12px 14px;background:rgba(46,204,113,0.10);border:1px solid rgba(46,204,113,0.25);border-radius:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">✅ Faible (<15%)</div>
+            <div style="font-size:22px;font-weight:700;color:#2ecc71">${byRisk.faible || 0}</div>
+          </div>
+          <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">📅 Mise à jour</div>
+            <div style="font-size:14px;font-weight:600;line-height:1.3">${fetchedAt ? fetchedAt.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}) : '—'}</div>
+            <div style="font-size:10px;opacity:0.6;margin-top:2px">${ageHours != null ? `il y a ${ageHours}h` : ''}</div>
+          </div>
+        </div>`;
+
+      // === Top movers : risers (delta7d max) et fallers (delta7d min) ===
+      const risers = stocks.filter(s => typeof s.delta7d === 'number')
+        .sort((a, b) => (b.delta7d || 0) - (a.delta7d || 0)).slice(0, 3);
+      const fallers = stocks.filter(s => typeof s.delta7d === 'number')
+        .sort((a, b) => (a.delta7d || 0) - (b.delta7d || 0)).slice(0, 3);
+
+      const moversBlock = (risers.length || fallers.length) ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+          <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(231,76,60,0.08),transparent);border:1px solid rgba(231,76,60,0.25);border-radius:10px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#e74c3c;font-weight:700;margin-bottom:8px">📈 Short ↑ sur 7j (cibles squeeze qui chauffent)</div>
+            ${risers.map(s => `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span class="clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${s.ticker}'), 150)" style="font-weight:700;color:var(--text-primary);cursor:pointer">${s.ticker}</span><span style="color:#e74c3c;font-weight:600">${s.shortPct}% (+${s.delta7d.toFixed(1)}pts)</span></div>`).join('')}
+          </div>
+          <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(46,204,113,0.08),transparent);border:1px solid rgba(46,204,113,0.25);border-radius:10px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#10B981;font-weight:700;margin-bottom:8px">📉 Short ↓ sur 7j (couvertures = bullish ?)</div>
+            ${fallers.map(s => `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span class="clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${s.ticker}'), 150)" style="font-weight:700;color:var(--text-primary);cursor:pointer">${s.ticker}</span><span style="color:#10B981;font-weight:600">${s.shortPct}% (${s.delta7d.toFixed(1)}pts)</span></div>`).join('')}
+          </div>
+        </div>` : '';
+
+      // === Table principale ===
+      let rows = '';
+      for (const s of stocks) {
+        const riskCol = s.squeezeRisk === 'EXTREME' ? '#e74c3c' :
+                        s.squeezeRisk === 'ELEVE' ? '#f39c12' :
+                        s.squeezeRisk === 'MODERE' ? '#74b9ff' : '#2ecc71';
+        const riskBg = s.squeezeRisk === 'EXTREME' ? 'rgba(231,76,60,0.15)' :
+                       s.squeezeRisk === 'ELEVE' ? 'rgba(243,156,18,0.15)' :
+                       s.squeezeRisk === 'MODERE' ? 'rgba(116,185,255,0.15)' : 'rgba(46,204,113,0.15)';
+
+        const fmtDelta = (d) => {
+          if (d == null || isNaN(d)) return '<span style="opacity:0.4">—</span>';
+          const col = d > 0 ? '#e74c3c' : d < 0 ? '#10B981' : 'var(--text-muted)';
+          const sign = d > 0 ? '+' : '';
+          return `<span style="color:${col};font-weight:600">${sign}${d.toFixed(1)}pts</span>`;
+        };
+
+        const fmtFloat = (n) => {
+          if (!n) return '—';
+          if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+          if (n >= 1e6) return (n/1e6).toFixed(0) + 'M';
+          return (n/1e3).toFixed(0) + 'K';
+        };
+
+        rows += `<tr>
+          <td style="font-weight:700;text-align:center;color:var(--text-muted);font-size:12px">${s._rank || ''}</td>
+          <td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(s.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${s.ticker}">${s.ticker}</td>
+          <td style="color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.company || ''}</td>
+          <td style="text-align:right;font-weight:700;color:#e74c3c;font-size:15px">${s.shortPct}%</td>
+          <td style="text-align:right">${fmtDelta(s.delta7d)}</td>
+          <td style="text-align:right">${fmtDelta(s.delta30d)}</td>
+          <td style="text-align:center">${renderSparkline(s.sparkline || [])}</td>
+          <td style="text-align:right;color:var(--text-muted);font-size:12px">${fmtFloat(s.floatM)}</td>
+          <td style="font-size:11px;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.sector || '—'}</td>
+          <td style="text-align:center"><span style="display:inline-block;padding:3px 10px;background:${riskBg};color:${riskCol};border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.04em">${s.squeezeRisk}</span></td>
+        </tr>`;
+      }
+
+      area.innerHTML = `
+        ${statCards}
+        ${moversBlock}
+        <div class="table-wrap">
+          <table style="min-width:1100px">
+            <thead><tr>
+              <th style="text-align:center;width:40px">#</th>
+              <th>Ticker</th>
+              <th>Entreprise</th>
+              <th style="text-align:right">Short %</th>
+              <th style="text-align:right" title="Variation absolue % du float vs il y a 7 jours">Δ 7j</th>
+              <th style="text-align:right" title="Variation absolue % du float vs il y a 30 jours">Δ 30j</th>
+              <th style="text-align:center" title="Évolution du % short sur 30 jours">Tendance 30j</th>
+              <th style="text-align:right">Float</th>
+              <th>Secteur</th>
+              <th style="text-align:center">Risque</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p style="color:var(--text-muted);font-size:12px;margin-top:12px;font-style:italic;line-height:1.6">
+          Top 50 actions US les plus shortées, classées par % du float emprunté et vendu à découvert.
+          Δ 7j / Δ 30j = variation absolue (en points de %) vs il y a 7/30 jours.
+          Sparkline : évolution sur 30 jours (rouge = short qui monte, vert = short qui descend).<br>
+          Source : highshortinterest.com (FINRA bi-mensuel + recalcul float continu) — mise à jour quotidienne ~6h Paris.
+          Un % short élevé combiné à une hausse rapide = potentiel <strong>short squeeze</strong> si catalyseur positif.
+        </p>`;
+    }
+
+    // ============================================================
+    // CHARTS — Pie, Bar, Treemap
+    // ============================================================
+    const CHART_COLORS = [
+      '#3B82F6','#8B5CF6','#06B6D4','#10B981','#F59E0B','#EF4444',
+      '#EC4899','#6366F1','#14B8A6','#F97316','#84CC16','#A855F7',
+      '#22D3EE','#FB923C','#4ADE80','#C084FC'
+    ];
+
+    let activeCharts = {};
+
+    function destroyCharts() {
+      Object.values(activeCharts).forEach(c => c.destroy());
+      activeCharts = {};
+    }
+
+    // ============================================================
+    // SQUARIFIED TREEMAP (Mark Bruls 1999)
+    // Calcule le placement optimal de rectangles de tailles données pour
+    // remplir un conteneur, en gardant des aspect ratios proches de 1.
+    // ============================================================
+    function squarifyTreemap(items, width, height) {
+      // items : [{value, ...meta}] triés par value desc, tous values > 0
+      // Retourne : [{x, y, w, h, item}]
+      const placed = [];
+      // Normaliser les values pour qu'elles correspondent a l'aire totale
+      const totalValue = items.reduce((s, it) => s + it.value, 0);
+      if (totalValue <= 0) return placed;
+      const totalArea = width * height;
+      const norm = items.map(it => ({ ...it, area: (it.value / totalValue) * totalArea }));
+
+      // Etat du rectangle disponible
+      let x = 0, y = 0, w = width, h = height;
+
+      function worstRatio(row, sideLength) {
+        // Pour un strip avec ces aires et largeur sideLength :
+        // worst aspect ratio = max(w*w*max / sum^2, sum^2 / (w*w*min))
+        const sum = row.reduce((s, r) => s + r.area, 0);
+        const sl2 = sideLength * sideLength;
+        const sum2 = sum * sum;
+        let maxA = -Infinity, minA = Infinity;
+        for (const r of row) { if (r.area > maxA) maxA = r.area; if (r.area < minA) minA = r.area; }
+        return Math.max((sl2 * maxA) / sum2, sum2 / (sl2 * minA));
+      }
+
+      function layoutRow(row, sideLength, isHorizontal) {
+        // isHorizontal = true : strip horizontal (cellules disposees en row, hauteur = strip thickness)
+        // isHorizontal = false : strip vertical (cellules disposees en column)
+        const sum = row.reduce((s, r) => s + r.area, 0);
+        const thickness = sum / sideLength;
+        let cursor = isHorizontal ? x : y;
+        for (const r of row) {
+          const cellLength = r.area / thickness;
+          if (isHorizontal) {
+            placed.push({ x: cursor, y, w: cellLength, h: thickness, item: r });
+            cursor += cellLength;
+          } else {
+            placed.push({ x, y: cursor, w: thickness, h: cellLength, item: r });
+            cursor += cellLength;
+          }
+        }
+        if (isHorizontal) { y += thickness; h -= thickness; }
+        else              { x += thickness; w -= thickness; }
+      }
+
+      let queue = norm.slice();
+      let row = [];
+      while (queue.length > 0) {
+        const isHorizontal = w >= h;
+        const sideLength = isHorizontal ? w : h;
+        if (sideLength <= 0) break;
+
+        const next = queue[0];
+        const newRow = [...row, next];
+        const currentWorst = row.length > 0 ? worstRatio(row, sideLength) : Infinity;
+        const newWorst = worstRatio(newRow, sideLength);
+
+        if (row.length === 0 || newWorst < currentWorst) {
+          // Ajouter au row courant et continuer
+          row = newRow;
+          queue.shift();
+        } else {
+          // Le row est optimal, on le pose
+          layoutRow(row, sideLength, isHorizontal);
+          row = [];
+        }
+      }
+      // Vider le dernier row si non vide
+      if (row.length > 0) {
+        const isHorizontal = w >= h;
+        const sideLength = isHorizontal ? w : h;
+        if (sideLength > 0) layoutRow(row, sideLength, isHorizontal);
+      }
+
+      return placed;
+    }
+
+    // Palette pastel douce pour le heatmap (style TradeZella)
+    // Tailwind 400 = tinted, doux, mais assez sature pour que le texte blanc
+    // reste lisible (contrast ratio suffisant).
+    function treemapColor(index, total) {
+      const palette = [
+        '#60A5FA', // blue-400 (bleu doux)
+        '#A78BFA', // violet-400 (violet pastel)
+        '#22D3EE', // cyan-400 (cyan doux)
+        '#34D399', // emerald-400 (vert jade)
+        '#FBBF24', // amber-400 (ambre doux)
+        '#F87171', // red-400 (rouge corail)
+        '#F472B6', // pink-400 (rose doux)
+        '#2DD4BF', // teal-400 (turquoise doux)
+        '#818CF8', // indigo-400 (indigo clair)
+        '#FB923C', // orange-400 (orange pastel)
+        '#A3E635', // lime-400 (vert lime doux)
+        '#C084FC', // purple-400 (mauve pastel)
+        '#38BDF8', // sky-400 (bleu ciel doux)
+        '#4ADE80', // green-400 (vert pastel)
+        '#FACC15', // yellow-400 (jaune doux)
+      ];
+      return palette[index % palette.length];
+    }
+
+    function renderChartsForHoldings(containerId, holdings, title, opts = {}) {
+      const container = document.getElementById(containerId);
+      if (!container || !holdings || holdings.length === 0) return;
+      const treemapOnly = opts.treemapOnly === true;
+
+      const top = holdings.slice(0, 10);
+      const otherPct = holdings.slice(10).reduce((s, h) => s + (h.weight || h.pct || 0), 0);
+      const labels = top.map(h => h.ticker || h.name || '?');
+      const values = top.map(h => h.weight || h.pct || 0);
+      if (otherPct > 0) { labels.push('Autres'); values.push(Math.round(otherPct * 10) / 10); }
+
+      const colors = CHART_COLORS.slice(0, labels.length);
+
+      container.innerHTML = `
+        <div class="charts-row">
+          ${treemapOnly ? '' : `
+            <div class="chart-card">
+              <h4>Repartition du portefeuille</h4>
+              <canvas id="${containerId}-pie"></canvas>
+            </div>
+            <div class="chart-card">
+              <h4>Top 10 positions par poids</h4>
+              <canvas id="${containerId}-bar"></canvas>
+            </div>
+          `}
+          <div class="chart-card full-width">
+            <h4>Carte des positions — ${title || ''}</h4>
+            <div class="treemap-container" id="${containerId}-treemap" style="position:relative;width:100%;height:520px;background:var(--bg-card);border-radius:8px;overflow:hidden"></div>
+          </div>
+        </div>
+      `;
+
+      // Pie + Bar (uniquement si treemapOnly false)
+      if (!treemapOnly) {
+        const pieCtx = document.getElementById(`${containerId}-pie`);
+        if (pieCtx) {
+          activeCharts[`${containerId}-pie`] = new Chart(pieCtx, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }] },
+            options: {
+              responsive: true, maintainAspectRatio: true, cutout: '55%',
+              plugins: {
+                legend: { position: 'right', labels: { color: getCssVar('--text-secondary'), font: { size: 11, family: 'Inter' }, padding: 8, boxWidth: 12 } },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%` } }
+              }
+            }
+          });
+        }
+        const barCtx = document.getElementById(`${containerId}-bar`);
+        if (barCtx) {
+          activeCharts[`${containerId}-bar`] = new Chart(barCtx, {
+            type: 'bar',
+            data: { labels: top.map(h => h.ticker || h.name || '?'), datasets: [{ data: top.map(h => h.weight || h.pct || 0), backgroundColor: colors.slice(0, top.length), borderRadius: 4, barPercentage: 0.7 }] },
+            options: {
+              indexAxis: 'y', responsive: true, maintainAspectRatio: true,
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.x}%` } } },
+              scales: {
+                x: { grid: { color: getCssVar('--chart-grid') }, ticks: { color: getCssVar('--text-muted'), font: { size: 11 }, callback: v => v + '%' } },
+                y: { grid: { display: false }, ticks: { color: getCssVar('--text-secondary'), font: { size: 11, weight: 600, family: 'Space Grotesk' } } }
+              }
+            }
+          });
+        }
+      }
+
+      // ============================================================
+      // TREEMAP SQUARIFIED (style finviz : cellules absolument positionnees,
+      // tailles vraiment proportionnelles au poids, agencement optimal)
+      // ============================================================
+      const treemapDiv = document.getElementById(`${containerId}-treemap`);
+      if (treemapDiv) {
+        const renderTreemap = () => {
+          const W = treemapDiv.clientWidth || 800;
+          const H = treemapDiv.clientHeight || 520;
+          // Top 30 + "Autres" pour rester lisible
+          const TOP_N = 30;
+          const tops = holdings.slice(0, TOP_N);
+          const others = holdings.slice(TOP_N);
+          const items = tops.map((h, i) => ({
+            value: Math.max(h.weight || h.pct || 0, 0.01),  // floor pour eviter areas = 0
+            ticker: h.ticker || h.name || '?',
+            name: h.company || h.name || '',
+            pct: h.weight || h.pct || 0,
+            value$: h.value,
+            change: h.sharesChange,
+            isOthers: false,
+            colorIdx: i,
+          }));
+          if (others.length > 0) {
+            const otherSum = others.reduce((s, h) => s + (h.weight || h.pct || 0), 0);
+            if (otherSum > 0.5) {
+              items.push({ value: otherSum, ticker: 'Autres', name: `${others.length} positions plus petites`, pct: Math.round(otherSum * 10) / 10, value$: null, change: null, isOthers: true, colorIdx: TOP_N });
+            }
+          }
+          const placed = squarifyTreemap(items, W, H);
+
+          let html = '';
+          for (const p of placed) {
+            const it = p.item;
+            // Couleur pastel (Tailwind 400). "Autres" = slate-400 doux.
+            const color = it.isOthers ? '#94A3B8' : treemapColor(it.colorIdx, items.length);
+            const fontSize = Math.min(Math.max(Math.sqrt(p.w * p.h) / 8, 10), 28);
+            const showLabel = p.w > 32 && p.h > 24;
+            const showPct = p.w > 50 && p.h > 38;
+            const changeArrow = it.change != null ? (it.change >= 0 ? '▲' : '▼') : '';
+            // Couleurs variation adaptees au fond pastel (contrast ratio OK)
+            const changeColor = it.change != null ? (it.change >= 0 ? '#064E3B' : '#7F1D1D') : '';
+            // Ticker cliquable (sauf "Autres") : ouvre l'Analyse action
+            const isClickable = !it.isOthers && it.ticker && it.ticker !== '?';
+            const tickerEscaped = isClickable ? String(it.ticker).replace(/'/g, "\\'") : '';
+            const onclickAttr = isClickable
+              ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${tickerEscaped}'), 150)"`
+              : '';
+            html += `
+              <div class="tm-cell" title="${it.ticker} — ${it.name} (${it.pct}%)${isClickable ? ' · Cliquer pour analyser' : ''}" ${onclickAttr} style="
+                position:absolute;
+                left:${p.x}px; top:${p.y}px; width:${p.w}px; height:${p.h}px;
+                background:${color};
+                box-sizing:border-box;
+                border:1px solid rgba(255,255,255,0.2);
+                color:#fff;
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                text-align:center;
+                overflow:hidden;
+                padding:4px;
+                cursor:${isClickable ? 'pointer' : 'default'};
+                transition:filter 0.15s, transform 0.1s;
+              " onmouseover="this.style.filter='brightness(1.08) saturate(1.15)'${isClickable ? ";this.style.transform='scale(1.01)'" : ""}" onmouseout="this.style.filter='brightness(1) saturate(1)';this.style.transform='scale(1)'">
+                ${showLabel ? `<div style="font-weight:800;font-size:${fontSize}px;line-height:1.1;text-shadow:0 1px 3px rgba(0,0,0,0.35);letter-spacing:-0.01em">${it.ticker}</div>` : ''}
+                ${showPct ? `<div style="font-size:${Math.max(fontSize * 0.55, 10)}px;opacity:0.92;margin-top:2px;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,0.25)">${it.pct}%</div>` : ''}
+                ${showPct && changeArrow ? `<div style="font-size:${Math.max(fontSize * 0.5, 9)}px;background:rgba(255,255,255,0.88);color:${changeColor};margin-top:3px;padding:1px 6px;border-radius:8px;font-weight:700">${changeArrow} ${Math.abs(it.change).toFixed(1)}%</div>` : ''}
+              </div>
+            `;
+          }
+          treemapDiv.innerHTML = html;
+        };
+
+        renderTreemap();
+        // Re-render au resize de la fenetre (debounced)
+        if (treemapDiv._resizeHandler) window.removeEventListener('resize', treemapDiv._resizeHandler);
+        let rt = null;
+        treemapDiv._resizeHandler = () => { clearTimeout(rt); rt = setTimeout(renderTreemap, 150); };
+        window.addEventListener('resize', treemapDiv._resizeHandler);
+      }
+    }
+
+    // ============================================================
+    // MON PORTEFEUILLE — Import CSV + KPIs + Charts + Firebase
+    // ============================================================
+    let portfolioTrades = [];
+    let portfolioCharts = {};
+
+    // Formatter portefeuille : 2 decimales max, €, separateur milliers
+    function fmtEur(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      const v = Number(n);
+      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
+    }
+    // Pour les labels courts (barres, tooltips)
+    function fmtEurShort(n) {
+      if (n === null || n === undefined || isNaN(n)) return '—';
+      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n)) + ' €';
+    }
+
+    // CSV Drop/File handlers
+    function handleCsvDrop(e) { const f = e.dataTransfer.files[0]; if (f) handleCsvFile(f); }
+
+    async function handleCsvFile(file) {
+      if (!file) return;
+      // Defense en profondeur : bloque l'import si pas d'abonnement actif
+      if (!isPremium) {
+        document.getElementById('paywallOverlay').classList.remove('hidden');
+        return;
+      }
+      const status = document.getElementById('csvStatus');
+      status.style.display = 'block';
+      status.style.color = 'var(--text-secondary)';
+      status.textContent = 'Analyse du fichier...';
+
+      const text = await file.text();
+      try {
+        const trades = parseCsvAuto(text);
+        if (trades.length === 0) {
+          status.style.color = 'var(--accent-red)';
+          status.textContent = 'Aucun trade détecté. Verifiez le format du fichier.';
+          return;
+        }
+        // Détection de doublons
+        const existingKeys = new Set(portfolioTrades.map(t => t.ref || `${t.date}|${t.symbol}|${t.pnl}`));
+        const newTrades = trades.filter(t => {
+          const key = t.ref || `${t.date}|${t.symbol}|${t.pnl}`;
+          return !existingKeys.has(key);
+        });
+        const dupes = trades.length - newTrades.length;
+
+        if (newTrades.length === 0 && dupes > 0) {
+          status.style.color = 'var(--accent-red)';
+          status.textContent = `${dupes} doublons détectés — aucun nouveau trade importe.`;
+          return;
+        }
+
+        portfolioTrades = [...portfolioTrades, ...newTrades].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        const dupeMsg = dupes > 0 ? ` (${dupes} doublons ignores)` : '';
+        status.style.color = 'var(--accent-green)';
+        status.textContent = `${newTrades.length} nouveaux trades importes (${trades[0]._platform || 'auto'})${dupeMsg} — Total: ${portfolioTrades.length}`;
+
+        renderPortfolio();
+        savePortfolioToFirebase();
+      } catch (err) {
+        status.style.color = 'var(--accent-red)';
+        status.textContent = 'Erreur: ' + err.message;
+      }
+    }
+
+    // ============================================================
+    // CSV PARSER — Détection automatique multi-plateforme
+    // ============================================================
+    function parseCsvAuto(text) {
+      // Detecter le separateur
+      const firstLine = text.split('\n')[0];
+      const sep = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
+
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) throw new Error('Fichier trop court');
+
+      const headers = parseCsvLine(lines[0], sep).map(h => h.toLowerCase().trim().replace(/["\ufeff]/g, ''));
+
+      // Detecter la plateforme par les colonnes
+      const platform = detectPlatform(headers);
+      const trades = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCsvLine(lines[i], sep);
+        if (cols.length < 3) continue;
+
+        const trade = platform.parser(headers, cols);
+        if (trade && trade.pnl !== null && trade.pnl !== undefined && !isNaN(trade.pnl)) {
+          trade._platform = platform.name;
+          trade.ref = trade.ref || `${trade.date}-${trade.symbol}-${i}`;
+          trades.push(trade);
+        }
+      }
+
+      trades.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      return trades;
+    }
+
+    function parseCsvLine(line, sep) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') { inQuotes = !inQuotes; continue; }
+        if (ch === sep && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+        current += ch;
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    function detectPlatform(headers) {
+      const h = headers.join('|');
+      if (h.includes('dateutc') && h.includes('pl amount')) return { name: 'IG Markets', parser: parseIG };
+      if (h.includes('isin') && h.includes('produit')) return { name: 'Degiro', parser: parseDegiro };
+      if (h.includes('position id') && h.includes('amount')) return { name: 'eToro', parser: parseEtoro };
+      if (h.includes('tradeid') || (h.includes('symbol') && h.includes('proceeds'))) return { name: 'Interactive Brokers', parser: parseIBKR };
+      if (h.includes('ticker') && h.includes('quantity') && h.includes('price')) return { name: 'Revolut', parser: parseRevolut };
+      if (h.includes('open time') && h.includes('profit')) return { name: 'XTB', parser: parseXTB };
+      if (h.includes('isin') && h.includes('type') && h.includes('name')) return { name: 'Trade Republic', parser: parseTR };
+      if (h.includes('libelle') || h.includes('libellé')) return { name: 'Boursorama', parser: parseBourso };
+      return { name: 'Generique', parser: parseGeneric };
+    }
+
+    function col(headers, cols, ...names) {
+      for (const n of names) {
+        const idx = headers.indexOf(n.toLowerCase());
+        if (idx >= 0 && idx < cols.length) return cols[idx].replace(/"/g, '').trim();
+      }
+      return '';
+    }
+
+    function toNum(s) { return parseFloat((s || '0').replace(/,/g, '.').replace(/[^\d.\-]/g, '')) || 0; }
+    function toDate(s) { if (!s) return ''; const d = new Date(s); return isNaN(d) ? s.substring(0, 10) : d.toISOString().split('T')[0]; }
+
+    // IG Markets
+    function parseIG(h, c) {
+      const txType = col(h, c, 'transaction type');
+      if (txType && txType !== 'ORDRE') return null;
+      return {
+        date: toDate(col(h, c, 'dateutc')),
+        openDate: toDate(col(h, c, 'opendateutc')),
+        symbol: col(h, c, 'marketname'),
+        pnl: toNum(col(h, c, 'pl amount')),
+        size: toNum(col(h, c, 'size')),
+        openPrice: toNum(col(h, c, 'open level')),
+        closePrice: toNum(col(h, c, 'close level')),
+        ref: col(h, c, 'reference'),
+        type: toNum(col(h, c, 'size')) >= 0 ? 'buy' : 'sell',
+        fees: 0,
+      };
+    }
+
+    // Trade Republic
+    function parseTR(h, c) {
+      const type = col(h, c, 'type').toLowerCase();
+      if (!['buy', 'sell', 'achat', 'vente'].some(t => type.includes(t))) return null;
+      return {
+        date: toDate(col(h, c, 'date', 'timestamp')),
+        symbol: col(h, c, 'name', 'instrument'),
+        pnl: toNum(col(h, c, 'amount', 'total')),
+        size: toNum(col(h, c, 'shares', 'quantity')),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price', 'share price')),
+        ref: col(h, c, 'id', 'note'),
+        type: type.includes('sell') || type.includes('vente') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'fee', 'fees', 'commission')),
+      };
+    }
+
+    // Degiro
+    function parseDegiro(h, c) {
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'produit', 'product'),
+        pnl: toNum(col(h, c, 'montant', 'amount', 'total')),
+        size: toNum(col(h, c, 'quantite', 'quantity', 'nombre')),
+        openPrice: 0, closePrice: toNum(col(h, c, 'cours', 'price')),
+        ref: col(h, c, 'id', 'reference', 'order id'),
+        type: toNum(col(h, c, 'quantite', 'quantity')) >= 0 ? 'buy' : 'sell',
+        fees: toNum(col(h, c, 'frais', 'commission', 'fees')),
+      };
+    }
+
+    // eToro
+    function parseEtoro(h, c) {
+      return {
+        date: toDate(col(h, c, 'close date', 'date')),
+        openDate: toDate(col(h, c, 'open date')),
+        symbol: col(h, c, 'action', 'instrument', 'asset'),
+        pnl: toNum(col(h, c, 'profit', 'p/l', 'amount')),
+        size: toNum(col(h, c, 'units', 'amount')),
+        openPrice: toNum(col(h, c, 'open rate')),
+        closePrice: toNum(col(h, c, 'close rate')),
+        ref: col(h, c, 'position id'),
+        type: col(h, c, 'type', 'action').toLowerCase().includes('sell') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'spread', 'fees')),
+      };
+    }
+
+    // Interactive Brokers
+    function parseIBKR(h, c) {
+      return {
+        date: toDate(col(h, c, 'tradedate', 'date/time', 'date')),
+        symbol: col(h, c, 'symbol', 'description'),
+        pnl: toNum(col(h, c, 'realized p/l', 'proceeds', 'mtm p/l')),
+        size: Math.abs(toNum(col(h, c, 'quantity'))),
+        openPrice: toNum(col(h, c, 'cost basis', 'basis')),
+        closePrice: toNum(col(h, c, 't. price', 'price')),
+        ref: col(h, c, 'tradeid', 'order id', 'execid'),
+        type: toNum(col(h, c, 'quantity')) >= 0 ? 'buy' : 'sell',
+        fees: Math.abs(toNum(col(h, c, 'comm/fee', 'commission', 'ibcommission'))),
+      };
+    }
+
+    // Revolut
+    function parseRevolut(h, c) {
+      return {
+        date: toDate(col(h, c, 'date', 'trade date')),
+        symbol: col(h, c, 'ticker', 'symbol'),
+        pnl: toNum(col(h, c, 'total amount', 'amount', 'value')),
+        size: toNum(col(h, c, 'quantity', 'no. of shares')),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price', 'price per share')),
+        ref: '', type: col(h, c, 'type', 'side').toLowerCase().includes('sell') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'fees', 'commission')),
+      };
+    }
+
+    // XTB
+    function parseXTB(h, c) {
+      return {
+        date: toDate(col(h, c, 'close time', 'open time')),
+        openDate: toDate(col(h, c, 'open time')),
+        symbol: col(h, c, 'symbol'),
+        pnl: toNum(col(h, c, 'profit', 'net profit')),
+        size: toNum(col(h, c, 'volume', 'lots')),
+        openPrice: toNum(col(h, c, 'open price')),
+        closePrice: toNum(col(h, c, 'close price')),
+        ref: col(h, c, 'order', 'position'),
+        type: col(h, c, 'type', 'side').toLowerCase().includes('sell') ? 'sell' : 'buy',
+        fees: toNum(col(h, c, 'commission', 'swap')),
+      };
+    }
+
+    // Boursorama
+    function parseBourso(h, c) {
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'libelle', 'libellé', 'valeur'),
+        pnl: toNum(col(h, c, 'montant', 'amount')),
+        size: 0, openPrice: 0, closePrice: 0,
+        ref: '', type: toNum(col(h, c, 'montant', 'amount')) >= 0 ? 'buy' : 'sell',
+        fees: toNum(col(h, c, 'frais', 'courtage')),
+      };
+    }
+
+    // Generique (fallback)
+    function parseGeneric(h, c) {
+      // Essayer de deviner les colonnes P&L, date, symbol
+      const dateIdx = h.findIndex(x => x.includes('date'));
+      const pnlIdx = h.findIndex(x => ['pnl', 'p&l', 'profit', 'gain', 'amount', 'montant', 'result'].some(k => x.includes(k)));
+      const symIdx = h.findIndex(x => ['symbol', 'ticker', 'instrument', 'name', 'asset', 'market', 'produit', 'valeur'].some(k => x.includes(k)));
+
+      if (pnlIdx < 0) return null;
+      return {
+        date: dateIdx >= 0 ? toDate(c[dateIdx]) : '',
+        symbol: symIdx >= 0 ? c[symIdx] : 'Inconnu',
+        pnl: toNum(c[pnlIdx]),
+        size: 0, openPrice: 0, closePrice: 0,
+        ref: '', type: toNum(c[pnlIdx]) >= 0 ? 'buy' : 'sell', fees: 0,
+      };
+    }
+
+    // ============================================================
+    // KPIs + RENDERING
+    // ============================================================
+    function renderPortfolio() {
+      if (portfolioTrades.length === 0) return;
+      document.getElementById('portfolioKpis').style.display = 'block';
+      document.getElementById('portfolioTradeCount').textContent = `${portfolioTrades.length} trades`;
+
+      const trades = portfolioTrades;
+      const wins = trades.filter(t => t.pnl > 0);
+      const losses = trades.filter(t => t.pnl < 0);
+      const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+      const grossWin = wins.reduce((s, t) => s + t.pnl, 0);
+      const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+      const winRate = trades.length > 0 ? (wins.length / trades.length * 100) : 0;
+      const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 999 : 0;
+      const avgWin = wins.length > 0 ? grossWin / wins.length : 0;
+      const avgLoss = losses.length > 0 ? grossLoss / losses.length : 0;
+
+      // Drawdown
+      let peak = 0, maxDD = 0, cum = 0;
+      for (const t of trades) {
+        cum += t.pnl;
+        if (cum > peak) peak = cum;
+        const dd = peak - cum;
+        if (dd > maxDD) maxDD = dd;
+      }
+
+      // Streaks
+      let winStreak = 0, loseStreak = 0, maxWS = 0, maxLS = 0;
+      for (const t of trades) {
+        if (t.pnl > 0) { winStreak++; loseStreak = 0; }
+        else { loseStreak++; winStreak = 0; }
+        maxWS = Math.max(maxWS, winStreak);
+        maxLS = Math.max(maxLS, loseStreak);
+      }
+
+      // HERO CARD 1 : Performance globale
+      const pnlEl = document.getElementById('kpiPnl');
+      pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtEur(totalPnl);
+      pnlEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      const perfPctEl = document.getElementById('kpiPerfPct');
+      const estCapital = Math.max(maxDD * 4, 1000);
+      const perfPct = (totalPnl / estCapital * 100);
+      perfPctEl.textContent = (perfPct >= 0 ? '+' : '') + perfPct.toFixed(2) + '%';
+      perfPctEl.style.color = perfPct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      document.getElementById('kpiTradeTotal').textContent = `${trades.length} trades`;
+
+      // HERO CARD 2 : Gain Total + barre split
+      const gainEl = document.getElementById('kpiGainTotal');
+      gainEl.textContent = (totalPnl >= 0 ? '+' : '') + fmtEur(totalPnl);
+      gainEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+      const gainSum = grossWin;
+      const lossSum = grossLoss;
+      const totalAbs = gainSum + lossSum;
+      const gainPctBar = totalAbs > 0 ? (gainSum / totalAbs * 100) : 50;
+      const lossPctBar = totalAbs > 0 ? (lossSum / totalAbs * 100) : 50;
+      document.getElementById('kpiGainPct').textContent = '+' + fmtEur(gainSum);
+      document.getElementById('kpiLossPct').textContent = '-' + fmtEur(lossSum);
+      document.getElementById('barWin').style.width = gainPctBar + '%';
+      document.getElementById('barLoss').style.width = lossPctBar + '%';
+
+      // HERO CARD 3 : Donut WR
+      const donut = document.getElementById('donutWR');
+      const circumference = 2 * Math.PI * 30;
+      const dashOffset = circumference * (winRate / 100);
+      donut.setAttribute('stroke-dasharray', `${dashOffset} ${circumference}`);
+      donut.setAttribute('stroke', winRate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)');
+      document.getElementById('donutText').textContent = winRate.toFixed(2) + '%';
+      document.getElementById('donutText').setAttribute('fill', winRate >= 50 ? 'var(--accent-green)' : 'var(--accent-red)');
+      document.getElementById('kpiWinsN').textContent = wins.length;
+      document.getElementById('kpiLossN').textContent = losses.length;
+      document.getElementById('kpiTradesN').textContent = trades.length;
+
+      // KPI GRID
+      document.getElementById('kpiProfitFactor').textContent = profitFactor > 100 ? '∞' : profitFactor.toFixed(2);
+      document.getElementById('kpiAvgWin').textContent = '+' + fmtEur(avgWin);
+      document.getElementById('kpiAvgLoss').textContent = '-' + fmtEur(avgLoss);
+      document.getElementById('kpiDrawdown').textContent = '-' + fmtEur(maxDD);
+      document.getElementById('kpiDDPct').textContent = '-' + (estCapital > 0 ? (maxDD / estCapital * 100).toFixed(2) : '0.00') + '% du capital';
+      document.getElementById('kpiMaxWin').textContent = wins.length > 0 ? '+' + fmtEur(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiMaxLoss').textContent = losses.length > 0 ? '-' + fmtEur(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
+      document.getElementById('kpiBestTrade').textContent = wins.length > 0 ? '+' + fmtEur(Math.max(...wins.map(t => t.pnl))) : '—';
+      document.getElementById('kpiWorstTrade').textContent = losses.length > 0 ? '-' + fmtEur(Math.abs(Math.min(...losses.map(t => t.pnl)))) : '—';
+      document.getElementById('kpiWinStreak').textContent = maxWS;
+      document.getElementById('kpiLoseStreak').textContent = maxLS;
+
+      // Risk/Reward
+      const rr = avgLoss > 0 ? (avgWin / avgLoss) : avgWin > 0 ? 999 : 0;
+      document.getElementById('kpiRR').textContent = rr > 100 ? '∞' : rr.toFixed(2);
+
+      // Espérance par trade
+      const wr = wins.length / Math.max(trades.length, 1);
+      const lr = losses.length / Math.max(trades.length, 1);
+      const expectancy = (wr * avgWin) - (lr * avgLoss);
+      const expEl = document.getElementById('kpiExpectancy');
+      expEl.textContent = (expectancy >= 0 ? '+' : '') + fmtEur(expectancy);
+      expEl.className = 'stat-value ' + (expectancy >= 0 ? 'green' : 'red');
+
+      // Recovery Factor
+      const rf = maxDD > 0 ? Math.abs(totalPnl / maxDD) : totalPnl > 0 ? 999 : 0;
+      document.getElementById('kpiRecovery').textContent = rf > 100 ? '∞' : rf.toFixed(2);
+
+      // Trades par jour
+      const tradingDays = new Set(trades.map(t => t.date)).size;
+      const tpd = tradingDays > 0 ? (trades.length / tradingDays) : 0;
+      document.getElementById('kpiTradesPerDay').textContent = tpd.toFixed(1);
+
+      // Long vs Short
+      const longs = trades.filter(t => t.type === 'buy');
+      const shorts = trades.filter(t => t.type === 'sell');
+      const longPnl = longs.reduce((s, t) => s + t.pnl, 0);
+      const shortPnl = shorts.reduce((s, t) => s + t.pnl, 0);
+      const longWins = longs.filter(t => t.pnl > 0).length;
+      const shortWins = shorts.filter(t => t.pnl > 0).length;
+      const longWR = longs.length > 0 ? (longWins / longs.length * 100).toFixed(0) : 0;
+      const shortWR = shorts.length > 0 ? (shortWins / shorts.length * 100).toFixed(0) : 0;
+
+      const longEl = document.getElementById('kpiLongPnl');
+      longEl.textContent = (longPnl >= 0 ? '+' : '') + fmtEur(longPnl);
+      longEl.className = 'stat-value ' + (longPnl >= 0 ? 'green' : 'red');
+      document.getElementById('kpiLongDetail').textContent = `${longs.length} trades | WR ${longWR}%`;
+
+      const shortEl = document.getElementById('kpiShortPnl');
+      shortEl.textContent = (shortPnl >= 0 ? '+' : '') + fmtEur(shortPnl);
+      shortEl.className = 'stat-value ' + (shortPnl >= 0 ? 'green' : 'red');
+      document.getElementById('kpiShortDetail').textContent = `${shorts.length} trades | WR ${shortWR}%`;
+
+      // Jours gagnants/perdants
+      const dayPnl = {};
+      trades.forEach(t => { dayPnl[t.date] = (dayPnl[t.date] || 0) + t.pnl; });
+      const winDays = Object.values(dayPnl).filter(v => v > 0).length;
+      const lossDays = Object.values(dayPnl).filter(v => v <= 0).length;
+      const tdEl = document.getElementById('kpiTradingDays');
+      if (tdEl) tdEl.textContent = tradingDays;
+      const ddEl = document.getElementById('kpiDaysDetail');
+      if (ddEl) ddEl.textContent = `${winDays} gagnants (${tradingDays > 0 ? (winDays/tradingDays*100).toFixed(0) : 0}%) | ${lossDays} perdants`;
+
+      // Durée moyenne
+      const durations = trades.filter(t => t.openDate && t.date && t.openDate !== t.date).map(t => {
+        const ms = new Date(t.date) - new Date(t.openDate);
+        return ms / (1000 * 60);
+      }).filter(d => d > 0 && d < 525600);
+      if (durations.length > 0) {
+        const avgMin = durations.reduce((s,d) => s+d, 0) / durations.length;
+        document.getElementById('kpiAvgDuration').textContent = avgMin < 60 ? `${avgMin.toFixed(0)} min` : avgMin < 1440 ? `${(avgMin/60).toFixed(1)}h` : `${(avgMin/1440).toFixed(1)} jours`;
+      } else {
+        document.getElementById('kpiAvgDuration').textContent = '—';
+      }
+
+      // Charts — laisser le layout se stabiliser (passage display:none→block) avant mesure canvas
+      // setTimeout plutot que rAF car rAF ne se declenche pas si la tab n'est pas focus
+      setTimeout(() => { try { renderPortfolioCharts(); } catch(e) { console.error('[portfolio] chart error:', e); } }, 50);
+
+      // Calendriers (identiques au Trading Dashboard)
+      // Positionner sur le mois du dernier trade
+      if (trades.length > 0) {
+        const lastDate = trades[trades.length - 1].date;
+        if (lastDate) {
+          pCalYear = parseInt(lastDate.substring(0, 4));
+          pCalMonth = parseInt(lastDate.substring(5, 7)) - 1;
+        }
+      }
+      buildPortfolioDailyCal();
+      renderMonthlyHeatmap();
+
+      // Trade table
+      renderPortfolioTable();
+    }
+
+    function renderPortfolioCharts() {
+      // Destroy existing charts
+      Object.values(portfolioCharts).forEach(c => c.destroy());
+      portfolioCharts = {};
+
+      const trades = portfolioTrades;
+      if (!trades || trades.length === 0) return;
+
+      // Agréger par jour (trié) — utilisé pour cumul et drawdown
+      const dayMap = new Map();
+      for (const t of trades) {
+        if (!t.date) continue;
+        dayMap.set(t.date, (dayMap.get(t.date) || 0) + t.pnl);
+      }
+      const days = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+      // P&L Cumule (line) — par jour (pas par trade) pour une courbe plus propre
+      let cum = 0;
+      const cumData = days.map(([date, pnl]) => { cum += pnl; return { x: date, y: Math.round(cum * 100) / 100 }; });
+      portfolioCharts.cumul = new Chart(document.getElementById('chartPnlCumul'), {
+        type: 'line',
+        data: { datasets: [{ data: cumData, borderColor: cum >= 0 ? '#10B981' : '#EF4444', borderWidth: 2, pointRadius: 0, fill: { target: 'origin', above: 'rgba(16,185,129,0.1)', below: 'rgba(239,68,68,0.1)' } }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `Cumulé: ${ctx.raw.y >= 0 ? '+' : ''}${fmtEur(ctx.raw.y)}` } }
+          },
+          scales: { x: { type: 'category', ticks: { color: getCssVar('--text-muted'), font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: getCssVar('--chart-grid-subtle') } }, y: { ticks: { color: getCssVar('--text-muted'), font: { size: 10 }, callback: v => fmtEur(v) }, grid: { color: getCssVar('--chart-grid') } } }
+        }
+      });
+
+      // Repartition par actif (pie)
+      const assetMap = {};
+      trades.forEach(t => { const s = t.symbol || 'Autre'; assetMap[s] = (assetMap[s] || 0) + Math.abs(t.pnl); });
+      const sortedAssets = Object.entries(assetMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const pieColors = ['#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6B7280'];
+      portfolioCharts.pie = new Chart(document.getElementById('chartAssetPie'), {
+        type: 'doughnut',
+        data: { labels: sortedAssets.map(a => a[0]), datasets: [{ data: sortedAssets.map(a => Math.round(a[1] * 100) / 100), backgroundColor: pieColors.slice(0, sortedAssets.length), borderWidth: 0 }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'right', labels: { color: getCssVar('--text-secondary'), font: { size: 11 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtEur(ctx.raw)}` } }
+          }
+        }
+      });
+
+      // P&L par période (bar) — avec sélecteur Jour/Semaine/Mois/Année
+      renderPnlPeriodChart();
+
+      // Drawdown chart
+      let eqPeak = 0, eqCum = 0;
+      const ddData = [];
+      for (const [date, pnl] of days) {
+        eqCum += pnl;
+        if (eqCum > eqPeak) eqPeak = eqCum;
+        const dd = eqPeak > 0 ? ((eqCum - eqPeak) / eqPeak * 100) : 0;
+        ddData.push({ x: date, y: Math.round(dd * 100) / 100 });
+      }
+      portfolioCharts.drawdown = new Chart(document.getElementById('chartDrawdown'), {
+        type: 'line',
+        data: { datasets: [{ data: ddData, borderColor: '#a78bfa', borderWidth: 2, pointRadius: 0, fill: { target: 'origin', above: 'rgba(167,139,250,0.08)' } }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `Drawdown: ${ctx.raw.y.toFixed(2)}%` } }
+          },
+          scales: { x: { type: 'category', ticks: { color: getCssVar('--text-muted'), font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: getCssVar('--chart-grid-subtle') } }, y: { max: 0, ticks: { color: getCssVar('--text-muted'), font: { size: 10 }, callback: v => v.toFixed(2) + '%' }, grid: { color: getCssVar('--chart-grid') } } }
+        }
+      });
+
+      // Gains moyens (bar chart: max gain, avg win, avg loss, max loss)
+      const wins = trades.filter(t => t.pnl > 0);
+      const losses = trades.filter(t => t.pnl < 0);
+      const maxGain = wins.length > 0 ? Math.max(...wins.map(t => t.pnl)) : 0;
+      const avgWinV = wins.length > 0 ? wins.reduce((s,t) => s+t.pnl, 0)/wins.length : 0;
+      const avgLossV = losses.length > 0 ? losses.reduce((s,t) => s+t.pnl, 0)/losses.length : 0;
+      const maxLoss = losses.length > 0 ? Math.min(...losses.map(t => t.pnl)) : 0;
+      portfolioCharts.avgGains = new Chart(document.getElementById('chartAvgGains'), {
+        type: 'bar',
+        data: {
+          labels: ['Gain max', 'Gain moy.', 'Perte moy.', 'Perte max'],
+          datasets: [{ data: [Math.round(maxGain * 100) / 100, Math.round(avgWinV * 100) / 100, Math.round(avgLossV * 100) / 100, Math.round(maxLoss * 100) / 100],
+            backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(16,185,129,0.5)', 'rgba(239,68,68,0.5)', 'rgba(239,68,68,0.85)'] }]
+        },
+        options: {
+          responsive: true,
+          indexAxis: 'y',
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.raw >= 0 ? '+' : ''}${fmtEur(ctx.raw)}` } }
+          },
+          scales: { x: { ticks: { color: getCssVar('--text-muted'), font: { size: 10 }, callback: v => fmtEur(v) }, grid: { color: getCssVar('--chart-grid') } }, y: { ticks: { color: getCssVar('--text-secondary'), font: { size: 11 } }, grid: { display: false } } }
+        }
+      });
+    }
+
+    // ============================================================
+    // P&L PAR PERIODE (Jour / Semaine / Mois / Annee)
+    // ============================================================
+    let pnlPeriod = 'day';
+
+    function setPnlPeriod(p) {
+      pnlPeriod = p;
+      document.querySelectorAll('[data-pnlperiod]').forEach(b =>
+        b.classList.toggle('active', b.dataset.pnlperiod === p)
+      );
+      renderPnlPeriodChart();
+    }
+
+    function getWeekKey(dateStr) {
+      const d = new Date(dateStr);
+      const year = d.getFullYear();
+      // ISO week calculation
+      const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = tmp.getUTCDay() || 7;
+      tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+      const weekNum = Math.ceil(((tmp - yearStart) / 86400000 + 1) / 7);
+      return `${tmp.getUTCFullYear()}-S${String(weekNum).padStart(2, '0')}`;
+    }
+
+    function renderPnlPeriodChart() {
+      if (portfolioCharts.daily) { portfolioCharts.daily.destroy(); delete portfolioCharts.daily; }
+      const canvas = document.getElementById('chartDailyPnl');
+      if (!canvas) return;
+
+      const trades = portfolioTrades;
+      const periodMap = {};
+
+      trades.forEach(t => {
+        if (!t.date) return;
+        let key;
+        if (pnlPeriod === 'day') key = t.date;
+        else if (pnlPeriod === 'week') key = getWeekKey(t.date);
+        else if (pnlPeriod === 'month') key = t.date.substring(0, 7);
+        else if (pnlPeriod === 'year') key = t.date.substring(0, 4);
+        periodMap[key] = (periodMap[key] || 0) + t.pnl;
+      });
+
+      const sorted = Object.entries(periodMap).sort((a, b) => a[0].localeCompare(b[0]));
+      const maxTicks = pnlPeriod === 'day' ? 15 : pnlPeriod === 'week' ? 20 : pnlPeriod === 'month' ? 20 : 10;
+
+      portfolioCharts.daily = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: sorted.map(d => d[0]),
+          datasets: [{
+            data: sorted.map(d => Math.round(d[1] * 100) / 100),
+            backgroundColor: sorted.map(d => d[1] >= 0 ? 'rgba(16,185,129,0.6)' : 'rgba(239,68,68,0.6)'),
+            borderColor: sorted.map(d => d[1] >= 0 ? 'rgba(16,185,129,1)' : 'rgba(239,68,68,1)'),
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `P&L: ${ctx.raw >= 0 ? '+' : ''}${fmtEur(ctx.raw)}`,
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: getCssVar('--text-muted'), font: { size: 10 }, maxTicksLimit: maxTicks }, grid: { display: false } },
+            y: { ticks: { color: getCssVar('--text-muted'), font: { size: 10 }, callback: v => fmtEur(v) }, grid: { color: getCssVar('--chart-grid') } }
+          }
+        }
+      });
+    }
+
+    // ============================================================
+    // CALENDRIER JOURNALIER (reproduit du Trading Dashboard)
+    // ============================================================
+    let pCalYear = new Date().getFullYear();
+    let pCalMonth = new Date().getMonth();
+    const monthNamesFull = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+
+    function pCalPrev() { pCalMonth--; if(pCalMonth<0){pCalMonth=11;pCalYear--;} buildPortfolioDailyCal(); }
+    function pCalNext() { pCalMonth++; if(pCalMonth>11){pCalMonth=0;pCalYear++;} buildPortfolioDailyCal(); }
+
+    function buildPortfolioDailyCal() {
+      const trades = portfolioTrades;
+      // Aggregate by day
+      const dayData = {};
+      trades.forEach(t => {
+        const d = t.date;
+        if (!d) return;
+        if (!dayData[d]) dayData[d] = { pnl: 0, trades: 0 };
+        dayData[d].pnl += t.pnl;
+        dayData[d].trades++;
+      });
+
+      const showPct = document.getElementById('pDayPctToggle')?.checked;
+      const titleEl = document.getElementById('pCalTitle');
+      if (titleEl) titleEl.textContent = monthNamesFull[pCalMonth] + ' ' + pCalYear;
+
+      const firstDay = new Date(pCalYear, pCalMonth, 1);
+      const daysInMonth = new Date(pCalYear, pCalMonth + 1, 0).getDate();
+      const firstWeekday = firstDay.getDay();
+      let offset = (firstWeekday >= 1 && firstWeekday <= 5) ? firstWeekday - 1 : 0;
+
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Max abs pnl for intensity
+      const prefix = `${pCalYear}-${String(pCalMonth+1).padStart(2,'0')}`;
+      const monthPnls = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).map(([,v]) => Math.abs(v.pnl));
+      const maxAbsPnl = monthPnls.length > 0 ? Math.max(...monthPnls) : 1;
+
+      // Estimate capital (sum of all trades before this month)
+      const startCap = trades.filter(t => t.date < prefix).reduce((s, t) => s + t.pnl, 0) || 10000;
+      let runningCap = Math.abs(startCap) || 10000;
+
+      let html = '';
+      ['Lun','Mar','Mer','Jeu','Ven','S'].forEach(d => { html += `<div class="p-day-header">${d}</div>`; });
+      for (let i = 0; i < offset; i++) html += '<div class="p-day-cell empty"></div>';
+
+      let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
+      let weekTotal = 0, weekCol = offset;
+
+      function emitWeekTotal() {
+        while (weekCol < 5) { html += '<div class="p-day-cell empty"></div>'; weekCol++; }
+        const sign = weekTotal >= 0 ? '+' : '';
+        const disp = showPct ? `${sign}${(runningCap>0?(weekTotal/runningCap*100):0).toFixed(2)}%` : `${sign}${weekTotal.toFixed(2)}`;
+        const wtInt = Math.min(Math.abs(weekTotal) / (maxAbsPnl * 3 || 1), 1);
+        const wtBg = weekTotal >= 0 ? `rgba(16,185,129,${(0.12+wtInt*0.55).toFixed(2)})` : `rgba(239,68,68,${(0.12+wtInt*0.55).toFixed(2)})`;
+        const wtColor = weekTotal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        html += `<div class="p-day-cell week-total" style="background:${wtBg}"><span class="day-pnl" style="color:${wtColor}">${disp}</span></div>`;
+        weekTotal = 0; weekCol = 0;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(pCalYear, pCalMonth, d);
+        const dow = dateObj.getDay();
+        if (dow === 0 || dow === 6) continue;
+
+        const dateStr = `${pCalYear}-${String(pCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const data = dayData[dateStr];
+        const isToday = dateStr === todayStr;
+
+        if (data) {
+          totalTradeDays++; if (data.pnl >= 0) totalWinDays++; else totalLossDays++;
+          const cls = data.pnl >= 0 ? 'win' : 'loss';
+          const sign = data.pnl >= 0 ? '+' : '';
+          const displayVal = showPct ? `${sign}${(runningCap>0?(data.pnl/runningCap*100):0).toFixed(2)}%` : `${sign}${data.pnl.toFixed(2)}`;
+          runningCap += data.pnl;
+          weekTotal += data.pnl;
+          const intensity = maxAbsPnl > 0 ? 0.08 + (Math.abs(data.pnl)/maxAbsPnl)*0.37 : 0.12;
+          const bgColor = data.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
+          html += `<div class="p-day-cell ${cls} ${isToday?'today':''}" style="background:${bgColor}">
+            <span class="day-num">${d}</span><span class="day-pnl">${displayVal}</span><span class="day-trades">${data.trades} trade${data.trades>1?'s':''}</span>
+          </div>`;
+        } else {
+          html += `<div class="p-day-cell no-trade ${isToday?'today':''}"><span class="day-num">${d}</span></div>`;
+        }
+        weekCol++;
+        if (dow === 5) emitWeekTotal();
+      }
+      if (weekCol > 0 && weekCol <= 5) emitWeekTotal();
+
+      const gridEl = document.getElementById('pDayGrid');
+      if (gridEl) gridEl.innerHTML = html;
+
+      const winPct = totalTradeDays > 0 ? (totalWinDays/totalTradeDays*100).toFixed(0) : '0';
+      const lossPct = totalTradeDays > 0 ? (totalLossDays/totalTradeDays*100).toFixed(0) : '0';
+      const monthTotal = Object.entries(dayData).filter(([d]) => d.startsWith(prefix)).reduce((a,[,v]) => a+v.pnl, 0);
+      const monthDisp = showPct ? `${monthTotal>=0?'+':''}${(Math.abs(startCap)>0?(monthTotal/Math.abs(startCap)*100):0).toFixed(2)}%` : `${monthTotal>=0?'+':''}${monthTotal.toFixed(2)}`;
+      const statsEl = document.getElementById('pDayStats');
+      if (statsEl) statsEl.innerHTML = `
+        <div><span class="stat-dot green"></span>${totalWinDays} jours gagnants (${winPct}%)</div>
+        <div><span class="stat-dot red"></span>${totalLossDays} jours perdants (${lossPct}%)</div>
+        <div><strong>P&L du mois :</strong>&nbsp;<span style="color:${monthTotal>=0?'var(--accent-green)':'var(--accent-red)'};font-weight:700">${monthDisp}</span></div>
+      `;
+    }
+
+    // ============================================================
+    // HEATMAP MENSUELLE (reproduit du Trading Dashboard)
+    // ============================================================
+    function renderMonthlyHeatmap() {
+      const trades = portfolioTrades;
+      const showPct = document.getElementById('pMonthPctToggle')?.checked;
+      const monthData = {};
+      trades.forEach(t => {
+        const ym = (t.date || '').substring(0, 7);
+        if (!ym) return;
+        if (!monthData[ym]) monthData[ym] = { pnl: 0, trades: 0, wins: 0 };
+        monthData[ym].pnl += t.pnl;
+        monthData[ym].trades++;
+        if (t.pnl > 0) monthData[ym].wins++;
+      });
+
+      const months = Object.keys(monthData).sort();
+      if (months.length === 0) return;
+
+      const years = [...new Set(months.map(m => m.substring(0, 4)))].sort().reverse();
+      const moisFr = ['Janv.', 'Fev.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Aout', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+      const maxAbs = Math.max(...Object.values(monthData).map(d => Math.abs(d.pnl)), 1);
+
+      // Estimer le capital par mois (cumulatif)
+      function capAtMonth(y, m) {
+        let cap = 0;
+        for (const t of trades) {
+          if (t.date && t.date < `${y}-${String(m+1).padStart(2,'0')}`) cap += t.pnl;
+        }
+        return Math.abs(cap) || 10000;
+      }
+
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:6px;color:var(--text-muted)"></th>';
+      moisFr.forEach(m => { html += `<th style="padding:6px;color:var(--text-muted);text-align:center;font-size:11px">${m}</th>`; });
+      html += '<th style="padding:6px;color:var(--text-muted);text-align:center;font-weight:700;font-size:11px">Total</th></tr></thead><tbody>';
+
+      let totalWinMonths = 0, totalLossMonths = 0;
+
+      for (const year of years) {
+        html += `<tr><td style="padding:6px;font-weight:700;color:var(--text-secondary)">${year}</td>`;
+        let yearTotal = 0;
+        for (let m = 0; m < 12; m++) {
+          const ym = `${year}-${String(m + 1).padStart(2, '0')}`;
+          const d = monthData[ym];
+          if (d) {
+            yearTotal += d.pnl;
+            if (d.pnl >= 0) totalWinMonths++; else totalLossMonths++;
+            const cap = capAtMonth(parseInt(year), m);
+            const pct = cap > 0 ? (d.pnl / cap * 100) : 0;
+            const intensityRef = showPct ? Math.abs(pct) / 8 : Math.abs(d.pnl) / 500;
+            const intensity = 0.12 + Math.min(intensityRef, 1) * 0.55;
+            const bg = d.pnl >= 0 ? `rgba(16,185,129,${intensity.toFixed(2)})` : `rgba(239,68,68,${intensity.toFixed(2)})`;
+            const disp = showPct ? `${d.pnl>=0?'+':''}${pct.toFixed(2)}%` : `${d.pnl>=0?'+':''}${d.pnl.toFixed(2)}`;
+            html += `<td style="padding:5px 3px;text-align:center;background:${bg};border-radius:4px;font-weight:600;color:var(--text-primary);font-size:11px" title="${d.trades} trades, ${d.wins} wins">${disp}</td>`;
+          } else {
+            html += '<td style="padding:5px;text-align:center;color:var(--text-muted);font-size:11px">—</td>';
+          }
+        }
+        const yInt = 0.12 + Math.min(Math.abs(yearTotal) / maxAbs, 1) * 0.55;
+        const yBg = yearTotal >= 0 ? `rgba(16,185,129,${Math.min(yInt, 0.67).toFixed(2)})` : `rgba(239,68,68,${Math.min(yInt, 0.67).toFixed(2)})`;
+        html += `<td style="padding:5px 3px;text-align:center;background:${yBg};border-radius:4px;font-weight:800;color:var(--text-primary);font-size:11px">${yearTotal>=0?'+':''}${yearTotal.toFixed(2)}</td>`;
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+
+      const totalMonths = totalWinMonths + totalLossMonths;
+      html += `<div class="p-cal-stats" style="margin-top:12px">
+        <div><span class="stat-dot green"></span>${totalWinMonths} mois gagnants (${totalMonths>0?(totalWinMonths/totalMonths*100).toFixed(0):0}%)</div>
+        <div><span class="stat-dot red"></span>${totalLossMonths} mois perdants (${totalMonths>0?(totalLossMonths/totalMonths*100).toFixed(0):0}%)</div>
+      </div>`;
+
+      document.getElementById('monthlyHeatmap').innerHTML = html;
+    }
+
+    function renderPortfolioTable() {
+      const area = document.getElementById('portfolioTableArea');
+      const recent = portfolioTrades.slice(-50).reverse();
+      let rows = '';
+      for (const t of recent) {
+        const cls = t.pnl >= 0 ? 'buy' : 'sell';
+        rows += `<tr>
+          <td>${fmtDate(t.date)}</td>
+          ${t.symbol ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(t.symbol).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${t.symbol}">${t.symbol}</td>` : `<td class="ticker">—</td>`}
+          <td>${t.type === 'sell' ? '<span class="pill sell">VENTE</span>' : '<span class="pill buy">ACHAT</span>'}</td>
+          <td style="text-align:right">${t.size ? fmtNum(t.size) : '—'}</td>
+          <td style="text-align:right;font-weight:600;color:var(--accent-${cls})">${t.pnl >= 0 ? '+' : ''}${fmtEur(t.pnl)}</td>
+        </tr>`;
+      }
+      area.innerHTML = `<div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Actif</th><th>Type</th><th style="text-align:right">Taille</th><th style="text-align:right">P&L</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+    }
+
+    // ============================================================
+    // FIREBASE PERSISTENCE (trades par utilisateur)
+    // ============================================================
+    async function savePortfolioToFirebase() {
+      const status = document.getElementById('csvStatus');
+      if (!currentUser) {
+        if (status) {
+          status.style.display = 'block';
+          status.style.color = 'var(--accent-red)';
+          status.textContent = 'Non connecte : vos données ne sont pas sauvegardees. Connectez-vous pour les retrouver sur n\'importe quel appareil.';
+        }
+        return;
+      }
+      if (portfolioTrades.length === 0) return;
+      try {
+        const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        await set(ref(db, `users/${currentUser.uid}/trades`), portfolioTrades);
+        await set(ref(db, `users/${currentUser.uid}/meta`), {
+          totalTrades: portfolioTrades.length,
+          lastImport: new Date().toISOString(),
+          platform: portfolioTrades[0]?._platform || 'unknown',
+        });
+        if (status) {
+          // Preserver le message d'import si déjà affiche, juste ajouter un badge "sauvegarde"
+          const current = status.textContent;
+          status.style.display = 'block';
+          status.style.color = 'var(--accent-green)';
+          status.textContent = current + ' ✓ sauvegarde';
+        }
+      } catch (err) {
+        console.error('Erreur sauvegarde Firebase:', err);
+        if (status) {
+          status.style.display = 'block';
+          status.style.color = 'var(--accent-red)';
+          status.textContent = 'Erreur de sauvegarde : ' + err.message;
+        }
+      }
+    }
+
+    async function loadPortfolioFromFirebase() {
+      if (!currentUser) return;
+      try {
+        const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        const snap = await get(ref(db, `users/${currentUser.uid}/trades`));
+        if (snap.exists()) {
+          portfolioTrades = snap.val();
+          if (Array.isArray(portfolioTrades) && portfolioTrades.length > 0) {
+            renderPortfolio();
+            const status = document.getElementById('csvStatus');
+            status.style.display = 'block';
+            status.style.color = 'var(--accent-blue)';
+            status.textContent = `${portfolioTrades.length} trades charges depuis votre compte`;
+          }
+        }
+      } catch (err) {
+        console.error('Erreur chargement Firebase:', err);
+      }
+    }
+
+    async function clearPortfolio() {
+      if (!confirm('Supprimer toutes vos données de trading ? Cette action est irreversible.')) return;
+      portfolioTrades = [];
+      if (currentUser) {
+        try {
+          const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+          const db = getDatabase();
+          await remove(ref(db, `users/${currentUser.uid}/trades`));
+          await remove(ref(db, `users/${currentUser.uid}/meta`));
+        } catch (err) { console.error(err); }
+      }
+      document.getElementById('portfolioKpis').style.display = 'none';
+      document.getElementById('csvStatus').style.display = 'none';
+      Object.values(portfolioCharts).forEach(c => c.destroy());
+      portfolioCharts = {};
+    }
+
+    // ============================================================
+    // RADAR PORTEFEUILLE — sync broker auto + positions live + alertes
+    // ============================================================
+    // Feature Pro+ : connexion broker (IG, IBKR, Saxo...), sync automatique des
+    // positions, jointure Kairos Score par ticker, alertes smart money (insider
+    // moves, 13D filings, score movers) sur les tickers détenus.
+    //
+    // Endpoints :
+    //   GET  /api/portfolio/brokers     → catalogue des brokers supportés
+    //   GET  /api/portfolio/connections → connexions actives du user
+    //   POST /api/portfolio/connect     → ajoute une connexion (creds chiffrées KV)
+    //   POST /api/portfolio/sync        → sync manuel (positions live)
+    //   GET  /api/portfolio/positions   → positions détaillées
+    //   GET  /api/portfolio/alerts      → alertes 30j sur les tickers détenus
+
+    let radarBrokerCatalog = null; // cache après 1er fetch
+    let radarSelectedBroker = null; // broker en cours de config dans le modal
+
+    // Charge la liste des brokers (appel 1x, puis cache)
+    async function loadRadarBrokerCatalog() {
+      if (radarBrokerCatalog) return radarBrokerCatalog;
+      try {
+        const data = await apiFetch('/api/portfolio/brokers');
+        if (data && Array.isArray(data.brokers)) {
+          radarBrokerCatalog = data.brokers;
+          return radarBrokerCatalog;
+        }
+      } catch (e) { console.warn('[radar] brokers fetch failed', e); }
+      radarBrokerCatalog = [];
+      return radarBrokerCatalog;
+    }
+
+    // Ouvre le modal de sélection broker
+    async function openBrokerModal() {
+      if (!currentUser) return Toast.error('Connectez-vous d\'abord.');
+      const modal = document.getElementById('brokerModal');
+      if (!modal) return;
+      document.getElementById('brokerListStep').style.display = 'block';
+      document.getElementById('brokerFormStep').style.display = 'none';
+      modal.classList.add('open');
+      const brokers = await loadRadarBrokerCatalog();
+      const grid = document.getElementById('brokerGrid');
+      grid.innerHTML = brokers.map(b => {
+        const cls = b.status === 'live' ? 'available'
+                  : b.status === 'soon' ? 'soon'
+                  : b.status === 'csv'  ? 'soon' : 'soon';
+        const badgeText = b.status === 'live' ? 'Live'
+                        : b.status === 'soon' ? '🚀 Bientôt'
+                        : b.status === 'csv'  ? 'CSV' : 'Bientôt';
+        const click = b.status === 'live' ? `onclick="selectBrokerForConnect('${b.id}')"` : '';
+        return `
+          <div class="broker-card ${cls}" ${click}>
+            <div class="broker-card-badge ${b.status}">${badgeText}</div>
+            <div class="broker-card-head">
+              <span class="broker-card-flag">${b.flag || '🏦'}</span>
+              <div>
+                <div class="broker-card-name">${escapeHtml(b.name)}</div>
+                <div class="broker-card-country">${escapeHtml(b.country || '')}</div>
+              </div>
+            </div>
+            <div class="broker-card-desc">${escapeHtml(b.description || '')}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function closeBrokerModal() {
+      document.getElementById('brokerModal')?.classList.remove('open');
+      radarSelectedBroker = null;
+    }
+
+    // Étape 2 : form de connexion dynamique selon broker choisi
+    function selectBrokerForConnect(brokerId) {
+      const broker = (radarBrokerCatalog || []).find(b => b.id === brokerId);
+      if (!broker) return;
+      if (broker.status !== 'live') {
+        Toast.info(`${broker.name} : pas encore supporté. Restez connectés !`);
+        return;
+      }
+      radarSelectedBroker = broker;
+      document.getElementById('brokerListStep').style.display = 'none';
+      document.getElementById('brokerFormStep').style.display = 'block';
+      document.getElementById('brokerFormTitle').textContent = `Connexion à ${broker.name}`;
+      document.getElementById('brokerFormDesc').textContent = broker.description || '';
+      document.getElementById('brokerFormStatus').textContent = '';
+      document.getElementById('brokerFormStatus').className = 'broker-form-status';
+
+      const fieldsHtml = (broker.authFields || []).map(f => {
+        const id = `bf_${f.name}`;
+        const ph = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
+        if (f.type === 'select') {
+          const opts = (f.options || []).map(o => `<option value="${escapeHtml(o)}"${f.default === o ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('');
+          return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><select id="${id}" name="${escapeHtml(f.name)}">${opts}</select></div>`;
+        }
+        return `<div class="broker-field"><label for="${id}">${escapeHtml(f.label)}${f.required ? ' *' : ''}</label><input id="${id}" name="${escapeHtml(f.name)}" type="${f.type || 'text'}"${ph} ${f.required ? 'required' : ''} autocomplete="off" spellcheck="false" /></div>`;
+      }).join('');
+      // helpHtml provient du backend (ex: checklist 4 points pour IG)
+      // /!\ Trust : c'est nous qui le générons côté serveur, donc HTML safe
+      const helpHtml = broker.helpHtml || '';
+      document.getElementById('brokerFormFields').innerHTML = helpHtml + fieldsHtml
+        + (broker.docsUrl ? `<p style="font-size:11px;color:var(--text-muted);margin-top:8px">📘 <a href="${broker.docsUrl}" target="_blank" rel="noopener" style="color:var(--accent-blue)">Doc officielle pour obtenir les identifiants</a></p>` : '');
+    }
+
+    function brokerBackToList() {
+      document.getElementById('brokerListStep').style.display = 'block';
+      document.getElementById('brokerFormStep').style.display = 'none';
+      radarSelectedBroker = null;
+    }
+
+    // Submit : POST /api/portfolio/connect
+    async function submitBrokerConnect() {
+      if (!radarSelectedBroker) return;
+      const broker = radarSelectedBroker;
+      const creds = {};
+      for (const f of (broker.authFields || [])) {
+        const el = document.getElementById(`bf_${f.name}`);
+        if (!el) continue;
+        creds[f.name] = el.value;
+      }
+      const statusEl = document.getElementById('brokerFormStatus');
+      statusEl.textContent = 'Connexion en cours...';
+      statusEl.className = 'broker-form-status';
+      try {
+        const data = await apiFetch('/api/portfolio/connect', { broker: broker.id, creds }, 'POST');
+        if (data.error) {
+          statusEl.textContent = '❌ ' + data.error;
+          statusEl.className = 'broker-form-status error';
+          return;
+        }
+        statusEl.textContent = '✓ ' + (data.message || 'Connexion réussie !');
+        statusEl.className = 'broker-form-status success';
+        Toast.success(`${broker.name} connecté. Chargement des positions...`);
+        // IMPORTANT : await sync AVANT loadRadarPortfolio (sinon UI montre 0 position)
+        setTimeout(async () => {
+          closeBrokerModal();
+          await syncPortfolioNow();           // attend la fin du sync
+          await loadRadarPortfolio();         // maintenant les positions sont en D1
+        }, 800);
+      } catch (e) {
+        statusEl.textContent = '❌ ' + (e.message || 'Erreur inconnue');
+        statusEl.className = 'broker-form-status error';
+      }
+    }
+
+    // Charge l'état global (connexions + positions + alertes)
+    async function loadRadarPortfolio() {
+      if (!currentUser) return;
+      try {
+        const connData = await apiFetch('/api/portfolio/connections');
+        const emptyEl = document.getElementById('radarEmpty');
+        const connectedEl = document.getElementById('radarConnected');
+        if (!connData || connData.error || !Array.isArray(connData.connections) || !connData.connections.length) {
+          // État par défaut : non connecté → CTA visible
+          if (emptyEl) emptyEl.style.display = 'block';
+          if (connectedEl) connectedEl.style.display = 'none';
+          return;
+        }
+        // Au moins 1 connexion active → afficher le panel connected
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (connectedEl) connectedEl.style.display = 'block';
+
+        const conns = connData.connections;
+        const active = conns.filter(c => c.status === 'active');
+        const totalValue = conns.reduce((s, c) => s + (c.total_value_eur || 0), 0);
+        const totalPos = conns.reduce((s, c) => s + (c.positions_count || 0), 0);
+        const lastSync = conns.map(c => c.last_sync_at).filter(Boolean).sort().reverse()[0];
+        document.getElementById('radarConnectedTitle').textContent =
+          `📡 ${active.length} broker${active.length > 1 ? 's' : ''} connecté${active.length > 1 ? 's' : ''}`;
+        document.getElementById('radarConnectedMeta').textContent =
+          (lastSync ? `Dernière sync : ${formatRelativeTime(lastSync)}` : 'Jamais synchronisé')
+          + ' · ' + (active.length ? active.map(c => c.broker).join(', ') : conns.map(c => c.broker).join(', '));
+
+        // Affiche le bandeau d'erreur si au moins une connexion a un last_error
+        const errs = conns.filter(c => c.last_error).map(c => `${c.broker} : ${c.last_error}`);
+        const errBanner = document.getElementById('radarErrorBanner');
+        const errMsg = document.getElementById('radarErrorMsg');
+        if (errs.length && errBanner && errMsg) {
+          errBanner.style.display = 'block';
+          errMsg.textContent = errs.join(' · ');
+        } else if (errBanner) {
+          errBanner.style.display = 'none';
+        }
+
+        document.getElementById('radarKpiValue').textContent = fmtEur(totalValue);
+        document.getElementById('radarKpiPositions').textContent = totalPos;
+
+        // Positions + alertes en parallèle
+        const [posData, alertsData] = await Promise.all([
+          apiFetch('/api/portfolio/positions').catch(() => ({ positions: [] })),
+          apiFetch('/api/portfolio/alerts').catch(() => ({ alerts: [] })),
+        ]);
+        renderRadarPositions(posData.positions || []);
+        renderRadarAlerts(alertsData.alerts || []);
+      } catch (e) {
+        console.warn('[radar] load failed:', e);
+      }
+    }
+
+    function fmtEur(v) {
+      if (v == null || isNaN(v)) return '—';
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
+    }
+    function formatRelativeTime(iso) {
+      if (!iso) return '—';
+      const t = new Date(iso).getTime();
+      const delta = (Date.now() - t) / 1000;
+      if (delta < 60) return 'à l\'instant';
+      if (delta < 3600) return `il y a ${Math.round(delta / 60)} min`;
+      if (delta < 86400) return `il y a ${Math.round(delta / 3600)} h`;
+      return `il y a ${Math.round(delta / 86400)} j`;
+    }
+
+    function renderRadarPositions(positions) {
+      const el = document.getElementById('radarPositionsTable');
+      const sub = document.getElementById('radarPositionsSub');
+      if (!el) return;
+      if (!positions.length) {
+        el.innerHTML = '<div class="radar-empty-state">Aucune position synchronisée.<br/>Cliquez sur <strong>Synchroniser</strong> pour charger vos positions.</div>';
+        if (sub) sub.textContent = '';
+        // Score moyen + alertes : 0
+        document.getElementById('radarKpiScore').textContent = '—';
+        return;
+      }
+      if (sub) sub.textContent = `${positions.length} titre${positions.length > 1 ? 's' : ''}`;
+
+      const avgScore = positions.filter(p => p.kairos_score != null).reduce((s, p, _, a) => s + p.kairos_score / a.length, 0);
+      document.getElementById('radarKpiScore').textContent = avgScore ? Math.round(avgScore) + ' / 100' : '—';
+
+      // Badge de classification (action / indice / forex / commodity / etc.)
+      const classBadge = (cls) => {
+        if (!cls || cls === 'action') return '';
+        const colors = {
+          indice: '#8B5CF6',
+          forex: '#F59E0B',
+          commodity: '#84CC16',
+          secteur: '#06B6D4',
+          binaire: '#EF4444',
+          autre: '#94A3B8',
+        };
+        const color = colors[cls] || '#94A3B8';
+        return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:${color}20;color:${color};font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;vertical-align:middle">${cls}</span>`;
+      };
+
+      const rows = positions.map(p => {
+        const score = p.kairos_score;
+        const scoreColor = score == null ? 'var(--text-muted)'
+          : score >= 75 ? '#10B981' : score >= 60 ? '#84CC16' : score >= 40 ? '#9CA3AF' : score >= 25 ? '#F59E0B' : '#EF4444';
+        const pnlPct = p.unrealized_pnl_pct;
+        const pnlColor = pnlPct == null ? 'var(--text-muted)' : pnlPct >= 0 ? '#10B981' : '#EF4444';
+        const alertsCell = (p.has_alerts && p.has_alerts > 0)
+          ? `<span style="color:#F59E0B;font-weight:700">🔔 ${p.has_alerts}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+
+        // Affichage : si ticker_kairos existe (action mappable), on lien vers /a/TICKER
+        // Sinon (indice/forex/commodity), on affiche juste le nom de l'instrument sans lien
+        const isAction = !!p.ticker_kairos;
+        const displayName = p.instrument_name || p.ticker_kairos || p.ticker || '?';
+        const tickerCell = isAction
+          ? `<a href="/a/${escapeHtml(p.ticker_kairos)}" style="color:var(--accent-blue);text-decoration:none;font-weight:700">$${escapeHtml(p.ticker_kairos)}</a>${classBadge(p.instrument_class)}<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${escapeHtml(displayName)}</div>`
+          : `<span style="color:var(--text-primary);font-weight:600">${escapeHtml(displayName)}</span>${classBadge(p.instrument_class)}<div style="font-size:11px;color:var(--text-muted);margin-top:2px;font-family:monospace">${escapeHtml(p.ticker || '')}</div>`;
+
+        // Quantité : formatée avec direction (long/short)
+        const qtyDisplay = p.quantity != null ? (p.quantity >= 0 ? '+' + p.quantity : p.quantity) : '—';
+
+        return `
+          <tr>
+            <td>${tickerCell}</td>
+            <td style="text-align:right;font-family:monospace">${qtyDisplay}</td>
+            <td style="text-align:right">${fmtEur(p.current_value_eur)}</td>
+            <td style="text-align:right;color:${pnlColor};font-weight:600">${pnlPct != null ? (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%' : '—'}</td>
+            <td style="text-align:center">${isAction
+              ? `<span class="radar-score-chip" style="background:${scoreColor}20;color:${scoreColor}">${score != null ? score : '—'}</span>`
+              : '<span style="color:var(--text-muted);font-size:11px">N/A</span>'
+            }</td>
+            <td style="text-align:center">${alertsCell}</td>
+          </tr>`;
+      }).join('');
+      el.innerHTML = `
+        <table class="radar-table">
+          <thead><tr>
+            <th>Instrument</th><th style="text-align:right">Qté</th><th style="text-align:right">Valeur</th>
+            <th style="text-align:right">P&amp;L</th><th style="text-align:center">Kairos</th><th style="text-align:center">Alertes</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function renderRadarAlerts(alerts) {
+      const el = document.getElementById('radarAlertsFeed');
+      const kpi = document.getElementById('radarKpiAlerts');
+      if (!el) return;
+      if (kpi) kpi.textContent = alerts.length || '—';
+      if (!alerts.length) {
+        el.innerHTML = '<div class="radar-empty-state">Aucune alerte smart money<br/>sur vos positions.</div>';
+        return;
+      }
+      el.innerHTML = alerts.slice(0, 12).map(a => `
+        <div class="radar-alert-item">
+          <strong>$${escapeHtml(a.ticker)}</strong> · ${escapeHtml(a.title || '')}
+          ${a.date ? `<span class="radar-alert-date">${escapeHtml(new Date(a.date).toLocaleDateString('fr-FR'))}</span>` : ''}
+        </div>`).join('');
+    }
+
+    // ============================================================
+    // DIAGNOSTIC RADAR — debug 1-click (au lieu de la console)
+    // Affiche : schema D1, connexions, last_error, positions count + sample
+    // + résultat brut du dernier sync. Permet d'identifier le problème en 5 sec.
+    // ============================================================
+    async function showRadarDiagnostic() {
+      if (!currentUser) return Toast.error('Non authentifié.');
+      Toast.info('Récupération du diagnostic...');
+      // Modal d'affichage du JSON
+      const modal = document.createElement('div');
+      modal.className = 'broker-modal open';
+      modal.style.zIndex = '600';
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      modal.innerHTML = `
+        <div class="broker-modal-inner" style="max-width:760px;max-height:85vh;overflow-y:auto">
+          <div class="broker-modal-header">
+            <h3 style="background:none;-webkit-background-clip:initial;background-clip:initial;-webkit-text-fill-color:initial;color:var(--text-primary)">🔍 Diagnostic Radar</h3>
+            <button class="broker-modal-close" onclick="this.closest('.broker-modal').remove()">✕</button>
+          </div>
+          <p class="broker-modal-sub">État technique de ta connexion broker. Utile pour identifier pourquoi des positions ne remontent pas.</p>
+          <div id="radarDiagContent" style="font-size:12px;line-height:1.6">
+            <p style="color:var(--text-muted)">Chargement...</p>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+
+      try {
+        // Lance les 2 endpoints en parallèle (diag rapide + sync test)
+        const [diag, syncResult] = await Promise.all([
+          apiFetch('/api/portfolio/diagnostic').catch(e => ({ error: e.message })),
+          apiFetch('/api/portfolio/sync', {}, 'POST').catch(e => ({ error: e.message })),
+        ]);
+
+        const content = document.getElementById('radarDiagContent');
+
+        // Schema info
+        const schemaCol = (diag.schema?.schemaVersion === 2)
+          ? '<span style="color:#10B981;font-weight:700">✓ v2</span>'
+          : '<span style="color:#F59E0B;font-weight:700">⚠️ v1 (migration v2 manquante mais code compatible)</span>';
+
+        // Connexions
+        const connsHtml = (diag.connections || []).map(c => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><strong>${escapeHtml(c.broker)}</strong></td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><span style="color:${c.status === 'active' ? '#10B981' : '#EF4444'}">${escapeHtml(c.status)}</span></td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace">${c.positions_count ?? 0}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace">${c.total_value_eur ? Math.round(c.total_value_eur) + ' €' : '—'}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-muted)">${c.last_sync_at ? formatRelativeTime(c.last_sync_at) : 'Jamais'}</td>
+          </tr>
+          ${c.last_error ? `<tr><td colspan="5" style="padding:8px 10px;background:rgba(239,68,68,0.06);color:#FCA5A5;font-size:11px">⚠️ ${escapeHtml(c.last_error)}</td></tr>` : ''}
+        `).join('');
+
+        // Positions counts
+        const posCountsHtml = (diag.positionsCounts || []).map(p => `
+          <div style="padding:6px 10px;background:var(--surface-1);border-radius:6px;font-size:11px;margin-bottom:4px">
+            <strong>${escapeHtml(p.broker)}</strong> :
+            <span style="font-family:monospace">${p.n}</span> positions stockées
+            (<span style="font-family:monospace">${p.n_actions || 0}</span> avec ticker_kairos mappé)
+            · ${p.total_eur ? Math.round(p.total_eur) + ' €' : '—'}
+          </div>
+        `).join('') || '<p style="color:var(--text-muted);font-size:11px">Aucune position en base.</p>';
+
+        // Sync result (resultats par broker)
+        const syncHtml = (syncResult.results || []).map(r => {
+          if (r.ok) {
+            // Sous-comptes IG si disponibles (multi-account)
+            const accountsBreakdown = (r.accountResults || []).map(a => {
+              if (a.error) {
+                return `<div style="margin-left:12px;font-size:10.5px;color:#FCA5A5">↳ ${escapeHtml(a.accountName || a.accountId)} (${escapeHtml(a.accountType || '?')}) : ❌ ${escapeHtml(a.error)}</div>`;
+              }
+              return `<div style="margin-left:12px;font-size:10.5px;color:var(--text-muted)">↳ ${escapeHtml(a.accountName || a.accountId)} (${escapeHtml(a.accountType || '?')}) : ${a.positionsCount} positions</div>`;
+            }).join('');
+            return `<div style="padding:6px 10px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-size:11px;margin-bottom:4px">
+              ✓ <strong>${escapeHtml(r.broker)}</strong> : ${r.positionsCount} positions au total, ${r.totalValue ? Math.round(r.totalValue) + ' €' : '—'}
+              ${accountsBreakdown}
+            </div>`;
+          }
+          return `<div style="padding:6px 10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-size:11px;margin-bottom:4px;color:#FCA5A5">
+            ❌ <strong>${escapeHtml(r.broker)}</strong> : ${escapeHtml(r.error)}
+          </div>`;
+        }).join('') || (syncResult.error ? `<p style="color:#EF4444">${escapeHtml(syncResult.error)}</p>` : '<p style="color:var(--text-muted);font-size:11px">Aucun broker connecté.</p>');
+
+        // Sample positions
+        const sampleHtml = (diag.positionsSample || []).map(s => `
+          <tr>
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px">${escapeHtml(s.broker)}</td>
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px">${escapeHtml(s.ticker || '—')}</td>
+            <td style="padding:4px 8px;font-family:monospace;font-size:11px">${escapeHtml(s.ticker_kairos || '—')}</td>
+            <td style="padding:4px 8px;font-size:11px">${s.has_value ? '✓' : '✗'}</td>
+            <td style="padding:4px 8px;font-size:11px">${s.has_score ? '✓' : '✗'}</td>
+          </tr>
+        `).join('');
+
+        content.innerHTML = `
+          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">📋 Schéma D1</h4>
+          <p style="margin:0 0 16px">Schema version : ${schemaCol} (${(diag.schema?.columns || []).length} colonnes)</p>
+
+          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔌 Connexions</h4>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+            <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
+              <th style="padding:6px 10px;text-align:left">Broker</th>
+              <th style="padding:6px 10px;text-align:left">Statut</th>
+              <th style="padding:6px 10px;text-align:left">Pos.</th>
+              <th style="padding:6px 10px;text-align:left">Valeur</th>
+              <th style="padding:6px 10px;text-align:left">Sync</th>
+            </tr></thead>
+            <tbody>${connsHtml || '<tr><td colspan="5" style="padding:10px;color:var(--text-muted)">Aucune connexion.</td></tr>'}</tbody>
+          </table>
+
+          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">📊 Positions stockées (par broker)</h4>
+          ${posCountsHtml}
+
+          <h4 style="margin:16px 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔁 Résultat du sync test</h4>
+          ${syncHtml}
+
+          ${sampleHtml ? `
+            <h4 style="margin:16px 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔬 Sample des 5 premières positions</h4>
+            <table style="width:100%;border-collapse:collapse;background:var(--surface-1);border-radius:8px;overflow:hidden">
+              <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
+                <th style="padding:6px 8px;text-align:left">Broker</th>
+                <th style="padding:6px 8px;text-align:left">Ticker</th>
+                <th style="padding:6px 8px;text-align:left">Kairos</th>
+                <th style="padding:6px 8px;text-align:left">Valeur ?</th>
+                <th style="padding:6px 8px;text-align:left">Score ?</th>
+              </tr></thead>
+              <tbody>${sampleHtml}</tbody>
+            </table>
+          ` : ''}
+
+          <details style="margin-top:20px;padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
+            <summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Voir le JSON brut complet</summary>
+            <pre style="margin:10px 0 0;padding:10px;background:var(--bg-card);border-radius:6px;font-size:10.5px;overflow-x:auto;white-space:pre-wrap;word-break:break-word">${escapeHtml(JSON.stringify({ diagnostic: diag, syncResult }, null, 2))}</pre>
+          </details>
+        `;
+      } catch (e) {
+        document.getElementById('radarDiagContent').innerHTML = `<p style="color:#EF4444">Erreur diagnostic : ${escapeHtml(e.message || '')}</p>`;
+      }
+    }
+
+    // ============================================================
+    // GESTION DES DONNÉES (Manage Data, inspiré Tradezella)
+    // 3 actions distinctes avec confirmation anti-clic-accidentel :
+    //   1) Déconnecter un broker (révoque creds + supprime ses positions sync)
+    //   2) Supprimer les trades CSV (garde les brokers actifs)
+    //   3) Tout réinitialiser (nuke total)
+    // ============================================================
+
+    async function openManageDataModal() {
+      if (!currentUser) return Toast.error('Non authentifié.');
+      const modal = document.getElementById('manageDataModal');
+      if (!modal) return;
+      modal.classList.add('open');
+      // Charge la liste des connexions pour afficher 1 bouton "Déconnecter" par broker
+      const list = document.getElementById('manageConnectionsList');
+      list.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">Chargement...</p>';
+      try {
+        const data = await apiFetch('/api/portfolio/connections');
+        const conns = (data && Array.isArray(data.connections)) ? data.connections : [];
+        if (!conns.length) {
+          list.innerHTML = '<div style="padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-muted)">Aucun broker connecté actuellement.</div>';
+          return;
+        }
+        const brokerCatalog = await loadRadarBrokerCatalog();
+        list.innerHTML = '<h4 style="margin:0 0 12px;font-family:\'Space Grotesk\';font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px"><span>🔌</span> <span>Brokers connectés</span></h4>'
+          + conns.map(c => {
+              const broker = (brokerCatalog || []).find(b => b.id === c.broker);
+              const flag = broker?.flag || '🏦';
+              const name = broker?.name || c.broker;
+              const lastSync = c.last_sync_at ? formatRelativeTime(c.last_sync_at) : 'Jamais';
+              const errBadge = c.last_error
+                ? `<div style="margin-top:6px;padding:6px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:11px;color:#FCA5A5">⚠️ ${escapeHtml(c.last_error)}</div>`
+                : '';
+              return `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:700;font-size:14px;color:var(--text-primary)">${flag} ${escapeHtml(name)}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${c.positions_count || 0} position${(c.positions_count || 0) > 1 ? 's' : ''} · Dernière sync : ${lastSync}</div>
+                    ${errBadge}
+                  </div>
+                  <button class="radar-btn danger" style="font-size:11px" onclick="confirmAndDelete('disconnect:${escapeHtml(c.broker)}:${escapeHtml(c.account_id || 'default')}')">🔌 Déconnecter</button>
+                </div>`;
+            }).join('');
+      } catch (e) {
+        list.innerHTML = `<div style="color:#EF4444;font-size:13px">Erreur : ${escapeHtml(e.message || '')}</div>`;
+      }
+    }
+
+    function closeManageDataModal() {
+      document.getElementById('manageDataModal')?.classList.remove('open');
+    }
+
+    // Confirmation par saisie (anti-clic-accidentel, style Tradezella)
+    // type peut être : 'csv' | 'all' | 'disconnect:broker:accountId'
+    async function confirmAndDelete(type) {
+      let title, message, expectedWord;
+      if (type === 'csv') {
+        title = 'Supprimer les trades CSV';
+        message = 'Tous tes trades importés via CSV vont être supprimés. Cette action est irréversible.';
+        expectedWord = 'SUPPRIMER';
+      } else if (type === 'all') {
+        title = 'Tout réinitialiser';
+        message = 'TOUS les brokers connectés seront déconnectés, toutes les positions sync supprimées, tous les trades CSV supprimés, et l\'historique snapshots effacé. Cette action est irréversible.';
+        expectedWord = 'RESET';
+      } else if (type.startsWith('disconnect:')) {
+        const [, broker, accountId] = type.split(':');
+        title = `Déconnecter ${broker}`;
+        message = `Les credentials ${broker} seront révoqués et toutes les positions associées supprimées. Tu pourras te reconnecter à tout moment.`;
+        expectedWord = 'OK';
+      } else {
+        return;
+      }
+
+      const word = prompt(`${title}\n\n${message}\n\nPour confirmer, tape "${expectedWord}" :`);
+      if (word !== expectedWord) {
+        if (word !== null) Toast.warning('Mot de confirmation incorrect, action annulée.');
+        return;
+      }
+
+      try {
+        if (type === 'csv') {
+          // Réutilise clearPortfolio() existant qui purge Firebase RTDB
+          await clearPortfolio();
+          Toast.success('✓ Trades CSV supprimés.');
+        } else if (type === 'all') {
+          // 1) Déconnecte tous les brokers
+          const conns = (await apiFetch('/api/portfolio/connections'))?.connections || [];
+          for (const c of conns) {
+            await apiFetch('/api/portfolio/disconnect', { broker: c.broker, accountId: c.account_id }, 'POST').catch(() => {});
+          }
+          // 2) Purge CSV (Firebase RTDB)
+          if (currentUser) {
+            try {
+              const { getDatabase, ref, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+              const db = getDatabase();
+              await remove(ref(db, `users/${currentUser.uid}/trades`));
+              await remove(ref(db, `users/${currentUser.uid}/meta`));
+            } catch {}
+          }
+          portfolioTrades = [];
+          document.getElementById('portfolioKpis').style.display = 'none';
+          Toast.success('✓ Tout a été réinitialisé.');
+          await loadRadarPortfolio();
+        } else if (type.startsWith('disconnect:')) {
+          const [, broker, accountId] = type.split(':');
+          const data = await apiFetch('/api/portfolio/disconnect', { broker, accountId }, 'POST');
+          if (data.error) {
+            Toast.error(data.error);
+            return;
+          }
+          Toast.success(`✓ ${broker} déconnecté.`);
+          await loadRadarPortfolio();
+          // Re-charge la liste dans le modal s'il est encore ouvert
+          if (document.getElementById('manageDataModal').classList.contains('open')) {
+            openManageDataModal();
+          }
+        }
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || ''));
+      }
+    }
+
+    async function syncPortfolioNow() {
+      if (!currentUser) return Toast.error('Non authentifié.');
+      const btn = document.getElementById('radarSyncBtn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+      Toast.info('Synchronisation en cours...');
+      try {
+        const data = await apiFetch('/api/portfolio/sync', {}, 'POST');
+        if (data.error) {
+          Toast.error(data.error);
+          console.warn('[radar] sync error:', data);
+        } else {
+          const okResults = (data.results || []).filter(r => r.ok);
+          const failResults = (data.results || []).filter(r => r.error);
+          if (okResults.length) {
+            const totalPos = okResults.reduce((s, r) => s + (r.positionsCount || 0), 0);
+            Toast.success(`✓ Sync OK · ${totalPos} position${totalPos > 1 ? 's' : ''} récupérée${totalPos > 1 ? 's' : ''}`);
+          }
+          // Affiche le DÉTAIL de chaque erreur, pas juste un compte
+          for (const r of failResults) {
+            Toast.error(`${r.broker} : ${r.error}`, 8000);   // 8s pour avoir le temps de lire
+            console.warn('[radar] broker sync failed', r);
+          }
+          if (!okResults.length && !failResults.length) {
+            Toast.warning('Aucun broker connecté');
+          }
+        }
+        await loadRadarPortfolio();
+      } catch (e) {
+        Toast.error('Erreur sync : ' + (e.message || ''));
+      } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      }
+    }
+
+    // Hook : charge l'état Radar quand on affiche la section portfolio
+    // (on ne polluer pas loadPortfolio() existant, on piggyback sur switchSection)
+    document.addEventListener('DOMContentLoaded', () => {
+      // Intégration via un hook léger sur switchSection (défini ailleurs dans le dashboard)
+      if (typeof window.switchSection === 'function' && !window._radarHooked) {
+        const _orig = window.switchSection;
+        window.switchSection = function(name) {
+          _orig.apply(this, arguments);
+          if (name === 'portfolio' && currentUser) {
+            setTimeout(loadRadarPortfolio, 200);
+          }
+        };
+        window._radarHooked = true;
+      }
+    });
+
+    // ============================================================
+    // WATCHLIST — Ma watchlist + digest email quotidien
+    // ============================================================
+    const WATCHLIST_FREE_LIMIT = 3;
+    let watchlistState = {
+      tickers: [],
+      emailAlerts: true,
+      optIn: false,
+      types: { insider: true, cluster: true, etf: true, score: true, activist: true },
+      lastDigestAt: null,
+      loaded: false,
+    };
+
+    async function loadWatchlist() {
+      // 1) Charge depuis Firebase (source cote UI)
+      try {
+        if (currentUser) {
+          const { getDatabase, ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+          const db = getDatabase();
+          const snap = await get(ref(db, `users/${currentUser.uid}/watchlist`));
+          if (snap.exists()) {
+            const data = snap.val();
+            watchlistState.tickers = Array.isArray(data.tickers) ? data.tickers : [];
+            watchlistState.emailAlerts = data.emailAlerts !== false;
+            watchlistState.types = Object.assign({ insider: true, cluster: true, etf: true, score: true, activist: true }, data.types || {});
+          }
+        }
+      } catch (e) {
+        console.warn('[watchlist] firebase read failed:', e);
+      }
+
+      // 2) Charge depuis le Worker (source de verite + statut opt-in)
+      try {
+        const data = await apiFetch('/api/watchlist/get');
+        if (data && data.ok) {
+          watchlistState.tickers = data.tickers || watchlistState.tickers;
+          watchlistState.emailAlerts = data.emailAlerts !== false;
+          watchlistState.optIn = data.optIn === true;
+          watchlistState.types = Object.assign(watchlistState.types, data.types || {});
+          watchlistState.lastDigestAt = data.lastDigestAt;
+        }
+      } catch (e) {
+        console.warn('[watchlist] worker read failed:', e);
+      }
+
+      watchlistState.loaded = true;
+      renderWatchlist();
+      // Cable l'autocomplete du champ d'ajout
+      const input = document.getElementById('wlAddInput');
+      const sugg  = document.getElementById('wlAddSuggest');
+      if (input && sugg) {
+        ensureTickerList().then(() => {
+          wireTickerAutocomplete(input, sugg, (ticker) => {
+            input.value = ticker;
+            sugg.style.display = 'none';
+            addTickerFromInput();
+          });
+        });
+      }
+    }
+
+    function renderWatchlist() {
+      // KPIs
+      const limit = isPremium ? '∞' : `/ ${WATCHLIST_FREE_LIMIT}`;
+      const cEl = document.getElementById('wlCount');
+      const lEl = document.getElementById('wlLimit');
+      if (cEl) cEl.textContent = watchlistState.tickers.length;
+      if (lEl) lEl.textContent = ` ${limit}`;
+
+      const sEl = document.getElementById('wlStatus');
+      if (sEl) {
+        if (!watchlistState.emailAlerts) {
+          sEl.textContent = 'Desactivees';
+          sEl.style.color = 'var(--text-muted)';
+        } else if (!watchlistState.optIn) {
+          sEl.innerHTML = '⏳ En attente de confirmation';
+          sEl.style.color = '#FBBF24';
+        } else {
+          sEl.innerHTML = '✅ Activees';
+          sEl.style.color = 'var(--accent-green)';
+        }
+      }
+
+      const dEl = document.getElementById('wlLastDigest');
+      if (dEl) {
+        if (!watchlistState.lastDigestAt) {
+          dEl.textContent = 'Jamais envoye encore';
+          dEl.style.color = 'var(--text-muted)';
+        } else {
+          const d = new Date(watchlistState.lastDigestAt);
+          dEl.textContent = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+          dEl.style.color = 'var(--text-primary)';
+        }
+      }
+
+      // Checkboxes preferences
+      const setCheck = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+      setCheck('wlEmailAlerts', watchlistState.emailAlerts);
+      setCheck('wlTypeCluster', watchlistState.types.cluster);
+      setCheck('wlTypeEtf',     watchlistState.types.etf);
+      setCheck('wlTypeScore',   watchlistState.types.score);
+      setCheck('wlTypeInsider', watchlistState.types.insider);
+      setCheck('wlTypeActivist', watchlistState.types.activist);
+
+      // Liste des tickers
+      const area = document.getElementById('wlTickersArea');
+      if (!area) return;
+      if (watchlistState.tickers.length === 0) {
+        area.innerHTML = `
+          <div style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center">
+            <div style="font-size:42px;margin-bottom:10px">⭐</div>
+            <p style="font-size:14px;color:var(--text-primary);margin:0 0 6px;font-weight:600">Aucun ticker surveille pour l'instant</p>
+            <p style="font-size:13px;color:var(--text-muted);margin:0">Ajoutez des tickers ci-dessus ou cliquez sur l'etoile ⭐ depuis l'Analyse action.</p>
+          </div>`;
+        return;
+      }
+
+      const rows = watchlistState.tickers.map(tk => {
+        const name = findTickerName(tk);
+        const actionUrl = `action.html?ticker=${encodeURIComponent(tk)}`;
+        return `
+          <tr>
+            <td style="padding:12px 14px"><span class="ticker" style="font-weight:700;color:var(--accent-blue)">${tk}</span></td>
+            <td style="padding:12px 14px;color:var(--text-secondary);font-size:13px">${escapeHtmlClient(name || '—')}</td>
+            <td style="padding:12px 14px;text-align:right">
+              <a href="${actionUrl}" class="btn-search" style="padding:6px 12px;font-size:12px;margin-right:6px">📊 Analyse</a>
+              <button onclick="removeFromWatchlist('${tk}')" class="btn-search" style="padding:6px 12px;font-size:12px;color:var(--accent-red);border-color:var(--accent-red)">✕ Retirer</button>
+            </td>
+          </tr>`;
+      }).join('');
+
+      area.innerHTML = `
+        <div class="table-wrap">
+          <table style="width:100%">
+            <thead><tr>
+              <th style="text-align:left;padding:12px 14px;font-size:11px;text-transform:uppercase;opacity:0.7">Ticker</th>
+              <th style="text-align:left;padding:12px 14px;font-size:11px;text-transform:uppercase;opacity:0.7">Nom</th>
+              <th style="text-align:right;padding:12px 14px;font-size:11px;text-transform:uppercase;opacity:0.7">Actions</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function findTickerName(t) {
+      if (!stockTickerList) return '';
+      const hit = stockTickerList.find(x => (x.ticker || '').toUpperCase() === t.toUpperCase());
+      return hit ? (hit.name || '') : '';
+    }
+
+    function escapeHtmlClient(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+
+    async function addTickerFromInput() {
+      const input = document.getElementById('wlAddInput');
+      const msg = document.getElementById('wlAddMsg');
+      if (!input) return;
+      // Format ticker : si le user a tape "AAPL" ou "AAPL — Apple Inc" (autocomplete format)
+      let raw = (input.value || '').trim();
+      raw = raw.split(' — ')[0].split('—')[0].trim();
+      const ticker = raw.toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+      if (!ticker || ticker.length > 12) {
+        if (msg) { msg.textContent = '⚠️ Ticker invalide.'; msg.style.color = 'var(--accent-red)'; }
+        return;
+      }
+      await addToWatchlist(ticker);
+      input.value = '';
+      if (msg) { msg.textContent = ''; msg.style.color = 'var(--text-muted)'; }
+    }
+
+    async function addToWatchlist(ticker) {
+      const tk = (ticker || '').toUpperCase().trim();
+      if (!tk) return;
+      if (watchlistState.tickers.includes(tk)) {
+        const msg = document.getElementById('wlAddMsg');
+        if (msg) { msg.textContent = `${tk} est déjà dans votre watchlist.`; msg.style.color = 'var(--text-muted)'; }
+        updateStarButtons();
+        return;
+      }
+      // Paywall free : bloque au 4e
+      if (!isPremium && watchlistState.tickers.length >= WATCHLIST_FREE_LIMIT) {
+        Toast.warning(`La watchlist gratuite est limitée à ${WATCHLIST_FREE_LIMIT} tickers. Passez en Premium pour un nombre illimité.`);
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      watchlistState.tickers = [...watchlistState.tickers, tk];
+      await persistWatchlist();
+      renderWatchlist();
+      updateStarButtons();
+      const msg = document.getElementById('wlAddMsg');
+      if (msg) {
+        msg.textContent = `✓ ${tk} ajoute a votre watchlist.`;
+        msg.style.color = 'var(--accent-green)';
+      }
+    }
+
+    async function removeFromWatchlist(ticker) {
+      const tk = (ticker || '').toUpperCase();
+      watchlistState.tickers = watchlistState.tickers.filter(t => t !== tk);
+      await persistWatchlist();
+      renderWatchlist();
+      updateStarButtons();
+    }
+
+    async function saveWatchlistPrefs() {
+      const get = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
+      watchlistState.emailAlerts = get('wlEmailAlerts');
+      watchlistState.types = {
+        insider: get('wlTypeInsider'),
+        cluster: get('wlTypeCluster'),
+        etf:     get('wlTypeEtf'),
+        score:   get('wlTypeScore'),
+        activist: get('wlTypeActivist'),
+      };
+      await persistWatchlist();
+      renderWatchlist();
+    }
+
+    async function persistWatchlist() {
+      if (!currentUser) return;
+      // 1) Firebase (UI mirror)
+      try {
+        const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+        const db = getDatabase();
+        await set(ref(db, `users/${currentUser.uid}/watchlist`), {
+          tickers: watchlistState.tickers,
+          emailAlerts: watchlistState.emailAlerts,
+          types: watchlistState.types,
+          updatedAt: Date.now(),
+        });
+      } catch (e) { console.warn('[watchlist] firebase save failed:', e); }
+
+      // 2) Worker (source de verite + trigger email opt-in)
+      try {
+        const resp = await apiFetch('/api/watchlist/sync', {
+          method: 'POST',
+          body: JSON.stringify({
+            tickers: watchlistState.tickers,
+            emailAlerts: watchlistState.emailAlerts,
+            types: watchlistState.types,
+          }),
+        });
+        if (resp && resp.ok) {
+          watchlistState.optIn = resp.optIn === true;
+          if (resp.confirmationSent) {
+            const msg = document.getElementById('wlAddMsg');
+            if (msg) {
+              msg.innerHTML = '📧 Email de confirmation envoye — cliquez sur le lien pour activer vos alertes.';
+              msg.style.color = 'var(--accent-blue)';
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[watchlist] worker sync failed:', e);
+        if (e.message === 'PREMIUM_REQUIRED') {
+          document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        }
+      }
+    }
+
+    async function testWatchlistDigest() {
+      const msg = document.getElementById('wlAddMsg');
+      if (msg) { msg.textContent = 'Analyse en cours...'; msg.style.color = 'var(--text-muted)'; }
+      try {
+        const resp = await apiFetch('/api/watchlist/test-now', { method: 'POST' });
+        if (resp && resp.sent) {
+          Toast.success(`Email de test envoyé (${resp.events} événements détectés).`);
+        } else if (resp && resp.events === 0) {
+          Toast.info('Aucun événement détecté sur vos tickers aujourd\'hui. Tout est calme !');
+        }
+      } catch (e) {
+        Toast.error('Envoi impossible : ' + (e.message || e));
+      }
+      if (msg) msg.textContent = '';
+    }
+
+    async function clearWatchlist() {
+      if (!confirm('Supprimer toute votre watchlist et les alertes associees ?')) return;
+      watchlistState.tickers = [];
+      watchlistState.emailAlerts = false;
+      await persistWatchlist();
+      renderWatchlist();
+      updateStarButtons();
+    }
+
+    // ============================================================
+    // BOUTON ETOILE GLOBAL : toggle watchlist depuis Analyse action
+    // ============================================================
+    function isInWatchlist(ticker) {
+      return watchlistState.tickers.includes((ticker || '').toUpperCase());
+    }
+
+    async function toggleWatchlistStar(ticker) {
+      if (!ticker) return;
+      if (!isPremium) {
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      if (!watchlistState.loaded) {
+        await loadWatchlist();
+      }
+      const tk = ticker.toUpperCase();
+      if (isInWatchlist(tk)) {
+        await removeFromWatchlist(tk);
+      } else {
+        await addToWatchlist(tk);
+      }
+    }
+
+    function updateStarButtons() {
+      document.querySelectorAll('[data-wl-star]').forEach(el => {
+        const tk = (el.dataset.wlStar || '').toUpperCase();
+        const on = isInWatchlist(tk);
+        el.classList.toggle('active', on);
+        el.innerHTML = on ? t('stock.action.inWatchlist', '★ Dans la watchlist') : t('stock.action.addWatchlistShort', '☆ Ajouter à ma watchlist');
+        el.title = on ? t('stock.action.removeWatchlist', 'Retirer de ma watchlist') : t('stock.action.addWatchlist', 'Ajouter à ma watchlist');
+      });
+    }
+
+    // Precharge la watchlist une fois que l'utilisateur est authentifie (pour que le bouton ★ reflete le bon etat)
+    window.addEventListener('kairos:auth-ready', () => {
+      if (currentUser) {
+        loadWatchlist().catch(() => {});
+      }
+    });
+
+    // ============================================================
+    // SCREENER AVANCE (Phase 1)
+    // Appelle /api/history/insider avec filtres combinables
+    // ============================================================
+    let screenerResults = [];  // dernier resultset (pour export CSV)
+    let screenerActive = false;  // bascule entre mode rapide (KV) et mode avance (D1)
+    // Pattern 'Voir plus' (mai 2026) : 100 resultats par cran, increment a chaque clic
+    const SCREENER_INITIAL_COUNT = 100;
+    let screenerDisplayedCount = SCREENER_INITIAL_COUNT;
+
+    function resetScreener() {
+      document.getElementById('scrTicker').value = '';
+      document.getElementById('scrDays').value = '90';
+      document.getElementById('scrType').value = '';
+      document.getElementById('scrRole').value = '';
+      document.getElementById('scrSource').value = '';
+      document.getElementById('scrInsider').value = '';
+      document.getElementById('scrMinValue').value = '';
+      document.getElementById('scrSort').value = 'date-desc';
+      const countEl = document.getElementById('scrCount');
+      if (countEl) countEl.textContent = '';
+      const exportBtn = document.getElementById('scrExportBtn');
+      if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.style.opacity = '0.5';
+      }
+      screenerResults = [];
+      // Sortir du mode avance : revenir aux transactions recentes (KV)
+      screenerActive = false;
+      const scrArea = document.getElementById('scrTableArea');
+      if (scrArea) {
+        scrArea.style.display = 'none';
+        scrArea.innerHTML = '';
+      }
+      // Re-render la table principale (transactions recentes du KV)
+      if (typeof renderInsiderPage === 'function') {
+        currentPage = 0;
+        renderInsiderPage();
+      }
+    }
+
+    async function runScreener() {
+      if (!isPremium) {
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      if (!currentUser) {
+        Toast.warning('Veuillez vous connecter.');
+        return;
+      }
+      // Active le mode avance : on bascule l'affichage du tableau KV vers
+      // scrTableArea (D1 historique). Les filtres rapides + pagination KV
+      // sont masques pour eviter la confusion entre les 2 datasets.
+      screenerActive = true;
+      screenerDisplayedCount = SCREENER_INITIAL_COUNT;  // reset 'Voir plus'
+      const insiderArea = document.getElementById('insiderTableArea');
+      const insiderPagTop = document.getElementById('insiderPaginationTop');
+      const insiderPagBot = document.getElementById('insiderPagination');
+      if (insiderArea) insiderArea.style.display = 'none';
+      if (insiderPagTop) insiderPagTop.style.display = 'none';
+      if (insiderPagBot) insiderPagBot.style.display = 'none';
+      const tableArea = document.getElementById('scrTableArea');
+      tableArea.style.display = 'block';
+      tableArea.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche en cours...</div>';
+      const countEl = document.getElementById('scrCount');
+      if (countEl) countEl.textContent = '';
+
+      try {
+        const ticker = (document.getElementById('scrTicker').value || '').trim().toUpperCase();
+        const days = document.getElementById('scrDays').value || '90';
+        const type = document.getElementById('scrType').value || '';
+        const role = document.getElementById('scrRole').value || '';
+        const source = document.getElementById('scrSource').value || '';
+        const insider = (document.getElementById('scrInsider').value || '').trim();
+        const minValue = parseFloat(document.getElementById('scrMinValue').value || '0') || 0;
+        const sortKey = document.getElementById('scrSort').value || 'date-desc';
+
+        // Client-side guard : exige au moins un filtre (comme le backend)
+        if (!ticker && !insider && !type && !role && !source) {
+          tableArea.innerHTML = '<div style="padding:40px;text-align:center;color:var(--accent-red)">Precisez au moins un filtre : ticker, insider, type, role ou source.</div>';
+          document.getElementById('scrCount').textContent = '';
+          return;
+        }
+
+        const params = new URLSearchParams();
+        if (ticker) params.set('ticker', ticker);
+        params.set('days', days);
+        if (type) params.set('type', type);
+        if (role) params.set('role', role);
+        if (source) params.set('source', source);
+        if (insider) params.set('insider', insider);
+        params.set('limit', '2000');
+
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/history/insider?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status}).</div>`;
+          return;
+        }
+        const data = await res.json();
+        let rows = Array.isArray(data.transactions) ? data.transactions : [];
+
+        // Filtre min value cote client
+        if (minValue > 0) {
+          rows = rows.filter(r => (r.value || 0) >= minValue);
+        }
+
+        // Sort cote client
+        rows.sort((a, b) => {
+          switch (sortKey) {
+            case 'date-asc':  return (a.filing_date || '').localeCompare(b.filing_date || '');
+            case 'date-desc': return (b.filing_date || '').localeCompare(a.filing_date || '');
+            case 'value-desc': return (b.value || 0) - (a.value || 0);
+            case 'value-asc':  return (a.value || 0) - (b.value || 0);
+            case 'ticker-asc': return (a.ticker || '').localeCompare(b.ticker || '');
+            default: return 0;
+          }
+        });
+
+        screenerResults = rows;
+        document.getElementById('scrCount').textContent = `${rows.length} transactions trouvees`;
+        renderScreenerTable(rows);
+        const btn = document.getElementById('scrExportBtn');
+        btn.disabled = rows.length === 0;
+        btn.style.opacity = rows.length === 0 ? '0.5' : '1';
+      } catch (e) {
+        tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    function renderScreenerTable(rows) {
+      const tableArea = document.getElementById('scrTableArea');
+      if (!rows.length) {
+        tableArea.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-secondary)">Aucune transaction ne correspond a ces filtres.<br><span style="font-size:13px;opacity:0.7">Essayez d\'elargir la période ou de retirer certains filtres.</span></div>';
+        return;
+      }
+      const fmtUsd = (v) => {
+        if (!v || v === 0) return '—';
+        const abs = Math.abs(v);
+        if (abs >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+        if (abs >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+        return '$' + v.toFixed(0);
+      };
+      const fmtType = (t) => {
+        if (t === 'buy') return '<span style="color:var(--accent-green);font-weight:600">● Achat</span>';
+        if (t === 'sell') return '<span style="color:var(--accent-red);font-weight:600">● Vente</span>';
+        if (t === 'option-exercise') return '<span style="color:#a29bfe">● Option</span>';
+        return '<span style="color:var(--text-secondary)">● ' + (t || '—') + '</span>';
+      };
+      const fmtSource = (s) => {
+        const flag = {
+          'SEC': '🇺🇸', 'AMF': '🇫🇷', 'BAFIN': '🇩🇪', 'FCA': '🇬🇧',
+          'AFM': '🇳🇱', 'SIX-DISCLOSURE': '🇨🇭', 'SIX': '🇨🇭',
+          'CONSOB': '🇮🇹', 'CNMV': '🇪🇸',
+          'FINANSINSPEKTIONEN': '🇸🇪', 'FI': '🇸🇪', 'FI-SE': '🇸🇪',
+          'FINANSTILSYNET (NO)': '🇳🇴', 'FT-NO': '🇳🇴',
+          'FINANSTILSYNET (DK)': '🇩🇰', 'FT-DK': '🇩🇰',
+          'FINANSSIVALVONTA': '🇫🇮', 'FIVA': '🇫🇮',
+          'SEDI': '🇨🇦'
+        }[s] || '🌐';
+        return `<span title="${s}">${flag}</span>`;
+      };
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      // Pattern 'Voir plus' : on rend de 0 a screenerDisplayedCount (cumulatif)
+      const visibleCount = Math.min(screenerDisplayedCount, rows.length);
+      const shown = rows.slice(0, visibleCount);
+
+      const headers = `
+        <tr>
+          <th style="text-align:center">Src</th>
+          <th>Date</th>
+          <th>Ticker</th>
+          <th>Entreprise</th>
+          <th>Insider</th>
+          <th>Role</th>
+          <th style="text-align:center">Type</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Prix</th>
+          <th style="text-align:right">Valeur</th>
+        </tr>`;
+      const body = shown.map(r => `
+        <tr>
+          <td style="text-align:center">${fmtSource(r.source)}</td>
+          <td style="white-space:nowrap;font-size:12px;color:var(--text-secondary)">${esc(r.filing_date || r.trans_date || '')}</td>
+          <td><strong>${esc(r.ticker || '—')}</strong></td>
+          <td style="font-size:13px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.company)}">${esc(r.company || '—')}</td>
+          <td>${esc(r.insider || '—')}</td>
+          <td style="font-size:12px;color:var(--text-secondary)">${esc(r.title || '—')}</td>
+          <td style="text-align:center">${fmtType(r.trans_type)}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${r.shares ? r.shares.toLocaleString('fr-FR') : '—'}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${r.price ? '$' + r.price.toFixed(2) : '—'}</td>
+          <td style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums">${fmtUsd(r.value)}</td>
+        </tr>`).join('');
+
+      const footerHtml = renderLoadMoreFooter({
+        visible: visibleCount,
+        total: rows.length,
+        onLoadMore: 'loadMoreScreener()',
+        initialCount: SCREENER_INITIAL_COUNT,
+        label: 'résultats',
+      });
+
+      tableArea.innerHTML = `
+        <div class="table-scroll">
+          <table class="data-table" style="width:100%;border-collapse:collapse">
+            <thead>${headers}</thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+        ${footerHtml}
+      `;
+    }
+
+    // 'Voir plus' pour le screener : ajoute 100 resultats supplementaires
+    function loadMoreScreener() {
+      screenerDisplayedCount += SCREENER_INITIAL_COUNT;
+      renderScreenerTable(screenerResults);
+    }
+
+    // ============================================================
+    // ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS cote Worker)
+    // ============================================================
+    let isAdminUser = false;
+
+    async function checkAdminStatus() {
+      if (!currentUser) { isAdminUser = false; return false; }
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/admin/whoami`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) { isAdminUser = false; return false; }
+        const data = await res.json();
+        isAdminUser = !!data.isAdmin;
+        // Affiche la section sidebar "Admin" si admin
+        const el = document.getElementById('sidebarAdminSection');
+        if (el) el.style.display = isAdminUser ? '' : 'none';
+        return isAdminUser;
+      } catch (e) {
+        isAdminUser = false;
+        return false;
+      }
+    }
+
+    // Charge les panels de l'admin dashboard (Phase B : users + subs)
+    // Preview les 3 tweets du jour sans pousser vers Typefully
+    // (utile pour verifier le contenu avant publication).
+    async function previewDailyTweets() {
+      if (!currentUser) return Toast.error('Pas authentifié.');
+      try {
+        const data = await apiFetch('/api/admin/daily-tweets');
+        if (data.error) return Toast.error('Erreur: ' + data.error);
+        const tweets = data.tweets || [];
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px;backdrop-filter:blur(6px)';
+        modal.innerHTML = `
+          <div style="max-width:640px;width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <h3 style="margin:0;font-size:18px">🐦 Preview des tweets du jour</h3>
+              <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:4px 10px">✕</button>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin:0 0 18px">Générés depuis les signaux Kairos du jour. En cliquant "Push Typefully", ces 3 drafts seront ajoutés à ta queue.</p>
+            ${tweets.map((t, i) => `
+              <div style="padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;white-space:pre-wrap;font-family:'Inter',sans-serif;font-size:13px;line-height:1.5">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Tweet ${i+1} · ${t.length} chars</div>${t}
+              </div>
+            `).join('')}
+            <div style="display:flex;gap:10px;margin-top:18px">
+              <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer">Fermer</button>
+              <button onclick="this.closest('div[style*=fixed]').remove();pushTweetsToTypefully()" style="flex:1;padding:10px;background:linear-gradient(135deg,#1DA1F2,#0E71C8);border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:600">✈️ Push dans Typefully</button>
+            </div>
+          </div>`;
+        document.body.appendChild(modal);
+      } catch (e) {
+        Toast.error('Erreur: ' + (e.message || 'preview échouée'));
+      }
+    }
+
+    // Envoie un email HTML à l'admin avec les 3 tweets du jour (boutons "Poster sur X")
+    async function sendTweetsEmail() {
+      if (!currentUser) return Toast.error('Pas authentifié.');
+      if (!confirm('Envoyer un email avec les 3 tweets du jour à ton email admin ?')) return;
+      try {
+        const data = await apiFetch('/api/admin/daily-tweets/email', {}, 'POST');
+        if (data.error) return Toast.error('Erreur: ' + data.error);
+        Toast.success(`✓ Email envoyé à ${data.to || 'admin'} (${data.tweets || 0} tweets)`);
+      } catch (e) {
+        Toast.error('Erreur: ' + (e.message || 'envoi échoué'));
+      }
+    }
+
+    // Envoie le digest des commentaires X à faire (scrape 15 handles cibles)
+    // nocache=1 pour bypass le cache KV 30 min (test / debug manuel)
+    async function sendCommentDigestEmail() {
+      if (!currentUser) return Toast.error('Pas authentifié.');
+      if (!confirm('Envoyer le digest des commentaires X à ton email admin ? (scrape 15 handles, ~15s)')) return;
+      Toast.info('Scan des 15 handles en cours... (~15s)');
+      try {
+        const data = await apiFetch('/api/admin/comment-digest/email?nocache=1&hours=24', {}, 'POST');
+        if (data.error) return Toast.error('Erreur: ' + data.error);
+        const count = (data.digest || []).length;
+        const scanned = data.totalTweetsScanned || 0;
+        Toast.success(`✓ Digest envoyé : ${count} tweets à commenter sur ${scanned} scannés`);
+      } catch (e) {
+        Toast.error('Erreur: ' + (e.message || 'envoi échoué'));
+      }
+    }
+
+    async function loadAdminDashboard(force) {
+      if (!isAdminUser) {
+        await checkAdminStatus();
+        if (!isAdminUser) {
+          Toast.error('Accès admin refusé.');
+          switchSection('home');
+          return;
+        }
+      }
+      const statusEl = document.getElementById('adminAutoRefreshStatus');
+      if (statusEl) statusEl.textContent = 'Chargement...';
+
+      try {
+        const token = await currentUser.getIdToken();
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        // Fetch en parallele : subs-stats + users + traffic + db-stats + jobs + backup
+        const trafficDays = document.getElementById('adTrafficDays')?.value || '7';
+        const [subsRes, usersRes, trafficRes, dbRes, jobsRes, backupRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/ga4-stats?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/db-stats`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/jobs`, { headers }).then(r => r.json()).catch(() => null),
+          fetch(`${API_BASE}/api/admin/backup-status`, { headers }).then(r => r.json()).catch(() => null),
+        ]);
+
+        // KPI cards
+        if (subsRes) {
+          document.getElementById('adKpiPremium').textContent = subsRes.active || 0;
+          const mrrEl = document.getElementById('adKpiMrr');
+          if (mrrEl) mrrEl.textContent = `MRR est. ${subsRes.mrr_eur || 0} €`;
+        }
+        if (usersRes) {
+          document.getElementById('adKpiUsers').textContent = usersRes.total || 0;
+          const deltaEl = document.getElementById('adKpiUsersDelta');
+          if (deltaEl) deltaEl.textContent = `${usersRes.withSubscription || 0} subs · ${usersRes.withWatchlist || 0} watchlists`;
+        }
+        if (trafficRes && !trafficRes.error) {
+          const pv = trafficRes.kpis?.pageViews || 0;
+          document.getElementById('adKpiVisits').textContent = pv.toLocaleString('fr-FR');
+          const todayEl = document.getElementById('adKpiVisitsToday');
+          if (todayEl && trafficRes.series?.length) {
+            const last = trafficRes.series[trafficRes.series.length - 1];
+            const users = trafficRes.kpis?.totalUsers || 0;
+            todayEl.textContent = `${users.toLocaleString('fr-FR')} users · ${(trafficRes.kpis?.sessions || 0).toLocaleString('fr-FR')} sessions`;
+          }
+        }
+
+        // KPI Jobs
+        if (jobsRes) {
+          const kpiEl = document.getElementById('adKpiJobs');
+          if (kpiEl) kpiEl.textContent = `${jobsRes.ok || 0} / ${jobsRes.total || 0}`;
+          const lastEl = document.getElementById('adKpiJobsLast');
+          if (lastEl && jobsRes.jobs?.length) {
+            const mostRecent = jobsRes.jobs[0];
+            const when = mostRecent.iso ? new Date(mostRecent.iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+            lastEl.textContent = `Dernier : ${mostRecent.name} · ${when}`;
+          }
+        }
+
+        // KPI Backup R2
+        if (backupRes) {
+          const kpiEl = document.getElementById('adKpiBackup');
+          const metaEl = document.getElementById('adKpiBackupMeta');
+          if (kpiEl) {
+            if (!backupRes.hasBackup) {
+              kpiEl.textContent = '—';
+              kpiEl.style.color = 'var(--text-muted)';
+              if (metaEl) metaEl.textContent = 'Aucun backup';
+            } else {
+              const h = backupRes.ageHours;
+              kpiEl.textContent = h != null ? `${h}h` : '—';
+              const freshness = backupRes.freshness || 'unknown';
+              kpiEl.style.color = freshness === 'fresh' ? '#10B981'
+                                : freshness === 'warning' ? '#F59E0B'
+                                : freshness === 'stale' ? '#EF4444'
+                                : 'var(--text-primary)';
+              if (metaEl) {
+                const d1Mb = backupRes.meta?.d1?.sizeBytes ? (backupRes.meta.d1.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : '—';
+                const kvMb = backupRes.meta?.kv?.sizeBytes ? (backupRes.meta.kv.sizeBytes / 1024 / 1024).toFixed(1) + ' MB' : '—';
+                const files = backupRes.meta?.kv?.fileCount || 0;
+                metaEl.textContent = `D1 ${d1Mb} · KV ${kvMb} (${files} fichiers)`;
+              }
+            }
+          }
+        }
+
+        // Panels
+        renderAdminUsersPanel(usersRes, subsRes);
+        renderAdminTrafficPanel(trafficRes);
+        renderAdminDbPanel(dbRes);
+        renderAdminJobsPanel(jobsRes);
+        // Load error tracking (non-blocking)
+        loadAdminErrors().catch(() => {});
+        loadAdminScoreWeights().catch(() => {});
+
+        // Status : timestamp persiste + updater live pour "il y a Xs / Xmin"
+        window._adminLastRefreshTs = Date.now();
+        updateAdminRefreshBadge();
+      } catch (e) {
+        if (statusEl) statusEl.textContent = 'Erreur : ' + (e.message || e);
+      }
+    }
+
+    // Met a jour le badge de derniere MAJ (heure + age relatif).
+    // Appele toutes les secondes par un setInterval tant que la section admin
+    // est active. L'age se raffraichit en live (12s → 13s → ... → 2 min).
+    function updateAdminRefreshBadge() {
+      const statusEl = document.getElementById('adminAutoRefreshStatus');
+      if (!statusEl || !window._adminLastRefreshTs) return;
+      const ts = window._adminLastRefreshTs;
+      const ageSec = Math.round((Date.now() - ts) / 1000);
+      const time = new Date(ts).toLocaleTimeString('fr-FR');
+      let rel;
+      if (ageSec < 10) rel = 'à l\'instant';
+      else if (ageSec < 60) rel = `il y a ${ageSec}s`;
+      else if (ageSec < 3600) rel = `il y a ${Math.floor(ageSec / 60)} min`;
+      else rel = `il y a ${Math.floor(ageSec / 3600)}h`;
+      // Coloration selon fraicheur : vert <2min, orange <10min, rouge sinon
+      let color = '#10B981', bg = 'rgba(16,185,129,0.1)', border = 'rgba(16,185,129,0.3)';
+      if (ageSec > 600) { color = '#EF4444'; bg = 'rgba(239,68,68,0.1)'; border = 'rgba(239,68,68,0.3)'; }
+      else if (ageSec > 120) { color = '#F59E0B'; bg = 'rgba(245,158,11,0.1)'; border = 'rgba(245,158,11,0.3)'; }
+      statusEl.style.color = color;
+      statusEl.style.background = bg;
+      statusEl.style.borderColor = border;
+      statusEl.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block"></span>MAJ ${time} <span style="opacity:0.75;font-weight:400">· ${rel}</span>`;
+    }
+    // Ticker 1s — ne tourne que si la section admin est visible (evite le bruit)
+    setInterval(() => {
+      if (document.getElementById('section-admin')?.classList.contains('active')) {
+        updateAdminRefreshBadge();
+      }
+    }, 1000);
+
+    function renderAdminUsersPanel(usersRes, subsRes) {
+      const body = document.getElementById('adUsersBody');
+      const countEl = document.getElementById('adUsersCount');
+      if (!body) return;
+      if (!usersRes || !Array.isArray(usersRes.users)) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Aucune donnee.</div>';
+        return;
+      }
+      if (countEl) countEl.textContent = `${usersRes.users.length} users · ${usersRes.withSubscription || 0} subs`;
+
+      // Formateur €
+      const fmtEur = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.round(n));
+      const fmtEur2 = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
+
+      // Stats revenus : MRR, ARR, breakdown par plan (backend agrege)
+      const rev = usersRes.revenue || { mrrEur: 0, arrEur: 0, activeSubsCount: 0, byPlan: [] };
+      const planLabel = (plan, billing) => {
+        const p = plan === 'pro' ? 'Pro' : plan === 'elite' ? 'Elite' : plan === 'legacy' ? 'Premium (legacy 29€)' : 'Unknown';
+        const b = billing === 'yearly' ? 'annuel' : 'mensuel';
+        return `${p} ${b}`;
+      };
+
+      // Bandeau revenus (MRR + ARR + breakdown par plan)
+      const revenueBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+          <div class="tip" data-tip="Monthly Recurring Revenue. Somme normalisée en €/mois de tous les abonnements ACTIVE. Les plans annuels sont divisés par 12 pour l'estimation mensuelle." style="padding:12px;background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:8px">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">MRR</div>
+            <div style="font-size:22px;font-weight:700;color:#10B981;font-family:'Space Grotesk'">${fmtEur2(rev.mrrEur)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${rev.activeSubsCount} abo actifs</div>
+          </div>
+          <div class="tip" data-tip="Annualised Run Rate = MRR × 12. Projection de revenu annuel si les abonnements actifs actuels restent tels quels pendant 12 mois. Ne tient pas compte du churn ou de la croissance." style="padding:12px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(116,185,255,0.04));border:1px solid rgba(116,185,255,0.25);border-radius:8px">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">ARR (MRR×12)</div>
+            <div style="font-size:22px;font-weight:700;color:#74b9ff;font-family:'Space Grotesk'">${fmtEur(rev.arrEur)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Run rate annuel</div>
+          </div>
+          ${(rev.byPlan || []).slice(0, 3).map(p => `
+            <div class="tip" data-tip="${p.count} abonnement(s) ${planLabel(p.plan, p.billing)}. Contribution MRR : ${fmtEur2(p.mrrEur)}." style="padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${p.plan === 'elite' ? '⚡' : p.plan === 'pro' ? '⭐' : '🛡'} ${planLabel(p.plan, p.billing)}</div>
+              <div style="font-size:20px;font-weight:700;font-family:'Space Grotesk'">${p.count}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtEur2(p.mrrEur)} MRR</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      // Petite stat bar : subs par status
+      const stats = subsRes || {};
+      const statusBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div class="tip" data-tip="Abonnements Stripe actifs : paiement à jour, accès Premium effectif. C'est la métrique de référence pour le MRR." style="padding:8px;background:rgba(16,185,129,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#10B981">${stats.active || 0}</div>
+            <div style="color:var(--text-muted)">Actifs</div>
+          </div>
+          <div class="tip" data-tip="Abonnements dont le dernier paiement a échoué (carte expirée, fonds insuffisants…). Stripe retente automatiquement 3 fois sur 3 semaines avant de basculer en 'canceled'. L'user a toujours accès Premium pendant cette période de grâce." style="padding:8px;background:rgba(245,158,11,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#F59E0B">${stats.past_due || 0}</div>
+            <div style="color:var(--text-muted)">Past due</div>
+          </div>
+          <div class="tip" data-tip="Abonnements annulés (fin de période passée ou cancel immédiat par l'user via le portail Stripe). L'accès Premium est coupé. La clé sub:{uid} reste en KV pour l'historique." style="padding:8px;background:rgba(107,114,128,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:var(--text-muted)">${stats.canceled || 0}</div>
+            <div style="color:var(--text-muted)">Canceled</div>
+          </div>
+          <div class="tip" data-tip="Abonnements en période d'essai gratuite Stripe (trial). Pas de paiement facturé avant la fin du trial, mais accès Premium complet. Pas activé aujourd'hui sur Kairos (pas de trial configuré)." style="padding:8px;background:rgba(116,185,255,0.08);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#74b9ff">${stats.trialing || 0}</div>
+            <div style="color:var(--text-muted)">Trialing</div>
+          </div>
+        </div>
+      `;
+
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+      const fmtDTs = (ts) => ts ? new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+      // Badge plan (Pro / Elite / Legacy / FREE) — remplace l'ancien badgeStatus seul
+      const badgePlan = (u) => {
+        if (u.plan === 'elite') {
+          const lab = u.billing === 'yearly' ? 'ELITE · ANNUEL' : 'ELITE';
+          return `<span style="padding:2px 8px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em">${lab}</span>`;
+        }
+        if (u.plan === 'pro') {
+          const lab = u.billing === 'yearly' ? 'PRO · ANNUEL' : 'PRO';
+          return `<span style="padding:2px 8px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#fff;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em">${lab}</span>`;
+        }
+        if (u.plan === 'legacy') {
+          return `<span style="padding:2px 8px;background:rgba(107,114,128,0.15);color:var(--text-secondary);border:1px solid rgba(107,114,128,0.3);border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em">LEGACY 29€</span>`;
+        }
+        return `<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px;font-weight:600">FREE</span>`;
+      };
+      const badgeStatus = (s) => {
+        if (s === 'active') return '<span style="padding:2px 8px;background:rgba(16,185,129,0.15);color:#10B981;border-radius:10px;font-size:10px;font-weight:600">ACTIVE</span>';
+        if (s === 'past_due') return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:600">PAST DUE</span>';
+        if (s === 'canceled') return '<span style="padding:2px 8px;background:rgba(107,114,128,0.15);color:var(--text-muted);border-radius:10px;font-size:10px;font-weight:600">CANCELED</span>';
+        if (s === 'trialing') return '<span style="padding:2px 8px;background:rgba(116,185,255,0.15);color:#74b9ff;border-radius:10px;font-size:10px;font-weight:600">TRIAL</span>';
+        if (s) return `<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px;font-weight:600">${esc(s.toUpperCase())}</span>`;
+        return '<span style="padding:2px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:10px;font-size:10px">FREE</span>';
+      };
+
+      // Format date + heure courte pour la date d'inscription (firstSeen ISO)
+      const fmtDT = (iso) => {
+        if (!iso) return '—';
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch { return '—'; }
+      };
+
+      // Tri : premium d'abord, puis par date d'inscription decroissante (plus recent en haut)
+      const sortedUsers = [...usersRes.users].sort((a, b) => {
+        const ap = a.subStatus === 'active' ? 0 : (a.hasSubscription ? 1 : 2);
+        const bp = b.subStatus === 'active' ? 0 : (b.hasSubscription ? 1 : 2);
+        if (ap !== bp) return ap - bp;
+        return (b.firstSeen || '').localeCompare(a.firstSeen || '');
+      });
+
+      const rows = sortedUsers.slice(0, 100).map(u => {
+        const nextPayment = u.subStatus === 'active' ? fmtDTs(u.currentPeriodEnd) : '—';
+        const amountCell = u.amountEur != null
+          ? `<span style="font-weight:600;color:${u.subStatus === 'active' ? '#10B981' : 'var(--text-muted)'}">${fmtEur2(u.amountEur)}</span><span style="font-size:10px;color:var(--text-muted);margin-left:3px">${u.billing === 'yearly' ? '/an' : '/mois'}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+        const mrrCell = u.monthlyEur != null && u.subStatus === 'active'
+          ? `<span style="font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtEur2(u.monthlyEur)}</span>`
+          : '<span style="color:var(--text-muted)">—</span>';
+        return `
+        <tr style="border-bottom:1px solid var(--divider)">
+          <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)" title="${esc(u.uid)}">${esc(u.uid.slice(0, 10))}...</td>
+          <td style="padding:8px 10px;font-size:12px" title="${u.emailSource ? 'Source: ' + u.emailSource : ''}">${esc(u.email || u.watchlistEmail || '—')}${u.emailSource === 'stripe' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">stripe</span>' : u.emailSource === 'firebase' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">firebase</span>' : ''}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);white-space:nowrap" title="Date du premier login authentifié (création de la clé user:{uid} en KV)">${fmtDT(u.firstSeen)}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgePlan(u)}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgeStatus(u.subStatus)}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap">${amountCell}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap" title="Revenu mensuel normalisé (plans annuels divisés par 12)">${mrrCell}</td>
+          <td style="padding:8px 10px;text-align:right;font-size:11px;color:${u.subStatus === 'active' ? 'var(--text-primary)' : 'var(--text-muted)'};white-space:nowrap" title="${u.subStatus === 'active' ? 'Prochaine facturation Stripe (currentPeriodEnd)' : 'Pas d\'abonnement actif'}">${nextPayment}</td>
+          <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      body.innerHTML = revenueBar + statusBar + `
+        <div class="table-scroll">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border)">
+                <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
+                <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe'), sinon email Firebase (badge 'firebase'), sinon watchlistEmail." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
+                <th class="tip" data-tip="Date et heure du premier login authentifié au dashboard (= création de la clé user:{uid} en KV). Précision à la minute." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Inscrit le</th>
+                <th class="tip" data-tip="Plan souscrit : Elite (49€/mois ou 490€/an), Pro (19€/mois ou 190€/an), Legacy (ancien plan 29€/mois), ou FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Plan</th>
+                <th class="tip" data-tip="Statut Stripe : ACTIVE (OK, facturation à jour), PAST DUE (échec de paiement en retry), CANCELED (terminé), TRIAL." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Statut</th>
+                <th class="tip" data-tip="Montant facturé par période (mensuel ou annuel). Correspond au plan Stripe souscrit." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Montant</th>
+                <th class="tip" data-tip="MRR individuel : revenu mensuel normalisé. Pour les plans annuels = prix annuel / 12. Utilisé pour le total MRR en haut." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">MRR €/mois</th>
+                <th class="tip" data-tip="Date du prochain prélèvement Stripe (fin de la période en cours). Si l'abonnement reste ACTIVE, il sera renouvelé à cette date." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Prochain paiement</th>
+                <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
+                <th class="tip" data-tip="Double opt-in RGPD pour les emails Brief. ✅ = confirmé. ⏳ = mail envoyé pas encore cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="10" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
+          </table>
+        </div>
+        ${sortedUsers.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${sortedUsers.length} · triés par premium actif d'abord puis date d'inscription récente</div>` : ''}
+      `;
+    }
+
+    let adminTrafficChart = null;
+    function renderAdminTrafficPanel(trafficRes) {
+      const body = document.getElementById('adTrafficBody');
+      if (!body) return;
+
+      if (!trafficRes || trafficRes.error) {
+        const errMsg = trafficRes?.error || 'pas de données';
+        body.innerHTML = `
+          <div style="padding:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px">
+            <div style="font-weight:600;margin-bottom:8px;color:#F59E0B">⚠️ GA4 indisponible</div>
+            <div style="font-size:12px;color:var(--text-muted);font-family:monospace">${errMsg}</div>
+          </div>`;
+        return;
+      }
+
+      const series = trafficRes.series || [];
+      if (!series.length) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Aucune donnée GA4 sur cette période.</div>';
+        return;
+      }
+
+      const k = trafficRes.kpis || {};
+      const fmtN = (n) => (n || 0).toLocaleString('fr-FR');
+      const fmtPct = (n) => (n * 100).toFixed(1) + '%';
+      const fmtDur = (s) => {
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+      };
+
+      // KPIs
+      const kpis = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#74b9ff">${fmtN(k.totalUsers)}</div>
+            <div style="color:var(--text-muted)">Utilisateurs</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#10B981">${fmtN(k.activeUsers)}</div>
+            <div style="color:var(--text-muted)">Actifs</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#A78BFA">${fmtN(k.sessions)}</div>
+            <div style="color:var(--text-muted)">Sessions</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:18px;font-weight:700">${fmtN(k.pageViews)}</div>
+            <div style="color:var(--text-muted)">Page views</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:#F59E0B">${fmtPct(k.bounceRate || 0)}</div>
+            <div style="color:var(--text-muted)">Bounce</div>
+          </div>
+          <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
+            <div style="font-size:14px;font-weight:700">${fmtDur(k.avgSessionDuration || 0)}</div>
+            <div style="color:var(--text-muted)">Durée moy.</div>
+          </div>
+        </div>
+      `;
+
+      // Tableaux Top Pages + Sources
+      const topPages = trafficRes.topPages || [];
+      const channels = trafficRes.channels || [];
+      const pagesHtml = topPages.length ? `
+        <div style="margin-top:14px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:6px">📄 Top pages</div>
+          <div style="background:var(--surface-2);border-radius:6px;overflow:hidden">
+            ${topPages.slice(0, 5).map(p => `
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border-strong);font-size:11px">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)" title="${p.title || ''}">${(p.path || '/').slice(0, 40)}</div>
+                <div style="color:var(--text-muted);flex-shrink:0;margin-left:10px">${fmtN(p.pageViews)} vues</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : '';
+
+      const channelsHtml = channels.length ? `
+        <div style="margin-top:14px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;margin-bottom:6px">🎯 Sources</div>
+          <div style="background:var(--surface-2);border-radius:6px;overflow:hidden">
+            ${channels.slice(0, 5).map(c => `
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border-strong);font-size:11px">
+                <div style="color:var(--text-primary)">${c.channel || '(non défini)'}</div>
+                <div style="color:var(--text-muted)">${fmtN(c.users)} users · ${fmtN(c.sessions)} sess.</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : '';
+
+      body.innerHTML = kpis +
+        '<div style="height:200px;position:relative"><canvas id="adTrafficChart"></canvas></div>' +
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px">${pagesHtml}${channelsHtml}</div>` +
+        `<div style="margin-top:10px;font-size:10px;color:var(--text-muted);text-align:right">Source: <a href="https://analytics.google.com" target="_blank" style="color:var(--accent-blue);text-decoration:none">Google Analytics ↗</a></div>`;
+
+      // Destroy previous chart if any
+      if (adminTrafficChart) {
+        try { adminTrafficChart.destroy(); } catch {}
+        adminTrafficChart = null;
+      }
+
+      const ctx = document.getElementById('adTrafficChart')?.getContext('2d');
+      if (!ctx) return;
+      // Format YYYYMMDD → DD/MM
+      const labels = series.map(p => {
+        const d = p.date;
+        if (d && d.length === 8) {
+          return `${d.slice(6, 8)}/${d.slice(4, 6)}`;
+        }
+        return d || '';
+      });
+
+      adminTrafficChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Page views', data: series.map(p => p.pageViews || 0), borderColor: '#74b9ff', backgroundColor: 'rgba(116,185,255,0.12)', tension: 0.3, fill: true, pointRadius: 2 },
+            { label: 'Utilisateurs', data: series.map(p => p.users || 0), borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,0.06)', tension: 0.3, fill: false, pointRadius: 2 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: { mode: 'index', intersect: false },
+          },
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0 }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.1)' } },
+          },
+        },
+      });
+    }
+
+    function renderAdminDbPanel(dbRes) {
+      const body = document.getElementById('adDbBody');
+      if (!body) return;
+      if (!dbRes) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Pas de données.</div>';
+        return;
+      }
+
+      const fmtN = (n) => (n || 0).toLocaleString('fr-FR');
+      const d1 = dbRes.d1 || {};
+      const kv = dbRes.kv || {};
+
+      // Formate une plage de dates YYYY-MM-DD → "12 sep 2025 → 16 avr 2026 (7 mois)"
+      const MONTHS_FR = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+      const formatDate = (s) => {
+        if (!s || typeof s !== 'string') return '';
+        // YYYY-MM-DD strict requis
+        const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) return s; // fallback : affiche tel quel si format inattendu
+        const y = match[1];
+        const m = parseInt(match[2], 10);
+        const d = parseInt(match[3], 10);
+        if (isNaN(m) || isNaN(d) || m < 1 || m > 12) return s;
+        return `${d} ${MONTHS_FR[m - 1]} ${y}`;
+      };
+      const formatDuration = (minDate, maxDate) => {
+        if (!minDate || !maxDate) return '';
+        const a = new Date(minDate);
+        const b = new Date(maxDate);
+        if (isNaN(a) || isNaN(b)) return '';
+        const diff = (b - a) / 86400000;
+        if (diff < 1) return '1 jour';
+        if (diff < 31) return `${Math.round(diff)} jours`;
+        if (diff < 365) return `${Math.round(diff / 30)} mois`;
+        const y = Math.floor(diff / 365);
+        const m = Math.round((diff % 365) / 30);
+        return m > 0 ? `${y} an${y > 1 ? 's' : ''} ${m} mois` : `${y} an${y > 1 ? 's' : ''}`;
+      };
+
+      // D1 tables table
+      const d1Tables = [
+        { key: 'insider_transactions_history', label: '🕴️ Insider Transactions' },
+        { key: 'etf_snapshots', label: '💼 ETF Snapshots' },
+        { key: 'fund_holdings_history', label: '🏛️ Hedge Funds 13F' },
+        { key: 'score_history', label: '📊 Kairos Scores' },
+      ];
+      const d1Rows = d1Tables.map(t => {
+        const data = d1[t.key] || {};
+        if (data.error) {
+          return `<tr><td style="padding:10px">${t.label}</td><td colspan="3" style="padding:10px;color:#EF4444;font-size:11px">${escapeHtml(data.error)}</td></tr>`;
+        }
+        const isEmpty = !data.rows || data.rows === 0;
+        const rangeStr = data.minDate && data.maxDate
+          ? `${formatDate(data.minDate)} → ${formatDate(data.maxDate)}`
+          : '<span style="opacity:0.4">—</span>';
+        const durationStr = data.minDate && data.maxDate
+          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${formatDuration(data.minDate, data.maxDate)}</div>`
+          : '';
+        const extra = data.uniqueTickers != null
+          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtN(data.uniqueTickers)} tickers · ${fmtN(data.uniqueInsiders)} insiders</div>`
+          : '';
+        const rowColor = isEmpty ? 'color:var(--text-muted)' : '';
+        return `
+          <tr style="border-bottom:1px solid var(--divider);${rowColor}">
+            <td style="padding:10px 12px;font-size:13px;font-weight:500">${t.label}${extra}</td>
+            <td style="padding:10px 12px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px">${fmtN(data.rows)}</td>
+            <td style="padding:10px 12px;text-align:right;font-size:12px">${rangeStr}${durationStr}</td>
+          </tr>`;
+      }).join('');
+
+      // KV prefix counts (avec tooltips explicatifs)
+      const kvPrefixes = [
+        { prefix: 'sub:', label: '💳 Abonnements', desc: 'Utilisateurs avec abonnement Stripe actif', expect: 'users Premium' },
+        { prefix: 'wl:', label: '⭐ Watchlists', desc: 'Utilisateurs ayant activé la watchlist', expect: 'users avec watchlist' },
+        { prefix: 'wl-prev:', label: '📸 Snapshots J-1', desc: 'Snapshots quotidiens créés par le cron watchlist-digest. À 0 si le cron n\'a pas tourné ou n\'a détecté aucun événement.', expect: 'généré par le cron', warnIfZero: true },
+        { prefix: 'wl-last-cron-run', label: '⏰ Cron run log', desc: 'Trace du dernier run du cron watchlist-digest.', expect: 'toujours 1' },
+        { prefix: 'insider-', label: '🕴️ Cache insider', desc: 'Cache des analyses insider par ticker (TTL 1h).', expect: 'grandit avec le trafic' },
+        { prefix: 'etf-', label: '💼 Cache ETF', desc: 'Cache des données ETF (NANC, GOP, GURU, etc.)', expect: '5-15' },
+        { prefix: '13f-', label: '🏛️ Cache 13F', desc: 'Cache des portefeuilles hedge funds par ticker.', expect: 'grandit avec le trafic' },
+        { prefix: 'google-', label: '🔎 Cache trends', desc: 'Cache des tendances Google Trends / Hot Stocks.', expect: '1-5' },
+        { prefix: 'lastRun:', label: '📋 Jobs lastRun', desc: 'Traces du dernier run des jobs Python (pipeline).', expect: 'toujours >= 1' },
+      ];
+      // wl-prev:* ne doit warner qu'en presence de watchlists actives. Sans
+      // users abonnes a la watchlist, 0 snapshots J-1 est normal (pas un bug).
+      const wlCount = kv['wl:'] || 0;
+      const kvRows = kvPrefixes.map(k => {
+        const count = kv[k.prefix];
+        if (count === undefined || count === null) return '';
+        let isWarning = k.warnIfZero && count === 0;
+        if (k.prefix === 'wl-prev:' && wlCount === 0) isWarning = false; // false positif : pas de watchlists => pas de snapshots attendus
+        const color = isWarning ? '#F59E0B' : (count > 0 ? 'var(--text-primary)' : 'var(--text-muted)');
+        const icon = isWarning ? ' ⚠️' : '';
+        const titleAttr = `${k.desc}${k.expect ? ' Attendu : ' + k.expect + '.' : ''}`;
+        return `
+          <tr style="border-bottom:1px solid var(--divider)" title="${escapeHtml(titleAttr)}">
+            <td style="padding:10px 12px;font-size:13px">
+              <div style="font-weight:500">${k.label}${icon}</div>
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px;line-height:1.3">${escapeHtml(k.desc)}</div>
+            </td>
+            <td style="padding:10px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);vertical-align:top">${k.prefix}*</td>
+            <td style="padding:10px 12px;text-align:right;font-weight:700;color:${color};font-variant-numeric:tabular-nums;font-size:16px;vertical-align:top">${count < 0 ? 'erreur' : fmtN(count)}</td>
+          </tr>`;
+      }).filter(Boolean).join('');
+
+      // Taille D1 banner
+      const fmtBytes = (b) => {
+        if (!b || b === 0) return '0';
+        if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+        if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+        if (b >= 1e3) return (b / 1e3).toFixed(0) + ' KB';
+        return b + ' B';
+      };
+      const sizeBanner = dbRes.d1Size ? (() => {
+        const used = dbRes.d1Size.bytes;
+        const limit = dbRes.d1Size.limitBytes || (10 * 1024 * 1024 * 1024);
+        const pct = limit ? (used / limit) * 100 : 0;
+        const color = pct < 50 ? '#10B981' : pct < 80 ? '#F59E0B' : '#EF4444';
+        return `
+          <div style="padding:12px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(162,155,254,0.04));border:1px solid var(--border);border-radius:10px;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Taille DB (D1)</div>
+              <div style="font-size:18px;font-weight:700;color:${color}">${fmtBytes(used)}</div>
+            </div>
+            <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100, pct).toFixed(2)}%;background:${color};transition:width 0.3s"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-muted)">
+              <span>${pct.toFixed(3)} % du plan gratuit (${fmtBytes(limit)})</span>
+              <span>${(dbRes.d1Size.pages || 0).toLocaleString('fr-FR')} pages x ${dbRes.d1Size.pageSize || 0} B</span>
+            </div>
+          </div>
+        `;
+      })() : '';
+
+      body.innerHTML = sizeBanner + `
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare D1 (kairos-history)</div>
+        <div style="overflow-x:auto;max-width:100%;margin-bottom:20px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;word-wrap:break-word">
+          <colgroup>
+            <col style="width:45%">
+            <col style="width:18%">
+            <col style="width:37%">
+          </colgroup>
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Table</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Rows</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Période</th>
+            </tr>
+          </thead>
+          <tbody>${d1Rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted)">Aucune table disponible.</td></tr>'}</tbody>
+        </table>
+        </div>
+
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Cloudflare KV (CACHE)</div>
+        <div style="overflow-x:auto;max-width:100%">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;word-wrap:break-word">
+          <colgroup>
+            <col style="width:60%">
+            <col style="width:25%">
+            <col style="width:15%">
+          </colgroup>
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Type</th>
+              <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:500">Prefix</th>
+              <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:500">Cles</th>
+            </tr>
+          </thead>
+          <tbody>${kvRows}</tbody>
+        </table>
+        </div>
+
+        <div style="margin-top:12px;font-size:10px;color:var(--text-muted);text-align:right">MAJ : ${dbRes.timestamp ? new Date(dbRes.timestamp).toLocaleTimeString('fr-FR') : '—'}</div>
+      `;
+    }
+
+    // Metadonnees human-readable pour les jobs du pipeline.
+    // Chaque entree : { title: texte court lisible, desc: tooltip explicatif }.
+    // Fallback sur le nom technique si l'entree manque.
+    const JOB_META = {
+      'cron-watchlist-digest': {
+        title: '📧 Brief email watchlists',
+        desc: 'Tourne chaque matin à 8h15 Paris. Envoie aux users opt-in un Brief des actions en watchlist : clusters insiders détectés, rotations ETF, variation Kairos Score. Skippé pour les users sans watchlist ou sans opt-in RGPD.',
+      },
+      'fetch-13dg': {
+        title: '📜 Filings 13D/G (activists + gros actionnaires >5%)',
+        desc: 'Cron quotidien. Récupère les Schedule 13D (offensif) et 13G (passif) depuis SEC EDGAR pour les investisseurs détenant >5% du capital. Enrichit chaque filing via XML primary_doc (shares, percentOfClass, purchase price). ~37k filings stockés sur 2 ans. Alimente les onglets "Fonds Offensifs" et les cards "Gros actionnaires" des fiches action.',
+      },
+      'fetch-amf': {
+        title: '🇫🇷 AMF — Déclarations dirigeants FR',
+        desc: 'Cron quotidien. Récupère les déclarations publiques des dirigeants d\'entreprises cotées en France via le site de l\'AMF. Complète les Form 4 SEC (US) et BaFin (DE) pour une couverture insider européenne.',
+      },
+      'fetch-bafin': {
+        title: '🇩🇪 BaFin — Directors\' dealings DE',
+        desc: 'Cron quotidien. Récupère les dealings des dirigeants allemands via BaFin. Couvre les actions cotées sur Xetra et les autres places allemandes.',
+      },
+      'prefetch-13f': {
+        title: '🏛️ Portefeuilles hedge funds (13F-HR)',
+        desc: 'Cron quotidien (fetch tous les trimestres SEC). Télécharge les portefeuilles 13F-HR des top 200 hedge funds par AUM. Chaque fonds publie sa composition tous les 3 mois avec 45j de retard. Alimente les onglets "Hedge Funds" et la card "Hedge Funds" des fiches action.',
+      },
+      'prefetch-all': {
+        title: '🕴️ Insiders SEC Form 4 + clusters',
+        desc: 'Cron quotidien. Récupère les transactions insiders SEC Form 4 (achats/ventes par CEO/CFO/Directors) des 90 derniers jours. Détecte les clusters (≥3 insiders même ticker même période) — signal fort. Alimente la section "Signaux Insiders".',
+      },
+      'prefetch-etf': {
+        title: '💼 ETF thématiques (NANC, GOP, GURU...)',
+        desc: 'Cron quotidien. Télécharge les holdings actuels des 11 ETF thématiques suivis (NANC=Pelosi, GOP=républicains, GURU=gurus hedge funds, BUZZ=social sentiment, MEME=WallStreetBets, etc.). Alimente l\'onglet "ETF Live" et les cards ETF des fiches action.',
+      },
+      'prefetch-trends': {
+        title: '🔎 Google Trends hot stocks',
+        desc: 'Cron quotidien. Calcule l\'indice Google Trends pour les top ~100 tickers les plus consultés. Détecte les pics d\'intérêt retail (FOMO, news virales). Alimente l\'onglet "Hot Stocks" du dashboard.',
+      },
+      'merge-sources': {
+        title: '🔀 Fusion insiders SEC + BaFin + AMF',
+        desc: 'Cron quotidien. Merge les 3 sources d\'insiders (US, DE, FR) en un flux unifié avec dedup. Enrichit les transactions EU avec un ticker résolu via OpenFIGI (ISIN → ticker).',
+      },
+      'push-to-d1': {
+        title: '📥 Archivage ETF + 13F → D1',
+        desc: 'Cron quotidien. Push les snapshots ETF et 13F du jour dans la D1 (table etf_snapshots, fund_holdings_history). Permet de comparer l\'évolution dans le temps : rotations ETF, nouveaux investissements des fonds, positions abandonnées. Historique long-terme.',
+      },
+      'push-insiders-to-d1': {
+        title: '📥 Archivage insider transactions → D1',
+        desc: 'Cron quotidien. Push les transactions insiders dans la D1 (table insider_transactions_history, ~160k rows sur 12 mois). Utilisé par le Screener avancé et les onglets "Flux net 30j" / "Transversaux" de Signaux Insiders (query SQL directe sur la D1).',
+      },
+      'push-scores-to-d1': {
+        title: '📥 Archivage Kairos Scores → D1',
+        desc: 'Cron quotidien. Push le Kairos Score des 3349 tickers dans la D1 (table score_history) pour tracer l\'évolution du score dans le temps. Alimente le widget "Activité récente 7j" et les graphs d\'évolution sur les fiches action.',
+      },
+      'discover-13f-funds': {
+        title: '🔍 Discovery top 200 hedge funds',
+        desc: 'Cron hebdomadaire (lundi). Met à jour la liste des 200 plus gros hedge funds par AUM depuis SEC EDGAR. Cette liste est ensuite utilisée par prefetch-13f pour cibler les fonds à suivre.',
+      },
+      'backup-to-r2': {
+        title: '💾 Backup D1 + KV → R2',
+        desc: 'Cron quotidien 7h UTC. Dump SQL complet de la D1 kairos-history + export de toutes les clés KV critiques (sub:*, wl:*, insider-*, 13f-*, etc.) vers le bucket R2 kairos-backups. Rétention 30 jours glissants. Voir BACKUP_RECOVERY.md pour le plan de reprise.',
+      },
+    };
+    const getJobMeta = (name) => JOB_META[name] || { title: name, desc: 'Job pipeline non documenté. Voir GitHub Actions pour les détails.' };
+
+    function renderAdminJobsPanel(jobsRes) {
+      const body = document.getElementById('adJobsBody');
+      if (!body) return;
+      if (!jobsRes) {
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">Pas de données.</div>';
+        return;
+      }
+
+      const jobs = jobsRes.jobs || [];
+      if (!jobs.length) {
+        body.innerHTML = `
+          <div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">
+            <div style="margin-bottom:10px">Aucun job logge pour le moment.</div>
+            <div style="font-size:11px;opacity:0.8">Les scripts du pipeline ecrivent leur lastRun lors du prochain run (cron quotidien 5h UTC).</div>
+          </div>
+        `;
+        return;
+      }
+
+      const now = Date.now() / 1000;
+      const fmtAge = (ts) => {
+        if (!ts) return '—';
+        const ageMin = (now - ts) / 60;
+        if (ageMin < 2) return 'à l\'instant';
+        if (ageMin < 60) return `il y a ${Math.round(ageMin)} min`;
+        if (ageMin < 1440) return `il y a ${Math.round(ageMin / 60)} h`;
+        return `il y a ${Math.round(ageMin / 1440)} j`;
+      };
+      // Badge status gros + color-coded
+      const badgeStatus = (s, ts) => {
+        const stale = ts && (now - ts) > 48 * 3600;
+        const base = 'display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:14px;font-size:11px;font-weight:700;letter-spacing:0.03em;white-space:nowrap';
+        if (s === 'ok' && stale) return `<span style="${base};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">⚠ STALE</span>`;
+        if (s === 'ok') return `<span style="${base};background:rgba(16,185,129,0.18);color:#10B981;border:1px solid rgba(16,185,129,0.3)">✓ OK</span>`;
+        if (s === 'failed') return `<span style="${base};background:rgba(239,68,68,0.18);color:#EF4444;border:1px solid rgba(239,68,68,0.35)">✕ FAILED</span>`;
+        if (s === 'partial') return `<span style="${base};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">◐ PARTIAL</span>`;
+        return `<span style="${base};background:var(--surface-2);color:var(--text-muted)">${(s || '?').toUpperCase()}</span>`;
+      };
+      // Bouton "lancer" selon le type de job
+      const GITHUB_REPO = 'natquinson-cmd/kairos-insider';
+      const actionButton = (jobName) => {
+        // Le cron-watchlist-digest est déclenchable via le Worker
+        if (jobName === 'cron-watchlist-digest') {
+          return `<button type="button" onclick="runWatchlistCron(this)" class="admin-run-btn" title="Lancer le cron maintenant">▶ Lancer</button>`;
+        }
+        // Les autres jobs sont dans GitHub Actions : lien workflow_dispatch
+        const workflowMap = {
+          'fetch-13dg': 'update-13f.yml', // ou workflow dédié si existe
+          'fetch-insider': 'update-insiders.yml',
+          'fetch-13f': 'update-13f.yml',
+          'fetch-etf': 'update-etfs.yml',
+          'fetch-kairos-score': 'update-scores.yml',
+        };
+        const wf = workflowMap[jobName];
+        if (wf) {
+          return `<a href="https://github.com/${GITHUB_REPO}/actions/workflows/${wf}" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir dans GitHub Actions">🔗 GitHub</a>`;
+        }
+        return `<a href="https://github.com/${GITHUB_REPO}/actions" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir Actions">🔗 Actions</a>`;
+      };
+
+      const rows = jobs.map(j => `
+        <tr style="border-bottom:1px solid var(--divider)">
+          <td style="padding:12px 10px;font-size:13px;font-weight:600">
+            <div>${escapeHtml(j.name)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtAge(j.ts)}${j.durationSec != null ? ' · ' + j.durationSec + 's' : ''}</div>
+          </td>
+          <td style="padding:12px 10px;text-align:center">${badgeStatus(j.status, j.ts)}</td>
+          <td style="padding:12px 10px;font-size:11px;color:var(--text-muted);max-width:220px;line-height:1.4" title="${escapeHtml(j.summary || '')}${j.error ? ' — Erreur : ' + escapeHtml(j.error) : ''}">
+            ${escapeHtml((j.summary || '').slice(0, 80))}${j.summary && j.summary.length > 80 ? '…' : (j.summary ? '' : '—')}
+            ${j.error ? `<div style="color:#EF4444;font-size:10px;margin-top:3px">Erreur : ${escapeHtml(j.error.slice(0, 60))}</div>` : ''}
+          </td>
+          <td style="padding:12px 10px;text-align:right">${actionButton(j.name)}</td>
+        </tr>
+      `).join('');
+
+      const kpiBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:16px">
+          <div style="padding:14px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:#10B981">${jobsRes.ok || 0}</div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">OK</div>
+          </div>
+          <div style="padding:14px;background:rgba(239,68,68,${(jobsRes.failed || 0) > 0 ? '0.1' : '0.04'});border:1px solid rgba(239,68,68,${(jobsRes.failed || 0) > 0 ? '0.3' : '0.15'});border-radius:10px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:${(jobsRes.failed || 0) > 0 ? '#EF4444' : 'var(--text-muted)'}">${jobsRes.failed || 0}</div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Failed</div>
+          </div>
+          <div style="padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:28px;font-weight:800">${jobsRes.total || 0}</div>
+            <div style="color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Total</div>
+          </div>
+        </div>
+      `;
+
+      body.innerHTML = kpiBar + `
+        <style>
+          .admin-run-btn {
+            display:inline-flex;align-items:center;gap:4px;
+            padding:7px 13px;border-radius:8px;
+            background:linear-gradient(135deg,#3B82F6,#8B5CF6);
+            color:#fff !important;border:none;cursor:pointer;
+            font-family:inherit;font-size:12px;font-weight:600;
+            text-decoration:none;white-space:nowrap;
+            transition:all 0.2s;
+          }
+          .admin-run-btn:hover { transform:translateY(-1px);box-shadow:0 4px 14px rgba(59,130,246,0.35); }
+          .admin-run-btn[disabled] { opacity:0.6;cursor:wait;transform:none; }
+        </style>
+        <div style="max-height:420px;overflow-y:auto">
+          ${jobs.map(j => {
+            const stale = j.ts && (now - j.ts) > 48 * 3600;
+            const isGitHub = j.name !== 'cron-watchlist-digest';
+            const GITHUB_REPO_L = 'natquinson-cmd/kairos-insider';
+            const workflowMap = {
+              'fetch-13dg': 'update-13f.yml',
+              'fetch-amf': 'update-13f.yml',
+              'fetch-bafin': 'update-13f.yml',
+              'prefetch-13f': 'update-13f.yml',
+              'prefetch-all': 'update-13f.yml',
+              'prefetch-etf': 'update-13f.yml',
+              'prefetch-trends': 'update-13f.yml',
+              'merge-sources': 'update-13f.yml',
+              'push-to-d1': 'update-13f.yml',
+              'push-insiders-to-d1': 'update-13f.yml',
+              'push-scores-to-d1': 'update-13f.yml',
+              'discover-13f-funds': 'update-13f.yml',
+              'backup-to-r2': 'backup.yml',
+            };
+            const wf = workflowMap[j.name];
+            const btnHTML = isGitHub
+              ? `<a href="https://github.com/${GITHUB_REPO_L}/actions${wf ? '/workflows/' + wf : ''}" target="_blank" rel="noopener" class="admin-run-btn">🔗 GitHub</a>`
+              : `<button type="button" onclick="runWatchlistCron(this)" class="admin-run-btn">▶ Lancer</button>`;
+            const meta = getJobMeta(j.name);
+            return `
+              <div class="tip" data-tip="${escapeHtml(meta.desc)}" style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface-1);cursor:help">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:700;font-size:13px;color:var(--text-primary);line-height:1.3">${escapeHtml(meta.title)}</div>
+                    <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-top:2px">${escapeHtml(j.name)}</div>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+                    ${badgeStatus(j.status, j.ts)}
+                    ${btnHTML}
+                  </div>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);line-height:1.5">
+                  <span>${fmtAge(j.ts)}</span>
+                  ${j.durationSec != null ? ' · <span>' + j.durationSec + 's</span>' : ''}
+                  ${j.summary ? ' · <span>' + escapeHtml(j.summary.slice(0, 90)) + (j.summary.length > 90 ? '…' : '') + '</span>' : ''}
+                </div>
+                ${j.error ? `<div style="font-size:11px;color:#EF4444;margin-top:4px">⚠️ ${escapeHtml(j.error.slice(0, 120))}</div>` : ''}
+              </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:14px;padding:12px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.6">
+          💡 <strong style="color:var(--text-primary)">Info</strong> — Les jobs <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">fetch-*</code> tournent via GitHub Actions (cron quotidien). Cliquer 🔗 GitHub ouvre le workflow pour trigger manuel. Le cron-watchlist-digest est interne au Worker et peut être lancé directement.
+        </div>
+      `;
+    }
+
+    // Déclencheur manuel du cron watchlist-digest (via Worker)
+    async function runWatchlistCron(btn) {
+      if (!currentUser || !btn) return;
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ En cours…';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(API_BASE + '/api/admin/run-watchlist-cron', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          Toast.success(`Cron exécuté (${data.durationSec || 0}s). Actualisation…`);
+          setTimeout(() => loadAdminDashboard(true), 1000);
+        } else {
+          Toast.error('Erreur : ' + (data.error || 'inconnue'));
+        }
+      } catch (e) {
+        Toast.error('Erreur réseau : ' + (e.message || e));
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+    window.runWatchlistCron = runWatchlistCron;
+
+    // ============================================================
+    // ADMIN : Ponderation Kairos Score (load / reset / save)
+    // ============================================================
+    let adminScoreWeightsState = { defaults: null, labels: null, keys: null, current: null };
+
+    async function loadAdminScoreWeights() {
+      const body = document.getElementById('adScoreWeightsBody');
+      if (!body || !currentUser) return;
+      body.innerHTML = window.Skeleton ? window.Skeleton.lines(4) : 'Chargement…';
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/admin/score-weights`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        adminScoreWeightsState = { defaults: data.defaults, labels: data.labels, keys: data.keys, current: { ...data.weights } };
+        renderAdminScoreWeights();
+      } catch (e) {
+        body.innerHTML = `<div style="padding:20px;color:var(--accent-red);font-size:13px">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    function renderAdminScoreWeights() {
+      const body = document.getElementById('adScoreWeightsBody');
+      if (!body) return;
+      const { defaults, labels, keys, current } = adminScoreWeightsState;
+      if (!keys) return;
+      const sum = keys.reduce((s, k) => s + (Number(current[k]) || 0), 0);
+      const sumColor = Math.abs(sum - 100) < 0.5 ? '#10B981' : (sum < 100 ? '#F59E0B' : '#EF4444');
+      const rows = keys.map(k => {
+        const def = defaults[k];
+        const val = current[k];
+        const isModified = Math.abs(val - def) > 0.01;
+        return `
+          <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider)">
+            <div style="font-size:13px;color:var(--text-primary);font-weight:500">${escapeHtml(labels[k])}${isModified ? ' <span style="font-size:10px;color:#F59E0B;margin-left:4px" title="Modifié par rapport au défaut">●</span>' : ''}</div>
+            <input type="range" min="0" max="40" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%" aria-label="${escapeHtml(labels[k])}" />
+            <input type="number" min="0" max="100" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:13px;font-variant-numeric:tabular-nums" />
+            <div style="font-size:11px;color:var(--text-muted);text-align:right">déf. ${def}</div>
+          </div>`;
+      }).join('');
+      body.innerHTML = `
+        <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:0 0 8px;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)">
+          <div>Axe</div>
+          <div>Poids (slider 0–40)</div>
+          <div style="text-align:center">Valeur</div>
+          <div style="text-align:right">Défaut</div>
+        </div>
+        ${rows}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 14px;background:var(--surface-2);border-radius:8px">
+          <div style="font-size:12px;color:var(--text-secondary)">Somme des poids</div>
+          <div style="font-size:18px;font-weight:700;color:${sumColor};font-variant-numeric:tabular-nums">${sum.toFixed(1)} <span style="font-size:11px;font-weight:400;opacity:0.6">/ 100 idéal</span></div>
+        </div>
+        <div style="margin-top:10px;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:11px;color:var(--text-secondary);line-height:1.5">
+          💡 Les poids somment idéalement à <strong>100</strong> pour que le score affiché soit lisible (0-100). Une somme différente reste valide — le score total peut juste sortir de l'intervalle (ex: max 120 si somme=120). Le cache stock-analysis (TTL 1h) expire progressivement, donc les nouveaux poids s'appliquent dans les ~60 min.
+        </div>`;
+    }
+
+    function onAdminWeightChange(key, value) {
+      const v = Math.max(0, Math.min(100, Number(value) || 0));
+      adminScoreWeightsState.current[key] = v;
+      renderAdminScoreWeights();
+    }
+
+    function resetAdminScoreWeights() {
+      if (!adminScoreWeightsState.defaults) return;
+      adminScoreWeightsState.current = { ...adminScoreWeightsState.defaults };
+      renderAdminScoreWeights();
+    }
+
+    async function saveAdminScoreWeights() {
+      if (!currentUser || !adminScoreWeightsState.current) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/admin/score-weights`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(adminScoreWeightsState.current),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          Toast.error('Erreur : ' + (data.error || `API ${res.status}`));
+          return;
+        }
+        Toast.success(`Poids sauvegardés (somme : ${data.sum}). Effet progressif sur ~60 min.`);
+      } catch (e) {
+        Toast.error('Erreur : ' + (e.message || e));
+      }
+    }
+
+    window.loadAdminScoreWeights = loadAdminScoreWeights;
+    window.onAdminWeightChange = onAdminWeightChange;
+    window.resetAdminScoreWeights = resetAdminScoreWeights;
+    window.saveAdminScoreWeights = saveAdminScoreWeights;
+
+    // ============================================================
+    // ADMIN : Error tracking (Priorité 3.2)
+    // ============================================================
+    async function loadAdminErrors() {
+      const body = document.getElementById('adErrorsBody');
+      if (!body || !currentUser) return;
+      body.innerHTML = window.Skeleton.lines(3);
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(API_BASE + '/api/admin/errors', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          body.innerHTML = `<div style="padding:20px;color:#F87171">Erreur : ${escapeHtml(data.error || res.status)}</div>`;
+          return;
+        }
+        renderAdminErrorsPanel(data);
+      } catch (e) {
+        body.innerHTML = `<div style="padding:20px;color:#F87171">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    function renderAdminErrorsPanel(data) {
+      const body = document.getElementById('adErrorsBody');
+      if (!body) return;
+      const errors = data.errors || [];
+      const daily = data.dailyCounts || [];
+
+      // KPI bar
+      const totalWeek = daily.reduce((s, d) => s + (d.count || 0), 0);
+      const todayCount = daily[daily.length - 1]?.count || 0;
+      const kpi = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">
+          <div style="padding:12px 14px;background:rgba(239,68,68,${todayCount > 0 ? '0.12' : '0.05'});border:1px solid rgba(239,68,68,${todayCount > 0 ? '0.3' : '0.15'});border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:800;color:${todayCount > 0 ? '#EF4444' : 'var(--text-muted)'}">${todayCount}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Aujourd'hui</div>
+          </div>
+          <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:800">${totalWeek}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">7 derniers jours</div>
+          </div>
+          <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:800">${data.total}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Log total</div>
+          </div>
+        </div>`;
+
+      // Mini sparkline 7 jours
+      const maxDaily = Math.max(1, ...daily.map(d => d.count || 0));
+      const sparkline = `
+        <div style="display:flex;align-items:flex-end;gap:4px;height:40px;margin-bottom:14px;padding:0 10px">
+          ${daily.map(d => {
+            const h = Math.max(3, ((d.count || 0) / maxDaily) * 100);
+            const color = d.count === 0 ? 'var(--surface-2)' : d.count > 5 ? '#EF4444' : '#F59E0B';
+            return `<div style="flex:1;height:${h}%;background:${color};border-radius:3px 3px 0 0;min-height:3px" title="${d.date}: ${d.count} erreur${d.count > 1 ? 's' : ''}"></div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:14px;padding:0 10px">
+          <span>${daily[0]?.date.slice(5) || ''}</span>
+          <span>${daily[daily.length - 1]?.date.slice(5) || ''}</span>
+        </div>`;
+
+      // Liste des dernières erreurs
+      if (errors.length === 0) {
+        body.innerHTML = kpi + sparkline + `
+          <div style="padding:30px;text-align:center;color:#10B981">
+            <div style="font-size:32px;margin-bottom:8px">✅</div>
+            <div style="font-size:13px">Aucune erreur enregistrée — tout roule !</div>
+          </div>`;
+        return;
+      }
+
+      const fmtAge = (ts) => {
+        const now = Date.now();
+        const ageMin = (now - ts) / 60000;
+        if (ageMin < 1) return 'à l\'instant';
+        if (ageMin < 60) return `il y a ${Math.round(ageMin)} min`;
+        if (ageMin < 1440) return `il y a ${Math.round(ageMin / 60)} h`;
+        return `il y a ${Math.round(ageMin / 1440)} j`;
+      };
+
+      const rows = errors.slice(0, 20).map(e => {
+        const path = e.path || 'unknown';
+        const method = e.method ? e.method + ' ' : '';
+        return `
+          <div style="padding:10px 12px;border-bottom:1px solid var(--divider);font-size:12px">
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:4px">
+              <div style="font-family:monospace;font-size:11px;color:var(--text-muted)">${escapeHtml(method)}${escapeHtml(path)}</div>
+              <div style="color:var(--text-muted);font-size:10px;flex-shrink:0">${fmtAge(e.ts)}</div>
+            </div>
+            <div style="color:#F87171;font-weight:600;margin-bottom:4px">${escapeHtml(e.message || 'unknown')}</div>
+            ${e.stack ? `<details style="font-size:10px;color:var(--text-muted)"><summary style="cursor:pointer">Stack trace</summary><pre style="margin:4px 0 0;padding:8px;background:var(--surface-2);border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-size:10px">${escapeHtml(e.stack)}</pre></details>` : ''}
+          </div>`;
+      }).join('');
+
+      body.innerHTML = kpi + sparkline + `
+        <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">${rows}</div>
+        ${errors.length > 20 ? `<div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">${errors.length - 20} erreurs plus anciennes masquées</div>` : ''}
+      `;
+    }
+
+    async function clearAdminErrors() {
+      if (!currentUser || !confirm('Vider complètement le log d\'erreurs ?')) return;
+      try {
+        const token = await currentUser.getIdToken();
+        const res = await fetch(API_BASE + '/api/admin/errors-clear', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.ok) {
+          Toast.success('Log d\'erreurs vidé');
+          loadAdminErrors();
+        } else {
+          Toast.error('Erreur : ' + (data.error || 'inconnue'));
+        }
+      } catch (e) {
+        Toast.error('Erreur réseau : ' + (e.message || e));
+      }
+    }
+
+    // ===== Auto-refresh admin =====
+    let adminRefreshTimer = null;
+    let adminCountdownTimer = null;
+    const ADMIN_REFRESH_INTERVAL_SEC = 30;
+    let adminRefreshSecondsLeft = 0;
+
+    function toggleAdminAutoRefresh() {
+      const enabled = document.getElementById('adminAutoRefresh')?.checked;
+      if (enabled) {
+        startAdminAutoRefresh();
+        // Persist preference
+        try { localStorage.setItem('kairos_admin_auto_refresh', '1'); } catch {}
+      } else {
+        stopAdminAutoRefresh();
+        try { localStorage.setItem('kairos_admin_auto_refresh', '0'); } catch {}
+      }
+    }
+
+    function startAdminAutoRefresh() {
+      stopAdminAutoRefresh();
+      adminRefreshSecondsLeft = ADMIN_REFRESH_INTERVAL_SEC;
+      const updateCountdown = () => {
+        const el = document.getElementById('adminCountdown');
+        if (el) el.textContent = `(${adminRefreshSecondsLeft}s)`;
+        adminRefreshSecondsLeft--;
+        if (adminRefreshSecondsLeft < 0) {
+          adminRefreshSecondsLeft = ADMIN_REFRESH_INTERVAL_SEC;
+          // Reload seulement si la section admin est active
+          if (document.getElementById('section-admin')?.classList.contains('active')) {
+            loadAdminDashboard(true);
+          }
+        }
+      };
+      updateCountdown();
+      adminCountdownTimer = setInterval(updateCountdown, 1000);
+    }
+
+    function stopAdminAutoRefresh() {
+      if (adminRefreshTimer) { clearInterval(adminRefreshTimer); adminRefreshTimer = null; }
+      if (adminCountdownTimer) { clearInterval(adminCountdownTimer); adminCountdownTimer = null; }
+      const el = document.getElementById('adminCountdown');
+      if (el) el.textContent = '';
+    }
+
+    // Verifie le statut admin au auth-ready pour afficher/cacher le sidebar button
+    window.addEventListener('kairos:auth-ready', () => {
+      if (currentUser) {
+        checkAdminStatus().then(() => {
+          // Re-render le cockpit header pour mettre a jour le tooltip admin
+          // (cliquable pour cycler preview plan)
+          try { renderCockpitHeader(); } catch (e) {}
+          // Restore auto-refresh preference si admin
+          if (isAdminUser) {
+            try {
+              if (localStorage.getItem('kairos_admin_auto_refresh') === '1') {
+                const cb = document.getElementById('adminAutoRefresh');
+                if (cb) { cb.checked = true; }
+              }
+            } catch {}
+          }
+        }).catch(() => {});
+      }
+    });
+
+    // ============================================================
+    // SIGNAUX ACTIVISTS (13D / 13G filings)
+    // ============================================================
+    let activistsDebounceTimer = null;
+    function debounceActivists() {
+      if (activistsDebounceTimer) clearTimeout(activistsDebounceTimer);
+      activistsDebounceTimer = setTimeout(() => loadActivists(), 400);
+    }
+
+    async function loadActivists() {
+      if (!isPremium) {
+        document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        return;
+      }
+      if (!currentUser) return;
+      const body = document.getElementById('activistsBody');
+      const topCard = document.getElementById('activistsTopCard');
+      if (body) body.innerHTML = window.Skeleton.grid(3, 2);
+
+      try {
+        const days = document.getElementById('actDays')?.value || '30';
+        const filterMode = document.getElementById('actFilter')?.value || 'activists';
+        const country = document.getElementById('actCountry')?.value || '';
+        const ticker = (document.getElementById('actTicker')?.value || '').trim().toUpperCase();
+        const token = await currentUser.getIdToken();
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        let filings = [];
+        let activistsAggregated = null;
+        if (ticker) {
+          const res = await fetch(`${API_BASE}/api/13dg/ticker?ticker=${encodeURIComponent(ticker)}`, { headers });
+          if (!res.ok) {
+            body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status})</div>`;
+            if (topCard) topCard.innerHTML = '';
+            return;
+          }
+          const data = await res.json();
+          filings = data.filings || [];
+          // Filtre pays cote client si specifie
+          if (country) {
+            const set = new Set(country.split(',').map(s => s.trim()));
+            filings = filings.filter(f => set.has(f.country || 'US'));
+          }
+        } else {
+          // Fetch activists aggregated + recent filings en parallele
+          const activistOnly = (filterMode === 'activists') ? '1' : '0';
+          const countryQs = country ? `&country=${encodeURIComponent(country)}` : '';
+          const [recentRes, agRes] = await Promise.all([
+            fetch(`${API_BASE}/api/13dg/recent?days=${days}&activistOnly=${activistOnly}&limit=200${countryQs}`, { headers }).then(r => r.json()).catch(() => null),
+            fetch(`${API_BASE}/api/13dg/activists?days=${days}${countryQs}`, { headers }).then(r => r.json()).catch(() => null),
+          ]);
+          if (recentRes && !recentRes.error) filings = recentRes.filings || [];
+          activistsAggregated = agRes;
+          // Filtre supplementaire : forme ou direction
+          if (filterMode === '13D') {
+            filings = filings.filter(f => /^SCHEDULE 13D/.test(f.form));
+          } else if (filterMode === '13G') {
+            filings = filings.filter(f => /^SCHEDULE 13G/.test(f.form));
+          } else if (filterMode === 'up') {
+            filings = filings.filter(f => f.crossingDirection === 'up');
+          } else if (filterMode === 'down') {
+            filings = filings.filter(f => f.crossingDirection === 'down');
+          }
+        }
+
+        if (topCard) topCard.innerHTML = '';
+
+        // Render filings list
+        if (!filings.length) {
+          body.innerHTML = `<div style="padding:60px 20px;text-align:center;color:var(--text-muted)">
+            <div style="font-size:36px;margin-bottom:12px">🤷</div>
+            <p style="margin:0">Aucune déclaration correspondant aux critères.</p>
+          </div>`;
+          return;
+        }
+
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+        // Badge de forme + tooltip explicatif sur l'intention (active vs passive)
+        // - 13D  : filer veut INFLUENCER la gestion (campagne activiste probable)
+        // - 13D/A: amendement d'un 13D existant (mise a jour de position active)
+        // - 13G  : filer est PASSIF (investissement pur, pas d'ambition de changer la societe)
+        // - 13G/A: amendement d'un 13G (mise a jour de position passive)
+        const formBadge = (form) => {
+          if (!form) return '';
+          const s = 'style="cursor:help;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:4px"';
+          if (/13D\/A/.test(form)) return `<span ${s.replace('"style', '"title="Amendement Schedule 13D — mise à jour d\'une position ACTIVE : le filer ajuste sa déclaration, l\'intention d\'influencer la gestion reste en place." style')} style="cursor:help;padding:3px 8px;background:rgba(239,68,68,0.12);color:#F87171;border:1px solid rgba(239,68,68,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13D — mise à jour d'une position ACTIVE : le filer ajuste sa déclaration, l'intention d'influencer la gestion reste en place.">13D/A <span style="opacity:0.75;font-weight:500">· Actif</span></span>`;
+          if (/13D/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13D — prise ACTIVE >5% : le filer a l'intention d'influencer la stratégie (board, buybacks, spin-off, fusion…). Signal activiste fort.">13D <span style="opacity:0.75;font-weight:500">· Actif</span></span>`;
+          if (/13G\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13G — mise à jour d'une position PASSIVE : le filer ajuste sa déclaration sans intention d'influencer la gestion.">13G/A <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
+          if (/13G/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13G — prise PASSIVE >5% : simple déclaration d'investissement, sans intention d'influencer la stratégie (Vanguard, BlackRock, family offices…).">13G <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
+          return `<span style="padding:3px 8px;background:var(--surface-2);color:var(--text-muted);border-radius:6px;font-size:10px">${escapeHtmlClient(form)}</span>`;
+        };
+
+        // Formatters pour les nouvelles colonnes (nb actions, %, prix, valeur estimée)
+        const fmtSharesA = (n) => {
+          if (n == null || !isFinite(n)) return '—';
+          if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+          if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+          if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+          return String(Math.round(n));
+        };
+        const fmtUsdA = (n) => {
+          if (n == null || !isFinite(n)) return '—';
+          if (Math.abs(n) >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+          if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+          if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+          return '$' + Math.round(n);
+        };
+        const fmtPct = (n) => (n == null || !isFinite(n)) ? '—' : n.toFixed(2) + '%';
+        // purchasePriceApprox est un montant TOTAL (agrege item 3 narratif SEC)
+        // donc format compact comme pour la valeur estimee
+        const fmtPriceA = fmtUsdA;
+
+        const rows = filings.map(f => {
+          const activistBadge = f.isActivist
+            ? `<span style="cursor:help;padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Fonds identifié dans notre liste de ~28 activists institutionnels reconnus (Elliott, Pershing Square/Ackman, Icahn, Third Point/Loeb, Starboard, Trian/Peltz, ValueAct, Cevian, JANA, Greenlight/Einhorn…). Ces fonds ont un historique de campagnes actives pour forcer un changement (board, spin-off, buybacks, vente).">⚡ OFFENSIF</span>`
+            : '';
+          // Couleur du % selon seuil
+          const pctColor = f.percentOfClass == null ? 'var(--text-muted)'
+            : f.percentOfClass >= 10 ? '#EF4444'
+            : f.percentOfClass >= 5 ? '#F59E0B'
+            : '#10B981';
+
+          // Delta (uniquement pour les /A avec un filing precedent dispo)
+          // Affiche la variation en pt sous le % total. Si pas de delta dispo
+          // sur un /A (filing precedent trop vieux > 30j), on affiche '∆ ?'
+          // pour signaler que c'est un ajustement sans historique.
+          const isAmendment = /\/A\b/.test((f.form || '').toUpperCase());
+          let deltaHtml = '';
+          if (f.percentDelta != null) {
+            const d = f.percentDelta;
+            const dColor = d > 0 ? '#10B981' : d < 0 ? '#EF4444' : 'var(--text-muted)';
+            const arrow = d > 0 ? '▲' : d < 0 ? '▼' : '=';
+            const sign = d > 0 ? '+' : '';
+            const prevPctStr = f.previousPercent != null ? `${f.previousPercent.toFixed(2)}%` : '?';
+            const prevDateStr = f.previousFileDate ? new Date(f.previousFileDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '';
+            deltaHtml = `<div style="margin-top:2px;font-size:10px;color:${dColor};font-weight:600;cursor:help" title="Variation vs filing précédent du ${prevDateStr} (${prevPctStr}). Position actuelle = ${f.percentOfClass != null ? f.percentOfClass.toFixed(2) : '?'}%.">${arrow} ${sign}${d.toFixed(2)}pt</div>`;
+          } else if (isAmendment) {
+            // Amendement sans delta (prev filing non trouvable → pre-cache)
+            deltaHtml = `<div style="margin-top:2px;font-size:10px;color:var(--text-muted);font-weight:500;cursor:help" title="Amendement : la position précédente n'est pas dans notre cache (dépôt initial > 30j). Le % affiché est la position TOTALE après ajustement.">ajust.</div>`;
+          }
+          // Lien vers la source officielle (SEC pour US, AMF pour FR, BaFin pour DE)
+          const country = (f.country || 'US').toUpperCase();
+          const filerCikClean = (f.filerCik || '').replace(/^0+/, '') || (f.targetCik || '').replace(/^0+/, '');
+          const accessionClean = (f.accession || '').replace(/-/g, '');
+          let sourceUrl = '';
+          let sourceLabel = '';
+          if (country === 'US' && filerCikClean && accessionClean) {
+            sourceUrl = `https://www.sec.gov/Archives/edgar/data/${filerCikClean}/${accessionClean}/`;
+            sourceLabel = 'SEC ↗';
+          } else if (country === 'FR') {
+            sourceUrl = f.sourceUrl || 'https://www.amf-france.org/fr/recherche/resultat?form%5Bcategorie_publication%5D%5B%5D=declaration_seuils';
+            sourceLabel = 'AMF ↗';
+          } else if (country === 'DE') {
+            sourceUrl = f.sourceUrl || 'https://portal.mvp.bafin.de/database/AnteileInfo/';
+            sourceLabel = 'BaFin ↗';
+          }
+          const sourceLink = sourceUrl
+            ? `<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px" title="Voir la source officielle">${sourceLabel}</a>`
+            : '';
+
+          // Drapeau pays (US 🇺🇸 / FR 🇫🇷 / DE 🇩🇪) avec tooltip régulateur
+          const countryFlags = {
+            US: { flag: '🇺🇸', label: 'États-Unis · SEC EDGAR' },
+            FR: { flag: '🇫🇷', label: 'France · AMF' },
+            DE: { flag: '🇩🇪', label: 'Allemagne · BaFin' },
+            UK: { flag: '🇬🇧', label: 'Royaume-Uni · FCA' },
+          };
+          const cf = countryFlags[country] || { flag: '🌐', label: country };
+          const flagCell = `<span style="font-size:16px;cursor:help" title="${cf.label}">${cf.flag}</span>`;
+
+          // Direction franchissement (FR/DE déclarent ↑ et ↓)
+          const dirBadge = f.crossingDirection === 'down'
+            ? `<span style="margin-left:6px;padding:1px 6px;background:rgba(239,68,68,0.12);color:#EF4444;border-radius:4px;font-size:10px;font-weight:700" title="Franchissement à la BAISSE — le filer est passé en dessous d'un seuil">↓ Baisse</span>`
+            : '';
+
+          // Ticker cell : yahooSymbol en priorité (EU: MC.PA, BARC.L…), ticker US sinon
+          const displayTicker = f.yahooSymbol || f.ticker;
+          const tickerCell = displayTicker
+            ? `<strong style="color:#74b9ff">${escapeHtmlClient(displayTicker)}</strong>`
+            : `<span style="color:var(--text-muted);font-size:11px" title="Ticker non résolu — voir le nom de l'entreprise ci-contre">—</span>`;
+          return `
+            <tr ${displayTicker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${String(displayTicker).replace(/'/g,"\\'")}'), 150)" style="cursor:pointer"` : ''}>
+              <td style="padding:10px 12px;font-size:11px;color:var(--text-muted);white-space:nowrap">${fmtD(f.fileDate)}</td>
+              <td style="padding:10px 12px;text-align:center">${flagCell}</td>
+              <td style="padding:10px 12px">${formBadge(f.form)}${dirBadge}</td>
+              <td style="padding:10px 12px">${tickerCell}</td>
+              <td style="padding:10px 12px;font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.targetName || '')}">${escapeHtmlClient(f.targetName || '—')}</td>
+              <td style="padding:10px 12px;font-size:13px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(f.filerName || '')}"><span style="display:flex;align-items:center;gap:4px;min-width:0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient(f.filerName || '—')}</span>${activistBadge}</span></td>
+              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums">
+                <div style="font-weight:600;color:${pctColor}">${fmtPct(f.percentOfClass)}</div>
+                ${deltaHtml}
+              </td>
+              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues">${fmtSharesA(f.sharesOwned)}</td>
+              <td style="padding:10px 12px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (approximatif)">${fmtPriceA(f.purchasePriceApprox)}</td>
+              <td style="padding:10px 12px;text-align:center">${sourceLink}</td>
+            </tr>
+          `;
+        }).join('');
+
+        body.innerHTML = `
+          <div style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;font-size:12px;line-height:1.6;color:var(--text-secondary)">
+            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:6px">
+              <strong style="color:var(--text-primary);font-size:13px">Légende :</strong>
+              <span><span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700">13D</span> <strong style="color:#F59E0B">Actif</strong> — intention d'influencer</span>
+              <span><span style="padding:2px 7px;background:rgba(239,68,68,0.12);color:#F87171;border:1px solid rgba(239,68,68,0.25);border-radius:6px;font-size:10px;font-weight:700">13D/A</span> Amendement position active</span>
+              <span><span style="padding:2px 7px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700">13G</span> <strong style="color:#10B981">Passif</strong> — simple investissement</span>
+              <span><span style="padding:2px 7px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700">13G/A</span> Amendement position passive</span>
+              <span><span style="padding:2px 7px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700">⚡ OFFENSIF</span> Fonds activiste reconnu <span style="color:var(--text-muted);cursor:help" title="Liste hardcodée de ~28 activists institutionnels connus : Elliott, Ackman, Icahn, Peltz (Trian), Starboard, Loeb (Third Point), ValueAct, Cevian, JANA, Greenlight/Einhorn…">(détails)</span></span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding-top:8px;border-top:1px solid var(--border);color:var(--text-muted);font-size:11px">
+              <strong style="color:var(--text-primary);font-size:12px">Colonne % capital :</strong>
+              <span>Valeur principale = <strong style="color:var(--text-primary)">position TOTALE</strong> après le filing.</span>
+              <span>Ligne <span style="color:#10B981;font-weight:600">▲ +Xpt</span> ou <span style="color:#EF4444;font-weight:600">▼ −Xpt</span> = <strong style="color:var(--text-primary)">variation</strong> vs filing précédent du même fonds (= le mouvement qui a déclenché le /A).</span>
+              <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
+            </div>
+          </div>
+          <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px">
+            <table class="data-table" style="width:100%;border-collapse:collapse;min-width:780px;font-size:12.5px">
+              <thead>
+                <tr>
+                  <th style="text-align:left;width:70px">Date</th>
+                  <th style="text-align:center;width:40px" title="Marché / régulateur d'origine">🌍</th>
+                  <th style="text-align:left;width:110px">Forme</th>
+                  <th style="text-align:left;width:72px">Ticker</th>
+                  <th style="text-align:left;max-width:130px">Entreprise ciblée</th>
+                  <th style="text-align:left;max-width:150px">Investisseur (filer)</th>
+                  <th style="text-align:right;width:82px" title="% du capital détenu">% capital</th>
+                  <th style="text-align:right;width:64px" title="Nombre d'actions détenues">Actions</th>
+                  <th style="text-align:right;width:80px" title="Montant total investi (~)">Investi ~</th>
+                  <th style="text-align:center;width:48px" title="Voir la source officielle (SEC, AMF, BaFin)">Source</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px">
+            ${filings.length} déclaration${filings.length > 1 ? 's' : ''} affichées. Cliquez sur une ligne pour ouvrir l'analyse action.
+          </div>
+        `;
+      } catch (e) {
+        body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    // Ouvre le Screener filtre par nom d'insider (reutilise par l'onglet Transversaux de Signaux Insiders).
+    function openScreenerForInsider(insiderName) {
+      if (!insiderName) return;
+      switchSection('screener');
+      setTimeout(() => {
+        const input = document.getElementById('scrInsider');
+        if (input) {
+          input.value = insiderName;
+          document.getElementById('scrTicker').value = '';
+          document.getElementById('scrDays').value = '365';
+          document.getElementById('scrType').value = '';
+          document.getElementById('scrRole').value = '';
+          document.getElementById('scrSource').value = '';
+          document.getElementById('scrMinValue').value = '';
+          document.getElementById('scrSort').value = 'date-desc';
+          runScreener();
+        }
+      }, 100);
+    }
+
+    // Rafraichit la card insider de l'onglet Analyse Action avec les filtres choisis
+    // (period / type / role). Lit le ticker depuis data-ticker de la card.
+    async function refreshStockInsiderCard() {
+      const card = document.querySelector('[data-saInsiderCard]');
+      if (!card) return;
+      const ticker = (card.dataset.ticker || '').toUpperCase();
+      if (!ticker) return;
+      if (!currentUser) return;
+
+      const days = document.getElementById('saInsiderDays')?.value || '90';
+      const type = document.getElementById('saInsiderType')?.value || '';
+      const role = document.getElementById('saInsiderRole')?.value || '';
+
+      const listEl = document.getElementById('saInsiderList');
+      if (listEl) listEl.innerHTML = window.Skeleton.lines(5);
+
+      try {
+        const params = new URLSearchParams({ ticker, days, limit: '500' });
+        if (type) params.set('type', type);
+        if (role) params.set('role', role);
+
+        const token = await currentUser.getIdToken();
+        const res = await fetch(`${API_BASE}/api/history/insider?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          if (listEl) listEl.innerHTML = `<div style="opacity:0.5;padding:12px 0">Erreur (${res.status})</div>`;
+          return;
+        }
+        const data = await res.json();
+        const rows = Array.isArray(data.transactions) ? data.transactions : [];
+
+        // Recalcul stats locales
+        let buyCount = 0, sellCount = 0, netValue = 0;
+        const uniqueInsiders = new Set();
+        for (const r of rows) {
+          if (r.trans_type === 'buy') { buyCount++; netValue += (r.value || 0); }
+          else if (r.trans_type === 'sell') { sellCount++; netValue -= (r.value || 0); }
+          if (r.insider) uniqueInsiders.add(r.insider);
+        }
+        document.getElementById('saInsiderBuyCount').textContent = buyCount;
+        document.getElementById('saInsiderSellCount').textContent = sellCount;
+        const fluxEl = document.getElementById('saInsiderFlux');
+        if (fluxEl) {
+          const color = netValue >= 0 ? '#2ecc71' : '#ff7675';
+          const fmt = (v) => { const a = Math.abs(v); return '$' + (a >= 1e9 ? (v/1e9).toFixed(2) + 'B' : a >= 1e6 ? (v/1e6).toFixed(2) + 'M' : a >= 1e3 ? (v/1e3).toFixed(1) + 'K' : v.toFixed(0)); };
+          fluxEl.innerHTML = `Flux net : <strong style="color:${color}">${fmt(netValue)}</strong><br>${uniqueInsiders.size} initiés distincts`;
+        }
+
+        if (!rows.length) {
+          if (listEl) listEl.innerHTML = '<div style="opacity:0.5;padding:12px 0">Aucune transaction ne correspond a ces filtres</div>';
+          return;
+        }
+        // Render top 30 dans la card (vs 15 avant — plus de place avec l'historique)
+        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
+        listEl.innerHTML = rows.slice(0, 30).map(t => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
+            <div style="display:flex;justify-content:space-between">
+              <div>
+                <strong>${esc((t.insider||'').slice(0, 25))}</strong>
+                <span style="font-size:11px;opacity:0.5;margin-left:6px">${esc(t.title || '')}</span>
+              </div>
+              <span style="color:${t.trans_type==='buy'?'#2ecc71':t.trans_type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${t.trans_type==='buy'?'● Achat':t.trans_type==='sell'?'● Vente':'● '+esc(t.trans_type||'')}</span>
+            </div>
+            <div style="font-size:11px;opacity:0.6;margin-top:2px">
+              ${fmtD(t.filing_date || t.trans_date)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ $' + t.price.toFixed(2) : ''} ${t.value ? '→ <strong>$' + (Math.abs(t.value) >= 1e6 ? (t.value/1e6).toFixed(1)+'M' : (t.value/1e3).toFixed(0)+'K') + '</strong>' : ''}
+            </div>
+          </div>
+        `).join('') + (rows.length > 30 ? `<div style="padding:10px 0;text-align:center;font-size:11px;opacity:0.6">+ ${rows.length - 30} autres — <a href="#" onclick="openScreenerForTicker('${ticker}');return false" style="color:#74b9ff">voir dans le Screener</a></div>` : '');
+      } catch (e) {
+        if (listEl) listEl.innerHTML = `<div style="opacity:0.5;padding:12px 0">Erreur : ${escapeHtml(e.message || e)}</div>`;
+      }
+    }
+
+    // Ouvre le Screener avec un ticker pre-rempli + lance auto la recherche
+    // Appele depuis la card insider de l'onglet Analyse Action.
+    function openScreenerForTicker(ticker) {
+      const tk = (ticker || '').toUpperCase().trim();
+      if (!tk) return;
+      // Switch vers l'onglet Screener (triggera le gate premium si besoin)
+      switchSection('screener');
+      // Attendre que la section soit visible, puis prefill + run
+      setTimeout(() => {
+        const input = document.getElementById('scrTicker');
+        if (input) {
+          input.value = tk;
+          // Reset les autres filtres pour un reset propre
+          document.getElementById('scrDays').value = '365';
+          document.getElementById('scrType').value = '';
+          document.getElementById('scrRole').value = '';
+          document.getElementById('scrSource').value = '';
+          document.getElementById('scrInsider').value = '';
+          document.getElementById('scrMinValue').value = '';
+          document.getElementById('scrSort').value = 'date-desc';
+          // Auto-run
+          runScreener();
+        }
+      }, 100);
+    }
+
+    function exportScreenerCsv() {
+      if (!screenerResults || !screenerResults.length) return;
+      // Gating Elite : l'export CSV est reserve aux users plan Elite
+      // (Pro = acces screener + visualisation, Elite = export + API + alertes)
+      const plan = (window._currentPlan || '').toLowerCase();
+      if (plan !== 'elite') {
+        try {
+          if (window.Toast && Toast.info) {
+            Toast.info('L\'export CSV est une feature Elite. Passez Elite pour l\'activer.');
+          }
+          localStorage.setItem('kairos_plan', 'elite'); // preselectionne Elite dans le paywall
+          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          document.getElementById('paywallOverlay')?.classList.remove('hidden');
+        } catch (e) {}
+        return;
+      }
+      const headers = ['filing_date','trans_date','source','ticker','company','insider','title','trans_type','shares','price','value','shares_after'];
+      const csv = [
+        headers.join(','),
+        ...screenerResults.map(r => headers.map(h => {
+          const v = r[h];
+          if (v == null) return '';
+          const s = String(v).replace(/"/g, '""');
+          return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) ? `"${s}"` : s;
+        }).join(','))
+      ].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const today = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `kairos-screener-${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ============================================================
+    // INIT — Firebase Auth gère tout via onAuthStateChanged
+    // ============================================================
+    // Vérifier si retour de checkout Stripe
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('checkout') === 'succèss') {
+      // Attendre un peu puis refresh le statut
+      setTimeout(() => checkSubscription(), 2000);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  

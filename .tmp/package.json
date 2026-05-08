@@ -1,0 +1,8 @@
+{
+  "name": "kairos-tmp-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@resvg/resvg-wasm": "*"
+  }
+}

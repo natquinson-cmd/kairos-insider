@@ -109,4 +109,9 @@ bucket_name = "kairos-backups"
 # a GitHub Actions). On tire apres le pipeline data GitHub (1h30 UTC = ~3h20 UTC
 # en pire cas avec retard) donc 4h UTC laisse 40min de marge.
 [triggers]
-crons = ["0 4 * * *"]
+# 0 4 * * *      : watchlist daily digest + health check (4h UTC = 6h Paris ete)
+# */5 * * * *    : Telegram alerting engine (Phase 2) - check nouveaux 13D /
+#                  seuils EU >= 5% / clusters insiders et envoie alertes Telegram
+#                  aux users avec ticker en watchlist + alertPref enabled.
+#                  Latence < 30s entre nouveau filing en KV et notif Telegram.
+crons = ["0 4 * * *", "*/5 * * * *"]

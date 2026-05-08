@@ -1,0 +1,1105 @@
+[ {
+  "Id" : "ABBLTD",
+  "Name" : "ABB Ltd"
+}, {
+  "Id" : "AGEFI",
+  "Name" : "AEVIS VICTORIA SA"
+}, {
+  "Id" : "AFIPA",
+  "Name" : "AFIPA SA"
+}, {
+  "Id" : "ALSO",
+  "Name" : "ALSO Holding AG"
+}, {
+  "Id" : "AFFICHAGE",
+  "Name" : "APG SGA SA"
+}, {
+  "Id" : "COS",
+  "Name" : "APTG AG"
+}, {
+  "Id" : "ARYZ",
+  "Name" : "ARYZTA AG"
+}, {
+  "Id" : "ASMAL",
+  "Name" : "ASMALLWORLD AG"
+}, {
+  "Id" : "ABSE",
+  "Name" : "Absolute Europe AG"
+}, {
+  "Id" : "ABSOLUUS",
+  "Name" : "Absolute Invest AG"
+}, {
+  "Id" : "ABSOLUTEM",
+  "Name" : "Absolute Managers AG"
+}, {
+  "Id" : "APEAG",
+  "Name" : "Absolute Private Equity AG"
+}, {
+  "Id" : "ACCELL",
+  "Name" : "Accelleron Industries AG"
+}, {
+  "Id" : "ACCU",
+  "Name" : "Accu Holding AG in Liquidation"
+}, {
+  "Id" : "ACHIKO",
+  "Name" : "Achiko AG in Liquidation"
+}, {
+  "Id" : "SHB",
+  "Name" : "Acino Holding AG"
+}, {
+  "Id" : "ACORN",
+  "Name" : "Acorn Alternative Strategies AG"
+}, {
+  "Id" : "ACTELION",
+  "Name" : "Actelion Ltd"
+}, {
+  "Id" : "ADDEX",
+  "Name" : "Addex Therapeutics Ltd"
+}, {
+  "Id" : "ADECCO",
+  "Name" : "Adecco Group AG"
+}, {
+  "Id" : "ADVAL",
+  "Name" : "Adval Tech Holding AG"
+}, {
+  "Id" : "ADB",
+  "Name" : "Advanced Digital Broadcast Holdings SA"
+}, {
+  "Id" : "AGIE",
+  "Name" : "Agie Charmilles Holding AG"
+}, {
+  "Id" : "AIRESIS",
+  "Name" : "Airesis SA"
+}, {
+  "Id" : "ALCON",
+  "Name" : "Alcon Inc."
+}, {
+  "Id" : "ALLREAL",
+  "Name" : "Allreal Holding AG"
+}, {
+  "Id" : "ALPPET",
+  "Name" : "Alpha PetroVision Holding AG"
+}, {
+  "Id" : "ALPINE",
+  "Name" : "Alpine Select AG"
+}, {
+  "Id" : "MC",
+  "Name" : "Alpiq Holding AG"
+}, {
+  "Id" : "ALTIN",
+  "Name" : "Altin AG"
+}, {
+  "Id" : "ALUFLEX",
+  "Name" : "Aluflexpack AG"
+}, {
+  "Id" : "AMSN",
+  "Name" : "Amazys Holding AG"
+}, {
+  "Id" : "AMRZ",
+  "Name" : "Amrize Ltd"
+}, {
+  "Id" : "AFG",
+  "Name" : "Arbonia AG"
+}, {
+  "Id" : "REGEDO",
+  "Name" : "Arundel AG"
+}, {
+  "Id" : "ASCOM",
+  "Name" : "Ascom Holding AG"
+}, {
+  "Id" : "ATEL",
+  "Name" : "Atel Aare-Tessin AG für Elektrizität"
+}, {
+  "Id" : "ATHAG",
+  "Name" : "Athris Holding AG"
+}, {
+  "Id" : "AUTONEUM",
+  "Name" : "Autoneum Holding AG"
+}, {
+  "Id" : "DUFRY",
+  "Name" : "Avolta AG"
+}, {
+  "Id" : "BATIGROUP",
+  "Name" : "BATIGROUP Holding AG"
+}, {
+  "Id" : "BBBIOTECH",
+  "Name" : "BB Biotech AG"
+}, {
+  "Id" : "BELIMO",
+  "Name" : "BELIMO Holding AG"
+}, {
+  "Id" : "BFWLIEGEN",
+  "Name" : "BFW Liegenschaften AG"
+}, {
+  "Id" : "BKWAG",
+  "Name" : "BKW AG"
+}, {
+  "Id" : "KWBERN",
+  "Name" : "BKW FMB Energie AG"
+}, {
+  "Id" : "BTTL",
+  "Name" : "BT&T TIMELIFE AG"
+}, {
+  "Id" : "BVZHOL",
+  "Name" : "BVZ Holding AG"
+}, {
+  "Id" : "BACHEMHOL",
+  "Name" : "Bachem Holding AG"
+}, {
+  "Id" : "KTM",
+  "Name" : "Bajaj Mobility AG"
+}, {
+  "Id" : "BALOISE",
+  "Name" : "Baloise Holding AG"
+}, {
+  "Id" : "BCASG",
+  "Name" : "Bank CA St. Gallen"
+}, {
+  "Id" : "BKCOOP",
+  "Name" : "Bank Cler AG"
+}, {
+  "Id" : "BKSARASIN",
+  "Name" : "Bank J. Safra Sarasin AG"
+}, {
+  "Id" : "BKLINTH",
+  "Name" : "Bank Linth"
+}, {
+  "Id" : "BQCVD",
+  "Name" : "Banque Cantonale Vaudoise"
+}, {
+  "Id" : "BQCGENEVE",
+  "Name" : "Banque Cantonale de Genève"
+}, {
+  "Id" : "BQCJURA",
+  "Name" : "Banque Cantonale du Jura SA"
+}, {
+  "Id" : "BARRY",
+  "Name" : "Barry Callebaut AG"
+}, {
+  "Id" : "BSLN",
+  "Name" : "Basilea Pharmaceutica AG, Allschwil"
+}, {
+  "Id" : "BRP",
+  "Name" : "Beau-Rivage Palace SA"
+}, {
+  "Id" : "BELLHOLD",
+  "Name" : "Bell Food Group AG"
+}, {
+  "Id" : "SWISSF",
+  "Name" : "Bellevue Group AG"
+}, {
+  "Id" : "TITLISBAH",
+  "Name" : "Bergbahnen Engelberg-Trübsee-Titlis AG"
+}, {
+  "Id" : "BERNA",
+  "Name" : "Berna Biotech AG"
+}, {
+  "Id" : "KBBE",
+  "Name" : "Berner Kantonalbank AG"
+}, {
+  "Id" : "BIGSTAR",
+  "Name" : "Big Star Holding AG"
+}, {
+  "Id" : "BIOVER",
+  "Name" : "BioVersys AG"
+}, {
+  "Id" : "BIOXELL",
+  "Name" : "BioXell S.p.A."
+}, {
+  "Id" : "BLACKR",
+  "Name" : "Blackstone Resources AG"
+}, {
+  "Id" : "BOBSTGRP",
+  "Name" : "Bobst Group SA"
+}, {
+  "Id" : "BONAPPETI",
+  "Name" : "Bon appétit Group AG"
+}, {
+  "Id" : "BONDP",
+  "Name" : "Bondpartners SA"
+}, {
+  "Id" : "BOSSARD",
+  "Name" : "Bossard Holding AG"
+}, {
+  "Id" : "BUCHER",
+  "Name" : "Bucher Industries AG"
+}, {
+  "Id" : "BURCKAG",
+  "Name" : "Burckhardt Compression Holding AG"
+}, {
+  "Id" : "BURKH",
+  "Name" : "Burkhalter Holding AG"
+}, {
+  "Id" : "CONZZETA",
+  "Name" : "Bystronic AG"
+}, {
+  "Id" : "FUERRER",
+  "Name" : "Büro-Fürrer AG"
+}, {
+  "Id" : "CEVALO",
+  "Name" : "CEVA Logistics AG"
+}, {
+  "Id" : "CICOM",
+  "Name" : "CI Com SA"
+}, {
+  "Id" : "MEDIS",
+  "Name" : "COLTENE Holding AG"
+}, {
+  "Id" : "CPH",
+  "Name" : "CPH Group AG"
+}, {
+  "Id" : "CALIDA",
+  "Name" : "Calida Holding AG"
+}, {
+  "Id" : "CANON",
+  "Name" : "Canon (Schweiz) AG"
+}, {
+  "Id" : "GAVAZZI",
+  "Name" : "Carlo Gavazzi Holding AG"
+}, {
+  "Id" : "CASSIOPEA",
+  "Name" : "Cassiopea S.p.A."
+}, {
+  "Id" : "CASTLE",
+  "Name" : "Castle Alternative Invest AG"
+}, {
+  "Id" : "CASTLEPRI",
+  "Name" : "Castle Private Equity AG"
+}, {
+  "Id" : "CEMBRA",
+  "Name" : "Cembra Money Bank AG"
+}, {
+  "Id" : "HOCHDORF",
+  "Name" : "Centiel AG"
+}, {
+  "Id" : "KWCENTRAL",
+  "Name" : "Centralschweizerische Kraftwerke AG"
+}, {
+  "Id" : "IC",
+  "Name" : "Cham Group AG"
+}, {
+  "Id" : "INAINV",
+  "Name" : "Cham Swiss Properties AG"
+}, {
+  "Id" : "CHVOEGELE",
+  "Name" : "Charles Vögele Holding AG"
+}, {
+  "Id" : "LINDT",
+  "Name" : "Chocoladefabriken Lindt & Sprüngli AG"
+}, {
+  "Id" : "CIBASC",
+  "Name" : "Ciba Holding AG"
+}, {
+  "Id" : "CICOREL",
+  "Name" : "Cicor Technologies Ltd."
+}, {
+  "Id" : "CLARIANT",
+  "Name" : "Clariant AG"
+}, {
+  "Id" : "COMET",
+  "Name" : "Comet Holding AG"
+}, {
+  "Id" : "RICHEMONT",
+  "Name" : "Compagnie Financière Richemont SA"
+}, {
+  "Id" : "CFT",
+  "Name" : "Compagnie Financière Tradition SA"
+}, {
+  "Id" : "COSMO",
+  "Name" : "Cosmo N.V."
+}, {
+  "Id" : "CREALOGIX",
+  "Name" : "Crealogix Holding AG"
+}, {
+  "Id" : "BKCSG",
+  "Name" : "Credit Suisse Group AG"
+}, {
+  "Id" : "4M",
+  "Name" : "Curatis Holding AG"
+}, {
+  "Id" : "DKSH",
+  "Name" : "DKSH Holding AG"
+}, {
+  "Id" : "EICHHOF",
+  "Name" : "Datacolor AG"
+}, {
+  "Id" : "DAYSOFTN",
+  "Name" : "Day Software Holding AG"
+}, {
+  "Id" : "ZURROSE",
+  "Name" : "DocMorris AG"
+}, {
+  "Id" : "DOTTIKON",
+  "Name" : "Dottikon ES Holding AG"
+}, {
+  "Id" : "DAETWYLER",
+  "Name" : "Dätwyler Holding AG"
+}, {
+  "Id" : "EICSA",
+  "Name" : "EEII AG"
+}, {
+  "Id" : "EFG INTER",
+  "Name" : "EFG International AG"
+}, {
+  "Id" : "ENRSA",
+  "Name" : "ENR Russia Invest SA"
+}, {
+  "Id" : "EASTERN",
+  "Name" : "EPH European Property Holdings Plc"
+}, {
+  "Id" : "EPIC",
+  "Name" : "EPIC Suisse AG"
+}, {
+  "Id" : "EDIPRESSE",
+  "Name" : "Edipresse S.A."
+}, {
+  "Id" : "EDCH",
+  "Name" : "Edisun Power Europe AG"
+}, {
+  "Id" : "BQROTHSCH",
+  "Name" : "Edmond de Rothschild (Suisse) S.A."
+}, {
+  "Id" : "EGL",
+  "Name" : "Elektrizitäts-Gesellschaft Laufenburg AG"
+}, {
+  "Id" : "ELMA",
+  "Name" : "Elma Electronic AG"
+}, {
+  "Id" : "EMMI",
+  "Name" : "Emmi AG"
+}, {
+  "Id" : "EMS",
+  "Name" : "Ems-Chemie Holding AG"
+}, {
+  "Id" : "EES",
+  "Name" : "Energie Electrique du Simplon S.A."
+}, {
+  "Id" : "ARPIDA",
+  "Name" : "EvoNext Holdings SA"
+}, {
+  "Id" : "FEINTOOL",
+  "Name" : "Feintool International Holding AG"
+}, {
+  "Id" : "FLUGHAFEN",
+  "Name" : "Flughafen Zürich AG"
+}, {
+  "Id" : "FORBO",
+  "Name" : "Forbo Holding AG"
+}, {
+  "Id" : "FUNDREA",
+  "Name" : "Fundamenta Real Estate AG"
+}, {
+  "Id" : "GAMHOL",
+  "Name" : "GAM Holding AG"
+}, {
+  "Id" : "GALDERMA",
+  "Name" : "Galderma Group AG"
+}, {
+  "Id" : "GALSAN",
+  "Name" : "Galenica AG"
+}, {
+  "Id" : "GEBERIT",
+  "Name" : "Geberit AG"
+}, {
+  "Id" : "GENERALI",
+  "Name" : "Generali (Schweiz) Holding"
+}, {
+  "Id" : "GF",
+  "Name" : "Georg Fischer AG"
+}, {
+  "Id" : "GIVAUDAN",
+  "Name" : "Givaudan SA"
+}, {
+  "Id" : "GLARNERK",
+  "Name" : "Glarner Kantonalbank"
+}, {
+  "Id" : "PRAGMATIC",
+  "Name" : "Global Natural Resouces Holding AG"
+}, {
+  "Id" : "GNRHAG",
+  "Name" : "Global Natural Resources Holding AG"
+}, {
+  "Id" : "GOLAY",
+  "Name" : "Golay Buchel Holding S.A."
+}, {
+  "Id" : "GOLDMAG",
+  "Name" : "Goldbach Group AG"
+}, {
+  "Id" : "GONSET",
+  "Name" : "Gonset Holding SA"
+}, {
+  "Id" : "GGB",
+  "Name" : "Gornergrat Bahn AG"
+}, {
+  "Id" : "GBHSA",
+  "Name" : "Groupe Baumgartner Holding SA"
+}, {
+  "Id" : "GROUPEMIN",
+  "Name" : "Groupe Minoteries SA"
+}, {
+  "Id" : "ENRRUSSIA",
+  "Name" : "Growth Value Opportunities S.A."
+}, {
+  "Id" : "GURIT",
+  "Name" : "Gurit Holding AG"
+}, {
+  "Id" : "GETAZHOLD",
+  "Name" : "Gétaz Romang Holding S.A."
+}, {
+  "Id" : "HBMBIO",
+  "Name" : "HBM Healthcare Investments AG"
+}, {
+  "Id" : "HIAGIMMO",
+  "Name" : "HIAG Immobilien Holding AG"
+}, {
+  "Id" : "HARWANNE",
+  "Name" : "Harwanne Cie. de participations industr. et fin. SA"
+}, {
+  "Id" : "HELVETIAP",
+  "Name" : "Helvetia Baloise Holding AG"
+}, {
+  "Id" : "HIESTANDH",
+  "Name" : "Hiestand Holding AG"
+}, {
+  "Id" : "ESCOR",
+  "Name" : "Highlight Event and Entertainment AG"
+}, {
+  "Id" : "HOLCIM",
+  "Name" : "Holcim Ltd"
+}, {
+  "Id" : "HUBER",
+  "Name" : "Huber+Suhner AG"
+}, {
+  "Id" : "BKHYPOL",
+  "Name" : "Hypothekarbank Lenzburg AG"
+}, {
+  "Id" : "HUEGLI",
+  "Name" : "Hügli Holding AG"
+}, {
+  "Id" : "IGEA",
+  "Name" : "IGEA Pharma N.V."
+}, {
+  "Id" : "INFICON",
+  "Name" : "INFICON Holding AG"
+}, {
+  "Id" : "ISOTIS",
+  "Name" : "ISOTIS SA"
+}, {
+  "Id" : "IVFHARTMH",
+  "Name" : "IVF HARTMANN Holding AG"
+}, {
+  "Id" : "IDORSIA",
+  "Name" : "Idorsia Ltd"
+}, {
+  "Id" : "IMPLENIA",
+  "Name" : "Implenia AG"
+}, {
+  "Id" : "INFRANOR",
+  "Name" : "Infranor Inter AG"
+}, {
+  "Id" : "INTMINCOR",
+  "Name" : "International Minerals Corp."
+}, {
+  "Id" : "INTERROLL",
+  "Name" : "Interroll Holding AG"
+}, {
+  "Id" : "INTERSHOP",
+  "Name" : "Intershop Holding AG"
+}, {
+  "Id" : "INTERSPOR",
+  "Name" : "Intersport PSC Holding AG"
+}, {
+  "Id" : "INVESH",
+  "Name" : "Investis Holding SA"
+}, {
+  "Id" : "BAER",
+  "Name" : "Julius Bär Gruppe AG"
+}, {
+  "Id" : "JUNGFRAU",
+  "Name" : "Jungfraubahn Holding AG"
+}, {
+  "Id" : "KARDEX",
+  "Name" : "Kardex Holding AG"
+}, {
+  "Id" : "KLINGELN",
+  "Name" : "Klingelnberg AG"
+}, {
+  "Id" : "KOMAX",
+  "Name" : "Komax Holding AG"
+}, {
+  "Id" : "KUDELSKI",
+  "Name" : "Kudelski S.A."
+}, {
+  "Id" : "KUONI",
+  "Name" : "Kuoni Reisen Holding AG"
+}, {
+  "Id" : "CYTOS",
+  "Name" : "Kuros Biosciences Ltd."
+}, {
+  "Id" : "KUEHNE",
+  "Name" : "Kühne + Nagel International AG"
+}, {
+  "Id" : "LEM",
+  "Name" : "LEM Holding SA"
+}, {
+  "Id" : "LO",
+  "Name" : "LO Holding Lausanne-Ouchy SA"
+}, {
+  "Id" : "LALIQU",
+  "Name" : "Lalique Group SA"
+}, {
+  "Id" : "LANDGYR",
+  "Name" : "Landis+Gyr Group AG"
+}, {
+  "Id" : "LECLANCHE",
+  "Name" : "Leclanché SA"
+}, {
+  "Id" : "LEICA",
+  "Name" : "Leica Geosystems Holding AG"
+}, {
+  "Id" : "LBBNCH",
+  "Name" : "Lenzerheide Bergbahnen AG"
+}, {
+  "Id" : "EFGFPH",
+  "Name" : "Leonteq AG"
+}, {
+  "Id" : "BKLLB",
+  "Name" : "Liechtensteinische Landesbank AG"
+}, {
+  "Id" : "CARDGAG",
+  "Name" : "LifeWatch AG"
+}, {
+  "Id" : "LOEB",
+  "Name" : "Loeb Holding AG"
+}, {
+  "Id" : "LOGITECH",
+  "Name" : "Logitech International S.A."
+}, {
+  "Id" : "LONZA",
+  "Name" : "Lonza Group AG"
+}, {
+  "Id" : "LOOS",
+  "Name" : "Looser Holding AG"
+}, {
+  "Id" : "LUMX",
+  "Name" : "LumX Group Limited"
+}, {
+  "Id" : "KBLUOLS",
+  "Name" : "Luzerner Kantonalbank AG"
+}, {
+  "Id" : "MESSECH",
+  "Name" : "MCH Group AG"
+}, {
+  "Id" : "MACHHITEC",
+  "Name" : "Mach Hitech AG"
+}, {
+  "Id" : "MEDAC",
+  "Name" : "Medacta Group SA"
+}, {
+  "Id" : "MEDARTIS",
+  "Name" : "Medartis Holding AG"
+}, {
+  "Id" : "WMH",
+  "Name" : "Meier Tobler Group AG"
+}, {
+  "Id" : "METALL",
+  "Name" : "Metall Zug AG"
+}, {
+  "Id" : "MEYER",
+  "Name" : "Meyer Burger Technology AG"
+}, {
+  "Id" : "MICRONAS",
+  "Name" : "Micronas Semiconductor Holding AG"
+}, {
+  "Id" : "MIKRON",
+  "Name" : "Mikron Holding AG"
+}, {
+  "Id" : "MONDCH",
+  "Name" : "MindMaze Therapeutics Holding SA"
+}, {
+  "Id" : "NEXTROM",
+  "Name" : "Mindset Holding AG"
+}, {
+  "Id" : "MOBIMO",
+  "Name" : "Mobimo Holding AG"
+}, {
+  "Id" : "MOLECULAR",
+  "Name" : "Molecular Partners AG"
+}, {
+  "Id" : "MONTA",
+  "Name" : "Montana Aerospace AG"
+}, {
+  "Id" : "ESMERTEC",
+  "Name" : "Myriad Group AG"
+}, {
+  "Id" : "MOEVENPH",
+  "Name" : "Mövenpick - Holding"
+}, {
+  "Id" : "NESTLE",
+  "Name" : "Nestlé AG"
+}, {
+  "Id" : "BKNAA",
+  "Name" : "Neue Aargauer Bank"
+}, {
+  "Id" : "NEWVENTUR",
+  "Name" : "New Venturetec AG in Liquidation"
+}, {
+  "Id" : "NEWAVE",
+  "Name" : "Newave Energy Holding SA"
+}, {
+  "Id" : "NEWRONPH",
+  "Name" : "Newron Pharmaceuticals S.p.A."
+}, {
+  "Id" : "NOBELBC",
+  "Name" : "Nobel Biocare Holding AG"
+}, {
+  "Id" : "NORINVEST",
+  "Name" : "Norinvest Holding SA"
+}, {
+  "Id" : "NOVARTIS",
+  "Name" : "Novartis AG"
+}, {
+  "Id" : "NOVARE",
+  "Name" : "Novavest Real Estate AG"
+}, {
+  "Id" : "UNAXIS",
+  "Name" : "OC Oerlikon Corporation AG"
+}, {
+  "Id" : "SBP",
+  "Name" : "ONE swiss bank SA"
+}, {
+  "Id" : "OBSEVA",
+  "Name" : "ObsEva SA"
+}, {
+  "Id" : "ODH",
+  "Name" : "Orascom Development Holding AG"
+}, {
+  "Id" : "OF",
+  "Name" : "Orell Füssli AG"
+}, {
+  "Id" : "ORIDION",
+  "Name" : "Oridion Systems Ltd."
+}, {
+  "Id" : "ORON",
+  "Name" : "Orior AG"
+}, {
+  "Id" : "PLAZZA",
+  "Name" : "PLAZZA AG"
+}, {
+  "Id" : "PSP",
+  "Name" : "PSP Swiss Property AG"
+}, {
+  "Id" : "PANALPINA",
+  "Name" : "Panalpina World Transport (Holding) Ltd."
+}, {
+  "Id" : "PARGESA",
+  "Name" : "Pargesa Holding SA"
+}, {
+  "Id" : "PARTNERS",
+  "Name" : "Partners Group Holding AG"
+}, {
+  "Id" : "PAX",
+  "Name" : "Pax-Anlage AG"
+}, {
+  "Id" : "PEACHP",
+  "Name" : "Peach Property Group AG"
+}, {
+  "Id" : "PELIKAN",
+  "Name" : "Pelikan Holding AG"
+}, {
+  "Id" : "PERROT",
+  "Name" : "Perrot Duval Holding SA"
+}, {
+  "Id" : "PETROPLUS",
+  "Name" : "Petroplus Holdings AG"
+}, {
+  "Id" : "PHOENIX",
+  "Name" : "Phoenix Mecano AG"
+}, {
+  "Id" : "POENINA",
+  "Name" : "Poenina Holding AG"
+}, {
+  "Id" : "POLYPE",
+  "Name" : "PolyPeptide Group AG"
+}, {
+  "Id" : "PRWN",
+  "Name" : "Precious Woods Holding AG"
+}, {
+  "Id" : "PRIMENEW",
+  "Name" : "Prime New Energy AG"
+}, {
+  "Id" : "EQUITY",
+  "Name" : "Private Equity Holding AG"
+}, {
+  "Id" : "PROGRESS",
+  "Name" : "ProgressNow! invest AG"
+}, {
+  "Id" : "PUBLIGR",
+  "Name" : "Publigroupe SA"
+}, {
+  "Id" : "QUADRANT",
+  "Name" : "Quadrant AG"
+}, {
+  "Id" : "VT5AG",
+  "Name" : "R&S Group Holding AG"
+}, {
+  "Id" : "RAPID",
+  "Name" : "Rapid Nutrition PLC"
+}, {
+  "Id" : "RAETIAEMG",
+  "Name" : "Repower AG"
+}, {
+  "Id" : "RIETER",
+  "Name" : "Rieter Holding AG"
+}, {
+  "Id" : "ROCHE",
+  "Name" : "Roche Holding AG"
+}, {
+  "Id" : "CVE",
+  "Name" : "Romande Energie Holding SA"
+}, {
+  "Id" : "RS",
+  "Name" : "Rothornbahn und Scalottas AG"
+}, {
+  "Id" : "SEZ",
+  "Name" : "SEZ Holding AG"
+}, {
+  "Id" : "SWISSFINA",
+  "Name" : "SF Urban Properties AG"
+}, {
+  "Id" : "SFSG",
+  "Name" : "SFS Group AG"
+}, {
+  "Id" : "SGF",
+  "Name" : "SGF Sté. de Gares Frigorifiques et Ports Francs de Geneve"
+}, {
+  "Id" : "SGS",
+  "Name" : "SGS SA"
+}, {
+  "Id" : "SHL",
+  "Name" : "SHL Telemedicine Ltd."
+}, {
+  "Id" : "SCG",
+  "Name" : "SIG Group Ltd"
+}, {
+  "Id" : "SIG",
+  "Name" : "SIG Holding AG"
+}, {
+  "Id" : "SKAN",
+  "Name" : "SKAN Group AG"
+}, {
+  "Id" : "SMGAG",
+  "Name" : "SMG Swiss Marketplace Group Holding AG"
+}, {
+  "Id" : "JELMOLI",
+  "Name" : "SPS Beteiligungen Alpha AG"
+}, {
+  "Id" : "SAIA",
+  "Name" : "Saia-Burgess Electronics Holding AG"
+}, {
+  "Id" : "SANDGR",
+  "Name" : "Sandoz Group AG"
+}, {
+  "Id" : "SANPHAR",
+  "Name" : "Santhera Pharmaceuticals Holding AG"
+}, {
+  "Id" : "SARNA",
+  "Name" : "Sarna Kunststoff Holding AG"
+}, {
+  "Id" : "SAURER",
+  "Name" : "Saurer AG"
+}, {
+  "Id" : "SCHAFFNER",
+  "Name" : "Schaffner Holding AG"
+}, {
+  "Id" : "SCHINDLER",
+  "Name" : "Schindler Holding AG"
+}, {
+  "Id" : "SCHLATTER",
+  "Name" : "Schlatter Industries AG"
+}, {
+  "Id" : "SCHULTHES",
+  "Name" : "Schulthess Group AG"
+}, {
+  "Id" : "SCHWEITER",
+  "Name" : "Schweiter Technologies AG"
+}, {
+  "Id" : "SNVG",
+  "Name" : "Schweizerische National-Versicherungs-Gesellschaft AG"
+}, {
+  "Id" : "BKSNB",
+  "Name" : "Schweizerische Nationalbank"
+}, {
+  "Id" : "SRVG",
+  "Name" : "Schweizerische Rückversicherungs-Gesellschaft AG"
+}, {
+  "Id" : "SENSHO",
+  "Name" : "Sensirion Holding AG"
+}, {
+  "Id" : "SIEGFRIED",
+  "Name" : "Siegfried Holding AG"
+}, {
+  "Id" : "SIKA",
+  "Name" : "Sika AG"
+}, {
+  "Id" : "SOPRACENE",
+  "Name" : "Società Elettrica Sopracenerina S.A."
+}, {
+  "Id" : "SMP",
+  "Name" : "Société Montreux-Palace S.A."
+}, {
+  "Id" : "SOFONE",
+  "Name" : "SoftwareOne Holding AG"
+}, {
+  "Id" : "PHONAK",
+  "Name" : "Sonova Holding AG"
+}, {
+  "Id" : "HENNIEZ",
+  "Name" : "Sources Minérales Henniez SA"
+}, {
+  "Id" : "SPEEDEL",
+  "Name" : "Speedel Holding Ltd."
+}, {
+  "Id" : "POLYP",
+  "Name" : "Spexis Ltd"
+}, {
+  "Id" : "APEN",
+  "Name" : "Spice Private Equity AG"
+}, {
+  "Id" : "KBSG",
+  "Name" : "St.Galler Kantonalbank AG"
+}, {
+  "Id" : "STADRA",
+  "Name" : "Stadler Rail AG"
+}, {
+  "Id" : "STARRAG",
+  "Name" : "StarragTornos Group AG"
+}, {
+  "Id" : "STRAUMANN",
+  "Name" : "Straumann Holding AG"
+}, {
+  "Id" : "SULZER",
+  "Name" : "Sulzer AG"
+}, {
+  "Id" : "SUNRIS",
+  "Name" : "Sunrise Communications AG"
+}, {
+  "Id" : "SUNRISE",
+  "Name" : "Sunrise Communications Group AG"
+}, {
+  "Id" : "SUNSTAR",
+  "Name" : "Sunstar-Holding AG"
+}, {
+  "Id" : "SPG",
+  "Name" : "Sustainable Performance Group AG "
+}, {
+  "Id" : "SWISS",
+  "Name" : "Swiss International Air Lines Ltd. "
+}, {
+  "Id" : "SLH",
+  "Name" : "Swiss Life Holding AG"
+}, {
+  "Id" : "PRIMESITE",
+  "Name" : "Swiss Prime Site AG"
+}, {
+  "Id" : "SWISSREAG",
+  "Name" : "Swiss Re AG"
+}, {
+  "Id" : "SSCN",
+  "Name" : "Swiss Small Cap Invest AG"
+}, {
+  "Id" : "STEEL",
+  "Name" : "Swiss Steel Holding AG"
+}, {
+  "Id" : "SWISSCOM",
+  "Name" : "Swisscom AG"
+}, {
+  "Id" : "SWISSLOG",
+  "Name" : "Swisslog Holding AG"
+}, {
+  "Id" : "SWISSQUOT",
+  "Name" : "Swissquote Group Holding Ltd"
+}, {
+  "Id" : "UMS",
+  "Name" : "Swmtl Holding AG in Liq."
+}, {
+  "Id" : "SYNGENTA",
+  "Name" : "Syngenta AG"
+}, {
+  "Id" : "TEMENOS",
+  "Name" : "TEMENOS AG"
+}, {
+  "Id" : "TAMEDIA",
+  "Name" : "TX Group AG"
+}, {
+  "Id" : "NEWVALUE",
+  "Name" : "Talenthouse AG"
+}, {
+  "Id" : "NETINVEST",
+  "Name" : "Tec-Sem Group AG"
+}, {
+  "Id" : "TECAN",
+  "Name" : "Tecan Group AG"
+}, {
+  "Id" : "METRAUX",
+  "Name" : "Technomag AG"
+}, {
+  "Id" : "SWATCH",
+  "Name" : "The Swatch Group AG"
+}, {
+  "Id" : "TORNOS",
+  "Name" : "Tornos Holding AG"
+}, {
+  "Id" : "TRANSOCCH",
+  "Name" : "Transocean Ltd."
+}, {
+  "Id" : "BKUBSAG",
+  "Name" : "UBS AG"
+}, {
+  "Id" : "BKUBSG",
+  "Name" : "UBS Group AG"
+}, {
+  "Id" : "UNILABS",
+  "Name" : "Unilabs SA"
+}, {
+  "Id" : "USTERTECH",
+  "Name" : "Uster Technologies AG"
+}, {
+  "Id" : "VZUGH",
+  "Name" : "V-ZUG Holding AG"
+}, {
+  "Id" : "VATGROUP",
+  "Name" : "VAT Group AG"
+}, {
+  "Id" : "BKVP",
+  "Name" : "VP Bank AG"
+}, {
+  "Id" : "BBMEDTECH",
+  "Name" : "VT Finance AG"
+}, {
+  "Id" : "VZHOLDING",
+  "Name" : "VZ Holding AG"
+}, {
+  "Id" : "OZ",
+  "Name" : "Valartis Group AG"
+}, {
+  "Id" : "VALIANT",
+  "Name" : "Valiant Holding AG"
+}, {
+  "Id" : "VALORA",
+  "Name" : "Valora Holding AG"
+}, {
+  "Id" : "VARIA",
+  "Name" : "Varia US Properties AG"
+}, {
+  "Id" : "VAUDVERS",
+  "Name" : "Vaudoise Assurances Holding SA"
+}, {
+  "Id" : "VETROPACK",
+  "Name" : "Vetropack Holding AG"
+}, {
+  "Id" : "GHVJ",
+  "Name" : "Victoria-Jungfrau Collection AG"
+}, {
+  "Id" : "VIFOR",
+  "Name" : "Vifor Pharma AG"
+}, {
+  "Id" : "VILLARS",
+  "Name" : "Villars Holding S.A."
+}, {
+  "Id" : "VONROLL",
+  "Name" : "Von Roll Holding AG"
+}, {
+  "Id" : "BKVTH",
+  "Name" : "Vontobel Holding AG"
+}, {
+  "Id" : "WISEK",
+  "Name" : "WISeKey International Holding AG"
+}, {
+  "Id" : "KBVS",
+  "Name" : "Walliser Kantonalbank"
+}, {
+  "Id" : "WARTECK",
+  "Name" : "Warteck Invest AG"
+}, {
+  "Id" : "WTF",
+  "Name" : "Weatherford International Ltd"
+}, {
+  "Id" : "WINTECH",
+  "Name" : "Winterthur Technologie AG"
+}, {
+  "Id" : "XLIFE",
+  "Name" : "Xlife Sciences AG"
+}, {
+  "Id" : "OTI",
+  "Name" : "Youngtimers AG"
+}, {
+  "Id" : "YPSOMED",
+  "Name" : "Ypsomed Holding AG"
+}, {
+  "Id" : "ZEHNDER",
+  "Name" : "Zehnder Group AG"
+}, {
+  "Id" : "ZSCHOKKE",
+  "Name" : "Zschokke Holding SA"
+}, {
+  "Id" : "ZUGES",
+  "Name" : "Zug Estates Holding AG"
+}, {
+  "Id" : "KBZG",
+  "Name" : "Zuger Kantonalbank AG"
+}, {
+  "Id" : "ZFSZHOLS",
+  "Name" : "Zurich Insurance Group AG"
+}, {
+  "Id" : "ZWAHLEN",
+  "Name" : "Zwahlen & Mayr SA"
+}, {
+  "Id" : "ZUEBLIN",
+  "Name" : "Züblin Immobilien Holding AG"
+}, {
+  "Id" : "ZHSWISSVA",
+  "Name" : "Zürich - Swiss Value AG"
+}, {
+  "Id" : "AUTMICROS",
+  "Name" : "ams-OSRAM AG"
+}, {
+  "Id" : "CREINVEST",
+  "Name" : "creINVEST AG "
+}, {
+  "Id" : "KABA",
+  "Name" : "dormakaba Holding AG"
+}, {
+  "Id" : "FORMULAFI",
+  "Name" : "formulafirst ltd."
+}, {
+  "Id" : "GATEGR",
+  "Name" : "gategroup Holding AG"
+}, {
+  "Id" : "BRAVOFLY",
+  "Name" : "lastminute.com N.V."
+}, {
+  "Id" : "MEDMI",
+  "Name" : "medmix AG"
+}, {
+  "Id" : "MOBILEZ",
+  "Name" : "mobilezone holding ag"
+}, {
+  "Id" : "ENERGIEDH",
+  "Name" : "naturenergie holding AG"
+}, {
+  "Id" : "NEBAG",
+  "Name" : "nebag ag"
+}, {
+  "Id" : "RIT",
+  "Name" : "redIT AG"
+}, {
+  "Id" : "SHAPE",
+  "Name" : "shaPE Capital AG"
+}, {
+  "Id" : "SIA",
+  "Name" : "sia Abrasives Holding AG"
+}, {
+  "Id" : "UBLOX",
+  "Name" : "u-blox Holding AG"
+} ]

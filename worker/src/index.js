@@ -237,6 +237,17 @@ export default {
   // ============================================================
   async scheduled(event, env, ctx) {
     log.info('cron.scheduled.fired', { cronTime: event.cron });
+    // Dispatch sur la base du pattern cron :
+    //   '0 4 * * *'    => watchlist digest quotidien (4h UTC)
+    //   '*/5 * * * *'  => alerting engine 5min (Phase 2 Telegram)
+    if (event.cron === '*/5 * * * *') {
+      ctx.waitUntil(runTelegramAlertingCron(env).catch(err => {
+        log.error('cron.telegram-alerts.failed', { err });
+        return logError(env, err, { path: 'cron:telegram-alerts' });
+      }));
+      return;
+    }
+    // Cron quotidien : watchlist digest + health check
     ctx.waitUntil(runDailyWatchlistDigest(env).catch(err => {
       log.error('cron.watchlist.failed', { err });
       return logError(env, err, { path: 'cron:watchlist-digest' });
@@ -767,6 +778,14 @@ async function handleRequest(request, env, ctx) {
         // Trigger manuel du cron watchlist-digest
         if (request.method === 'POST' && path === '/api/admin/run-watchlist-cron') {
           return handleAdminRunWatchlistCron(env, origin);
+        }
+        // Lance le cron Telegram alerting manuellement (utile pour debug/test)
+        if (request.method === 'POST' && path === '/api/admin/run-telegram-cron') {
+          return handleAdminRunTelegramCron(env, origin);
+        }
+        // Bypass dedup + envoie une alerte 13D fake au chat de l'admin pour tester le format
+        if (request.method === 'POST' && path === '/api/admin/telegram/test-13d') {
+          return handleAdminTestTelegram13D(request, env, user, origin);
         }
         // Health check : lance + retourne le statut
         if (request.method === 'POST' && path === '/api/admin/run-health-check') {
@@ -9641,4 +9660,397 @@ async function sendTelegramMessage(env, chatId, text, options = {}) {
     log.error('telegram.send.error', { chatId, detail: String(e.message || e).slice(0, 200) });
     return false;
   }
+}
+
+// ============================================================
+// TELEGRAM ALERTS — Phase 2 : Core Alerting Engine
+// ============================================================
+// Cron Cloudflare Workers '*/5 * * * *' (toutes les 5 min) qui :
+//   1. Liste tous les utilisateurs avec Telegram lie (KV 'tg:*')
+//   2. Pour chaque trigger (13D / seuils EU / insider clusters) :
+//      - Diff KV state vs nouveaux filings
+//      - Match users avec ticker en watchlist + alertPref enabled
+//      - Send via Telegram avec dedup et quiet hours
+//
+// State KV :
+//   - tg-state:13d-last-accessions : Set des accession 13D deja notifies
+//   - tg-state:eu-thresholds-last-ids : Set des filings EU deja notifies
+//   - tg-state:clusters-last-tickers : Map ticker -> last_alert_date
+//   - tg-sent:{uid}:{accession} : dedup par user+filing TTL 7j
+//   - tg-quiet-skipped:{uid}:{key} : alertes mises de cote pendant quiet hours
+//
+// Quiet hours : par defaut 22h-7h Paris (configurable Phase 3)
+// ============================================================
+
+// Liste TOUS les users avec Telegram lie. Renvoie [{uid, chatId, watchlist, prefs}].
+// Brute-force scan de KV 'tg:*' (max 1000 par page). Acceptable < 10k users.
+async function listTelegramSubscribers(env) {
+  const subs = [];
+  let cursor;
+  do {
+    const list = await env.CACHE.list({ prefix: 'tg:', cursor, limit: 1000 });
+    for (const k of list.keys) {
+      // Skip 'tg-link:', 'tg-chat:', 'tg-state:', 'tg-sent:' (autres prefixes)
+      if (!k.name.startsWith('tg:') || k.name.includes(':') !== true) {}
+      // tg:{uid} only - exclude tg-* (other prefixes start with 'tg-')
+      // L'API list filtre deja par prefixe exact 'tg:' mais 'tg-link:' commence aussi
+      // par 'tg' - en fait non, list({prefix:'tg:'}) ne matche QUE 'tg:' suivi de chars.
+      // Les 'tg-link:' commencent par 'tg-' donc OK.
+      const uid = k.name.slice(3);
+      if (!uid || uid.includes(':')) continue;
+      const data = await env.CACHE.get(k.name, 'json');
+      if (!data || !data.chatId) continue;
+      // Recuperer la watchlist du user
+      const wl = await env.CACHE.get(`wl:${uid}`, 'json');
+      const tickers = (wl && Array.isArray(wl.tickers)) ? wl.tickers.map(t => String(t).toUpperCase()) : [];
+      subs.push({
+        uid,
+        chatId: data.chatId,
+        chatTitle: data.chatTitle,
+        prefs: data.alertPrefs || {},
+        watchlist: new Set(tickers),
+      });
+    }
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
+  return subs;
+}
+
+// Determine si on est dans la fenetre 'quiet hours' selon les prefs user.
+// Heure Paris (Europe/Paris) - approximation : UTC+1 hiver, UTC+2 ete.
+// On utilise UTC+2 par simplicite (pic de filings = market hours US = ete EU).
+function isInQuietHours(prefs, now = new Date()) {
+  const start = (prefs && typeof prefs.quietHoursStart === 'number') ? prefs.quietHoursStart : 22;
+  const end = (prefs && typeof prefs.quietHoursEnd === 'number') ? prefs.quietHoursEnd : 7;
+  // Heure Paris = UTC + 2 (DST simplification)
+  const parisHour = (now.getUTCHours() + 2) % 24;
+  if (start === end) return false;
+  if (start < end) return parisHour >= start && parisHour < end;
+  // Wrap-around : ex 22h-7h
+  return parisHour >= start || parisHour < end;
+}
+
+// Helper : recupere et update une 'last seen' set en KV (Set serialise JSON).
+// Cap a maxSize pour eviter la croissance infinie.
+async function updateLastSeenSet(env, key, newIds, maxSize = 5000) {
+  let prev = [];
+  try { prev = (await env.CACHE.get(key, 'json')) || []; } catch {}
+  const merged = Array.from(new Set([...prev, ...newIds]));
+  // Cap : on garde les MOST RECENT (ajoutes en derniere position)
+  const capped = merged.length > maxSize ? merged.slice(merged.length - maxSize) : merged;
+  await env.CACHE.put(key, JSON.stringify(capped));
+}
+
+async function getLastSeenSet(env, key) {
+  try {
+    const arr = (await env.CACHE.get(key, 'json')) || [];
+    return new Set(arr);
+  } catch {
+    return new Set();
+  }
+}
+
+// Envoie une alerte Telegram avec dedup + quiet hours.
+// type : '13d' | 'eu-threshold' | 'cluster' | 'score'
+// dedupKey : ex 'accession:0001540160-25-000123'
+async function dispatchTelegramAlert(env, sub, type, dedupKey, text) {
+  // Dedup : 1 alerte max par user par filing (TTL 7j)
+  const sentKey = `tg-sent:${sub.uid}:${dedupKey}`;
+  if (await env.CACHE.get(sentKey)) return false;
+  // Quiet hours : skip si dans la fenetre (les filings hors heures sont rares
+  // de toute facon, et les gens dorment).
+  if (isInQuietHours(sub.prefs)) {
+    log.info('telegram.alert.quiet-skip', { uid: sub.uid, type, dedupKey });
+    return false;
+  }
+  const ok = await sendTelegramMessage(env, sub.chatId, text);
+  if (ok) {
+    await env.CACHE.put(sentKey, '1', { expirationTtl: 7 * 86400 });
+    log.info('telegram.alert.sent', { uid: sub.uid, type, dedupKey });
+  }
+  return ok;
+}
+
+// Format Markdown helper (echappe les chars critiques mais garde *bold* et _italic_)
+function escapeMd(s) {
+  if (s == null) return '';
+  return String(s).replace(/([_*`\[\]])/g, '\\$1');
+}
+
+function formatPctChange(curr, prev) {
+  if (typeof curr !== 'number') return '';
+  const diff = (typeof prev === 'number') ? curr - prev : null;
+  const sign = diff != null && diff > 0 ? '+' : '';
+  const arrow = diff != null && diff > 0 ? '⬆️' : (diff != null && diff < 0 ? '⬇️' : '');
+  return diff != null ? ` (${sign}${diff.toFixed(2)}pt ${arrow})` : '';
+}
+
+// ============================================================
+// TRIGGER 1 : Nouveaux 13D activists
+// ============================================================
+async function checkNew13DFilings(env, subs) {
+  const data = await env.CACHE.get('13dg-recent', 'json');
+  if (!data || !Array.isArray(data.filings)) return { checked: 0, sent: 0 };
+
+  const seenSet = await getLastSeenSet(env, 'tg-state:13d-last-accessions');
+  // 1ere fois : on initialise sans envoyer (sinon spam massif)
+  if (seenSet.size === 0) {
+    const allAccessions = data.filings.map(f => f.accession).filter(Boolean);
+    await updateLastSeenSet(env, 'tg-state:13d-last-accessions', allAccessions);
+    log.info('telegram.13d.bootstrap', { count: allAccessions.length });
+    return { checked: 0, sent: 0, bootstrapped: allAccessions.length };
+  }
+
+  // Filtre : 13D / 13D-A only (pas G), pas deja vus
+  const newFilings = data.filings.filter(f => {
+    const form = (f.form || '').toUpperCase();
+    if (!form.includes('SCHEDULE 13D') || form.includes('13G')) return false;
+    return !seenSet.has(f.accession);
+  });
+  if (newFilings.length === 0) return { checked: 0, sent: 0 };
+
+  // Charge le set des CIK 13D filers (= activistes factuels) pour eventuel filtre
+  const filerSet = await getLastSeenSet(env, '13d-filer-ciks');
+  // Note: '13d-filer-ciks' est en format { cikList: [...] } pas un set direct.
+  // On le charge differemment :
+  let activistCiks = new Set();
+  try {
+    const data13d = await env.CACHE.get('13d-filer-ciks', 'json');
+    if (data13d && Array.isArray(data13d.cikList)) {
+      activistCiks = new Set(data13d.cikList);
+    }
+  } catch {}
+
+  let totalSent = 0;
+  const newAccessions = [];
+  for (const f of newFilings) {
+    newAccessions.push(f.accession);
+    const ticker = (f.ticker || '').toUpperCase();
+    if (!ticker) continue;
+    // Pour chaque user dont ce ticker est en watchlist
+    for (const sub of subs) {
+      if (!sub.watchlist.has(ticker)) continue;
+      if (sub.prefs.new13d === false) continue;  // explicit opt-out
+      // Format message (Markdown legacy)
+      const filer = (f.filerName || 'Activist 13D').slice(0, 60);
+      const isActivist = activistCiks.has((f.filerCik || '').padStart(10, '0'));
+      const badge = isActivist ? '⚔️ ACTIVIST' : '📄 13D';
+      const pct = (typeof f.percentOfClass === 'number') ? `${f.percentOfClass.toFixed(2)}%` : '';
+      const lines = [
+        `🚨 *Nouveau ${badge} sur $${ticker}*`,
+        ``,
+        `*${escapeMd(filer)}* a depose ${escapeMd(f.form)}${pct ? ` a *${pct}*` : ''}`,
+        f.targetName ? `Cible : ${escapeMd((f.targetName || '').slice(0, 50))}` : '',
+        f.fileDate ? `📅 ${f.fileDate}` : '',
+        ``,
+        `[Voir l'analyse Kairos](https://kairosinsider.fr/a/${ticker})`,
+      ].filter(Boolean);
+      const text = lines.join('\n');
+      const ok = await dispatchTelegramAlert(env, sub, '13d', `acc:${f.accession}:${sub.uid}`, text);
+      if (ok) totalSent++;
+    }
+  }
+  await updateLastSeenSet(env, 'tg-state:13d-last-accessions', newAccessions);
+  return { checked: newFilings.length, sent: totalSent };
+}
+
+// ============================================================
+// TRIGGER 2 : Franchissements seuils EU >= 5%
+// ============================================================
+async function checkEuThresholdCrossings(env, subs) {
+  const sources = [
+    { kvKey: 'amf-thresholds-recent', label: 'AMF', country: 'FR' },
+    { kvKey: 'bafin-thresholds-recent', label: 'BaFin', country: 'DE' },
+    { kvKey: 'afm-thresholds-recent', label: 'AFM', country: 'NL' },
+  ];
+  const seenKey = 'tg-state:eu-thresholds-last-ids';
+  const seenSet = await getLastSeenSet(env, seenKey);
+  let totalSent = 0;
+  let totalChecked = 0;
+  const newIds = [];
+
+  // Bootstrap : 1er run, on note tout comme deja vu sans envoyer
+  let isBootstrap = seenSet.size === 0;
+
+  for (const src of sources) {
+    const data = await env.CACHE.get(src.kvKey, 'json');
+    if (!data || !Array.isArray(data.filings)) continue;
+    for (const f of data.filings) {
+      const id = `${src.label}:${f.accession || f.id || `${f.fileDate}-${f.ticker}-${f.filerName}`}`;
+      if (isBootstrap) { newIds.push(id); continue; }
+      if (seenSet.has(id)) continue;
+      newIds.push(id);
+      // Ne notifie que les franchissements >= 5% (filtre signal/bruit)
+      const pct = Number(f.percentOfClass || f.crossingThreshold);
+      if (!pct || pct < 5) continue;
+      const ticker = (f.ticker || '').toUpperCase();
+      if (!ticker) continue;
+      totalChecked++;
+      for (const sub of subs) {
+        if (!sub.watchlist.has(ticker)) continue;
+        if (sub.prefs.euThreshold === false) continue;
+        const filer = escapeMd((f.filerName || 'Institutionnel').slice(0, 60));
+        const direction = (f.crossingDirection || 'up') === 'up' ? '⬆️' : '⬇️';
+        const lines = [
+          `🇪🇺 *Seuil EU franchi sur $${ticker}*`,
+          ``,
+          `${direction} *${filer}* franchit *${pct.toFixed(2)}%* (${src.label} ${src.country})`,
+          f.targetName ? `Cible : ${escapeMd((f.targetName || '').slice(0, 50))}` : '',
+          f.fileDate ? `📅 ${f.fileDate}` : '',
+          ``,
+          `[Voir l'analyse Kairos](https://kairosinsider.fr/a/${ticker})`,
+        ].filter(Boolean);
+        const ok = await dispatchTelegramAlert(env, sub, 'eu-threshold', id + ':' + sub.uid, lines.join('\n'));
+        if (ok) totalSent++;
+      }
+    }
+  }
+  if (isBootstrap) log.info('telegram.eu-thresholds.bootstrap', { count: newIds.length });
+  await updateLastSeenSet(env, seenKey, newIds);
+  return { checked: totalChecked, sent: totalSent, bootstrapped: isBootstrap ? newIds.length : 0 };
+}
+
+// ============================================================
+// TRIGGER 3 : Insider clusters (3+ insiders meme ticker en 7 jours)
+// ============================================================
+async function checkInsiderClusters(env, subs) {
+  const data = await env.CACHE.get('insider-clusters', 'json');
+  if (!data) return { checked: 0, sent: 0 };
+  // KV insider-clusters : { clusters: [{ ticker, count, dates, transactions, ... }] }
+  // OU array directement, on supporte les deux.
+  const clusters = Array.isArray(data) ? data : (data.clusters || []);
+  if (clusters.length === 0) return { checked: 0, sent: 0 };
+
+  // Filtre : clusters detectes dans les dernieres 24h (sinon on alerte sur des
+  // events anciens). On utilise la date la plus recente du cluster.
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const stateKey = 'tg-state:clusters-last-tickers';
+  const seen = (await env.CACHE.get(stateKey, 'json')) || {};
+  // seen = { ticker: lastAlertedAt(ISO) }
+
+  let totalSent = 0;
+  let totalChecked = 0;
+  const updates = { ...seen };
+
+  for (const c of clusters) {
+    const ticker = (c.ticker || c.symbol || '').toUpperCase();
+    if (!ticker) continue;
+    const count = Number(c.count || c.insiderCount || (c.transactions || []).length || 0);
+    if (count < 3) continue;
+    // Date la plus recente du cluster
+    const latestDate = c.latestDate || c.lastDate || (c.transactions && c.transactions[0] && c.transactions[0].date) || null;
+    const latestTs = latestDate ? new Date(latestDate).getTime() : Date.now();
+    if (latestTs < cutoff) continue;
+    // Throttle : 1 alerte par cluster ticker / semaine
+    const lastAlerted = seen[ticker];
+    if (lastAlerted && (Date.now() - new Date(lastAlerted).getTime()) < 7 * 86400 * 1000) continue;
+    totalChecked++;
+
+    for (const sub of subs) {
+      if (!sub.watchlist.has(ticker)) continue;
+      if (sub.prefs.insiderCluster === false) continue;
+      const direction = (c.direction || c.netDirection || 'buy').toLowerCase();
+      const emoji = direction === 'buy' ? '🟢' : '🔴';
+      const action = direction === 'buy' ? 'achat' : 'vente';
+      const netUsd = c.netValueUsd || c.totalValue || 0;
+      const netStr = netUsd > 1e6 ? ` (~$${(netUsd / 1e6).toFixed(1)}M)` : '';
+      const lines = [
+        `${emoji} *Cluster d'initiés sur $${ticker}*`,
+        ``,
+        `*${count} dirigeants* ont fait des ${action}s en 7j${netStr}`,
+        latestDate ? `📅 Dernier : ${escapeMd(String(latestDate).slice(0, 10))}` : '',
+        ``,
+        `Signal de convergence smart money fort.`,
+        ``,
+        `[Voir l'analyse Kairos](https://kairosinsider.fr/a/${ticker})`,
+      ].filter(Boolean);
+      const ok = await dispatchTelegramAlert(env, sub, 'cluster', `cluster:${ticker}:${latestTs}:${sub.uid}`, lines.join('\n'));
+      if (ok) totalSent++;
+    }
+    updates[ticker] = new Date().toISOString();
+  }
+  await env.CACHE.put(stateKey, JSON.stringify(updates));
+  return { checked: totalChecked, sent: totalSent };
+}
+
+// ============================================================
+// MAIN ENTRY : runTelegramAlertingCron
+// ============================================================
+// Admin endpoint : trigger le cron Telegram alerting manuellement.
+// Utile pour debug/test sans attendre les 5 min du cron.
+async function handleAdminRunTelegramCron(env, origin) {
+  const start = Date.now();
+  try {
+    await runTelegramAlertingCron(env);
+    return jsonResponse({
+      ok: true,
+      elapsedMs: Date.now() - start,
+      message: 'Cron telegram-alerts run completed. Check logs for details.',
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ ok: false, error: String(e.message || e) }, 500, origin);
+  }
+}
+
+// Admin endpoint : envoie une alerte 13D fake au chat lie de l'admin pour
+// valider le format/visuel sans attendre un vrai filing.
+// POST /api/admin/telegram/test-13d body { ticker?, filer?, percentOfClass? }
+async function handleAdminTestTelegram13D(request, env, user, origin) {
+  if (!user || !user.uid) return jsonResponse({ error: 'Auth required' }, 401, origin);
+  const tg = await env.CACHE.get(`tg:${user.uid}`, 'json');
+  if (!tg || !tg.chatId) return jsonResponse({ error: 'Admin Telegram not linked' }, 400, origin);
+  let body = {};
+  try { body = await request.json(); } catch {}
+  const ticker = (body.ticker || 'LVMH').toUpperCase();
+  const filer = body.filer || 'Cevian Capital II GP LTD';
+  const pct = (typeof body.percentOfClass === 'number') ? body.percentOfClass : 5.42;
+  const targetName = body.targetName || 'LVMH MOET HENNESSY LOUIS VUITTON SE';
+  const text = [
+    `🚨 *Nouveau ⚔️ ACTIVIST sur $${ticker}* _(test admin)_`,
+    ``,
+    `*${escapeMd(filer)}* a depose SCHEDULE 13D/A a *${pct.toFixed(2)}%*`,
+    `Cible : ${escapeMd(targetName)}`,
+    `📅 ${new Date().toISOString().slice(0, 10)}`,
+    ``,
+    `[Voir l'analyse Kairos](https://kairosinsider.fr/a/${ticker})`,
+  ].join('\n');
+  const ok = await sendTelegramMessage(env, tg.chatId, text);
+  return jsonResponse({ sent: ok, chatId: tg.chatId, message: text }, ok ? 200 : 502, origin);
+}
+
+async function runTelegramAlertingCron(env) {
+  const start = Date.now();
+  log.info('telegram.cron.start');
+  // 1. List tous les subscribers (avec watchlist + prefs)
+  const subs = await listTelegramSubscribers(env);
+  if (subs.length === 0) {
+    log.info('telegram.cron.no-subs');
+    return;
+  }
+  log.info('telegram.cron.subs', { count: subs.length });
+
+  // 2. Run les 3 triggers en sequence (peuvent tourner en parallele Promise.all
+  //    mais on prefere sequentiel pour eviter les races sur les state KVs)
+  const r13d = await checkNew13DFilings(env, subs).catch(e => ({ error: String(e) }));
+  log.info('telegram.cron.13d', r13d);
+
+  const rEu = await checkEuThresholdCrossings(env, subs).catch(e => ({ error: String(e) }));
+  log.info('telegram.cron.eu-thresholds', rEu);
+
+  const rCluster = await checkInsiderClusters(env, subs).catch(e => ({ error: String(e) }));
+  log.info('telegram.cron.clusters', rCluster);
+
+  const elapsed = Date.now() - start;
+  log.info('telegram.cron.done', {
+    elapsedMs: elapsed, subs: subs.length,
+    sent13d: r13d.sent || 0, sentEu: rEu.sent || 0, sentCluster: rCluster.sent || 0,
+  });
+  // Update lastRun pour badge UI
+  try {
+    await env.CACHE.put('lastRun:telegram-alerts', JSON.stringify({
+      timestamp: new Date().toISOString(),
+      subs: subs.length,
+      sent: { '13d': r13d.sent, eu: rEu.sent, cluster: rCluster.sent },
+    }));
+  } catch {}
 }
