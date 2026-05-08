@@ -11018,16 +11018,16 @@
       const perfTxt = (p) => p == null ? '—' : perfSign(p) + p.toFixed(2) + '%';
 
       // Petite fonction pour afficher une "ligne info" dans le hero
-      const infoRow = (label, value) => value ? `<div style="font-size:12px"><span style="opacity:0.55">${label} :</span> <strong style="opacity:0.95">${value}</strong></div>` : '';
+      const infoRow = (label, value) => value ? `<div style="font-size:11.5px"><span style="opacity:0.55">${label} :</span> <strong style="opacity:0.95">${value}</strong></div>` : '';
 
       body.innerHTML = `
         ${resolvedNotice}
         ${coverageBanner}
-        <!-- HERO -->
-        <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;padding:14px 16px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
+        <!-- HERO (compresse mai 2026) -->
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;padding:12px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
           <div style="flex:1;min-width:280px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-              <h1 style="margin:0;font-size:28px;letter-spacing:-0.01em">${d.ticker}</h1>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
+              <h1 style="margin:0;font-size:24px;letter-spacing:-0.01em">${d.ticker}</h1>
               ${price.exchange ? exchangeToFlag(price.exchange) : ''}
               ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
               ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
@@ -11046,9 +11046,9 @@
                 <span>🔗</span><span id="shareBtnLabel-${d.ticker}">${t('stock.action.share', 'Partager')}</span>
               </button>
             </div>
-            <div style="font-size:18px;opacity:0.9;margin-bottom:4px">${company.name || ''}</div>
-            <div style="font-size:13px;opacity:0.6;margin-bottom:14px">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 20px">
+            <div style="font-size:15px;opacity:0.9;margin-bottom:2px;font-weight:500">${company.name || ''}</div>
+            <div style="font-size:11.5px;opacity:0.6;margin-bottom:10px">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:3px 16px">
               ${infoRow('PDG', company.ceo)}
               ${infoRow(L.coFounded, company.founded)}
               ${infoRow(L.coHeadquarters, company.headquarters)}
@@ -11058,34 +11058,34 @@
               ${company.website ? `<div style="font-size:12px"><span style="opacity:0.55">Site :</span> <a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff">${company.website.replace(/^https?:\/\//,'').replace(/\/$/,'')}</a></div>` : ''}
             </div>
           </div>
-          <div style="text-align:right;min-width:240px">
-            <div style="font-size:36px;font-weight:600;line-height:1.1">${fmtCurr(price.current)}</div>
-            <div style="color:${changeColor};font-size:16px;margin-top:4px">
+          <div style="text-align:right;min-width:220px">
+            <div style="font-size:30px;font-weight:600;line-height:1.05">${fmtCurr(price.current)}</div>
+            <div style="color:${changeColor};font-size:14px;margin-top:2px">
               ${changePct != null ? `${changeSign}${changePct.toFixed(2)}%` : '—'}
-              ${price.change != null ? ` <span style="opacity:0.7;font-size:13px">(${changeSign}${fmtCurr(price.change)})</span>` : ''}
-              <span style="font-size:11px;opacity:0.55;margin-left:4px">${L.intradaySession}</span>
+              ${price.change != null ? ` <span style="opacity:0.7;font-size:12px">(${changeSign}${fmtCurr(price.change)})</span>` : ''}
+              <span style="font-size:10.5px;opacity:0.55;margin-left:3px">${L.intradaySession}</span>
             </div>
 
-            <!-- Tableau de performance multi-horizon -->
-            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
-              <div style="text-align:center;min-width:64px;padding:6px 10px;background:var(--surface-1);border-radius:6px">
-                <div style="font-size:10px;opacity:0.6">${t('stock.label.sinceJan1', 'Depuis 1er janv.')}</div>
-                <div style="font-size:13px;font-weight:600;color:${perfCol(ytdPct)}">${perfTxt(ytdPct)}</div>
+            <!-- Tableau de performance multi-horizon (compact) -->
+            <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap">
+              <div style="text-align:center;min-width:56px;padding:4px 8px;background:var(--surface-1);border-radius:5px">
+                <div style="font-size:9.5px;opacity:0.6">${t('stock.label.sinceJan1', 'Depuis 1er janv.')}</div>
+                <div style="font-size:12px;font-weight:600;color:${perfCol(ytdPct)}">${perfTxt(ytdPct)}</div>
               </div>
-              <div style="text-align:center;min-width:64px;padding:6px 10px;background:var(--surface-1);border-radius:6px">
-                <div style="font-size:10px;opacity:0.6">${t('stock.label.oneYear', 'Sur 1 an')}</div>
-                <div style="font-size:13px;font-weight:600;color:${perfCol(y1Pct)}">${perfTxt(y1Pct)}</div>
+              <div style="text-align:center;min-width:56px;padding:4px 8px;background:var(--surface-1);border-radius:5px">
+                <div style="font-size:9.5px;opacity:0.6">${t('stock.label.oneYear', 'Sur 1 an')}</div>
+                <div style="font-size:12px;font-weight:600;color:${perfCol(y1Pct)}">${perfTxt(y1Pct)}</div>
               </div>
             </div>
 
-            <div style="font-size:12px;opacity:0.5;margin-top:10px">
+            <div style="font-size:11px;opacity:0.5;margin-top:6px">
               ${L.range52w} ${fmtCurr(price.low52w)} – ${fmtCurr(price.high52w)}
             </div>
             ${price.current && price.low52w && price.high52w ? (() => {
               const pos = ((price.current - price.low52w) / (price.high52w - price.low52w)) * 100;
-              return `<div style="height:4px;background:var(--surface-3);border-radius:2px;margin-top:6px;overflow:hidden;position:relative">
+              return `<div style="height:3px;background:var(--surface-3);border-radius:2px;margin-top:4px;overflow:hidden;position:relative">
                 <div style="height:100%;background:linear-gradient(90deg,#ff7675,#f39c12,#2ecc71);border-radius:2px"></div>
-                <div style="position:absolute;top:-3px;left:${Math.max(0,Math.min(100,pos))}%;width:2px;height:10px;background:#fff;transform:translateX(-50%)"></div>
+                <div style="position:absolute;top:-2.5px;left:${Math.max(0,Math.min(100,pos))}%;width:2px;height:8px;background:#fff;transform:translateX(-50%)"></div>
               </div>`;
             })() : ''}
           </div>
