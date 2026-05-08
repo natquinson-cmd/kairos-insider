@@ -2966,8 +2966,12 @@
 
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
-  <!-- ===== AUTH OVERLAY ===== -->
-  <div class="auth-overlay" id="authOverlay">
+  <!-- ===== AUTH OVERLAY =====
+       Cache par defaut : ne s'affiche QUE quand explicitement demande (click
+       Login, 401 sur endpoint gate, quota anonyme atteint). Avant : visible
+       par defaut puis masque en JS apres firebase init -> flash visible pour
+       les anonymes arrivant via /a/[ticker] depuis un tweet. -->
+  <div class="auth-overlay hidden" id="authOverlay">
     <div class="auth-card">
       <div class="logo-mark">
         <img src="assets/logo.svg" alt="Kairos Insider" />
