@@ -2126,14 +2126,16 @@
     .section-page.active { display: block; }
     .section-page h2 {
       font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 22px;
+      /* PRO COMPRESS L1 (mai 2026) : 22 -> 19px (-14%) pour densite "outil pro"
+         vs "landing produit". Voir commit pour reverter. */
+      font-size: 19px;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .section-page .section-desc {
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--text-muted);
-      margin-bottom: 24px;
+      margin-bottom: 18px;
     }
 
     /* Accueil — hover sur les cartes fonctionnalités */
@@ -3678,10 +3680,10 @@
              Rendu dynamiquement par updatePremiumUI() → renderFreeQuotaBanner(). -->
         <div id="freeQuotaBanner" style="display:none"></div>
 
-        <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;">
+        <div class="stock-search-bar" style="position:relative;max-width:600px;margin:14px 0 20px;">
           <input id="stockSearchInput" type="text" placeholder="Ticker (ex. AAPL, MSFT, ASML, MC.PA)..." autocomplete="off"
-                 style="width:100%;padding:14px 18px;font-size:16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;">
-          <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
+                 style="width:100%;padding:11px 16px;font-size:14.5px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none;">
+          <div id="stockSearchSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 8px 8px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
         </div>
 
         <div id="stockAnalysisBody"></div>
@@ -6339,18 +6341,18 @@
         : "document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()";
       el.style.display = 'block';
       el.innerHTML = `
-        <div style="position:relative;padding:14px 18px;margin-bottom:20px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.22);border-radius:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-          <div style="font-size:24px;line-height:1;flex-shrink:0">${emoji}</div>
+        <div style="position:relative;padding:11px 14px;margin-bottom:14px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.22);border-radius:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="font-size:20px;line-height:1;flex-shrink:0">${emoji}</div>
           <div style="flex:1;min-width:220px">
-            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">
+            <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px">
               ${__remainingLabel}
             </div>
-            <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
-              <div style="height:100%;width:${pctUsed}%;background:linear-gradient(90deg,${color},${color});border-radius:3px;transition:width 0.3s"></div>
+            <div style="height:4px;background:var(--surface-2);border-radius:2px;overflow:hidden;margin-bottom:5px">
+              <div style="height:100%;width:${pctUsed}%;background:linear-gradient(90deg,${color},${color});border-radius:2px;transition:width 0.3s"></div>
             </div>
-            <div style="font-size:11px;color:var(--text-muted);line-height:1.5">${subline}</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.45">${subline}</div>
           </div>
-          <button type="button" onclick="${ctaOnclick}" style="padding:9px 16px;background:${ctaGradient};border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.25)">${ctaLabel}</button>
+          <button type="button" onclick="${ctaOnclick}" style="padding:8px 14px;background:${ctaGradient};border:none;border-radius:7px;color:#fff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.25)">${ctaLabel}</button>
         </div>
       `;
     }
@@ -10571,7 +10573,7 @@
       }).join('');
 
       return `
-        <div class="kairos-score-card" style="background:linear-gradient(135deg,var(--surface-1) 0%,rgba(255,255,255,0.01) 100%);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px;position:relative;overflow:hidden">
+        <div class="kairos-score-card" style="background:linear-gradient(135deg,var(--surface-1) 0%,rgba(255,255,255,0.01) 100%);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:18px;position:relative;overflow:hidden">
           <!-- Halo de couleur en fond (signature branding) -->
           <div style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,${palette.glow} 0%,transparent 65%);pointer-events:none;z-index:0;opacity:0.9"></div>
           <div style="position:absolute;bottom:-100px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,${palette.glow} 0%,transparent 60%);pointer-events:none;z-index:0;opacity:0.5"></div>
@@ -10920,10 +10922,10 @@
         ${resolvedNotice}
         ${coverageBanner}
         <!-- HERO -->
-        <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:24px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:14px;margin-bottom:24px">
+        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;padding:18px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
           <div style="flex:1;min-width:280px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
-              <h1 style="margin:0;font-size:32px">${d.ticker}</h1>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+              <h1 style="margin:0;font-size:28px;letter-spacing:-0.01em">${d.ticker}</h1>
               ${price.exchange ? exchangeToFlag(price.exchange) : ''}
               ${price.exchange ? `<span style="font-size:12px;padding:3px 8px;background:var(--surface-3);border-radius:4px;opacity:0.7" title="${price.exchangeFull || ''}">${price.exchange}</span>` : ''}
               ${company.isin ? `<span style="font-size:11px;opacity:0.5">ISIN ${company.isin}</span>` : ''}
@@ -10991,7 +10993,7 @@
         ${renderKairosScoreCard(score, d.ticker)}
 
         <!-- CHART prix avec superposition insiders + fonds offensifs + period selector -->
-        <div id="stockChartCard" style="position:relative;background:linear-gradient(135deg,var(--surface-1) 0%,rgba(59,130,246,0.03) 100%);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:24px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.04)">
+        <div id="stockChartCard" style="position:relative;background:linear-gradient(135deg,var(--surface-1) 0%,rgba(59,130,246,0.03) 100%);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.14),inset 0 1px 0 rgba(255,255,255,0.04)">
           <!-- Halo decoratif haut-droite (signature brand Kairos) -->
           <div aria-hidden="true" style="position:absolute;top:-80px;right:-80px;width:260px;height:260px;background:radial-gradient(circle,rgba(139,92,246,0.12) 0%,transparent 65%);pointer-events:none;z-index:0"></div>
           <div aria-hidden="true" style="position:absolute;bottom:-120px;left:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(236,72,153,0.08) 0%,transparent 60%);pointer-events:none;z-index:0"></div>
