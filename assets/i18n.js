@@ -404,7 +404,7 @@
       'stock.hf.deltaLabel': 'Δ positions',
       'stock.hf.totalValue': 'Valeur totale :',
       'stock.hf.offensiveBadge': 'OFFENSIF',
-      'stock.hf.offensiveTooltip': 'Fonds offensif : activist, contrarian, tiger cub, macro ou conviction haute. Signal smart money plus fort que les mega passifs (BlackRock, Vanguard).',
+      'stock.hf.offensiveTooltip': 'Fonds offensif : a déposé au moins un Schedule 13D auprès de la SEC sur les 24 derniers mois (= acquisition >5% AVEC intention d\'influencer la société). Signal activist factuel — pas seulement une auto-déclaration de catégorie.',
       // Consensus vote cards
       'stock.cons.strongBuy': 'Achat fort',
       'stock.cons.buy': 'Achat',
@@ -1337,7 +1337,7 @@
       'stock.hf.deltaLabel': 'Δ positions',
       'stock.hf.totalValue': 'Total value:',
       'stock.hf.offensiveBadge': 'OFFENSIVE',
-      'stock.hf.offensiveTooltip': 'Offensive fund: activist, contrarian, tiger cub, macro or high-conviction. Smart money signal stronger than mega-passive (BlackRock, Vanguard).',
+      'stock.hf.offensiveTooltip': 'Offensive fund: filed at least one Schedule 13D with the SEC in the last 24 months (= >5% acquisition WITH intent to influence the company). Factual activist signal — not just self-declared category.',
       'stock.cons.strongBuy': 'Strong buy',
       'stock.cons.buy': 'Buy',
       'stock.cons.hold': 'Hold',

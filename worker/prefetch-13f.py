@@ -402,33 +402,50 @@ print(f'\n=== Building inverted index (name -> funds) ===')
 MAX_FUNDS_PER_TICKER = 15  # etait 20. KV limite 25MB force cette reduction.
 MIN_POSITION_VALUE_USD = 100000  # etait 50000. Filtre plus strict : pro investors only.
 
-# Categories "offensives" : activistes, contrarians, conviction haute.
-# Ces fonds ont prio sur les mega passifs (BlackRock/Vanguard/etc.) dans le
-# cap top-15. On reserve OFFENSIVE_SLOTS pour eux meme s'ils ne sont pas
-# top par $ absolu. Sans ca BlackRock + Vanguard + State Street + Fidelity
-# + Citadel + Norges + Goldman + JPMorgan eclipsent toujours Burry/Ackman.
-OFFENSIVE_CATEGORIES = {
-    'Activist', 'Activist Value', 'Contrarian', 'Distressed', 'Deep Value',
-    'Macro', 'Innovation', 'Multi-strategy',
-    'Tiger Cub', 'Tiger Cub Growth', 'Tiger Cub Long-Short', 'Tiger Grandcub',
-    'Growth Tech', 'Tech Long-Short', 'Tech Tiger Cub',
-    'Long-Short', 'Long-Short UK', 'Macro Family Office', 'Quant',
-    'Value investing',
-}
-OFFENSIVE_SLOTS = 8   # min slots reserves aux offensifs (sur 15)
-PASSIVE_SLOTS = 7     # le reste pour les mega/bank/pension/asset manager
+# Critere "fonds offensif" : a depose au moins 1 SCHEDULE 13D ou 13D/A
+# (= declaration d'acquisition >5% AVEC intention d'influencer la societe)
+# dans les 730 jours d'historique. Source : KV '13dg-recent' construit par
+# fetch-13dg.py et indexe par build-13d-filer-set.py -> 13d_filer_ciks.json.
+#
+# 13D = activist (SEC requirement to disclose intent : changer le board,
+#       proxy fight, push restructuring, etc.).
+# 13G = passif (BlackRock, Vanguard, etc.) -> EXCLU.
+#
+# Cette regle est strictement factuelle (action SEC observee) vs. la
+# version precedente qui categorisait par texte (auto-declaration).
+#
+# Resultat attendu : Icahn (33 13D), Starboard (27), Ackman (12), Elliott
+# (12), Trian (7), Loeb (5) = OFFENSIF. Burry/Klarman/Einhorn/Renaissance
+# /ARK = NON offensif (jamais 13D, ils font long-short ou conviction sans
+# activisme proxy).
+filer_13d_ciks = set()
+try:
+    with open('13d_filer_ciks.json', 'r', encoding='utf-8') as f:
+        _13d_data = json.load(f)
+    filer_13d_ciks = set(_13d_data.get('cikList', []))
+    print(f'  Loaded {len(filer_13d_ciks)} CIKs avec >=1 13D filing depuis 13d_filer_ciks.json')
+except Exception as e:
+    print(f'  WARN : 13d_filer_ciks.json non charge ({e}). isOffensive=false partout.')
+    print(f'  Run build-13d-filer-set.py avant prefetch-13f.py pour activer le flag.')
+
+OFFENSIVE_SLOTS = 8   # min slots reserves aux 13D filers (sur 15)
+PASSIVE_SLOTS = 7     # le reste pour les non-13D (mega/bank/pension/asset manager)
 
 ticker_index = {}  # normalized_name -> [{compact fund}]
 total_positions = 0
+offensive_funds_in_pool = 0
 for fund in all_funds:
     all_hold = fund.pop('_allHoldings', [])
     total_positions += len(all_hold)
     fund_name = fund.get('fundName')
-    fund_cik = fund.get('cik')
+    fund_cik = (fund.get('cik') or '').zfill(10)
     fund_label = fund.get('label')
     fund_category = fund.get('category', '') or ''
     fund_report = fund.get('reportDate')
-    is_offensive = fund_category in OFFENSIVE_CATEGORIES
+    # Critere strict : ce fund a-t-il depose un 13D dans les 730 derniers jours ?
+    is_offensive = fund_cik in filer_13d_ciks
+    if is_offensive:
+        offensive_funds_in_pool += 1
     for h in all_hold:
         if (h.get('value') or 0) < MIN_POSITION_VALUE_USD:
             continue
@@ -483,7 +500,8 @@ for key in list(ticker_index.keys()):
     if len(picked_off) > 0 and len(picked_pas) == 0:
         offensive_only_count += 1
 
-print(f'  Cap hybride applique : {OFFENSIVE_SLOTS} offensifs + {PASSIVE_SLOTS} passifs / ticker')
+print(f'  Cap hybride : {OFFENSIVE_SLOTS} 13D filers + {PASSIVE_SLOTS} non-13D / ticker')
+print(f'  Pool : {offensive_funds_in_pool}/{len(all_funds)} fonds avec 13D (= activistes factuels)')
 print(f'  Tickers avec >={OFFENSIVE_SLOTS} offensifs : {fully_filled_count}')
 
 print(f'  Total positions brutes : {total_positions}')
