@@ -2126,7 +2126,6 @@
     .section-page.active { display: block; }
     .section-page h2 {
       font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      /* PRO COMPRESS L1.5 (mai 2026) : 22 -> 17px (-23%) pour densite "outil pro" */
       font-size: 17px;
       font-weight: 700;
       margin-bottom: 3px;
@@ -2137,6 +2136,47 @@
       margin-bottom: 14px;
       line-height: 1.45;
     }
+
+    /* ============================================================
+       PRO COMPRESS — page Decrypter une valeur (#stockAnalysisBody)
+       ============================================================
+       Compression GLOBALE et AGRESSIVE de tous les elements internes
+       pour donner un look "outil pro" type Bloomberg / Yahoo Finance.
+       Cible specifiquement la page Decode pour ne pas affecter le reste.
+       Reverter via git revert ou supprimer ce bloc. */
+    #stockAnalysisBody {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    #stockAnalysisBody h1 {
+      font-size: 24px !important;
+      letter-spacing: -0.01em;
+      margin: 0 0 4px !important;
+    }
+    #stockAnalysisBody h2 {
+      font-size: 17px !important;
+      margin: 0 0 8px !important;
+    }
+    #stockAnalysisBody h3 {
+      font-size: 13.5px !important;
+      margin: 0 0 8px !important;
+    }
+    #stockAnalysisBody h4 {
+      font-size: 12.5px !important;
+      margin: 0 0 6px !important;
+    }
+    #stockAnalysisBody p {
+      line-height: 1.5;
+      margin: 0 0 8px;
+    }
+    /* Reduit l'espacement vertical entre cards/sections successives */
+    #stockAnalysisBody > div + div { margin-top: 0; }
+    /* Tableau dense (insiders, hedge funds) */
+    #stockAnalysisBody table { font-size: 12px; }
+    #stockAnalysisBody th { padding: 8px 10px !important; font-size: 11px !important; }
+    #stockAnalysisBody td { padding: 8px 10px !important; }
+    /* HERO : info-grid plus serree */
+    #stockAnalysisBody .info-row { font-size: 12px; }
 
     /* Accueil — hover sur les cartes fonctionnalités */
     .home-card:hover {
