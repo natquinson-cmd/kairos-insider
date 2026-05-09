@@ -9600,25 +9600,46 @@ async function handleChatbotMessage(request, env, ctx, origin) {
   const systemPrompt = lang === 'en' ? CHATBOT_SYSTEM_PROMPT_EN : CHATBOT_SYSTEM_PROMPT_FR;
   let reply;
   try {
-    const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Modele : env.CLAUDE_MODEL override possible (default = haiku-4-5 le moins cher).
+    // Aliases utiles : 'claude-haiku-4-5' / 'claude-3-5-haiku-latest' / 'claude-3-haiku-20240307'.
+    // En cas de 404 sur le modele : fallback vers Claude 3 Haiku original.
+    const primaryModel = env.CLAUDE_MODEL || 'claude-haiku-4-5';
+    const claudeBody = {
+      model: primaryModel,
+      max_tokens: 600,
+      system: systemPrompt,
+      messages: sanitized,
+    };
+    let claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: sanitized,
-      }),
+      body: JSON.stringify(claudeBody),
     });
+    // Fallback automatique si modele introuvable (model name change cote Anthropic)
+    if (claudeResp.status === 404) {
+      const fallbackModel = primaryModel === 'claude-haiku-4-5' ? 'claude-3-haiku-20240307' : 'claude-haiku-4-5';
+      log.warn('chatbot.claude.model-fallback', { from: primaryModel, to: fallbackModel });
+      claudeBody.model = fallbackModel;
+      claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(claudeBody),
+      });
+    }
     if (!claudeResp.ok) {
       const errText = await claudeResp.text().catch(() => '');
-      log.warn('chatbot.claude.failed', { status: claudeResp.status, body: errText.slice(0, 300) });
+      log.warn('chatbot.claude.failed', { model: claudeBody.model, status: claudeResp.status, body: errText.slice(0, 300) });
       return jsonResponse({
-        error: 'Claude API error',
+        error: `Claude API error (${claudeResp.status})`,
+        detail: errText.slice(0, 300),
         reply: lang === 'en' ? 'Sorry, an issue. Try again or contact us at contact@kairosinsider.fr.' : 'Désolé, un souci est survenu. Réessaie ou écris-nous à contact@kairosinsider.fr.',
       }, 502, origin);
     }
