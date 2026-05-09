@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260509-realtime"></script>
+  <script src="assets/i18n.js?v=20260509-i18n-pass"></script>
 
   <style>
     :root {
@@ -1294,32 +1294,44 @@
   </style>
   <div id="betaUrgencyBanner">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
-      <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong>100 premiers inscrits</strong> · <span id="betaBannerOffer">-50% sur le 1er mois</span> · <strong id="betaBannerRemaining" style="color:#FFE4F1">… places restantes</strong></span>
-      <a href="dashboard.html#signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)">Réserver ma place →</a>
-      <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';document.body.classList.remove('has-beta-banner');})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
+      <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong data-i18n="beta.banner.title">100 premiers inscrits</strong> · <span id="betaBannerOffer" data-i18n="beta.banner.offer">-50% sur le 1er mois</span> · <strong id="betaBannerRemaining" style="color:#FFE4F1" data-i18n="beta.banner.remaining_loading">… places restantes</strong></span>
+      <a href="dashboard.html#signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)" data-i18n="beta.banner.cta">Réserver ma place →</a>
+      <button type="button" data-i18n-aria-label="beta.banner.dismiss_aria" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';document.body.classList.remove('has-beta-banner');})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
     </div>
   </div>
   <script>
     // Fetch live le compteur beta pour creer de l'urgence (X places restantes)
+    // i18n FR/EN via window.KairosI18n.t() une fois charge.
     (function () {
+      function _t(key, fb) {
+        return (window.KairosI18n && window.KairosI18n.t) ? window.KairosI18n.t(key, fb) : fb;
+      }
+      function applyBetaCounter(d) {
+        const remEl = document.getElementById('betaBannerRemaining');
+        const offerEl = document.getElementById('betaBannerOffer');
+        if (!remEl) return;
+        if (d.isOpen && d.remaining > 0) {
+          remEl.textContent = _t('beta.banner.remaining', '{n} places restantes').replace('{n}', d.remaining);
+        } else {
+          remEl.textContent = _t('beta.banner.complete', '✓ Bêta complète');
+          if (offerEl) offerEl.textContent = _t('beta.banner.complete_offer', 'prochaine vague à venir');
+        }
+      }
       try {
         fetch('https://kairos-insider-api.natquinson.workers.dev/api/beta/status', { cache: 'no-store' })
           .then(r => r.ok ? r.json() : null)
-          .then(d => {
-            if (!d) return;
-            const remEl = document.getElementById('betaBannerRemaining');
-            if (!remEl) return;
-            if (d.isOpen && d.remaining > 0) {
-              remEl.textContent = d.remaining + ' places restantes';
-            } else {
-              // Bêta complete : transformer le banner
-              remEl.textContent = '✓ Bêta complète';
-              const offer = document.getElementById('betaBannerOffer');
-              if (offer) offer.textContent = 'prochaine vague à venir';
-            }
-          })
+          .then(d => { if (d) applyBetaCounter(d); })
           .catch(() => {});
       } catch (e) {}
+      // Re-apply au switch de langue
+      window.addEventListener('kairos:langchange', () => {
+        try {
+          fetch('https://kairos-insider-api.natquinson.workers.dev/api/beta/status', { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) applyBetaCounter(d); })
+            .catch(() => {});
+        } catch (e) {}
+      });
     })();
   </script>
   <script>
@@ -1398,7 +1410,7 @@
               <span style="width:8px;height:8px;background:#10B981;border-radius:50%;animation:pulse 2s infinite;display:inline-block"></span>
               LIVE
             </span>
-            <span id="liveProofText" style="color:var(--text-secondary);line-height:1.4">Données refreshées il y a quelques minutes · 9 marchés monitorés en continu</span>
+            <span id="liveProofText" style="color:var(--text-secondary);line-height:1.4" data-i18n="live.proof_static">Données refreshées il y a quelques minutes · 9 marchés monitorés en continu</span>
           </div>
 
           <div class="hero-meta">
@@ -1635,11 +1647,11 @@
   <section class="section" id="speed" style="padding-top:60px;padding-bottom:40px">
     <div class="container" style="max-width:1100px">
       <div style="text-align:center;margin-bottom:36px">
-        <span class="section-badge" style="background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3)">⚡ FRAÎCHEUR · TEMPS RÉEL</span>
+        <span class="section-badge" style="background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3)" data-i18n="speed.badge">⚡ FRAÎCHEUR · TEMPS RÉEL</span>
         <h2 style="font-size:34px;margin:14px 0 12px;letter-spacing:-0.5px">
-          Du filing SEC au Telegram <span style="background:linear-gradient(135deg,#10B981 0%,#3B82F6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en moins de 8 minutes.</span>
+          <span data-i18n="speed.title_part1">Du filing SEC au Telegram</span> <span style="background:linear-gradient(135deg,#10B981 0%,#3B82F6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent" data-i18n="speed.title_part2">en moins de 8 minutes.</span>
         </h2>
-        <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:15px;line-height:1.65">
+        <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:15px;line-height:1.65" data-i18n="speed.subtitle">
           Quand Cevian dépose un 13D sur Smith &amp; Nephew, tu reçois la notif Telegram <strong style="color:var(--text-primary)">avant que les sell-side analysts ouvrent leur Bloomberg</strong>. Pendant que les retail FR attendent 24h+ via leurs apps.
         </p>
       </div>
@@ -1649,36 +1661,36 @@
         <!-- Kairos (winner) -->
         <div style="position:relative;padding:24px 22px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(59,130,246,0.05));border:2px solid rgba(16,185,129,0.4);border-radius:14px">
           <div style="position:absolute;top:-10px;right:14px;background:#10B981;color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">KAIROS</div>
-          <div style="font-size:11px;color:#10B981;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px">Telegram + Email</div>
+          <div style="font-size:11px;color:#10B981;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px" data-i18n="speed.kairos_subtitle">Telegram + Email</div>
           <div style="font-size:32px;font-weight:800;color:#10B981;line-height:1;margin-bottom:6px">&lt; 8 min</div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55">Refresh 30 min · cron 5 min sur les filings &gt;5%, activistes, clusters insiders. Latence end-to-end < 8 min après la publication SEC.</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.kairos_desc">Refresh 30 min · cron 5 min sur les filings &gt;5%, activistes, clusters insiders. Latence end-to-end < 8 min après la publication SEC.</div>
         </div>
         <!-- Bloomberg -->
         <div style="padding:24px 22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;position:relative">
           <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">BLOOMBERG</div>
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px">Terminal · 24 000 $/an</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px" data-i18n="speed.bloomberg_subtitle">Terminal · 24 000 $/an</div>
           <div style="font-size:32px;font-weight:800;color:var(--text-primary);line-height:1;margin-bottom:6px">&lt; 5 min</div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55">Pareil voire plus rapide, mais accessible aux pros uniquement. Coût prohibitif pour le retail.</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.bloomberg_desc">Pareil voire plus rapide, mais accessible aux pros uniquement. Coût prohibitif pour le retail.</div>
         </div>
         <!-- Apps retail FR -->
         <div style="padding:24px 22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;position:relative">
-          <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">RETAIL FR</div>
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px">Boursorama / Yahoo / etc.</div>
+          <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px" data-i18n="speed.retail_label">RETAIL FR</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px" data-i18n="speed.retail_subtitle">Boursorama / Yahoo / etc.</div>
           <div style="font-size:32px;font-weight:800;color:#F59E0B;line-height:1;margin-bottom:6px">24 h+</div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55">Données J-1 ou pas du tout sur les filings 13D / seuils EU. Aucune notification temps réel.</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.retail_desc">Données J-1 ou pas du tout sur les filings 13D / seuils EU. Aucune notification temps réel.</div>
         </div>
       </div>
 
       <!-- Couverture sources real-time -->
       <div style="padding:22px 24px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px">
-        <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">Sources rafraîchies en continu</div>
+        <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px" data-i18n="speed.sources_title">Sources rafraîchies en continu</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
-          <div><strong style="color:#10B981">SEC 13D/A</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">activistes US + UK/EU via ADR</div></div>
-          <div><strong style="color:#10B981">AMF FR</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">déclarations dirigeants + seuils &gt;5%</div></div>
-          <div><strong style="color:#10B981">BaFin DE</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">Directors' Dealings + Stimmrecht</div></div>
-          <div><strong style="color:#10B981">AFM NL</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">substantial holdings</div></div>
-          <div><strong style="color:#10B981">FCA UK</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">TR-1 holdings</div></div>
-          <div><strong style="color:#10B981">SIX CH · CONSOB IT · CNMV ES</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">seuils 5% via RSS</div></div>
+          <div><strong style="color:#10B981">SEC 13D/A</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="speed.source_sec_desc">activistes US + UK/EU via ADR</div></div>
+          <div><strong style="color:#10B981">AMF FR</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="speed.source_amf_desc">déclarations dirigeants + seuils &gt;5%</div></div>
+          <div><strong style="color:#10B981">BaFin DE</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="speed.source_bafin_desc">Directors' Dealings + Stimmrecht</div></div>
+          <div><strong style="color:#10B981">AFM NL</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="speed.source_afm_desc">substantial holdings</div></div>
+          <div><strong style="color:#10B981">FCA UK</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="speed.source_fca_desc">TR-1 holdings</div></div>
+          <div><strong style="color:#10B981">SIX CH · CONSOB IT · CNMV ES</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="speed.source_others_desc">seuils 5% via RSS</div></div>
         </div>
       </div>
     </div>
@@ -2626,13 +2638,33 @@
       const API = 'https://kairos-insider-api.natquinson.workers.dev';
       const el = document.getElementById('liveProofText');
       if (!el) return;
+      function _t(key, fb) {
+        return (window.KairosI18n && window.KairosI18n.t) ? window.KairosI18n.t(key, fb) : fb;
+      }
+      function isEn() {
+        return (window.KairosI18n && window.KairosI18n.getLang && window.KairosI18n.getLang() === 'en');
+      }
       function fmtAge(ts) {
         const min = Math.max(0, Math.round((Date.now() - ts) / 60000));
-        if (min < 1) return 'il y a < 1 min';
-        if (min < 60) return `il y a ${min} min`;
+        const en = isEn();
+        if (min < 1) return en ? '< 1 min ago' : 'il y a < 1 min';
+        if (min < 60) return en ? `${min} min ago` : `il y a ${min} min`;
         const h = Math.round(min / 60);
-        if (h < 24) return `il y a ${h} h`;
-        return `il y a ${Math.round(h/24)} j`;
+        if (h < 24) return en ? `${h}h ago` : `il y a ${h} h`;
+        return en ? `${Math.round(h/24)}d ago` : `il y a ${Math.round(h/24)} j`;
+      }
+      let lastFiling = null;  // pour reformater au switch de langue
+      function applyLiveProof(f) {
+        if (!f) return;
+        const ts = new Date(f.fileDate).getTime();
+        if (!ts || isNaN(ts)) return;
+        const age = fmtAge(ts);
+        const filer = String(f.filerName).slice(0, 40);
+        const ticker = (f.ticker || '').toUpperCase();
+        const tickerStr = ticker ? `<strong style="color:var(--text-primary)">$${ticker}</strong>` : `<strong>${(f.targetName||'').slice(0,30)}</strong>`;
+        const prefix = _t('live.proof_dynamic_prefix', 'Dernier 13D détecté');
+        const by = _t('live.proof_dynamic_by', 'par');
+        el.innerHTML = `${prefix} ${age} · ${tickerStr} ${by} <strong style="color:var(--text-primary)">${filer}</strong>`;
       }
       // Charge en defer + try/catch pour ne JAMAIS casser le rendu hero
       try {
@@ -2640,21 +2672,17 @@
           .then(r => r.ok ? r.json() : null)
           .then(data => {
             if (!data || !Array.isArray(data.filings) || data.filings.length === 0) return;
-            // Trie par date desc et prend le plus recent avec un filer connu
             const f = data.filings
               .filter(x => x.fileDate && x.filerName)
               .sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''))[0];
             if (!f) return;
-            const ts = new Date(f.fileDate).getTime();
-            if (!ts || isNaN(ts)) return;
-            const age = fmtAge(ts);
-            const filer = String(f.filerName).slice(0, 40);
-            const ticker = (f.ticker || '').toUpperCase();
-            const tickerStr = ticker ? `<strong style="color:var(--text-primary)">$${ticker}</strong>` : `<strong>${(f.targetName||'').slice(0,30)}</strong>`;
-            el.innerHTML = `Dernier 13D détecté ${age} · ${tickerStr} par <strong style="color:var(--text-primary)">${filer}</strong>`;
+            lastFiling = f;
+            applyLiveProof(f);
           })
           .catch(() => {});
       } catch (e) {}
+      // Re-render au switch de langue
+      window.addEventListener('kairos:langchange', () => { if (lastFiling) applyLiveProof(lastFiling); });
     })();
   </script>
 

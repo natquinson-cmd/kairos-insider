@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260509-no-api-rest"></script>
+  <script src="assets/i18n.js?v=20260509-i18n-pass"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3028,21 +3028,21 @@
        ============================================================ -->
   <div id="exitIntentModal" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeExitIntent('outside')">
     <div style="width:100%;max-width:480px;background:var(--bg-card,#0F1729);border:1px solid var(--border,#1F2937);border-radius:16px;padding:30px 28px;box-shadow:0 24px 60px rgba(0,0,0,0.55);position:relative">
-      <button type="button" onclick="closeExitIntent('close')" aria-label="Fermer" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#9CA3AF;font-size:22px;cursor:pointer;width:30px;height:30px;border-radius:6px">×</button>
+      <button type="button" onclick="closeExitIntent('close')" data-i18n-aria-label="beta.banner.dismiss_aria" aria-label="Fermer" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#9CA3AF;font-size:22px;cursor:pointer;width:30px;height:30px;border-radius:6px">×</button>
       <div style="font-size:36px;line-height:1;margin-bottom:14px">👋</div>
-      <h3 style="margin:0 0 10px;font-size:20px;font-weight:700;color:var(--text-primary,#F9FAFB)">Avant de partir...</h3>
-      <p style="margin:0 0 18px;font-size:14px;color:var(--text-secondary,#D1D5DB);line-height:1.55">
+      <h3 style="margin:0 0 10px;font-size:20px;font-weight:700;color:var(--text-primary,#F9FAFB)" data-i18n="exit.intent_title">Avant de partir...</h3>
+      <p style="margin:0 0 18px;font-size:14px;color:var(--text-secondary,#D1D5DB);line-height:1.55" data-i18n="exit.intent_desc">
         Tu cherchais quelque chose en particulier ? Dis-le-moi en 10 secondes — <strong style="color:var(--text-primary,#F9FAFB)">je lis chaque retour personnellement</strong> et c'est ce qui m'aide à améliorer Kairos.
       </p>
-      <textarea id="exitIntentText" rows="3" placeholder="Ex: 'Je voulais voir X mais je n'ai pas trouvé...' ou 'Trop cher pour moi parce que...'" style="width:100%;padding:12px 14px;background:var(--surface-2,#1F2937);border:1px solid var(--border,#374151);color:var(--text-primary,#F9FAFB);border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:12px;box-sizing:border-box"></textarea>
-      <input type="email" id="exitIntentEmail" placeholder="Ton email (optionnel) pour que je te recontacte" style="width:100%;padding:11px 14px;background:var(--surface-2,#1F2937);border:1px solid var(--border,#374151);color:var(--text-primary,#F9FAFB);border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:18px;box-sizing:border-box">
+      <textarea id="exitIntentText" rows="3" data-i18n-placeholder="exit.intent_textarea_ph" placeholder="Ex: 'Je voulais voir X mais je n'ai pas trouvé...' ou 'Trop cher pour moi parce que...'" style="width:100%;padding:12px 14px;background:var(--surface-2,#1F2937);border:1px solid var(--border,#374151);color:var(--text-primary,#F9FAFB);border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:12px;box-sizing:border-box"></textarea>
+      <input type="email" id="exitIntentEmail" data-i18n-placeholder="exit.intent_email_ph" placeholder="Ton email (optionnel) pour que je te recontacte" style="width:100%;padding:11px 14px;background:var(--surface-2,#1F2937);border:1px solid var(--border,#374151);color:var(--text-primary,#F9FAFB);border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:18px;box-sizing:border-box">
       <div id="exitIntentMsg" style="font-size:12px;color:#10B981;margin-bottom:10px;display:none"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
-        <button type="button" onclick="closeExitIntent('skip')" style="padding:10px 18px;background:transparent;border:1px solid var(--border,#374151);color:var(--text-secondary,#9CA3AF);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">Pas maintenant</button>
-        <button type="button" id="exitIntentSubmit" onclick="submitExitIntent()" style="padding:10px 22px;background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">Envoyer</button>
+        <button type="button" onclick="closeExitIntent('skip')" style="padding:10px 18px;background:transparent;border:1px solid var(--border,#374151);color:var(--text-secondary,#9CA3AF);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500" data-i18n="exit.intent_skip">Pas maintenant</button>
+        <button type="button" id="exitIntentSubmit" onclick="submitExitIntent()" style="padding:10px 22px;background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700" data-i18n="exit.intent_send">Envoyer</button>
       </div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--divider,#1F2937);text-align:center;font-size:11px;color:var(--text-muted,#6B7280);line-height:1.5">
-        Pas un bot — Nathanaël, founder Kairos · <a href="mailto:contact@kairosinsider.fr" style="color:#74b9ff;text-decoration:none">contact@kairosinsider.fr</a>
+        <span data-i18n="exit.intent_footer">Pas un bot — Nathanaël, founder Kairos · </span><a href="mailto:contact@kairosinsider.fr" style="color:#74b9ff;text-decoration:none">contact@kairosinsider.fr</a>
       </div>
     </div>
   </div>
@@ -6521,10 +6521,10 @@
       const msgEl = document.getElementById('exitIntentMsg');
       const btn = document.getElementById('exitIntentSubmit');
       if (!txt && !email) {
-        if (msgEl) { msgEl.style.color = '#F59E0B'; msgEl.style.display = 'block'; msgEl.textContent = 'Écris au moins ton retour ou ton email avant d\'envoyer 🙂'; }
+        if (msgEl) { msgEl.style.color = '#F59E0B'; msgEl.style.display = 'block'; msgEl.textContent = t('exit.intent_empty', 'Écris au moins ton retour ou ton email avant d\'envoyer 🙂'); }
         return;
       }
-      if (btn) { btn.disabled = true; btn.innerHTML = 'Envoi…'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = t('exit.intent_sending', 'Envoi…'); }
       try {
         const r = await fetch(`${API_BASE}/api/feedback/exit-intent`, {
           method: 'POST',
@@ -6537,15 +6537,15 @@
           }),
         });
         if (r.ok) {
-          if (msgEl) { msgEl.style.color = '#10B981'; msgEl.style.display = 'block'; msgEl.textContent = '✓ Merci ! Je lis ce soir et te réponds si tu m\'as laissé ton email.'; }
+          if (msgEl) { msgEl.style.color = '#10B981'; msgEl.style.display = 'block'; msgEl.textContent = t('exit.intent_success', '✓ Merci ! Je lis ce soir et te réponds si tu m\'as laissé ton email.'); }
           setTimeout(() => closeExitIntent('sent'), 1800);
         } else {
-          if (msgEl) { msgEl.style.color = '#EF4444'; msgEl.style.display = 'block'; msgEl.textContent = 'Erreur d\'envoi. Réessaie ou écris à contact@kairosinsider.fr'; }
+          if (msgEl) { msgEl.style.color = '#EF4444'; msgEl.style.display = 'block'; msgEl.textContent = t('exit.intent_error', 'Erreur d\'envoi. Réessaie ou écris à contact@kairosinsider.fr'); }
         }
       } catch (e) {
-        if (msgEl) { msgEl.style.color = '#EF4444'; msgEl.style.display = 'block'; msgEl.textContent = 'Erreur réseau. Réessaie ou écris à contact@kairosinsider.fr'; }
+        if (msgEl) { msgEl.style.color = '#EF4444'; msgEl.style.display = 'block'; msgEl.textContent = t('exit.intent_network_error', 'Erreur réseau. Réessaie ou écris à contact@kairosinsider.fr'); }
       } finally {
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Envoyer'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = t('exit.intent_send', 'Envoyer'); }
       }
     }
 
@@ -11275,14 +11275,17 @@
 
       // Banner CTA ciblé : pour anonymes uniquement, après ils ont vu l'analyse
       // Push concret pour s'inscrire — alertes 13D/insider sur CE ticker précis.
+      const _alertTitle = t('analysis.alert_cta_title', "Reçois une alerte dès qu'un nouveau 13D ou cluster insider est détecté sur ${ticker}").replace('${ticker}', '$' + d.ticker);
+      const _alertSub = t('analysis.alert_cta_subtitle', 'Latence < 8 min après filing SEC · Telegram + email · Bêta gratuite, pas de carte bancaire');
+      const _alertBtn = t('analysis.alert_cta_btn', 'Activer (gratuit)');
       const anonAlertCta = !currentUser ? `
         <div style="margin:0 0 14px;padding:12px 16px;background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(236,72,153,0.06));border:1px solid rgba(245,158,11,0.30);border-radius:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
           <div style="font-size:22px;line-height:1;flex-shrink:0">🔔</div>
           <div style="flex:1;min-width:240px">
-            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">Reçois une alerte dès qu'un nouveau 13D ou cluster insider est détecté sur $${d.ticker}</div>
-            <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5">Latence < 8 min après filing SEC · Telegram + email · Bêta gratuite, pas de carte bancaire</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${_alertTitle}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5">${_alertSub}</div>
           </div>
-          <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:9px 18px;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(245,158,11,0.35)">Activer (gratuit)</button>
+          <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:9px 18px;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(245,158,11,0.35)">${_alertBtn}</button>
         </div>
       ` : '';
 
@@ -11465,10 +11468,14 @@
                 }
                 // Teaser anon : si reste des transactions cachées, push vers signup
                 if (!currentUser && hidden > 0) {
+                  const _lockedTitleKey = hidden > 1 ? 'analysis.locked_insiders_title_many' : 'analysis.locked_insiders_title_one';
+                  const _lockedTitleFb = hidden > 1 ? `🔒 +{n} autres transactions` : `🔒 +{n} autre transaction`;
+                  const _lockedTitle = t(_lockedTitleKey, _lockedTitleFb).replace('{n}', hidden);
+                  const _lockedDesc = t('analysis.locked_insiders_desc', 'Crée un compte gratuit pour voir toutes les transactions des dirigeants <strong>+ 4 analyses/jour</strong>');
                   html += `
                     <div onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="margin-top:8px;padding:11px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(139,92,246,0.06));border:1px dashed rgba(139,92,246,0.45);border-radius:8px;cursor:pointer;text-align:center;transition:all 0.15s" onmouseover="this.style.borderColor='rgba(139,92,246,0.75)';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.45)';this.style.transform='translateY(0)'">
-                      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">🔒 +${hidden} autre${hidden > 1 ? 's' : ''} transaction${hidden > 1 ? 's' : ''}</div>
-                      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">Crée un compte gratuit pour voir toutes les transactions des dirigeants <strong>+ 4 analyses/jour</strong></div>
+                      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">${_lockedTitle}</div>
+                      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">${_lockedDesc}</div>
                     </div>
                   `;
                 }
@@ -11534,10 +11541,15 @@
                 }
                 // Teaser anon : invite a debloquer la liste complete
                 if (!currentUser && hidden > 0) {
+                  const _lockFTitleKey = hidden > 1 ? 'analysis.locked_funds_title_many' : 'analysis.locked_funds_title_one';
+                  const _lockFTitleFb = hidden > 1 ? `🔒 +{n} autres hedge funds` : `🔒 +{n} autre hedge fund`;
+                  const _lockFTitle = t(_lockFTitleKey, _lockFTitleFb).replace('{n}', hidden);
+                  const _lockFDesc = t('analysis.locked_funds_desc', 'Crée un compte gratuit pour voir tous les fonds détenant ${ticker} <strong>+ leurs % de portefeuille</strong>')
+                    .replace('${ticker}', '$' + (d.ticker || '').toUpperCase());
                   html += `
                     <div onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="margin-top:8px;padding:11px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(139,92,246,0.06));border:1px dashed rgba(139,92,246,0.45);border-radius:8px;cursor:pointer;text-align:center;transition:all 0.15s" onmouseover="this.style.borderColor='rgba(139,92,246,0.75)';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.45)';this.style.transform='translateY(0)'">
-                      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">🔒 +${hidden} autre${hidden > 1 ? 's' : ''} hedge fund${hidden > 1 ? 's' : ''}</div>
-                      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">Crée un compte gratuit pour voir tous les fonds détenant $${(d.ticker||'').toUpperCase()} <strong>+ leurs % de portefeuille</strong></div>
+                      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">${_lockFTitle}</div>
+                      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">${_lockFDesc}</div>
                     </div>
                   `;
                 }
