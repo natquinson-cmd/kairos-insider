@@ -5516,6 +5516,43 @@
           </div>
         </div>
 
+        <!-- PANEL CONVERSATIONS CHATBOT -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;min-width:0;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+            <div>
+              <h3 style="margin:0;font-size:16px">💬 Conversations Chatbot</h3>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Dernières conversations IA des visiteurs. Clique sur une ligne pour lire le transcript complet (questions, blockers, feedback).</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="adChatLangFilter" onchange="loadChatSessions()" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">
+                <option value="">Toutes langues</option>
+                <option value="fr">🇫🇷 FR</option>
+                <option value="en">🇬🇧 EN</option>
+              </select>
+              <button onclick="loadChatSessions()" class="tip" data-tip="Recharger les sessions" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+            </div>
+          </div>
+          <div id="adChatSessionsBody" style="min-height:200px;min-width:0">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>
+          </div>
+        </div>
+
+        <!-- MODAL : transcript chatbot complet -->
+        <div id="adChatModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeChatModal()">
+          <div style="width:100%;max-width:720px;max-height:85vh;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.55)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);gap:10px">
+              <div style="min-width:0">
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary)" id="adChatModalTitle">Transcript</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="adChatModalMeta">—</div>
+              </div>
+              <button onclick="closeChatModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:4px 10px;border-radius:6px">×</button>
+            </div>
+            <div id="adChatModalBody" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px;background:var(--surface-1)">
+              <div style="text-align:center;color:var(--text-muted);font-size:13px;padding:30px">Chargement…</div>
+            </div>
+          </div>
+        </div>
+
         <!-- PANEL PONDÉRATION KAIROS SCORE -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
@@ -17327,10 +17364,11 @@
         renderAdminUsersPanel(usersRes, subsRes);
         renderAdminTrafficPanel(trafficRes);
         renderAdminDbPanel(dbRes);
-        // Load error tracking + score weights + jobs timeline (non-blocking)
+        // Load error tracking + score weights + jobs timeline + chat sessions (non-blocking)
         loadAdminErrors().catch(() => {});
         loadAdminScoreWeights().catch(() => {});
         loadJobsTimeline().catch(() => {});
+        loadChatSessions().catch(() => {});
 
         // Status : timestamp persiste + updater live pour "il y a Xs / Xmin"
         window._adminLastRefreshTs = Date.now();
@@ -18359,6 +18397,162 @@
         btn.disabled = false;
         btn.innerHTML = original;
       }
+    }
+
+    // ============================================================
+    // CHATBOT TRANSCRIPTS — Admin review
+    // ============================================================
+    async function loadChatSessions() {
+      const body = document.getElementById('adChatSessionsBody');
+      if (!body) return;
+      const langFilter = document.getElementById('adChatLangFilter')?.value || '';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/chat-sessions?limit=100`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        renderChatSessions(data, langFilter);
+      } catch (e) {
+        body.innerHTML = `<div style="padding:30px;text-align:center;color:#EF4444">Erreur : ${e.message || e}</div>`;
+      }
+    }
+
+    function renderChatSessions(data, langFilter) {
+      const body = document.getElementById('adChatSessionsBody');
+      if (!body) return;
+      let sessions = (data && Array.isArray(data.sessions)) ? data.sessions : [];
+      if (langFilter) sessions = sessions.filter(s => s.lang === langFilter);
+      if (sessions.length === 0) {
+        body.innerHTML = `
+          <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">
+            ${langFilter ? `Aucune session trouvée en ${langFilter.toUpperCase()}.` : 'Aucune conversation pour le moment.'}<br>
+            <span style="font-size:11px;opacity:0.8">Les sessions s'affichent dès qu'un visiteur ouvre le chatbot et envoie un message.</span>
+          </div>`;
+        return;
+      }
+      const now = Date.now();
+      const fmtAge = (iso) => {
+        if (!iso) return '—';
+        const ageMin = (now - new Date(iso).getTime()) / 60000;
+        if (ageMin < 2) return 'à l\'instant';
+        if (ageMin < 60) return `${Math.round(ageMin)} min`;
+        if (ageMin < 1440) return `${Math.round(ageMin / 60)} h`;
+        return `${Math.round(ageMin / 1440)} j`;
+      };
+      const flagFor = (country) => {
+        if (!country) return '🌍';
+        const code = country.toUpperCase();
+        // ASCII offset trick : 'A'(0x1F1E6) + char code = drapeau emoji
+        return String.fromCodePoint(...[...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+      };
+      const langBadge = (l) => {
+        if (l === 'fr') return '<span style="padding:2px 7px;background:rgba(59,130,246,0.18);color:#93C5FD;border-radius:4px;font-size:10px;font-weight:700">FR</span>';
+        if (l === 'en') return '<span style="padding:2px 7px;background:rgba(139,92,246,0.18);color:#C4B5FD;border-radius:4px;font-size:10px;font-weight:700">EN</span>';
+        return `<span style="padding:2px 7px;background:var(--surface-2);color:var(--text-muted);border-radius:4px;font-size:10px;font-weight:700">${(l||'?').toUpperCase()}</span>`;
+      };
+
+      // KPI stats
+      const total = sessions.length;
+      const totalMessages = sessions.reduce((s, x) => s + (x.messageCount || 0), 0);
+      const last24h = sessions.filter(s => s.lastMessageAt && (now - new Date(s.lastMessageAt).getTime()) < 86400000).length;
+      const langs = sessions.reduce((acc, s) => { const l = s.lang || '?'; acc[l] = (acc[l] || 0) + 1; return acc; }, {});
+      const langStr = Object.entries(langs).map(([k, v]) => `${k.toUpperCase()}:${v}`).join(' · ');
+
+      const kpis = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:14px">
+          <div style="padding:11px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:#74b9ff;line-height:1">${total}</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px">Sessions</div>
+          </div>
+          <div style="padding:11px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:#10B981;line-height:1">${last24h}</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px">24h</div>
+          </div>
+          <div style="padding:11px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:#A78BFA;line-height:1">${totalMessages}</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:3px">Messages</div>
+          </div>
+          <div style="padding:11px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;text-align:center">
+            <div style="font-size:11px;color:var(--text-primary);line-height:1.2;font-weight:600;padding:6px 0">${langStr || '—'}</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:0">Langues</div>
+          </div>
+        </div>`;
+
+      const rows = sessions.slice(0, 50).map(s => `
+        <div onclick="openChatTranscript('${s.sessionId}')" style="display:grid;grid-template-columns:40px 1fr 80px 100px 60px 90px;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--divider);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;background:var(--surface-1)" onmouseover="this.style.borderColor='#74b9ff';this.style.background='var(--surface-2)'" onmouseout="this.style.borderColor='var(--divider)';this.style.background='var(--surface-1)'">
+          <div style="font-size:18px;text-align:center" title="${s.country || 'Inconnu'}">${flagFor(s.country)}</div>
+          <div style="min-width:0">
+            <div style="font-size:12px;font-family:monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.sessionId)}</div>
+            <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(s.page || '/')}">📄 ${escapeHtml(s.page || '/')}</div>
+          </div>
+          <div style="text-align:center">${langBadge(s.lang)}</div>
+          <div style="font-size:11px;color:var(--text-muted);text-align:center">il y a ${fmtAge(s.lastMessageAt)}</div>
+          <div style="text-align:center;font-size:13px;font-weight:700;color:var(--text-primary)">${s.messageCount || 0}</div>
+          <div style="text-align:right;font-size:11px;color:#74b9ff">Lire →</div>
+        </div>
+      `).join('');
+
+      body.innerHTML = `
+        ${kpis}
+        <div style="display:grid;grid-template-columns:40px 1fr 80px 100px 60px 90px;gap:10px;padding:6px 12px;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;border-bottom:1px solid var(--divider);margin-bottom:6px">
+          <div>Pays</div>
+          <div>Session · page</div>
+          <div style="text-align:center">Lang</div>
+          <div style="text-align:center">Activité</div>
+          <div style="text-align:center">Msgs</div>
+          <div style="text-align:right">Action</div>
+        </div>
+        ${rows}
+      `;
+    }
+
+    async function openChatTranscript(sessionId) {
+      const modal = document.getElementById('adChatModal');
+      const titleEl = document.getElementById('adChatModalTitle');
+      const metaEl = document.getElementById('adChatModalMeta');
+      const bodyEl = document.getElementById('adChatModalBody');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      titleEl.textContent = 'Conversation';
+      metaEl.textContent = sessionId;
+      bodyEl.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:30px">Chargement…</div>';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/chat-session/${encodeURIComponent(sessionId)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.messages) {
+          bodyEl.innerHTML = `<div style="text-align:center;color:#EF4444;padding:30px">Erreur : ${data.error || 'session introuvable'}</div>`;
+          return;
+        }
+        // Header info
+        const created = data.createdAt ? new Date(data.createdAt).toLocaleString('fr-FR') : '—';
+        const last = data.lastMessageAt ? new Date(data.lastMessageAt).toLocaleString('fr-FR') : '—';
+        metaEl.innerHTML = `${data.country || '—'} · ${(data.lang || '?').toUpperCase()} · 📄 ${escapeHtml(data.page || '/')} · début ${created} · dernier msg ${last}`;
+        titleEl.textContent = `Conversation (${data.messageCount || data.messages.length} messages)`;
+
+        // Messages
+        const html = data.messages.map(m => {
+          const safe = escapeHtml(String(m.content || ''))
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#60A5FA">$1</a>');
+          if (m.role === 'user') {
+            return `<div style="align-self:flex-end;max-width:80%;padding:10px 14px;background:linear-gradient(135deg,#3B82F6,#6366F1);color:#fff;border-radius:12px;border-bottom-right-radius:4px;font-size:13px;line-height:1.5;word-wrap:break-word">${safe}</div>`;
+          }
+          return `<div style="align-self:flex-start;max-width:80%;padding:10px 14px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:12px;border-bottom-left-radius:4px;font-size:13px;line-height:1.5;word-wrap:break-word">${safe}</div>`;
+        }).join('');
+        bodyEl.innerHTML = html;
+        bodyEl.scrollTop = 0;
+      } catch (e) {
+        bodyEl.innerHTML = `<div style="text-align:center;color:#EF4444;padding:30px">Erreur : ${e.message || e}</div>`;
+      }
+    }
+
+    function closeChatModal() {
+      const modal = document.getElementById('adChatModal');
+      if (modal) modal.style.display = 'none';
     }
 
     // Re-run un job CF cron via son endpoint
