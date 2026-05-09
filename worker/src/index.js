@@ -816,6 +816,14 @@ async function handleRequest(request, env, ctx) {
         if (path === '/api/admin/jobs-timeline') {
           return handleAdminJobsTimeline(request, env, origin);
         }
+        // Endpoint generique pour que les GH Actions workflows orphelins (pas de
+        // script Python kv_lastrun) puissent logger leur run en fin via curl :
+        //   curl -X POST .../api/admin/log-workflow-run \
+        //     -H "X-Admin-API-Key: ..." \
+        //     -d '{"jobId":"daily-tweets","status":"ok","durationSec":42,"summary":"..."}'
+        if (request.method === 'POST' && path === '/api/admin/log-workflow-run') {
+          return handleAdminLogWorkflowRun(request, env, origin);
+        }
         if (path === '/api/admin/jobs') {
           return handleAdminJobs(env, origin);
         }
@@ -10033,6 +10041,35 @@ async function handleAdminTestTelegram13D(request, env, user, origin) {
 // pas concurrement avec eux-memes.
 const RUN_HISTORY_CAP = 300;
 
+// Endpoint POST /api/admin/log-workflow-run
+// Permet aux workflows GitHub Actions sans script Python (daily-tweets,
+// daily-comment-digest, fetch-eu-thresholds, fetch-13f-history) de logger
+// leur run via curl. Auth obligatoire via X-Admin-API-Key.
+async function handleAdminLogWorkflowRun(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return jsonResponse({ error: 'Invalid JSON' }, 400, origin); }
+  const jobId = String(body.jobId || '').trim();
+  if (!jobId || !/^[a-zA-Z0-9_-]{2,80}$/.test(jobId)) {
+    return jsonResponse({ error: 'Invalid jobId' }, 400, origin);
+  }
+  const status = ['ok', 'failed', 'partial'].includes(body.status) ? body.status : 'ok';
+  const durationSec = (typeof body.durationSec === 'number') ? body.durationSec : null;
+  const summary = String(body.summary || '').slice(0, 200);
+  const errorMsg = String(body.error || '').slice(0, 500);
+  const now = new Date();
+  const payload = {
+    ts: Math.floor(now.getTime() / 1000),
+    iso: now.toISOString(),
+    status,
+    summary,
+    error: errorMsg,
+  };
+  if (durationSec !== null) payload.durationSec = Math.round(durationSec * 10) / 10;
+  await env.CACHE.put(`lastRun:${jobId}`, JSON.stringify(payload));
+  await appendRunHistory(env, jobId, payload);
+  return jsonResponse({ ok: true, jobId, ts: payload.ts }, 200, origin);
+}
+
 async function appendRunHistory(env, jobName, payload) {
   try {
     const key = `runHistory:${jobName}`;
@@ -10068,12 +10105,12 @@ async function appendRunHistory(env, jobName, payload) {
 const JOB_REGISTRY = [
   // GitHub Actions workflows. historyKey = clef KV runHistory:* (peuplee par
   // les scripts Python via kv_lastrun.append_run_history).
-  { id: 'update-13f',          name: 'Pipeline 13F + ETF (daily)', cron: '30 1 * * *', type: 'github-actions', workflowFile: 'update-13f.yml', avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f', historyKey: 'runHistory:fetch-13f' },
+  { id: 'update-13f',          name: 'Pipeline 13F + ETF (daily)', cron: '30 1 * * *', type: 'github-actions', workflowFile: 'update-13f.yml', avgDurationSec: 1800, lastRunKey: 'lastRun:push-insiders-to-d1', historyKey: 'runHistory:push-insiders-to-d1' },
   { id: 'realtime-30min',      name: 'Refresh 30 min (13D + AMF + BaFin + seuils EU)', cron: '15,45 * * * *', type: 'github-actions', workflowFile: 'realtime-30min.yml', avgDurationSec: 600, lastRunKey: 'lastRun:13dg-realtime', historyKey: 'runHistory:13dg-realtime' },
   { id: 'backup',              name: 'Backup D1 + KV → R2', cron: '0 1 * * *', type: 'github-actions', workflowFile: 'backup.yml', avgDurationSec: 300, lastRunKey: 'lastRun:backup-to-r2', historyKey: 'runHistory:backup-to-r2' },
-  { id: 'daily-tweets',        name: 'Daily Tweets Email', cron: '30 4 * * *', type: 'github-actions', workflowFile: 'daily-tweets.yml', avgDurationSec: 60, lastRunKey: 'lastRun:daily-tweets', historyKey: 'runHistory:daily-tweets' },
-  { id: 'daily-comment-digest',name: 'Daily Comment Digest', cron: '30 3 * * 1-5', type: 'github-actions', workflowFile: 'daily-comment-digest.yml', avgDurationSec: 120, lastRunKey: 'lastRun:daily-comment-digest', historyKey: 'runHistory:daily-comment-digest' },
-  { id: 'fetch-eu-thresholds', name: 'EU Thresholds Fetch', cron: '0 5 * * *', type: 'github-actions', workflowFile: 'fetch-eu-thresholds.yml', avgDurationSec: 600, lastRunKey: 'lastRun:fetch-eu-thresholds', historyKey: 'runHistory:fetch-eu-thresholds' },
+  { id: 'daily-tweets',        name: 'Daily Tweets Email', cron: '30 4 * * *', cronDisabled: true, type: 'github-actions', workflowFile: 'daily-tweets.yml', avgDurationSec: 60, lastRunKey: 'lastRun:daily-tweets', historyKey: 'runHistory:daily-tweets' },
+  { id: 'daily-comment-digest',name: 'Daily Comment Digest', cron: '30 3 * * 1-5', cronDisabled: true, type: 'github-actions', workflowFile: 'daily-comment-digest.yml', avgDurationSec: 120, lastRunKey: 'lastRun:daily-comment-digest', historyKey: 'runHistory:daily-comment-digest' },
+  { id: 'fetch-eu-thresholds', name: 'EU Thresholds Fetch', cron: '30 1 * * *', type: 'github-actions', workflowFile: 'fetch-eu-thresholds.yml', avgDurationSec: 600, lastRunKey: 'lastRun:fetch-eu-thresholds', historyKey: 'runHistory:fetch-eu-thresholds' },
   { id: 'fetch-13f-history',   name: '13F History (mensuel)', cron: '0 2 1 * *', type: 'github-actions', workflowFile: 'fetch-13f-history.yml', avgDurationSec: 1800, lastRunKey: 'lastRun:fetch-13f-history', historyKey: 'runHistory:fetch-13f-history' },
   // Cloudflare Workers crons (definis dans wrangler.toml). Le worker ecrit
   // directement runHistory:* via appendRunHistory().
@@ -10154,7 +10191,9 @@ async function handleAdminJobsTimeline(request, env, origin) {
   for (const def of JOB_REGISTRY) {
     let expectedRuns;
     try {
-      expectedRuns = parseCronToRuns(def.cron, from, now);
+      // cronDisabled : workflow declarable manuellement uniquement (workflow_dispatch),
+      // pas de slots a afficher dans la timeline.
+      expectedRuns = def.cronDisabled ? [] : parseCronToRuns(def.cron, from, now);
     } catch {
       expectedRuns = [];
     }
@@ -10213,6 +10252,7 @@ async function handleAdminJobsTimeline(request, env, origin) {
       id: def.id,
       name: def.name,
       cron: def.cron,
+      cronDisabled: !!def.cronDisabled,
       type: def.type,
       workflowFile: def.workflowFile,
       runEndpoint: def.runEndpoint || null,

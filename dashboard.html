@@ -18222,16 +18222,21 @@
       };
 
       const fmtSummary = (lr) => {
-        if (!lr || !lr.iso) return '<span style="opacity:0.5">jamais</span>';
-        const ageMin = (now - new Date(lr.iso).getTime()) / 60000;
+        if (!lr) return '<span style="opacity:0.5">jamais</span>';
+        // Accepte iso OU ts (Unix seconds) pour les KV anciens qui ne stockent que ts
+        const lastTs = lr.iso ? new Date(lr.iso).getTime() : (lr.ts ? lr.ts * 1000 : null);
+        if (!lastTs) return '<span style="opacity:0.5">jamais</span>';
+        const ageMin = (now - lastTs) / 60000;
         const age = ageMin < 60 ? `${Math.round(ageMin)} min` : ageMin < 1440 ? `${Math.round(ageMin/60)} h` : `${Math.round(ageMin/1440)} j`;
         const c = lr.status === 'failed' ? '#EF4444' : '#10B981';
         return `<span style="color:${c}">${lr.status === 'failed' ? '✕' : '✓'}</span> il y a ${age}`;
       };
 
       const rows = data.jobs.map(j => {
-        // Calcule chaque bar segment via actualRuns (v2)
-        const segments = (j.expectedRuns || []).map(slotIso => {
+        // Workflow_dispatch only (cron desactive) : pas de slots, juste un placeholder
+        const segments = j.cronDisabled
+          ? `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;color:var(--text-muted);font-style:italic;letter-spacing:0.04em">manuel uniquement</div>`
+          : (j.expectedRuns || []).map(slotIso => {
           const slotInfo = statusForSlot(slotIso, j.actualRuns, j.lastRun, j.expectedRunsTotal);
           const slotTs = new Date(slotIso).getTime();
           const xPct = ((slotTs - from) / totalMs) * 100;
@@ -18244,6 +18249,8 @@
           const tip = `${dt} — ${slotInfo.status}${dur}${sum}`;
           return `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
         }).join('');
+        // Si pas cronDisabled, segments est une string deja jointe ; sinon c'est un placeholder
+        // (Note : on a commute ci-dessus selon j.cronDisabled)
 
         // Bouton re-run selon le type
         let runBtn = '';

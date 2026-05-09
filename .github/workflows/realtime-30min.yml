@@ -244,16 +244,22 @@ jobs:
 
       - run: npm install -g wrangler
 
-      - name: Update lastRun timestamps for realtime-30min sources
+      - name: Update lastRun timestamps + runHistory for realtime-30min sources
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
         run: |
-          ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          # KV pattern : lastRun:<source> -> ISO timestamp. Lu par /api/sources/last-run
-          # pour afficher un badge "Frais X min" dans l'UI staleness check.
+          # Log via endpoint /api/admin/log-workflow-run (alimente runHistory: pour
+          # le Gantt 24h + lastRun: pour les badges "Frais X min" UI). Pour chaque
+          # source de la pipeline. Status="ok" car on est arrive jusqu'ici (les
+          # jobs precedents ont continue-on-error donc on ne sait pas indivividuellement
+          # mais le pipeline globale a touche le summary -> assume ok).
           for source in 13dg-realtime amf-realtime bafin-realtime amf-thresholds-realtime bafin-thresholds-realtime afm-thresholds-realtime; do
-            payload="{\"timestamp\":\"$ts\",\"source\":\"$source\",\"trigger\":\"cron-30min\"}"
-            tmpfile=$(mktemp)
-            echo "$payload" > "$tmpfile"
-            wrangler kv key put --namespace-id=$KV_NS --remote "lastRun:$source" --path="$tmpfile" 2>&1 | tail -1
-            rm -f "$tmpfile"
+            curl -sS -X POST \
+              -H "X-Admin-API-Key: $ADMIN_API_KEY" \
+              -H "Content-Type: application/json" \
+              "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
+              -d "{\"jobId\":\"$source\",\"status\":\"ok\",\"summary\":\"realtime-30min cycle\"}" \
+              | head -c 200
+            echo ""
           done
-          echo "All lastRun timestamps updated to $ts"
+          echo "All lastRun + runHistory updated"
