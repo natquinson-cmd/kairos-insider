@@ -3022,6 +3022,32 @@
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
   <!-- ============================================================
+       EXIT INTENT MODAL — Capture feedback avant que l'anonyme parte
+       Triggered quand la souris sort par le haut de la window (mouvement
+       vers fermeture onglet/tab). Anonymes uniquement, 1 fois par session.
+       ============================================================ -->
+  <div id="exitIntentModal" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeExitIntent('outside')">
+    <div style="width:100%;max-width:480px;background:var(--bg-card,#0F1729);border:1px solid var(--border,#1F2937);border-radius:16px;padding:30px 28px;box-shadow:0 24px 60px rgba(0,0,0,0.55);position:relative">
+      <button type="button" onclick="closeExitIntent('close')" aria-label="Fermer" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#9CA3AF;font-size:22px;cursor:pointer;width:30px;height:30px;border-radius:6px">×</button>
+      <div style="font-size:36px;line-height:1;margin-bottom:14px">👋</div>
+      <h3 style="margin:0 0 10px;font-size:20px;font-weight:700;color:var(--text-primary,#F9FAFB)">Avant de partir...</h3>
+      <p style="margin:0 0 18px;font-size:14px;color:var(--text-secondary,#D1D5DB);line-height:1.55">
+        Tu cherchais quelque chose en particulier ? Dis-le-moi en 10 secondes — <strong style="color:var(--text-primary,#F9FAFB)">je lis chaque retour personnellement</strong> et c'est ce qui m'aide à améliorer Kairos.
+      </p>
+      <textarea id="exitIntentText" rows="3" placeholder="Ex: 'Je voulais voir X mais je n'ai pas trouvé...' ou 'Trop cher pour moi parce que...'" style="width:100%;padding:12px 14px;background:var(--surface-2,#1F2937);border:1px solid var(--border,#374151);color:var(--text-primary,#F9FAFB);border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:12px;box-sizing:border-box"></textarea>
+      <input type="email" id="exitIntentEmail" placeholder="Ton email (optionnel) pour que je te recontacte" style="width:100%;padding:11px 14px;background:var(--surface-2,#1F2937);border:1px solid var(--border,#374151);color:var(--text-primary,#F9FAFB);border-radius:10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:18px;box-sizing:border-box">
+      <div id="exitIntentMsg" style="font-size:12px;color:#10B981;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button type="button" onclick="closeExitIntent('skip')" style="padding:10px 18px;background:transparent;border:1px solid var(--border,#374151);color:var(--text-secondary,#9CA3AF);border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">Pas maintenant</button>
+        <button type="button" id="exitIntentSubmit" onclick="submitExitIntent()" style="padding:10px 22px;background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">Envoyer</button>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--divider,#1F2937);text-align:center;font-size:11px;color:var(--text-muted,#6B7280);line-height:1.5">
+        Pas un bot — Nathanaël, founder Kairos · <a href="mailto:contact@kairosinsider.fr" style="color:#74b9ff;text-decoration:none">contact@kairosinsider.fr</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
        BANDEAU URGENCE BETA (anonymes uniquement)
        Affiche tout en haut du site, dismissible via localStorage.
        Cree un sentiment d'urgence pour pousser a l'inscription.
@@ -6415,6 +6441,78 @@
     //  - Premium (Pro/Elite) : masque
     //  - Visiteur anonyme    : "X/2 - Crée un compte gratuit pour 4/j"
     //  - Inscrit Free        : "X/4 - Passer Pro pour illimité"
+    // ============================================================
+    // EXIT INTENT MODAL — collecte feedback des anonymes qui partent
+    // ============================================================
+    (function setupExitIntent() {
+      let triggered = false;
+      let armedAt = 0;
+      // Arm seulement apres 30s sur la page (sinon trop agressif sur les
+      // visiteurs qui quittent immediatement). Et 1 fois par session.
+      function isAnon() { return !window.currentUser && window.isAnonymous !== false; }
+      function shouldTrigger() {
+        if (triggered) return false;
+        if (!isAnon()) return false;
+        if (Date.now() - armedAt < 30000) return false;  // arme apres 30s
+        // Skip si dismissed cette session
+        try { if (sessionStorage.getItem('kairos_exit_intent_shown') === '1') return false; } catch {}
+        return true;
+      }
+      function trigger() {
+        if (!shouldTrigger()) return;
+        triggered = true;
+        try { sessionStorage.setItem('kairos_exit_intent_shown', '1'); } catch {}
+        const m = document.getElementById('exitIntentModal');
+        if (m) m.style.display = 'flex';
+      }
+      window.addEventListener('DOMContentLoaded', () => {
+        armedAt = Date.now();
+        // Mouseleave par le top de la viewport (mouvement vers la croix tab/window)
+        document.addEventListener('mouseleave', (e) => {
+          if (e.clientY <= 0) trigger();
+        });
+      });
+    })();
+
+    function closeExitIntent(reason) {
+      const m = document.getElementById('exitIntentModal');
+      if (m) m.style.display = 'none';
+    }
+
+    async function submitExitIntent() {
+      const txt = document.getElementById('exitIntentText')?.value?.trim() || '';
+      const email = document.getElementById('exitIntentEmail')?.value?.trim() || '';
+      const msgEl = document.getElementById('exitIntentMsg');
+      const btn = document.getElementById('exitIntentSubmit');
+      if (!txt && !email) {
+        if (msgEl) { msgEl.style.color = '#F59E0B'; msgEl.style.display = 'block'; msgEl.textContent = 'Écris au moins ton retour ou ton email avant d\'envoyer 🙂'; }
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.innerHTML = 'Envoi…'; }
+      try {
+        const r = await fetch(`${API_BASE}/api/feedback/exit-intent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: txt,
+            email,
+            page: location.pathname,
+            referrer: document.referrer || null,
+          }),
+        });
+        if (r.ok) {
+          if (msgEl) { msgEl.style.color = '#10B981'; msgEl.style.display = 'block'; msgEl.textContent = '✓ Merci ! Je lis ce soir et te réponds si tu m\'as laissé ton email.'; }
+          setTimeout(() => closeExitIntent('sent'), 1800);
+        } else {
+          if (msgEl) { msgEl.style.color = '#EF4444'; msgEl.style.display = 'block'; msgEl.textContent = 'Erreur d\'envoi. Réessaie ou écris à contact@kairosinsider.fr'; }
+        }
+      } catch (e) {
+        if (msgEl) { msgEl.style.color = '#EF4444'; msgEl.style.display = 'block'; msgEl.textContent = 'Erreur réseau. Réessaie ou écris à contact@kairosinsider.fr'; }
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Envoyer'; }
+      }
+    }
+
     // Affiche/cache le bandeau urgence beta (sticky top, anonymes uniquement,
     // dismissible). Appele depuis renderFreeQuotaBanner pour rester sync avec
     // les changements d'etat auth.
@@ -11279,20 +11377,42 @@
               ${t('stock.label.distinctInsiders', '{n} initiés distincts').replace('{n}', insiders.uniqueInsiders || 0)}
             </div>
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px" id="saInsiderList">
-              ${(insiders.transactions || []).filter(tx => tx.type !== 'other').slice(0, 15).map(t => `
-                <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
-                  <div style="display:flex;justify-content:space-between">
-                    <div>
-                      <strong>${(t.insider||'').slice(0,25)}</strong>
-                      <span style="font-size:11px;opacity:0.5;margin-left:6px">${t.title || ''}</span>
+              ${(() => {
+                const allTx = (insiders.transactions || []).filter(tx => tx.type !== 'other');
+                // Anon: limit a 5, le reste est teaser. Inscrits: 15 (comme avant).
+                const anonLimit = 5;
+                const fullLimit = 15;
+                const limit = !currentUser ? anonLimit : fullLimit;
+                const visible = allTx.slice(0, limit);
+                const hidden = allTx.length - visible.length;
+                let html = visible.map(t => `
+                  <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
+                    <div style="display:flex;justify-content:space-between">
+                      <div>
+                        <strong>${(t.insider||'').slice(0,25)}</strong>
+                        <span style="font-size:11px;opacity:0.5;margin-left:6px">${t.title || ''}</span>
+                      </div>
+                      <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(t.type)}</span>
                     </div>
-                    <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(t.type)}</span>
+                    <div style="font-size:11px;opacity:0.6;margin-top:2px">
+                      ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
+                    </div>
                   </div>
-                  <div style="font-size:11px;opacity:0.6;margin-top:2px">
-                    ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
-                  </div>
-                </div>
-              `).join('') || `<div style="opacity:0.5;padding:12px 0">${L.emptyTransactions}</div>`}
+                `).join('');
+                if (visible.length === 0) {
+                  html = `<div style="opacity:0.5;padding:12px 0">${L.emptyTransactions}</div>`;
+                }
+                // Teaser anon : si reste des transactions cachées, push vers signup
+                if (!currentUser && hidden > 0) {
+                  html += `
+                    <div onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="margin-top:8px;padding:11px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(139,92,246,0.06));border:1px dashed rgba(139,92,246,0.45);border-radius:8px;cursor:pointer;text-align:center;transition:all 0.15s" onmouseover="this.style.borderColor='rgba(139,92,246,0.75)';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.45)';this.style.transform='translateY(0)'">
+                      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">🔒 +${hidden} autre${hidden > 1 ? 's' : ''} transaction${hidden > 1 ? 's' : ''}</div>
+                      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">Crée un compte gratuit pour voir toutes les transactions des dirigeants <strong>+ 4 analyses/jour</strong></div>
+                    </div>
+                  `;
+                }
+                return html;
+              })()}
             </div>
             <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--divider);text-align:center">
               <a href="#" onclick="openScreenerForTicker('${(d.ticker||'').replace(/'/g, '').toUpperCase()}');return false" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#74b9ff;text-decoration:none;font-weight:500">
@@ -11320,30 +11440,48 @@
               ${t('stock.hf.totalValue', 'Valeur totale :')} <strong>$${fmtBig(sm.totalValue)}</strong>
             </div>
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px">
-              ${(sm.topFunds || []).map(f => `
-                <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
-                  <div style="display:flex;justify-content:space-between">
-                    <div>
-                      <strong>${f.label || f.fundName || 'Inconnu'}</strong>
-                      ${f.isOffensive ? `<span title="${t('stock.hf.offensiveTooltip', 'Fonds offensif (activist, contrarian, conviction haute)')}" style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:9.5px;font-weight:800;letter-spacing:0.06em;background:linear-gradient(135deg,rgba(236,72,153,0.18),rgba(139,92,246,0.18));color:#F9A8D4;border:1px solid rgba(236,72,153,0.4);border-radius:4px;vertical-align:1px">⚔ ${t('stock.hf.offensiveBadge', 'OFFENSIF')}</span>` : ''}
-                      <div style="font-size:11px;opacity:0.55">${f.category || ''} · ${f.reportDate || ''}</div>
+              ${(() => {
+                const allFunds = sm.topFunds || [];
+                // Anon : limit a 5, reste = teaser. Inscrits : full list (max 20 deja capped cote worker).
+                const anonLimit = 5;
+                const visible = !currentUser ? allFunds.slice(0, anonLimit) : allFunds;
+                const hidden = allFunds.length - visible.length;
+                let html = visible.map(f => `
+                  <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
+                    <div style="display:flex;justify-content:space-between">
+                      <div>
+                        <strong>${f.label || f.fundName || 'Inconnu'}</strong>
+                        ${f.isOffensive ? `<span title="${t('stock.hf.offensiveTooltip', 'Fonds offensif (activist, contrarian, conviction haute)')}" style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:9.5px;font-weight:800;letter-spacing:0.06em;background:linear-gradient(135deg,rgba(236,72,153,0.18),rgba(139,92,246,0.18));color:#F9A8D4;border:1px solid rgba(236,72,153,0.4);border-radius:4px;vertical-align:1px">⚔ ${t('stock.hf.offensiveBadge', 'OFFENSIF')}</span>` : ''}
+                        <div style="font-size:11px;opacity:0.55">${f.category || ''} · ${f.reportDate || ''}</div>
+                      </div>
+                      ${(() => {
+                        const s = (f.status || '').toLowerCase();
+                        const isBullish = s === 'new' || s === 'increased' || (f.deltaPct > 0 && !s);
+                        const isBearish = s === 'sold' || s === 'closed' || s === 'exit' || s === 'decreased' || (f.deltaPct < 0 && !s);
+                        const color = isBullish ? '#2ecc71' : isBearish ? '#ff7675' : '#9CA3AF';
+                        const label = f.status ? hfStatusLabel(f.status) : (f.deltaPct>0?'📈 +'+f.deltaPct.toFixed(0)+'%':f.deltaPct<0?'📉 '+f.deltaPct.toFixed(0)+'%':'➖ —');
+                        return `<span style="color:${color};font-size:11px;font-weight:600">${label}</span>`;
+                      })()}
                     </div>
-                    ${(() => {
-                      // Couleur : status prioritaire sur deltaPct. Un 'new' a deltaPct=null
-                      // mais est clairement bullish → vert. Idem sold/closed → rouge.
-                      const s = (f.status || '').toLowerCase();
-                      const isBullish = s === 'new' || s === 'increased' || (f.deltaPct > 0 && !s);
-                      const isBearish = s === 'sold' || s === 'closed' || s === 'exit' || s === 'decreased' || (f.deltaPct < 0 && !s);
-                      const color = isBullish ? '#2ecc71' : isBearish ? '#ff7675' : '#9CA3AF';
-                      const label = f.status ? hfStatusLabel(f.status) : (f.deltaPct>0?'📈 +'+f.deltaPct.toFixed(0)+'%':f.deltaPct<0?'📉 '+f.deltaPct.toFixed(0)+'%':'➖ —');
-                      return `<span style="color:${color};font-size:11px;font-weight:600">${label}</span>`;
-                    })()}
+                    <div style="font-size:11px;opacity:0.7;margin-top:2px">
+                      $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
+                    </div>
                   </div>
-                  <div style="font-size:11px;opacity:0.7;margin-top:2px">
-                    $${fmtBig(f.value)} (${f.pctOfPortfolio.toFixed(1)}% du portefeuille)
-                  </div>
-                </div>
-              `).join('') || `<div style="opacity:0.5;padding:12px 0;line-height:1.5">${L.noHedgeFunds}<br><span style="font-size:11px;opacity:0.7">${L.noHedgeFundsNote}</span></div>`}
+                `).join('');
+                if (visible.length === 0) {
+                  html = `<div style="opacity:0.5;padding:12px 0;line-height:1.5">${L.noHedgeFunds}<br><span style="font-size:11px;opacity:0.7">${L.noHedgeFundsNote}</span></div>`;
+                }
+                // Teaser anon : invite a debloquer la liste complete
+                if (!currentUser && hidden > 0) {
+                  html += `
+                    <div onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="margin-top:8px;padding:11px 12px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(139,92,246,0.06));border:1px dashed rgba(139,92,246,0.45);border-radius:8px;cursor:pointer;text-align:center;transition:all 0.15s" onmouseover="this.style.borderColor='rgba(139,92,246,0.75)';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='rgba(139,92,246,0.45)';this.style.transform='translateY(0)'">
+                      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">🔒 +${hidden} autre${hidden > 1 ? 's' : ''} hedge fund${hidden > 1 ? 's' : ''}</div>
+                      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">Crée un compte gratuit pour voir tous les fonds détenant $${(d.ticker||'').toUpperCase()} <strong>+ leurs % de portefeuille</strong></div>
+                    </div>
+                  `;
+                }
+                return html;
+              })()}
             </div>
           </div>
 

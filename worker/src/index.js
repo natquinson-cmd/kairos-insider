@@ -323,6 +323,12 @@ async function handleRequest(request, env, ctx) {
       return handleChatbotMessage(request, env, ctx, origin);
     }
 
+    // Exit intent feedback : visiteur sur le point de quitter, capture son
+    // retour libre + email optionnel. Rate-limited par IP pour eviter spam.
+    if (request.method === 'POST' && path === '/api/feedback/exit-intent') {
+      return handleExitIntentFeedback(request, env, origin);
+    }
+
     // Telegram webhook (pas d'auth Firebase, verifie par X-Telegram-Bot-Api-Secret-Token).
     // Endpoint appele par les serveurs Telegram a chaque message envoye au bot.
     // Ne PAS prefixer /api/ : on veut que le rate-limit ne s'applique pas (les
@@ -9414,6 +9420,101 @@ p { font-size:14px; line-height:1.65; color:#9CA3AF; margin:0 0 16px; }
     const errText = await resp.text();
     throw new Error(`Brevo optin ${resp.status}: ${errText}`);
   }
+}
+
+// ============================================================
+// EXIT INTENT FEEDBACK — capture des feedbacks anonymes qui partent
+// ============================================================
+// POST /api/feedback/exit-intent body { text, email?, page?, referrer? }
+// -> stocke en KV exit-feedback:{ts}-{rand} et envoie un email admin
+//    via Brevo si BREVO_API_KEY + ADMIN_EMAIL configures.
+// Rate limit IP : 3 messages / heure (anti-spam).
+async function handleExitIntentFeedback(request, env, origin) {
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: 'Invalid JSON' }, 400, origin); }
+
+  const text = String(body.text || '').slice(0, 2000).trim();
+  const email = String(body.email || '').slice(0, 100).trim();
+  const page = String(body.page || '').slice(0, 100);
+  const referrer = String(body.referrer || '').slice(0, 200);
+  if (!text && !email) {
+    return jsonResponse({ error: 'Empty feedback' }, 400, origin);
+  }
+
+  // Rate limit par IP : 3 par heure
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const rlKey = `exit-rl:${ip}`;
+  const rl = await env.CACHE.get(rlKey, 'json').catch(() => null);
+  const hour = Math.floor(Date.now() / (3600 * 1000));
+  const count = (rl && rl.hour === hour) ? rl.count : 0;
+  if (count >= 3) {
+    return jsonResponse({ error: 'Rate limit (3/h)' }, 429, origin);
+  }
+  await env.CACHE.put(rlKey, JSON.stringify({ hour, count: count + 1 }), { expirationTtl: 7200 });
+
+  const ts = Date.now();
+  const id = `${ts}-${Math.random().toString(36).slice(2, 8)}`;
+  const country = request.headers.get('CF-IPCountry') || '';
+  const ua = request.headers.get('User-Agent') || '';
+  const payload = {
+    id,
+    ts,
+    iso: new Date().toISOString(),
+    text,
+    email,
+    page,
+    referrer,
+    country,
+    ip,
+    ua: ua.slice(0, 200),
+  };
+  // Persist 90 jours
+  await env.CACHE.put(`exit-feedback:${id}`, JSON.stringify(payload), { expirationTtl: 86400 * 90 });
+  // Index liste pour admin
+  const idx = (await env.CACHE.get('exit-feedback-index', 'json').catch(() => null)) || { items: [] };
+  idx.items.unshift({ id, ts, iso: payload.iso, hasEmail: !!email, country, page, textPreview: text.slice(0, 100) });
+  if (idx.items.length > 500) idx.items = idx.items.slice(0, 500);
+  await env.CACHE.put('exit-feedback-index', JSON.stringify(idx));
+
+  // Email admin (best-effort)
+  try {
+    if (env.BREVO_API_KEY && ADMIN_EMAILS && ADMIN_EMAILS.length > 0) {
+      const subject = `💬 Nouveau feedback exit-intent — ${country || 'Inconnu'}`;
+      const html = `
+        <div style="font-family:-apple-system,sans-serif;max-width:520px">
+          <h2 style="color:#3B82F6;margin:0 0 14px">Nouveau feedback Kairos</h2>
+          <div style="background:#F3F4F6;padding:14px;border-radius:8px;margin-bottom:14px;border-left:3px solid #3B82F6">
+            <div style="font-size:14px;line-height:1.6;color:#1F2937;white-space:pre-wrap">${escapeHtml(text || '(sans message)')}</div>
+          </div>
+          <table style="font-size:13px;color:#4B5563;border-collapse:collapse">
+            <tr><td style="padding:3px 12px 3px 0;color:#9CA3AF">Email :</td><td>${escapeHtml(email || '(non renseigné)')}</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;color:#9CA3AF">Page :</td><td>${escapeHtml(page || '/')}</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;color:#9CA3AF">Referrer :</td><td>${escapeHtml(referrer || 'direct')}</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;color:#9CA3AF">Pays :</td><td>${escapeHtml(country || '?')}</td></tr>
+            <tr><td style="padding:3px 12px 3px 0;color:#9CA3AF">Quand :</td><td>${payload.iso}</td></tr>
+          </table>
+          ${email ? `<div style="margin-top:18px;padding:10px;background:#ECFDF5;border-radius:6px;font-size:13px;color:#065F46">📧 L'utilisateur a laissé son email — pense à lui répondre dans la journée.</div>` : ''}
+        </div>
+      `;
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+          to: [{ email: ADMIN_EMAILS[0] }],
+          subject,
+          htmlContent: html,
+          replyTo: email ? { email } : undefined,
+        }),
+      });
+    }
+  } catch (e) {
+    log.warn('exit-feedback.email.failed', { detail: String(e.message || e).slice(0, 200) });
+  }
+
+  log.info('exit-feedback.received', { id, country, page, hasEmail: !!email, textLen: text.length });
+  return jsonResponse({ ok: true, id }, 200, origin);
 }
 
 // Admin endpoints pour review des conversations chatbot.
