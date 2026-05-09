@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260509-i18n-pass"></script>
+  <script src="assets/i18n.js?v=20260509-audit-en"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -6101,7 +6101,7 @@
               setTimeout(() => {
                 try {
                   if (window.Toast && Toast.info) {
-                    Toast.info('Vous êtes déjà abonné. Pour changer de plan, utilisez le portail de facturation Stripe.');
+                    Toast.info(t('toast.already_subscribed', 'Vous êtes déjà abonné. Pour changer de plan, utilisez le portail de facturation Stripe.'));
                   }
                   if (typeof openStripePortal === 'function') openStripePortal();
                 } catch (e) {}
@@ -6216,22 +6216,22 @@
       const errEl = document.getElementById('loginError');
       const btn = document.getElementById('loginBtn');
       errEl.style.display = 'none';
-      btn.textContent = 'Connexion...';
+      btn.textContent = t('ui.connecting', 'Connexion...');
       btn.disabled = true;
       try {
         await window.__fbAuth.signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err) {
         const messages = {
-          'auth/user-not-found': 'Aucun compte avec cet email.',
-          'auth/wrong-password': 'Mot de passe incorrect.',
-          'auth/invalid-email': 'Email invalide.',
-          'auth/too-many-requests': 'Trop de tentatives. Reessayez plus tard.',
-          'auth/invalid-credential': 'Email ou mot de passe incorrect.',
+          'auth/user-not-found': t('auth.error.user_not_found', 'Aucun compte avec cet email.'),
+          'auth/wrong-password': t('auth.error.wrong_password', 'Mot de passe incorrect.'),
+          'auth/invalid-email': t('auth.error.invalid_email', 'Email invalide.'),
+          'auth/too-many-requests': t('auth.error.too_many_requests', 'Trop de tentatives. Réessayez plus tard.'),
+          'auth/invalid-credential': t('auth.error.wrong_password', 'Email ou mot de passe incorrect.'),
         };
         errEl.textContent = messages[err.code] || err.message;
         errEl.style.display = 'block';
       } finally {
-        btn.textContent = 'Se connecter';
+        btn.textContent = t('auth.login.submit', 'Se connecter');
         btn.disabled = false;
       }
       return false;
@@ -6277,14 +6277,14 @@
         if (cred?.user?.uid) recordConsent(cred.user.uid, 'email');
       } catch (err) {
         const messages = {
-          'auth/email-already-in-use': 'Cet email est déjà utilise.',
-          'auth/weak-password': 'Mot de passe trop faible (6 caracteres minimum).',
-          'auth/invalid-email': 'Email invalide.',
+          'auth/email-already-in-use': t('auth.error.email_in_use', 'Cet email est déjà utilisé.'),
+          'auth/weak-password': t('auth.error.weak_password', 'Mot de passe trop faible (6 caractères minimum).'),
+          'auth/invalid-email': t('auth.error.invalid_email', 'Email invalide.'),
         };
         errEl.textContent = messages[err.code] || err.message;
         errEl.style.display = 'block';
       } finally {
-        btn.textContent = 'Creer mon compte';
+        btn.textContent = t('auth.signup.submit', 'Créer mon compte');
         btn.disabled = false;
       }
       return false;
@@ -6316,7 +6316,7 @@
 
       // Le bouton actif depend de l'onglet affiche (login ou signup)
       const btn = signupVisible ? document.getElementById('googleSignupBtn') : document.getElementById('googleBtn');
-      if (btn) { btn.textContent = 'Connexion...'; btn.disabled = true; }
+      if (btn) { btn.textContent = t('ui.connecting', 'Connexion...'); btn.disabled = true; }
       try {
         const provider = new window.__fbAuth.GoogleAuthProvider();
         const cred = await window.__fbAuth.signInWithPopup(firebaseAuth, provider);
@@ -6838,7 +6838,7 @@
         if (data && data.error) {
           // Cas : plan annuel demande mais pas encore configure cote Stripe
           if (data.code === 'YEARLY_NOT_CONFIGURED' || data.code === 'PRICE_NOT_CONFIGURED') {
-            Toast.warning(data.detail || 'Ce plan n\'est pas encore disponible. Contactez le support.');
+            Toast.warning(data.detail || t('toast.plan_unavailable', "Ce plan n'est pas encore disponible. Contactez le support."));
             try { localStorage.setItem('kairos_billing', 'monthly'); } catch (e) {}
           } else {
             Toast.error('Erreur : ' + (data.detail || data.error));
@@ -9245,15 +9245,28 @@
     function renderLoadMoreFooter({ visible, total, onLoadMore, initialCount = 25, label = 'éléments' }) {
       const remaining = Math.max(0, total - visible);
       if (remaining > 0) {
+        const _seeMore = t('ui.see_more', 'Voir plus');
+        const _remRaw = remaining.toLocaleString((window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR');
+        const _remKey = remaining > 1 ? 'ui.see_more_remaining_many' : 'ui.see_more_remaining_one';
+        const _remFb = remaining > 1 ? '({n} restants)' : '({n} restant)';
+        const _remTxt = t(_remKey, _remFb).replace('{n}', _remRaw);
+        const _countTpl = t('ui.showing_of_total', '{visible} sur {total} {label} affiché{plural}')
+          .replace('{visible}', visible.toLocaleString('fr-FR'))
+          .replace('{total}', total.toLocaleString('fr-FR'))
+          .replace('{label}', label)
+          .replace('{plural}', total > 1 ? 's' : '');
         return `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px 0">
           <button onclick="${onLoadMore}" style="padding:12px 28px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 2px 12px rgba(116,185,255,0.25)">
-            Voir plus <span style="opacity:0.8;font-weight:500;margin-left:4px">(${remaining.toLocaleString('fr-FR')} restant${remaining > 1 ? 's' : ''})</span>
+            ${_seeMore} <span style="opacity:0.8;font-weight:500;margin-left:4px">${_remTxt}</span>
           </button>
-          <div style="font-size:11px;color:var(--text-muted)">${visible.toLocaleString('fr-FR')} sur ${total.toLocaleString('fr-FR')} ${label} affiché${total > 1 ? 's' : ''}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${_countTpl}</div>
         </div>`;
       }
       if (total > initialCount) {
-        return `<div style="padding:18px 0;text-align:center;color:var(--text-muted);font-size:12px">Tous les ${total.toLocaleString('fr-FR')} ${label} sont affichés.</div>`;
+        const _allTxt = t('ui.all_displayed', 'Tous les {total} {label} sont affichés.')
+          .replace('{total}', total.toLocaleString('fr-FR'))
+          .replace('{label}', label);
+        return `<div style="padding:18px 0;text-align:center;color:var(--text-muted);font-size:12px">${_allTxt}</div>`;
       }
       return '';
     }
@@ -9874,30 +9887,41 @@
         if (!state.tickers.includes(ticker) && state.count >= effectiveQuota) {
           if (isAnon) {
             // Wall anonyme : push vers inscription gratuite (4 analyses/j)
+            const _wAT = t('wall.anon.title', 'Tu as épuisé tes {n} analyses gratuites du jour').replace('{n}', ANON_DAILY_QUOTA);
+            const _wAB = t('wall.anon.body_html', 'Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.');
+            const _wAB2 = t('wall.anon.body2_html', 'Aucune carte bancaire requise. Tu débloques aussi <strong>Tendances retail</strong>, <strong>Fear &amp; Greed</strong> et <strong>Short Interest</strong>.');
+            const _wASignup = t('wall.anon.cta_signup', 'Créer un compte gratuit');
+            const _wALogin = t('wall.anon.cta_login', "J'ai déjà un compte");
+            const _wAHist = t('wall.anon.history_html', 'Déjà consulté aujourd\'hui : <strong>{tickers}</strong><br>Tu peux toujours les rouvrir sans décompter.').replace('{tickers}', state.tickers.join(', '));
             body.innerHTML = `
               <div style="max-width:640px;margin:40px auto;padding:36px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(16,185,129,0.05));border:1px solid rgba(59,130,246,0.30);border-radius:16px;text-align:center">
                 <div style="font-size:48px;margin-bottom:12px">✨</div>
-                <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">Tu as épuisé tes ${ANON_DAILY_QUOTA} analyses gratuites du jour</h2>
-                <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.</p>
-                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu débloques aussi <strong>Tendances retail</strong>, <strong>Fear &amp; Greed</strong> et <strong>Short Interest</strong>.</p>
+                <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">${_wAT}</h2>
+                <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">${_wAB}</p>
+                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">${_wAB2}</p>
                 <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-                  <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(139,92,246,0.35)">Créer un compte gratuit</button>
-                  <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showLogin==='function')showLogin()" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">J'ai déjà un compte</button>
+                  <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(139,92,246,0.35)">${_wASignup}</button>
+                  <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showLogin==='function')showLogin()" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">${_wALogin}</button>
                 </div>
-                <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà consulté aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Tu peux toujours les rouvrir sans décompter.</div>
+                <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">${_wAHist}</div>
               </div>`;
           } else {
             // Wall registered Free : push vers Pro
+            const _wFT = t('wall.free.title', 'Quota gratuit atteint');
+            const _wFB = t('wall.free.body_html', 'Vous avez utilisé vos <strong style="color:var(--text-primary)">{n} analyses complètes gratuites</strong> aujourd\'hui.').replace('{n}', FREE_DAILY_QUOTA);
+            const _wFB2 = t('wall.free.body2_html', 'Passez Pro pour des <strong>analyses illimitées</strong> + l\'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.');
+            const _wFCta = t('wall.free.cta_pro', 'Passer Pro — 19€/mois');
+            const _wFHist = t('wall.free.history_html', 'Déjà analysé aujourd\'hui : <strong>{tickers}</strong><br>Ces tickers restent consultables sans décompter votre quota.<br>Compteur remis à zéro chaque jour à minuit.').replace('{tickers}', state.tickers.join(', '));
             body.innerHTML = `
               <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
                 <div style="font-size:48px;margin-bottom:12px">🔒</div>
-                <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
-                <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
-                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
+                <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">${_wFT}</h2>
+                <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">${_wFB}</p>
+                <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">${_wFB2}</p>
                 <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-                  <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
+                  <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">${_wFCta}</button>
                 </div>
-                <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${state.tickers.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.<br>Compteur remis à zéro chaque jour à minuit.</div>
+                <div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">${_wFHist}</div>
               </div>`;
           }
           return;
@@ -9944,14 +9968,19 @@
               date: today, tickers: qd.analyzedToday || [], count: qd.quotaUsed || FREE_DAILY_QUOTA,
             }));
           } catch (ex) {}
+          const _wF2T = t('wall.free.title', 'Quota gratuit atteint');
+          const _wF2B = t('wall.free.body_html', 'Vous avez utilisé vos <strong style="color:var(--text-primary)">{n} analyses complètes gratuites</strong> aujourd\'hui.').replace('{n}', qd.quotaMax || FREE_DAILY_QUOTA);
+          const _wF2B2 = t('wall.free.body2_html', 'Passez Pro pour des <strong>analyses illimitées</strong> + l\'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.');
+          const _wF2Cta = t('wall.free.cta_pro', 'Passer Pro — 19€/mois');
+          const _wF2HistTpl = t('wall.free.history_short_html', 'Déjà analysé aujourd\'hui : <strong>{tickers}</strong><br>Ces tickers restent consultables sans décompter votre quota.');
           body.innerHTML = `
             <div style="max-width:640px;margin:40px auto;padding:32px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:16px;text-align:center">
               <div style="font-size:48px;margin-bottom:12px">🔒</div>
-              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">Quota gratuit atteint</h2>
-              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Vous avez utilisé vos <strong style="color:var(--text-primary)">${qd.quotaMax || FREE_DAILY_QUOTA} analyses complètes gratuites</strong> aujourd'hui.</p>
-              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Passez Pro pour des <strong>analyses illimitées</strong> + l'accès au screener, hedge funds, fonds offensifs, watchlist et Brief quotidien.</p>
-              <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">Passer Pro — 19€/mois</button>
-              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà analysé aujourd'hui : <strong>${qd.analyzedToday.join(', ')}</strong><br>Ces tickers restent consultables sans décompter votre quota.</div>` : ''}
+              <h2 style="margin:0 0 10px;font-size:22px;font-weight:700">${_wF2T}</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">${_wF2B}</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">${_wF2B2}</p>
+              <button type="button" onclick="document.getElementById('paywallOverlay').classList.remove('hidden');if(typeof applyPaywallDisplay==='function')applyPaywallDisplay()" style="padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(59,130,246,0.3)">${_wF2Cta}</button>
+              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.5">${_wF2HistTpl.replace('{tickers}', qd.analyzedToday.join(', '))}</div>` : ''}
             </div>`;
           renderFreeQuotaBanner();
           return;
@@ -9961,18 +9990,23 @@
         // l'utilisateur a deja vu 2 fiches completes, il connait la valeur.
         if (e.code === 'ANON_QUOTA_EXCEEDED' && e.quotaData) {
           const qd = e.quotaData;
+          const _wA2T = t('wall.anon.title', 'Tu as épuisé tes {n} analyses gratuites du jour').replace('{n}', qd.quotaMax || 2);
+          const _wA2B = t('wall.anon.body_html', 'Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.');
+          const _wA2B2 = t('wall.anon.body2_html', 'Aucune carte bancaire requise. Tu débloques aussi <strong>Tendances retail</strong>, <strong>Fear &amp; Greed</strong> et <strong>Short Interest</strong>.');
+          const _wA2Signup = t('wall.anon.cta_signup', 'Créer un compte gratuit');
+          const _wA2Login = t('wall.anon.cta_login', "J'ai déjà un compte");
           body.innerHTML = `
             <div style="max-width:640px;margin:40px auto;padding:36px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(16,185,129,0.05));border:1px solid rgba(59,130,246,0.30);border-radius:16px;text-align:center">
               <div style="font-size:48px;margin-bottom:12px">✨</div>
-              <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">Tu as épuisé tes ${qd.quotaMax || 2} analyses gratuites du jour</h2>
-              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.</p>
-              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">Aucune carte bancaire requise. Tu débloques aussi <strong>Tendances retail</strong>, <strong>Fear &amp; Greed</strong> et <strong>Short Interest</strong>.</p>
+              <h2 style="margin:0 0 10px;font-size:24px;font-weight:700">${_wA2T}</h2>
+              <p style="margin:0 0 8px;color:var(--text-secondary);line-height:1.6">${_wA2B}</p>
+              <p style="margin:0 0 24px;color:var(--text-muted);font-size:13px">${_wA2B2}</p>
               <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-                <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(139,92,246,0.35)">Créer un compte gratuit</button>
-                <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showLogin==='function')showLogin()" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">J'ai déjà un compte</button>
+                <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:12px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);border:none;border-radius:10px;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;box-shadow:0 2px 12px rgba(139,92,246,0.35)">${_wA2Signup}</button>
+                <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showLogin==='function')showLogin()" style="padding:12px 24px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:600;font-size:14px">${_wA2Login}</button>
               </div>
-              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:18px;font-size:12px;color:var(--text-muted);line-height:1.5">Déjà consulté aujourd'hui : <strong>${qd.analyzedToday.join(', ')}</strong><br>Tu peux toujours les rouvrir sans décompter.</div>` : ''}
-              <div style="margin-top:16px;font-size:11px;color:var(--text-muted)">Tu peux aussi explorer les exemples publics : <a href="/a/AAPL" style="color:#3B82F6">/a/AAPL</a> · <a href="/a/UBI.PA" style="color:#3B82F6">/a/UBI.PA</a></div>
+              ${qd.analyzedToday && qd.analyzedToday.length ? `<div style="margin-top:18px;font-size:12px;color:var(--text-muted);line-height:1.5">${t('wall.anon.history_html', 'Déjà consulté aujourd\'hui : <strong>{tickers}</strong><br>Tu peux toujours les rouvrir sans décompter.').replace('{tickers}', qd.analyzedToday.join(', '))}</div>` : ''}
+              <div style="margin-top:16px;font-size:11px;color:var(--text-muted)">${t('wall.anon.examples_html', 'Tu peux aussi explorer les exemples publics : <a href="/a/AAPL" style="color:#3B82F6">/a/AAPL</a> · <a href="/a/UBI.PA" style="color:#3B82F6">/a/UBI.PA</a>')}</div>
             </div>`;
           return;
         }
