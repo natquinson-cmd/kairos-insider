@@ -98,9 +98,11 @@
       background: linear-gradient(135deg, #3B82F6, #8B5CF6, #EC4899);
       color: #fff; border: none; box-shadow: 0 8px 24px rgba(139,92,246,0.4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px; transition: all 0.25s ease;
+      padding: 0;
+      transition: all 0.25s ease;
       animation: kc-bubble-pulse 2s infinite;
     }
+    .kc-bubble svg { display: block; }
     .kc-bubble:hover { transform: scale(1.08); box-shadow: 0 12px 32px rgba(139,92,246,0.55); }
     @keyframes kc-bubble-pulse {
       0%, 100% { box-shadow: 0 8px 24px rgba(139,92,246,0.4), 0 0 0 0 rgba(139,92,246,0.45); }
@@ -142,8 +144,9 @@
       width: 40px; height: 40px; border-radius: 50%;
       background: linear-gradient(135deg, #3B82F6, #8B5CF6, #EC4899);
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      flex-shrink: 0; padding: 0; overflow: hidden;
     }
+    .kc-header-avatar svg { display: block; }
     .kc-header-info { flex: 1; min-width: 0; }
     .kc-header-title { font-size: 14px; font-weight: 700; color: #F9FAFB; }
     .kc-header-subtitle { font-size: 11px; color: #10B981; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
@@ -221,10 +224,35 @@
   styleEl.textContent = styles;
   document.head.appendChild(styleEl);
 
+  // SVG mascot robot Kairos : tete blanche sur fond gradient brand,
+  // gros yeux ronds (factor "mignon") + blush rose + smile + antenne pulse.
+  // Cohérent avec le brand gradient (#3B82F6 -> #8B5CF6 -> #EC4899).
+  const ROBOT_SVG = `
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:62%;height:62%">
+      <!-- Antenna with glowing pink dot -->
+      <line x1="20" y1="9" x2="20" y2="6" stroke="rgba(255,255,255,0.95)" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="20" cy="4.5" r="2.6" fill="#EC4899" opacity="0.35"/>
+      <circle cx="20" cy="4.5" r="1.7" fill="#FBBF24"/>
+      <circle cx="20.5" cy="4" r="0.6" fill="#fff" opacity="0.9"/>
+      <!-- Head (white rounded square) -->
+      <rect x="7" y="9" width="26" height="24" rx="8" fill="#fff"/>
+      <!-- Eyes : large dark pupils with shine highlight -->
+      <circle cx="14.5" cy="19" r="2.9" fill="#0F1729"/>
+      <circle cx="15.3" cy="18" r="1.0" fill="#fff"/>
+      <circle cx="25.5" cy="19" r="2.9" fill="#0F1729"/>
+      <circle cx="26.3" cy="18" r="1.0" fill="#fff"/>
+      <!-- Cheek blush (pink soft) -->
+      <ellipse cx="10.5" cy="25" rx="1.8" ry="1.1" fill="#EC4899" opacity="0.45"/>
+      <ellipse cx="29.5" cy="25" rx="1.8" ry="1.1" fill="#EC4899" opacity="0.45"/>
+      <!-- Smile -->
+      <path d="M 16 27 Q 20 29.5 24 27" stroke="#0F1729" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    </svg>
+  `;
+
   const bubble = document.createElement('button');
   bubble.className = 'kc-bubble';
   bubble.setAttribute('aria-label', t.bubbleAria);
-  bubble.innerHTML = '💬';
+  bubble.innerHTML = ROBOT_SVG;
   document.body.appendChild(bubble);
 
   const hint = document.createElement('div');
@@ -236,7 +264,7 @@
   panel.className = 'kc-panel';
   panel.innerHTML = `
     <div class="kc-header">
-      <div class="kc-header-avatar">🎯</div>
+      <div class="kc-header-avatar">${ROBOT_SVG}</div>
       <div class="kc-header-info">
         <div class="kc-header-title">${t.headerTitle}</div>
         <div class="kc-header-subtitle">${t.headerSubtitle}</div>
