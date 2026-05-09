@@ -1269,26 +1269,49 @@
 <body>
 
   <!-- ============================================================
-       BANDEAU URGENCE BETA — sticky top, dismissible
-       Affiche pour TOUS les visiteurs de la landing (qui sont par
-       definition pas inscrits). Pour la version dashboard.html (apres
-       login) le banner est gere differemment via JS.
+       BANDEAU URGENCE BETA — fixed top, au-dessus de la nav fixed.
+       La nav est offset de 40px (banner height) via body.has-beta-banner.
        ============================================================ -->
-  <div id="betaUrgencyBanner" style="position:relative;z-index:50;background:linear-gradient(90deg,#3B82F6 0%,#8B5CF6 50%,#EC4899 100%);color:#fff;padding:9px 18px;font-size:13px;text-align:center;font-weight:500">
+  <style>
+    #betaUrgencyBanner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+      color: #fff; padding: 9px 18px; font-size: 13px;
+      text-align: center; font-weight: 500;
+    }
+    /* Quand le banner est visible, on pousse la nav (et ticker-tape sur dashboard)
+       de la hauteur du banner. Sans ca, la nav fixed top:0 ecrase le banner. */
+    body.has-beta-banner nav { top: 40px !important; }
+    body.has-beta-banner .ticker-tape { top: 85px !important; }
+    body.has-beta-banner #pageMain,
+    body.has-beta-banner main { margin-top: 40px; }
+    @media (max-width: 640px) {
+      body.has-beta-banner nav { top: 56px !important; }
+      body.has-beta-banner .ticker-tape { top: 101px !important; }
+      body.has-beta-banner #pageMain,
+      body.has-beta-banner main { margin-top: 56px; }
+    }
+  </style>
+  <div id="betaUrgencyBanner">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
       <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong>Bêta gratuite</strong> · accès complet pendant les premiers mois</span>
       <a href="dashboard.html#signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)">Réserver ma place →</a>
-      <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
+      <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';document.body.classList.remove('has-beta-banner');})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
     </div>
   </div>
   <script>
-    // Hide banner if dismissed previously (lecture LocalStorage avant render)
-    try {
-      if (localStorage.getItem('kairos_beta_banner_dismissed') === '1') {
-        var __b = document.getElementById('betaUrgencyBanner');
-        if (__b) __b.style.display = 'none';
-      }
-    } catch (e) {}
+    // Init : ajoute has-beta-banner sur body si pas dismissed (decale nav vers le bas).
+    // Synchrone avant le rendu pour eviter le flash (banner overlap avec nav).
+    (function () {
+      try {
+        if (localStorage.getItem('kairos_beta_banner_dismissed') === '1') {
+          var __b = document.getElementById('betaUrgencyBanner');
+          if (__b) __b.style.display = 'none';
+        } else {
+          document.body.classList.add('has-beta-banner');
+        }
+      } catch (e) { document.body.classList.add('has-beta-banner'); }
+    })();
   </script>
 
   <!-- ===== NAVIGATION ===== -->

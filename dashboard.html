@@ -3049,15 +3049,31 @@
 
   <!-- ============================================================
        BANDEAU URGENCE BETA (anonymes uniquement)
-       Affiche tout en haut du site, dismissible via localStorage.
+       Position fixed top:0, z-index:200 (au-dessus de la nav fixed).
+       Decale la nav + ticker-tape via body.has-beta-banner.
        Cree un sentiment d'urgence pour pousser a l'inscription.
        Cache automatiquement si user inscrit ou dismissed.
        ============================================================ -->
-  <div id="betaUrgencyBanner" style="display:none;position:relative;z-index:50;background:linear-gradient(90deg,#3B82F6 0%,#8B5CF6 50%,#EC4899 100%);color:#fff;padding:9px 18px;font-size:13px;text-align:center;font-weight:500">
+  <style>
+    #betaUrgencyBanner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
+      color: #fff; padding: 9px 18px; font-size: 13px;
+      text-align: center; font-weight: 500;
+    }
+    /* Quand banner visible : decale la nav fixed (45px) + ticker-tape (45->85) */
+    body.has-beta-banner nav { top: 40px !important; }
+    body.has-beta-banner .ticker-tape { top: 85px !important; }
+    @media (max-width: 640px) {
+      body.has-beta-banner nav { top: 56px !important; }
+      body.has-beta-banner .ticker-tape { top: 101px !important; }
+    }
+  </style>
+  <div id="betaUrgencyBanner" style="display:none">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
       <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong>Bêta gratuite</strong> · accès complet pendant les premiers mois</span>
       <button type="button" id="betaUrgencyCta" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;backdrop-filter:blur(4px)" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()">Réserver ma place →</button>
-      <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
+      <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';document.body.classList.remove('has-beta-banner');})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
     </div>
   </div>
 
@@ -6519,10 +6535,16 @@
     function updateBetaUrgencyBanner() {
       const el = document.getElementById('betaUrgencyBanner');
       if (!el) return;
-      // Cache si user inscrit OU si dismissed cette semaine
+      // Cache si user inscrit OU si dismissed
       const dismissed = (() => { try { return localStorage.getItem('kairos_beta_banner_dismissed') === '1'; } catch { return false; } })();
       const shouldShow = !currentUser && !dismissed;
       el.style.display = shouldShow ? 'block' : 'none';
+      // Toggle has-beta-banner sur body pour decaler la nav fixed (CSS)
+      if (shouldShow) {
+        document.body.classList.add('has-beta-banner');
+      } else {
+        document.body.classList.remove('has-beta-banner');
+      }
     }
 
     function renderFreeQuotaBanner() {
