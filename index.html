@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260509-no-api-rest"></script>
+  <script src="assets/i18n.js?v=20260509-realtime"></script>
 
   <style>
     :root {
@@ -1346,7 +1346,7 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="pulse"></span>
-            <span data-i18n="hero.badge">Plateforme en ligne · Données live SEC / AMF / BaFin</span>
+            <span data-i18n="hero.badge">🔴 LIVE · Refresh toutes les 30 min · Alertes Telegram en moins de 8 min</span>
           </div>
 
           <h1>
@@ -1367,9 +1367,21 @@
             <a href="/a/AAPL" class="btn btn-secondary btn-large" data-i18n="hero.cta_example">Voir un exemple d'analyse</a>
           </div>
 
+          <!-- LIVE PROOF : preuve concrete de la fraicheur. Fetched depuis l'API,
+               affiche le dernier filing 13D detecte avec son age. Fallback statique
+               si l'API ne repond pas. Renforce la promesse 'real-time' du badge. -->
+          <div id="liveProofStrip" style="display:flex;align-items:center;gap:10px;margin-bottom:24px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:10px;font-size:13px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;gap:6px;color:#10B981;font-weight:700">
+              <span style="width:8px;height:8px;background:#10B981;border-radius:50%;animation:pulse 2s infinite;display:inline-block"></span>
+              LIVE
+            </span>
+            <span id="liveProofText" style="color:var(--text-secondary);line-height:1.4">Données refreshées il y a quelques minutes · 9 marchés monitorés en continu</span>
+          </div>
+
           <div class="hero-meta">
             <span><span class="check">✓</span> <span data-i18n="hero.meta_legal">100% légal</span></span>
-            <span><span class="check">✓</span> <span data-i18n="hero.meta_update">Données fraîches en continu</span></span>
+            <span><span class="check">✓</span> <span data-i18n="hero.meta_update">Refresh 30 min</span></span>
+            <span><span class="check">✓</span> <span data-i18n="hero.meta_alerts">Alertes &lt; 8 min</span></span>
             <span><span class="check">✓</span> <span data-i18n="hero.meta_french">100% en français</span></span>
           </div>
         </div>
@@ -1588,6 +1600,64 @@
         </div>
       </div>
       <div class="sources-footnote" data-i18n="sources.footnote">Aucune donnée inventée. 100 % des signaux proviennent de régulateurs officiels ou de fournisseurs de marché reconnus.</div>
+    </div>
+  </section>
+
+  <!--
+    Section SPEED COMPARISON : montre concretement l'avantage Kairos vs
+    Bloomberg / brokers / apps retail FR sur la fraicheur des donnees.
+    C'est notre principal differenciateur prix : Bloomberg Terminal coute
+    24K$/an pour la meme latence que nous (49EUR/mois Elite).
+  -->
+  <section class="section" id="speed" style="padding-top:60px;padding-bottom:40px">
+    <div class="container" style="max-width:1100px">
+      <div style="text-align:center;margin-bottom:36px">
+        <span class="section-badge" style="background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3)">⚡ FRAÎCHEUR · TEMPS RÉEL</span>
+        <h2 style="font-size:34px;margin:14px 0 12px;letter-spacing:-0.5px">
+          Du filing SEC au Telegram <span style="background:linear-gradient(135deg,#10B981 0%,#3B82F6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">en moins de 8 minutes.</span>
+        </h2>
+        <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:15px;line-height:1.65">
+          Quand Cevian dépose un 13D sur Smith &amp; Nephew, tu reçois la notif Telegram <strong style="color:var(--text-primary)">avant que les sell-side analysts ouvrent leur Bloomberg</strong>. Pendant que les retail FR attendent 24h+ via leurs apps.
+        </p>
+      </div>
+
+      <!-- Comparaison latency -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:36px">
+        <!-- Kairos (winner) -->
+        <div style="position:relative;padding:24px 22px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(59,130,246,0.05));border:2px solid rgba(16,185,129,0.4);border-radius:14px">
+          <div style="position:absolute;top:-10px;right:14px;background:#10B981;color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">KAIROS</div>
+          <div style="font-size:11px;color:#10B981;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px">Telegram + Email</div>
+          <div style="font-size:32px;font-weight:800;color:#10B981;line-height:1;margin-bottom:6px">&lt; 8 min</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55">Refresh 30 min · cron 5 min sur les filings &gt;5%, activistes, clusters insiders. Latence end-to-end < 8 min après la publication SEC.</div>
+        </div>
+        <!-- Bloomberg -->
+        <div style="padding:24px 22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;position:relative">
+          <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">BLOOMBERG</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px">Terminal · 24 000 $/an</div>
+          <div style="font-size:32px;font-weight:800;color:var(--text-primary);line-height:1;margin-bottom:6px">&lt; 5 min</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55">Pareil voire plus rapide, mais accessible aux pros uniquement. Coût prohibitif pour le retail.</div>
+        </div>
+        <!-- Apps retail FR -->
+        <div style="padding:24px 22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;position:relative">
+          <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">RETAIL FR</div>
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px">Boursorama / Yahoo / etc.</div>
+          <div style="font-size:32px;font-weight:800;color:#F59E0B;line-height:1;margin-bottom:6px">24 h+</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55">Données J-1 ou pas du tout sur les filings 13D / seuils EU. Aucune notification temps réel.</div>
+        </div>
+      </div>
+
+      <!-- Couverture sources real-time -->
+      <div style="padding:22px 24px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px">
+        <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:12px">Sources rafraîchies en continu</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+          <div><strong style="color:#10B981">SEC 13D/A</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">activistes US + UK/EU via ADR</div></div>
+          <div><strong style="color:#10B981">AMF FR</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">déclarations dirigeants + seuils &gt;5%</div></div>
+          <div><strong style="color:#10B981">BaFin DE</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">Directors' Dealings + Stimmrecht</div></div>
+          <div><strong style="color:#10B981">AFM NL</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">substantial holdings</div></div>
+          <div><strong style="color:#10B981">FCA UK</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">TR-1 holdings</div></div>
+          <div><strong style="color:#10B981">SIX CH · CONSOB IT · CNMV ES</strong><div style="font-size:11px;color:var(--text-muted);margin-top:2px">seuils 5% via RSS</div></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -2520,6 +2590,48 @@
       } else {
         document.addEventListener('DOMContentLoaded', fire);
       }
+    })();
+  </script>
+
+  <!-- Live proof strip : fetch le dernier 13D filing et affiche son age dans
+       le hero. Prouve concretement la promesse 'refresh 30 min' du badge.
+       Fallback gracieux si l'API ne repond pas (texte statique de fallback
+       deja en place dans le HTML).
+       Lazy-loaded en defer pour ne pas bloquer le LCP du hero. -->
+  <script defer>
+    (function () {
+      const API = 'https://kairos-insider-api.natquinson.workers.dev';
+      const el = document.getElementById('liveProofText');
+      if (!el) return;
+      function fmtAge(ts) {
+        const min = Math.max(0, Math.round((Date.now() - ts) / 60000));
+        if (min < 1) return 'il y a < 1 min';
+        if (min < 60) return `il y a ${min} min`;
+        const h = Math.round(min / 60);
+        if (h < 24) return `il y a ${h} h`;
+        return `il y a ${Math.round(h/24)} j`;
+      }
+      // Charge en defer + try/catch pour ne JAMAIS casser le rendu hero
+      try {
+        fetch(`${API}/api/13dg/recent?days=2&activistOnly=1&limit=20`, { cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (!data || !Array.isArray(data.filings) || data.filings.length === 0) return;
+            // Trie par date desc et prend le plus recent avec un filer connu
+            const f = data.filings
+              .filter(x => x.fileDate && x.filerName)
+              .sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''))[0];
+            if (!f) return;
+            const ts = new Date(f.fileDate).getTime();
+            if (!ts || isNaN(ts)) return;
+            const age = fmtAge(ts);
+            const filer = String(f.filerName).slice(0, 40);
+            const ticker = (f.ticker || '').toUpperCase();
+            const tickerStr = ticker ? `<strong style="color:var(--text-primary)">$${ticker}</strong>` : `<strong>${(f.targetName||'').slice(0,30)}</strong>`;
+            el.innerHTML = `Dernier 13D détecté ${age} · ${tickerStr} par <strong style="color:var(--text-primary)">${filer}</strong>`;
+          })
+          .catch(() => {});
+      } catch (e) {}
     })();
   </script>
 

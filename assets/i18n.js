@@ -51,14 +51,15 @@
       'nav.lang_switch_title': 'Switch to English',
 
       // ==== HERO (landing) ====
-      'hero.badge': 'Plateforme en ligne · Données live SEC / AMF / BaFin',
+      'hero.badge': '🔴 LIVE · Refresh toutes les 30 min · Alertes Telegram en moins de 8 min',
       'hero.title_part1': 'Voyez ce que',
       'hero.title_part2': 'les pros voient.',
       'hero.subtitle_html': 'Suivez chaque jour les mouvements des <strong>500+ plus grands hedge funds</strong>, des <strong>dirigeants d\'entreprise</strong>, des <strong>fonds offensifs sur 12 marchés (🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 🇸🇪 🇳🇴 🇩🇰 🇫🇮)</strong> et des <strong>ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.',
       'hero.cta_try': 'Essayer gratuitement →',
       'hero.cta_example': 'Voir un exemple d\'analyse',
       'hero.meta_legal': '100% légal',
-      'hero.meta_update': 'Données fraîches en continu',
+      'hero.meta_update': 'Refresh 30 min',
+      'hero.meta_alerts': 'Alertes < 8 min',
       'hero.meta_french': '100% en français',
       'hero.meta_english': '100% in French',
 
@@ -992,14 +993,15 @@
       'nav.lang_switch': 'FR',
       'nav.lang_switch_title': 'Passer en français',
 
-      'hero.badge': 'Live platform · Data from SEC / AMF / BaFin',
+      'hero.badge': '🔴 LIVE · Refreshed every 30 min · Telegram alerts in under 8 min',
       'hero.title_part1': 'See what',
       'hero.title_part2': 'the pros see.',
       'hero.subtitle_html': 'Track every day the moves of the <strong>500+ largest hedge funds</strong>, <strong>company executives</strong>, <strong>activist funds across 12 markets (🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 🇸🇪 🇳🇴 🇩🇰 🇫🇮)</strong> and <strong>thematic ETFs</strong>. A composite Kairos Score 0-100 synthesizes 8 smart-money dimensions for every stock.',
       'hero.cta_try': 'Try for free →',
       'hero.cta_example': 'See an analysis example',
       'hero.meta_legal': '100% legal',
-      'hero.meta_update': 'Continuously refreshed data',
+      'hero.meta_update': '30 min refresh',
+      'hero.meta_alerts': 'Alerts < 8 min',
       'hero.meta_french': 'French & English',
       'hero.meta_english': '🇫🇷 / 🇬🇧',
 
