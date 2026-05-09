@@ -3307,6 +3307,26 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </button>
         </li>
+        <!-- Toggle theme : icone lune/soleil dynamique selon le data-theme courant.
+             applyThemeIcon() update l'emoji #themeToggleIcon. -->
+        <li>
+          <button id="navThemeBtn" onclick="toggleTheme()" title="Basculer thème clair / sombre" aria-label="Basculer thème"
+                  style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);width:34px;height:34px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0;font-size:15px;line-height:1"
+                  onmouseover="this.style.borderColor='var(--accent-blue)'"
+                  onmouseout="this.style.borderColor='var(--border-strong)'">
+            <span id="themeToggleIcon">🌙</span>
+          </button>
+        </li>
+        <!-- Toggle langue : drapeau de la LANGUE CIBLE (clic = bascule vers cette langue).
+             applyLangFlagIcon() inject le SVG drapeau dans #navLangFlagDash. -->
+        <li>
+          <button id="navLangBtn" onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === 'fr' ? 'en' : 'fr')" title="Basculer FR / EN" aria-label="Basculer langue"
+                  style="background:transparent;border:1px solid var(--border-strong);width:34px;height:34px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0;overflow:hidden"
+                  onmouseover="this.style.borderColor='var(--accent-blue)'"
+                  onmouseout="this.style.borderColor='var(--border-strong)'">
+            <span id="navLangFlagDash" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px">🌐</span>
+          </button>
+        </li>
         <li style="position:relative">
           <button id="navProfileBtn" onclick="toggleProfileMenu(event)" title="Mon compte" aria-label="Mon compte" aria-haspopup="true" aria-expanded="false"
                   style="background:transparent;border:1px solid var(--border-strong);padding:3px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;transition:all 0.2s"
