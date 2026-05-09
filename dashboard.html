@@ -5498,16 +5498,9 @@
             </div>
           </div>
 
-          <!-- PANEL JOBS STATUS -->
-          <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden">
-            <h3 style="margin:0 0 14px;font-size:16px">⚙️ Jobs &amp; Cron</h3>
-            <div id="adJobsBody" style="min-height:200px;min-width:0">
-              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase E — en attente.</div>
-            </div>
-          </div>
         </div>
 
-        <!-- PANEL JOBS TIMELINE — Gantt 24h -->
+        <!-- PANEL JOBS TIMELINE — Gantt 24h (remplace l'ancien panel Jobs & Cron) -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;min-width:0;overflow:hidden">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
             <div>
@@ -17267,14 +17260,14 @@
         const token = await currentUser.getIdToken();
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // Fetch en parallele : subs-stats + users + traffic + db-stats + jobs + backup
+        // Fetch en parallele : subs-stats + users + traffic + db-stats + backup.
+        // jobs status est désormais dans la timeline Gantt, charge a part via loadJobsTimeline().
         const trafficDays = document.getElementById('adTrafficDays')?.value || '7';
-        const [subsRes, usersRes, trafficRes, dbRes, jobsRes, backupRes] = await Promise.all([
+        const [subsRes, usersRes, trafficRes, dbRes, backupRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/subs-stats`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/users`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/ga4-stats?days=${trafficDays}`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/db-stats`, { headers }).then(r => r.json()).catch(() => null),
-          fetch(`${API_BASE}/api/admin/jobs`, { headers }).then(r => r.json()).catch(() => null),
           fetch(`${API_BASE}/api/admin/backup-status`, { headers }).then(r => r.json()).catch(() => null),
         ]);
 
@@ -17300,17 +17293,8 @@
           }
         }
 
-        // KPI Jobs
-        if (jobsRes) {
-          const kpiEl = document.getElementById('adKpiJobs');
-          if (kpiEl) kpiEl.textContent = `${jobsRes.ok || 0} / ${jobsRes.total || 0}`;
-          const lastEl = document.getElementById('adKpiJobsLast');
-          if (lastEl && jobsRes.jobs?.length) {
-            const mostRecent = jobsRes.jobs[0];
-            const when = mostRecent.iso ? new Date(mostRecent.iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-            lastEl.textContent = `Dernier : ${mostRecent.name} · ${when}`;
-          }
-        }
+        // KPI Jobs (top dashboard) : alimenté par loadJobsTimeline() une fois fetched.
+        // Voir jobs-timeline endpoint -> health.{ok,failed,stale,pending,totalActive}.
 
         // KPI Backup R2
         if (backupRes) {
@@ -17339,11 +17323,10 @@
           }
         }
 
-        // Panels
+        // Panels (jobs status est dans la timeline Gantt, plus de panel separe)
         renderAdminUsersPanel(usersRes, subsRes);
         renderAdminTrafficPanel(trafficRes);
         renderAdminDbPanel(dbRes);
-        renderAdminJobsPanel(jobsRes);
         // Load error tracking + score weights + jobs timeline (non-blocking)
         loadAdminErrors().catch(() => {});
         loadAdminScoreWeights().catch(() => {});
@@ -18091,6 +18074,18 @@
         });
         const data = await resp.json();
         renderJobsTimeline(data);
+        // Alimente le top KPI dashboard "Jobs OK / Total"
+        const h = data.health || {};
+        const kpiEl = document.getElementById('adKpiJobs');
+        if (kpiEl) {
+          kpiEl.textContent = `${h.ok || 0} / ${h.totalActive || 0}`;
+          kpiEl.style.color = (h.failed > 0 || h.stale > 0) ? '#F59E0B' : '#10B981';
+        }
+        const lastEl = document.getElementById('adKpiJobsLast');
+        if (lastEl) {
+          const issues = (h.failed || 0) + (h.stale || 0);
+          lastEl.textContent = issues > 0 ? `${issues} job(s) en attention` : 'Tous les jobs sains';
+        }
       } catch (e) {
         body.innerHTML = `<div style="padding:30px;text-align:center;color:#EF4444">Erreur : ${e.message || e}</div>`;
       }
@@ -18166,6 +18161,22 @@
         return `<span style="color:${c}">${lr.status === 'failed' ? '✕' : '✓'}</span> il y a ${age}`;
       };
 
+      // Helper : renvoie un badge HTML compact ✓ OK / ✕ FAILED / ⚠ STALE
+      const STALE_THRESHOLD_MS = 48 * 3600 * 1000;
+      const renderBadge = (lr) => {
+        const baseStyle = 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:11px;font-size:10.5px;font-weight:700;letter-spacing:0.03em;white-space:nowrap';
+        if (!lr || !lr.ts) return `<span style="${baseStyle};background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border)">— PENDING</span>`;
+        const lastTs = lr.ts * 1000;
+        const stale = (now - lastTs) > STALE_THRESHOLD_MS;
+        if (lr.status === 'failed') return `<span style="${baseStyle};background:rgba(239,68,68,0.18);color:#EF4444;border:1px solid rgba(239,68,68,0.35)">✕ FAILED</span>`;
+        if (lr.status === 'partial') return `<span style="${baseStyle};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">◐ PARTIAL</span>`;
+        if (stale) return `<span style="${baseStyle};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">⚠ STALE</span>`;
+        return `<span style="${baseStyle};background:rgba(16,185,129,0.18);color:#10B981;border:1px solid rgba(16,185,129,0.3)">✓ OK</span>`;
+      };
+
+      // Grille : [Job 220 | Timeline flex | Status badge 95 | Dernier run 110 | Action 100]
+      const GRID_COLS = '220px 1fr 95px 110px 100px';
+
       const rows = data.jobs.map(j => {
         // Workflow_dispatch only (cron desactive) : pas de slots, juste un placeholder
         const segments = j.cronDisabled
@@ -18183,44 +18194,82 @@
           const tip = `${dt} — ${slotInfo.status}${dur}${sum}`;
           return `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
         }).join('');
-        // Si pas cronDisabled, segments est une string deja jointe ; sinon c'est un placeholder
-        // (Note : on a commute ci-dessus selon j.cronDisabled)
 
         // Bouton re-run selon le type
         let runBtn = '';
         if (j.runEndpoint) {
-          // CF cron : trigger via Worker endpoint
           runBtn = `<button onclick="runJobNow('${j.id}', '${j.runEndpoint}', this)" class="admin-run-btn" style="white-space:nowrap">▶ Lancer</button>`;
         } else if (j.workflowFile) {
-          // GitHub Actions : open workflow page
           runBtn = `<a href="https://github.com/natquinson-cmd/kairos-insider/actions/workflows/${j.workflowFile}" target="_blank" rel="noopener" class="admin-run-btn" style="white-space:nowrap">🔗 GitHub</a>`;
         } else {
           runBtn = `<span style="opacity:0.4;font-size:11px">—</span>`;
         }
 
+        // Summary text : info de debug du dernier run (ex "1 subs · 0 alerts" ou
+        // "40813 filings, 304 activists, 36879 with ticker"). Tronque a 90 chars
+        // pour eviter le wrap. Tooltip pour la version complete.
+        const summary = (j.lastRun && j.lastRun.summary) ? String(j.lastRun.summary) : '';
+        const summaryShort = summary.length > 90 ? summary.slice(0, 88) + '…' : summary;
+        const summaryHtml = summary
+          ? `<div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(summary)}">${escapeHtml(summaryShort)}</div>`
+          : '';
+        const errorHtml = (j.lastRun && j.lastRun.error)
+          ? `<div style="font-size:10.5px;color:#EF4444;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(j.lastRun.error)}">⚠ ${escapeHtml(j.lastRun.error.slice(0, 80))}</div>`
+          : '';
+
         return `
-          <div style="display:grid;grid-template-columns:240px 1fr 130px 100px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider)">
-            <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(j.name)} · cron ${j.cron} · ${j.expectedRunsTotal} runs prévus / 24h">
-              ${escapeHtml(j.name)}
-              <div style="font-size:10px;color:var(--text-muted);font-family:monospace;font-weight:400">${j.cron}</div>
+          <div style="display:grid;grid-template-columns:${GRID_COLS};gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--divider)">
+            <div style="min-width:0">
+              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(j.name)} · cron ${j.cron} · ${j.expectedRunsTotal} runs prévus / 24h">${escapeHtml(j.name)}</div>
+              <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-top:1px">${j.cron}${j.cronDisabled ? ' <span style="font-style:italic;font-family:inherit;opacity:0.7">(cron désactivé)</span>' : ''}</div>
+              ${summaryHtml}
+              ${errorHtml}
             </div>
             <div style="position:relative;height:30px;background:rgba(255,255,255,0.02);border-radius:4px;border:1px solid var(--divider)">
               ${segments}
             </div>
+            <div style="text-align:center">${renderBadge(j.lastRun)}</div>
             <div style="font-size:11px;color:var(--text-muted);text-align:right">${fmtSummary(j.lastRun)}</div>
             <div style="text-align:right">${runBtn}</div>
           </div>
         `;
       }).join('');
 
-      // Echelle horaire en bas
+      // KPI bar (etat actuel des jobs, pas cumul 24h)
+      const h = data.health || {};
+      const kpiBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:18px">
+          <div style="padding:14px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:#10B981;line-height:1">${h.ok || 0}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">OK</div>
+          </div>
+          <div style="padding:14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:#EF4444;line-height:1">${h.failed || 0}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Failed</div>
+          </div>
+          <div style="padding:14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:#F59E0B;line-height:1">${h.stale || 0}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Stale (&gt;48h)</div>
+          </div>
+          <div style="padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:var(--text-muted);line-height:1">${h.pending || 0}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Pending</div>
+          </div>
+          <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;text-align:center">
+            <div style="font-size:24px;font-weight:700;color:var(--text-primary);line-height:1">${h.totalActive || data.jobs.length}</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Total actifs</div>
+          </div>
+        </div>
+      `;
+
+      // Echelle horaire en bas (5 cols pour matcher la grille)
       const scale = `
-        <div style="display:grid;grid-template-columns:240px 1fr 130px 100px;gap:10px;margin-top:6px">
+        <div style="display:grid;grid-template-columns:${GRID_COLS};gap:10px;margin-top:6px">
           <div></div>
           <div style="position:relative;height:18px;font-size:10px;color:var(--text-muted)">
             ${hourStops.map(h => `<div style="position:absolute;left:${h.pct}%;transform:translateX(-50%)">${h.label}</div>`).join('')}
           </div>
-          <div></div><div></div>
+          <div></div><div></div><div></div>
         </div>
       `;
       // Legende
@@ -18235,9 +18284,11 @@
       `;
 
       body.innerHTML = `
-        <div style="display:grid;grid-template-columns:240px 1fr 130px 100px;gap:10px;padding:6px 0 8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">
-          <div>Job</div>
+        ${kpiBar}
+        <div style="display:grid;grid-template-columns:${GRID_COLS};gap:10px;padding:6px 0 8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">
+          <div>Job · cron · summary</div>
           <div>Timeline 24h (UTC)</div>
+          <div style="text-align:center">Status</div>
           <div style="text-align:right">Dernier run</div>
           <div style="text-align:right">Action</div>
         </div>

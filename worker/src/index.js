@@ -10263,11 +10263,30 @@ async function handleAdminJobsTimeline(request, env, origin) {
       lastRun,
     });
   }
+  // KPI counters : etat actuel de sante des jobs.
+  // STALE : lastRun > 48h sur un job avec cron actif (anomalie probable)
+  // FAILED : lastRun.status === 'failed'
+  // OK : lastRun.status === 'ok'
+  // PENDING : pas de lastRun (jamais tourne ou KV pas peuple)
+  const STALE_THRESHOLD_SEC = 48 * 3600;
+  const nowSec = Math.floor(now.getTime() / 1000);
+  let healthOk = 0, healthFailed = 0, healthStale = 0, healthPending = 0;
+  for (const j of jobs) {
+    if (j.cronDisabled) continue;  // workflows manuel only -> pas compte
+    const lr = j.lastRun;
+    if (!lr || !lr.ts) { healthPending++; continue; }
+    const ageSec = nowSec - lr.ts;
+    if (lr.status === 'failed') healthFailed++;
+    else if (ageSec > STALE_THRESHOLD_SEC) healthStale++;
+    else if (lr.status === 'ok') healthOk++;
+    else healthPending++;
+  }
   return jsonResponse({
     now: now.toISOString(),
     fromUtc: from.toISOString(),
     windowHours: hours,
     jobsCount: jobs.length,
+    health: { ok: healthOk, failed: healthFailed, stale: healthStale, pending: healthPending, totalActive: healthOk + healthFailed + healthStale + healthPending },
     jobs,
   }, 200, origin);
 }
