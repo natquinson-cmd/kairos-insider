@@ -302,12 +302,12 @@
       'home.backtest.h2_part1': 'Combien auriez-vous gagné',
       'home.backtest.h2_part2': 'en suivant ces fonds légendaires ?',
       // ==== BETA banner (urgence) ====
-      'beta.banner.title': '100 premiers inscrits',
+      'beta.banner.title': '🔥 Offre de lancement',
       'beta.banner.offer': '-50% sur le 1er mois',
-      'beta.banner.remaining': '{n} places restantes',
-      'beta.banner.remaining_loading': '… places restantes',
-      'beta.banner.complete': '✓ Bêta complète',
-      'beta.banner.complete_offer': 'prochaine vague à venir',
+      'beta.banner.remaining': 'Plus que {n} jours',
+      'beta.banner.remaining_loading': 'Plus que … jours',
+      'beta.banner.last_day': 'Dernier jour !',
+      'beta.banner.last_hours': 'Se termine à minuit !',
       'beta.banner.cta': 'Réserver ma place →',
       'beta.banner.dismiss_aria': 'Fermer',
       // ==== SPEED comparison section (landing) ====
@@ -1349,12 +1349,12 @@
       'mockup.float.activists_title': 'Activist Funds · 30d',
       // Backtest h2
       // ==== BETA banner (urgency) ====
-      'beta.banner.title': 'First 100 signups',
-      'beta.banner.offer': '-50% on the 1st month',
-      'beta.banner.remaining': '{n} spots left',
-      'beta.banner.remaining_loading': '… spots left',
-      'beta.banner.complete': '✓ Beta full',
-      'beta.banner.complete_offer': 'next wave coming soon',
+      'beta.banner.title': '🔥 Launch offer',
+      'beta.banner.offer': '-50% off your 1st month',
+      'beta.banner.remaining': '{n} days left',
+      'beta.banner.remaining_loading': '… days left',
+      'beta.banner.last_day': 'Last day!',
+      'beta.banner.last_hours': 'Ends at midnight!',
       'beta.banner.cta': 'Reserve my spot →',
       'beta.banner.dismiss_aria': 'Close',
       // ==== SPEED comparison section (landing) ====
