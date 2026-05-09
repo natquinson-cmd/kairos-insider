@@ -3021,6 +3021,20 @@
 
   <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
+  <!-- ============================================================
+       BANDEAU URGENCE BETA (anonymes uniquement)
+       Affiche tout en haut du site, dismissible via localStorage.
+       Cree un sentiment d'urgence pour pousser a l'inscription.
+       Cache automatiquement si user inscrit ou dismissed.
+       ============================================================ -->
+  <div id="betaUrgencyBanner" style="display:none;position:relative;z-index:50;background:linear-gradient(90deg,#3B82F6 0%,#8B5CF6 50%,#EC4899 100%);color:#fff;padding:9px 18px;font-size:13px;text-align:center;font-weight:500">
+    <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
+      <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong>Bêta gratuite</strong> · accès complet pendant les premiers mois</span>
+      <button type="button" id="betaUrgencyCta" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;backdrop-filter:blur(4px)" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()">Réserver ma place →</button>
+      <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
+    </div>
+  </div>
+
   <!-- ===== AUTH OVERLAY =====
        Cache par defaut : ne s'affiche QUE quand explicitement demande (click
        Login, 401 sur endpoint gate, quota anonyme atteint). Avant : visible
@@ -6401,7 +6415,20 @@
     //  - Premium (Pro/Elite) : masque
     //  - Visiteur anonyme    : "X/2 - Crée un compte gratuit pour 4/j"
     //  - Inscrit Free        : "X/4 - Passer Pro pour illimité"
+    // Affiche/cache le bandeau urgence beta (sticky top, anonymes uniquement,
+    // dismissible). Appele depuis renderFreeQuotaBanner pour rester sync avec
+    // les changements d'etat auth.
+    function updateBetaUrgencyBanner() {
+      const el = document.getElementById('betaUrgencyBanner');
+      if (!el) return;
+      // Cache si user inscrit OU si dismissed cette semaine
+      const dismissed = (() => { try { return localStorage.getItem('kairos_beta_banner_dismissed') === '1'; } catch { return false; } })();
+      const shouldShow = !currentUser && !dismissed;
+      el.style.display = shouldShow ? 'block' : 'none';
+    }
+
     function renderFreeQuotaBanner() {
+      updateBetaUrgencyBanner();
       const el = document.getElementById('freeQuotaBanner');
       if (!el) return;
       if (isPremium) { el.style.display = 'none'; return; }
@@ -6571,6 +6598,10 @@
     // Au chargement, synchronise l'UI avec la préférence stockée
     window.addEventListener('DOMContentLoaded', () => {
       applyPaywallDisplay();
+      // Affiche le bandeau urgence beta des le DOM ready (avant que Firebase
+      // resolve l'auth) pour eviter le flash. La fonction check !currentUser
+      // qui est null par defaut -> banner apparait pour les anon.
+      if (typeof updateBetaUrgencyBanner === 'function') updateBetaUrgencyBanner();
     });
 
     // Au chargement : si ?plan= et/ou ?billing= sont dans l'URL, on les stocke
@@ -11083,9 +11114,23 @@
       // Petite fonction pour afficher une "ligne info" dans le hero
       const infoRow = (label, value) => value ? `<div style="font-size:11.5px"><span style="opacity:0.55">${label} :</span> <strong style="opacity:0.95">${value}</strong></div>` : '';
 
+      // Banner CTA ciblé : pour anonymes uniquement, après ils ont vu l'analyse
+      // Push concret pour s'inscrire — alertes 13D/insider sur CE ticker précis.
+      const anonAlertCta = !currentUser ? `
+        <div style="margin:0 0 14px;padding:12px 16px;background:linear-gradient(135deg,rgba(245,158,11,0.10),rgba(236,72,153,0.06));border:1px solid rgba(245,158,11,0.30);border-radius:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="font-size:22px;line-height:1;flex-shrink:0">🔔</div>
+          <div style="flex:1;min-width:240px">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">Reçois une alerte dès qu'un nouveau 13D ou cluster insider est détecté sur $${d.ticker}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5">Latence < 8 min après filing SEC · Telegram + email · Bêta gratuite, pas de carte bancaire</div>
+          </div>
+          <button type="button" onclick="document.getElementById('authOverlay').classList.remove('hidden');if(typeof showSignup==='function')showSignup()" style="padding:9px 18px;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;flex-shrink:0;box-shadow:0 2px 8px rgba(245,158,11,0.35)">Activer (gratuit)</button>
+        </div>
+      ` : '';
+
       body.innerHTML = `
         ${resolvedNotice}
         ${coverageBanner}
+        ${anonAlertCta}
         <!-- HERO (compresse mai 2026) -->
         <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;padding:12px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
           <div style="flex:1;min-width:280px">
