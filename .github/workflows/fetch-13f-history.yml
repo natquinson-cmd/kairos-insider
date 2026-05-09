@@ -60,3 +60,21 @@ jobs:
           path: worker/13f_history_*.json
           if-no-files-found: ignore
           retention-days: 30
+
+      # Log run vers /api/admin/log-workflow-run pour le Gantt admin (lastRun
+      # + runHistory). if: always() pour capturer aussi les runs partials.
+      - name: Log workflow run to KV
+        if: always()
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+        run: |
+          status="ok"
+          if [ "${{ job.status }}" != "success" ]; then status="failed"; fi
+          curl -sS -X POST \
+            -H "X-Admin-API-Key: $ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
+            -d "{\"jobId\":\"fetch-13f-history\",\"status\":\"$status\",\"summary\":\"13F historical backfill (mensuel)\"}" \
+            | head -c 200
+          echo ""
+        continue-on-error: true

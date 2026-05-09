@@ -199,14 +199,19 @@ jobs:
             --remote
 
       # ================================================================
-      # HEALTH : mise a jour KV lastRun pour le health check
+      # HEALTH : mise a jour KV lastRun + runHistory pour Gantt admin
       # ================================================================
-      - name: Update lastRun in KV for health monitoring
+      - name: Update lastRun + runHistory in KV
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
         run: |
-          NOW_TS=$(date -u +%s)
-          echo "{\"ts\": $NOW_TS, \"status\": \"ok\", \"label\": \"backup-to-r2\"}" > /tmp/lastrun.json
-          wrangler kv key put "lastRun:backup-to-r2" \
-            --namespace-id="$KV_ID" \
-            --remote \
-            --path=/tmp/lastrun.json
+          # POST vers /api/admin/log-workflow-run qui ecrit lastRun: ET appendRunHistory:
+          # (lu par le Gantt 24h dans le dashboard admin).
+          curl -sS -X POST \
+            -H "X-Admin-API-Key: $ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
+            -d "{\"jobId\":\"backup-to-r2\",\"status\":\"ok\",\"summary\":\"D1 + KV -> R2 ($DATE)\"}" \
+            | head -c 200
+          echo ""
         continue-on-error: true

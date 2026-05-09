@@ -330,3 +330,34 @@ jobs:
           path: worker/afm_thresholds_data.json
           if-no-files-found: ignore
           retention-days: 7
+
+  # ============================================================================
+  # JOB FINAL : log run vers /api/admin/log-workflow-run pour le Gantt admin.
+  # Tourne apres TOUS les jobs paralleles (needs: ...) et even on partial failures
+  # (if: always()) pour qu'on capture meme les runs avec erreurs partielles.
+  # ============================================================================
+  log-run:
+    runs-on: ubuntu-latest
+    needs: [amf-thresholds, bafin-thresholds, uk-thresholds, ch-thresholds, es-thresholds, it-thresholds, afm-thresholds]
+    if: always()
+    steps:
+      - name: Log workflow run to KV (lastRun + runHistory)
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+        run: |
+          # Determine status global : ok si tous les jobs passent, partial sinon
+          status="ok"
+          summary="9 marches scrappes (AMF/BaFin/UK/CH/ES/IT/AFM)"
+          if [ "${{ needs.amf-thresholds.result }}" != "success" ] || \
+             [ "${{ needs.bafin-thresholds.result }}" != "success" ] || \
+             [ "${{ needs.afm-thresholds.result }}" != "success" ]; then
+            status="partial"
+            summary="$summary (1+ jobs en erreur)"
+          fi
+          curl -sS -X POST \
+            -H "X-Admin-API-Key: $ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
+            -d "{\"jobId\":\"fetch-eu-thresholds\",\"status\":\"$status\",\"summary\":\"$summary\"}" \
+            | head -c 200
+          echo ""
