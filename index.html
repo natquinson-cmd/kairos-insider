@@ -1294,11 +1294,34 @@
   </style>
   <div id="betaUrgencyBanner">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
-      <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong>Bêta gratuite</strong> · accès complet pendant les premiers mois</span>
+      <span style="display:inline-flex;align-items:center;gap:6px">🎉 <strong>100 premiers inscrits</strong> · <span id="betaBannerOffer">-50% sur le 1er mois</span> · <strong id="betaBannerRemaining" style="color:#FFE4F1">… places restantes</strong></span>
       <a href="dashboard.html#signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)">Réserver ma place →</a>
       <button type="button" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';document.body.classList.remove('has-beta-banner');})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
     </div>
   </div>
+  <script>
+    // Fetch live le compteur beta pour creer de l'urgence (X places restantes)
+    (function () {
+      try {
+        fetch('https://kairos-insider-api.natquinson.workers.dev/api/beta/status', { cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (!d) return;
+            const remEl = document.getElementById('betaBannerRemaining');
+            if (!remEl) return;
+            if (d.isOpen && d.remaining > 0) {
+              remEl.textContent = d.remaining + ' places restantes';
+            } else {
+              // Bêta complete : transformer le banner
+              remEl.textContent = '✓ Bêta complète';
+              const offer = document.getElementById('betaBannerOffer');
+              if (offer) offer.textContent = 'prochaine vague à venir';
+            }
+          })
+          .catch(() => {});
+      } catch (e) {}
+    })();
+  </script>
   <script>
     // Init : ajoute has-beta-banner sur body si pas dismissed (decale nav vers le bas).
     // Synchrone avant le rendu pour eviter le flash (banner overlap avec nav).

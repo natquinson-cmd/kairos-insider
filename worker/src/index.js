@@ -66,6 +66,7 @@ const FREE_ROUTES = [
   '/api/history/etf',             // ETF historique 180j pour 1 ticker
   '/api/backtest/list',           // BACKTEST (gratuit, acquisition) - liste des fonds
   '/api/search-ticker',           // AUTOCOMPLETE (gratuit, UX)
+  '/api/beta/status',             // beta offer counter (public, sert le banner d'urgence)
 ];
 
 // Routes prefixes publiques (matchent path.startsWith)
@@ -327,6 +328,12 @@ async function handleRequest(request, env, ctx) {
     // retour libre + email optionnel. Rate-limited par IP pour eviter spam.
     if (request.method === 'POST' && path === '/api/feedback/exit-intent') {
       return handleExitIntentFeedback(request, env, origin);
+    }
+
+    // Beta offer status : compteur public pour le banner d'urgence.
+    // Public (anonymes voient combien il reste de places), pas d'auth requise.
+    if (request.method === 'GET' && path === '/api/beta/status') {
+      return handleBetaStatus(env, origin);
     }
 
     // Telegram webhook (pas d'auth Firebase, verifie par X-Telegram-Bot-Api-Secret-Token).
@@ -965,6 +972,29 @@ function constantTimeEquals(a, b) {
 // pire 1 hit KV par user par deploy — negligeable).
 const _seenUids = new Set();
 
+// Beta offer config : N premiers inscrits beneficient d'une reduction
+// sur leur 1er mois (Pro ou Elite) pendant un fenetre limitee.
+const BETA_MAX_SIGNUPS = 100;
+const BETA_OFFER_DURATION_DAYS = 30;  // l'utilisateur a 30j pour subscribe avec la promo
+
+async function handleBetaStatus(env, origin) {
+  let count = 0;
+  try {
+    const data = await env.CACHE.get('beta-signup-counter', 'json');
+    if (data && typeof data.count === 'number') count = data.count;
+  } catch {}
+  const remaining = Math.max(0, BETA_MAX_SIGNUPS - count);
+  return jsonResponse({
+    count,
+    max: BETA_MAX_SIGNUPS,
+    remaining,
+    isOpen: remaining > 0,
+    discountPct: 50,
+    durationMonths: 1,
+    offerWindowDays: BETA_OFFER_DURATION_DAYS,
+  }, 200, origin);
+}
+
 async function trackFirstSeenUser(env, user) {
   const uid = user?.uid;
   if (!uid) return;
@@ -973,16 +1003,45 @@ async function trackFirstSeenUser(env, user) {
   try {
     const existing = await env.CACHE.get(`user:${uid}`);
     if (existing) return; // deja enregistre depuis un autre worker instance
-    await env.CACHE.put(
-      `user:${uid}`,
-      JSON.stringify({
-        uid,
-        email: user.email || null,
-        emailVerified: !!user.emailVerified,
-        firstSeen: new Date().toISOString(),
-      })
-      // Pas de TTL → clé permanente (comparable aux sub:* et wl:*)
-    );
+
+    // BETA SIGNUP : si on est dans les 100 premiers, on flag l'user pour
+    // qu'il puisse beneficier de la reduction sur son 1er mois Stripe.
+    // Increment du counter atomique-ish : read + put. Pas 100% atomique
+    // mais le risque (2 users concurrents qui passeraient a 101) est OK.
+    let betaSignup = false;
+    let betaCount = 0;
+    try {
+      const counterData = await env.CACHE.get('beta-signup-counter', 'json');
+      betaCount = (counterData && typeof counterData.count === 'number') ? counterData.count : 0;
+      if (betaCount < BETA_MAX_SIGNUPS) {
+        betaSignup = true;
+        await env.CACHE.put('beta-signup-counter', JSON.stringify({
+          count: betaCount + 1,
+          updatedAt: new Date().toISOString(),
+          lastUid: uid,
+        }));
+      }
+    } catch (e) {
+      log.warn('beta.counter.failed', { detail: String(e.message || e).slice(0, 200) });
+    }
+
+    const now = new Date();
+    const offerExpiresAt = new Date(now.getTime() + BETA_OFFER_DURATION_DAYS * 86400 * 1000);
+    const userRecord = {
+      uid,
+      email: user.email || null,
+      emailVerified: !!user.emailVerified,
+      firstSeen: now.toISOString(),
+    };
+    if (betaSignup) {
+      userRecord.betaSignup = true;
+      userRecord.betaSignupRank = betaCount + 1;  // 1-indexed
+      userRecord.betaOfferExpiresAt = offerExpiresAt.toISOString();
+    }
+    await env.CACHE.put(`user:${uid}`, JSON.stringify(userRecord));
+    if (betaSignup) {
+      log.info('beta.signup.tracked', { uid, rank: betaCount + 1 });
+    }
   } catch (e) {
     // En cas d'echec (quota, 429...), on accepte de perdre le tracking.
     // Le Set garde l'uid pour ne pas retenter tout de suite.
@@ -4999,6 +5058,28 @@ async function handleCreateCheckout(request, env, user, origin) {
     params.append('payment_method_types[]', 'paypal');
     // Collecte billing address pour PCI compliance + fraud prevention
     params.append('billing_address_collection', 'auto');
+
+    // BETA OFFER : si l'utilisateur s'est inscrit dans les 100 premiers ET
+    // que sa fenetre de 30j n'est pas expiree, on attache le coupon Stripe
+    // STRIPE_BETA_COUPON_ID (50% off premier mois). Pre-requis : creer le coupon
+    // dans le Stripe Dashboard avec duration=once (1 facture seulement).
+    try {
+      const userRecord = await env.CACHE.get(`user:${user.uid}`, 'json');
+      if (userRecord && userRecord.betaSignup && userRecord.betaOfferExpiresAt && env.STRIPE_BETA_COUPON_ID) {
+        const expiresAt = new Date(userRecord.betaOfferExpiresAt).getTime();
+        if (expiresAt > Date.now()) {
+          // Stripe Checkout API : discounts[0][coupon] = id du coupon
+          params.append('discounts[0][coupon]', env.STRIPE_BETA_COUPON_ID);
+          log.info('stripe.checkout.beta-discount', {
+            uid: user.uid,
+            rank: userRecord.betaSignupRank,
+            coupon: env.STRIPE_BETA_COUPON_ID,
+          });
+        }
+      }
+    } catch (e) {
+      log.warn('stripe.checkout.beta-check.failed', { detail: String(e.message || e).slice(0, 200) });
+    }
 
     const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
