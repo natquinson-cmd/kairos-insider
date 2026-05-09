@@ -317,6 +317,12 @@ async function handleRequest(request, env, ctx) {
       return handleStripeWebhook(request, env);
     }
 
+    // Chatbot widget : pas d'auth Firebase (visiteurs anonymes), rate-limit
+    // par sessionId pour eviter les abus.
+    if (request.method === 'POST' && path === '/api/chatbot/message') {
+      return handleChatbotMessage(request, env, ctx, origin);
+    }
+
     // Telegram webhook (pas d'auth Firebase, verifie par X-Telegram-Bot-Api-Secret-Token).
     // Endpoint appele par les serveurs Telegram a chaque message envoye au bot.
     // Ne PAS prefixer /api/ : on veut que le rate-limit ne s'applique pas (les
@@ -829,6 +835,14 @@ async function handleRequest(request, env, ctx) {
         // Necessite secret env.GITHUB_PAT (PAT avec scope 'repo' ou fine-grained 'actions:write').
         if (request.method === 'POST' && path === '/api/admin/dispatch-github-workflow') {
           return handleAdminDispatchGithubWorkflow(request, env, origin);
+        }
+        // Chatbot transcripts review (admin only)
+        if (request.method === 'GET' && path === '/api/admin/chat-sessions') {
+          return handleAdminChatSessions(request, env, origin);
+        }
+        if (request.method === 'GET' && path.startsWith('/api/admin/chat-session/')) {
+          const sid = decodeURIComponent(path.slice('/api/admin/chat-session/'.length));
+          return handleAdminChatSession(env, sid, origin);
         }
         if (path === '/api/admin/jobs') {
           return handleAdminJobs(env, origin);
@@ -9400,6 +9414,279 @@ p { font-size:14px; line-height:1.65; color:#9CA3AF; margin:0 0 16px; }
     const errText = await resp.text();
     throw new Error(`Brevo optin ${resp.status}: ${errText}`);
   }
+}
+
+// Admin endpoints pour review des conversations chatbot.
+async function handleAdminChatSessions(request, env, origin) {
+  const url = new URL(request.url);
+  const limit = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10)));
+  const idx = (await env.CACHE.get('chat-sessions-index', 'json').catch(() => null)) || { sessions: [] };
+  const sessions = idx.sessions.slice(0, limit);
+  return jsonResponse({ count: idx.sessions.length, sessions, returned: sessions.length }, 200, origin);
+}
+
+async function handleAdminChatSession(env, sessionId, origin) {
+  if (!sessionId) return jsonResponse({ error: 'sessionId required' }, 400, origin);
+  const t = await env.CACHE.get(`chat:${sessionId}`, 'json').catch(() => null);
+  if (!t) return jsonResponse({ error: 'Not found' }, 404, origin);
+  return jsonResponse(t, 200, origin);
+}
+
+// ============================================================
+// CHATBOT WIDGET — Phase 1 (mai 2026)
+// ============================================================
+// POST /api/chatbot/message
+// Body : { sessionId, messages: [{role, content}], lang: 'fr'|'en', page?, referrer? }
+// -> { reply: string, sessionId }
+//
+// Architecture :
+//   1. Rate limit par sessionId (max 30 messages/jour, anti-abuse)
+//   2. Append user message to KV chat:{sessionId} (transcript)
+//   3. Call Anthropic Claude Haiku avec system prompt produit
+//   4. Append assistant reply au transcript
+//   5. Retourne reply au frontend
+//
+// Cost : ~$0.0004/message avec Haiku (input ~600 tok system + ~200 tok user
+//        + output ~150 tok). 100 messages/jour = $0.04 = $1.20/mois.
+// ============================================================
+
+const CHATBOT_SYSTEM_PROMPT_FR = `Tu es l'assistant officiel de Kairos Insider, une plateforme française de tracking smart money.
+
+# Produit Kairos Insider
+
+Kairos Insider agrège quotidiennement les sources publiques de "smart money" pour donner aux utilisateurs un avantage informationnel :
+- Insiders SEC (Form 4 US), AMF FR, BaFin DE : transactions des dirigeants
+- 13F US (200+ hedge funds top AUM) : portefeuilles trimestriels
+- 13D/G SEC : franchissements de seuils >5% et activistes (Cevian, Pershing, Trian, Icahn, Starboard, Elliott)
+- Seuils EU : AMF FR + BaFin DE + AFM NL (BlackRock, Norges, etc.)
+- ETFs thématiques : NANC (Pelosi), GOP (républicains), GURU (top 13F), MOAT, MTUM
+- Google Trends + Short Interest
+
+Le **Kairos Score 0-100** synthétise 8 axes par action : initiés, hedge funds, politiciens & gourous, momentum, valorisation, consensus analystes, santé financière, momentum résultats. Au-dessus de 75 = signal très favorable.
+
+# Pricing (3 plans)
+
+- **Free** : 4 analyses/jour, Tendances retail, Fear & Greed, Short Interest. Pas de watchlist.
+- **Pro 19€/mois** : Kairos Score complet, insiders, hedge funds 13F, ETFs politiciens, Watchlist + Brief email quotidien, historique 2 ans.
+- **Elite 49€/mois** : Tout Pro + alertes Telegram temps réel (13D, seuils EU, clusters insiders) + backtests + exports CSV + support prioritaire.
+
+# Fonctionnalités phares
+
+- Page **Décrypter une valeur** : tape un ticker, obtiens analyse complète en 30s
+- **Fonds Offensifs** : track les activistes (Cevian sur Smith & Nephew SN.L, Pearson PSON.L, Trian sur JHG, etc.)
+- **Alertes Telegram** : nouvelle 13D activist, seuil EU >5%, cluster insiders 3+, en moins de 8min après filing SEC
+- **Watchlist** : ajoute des tickers, reçois un brief email quotidien si event détecté
+- **Backtest** (Pro/Elite) : simule la performance de copier 47 fonds connus
+
+# Données et conformité
+
+- **Légal** : 100% basé sur des sources publiques (SEC EDGAR, AMF, BaFin, FCA, AFM)
+- **Pas de conseil en investissement** (article L. 541-1 du Code monétaire et financier). Les "signaux" sont descriptifs, pas prescriptifs.
+- **AMF compliance** : on n'utilise jamais "ACHAT" ou "VENTE" mais "Signal favorable / défavorable"
+
+# Lien important
+
+- Site : https://kairosinsider.fr
+- Décrypter une action : https://kairosinsider.fr (chercher le ticker dans la barre)
+- Contact : contact@kairosinsider.fr
+
+# Ton style
+
+- Direct, concis, utile. Pas de blabla marketing.
+- Réponses courtes (3-5 phrases max), sauf si la question demande plus.
+- En français correct, naturel, légèrement tutoyant (l'utilisateur est un retail trader ou curieux).
+- Si tu ne sais pas, dis-le et redirige vers contact@kairosinsider.fr.
+- Si on te demande un conseil d'investissement précis ("achète X, vends Y"), refuse poliment : Kairos est une plateforme d'analyse, pas un conseiller en investissement.
+- **Encourage la création de compte gratuit** quand c'est pertinent (au moins 1 fois en début de conversation, pas à chaque message).
+- **Si l'utilisateur exprime un avis négatif ou une suggestion** : remercie-le sincèrement, dis-lui que son feedback est précieux et que le founder lit personnellement les conversations. C'est une plateforme jeune en construction.
+- Réponds toujours en français.`;
+
+const CHATBOT_SYSTEM_PROMPT_EN = `You are the official assistant of Kairos Insider, a French smart money tracking platform.
+
+# Product Kairos Insider
+
+Kairos Insider aggregates daily public smart money sources to give users an informational edge:
+- SEC insider filings (Form 4 US), AMF FR, BaFin DE: insider transactions
+- 13F US (200+ top AUM hedge funds): quarterly portfolios
+- SEC 13D/G: >5% threshold crossings and activists (Cevian, Pershing, Trian, Icahn, Starboard, Elliott)
+- EU thresholds: AMF FR + BaFin DE + AFM NL (BlackRock, Norges, etc.)
+- Thematic ETFs: NANC (Pelosi), GOP (Republicans), GURU (top 13F), MOAT, MTUM
+- Google Trends + Short Interest
+
+The **Kairos Score 0-100** synthesizes 8 dimensions per stock: insiders, hedge funds, politicians & gurus, momentum, valuation, analyst consensus, financial health, earnings momentum. Above 75 = very favorable signal.
+
+# Pricing (3 plans)
+
+- **Free**: 4 analyses/day, retail trends, Fear & Greed, Short Interest. No watchlist.
+- **Pro 19€/month**: Full Kairos Score, insiders, hedge funds 13F, political ETFs, Watchlist + daily brief email, 2-year history.
+- **Elite 49€/month**: Everything in Pro + real-time Telegram alerts (13D, EU thresholds, insider clusters) + backtests + CSV exports + priority support.
+
+# Key features
+
+- **Decode a stock** page: type a ticker, get full analysis in 30s
+- **Offensive funds**: track activists (Cevian on Smith & Nephew SN.L, Pearson PSON.L, Trian on JHG, etc.)
+- **Telegram alerts**: new 13D activist, EU threshold >5%, insider cluster 3+, in less than 8 min after SEC filing
+- **Watchlist**: add tickers, receive daily email brief if event detected
+- **Backtest** (Pro/Elite): simulate performance of copying 47 known funds
+
+# Data and compliance
+
+- **Legal**: 100% based on public sources (SEC EDGAR, AMF, BaFin, FCA, AFM)
+- **Not investment advice** (article L. 541-1 Code monétaire et financier). "Signals" are descriptive, not prescriptive.
+- **AMF compliance**: we never use "BUY" or "SELL" but "Favorable / unfavorable signal"
+
+# Important links
+
+- Site: https://kairosinsider.fr
+- Decode a stock: https://kairosinsider.fr (search ticker in the search bar)
+- Contact: contact@kairosinsider.fr
+
+# Tone
+
+- Direct, concise, useful. No marketing fluff.
+- Short answers (3-5 sentences max), unless question requires more.
+- Natural English, friendly. Users are retail traders or curious folks.
+- If you don't know, say so and redirect to contact@kairosinsider.fr.
+- If asked for specific investment advice ("buy X, sell Y"), politely refuse: Kairos is an analysis platform, not a financial advisor.
+- **Encourage creating a free account** when relevant (at least once at the start, not every message).
+- **If user expresses negative feedback or suggestion**: thank them sincerely, tell them their feedback is precious and the founder personally reads conversations. It's a young platform in construction.
+- Always reply in English.`;
+
+async function handleChatbotMessage(request, env, ctx, origin) {
+  const apiKey = env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return jsonResponse({
+      error: 'Chatbot non configuré (ANTHROPIC_API_KEY manquant). Le founder a été notifié.',
+      reply: 'Désolé, le chat IA n\'est pas encore activé. Tu peux nous écrire directement à contact@kairosinsider.fr.',
+    }, 503, origin);
+  }
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: 'Invalid JSON' }, 400, origin); }
+
+  const sessionId = String(body.sessionId || '').slice(0, 80);
+  if (!sessionId || !/^sess_[a-zA-Z0-9_]{4,80}$/.test(sessionId)) {
+    return jsonResponse({ error: 'Invalid sessionId' }, 400, origin);
+  }
+  const lang = (body.lang === 'en') ? 'en' : 'fr';
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  if (messages.length === 0) return jsonResponse({ error: 'No messages' }, 400, origin);
+
+  // Validation : last message doit etre 'user'. On filtre/sanitize pour eviter
+  // les role spoofing / system prompt injection.
+  const sanitized = messages
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    .map(m => ({ role: m.role, content: String(m.content).slice(0, 2000) }))
+    .slice(-12);  // max 12 derniers messages
+  if (sanitized.length === 0 || sanitized[sanitized.length - 1].role !== 'user') {
+    return jsonResponse({ error: 'Last message must be user' }, 400, origin);
+  }
+
+  // Rate limit par sessionId : 30 messages/jour
+  const rlKey = `chat-rl:${sessionId}`;
+  const rlData = await env.CACHE.get(rlKey, 'json').catch(() => null);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCount = (rlData && rlData.day === today) ? rlData.count : 0;
+  if (todayCount >= 30) {
+    return jsonResponse({
+      error: 'Quota chatbot atteint (30 messages/jour par session).',
+      reply: lang === 'en'
+        ? 'You\'ve reached the daily chat limit (30 messages). Come back tomorrow or write to contact@kairosinsider.fr for more.'
+        : 'Tu as atteint la limite de chat quotidienne (30 messages). Reviens demain ou écris à contact@kairosinsider.fr pour plus.',
+    }, 429, origin);
+  }
+
+  // Call Claude Haiku
+  const systemPrompt = lang === 'en' ? CHATBOT_SYSTEM_PROMPT_EN : CHATBOT_SYSTEM_PROMPT_FR;
+  let reply;
+  try {
+    const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: sanitized,
+      }),
+    });
+    if (!claudeResp.ok) {
+      const errText = await claudeResp.text().catch(() => '');
+      log.warn('chatbot.claude.failed', { status: claudeResp.status, body: errText.slice(0, 300) });
+      return jsonResponse({
+        error: 'Claude API error',
+        reply: lang === 'en' ? 'Sorry, an issue. Try again or contact us at contact@kairosinsider.fr.' : 'Désolé, un souci est survenu. Réessaie ou écris-nous à contact@kairosinsider.fr.',
+      }, 502, origin);
+    }
+    const claudeData = await claudeResp.json();
+    reply = (claudeData.content && claudeData.content[0] && claudeData.content[0].text) || '';
+    if (!reply) {
+      return jsonResponse({
+        error: 'Empty reply',
+        reply: lang === 'en' ? 'Sorry, no response. Try rephrasing.' : 'Désolé, pas de réponse. Essaie de reformuler.',
+      }, 502, origin);
+    }
+  } catch (e) {
+    log.error('chatbot.claude.error', { detail: String(e.message || e).slice(0, 300) });
+    return jsonResponse({
+      error: 'Network error',
+      reply: lang === 'en' ? 'Network issue. Please try again.' : 'Souci réseau. Réessaie.',
+    }, 502, origin);
+  }
+
+  // Update rate limit
+  await env.CACHE.put(rlKey, JSON.stringify({ day: today, count: todayCount + 1 }), { expirationTtl: 86400 * 2 });
+
+  // Persist transcript pour admin review (KV chat:{sessionId})
+  const transcriptKey = `chat:${sessionId}`;
+  const existing = await env.CACHE.get(transcriptKey, 'json').catch(() => null);
+  const transcript = existing && Array.isArray(existing.messages) ? existing : {
+    sessionId,
+    createdAt: new Date().toISOString(),
+    lang,
+    page: String(body.page || '').slice(0, 100),
+    referrer: String(body.referrer || '').slice(0, 200),
+    ip: request.headers.get('CF-Connecting-IP') || '',
+    country: request.headers.get('CF-IPCountry') || '',
+    messages: [],
+  };
+  transcript.messages.push(...sanitized.slice(-1));  // user msg seulement
+  transcript.messages.push({ role: 'assistant', content: reply, ts: Date.now() });
+  transcript.lastMessageAt = new Date().toISOString();
+  transcript.messageCount = transcript.messages.length;
+  // Cap a 100 messages / session pour eviter croissance KV
+  if (transcript.messages.length > 100) {
+    transcript.messages = transcript.messages.slice(-100);
+  }
+  await env.CACHE.put(transcriptKey, JSON.stringify(transcript), { expirationTtl: 86400 * 90 });
+
+  // Index the session in chat-list for admin enumeration
+  const indexKey = 'chat-sessions-index';
+  const idx = (await env.CACHE.get(indexKey, 'json').catch(() => null)) || { sessions: [] };
+  const existingEntry = idx.sessions.find(s => s.sessionId === sessionId);
+  if (existingEntry) {
+    existingEntry.lastMessageAt = transcript.lastMessageAt;
+    existingEntry.messageCount = transcript.messageCount;
+  } else {
+    idx.sessions.unshift({
+      sessionId,
+      createdAt: transcript.createdAt,
+      lastMessageAt: transcript.lastMessageAt,
+      messageCount: transcript.messageCount,
+      lang,
+      country: transcript.country,
+      page: transcript.page,
+    });
+    if (idx.sessions.length > 500) idx.sessions = idx.sessions.slice(0, 500);
+  }
+  await env.CACHE.put(indexKey, JSON.stringify(idx));
+
+  log.info('chatbot.reply.sent', { sessionId, lang, msgCount: transcript.messageCount });
+  return jsonResponse({ reply, sessionId }, 200, origin);
 }
 
 // ============================================================
