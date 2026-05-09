@@ -824,6 +824,12 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'POST' && path === '/api/admin/log-workflow-run') {
           return handleAdminLogWorkflowRun(request, env, origin);
         }
+        // Trigger un GitHub Actions workflow via l'API REST.
+        // Body: { workflowFile: 'update-13f.yml', ref?: 'main' }
+        // Necessite secret env.GITHUB_PAT (PAT avec scope 'repo' ou fine-grained 'actions:write').
+        if (request.method === 'POST' && path === '/api/admin/dispatch-github-workflow') {
+          return handleAdminDispatchGithubWorkflow(request, env, origin);
+        }
         if (path === '/api/admin/jobs') {
           return handleAdminJobs(env, origin);
         }
@@ -10040,6 +10046,72 @@ async function handleAdminTestTelegram13D(request, env, user, origin) {
 // Read-modify-write : pas atomique mais OK car les jobs cron ne tournent
 // pas concurrement avec eux-memes.
 const RUN_HISTORY_CAP = 300;
+
+// Endpoint POST /api/admin/dispatch-github-workflow
+// Trigger un GitHub Actions workflow via l'API REST. Permet aux admins de
+// relancer un workflow directement depuis le dashboard sans ouvrir GitHub.
+//
+// Pre-requis : secret env.GITHUB_PAT defini (PAT classique avec scope 'repo'
+//              OU PAT fine-grained avec 'Actions: Write' sur ce repo).
+//              env.GITHUB_REPO format 'owner/name' (defaut 'natquinson-cmd/kairos-insider').
+//
+// Body : { workflowFile: 'update-13f.yml', ref?: 'main' }
+// Doc API : https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event
+async function handleAdminDispatchGithubWorkflow(request, env, origin) {
+  const pat = env.GITHUB_PAT;
+  if (!pat) {
+    return jsonResponse({
+      ok: false,
+      error: 'GITHUB_PAT non configure',
+      code: 'NO_PAT',
+      hint: 'Cree un GitHub PAT (scope repo ou fine-grained actions:write) puis : wrangler secret put GITHUB_PAT',
+    }, 503, origin);
+  }
+  let body = {};
+  try { body = await request.json(); } catch { return jsonResponse({ ok: false, error: 'Invalid JSON' }, 400, origin); }
+  const workflowFile = String(body.workflowFile || '').trim();
+  if (!workflowFile || !/^[a-zA-Z0-9_.-]{2,80}\.ya?ml$/.test(workflowFile)) {
+    return jsonResponse({ ok: false, error: 'workflowFile invalide (attendu : *.yml)' }, 400, origin);
+  }
+  const ref = String(body.ref || 'main').slice(0, 50);
+  const repo = env.GITHUB_REPO || 'natquinson-cmd/kairos-insider';
+  const url = `https://api.github.com/repos/${repo}/actions/workflows/${encodeURIComponent(workflowFile)}/dispatches`;
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${pat}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'KairosInsider-Worker',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref }),
+    });
+    if (resp.status === 204) {
+      // GitHub renvoie 204 No Content en cas de succes
+      log.info('admin.dispatch-gh.success', { workflowFile, ref });
+      return jsonResponse({
+        ok: true,
+        workflowFile,
+        ref,
+        message: `Workflow ${workflowFile} dispatched. Voir l'execution sur GitHub.`,
+        actionsUrl: `https://github.com/${repo}/actions/workflows/${workflowFile}`,
+      }, 200, origin);
+    }
+    // Erreur API GitHub
+    const errText = await resp.text().catch(() => '');
+    log.warn('admin.dispatch-gh.failed', { workflowFile, status: resp.status, body: errText.slice(0, 300) });
+    return jsonResponse({
+      ok: false,
+      error: `GitHub API ${resp.status}`,
+      detail: errText.slice(0, 500),
+    }, resp.status >= 500 ? 502 : 400, origin);
+  } catch (e) {
+    log.error('admin.dispatch-gh.error', { workflowFile, detail: String(e.message || e).slice(0, 300) });
+    return jsonResponse({ ok: false, error: String(e.message || e) }, 500, origin);
+  }
+}
 
 // Endpoint POST /api/admin/log-workflow-run
 // Permet aux workflows GitHub Actions sans script Python (daily-tweets,

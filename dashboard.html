@@ -18195,12 +18195,14 @@
           return `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
         }).join('');
 
-        // Bouton re-run selon le type
+        // Bouton re-run selon le type. CF cron + GitHub Actions : 1 click trigger.
         let runBtn = '';
         if (j.runEndpoint) {
-          runBtn = `<button onclick="runJobNow('${j.id}', '${j.runEndpoint}', this)" class="admin-run-btn" style="white-space:nowrap">▶ Lancer</button>`;
+          runBtn = `<button type="button" onclick="runJobNow('${j.id}', '${j.runEndpoint}', this)" class="admin-run-btn">▶ Lancer</button>`;
         } else if (j.workflowFile) {
-          runBtn = `<a href="https://github.com/natquinson-cmd/kairos-insider/actions/workflows/${j.workflowFile}" target="_blank" rel="noopener" class="admin-run-btn" style="white-space:nowrap">🔗 GitHub</a>`;
+          // Dispatch via API GitHub (necessite GITHUB_PAT secret cote Worker).
+          // Si PAT non configure, le fallback ouvre GitHub UI.
+          runBtn = `<button type="button" onclick="dispatchGitHubWorkflow('${j.workflowFile}', this)" class="admin-run-btn">▶ Lancer</button>`;
         } else {
           runBtn = `<span style="opacity:0.4;font-size:11px">—</span>`;
         }
@@ -18284,6 +18286,25 @@
       `;
 
       body.innerHTML = `
+        <style>
+          .admin-run-btn {
+            display:inline-flex;align-items:center;gap:4px;
+            padding:7px 13px;border-radius:8px;
+            background:linear-gradient(135deg,#3B82F6,#8B5CF6);
+            color:#fff !important;border:none;cursor:pointer;
+            font-family:inherit;font-size:12px;font-weight:600;
+            text-decoration:none !important;white-space:nowrap;
+            transition:all 0.2s;
+          }
+          .admin-run-btn:hover { transform:translateY(-1px);box-shadow:0 4px 14px rgba(59,130,246,0.35); }
+          .admin-run-btn[disabled] { opacity:0.6;cursor:wait;transform:none; }
+          .admin-run-btn.ghost {
+            background:var(--surface-2);
+            color:var(--text-primary) !important;
+            border:1px solid var(--border-strong);
+          }
+          .admin-run-btn.ghost:hover { background:var(--surface-3);box-shadow:0 4px 14px rgba(0,0,0,0.2) }
+        </style>
         ${kpiBar}
         <div style="display:grid;grid-template-columns:${GRID_COLS};gap:10px;padding:6px 0 8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">
           <div>Job · cron · summary</div>
@@ -18296,6 +18317,41 @@
         ${scale}
         ${legend}
       `;
+    }
+
+    // Trigger un workflow GitHub Actions via /api/admin/dispatch-github-workflow
+    // Si GITHUB_PAT n'est pas configure cote Worker (503 NO_PAT), on bascule
+    // sur l'ouverture de la page GitHub Actions en fallback.
+    async function dispatchGitHubWorkflow(workflowFile, btn) {
+      if (!btn || !workflowFile) return;
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Dispatch…';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/dispatch-github-workflow`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workflowFile, ref: 'main' }),
+        });
+        const data = await resp.json();
+        if (data && data.ok) {
+          Toast.success(`Workflow ${workflowFile} lancé sur GitHub. Run en cours…`);
+          // Recharge la timeline après ~5s pour récupérer le run en cours
+          setTimeout(() => { loadJobsTimeline().catch(() => {}); }, 5000);
+        } else if (data && data.code === 'NO_PAT') {
+          // Fallback : pas de PAT configuré, ouvre GitHub UI
+          Toast.info('GITHUB_PAT non configuré. Ouverture de GitHub Actions…');
+          window.open(`https://github.com/natquinson-cmd/kairos-insider/actions/workflows/${workflowFile}`, '_blank', 'noopener');
+        } else {
+          Toast.error(`Échec : ${data?.error || 'erreur inconnue'} ${data?.detail ? '— ' + data.detail.slice(0, 100) : ''}`);
+        }
+      } catch (e) {
+        Toast.error(`Erreur : ${e.message || e}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }
     }
 
     // Re-run un job CF cron via son endpoint
