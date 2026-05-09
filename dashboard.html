@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260509-audit-en"></script>
+  <script src="assets/i18n.js?v=20260509-home-signals-en"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3502,15 +3502,15 @@
 
       <!-- ===== SECTION ELITE (power users : API + alertes + backtests) ===== -->
       <div class="sidebar-section">
-        <div class="sidebar-title">Elite</div>
+        <div class="sidebar-title" data-i18n="dash.sidebar.elite_section">Elite</div>
         <button class="sidebar-item" data-section="eliteAlerts" data-elite="true" onclick="switchSection('eliteAlerts')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
-          <span>Alertes temps-réel</span>
+          <span data-i18n="dash.sidebar.elite_alerts">Alertes temps-réel</span>
           <span class="sidebar-badge elite-badge">ELITE</span>
         </button>
         <button class="sidebar-item" data-section="eliteBacktests" data-elite="true" onclick="switchSection('eliteBacktests')">
           <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
-          <span>Backtests</span>
+          <span data-i18n="dash.sidebar.elite_backtests">Backtests</span>
           <span class="sidebar-badge elite-badge">ELITE</span>
         </button>
       </div>
@@ -8370,7 +8370,9 @@
         mkRow('HLT',  'Starboard Value',  '13D · 09 avr', '#F59E0B'),
       ].join('');
 
-      const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+      // i18n date format : 'fr-FR' → '9 mai', 'en-US' → 'May 9'
+      const _locale = (typeof getLang === 'function' && getLang() === 'en') ? 'en-US' : 'fr-FR';
+      const today = new Date().toLocaleDateString(_locale, { day: '2-digit', month: 'short' });
 
       wrap.innerHTML = `
         <style>
@@ -8393,7 +8395,7 @@
           .signal-row:last-child { border-bottom:none; }
         </style>
         <div class="top-signals-header">
-          <h3>🔔 Top signaux du jour</h3>
+          <h3>${t('dash.home.top_signals_h3', '🔔 Top signaux du jour')}</h3>
           <span class="top-signals-date">${today}</span>
         </div>
         <div class="signals-grid">
@@ -8401,8 +8403,8 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)">
               <div class="signal-card-icon icon-blue"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Kairos Score — gros deltas</div>
-                <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
+                <div class="signal-card-title">${t('dash.home.signal_score_title', 'Kairos Score — gros deltas')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_score_sub', 'Variations significatives (≥ 3pt)')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
@@ -8412,8 +8414,8 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)">
               <div class="signal-card-icon icon-green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Convergences d'initiés</div>
-                <div class="signal-card-sub">≥ 3 transactions même ticker (7j)</div>
+                <div class="signal-card-title">${t('dash.home.signal_cluster_title', 'Convergences d\'initiés')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_cluster_sub_placeholder', '≥ 3 transactions même ticker (7j)')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
@@ -8423,8 +8425,8 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)">
               <div class="signal-card-icon icon-orange"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Rotations ETF</div>
-                <div class="signal-card-sub">Plus gros changements de poids</div>
+                <div class="signal-card-title">${t('dash.home.signal_etf_title', 'Rotations ETF')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_etf_sub', 'Plus gros changements de poids')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
@@ -8434,8 +8436,8 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)">
               <div class="signal-card-icon icon-pink"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Fonds offensifs frais</div>
-                <div class="signal-card-sub">Derniers dépôts 13D/G</div>
+                <div class="signal-card-title">${t('dash.home.signal_activist_title', 'Fonds offensifs frais')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_activist_sub', 'Derniers dépôts 13D/G')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
@@ -8474,9 +8476,11 @@
           if (abs >= 1e3) return (n < 0 ? '-' : '') + '$' + (abs / 1e3).toFixed(0) + 'K';
           return (n < 0 ? '-' : '') + '$' + Math.round(abs);
         };
+        // i18n date format : FR='9 mai', EN='May 9'
+        const _locale = (typeof getLang === 'function' && getLang() === 'en') ? 'en-US' : 'fr-FR';
         const fmtD = (d) => {
           if (!d) return '';
-          try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+          try { return new Date(d).toLocaleDateString(_locale, { day: '2-digit', month: 'short' }); } catch { return d; }
         };
         const goTicker = (t) => `onclick="switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis('${String(t).replace(/'/g,'\\\'')}'),150)"`;
 
@@ -8496,15 +8500,15 @@
         }).join('');
         const scoreCard = hasScores ? `
           <div class="signal-card">
-            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)" onclick="switchSection('signals-score')" title="Ouvrir l'analyse détaillée">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(59,130,246,0.3)" onclick="switchSection('signals-score')" title="${t('dash.home.signal_open_detail', 'Ouvrir l\'analyse détaillée')}">
               <div class="signal-card-icon icon-blue"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Kairos Score — gros deltas</div>
-                <div class="signal-card-sub">Variations significatives (≥ 3pt)</div>
+                <div class="signal-card-title">${t('dash.home.signal_score_title', 'Kairos Score — gros deltas')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_score_sub', 'Variations significatives (≥ 3pt)')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
-            <div class="signal-card-body">${scoreItems || '<div class="signal-empty">Aucun gros mouvement aujourd&rsquo;hui</div>'}</div>
+            <div class="signal-card-body">${scoreItems || '<div class="signal-empty">' + t('dash.home.signal_empty_score', 'Aucun gros mouvement aujourd\'hui') + '</div>'}</div>
           </div>` : '';
 
         // Card 2 : Insider Clusters
@@ -8542,15 +8546,15 @@
         }).join('');
         const clusterCard = hasClusters ? `
           <div class="signal-card">
-            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('clustering')" title="Ouvrir l'analyse détaillée">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(16,185,129,0.3)" onclick="switchSection('clustering')" title="${t('dash.home.signal_open_detail', 'Ouvrir l\'analyse détaillée')}">
               <div class="signal-card-icon icon-green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Convergences d'initiés</div>
-                <div class="signal-card-sub">≥ 3 dirigeants distincts sur 7j</div>
+                <div class="signal-card-title">${t('dash.home.signal_cluster_title', 'Convergences d\'initiés')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_cluster_sub', '≥ 3 dirigeants distincts sur 7j')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
-            <div class="signal-card-body">${clusterItems || '<div class="signal-empty">Aucun cluster</div>'}</div>
+            <div class="signal-card-body">${clusterItems || '<div class="signal-empty">' + t('dash.home.signal_empty_cluster', 'Aucun cluster') + '</div>'}</div>
           </div>` : '';
 
         // Card 3 : ETF Movers
@@ -8568,15 +8572,15 @@
         }).join('');
         const etfCard = hasEtf ? `
           <div class="signal-card">
-            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)" onclick="switchSection('signals-etf')" title="Ouvrir l'analyse détaillée">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(245,158,11,0.3)" onclick="switchSection('signals-etf')" title="${t('dash.home.signal_open_detail', 'Ouvrir l\'analyse détaillée')}">
               <div class="signal-card-icon icon-orange"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Rotations ETF</div>
-                <div class="signal-card-sub">Plus gros changements de poids</div>
+                <div class="signal-card-title">${t('dash.home.signal_etf_title', 'Rotations ETF')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_etf_sub', 'Plus gros changements de poids')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
-            <div class="signal-card-body">${etfItems || '<div class="signal-empty">Aucune rotation</div>'}</div>
+            <div class="signal-card-body">${etfItems || '<div class="signal-empty">' + t('dash.home.signal_empty_etf', 'Aucune rotation') + '</div>'}</div>
           </div>` : '';
 
         // Card 4 : Activists Fresh
@@ -8613,15 +8617,15 @@
         }).join('');
         const activistCard = hasActivists ? `
           <div class="signal-card">
-            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)" onclick="switchSection('activists')" title="Ouvrir l'analyse détaillée">
+            <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)" onclick="switchSection('activists')" title="${t('dash.home.signal_open_detail', 'Ouvrir l\'analyse détaillée')}">
               <div class="signal-card-icon icon-pink"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">Fonds offensifs frais</div>
-                <div class="signal-card-sub">Derniers dépôts 13D/G</div>
+                <div class="signal-card-title">${t('dash.home.signal_activist_title', 'Fonds offensifs frais')}</div>
+                <div class="signal-card-sub">${t('dash.home.signal_activist_sub', 'Derniers dépôts 13D/G')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
             </div>
-            <div class="signal-card-body">${activistItems || '<div class="signal-empty">Aucun récent</div>'}</div>
+            <div class="signal-card-body">${activistItems || '<div class="signal-empty">' + t('dash.home.signal_empty_activist', 'Aucun récent') + '</div>'}</div>
           </div>` : '';
 
         wrap.innerHTML = `
@@ -8690,7 +8694,7 @@
             }
           </style>
           <div class="top-signals-header">
-            <h3>🔔 Top signaux du jour</h3>
+            <h3>${t('dash.home.top_signals_h3', '🔔 Top signaux du jour')}</h3>
             <span class="top-signals-date">${fmtD(data.date)}</span>
           </div>
           <div class="signals-grid">${scoreCard}${clusterCard}${etfCard}${activistCard}</div>
