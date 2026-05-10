@@ -47,6 +47,8 @@
       'nav.login': 'Connexion',
       'nav.logout': 'Déconnexion',
       'nav.try_free': 'Essayer gratuitement',
+      'nav.profile_anon': 'Se connecter ou s\'inscrire',
+      'nav.profile_loggedin': 'Mon compte',
       'nav.lang_switch': 'EN',
       'nav.lang_switch_title': 'Switch to English',
 
@@ -1105,6 +1107,8 @@
       'nav.login': 'Sign in',
       'nav.logout': 'Sign out',
       'nav.try_free': 'Try for free',
+      'nav.profile_anon': 'Sign in or create account',
+      'nav.profile_loggedin': 'My account',
       'nav.lang_switch': 'FR',
       'nav.lang_switch_title': 'Passer en français',
 
