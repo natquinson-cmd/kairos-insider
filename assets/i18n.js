@@ -383,6 +383,7 @@
       // ==== Toasts auth ====
       'toast.already_subscribed': 'Vous êtes déjà abonné. Pour changer de plan, utilisez le portail de facturation Stripe.',
       'toast.plan_unavailable': "Ce plan n'est pas encore disponible. Contactez le support.",
+      'toast.logout_error': 'Erreur déconnexion : ',
       // ==== Erreurs Firebase auth ====
       'auth.error.too_many_requests': 'Trop de tentatives. Réessayez plus tard.',
       'auth.error.email_in_use': 'Cet email est déjà utilisé.',
@@ -1433,6 +1434,7 @@
       // ==== Auth toasts ====
       'toast.already_subscribed': "You're already subscribed. To change plan, use the Stripe billing portal.",
       'toast.plan_unavailable': "This plan isn't available yet. Contact support.",
+      'toast.logout_error': 'Sign-out error: ',
       // ==== Firebase auth errors ====
       'auth.error.too_many_requests': 'Too many attempts. Try again later.',
       'auth.error.email_in_use': 'This email is already used.',
