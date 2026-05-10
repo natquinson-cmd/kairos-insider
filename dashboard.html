@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260509-speed-plain-copy"></script>
+  <script src="assets/i18n.js?v=20260510-banner-cta-fix"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -6187,16 +6187,25 @@
       document.getElementById('authSignup').style.display = 'none';
     }
 
-    // Auto-show signup si ?action=signup dans l'URL (depuis backtest.html CTA)
+    // Auto-show signup si ?action=signup dans l'URL (depuis backtest.html CTA,
+    // bandeau beta de la landing, ou tout autre lien externe).
+    // BUG FIX (mai 2026) : avant on appelait juste showSignup() qui ne fait que
+    // toggler l'onglet login<->signup mais l'authOverlay restait .hidden (CSS
+    // display:none). Resultat : user clique "Reserver ma place" sur la landing
+    // -> arrive sur dashboard sans aucun overlay visible. On retire maintenant
+    // .hidden + on bascule sur le formulaire signup.
     try {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('action') === 'signup') {
-        // Attendre que le DOM soit pret pour s'assurer que les elements existent
         const trySignup = () => {
+          const overlay = document.getElementById('authOverlay');
           const loginEl = document.getElementById('authLogin');
           const signupEl = document.getElementById('authSignup');
-          if (loginEl && signupEl) {
+          if (overlay && loginEl && signupEl) {
+            overlay.classList.remove('hidden');
             showSignup();
+            // Nettoie l'URL (?action=signup) pour qu'un refresh ne re-trigger pas
+            try { history.replaceState(null, '', window.location.pathname + window.location.hash); } catch (e) {}
           } else {
             setTimeout(trySignup, 100);
           }

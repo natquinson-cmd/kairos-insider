@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260509-speed-plain-copy"></script>
+  <script src="assets/i18n.js?v=20260510-banner-cta-fix"></script>
 
   <style>
     :root {
@@ -1295,7 +1295,7 @@
   <div id="betaUrgencyBanner">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
       <span style="display:inline-flex;align-items:center;gap:6px"><strong data-i18n="beta.banner.title">🔥 Offre de lancement</strong> · <span id="betaBannerOffer" data-i18n="beta.banner.offer">-50% sur le 1er mois</span> · <strong id="betaBannerRemaining" style="color:#FFE4F1" data-i18n="beta.banner.remaining_loading">Plus que … jours</strong></span>
-      <a href="dashboard.html#signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)" data-i18n="beta.banner.cta">Réserver ma place →</a>
+      <a href="dashboard.html?action=signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)" data-i18n="beta.banner.cta">Réserver ma place →</a>
       <button type="button" data-i18n-aria-label="beta.banner.dismiss_aria" aria-label="Fermer" onclick="(function(){try{localStorage.setItem('kairos_beta_banner_dismissed','1');}catch(e){}document.getElementById('betaUrgencyBanner').style.display='none';document.body.classList.remove('has-beta-banner');})()" style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;font-weight:300">×</button>
     </div>
   </div>
