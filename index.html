@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260511-activist-fullwidth"></script>
+  <script src="assets/i18n.js?v=20260511-mockup-floats-mobile"></script>
 
   <style>
     :root {
@@ -1248,7 +1248,23 @@
       .hero { padding: 140px 0 80px; }
       .hero-grid { grid-template-columns: 1fr; gap: 60px; }
       .mockup-card { transform: none; }
-      .mockup-float { display: none; }
+      /* Mockup floats (mai 2026) : avant ".mockup-float { display: none }",
+         on perdait les 3 cards marketing (cluster, watchlist, activists) qui
+         portent la preuve produit. Maintenant on les affiche stackees sous le
+         mockup AAPL, position:static, rotations annulees, largeur max 340px
+         centree. Resultat : sur mobile l'user voit AAPL + 3 badges marketing
+         empilees au lieu d'un mockup nu. */
+      .mockup-float {
+        position: static !important;
+        transform: none !important;
+        margin: 12px auto 0 !important;
+        left: auto !important; right: auto !important; top: auto !important; bottom: auto !important;
+        max-width: 340px;
+        width: 100%;
+      }
+      /* Garde les 3 variantes valeur (cluster, watchlist, activists) visibles.
+         Les autres ('left', 'right', 'topinsiders') restent display:none via
+         les regles desktop (lignes 389-393). */
       .stats-bar { grid-template-columns: repeat(2, 1fr); margin-top: 40px; padding: 22px; }
       .nav-links li:not(:last-child) { display: none; }
       .comparison-table { font-size: 12px; }
