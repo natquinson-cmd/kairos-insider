@@ -5768,92 +5768,129 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
 }
 
 // ============================================================
-// Welcome email — HTML inline FR + EN (refonte mai 2026)
+// Welcome email — HTML inline FR + EN — DARK PREMIUM (mai 2026 v2)
 // ============================================================
-// Le mail est genere cote code (vs templateId Brevo) car :
-// - le template Brevo etait caduc (reflechissait un produit early stage,
-//   plus aligne avec l'offre actuelle Smart Money multi-marches).
-// - source de verite unique = code, evolution = push git.
-// - i18n FR/EN natif via param `lang`.
+// Refonte v2 sur retour utilisateur "trop sage, faut accrocher" :
+// - Theme dark premium (style Linear/Vercel) au lieu du light theme v1
+// - Copie plus punchy : hero en 2 lignes "Ils achetent. Vous saurez quand."
+// - Strip de KPIs en haut (11 regulateurs, 45k tx, 9 marches, 8 axes)
+// - Bloc "Live signal" donnant un exemple concret pour creer le wow
+// - Mini-cards plans Free / Pro / Elite en horizontal (vs paragraphe)
 //
-// L'HTML email respecte les contraintes des clients mail :
-// - tables pour layout (pas de flexbox supporte par Outlook < 2019)
-// - CSS inline uniquement (les <style> sont souvent strippes)
-// - largeur max 600px (standard)
-// - logo en absolute URL (pas de chemin relatif)
-// - couleurs en clair (les dark themes cassent dans Outlook)
+// Contraintes email HTML maintenues :
+// - tables layout (Outlook < 2019 ne supporte pas flexbox)
+// - CSS inline uniquement
+// - 600px max-width
+// - logo absolute URL
+// - meta color-scheme dark light pour les clients qui le respectent
 function buildWelcomeEmail(lang) {
   const isEn = lang === 'en';
   const subject = isEn
-    ? 'Welcome to Kairos Insider — your Smart Money access is ready'
-    : 'Bienvenue sur Kairos Insider — votre accès Smart Money est prêt';
+    ? 'Welcome. You just gained 45 days.'
+    : 'Bienvenue. Vous venez de prendre 45 jours d\'avance.';
 
-  // Couleurs marque (light theme pour compat Outlook)
+  // Palette dark premium (kairos brand gradient = #74b9ff -> #a29bfe)
   const C = {
-    bg: '#F8FAFC',          // page background
-    surface: '#FFFFFF',     // card
-    border: '#E2E8F0',
-    text: '#0F172A',        // slate-900
-    muted: '#64748B',       // slate-500
-    primary: '#74b9ff',     // accent bleu
-    primary2: '#a29bfe',    // accent violet (gradient)
-    accent: '#10B981',      // green achat
-    accentRed: '#EF4444',
+    bg: '#0A0E1A',          // page background — deep navy black
+    surface: '#11162A',     // card background
+    surface2: '#171C33',    // nested card / kpi cells
+    border: 'rgba(255,255,255,0.07)',
+    borderStrong: 'rgba(255,255,255,0.12)',
+    text: '#F1F5F9',        // slate-100
+    textDim: '#CBD5E1',     // slate-300
+    muted: '#94A3B8',       // slate-400
+    mutedDeep: '#64748B',   // slate-500
+    primary: '#74b9ff',
+    primary2: '#a29bfe',
+    accent: '#10B981',
+    yellow: '#FACC15',
+    red: '#EF4444',
   };
 
-  // Copies localisees
+  // Copies localisees — punchy version
   const T = isEn ? {
-    hero: 'Welcome to Kairos Insider',
-    sub: 'You now have access to the only French-built Smart Money platform tracking insiders, hedge funds, and activists across <strong>11 European + US regulators</strong> in real time.',
+    heroLine1: 'They\'re buying.',
+    heroLine2: 'You\'ll know when.',
+    sub: 'Every day, 200+ executives, hedge funds and activists file transactions with regulators. Kairos surfaces the signals that matter — and notifies you.',
+    kpi1Num: '11', kpi1Lbl: 'regulators',
+    kpi2Num: '45k', kpi2Lbl: 'monthly tx',
+    kpi3Num: '9', kpi3Lbl: 'markets',
+    kpi4Num: '8', kpi4Lbl: 'score axes',
+    liveBadge: 'DETECTED THIS WEEK',
+    liveTitle: 'Elliott Management crosses 5% on Saham/Teleperformance',
+    liveBody: '€187M filing on May 8 to AMF — visible on Kairos at D+1, vs ~45 days for the public 13F equivalent.',
+    liveCta: 'See the signal',
     f1Title: 'Decode any stock in 30 seconds',
-    f1Body: 'Type a ticker and get a <strong>Kairos Score 0–100</strong> synthesizing 8 axes : insiders, hedge funds 13F, ETFs, politicians, price momentum, fundamentals, analysts, valuation.',
-    f2Title: 'Track insider transactions in 9 markets',
-    f2Body: 'SEC (US), AMF (FR), BaFin (DE), FCA (UK), AFM (NL), SIX (CH), CONSOB (IT), CNMV (ES), SEDI (CA). Daily refresh.',
-    f3Title: 'Spot the activist funds early',
-    f3Body: 'Elliott, Ackman, Cevian, Trian, Icahn… when they cross 5% of a company\'s capital, you see it <strong>10 days before</strong> the public 13F filings.',
+    f1Body: 'Type a ticker. Get a <strong style="color:' + C.text + '">Kairos Score 0–100</strong> synthesizing 8 axes: insiders, hedge funds 13F, ETFs, politicians, momentum, fundamentals, analysts, valuation.',
+    f2Title: 'Track activists 10 days before the rest',
+    f2Body: 'Elliott, Ackman, Cevian, Trian, Icahn… when they cross 5% of a company\'s capital, you see it on day 1. The crowd reads it in the 13F, <strong style="color:' + C.text + '">45 days later</strong>.',
+    f3Title: '9 markets, 1 dashboard',
+    f3Body: 'SEC (US) · AMF (FR) · BaFin (DE) · FCA (UK) · AFM (NL) · SIX (CH) · CONSOB (IT) · CNMV (ES) · SEDI (CA).',
     cta: 'Open my dashboard',
-    plansTitle: 'Free, Pro 19€/month and Elite',
-    plansBody: 'Free gives you 5 stock analyses/day + insider flows. <strong>Pro</strong> unlocks unlimited analyses, advanced screener, watchlist + alerts, activists, hedge funds, daily brief. <strong>Elite</strong> adds CSV export, API access, Telegram alerts.',
+    plansTitle: 'Pricing',
+    planFreeName: 'Free', planFreeBody: '5 analyses/day · insider flows',
+    planProName: 'Pro 19€', planProBody: 'Unlimited · screener · alerts · activists · 13F · daily brief',
+    planEliteName: 'Elite', planEliteBody: 'Everything + CSV export · API · Telegram alerts',
+    plansCta: 'Compare plans',
     footerNote: 'You\'re receiving this email because you signed up at kairosinsider.fr.',
-    contact: 'Questions ? Just reply — or write to',
+    contact: 'Questions? Just reply, or write to',
     unsubscribe: 'Unsubscribe',
     legal: 'Kairos Insider — Smart Money platform for European retail investors. Not investment advice.',
   } : {
-    hero: 'Bienvenue sur Kairos Insider',
-    sub: 'Vous avez maintenant accès à la seule plateforme française qui suit en temps réel les <strong>dirigeants, hedge funds et activistes</strong> sur 11 régulateurs européens + SEC américaine.',
-    f1Title: 'Décryptez n\'importe quelle action en 30 secondes',
-    f1Body: 'Tapez un ticker et obtenez un <strong>Kairos Score 0–100</strong> synthèse de 8 axes : initiés, hedge funds 13F, ETF, politiciens, momentum prix, fondamentaux, analystes, valorisation.',
-    f2Title: 'Suivez les transactions d\'initiés sur 9 marchés',
-    f2Body: 'SEC (US), AMF (FR), BaFin (DE), FCA (UK), AFM (NL), SIX (CH), CONSOB (IT), CNMV (ES), SEDI (CA). Mise à jour quotidienne.',
-    f3Title: 'Repérez les fonds offensifs en avance',
-    f3Body: 'Elliott, Ackman, Cevian, Trian, Icahn… quand ils franchissent 5% du capital d\'une société, vous le voyez <strong>10 jours avant</strong> les 13F publics.',
+    heroLine1: 'Ils achètent.',
+    heroLine2: 'Vous saurez quand.',
+    sub: 'Chaque jour, 200+ dirigeants, hedge funds et activistes déposent leurs transactions auprès des régulateurs. Kairos remonte les signaux qui comptent — et vous prévient.',
+    kpi1Num: '11', kpi1Lbl: 'régulateurs',
+    kpi2Num: '45k', kpi2Lbl: 'tx / mois',
+    kpi3Num: '9', kpi3Lbl: 'marchés',
+    kpi4Num: '8', kpi4Lbl: 'axes du score',
+    liveBadge: 'DÉTECTÉ CETTE SEMAINE',
+    liveTitle: 'Elliott Management franchit 5% sur Saham/Teleperformance',
+    liveBody: 'Dépôt 187 M€ le 8 mai à l\'AMF — visible sur Kairos à J+1, vs ~45 jours pour le 13F équivalent public.',
+    liveCta: 'Voir le signal',
+    f1Title: 'Décryptez une action en 30 secondes',
+    f1Body: 'Tapez un ticker. Obtenez un <strong style="color:' + C.text + '">Kairos Score 0–100</strong> synthèse de 8 axes : initiés, hedge funds 13F, ETF, politiciens, momentum, fondamentaux, analystes, valorisation.',
+    f2Title: 'Suivez les activistes 10 jours avant tout le monde',
+    f2Body: 'Elliott, Ackman, Cevian, Trian, Icahn… quand ils franchissent 5% d\'une société, vous le voyez dès le jour 1. La foule le lit dans le 13F, <strong style="color:' + C.text + '">45 jours plus tard</strong>.',
+    f3Title: '9 marchés, 1 dashboard',
+    f3Body: 'SEC (US) · AMF (FR) · BaFin (DE) · FCA (UK) · AFM (NL) · SIX (CH) · CONSOB (IT) · CNMV (ES) · SEDI (CA).',
     cta: 'Ouvrir mon dashboard',
-    plansTitle: 'Free, Pro 19€/mois et Elite',
-    plansBody: 'Le plan Free vous offre 5 analyses/jour + les flux d\'initiés. <strong>Pro</strong> débloque les analyses illimitées, le screener avancé, watchlist + alertes, fonds offensifs, hedge funds, brief quotidien. <strong>Elite</strong> ajoute l\'export CSV, l\'API et les alertes Telegram.',
+    plansTitle: 'Plans',
+    planFreeName: 'Free', planFreeBody: '5 analyses/jour · flux d\'initiés',
+    planProName: 'Pro 19€', planProBody: 'Illimité · screener · alertes · activistes · 13F · brief quotidien',
+    planEliteName: 'Elite', planEliteBody: 'Tout + export CSV · API · alertes Telegram',
+    plansCta: 'Comparer les plans',
     footerNote: 'Vous recevez cet email car vous vous êtes inscrit sur kairosinsider.fr.',
-    contact: 'Une question ? Répondez directement — ou écrivez à',
+    contact: 'Une question ? Répondez directement, ou écrivez à',
     unsubscribe: 'Se désinscrire',
     legal: 'Kairos Insider — Plateforme Smart Money pour investisseurs particuliers européens. Ceci n\'est pas un conseil en investissement.',
   };
 
-  // Note : on hebergera le logo en absolute URL. assets/logo-256.png deja
-  // deploye sur GitHub Pages -> https://kairosinsider.fr/assets/logo-256.png
   const LOGO = 'https://kairosinsider.fr/assets/logo-256.png';
   const DASHBOARD = 'https://kairosinsider.fr/dashboard.html' + (isEn ? '?lang=en' : '');
   const PLANS = 'https://kairosinsider.fr/dashboard.html#plans' + (isEn ? '&lang=en' : '');
+  const FONDS_OFFENSIFS = 'https://kairosinsider.fr/dashboard.html#activists' + (isEn ? '&lang=en' : '');
   const CONTACT_EMAIL = 'contact@kairosinsider.fr';
   const UNSUB = 'https://kairosinsider.fr/unsubscribe' + (isEn ? '?lang=en' : '');
 
-  // Pre-header (texte cache qui s'affiche dans la preview boite mail)
   const preheader = isEn
-    ? 'Decode any stock, track insiders + activists across 9 markets. Free plan included.'
-    : 'Décryptez une action, suivez initiés + activistes sur 9 marchés. Plan gratuit inclus.';
+    ? 'Track insiders, hedge funds and activists across 9 markets. The signals 45 days before the rest.'
+    : 'Suivez initiés, hedge funds et activistes sur 9 marchés. Les signaux 45 jours avant tout le monde.';
+
+  // Helper inline pour un KPI cell
+  const kpiCell = (num, lbl) => `
+    <td valign="middle" align="center" style="padding:14px 8px;border-right:1px solid ${C.border}" width="25%">
+      <div style="font-size:22px;font-weight:700;background:linear-gradient(135deg,${C.primary},${C.primary2});-webkit-background-clip:text;background-clip:text;color:${C.primary};line-height:1.1">${num}</div>
+      <div style="font-size:10.5px;letter-spacing:1px;color:${C.muted};margin-top:4px;text-transform:uppercase">${lbl}</div>
+    </td>`;
 
   const html = `<!DOCTYPE html>
 <html lang="${isEn ? 'en' : 'fr'}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
 <title>${subject}</title>
 </head>
 <body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${C.text};-webkit-font-smoothing:antialiased">
@@ -5864,44 +5901,90 @@ function buildWelcomeEmail(lang) {
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${C.bg}">
   <tr>
     <td align="center" style="padding:32px 16px">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:${C.surface};border:1px solid ${C.border};border-radius:16px;overflow:hidden">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:${C.surface};border:1px solid ${C.border};border-radius:18px;overflow:hidden">
 
-        <!-- HEADER : logo + nom -->
+        <!-- HEADER : logo + nom (centre, premium minimal) -->
         <tr>
-          <td style="padding:32px 32px 8px 32px;text-align:center">
-            <img src="${LOGO}" alt="Kairos Insider" width="64" height="64" style="display:inline-block;border:0;width:64px;height:64px;border-radius:12px">
-            <div style="margin-top:12px;font-size:13px;letter-spacing:1.4px;color:${C.muted};font-weight:600;text-transform:uppercase">Kairos Insider</div>
+          <td style="padding:36px 32px 4px 32px;text-align:center">
+            <img src="${LOGO}" alt="Kairos Insider" width="56" height="56" style="display:inline-block;border:0;width:56px;height:56px;border-radius:14px">
+            <div style="margin-top:14px;font-size:11px;letter-spacing:2.5px;color:${C.muted};font-weight:600;text-transform:uppercase">Kairos Insider</div>
           </td>
         </tr>
 
-        <!-- HERO -->
+        <!-- HERO : 2 lignes punchy -->
         <tr>
-          <td style="padding:8px 32px 24px 32px;text-align:center">
-            <h1 style="margin:8px 0 12px 0;font-size:26px;line-height:1.2;font-weight:700;color:${C.text}">${T.hero}</h1>
-            <p style="margin:0;font-size:15px;line-height:1.55;color:${C.muted}">${T.sub}</p>
+          <td style="padding:20px 32px 8px 32px;text-align:center">
+            <h1 style="margin:0;font-size:34px;line-height:1.15;font-weight:800;color:${C.text};letter-spacing:-0.5px">
+              ${T.heroLine1}<br>
+              <span style="background:linear-gradient(135deg,${C.primary},${C.primary2});-webkit-background-clip:text;background-clip:text;color:${C.primary}">${T.heroLine2}</span>
+            </h1>
+          </td>
+        </tr>
+
+        <!-- SUB hero -->
+        <tr>
+          <td style="padding:18px 40px 28px 40px;text-align:center">
+            <p style="margin:0;font-size:15px;line-height:1.6;color:${C.textDim}">${T.sub}</p>
           </td>
         </tr>
 
         <!-- CTA principal -->
         <tr>
-          <td style="padding:8px 32px 24px 32px;text-align:center">
-            <a href="${DASHBOARD}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,${C.primary},${C.primary2});color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;border-radius:10px">${T.cta} →</a>
+          <td style="padding:0 32px 32px 32px;text-align:center">
+            <a href="${DASHBOARD}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,${C.primary},${C.primary2});color:#0A0E1A;text-decoration:none;font-weight:700;font-size:15px;border-radius:10px;letter-spacing:0.3px">${T.cta} →</a>
           </td>
         </tr>
 
-        <!-- Separator -->
-        <tr><td style="padding:0 32px"><div style="border-top:1px solid ${C.border}"></div></td></tr>
-
-        <!-- FEATURE 1 : decryptage -->
+        <!-- STRIP KPIs -->
         <tr>
-          <td style="padding:24px 32px 8px 32px">
+          <td style="padding:0 32px 32px 32px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${C.surface2};border:1px solid ${C.border};border-radius:12px">
+              <tr>
+                ${kpiCell(T.kpi1Num, T.kpi1Lbl)}
+                ${kpiCell(T.kpi2Num, T.kpi2Lbl)}
+                ${kpiCell(T.kpi3Num, T.kpi3Lbl)}
+                <td valign="middle" align="center" style="padding:14px 8px" width="25%">
+                  <div style="font-size:22px;font-weight:700;background:linear-gradient(135deg,${C.primary},${C.primary2});-webkit-background-clip:text;background-clip:text;color:${C.primary};line-height:1.1">${T.kpi4Num}</div>
+                  <div style="font-size:10.5px;letter-spacing:1px;color:${C.muted};margin-top:4px;text-transform:uppercase">${T.kpi4Lbl}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- LIVE SIGNAL TEASER : exemple concret pour creer le wow -->
+        <tr>
+          <td style="padding:0 32px 32px 32px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(162,155,254,0.06));border:1px solid rgba(116,185,255,0.22);border-radius:14px">
+              <tr>
+                <td style="padding:22px 22px 20px 22px">
+                  <div style="display:inline-block;padding:4px 10px;background:rgba(250,204,21,0.15);border:1px solid rgba(250,204,21,0.35);border-radius:6px;font-size:10px;letter-spacing:1.2px;color:${C.yellow};font-weight:700;text-transform:uppercase">⚡ ${T.liveBadge}</div>
+                  <div style="margin-top:12px;font-size:17px;font-weight:700;color:${C.text};line-height:1.35">${T.liveTitle}</div>
+                  <div style="margin-top:8px;font-size:13.5px;color:${C.textDim};line-height:1.55">${T.liveBody}</div>
+                  <a href="${FONDS_OFFENSIFS}" style="display:inline-block;margin-top:14px;font-size:13px;color:${C.primary};text-decoration:none;font-weight:600">${T.liveCta} →</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Features (3 rows, plus snappy) -->
+        <tr>
+          <td style="padding:0 32px 8px 32px">
+            <div style="font-size:11px;letter-spacing:1.8px;color:${C.muted};font-weight:600;text-transform:uppercase;margin-bottom:14px">${isEn ? 'What you can do' : 'Ce que vous pouvez faire'}</div>
+          </td>
+        </tr>
+
+        <!-- FEATURE 1 -->
+        <tr>
+          <td style="padding:0 32px 16px 32px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td width="44" valign="top" style="padding-right:14px">
-                  <div style="width:44px;height:44px;border-radius:10px;background:rgba(116,185,255,0.15);text-align:center;line-height:44px;font-size:22px">🔍</div>
+                <td width="48" valign="top" style="padding-right:16px">
+                  <div style="width:42px;height:42px;border-radius:11px;background:rgba(116,185,255,0.12);border:1px solid rgba(116,185,255,0.22);text-align:center;line-height:42px;font-size:20px">🔍</div>
                 </td>
                 <td valign="top">
-                  <div style="font-size:15px;font-weight:600;color:${C.text};margin-bottom:4px">${T.f1Title}</div>
+                  <div style="font-size:15.5px;font-weight:700;color:${C.text};margin-bottom:4px">${T.f1Title}</div>
                   <div style="font-size:14px;line-height:1.55;color:${C.muted}">${T.f1Body}</div>
                 </td>
               </tr>
@@ -5909,16 +5992,16 @@ function buildWelcomeEmail(lang) {
           </td>
         </tr>
 
-        <!-- FEATURE 2 : initiés multi-marchés -->
+        <!-- FEATURE 2 -->
         <tr>
-          <td style="padding:16px 32px 8px 32px">
+          <td style="padding:0 32px 16px 32px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td width="44" valign="top" style="padding-right:14px">
-                  <div style="width:44px;height:44px;border-radius:10px;background:rgba(16,185,129,0.13);text-align:center;line-height:44px;font-size:22px">📊</div>
+                <td width="48" valign="top" style="padding-right:16px">
+                  <div style="width:42px;height:42px;border-radius:11px;background:rgba(250,204,21,0.13);border:1px solid rgba(250,204,21,0.25);text-align:center;line-height:42px;font-size:20px">⚡</div>
                 </td>
                 <td valign="top">
-                  <div style="font-size:15px;font-weight:600;color:${C.text};margin-bottom:4px">${T.f2Title}</div>
+                  <div style="font-size:15.5px;font-weight:700;color:${C.text};margin-bottom:4px">${T.f2Title}</div>
                   <div style="font-size:14px;line-height:1.55;color:${C.muted}">${T.f2Body}</div>
                 </td>
               </tr>
@@ -5926,50 +6009,77 @@ function buildWelcomeEmail(lang) {
           </td>
         </tr>
 
-        <!-- FEATURE 3 : activistes -->
+        <!-- FEATURE 3 -->
         <tr>
-          <td style="padding:16px 32px 24px 32px">
+          <td style="padding:0 32px 32px 32px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td width="44" valign="top" style="padding-right:14px">
-                  <div style="width:44px;height:44px;border-radius:10px;background:rgba(250,204,21,0.18);text-align:center;line-height:44px;font-size:22px">⚡</div>
+                <td width="48" valign="top" style="padding-right:16px">
+                  <div style="width:42px;height:42px;border-radius:11px;background:rgba(16,185,129,0.13);border:1px solid rgba(16,185,129,0.25);text-align:center;line-height:42px;font-size:20px">🌍</div>
                 </td>
                 <td valign="top">
-                  <div style="font-size:15px;font-weight:600;color:${C.text};margin-bottom:4px">${T.f3Title}</div>
-                  <div style="font-size:14px;line-height:1.55;color:${C.muted}">${T.f3Body}</div>
+                  <div style="font-size:15.5px;font-weight:700;color:${C.text};margin-bottom:4px">${T.f3Title}</div>
+                  <div style="font-size:13.5px;line-height:1.6;color:${C.muted};letter-spacing:0.2px">${T.f3Body}</div>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- Separator -->
-        <tr><td style="padding:0 32px"><div style="border-top:1px solid ${C.border}"></div></td></tr>
-
-        <!-- BLOC PLANS -->
+        <!-- PLANS — 3 mini-cards (Free / Pro / Elite) -->
         <tr>
-          <td style="padding:24px 32px 24px 32px">
-            <div style="font-size:13px;font-weight:600;color:${C.primary};letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase">${T.plansTitle}</div>
-            <p style="margin:0;font-size:14px;line-height:1.55;color:${C.muted}">${T.plansBody}</p>
-            <a href="${PLANS}" style="display:inline-block;margin-top:14px;padding:10px 18px;background:${C.surface};border:1px solid ${C.border};color:${C.text};text-decoration:none;font-weight:600;font-size:13px;border-radius:8px">${isEn ? 'Compare plans' : 'Comparer les plans'} →</a>
+          <td style="padding:0 32px 8px 32px">
+            <div style="font-size:11px;letter-spacing:1.8px;color:${C.muted};font-weight:600;text-transform:uppercase;margin-bottom:14px">${T.plansTitle}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 24px 32px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <!-- Free -->
+                <td valign="top" width="33%" style="padding-right:6px">
+                  <div style="background:${C.surface2};border:1px solid ${C.border};border-radius:12px;padding:14px 14px 16px 14px;height:100%">
+                    <div style="font-size:13px;font-weight:700;color:${C.text};margin-bottom:4px">${T.planFreeName}</div>
+                    <div style="font-size:11.5px;line-height:1.5;color:${C.muted}">${T.planFreeBody}</div>
+                  </div>
+                </td>
+                <!-- Pro (highlighted) -->
+                <td valign="top" width="33%" style="padding:0 6px">
+                  <div style="background:linear-gradient(135deg,rgba(116,185,255,0.10),rgba(162,155,254,0.06));border:1px solid rgba(116,185,255,0.28);border-radius:12px;padding:14px 14px 16px 14px;height:100%;position:relative">
+                    <div style="font-size:13px;font-weight:700;background:linear-gradient(135deg,${C.primary},${C.primary2});-webkit-background-clip:text;background-clip:text;color:${C.primary};margin-bottom:4px">${T.planProName}</div>
+                    <div style="font-size:11.5px;line-height:1.5;color:${C.textDim}">${T.planProBody}</div>
+                  </div>
+                </td>
+                <!-- Elite -->
+                <td valign="top" width="33%" style="padding-left:6px">
+                  <div style="background:${C.surface2};border:1px solid ${C.border};border-radius:12px;padding:14px 14px 16px 14px;height:100%">
+                    <div style="font-size:13px;font-weight:700;color:${C.text};margin-bottom:4px">${T.planEliteName}</div>
+                    <div style="font-size:11.5px;line-height:1.5;color:${C.muted}">${T.planEliteBody}</div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+            <div style="text-align:center;margin-top:18px">
+              <a href="${PLANS}" style="display:inline-block;padding:11px 22px;background:transparent;border:1px solid ${C.borderStrong};color:${C.text};text-decoration:none;font-weight:600;font-size:13px;border-radius:9px">${T.plansCta} →</a>
+            </div>
           </td>
         </tr>
 
         <!-- FOOTER -->
         <tr>
-          <td style="padding:24px 32px 32px 32px;background:${C.bg};text-align:center;border-top:1px solid ${C.border}">
-            <div style="font-size:12px;color:${C.muted};line-height:1.6">
+          <td style="padding:24px 32px 30px 32px;text-align:center;border-top:1px solid ${C.border}">
+            <div style="font-size:12px;color:${C.mutedDeep};line-height:1.7">
               ${T.footerNote}<br>
               ${T.contact} <a href="mailto:${CONTACT_EMAIL}" style="color:${C.primary};text-decoration:none">${CONTACT_EMAIL}</a>
             </div>
-            <div style="margin-top:14px;font-size:11px;color:${C.muted}">
-              <a href="${UNSUB}" style="color:${C.muted};text-decoration:underline">${T.unsubscribe}</a>
+            <div style="margin-top:14px;font-size:11px;color:${C.mutedDeep}">
+              <a href="${UNSUB}" style="color:${C.mutedDeep};text-decoration:underline">${T.unsubscribe}</a>
               &nbsp;·&nbsp;
-              <a href="https://kairosinsider.fr/cgu" style="color:${C.muted};text-decoration:underline">${isEn ? 'Terms' : 'CGU'}</a>
+              <a href="https://kairosinsider.fr/cgu" style="color:${C.mutedDeep};text-decoration:underline">${isEn ? 'Terms' : 'CGU'}</a>
               &nbsp;·&nbsp;
-              <a href="https://kairosinsider.fr/privacy" style="color:${C.muted};text-decoration:underline">${isEn ? 'Privacy' : 'Confidentialité'}</a>
+              <a href="https://kairosinsider.fr/privacy" style="color:${C.mutedDeep};text-decoration:underline">${isEn ? 'Privacy' : 'Confidentialité'}</a>
             </div>
-            <div style="margin-top:14px;font-size:10.5px;color:${C.muted};line-height:1.5">${T.legal}</div>
+            <div style="margin-top:14px;font-size:10.5px;color:${C.mutedDeep};line-height:1.5">${T.legal}</div>
           </td>
         </tr>
 
