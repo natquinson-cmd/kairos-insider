@@ -128,10 +128,13 @@ jobs:
         # FORCE_FULL : si workflow_dispatch.force_full == 'true', force le refetch
         # complet 90 jours (ignore l'historique existant). Utile pour back-enrichir
         # les transactions avec les nouveaux champs preserves (code, ad, insiderCik).
+        # Timeout adapte au mode : 25 min en incremental (cron quotidien : 2-3 jours
+        # a fetch, suffit largement) ; 90 min en FORCE_FULL (90 jours = ~45k filings
+        # x rate-limit SEC 10 req/s = 75 min typique).
         env:
           FORCE_FULL: ${{ github.event.inputs.force_full == 'true' && '1' || '' }}
         run: cd worker && python prefetch-all.py
-        timeout-minutes: 30
+        timeout-minutes: ${{ github.event.inputs.force_full == 'true' && 90 || 25 }}
 
       - name: Fetch BaFin Directors' Dealings (DE + Europe)
         run: cd worker && python fetch-bafin.py
