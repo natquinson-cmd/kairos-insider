@@ -3000,26 +3000,34 @@ async function handleInsiderProfile(url, env, origin) {
     return jsonResponse({ error: 'Missing name or cik' }, 400, origin);
   }
 
-  // Cache key : prefer CIK (canonical), fallback name. Lowercase pour name.
-  const cacheKey = cikParam
-    ? `profile:cik:${cikParam}`
-    : `profile:name:${nameParam.toLowerCase()}`;
+  // Cache key v2 (mai 2026) : invalide les caches du WHERE CIK-only qui
+  // retournaient 0 rows pour les vieux insiders sans insider_cik populated.
+  // Maintenant on cle par (cik|name) combine.
+  const cacheKey = `profile:v2:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return jsonResponse(cached, 200, origin);
   } catch {}
 
-  // WHERE clause : par CIK (precis) ou par nom (fallback, case-insensitive
-  // via UPPER comparison). Le name match peut etre noisy (homonymes) mais
-  // c'est le seul recours pour les anciennes lignes pre-Phase B sans CIK.
-  let whereClause, binding;
+  // WHERE clause : CIK (precis, Phase B) OU nom (case-insensitive, legacy).
+  // FIX (mai 2026) : avant on prenait UN seul critere (priorite CIK). Mais
+  // les anciennes lignes ont insider_cik = NULL meme pour le meme dirigeant.
+  // Si l'user clique un nom dont la row a CIK = 'X', et que ses autres
+  // transactions ont insider_cik NULL, on rate les autres rows.
+  // Solution : si les 2 params sont fournis (ce qui est le cas via
+  // openInsiderProfile cote dashboard), on OR -> matche CIK ET les rows
+  // legacy par nom.
+  const conditions = [];
+  const bindings = [];
   if (cikParam) {
-    whereClause = 'WHERE insider_cik = ?';
-    binding = cikParam;
-  } else {
-    whereClause = 'WHERE UPPER(TRIM(insider)) = UPPER(TRIM(?))';
-    binding = nameParam;
+    conditions.push('insider_cik = ?');
+    bindings.push(cikParam);
   }
+  if (nameParam) {
+    conditions.push('UPPER(TRIM(insider)) = UPPER(TRIM(?))');
+    bindings.push(nameParam);
+  }
+  const whereClause = 'WHERE (' + conditions.join(' OR ') + ')';
 
   try {
     // 1. Agregations par ticker (companies where this person is insider)
@@ -3038,7 +3046,7 @@ async function handleInsiderProfile(url, env, origin) {
        GROUP BY ticker, company
        ORDER BY tx_count DESC
        LIMIT 50`
-    ).bind(binding).all();
+    ).bind(...bindings).all();
     const companies = (byTickerRes.results || []).map(r => ({
       ticker: r.ticker || null,
       company: r.company || null,
@@ -3064,7 +3072,7 @@ async function handleInsiderProfile(url, env, origin) {
        ${whereClause}
        GROUP BY COALESCE(trans_code, '_null'), trans_type
        ORDER BY cnt DESC`
-    ).bind(binding).all();
+    ).bind(...bindings).all();
     const typeBreakdown = (byCodeRes.results || []).map(r => ({
       code: r.code === '_null' ? null : r.code,
       transType: r.trans_type,
@@ -3084,7 +3092,7 @@ async function handleInsiderProfile(url, env, origin) {
          AND trans_date >= date('now', '-12 months')
        GROUP BY substr(trans_date, 1, 7)
        ORDER BY ym ASC`
-    ).bind(binding).all();
+    ).bind(...bindings).all();
     const monthlyPattern = (monthRes.results || []).map(r => ({
       yearMonth: r.ym,
       count: r.cnt || 0,
@@ -3101,7 +3109,7 @@ async function handleInsiderProfile(url, env, origin) {
        ${whereClause}
        ORDER BY trans_date DESC, filing_date DESC
        LIMIT 100`
-    ).bind(binding).all();
+    ).bind(...bindings).all();
     const transactions = (txRes.results || []).map(r => ({
       transDate: r.trans_date,
       filingDate: r.filing_date,
@@ -3129,7 +3137,7 @@ async function handleInsiderProfile(url, env, origin) {
        GROUP BY insider, insider_cik
        ORDER BY cnt DESC
        LIMIT 1`
-    ).bind(binding).all();
+    ).bind(...bindings).all();
     const resolvedIdentity = idRes.results && idRes.results[0];
     const insiderName = resolvedIdentity
       ? resolvedIdentity.insider
