@@ -1212,6 +1212,11 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/signals/insider-cluster-detail') {
     return handleSignalsInsiderClusterDetail(url, env, origin);
   }
+  // Profil dirigeant (Phase A+B 2026-05) : cross-company aggregations + tx history
+  // pour 1 insider. Lookup par CIK SEC (canonical) ou par nom (fallback).
+  if (path === '/api/insider/profile') {
+    return handleInsiderProfile(url, env, origin);
+  }
   if (path === '/api/signals/score-movers') {
     return handleSignalsScoreMovers(url, env, origin);
   }
@@ -2971,6 +2976,205 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
     return jsonResponse({ error: 'insider-cluster-detail query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
+
+// ============================================================
+// PROFIL DIRIGEANT (Phase A+B 2026-05)
+// GET /api/insider/profile?name=...&cik=...
+// Renvoie pour un insider donne :
+//   - identite (name, roles vus, CIK SEC s'il existe)
+//   - companies : aggregations par ticker (tx count, buy/sell totals, latest role, holdings)
+//   - typeBreakdown : aggregations par trans_code (buy/sell/award/gift/...)
+//   - monthlyPattern : nombre de tx par mois sur 12 mois (saisonnalite)
+//   - recentTransactions : top 100 tx triees par date desc
+// Priorise insider_cik s'il est fourni (canonical, evite les homonymes) ;
+// fallback sur le nom (case-insensitive, trim).
+// Cache KV 15 min (profile:{cik|name}). Auth Pro+ via le wrapper d'auth.
+// ============================================================
+async function handleInsiderProfile(url, env, origin) {
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 not configured' }, 503, origin);
+  const cikParam = (url.searchParams.get('cik') || '').replace(/\D/g, '').slice(0, 12);
+  const nameParam = (url.searchParams.get('name') || '').trim().slice(0, 120);
+
+  if (!cikParam && !nameParam) {
+    return jsonResponse({ error: 'Missing name or cik' }, 400, origin);
+  }
+
+  // Cache key : prefer CIK (canonical), fallback name. Lowercase pour name.
+  const cacheKey = cikParam
+    ? `profile:cik:${cikParam}`
+    : `profile:name:${nameParam.toLowerCase()}`;
+  try {
+    const cached = await env.CACHE?.get(cacheKey, 'json');
+    if (cached) return jsonResponse(cached, 200, origin);
+  } catch {}
+
+  // WHERE clause : par CIK (precis) ou par nom (fallback, case-insensitive
+  // via UPPER comparison). Le name match peut etre noisy (homonymes) mais
+  // c'est le seul recours pour les anciennes lignes pre-Phase B sans CIK.
+  let whereClause, binding;
+  if (cikParam) {
+    whereClause = 'WHERE insider_cik = ?';
+    binding = cikParam;
+  } else {
+    whereClause = 'WHERE UPPER(TRIM(insider)) = UPPER(TRIM(?))';
+    binding = nameParam;
+  }
+
+  try {
+    // 1. Agregations par ticker (companies where this person is insider)
+    const byTickerRes = await env.HISTORY.prepare(
+      `SELECT
+         ticker, company, MAX(title) as latest_title,
+         COUNT(*) as tx_count,
+         SUM(CASE WHEN trans_type='buy'  THEN COALESCE(value,0) ELSE 0 END) as total_buy,
+         SUM(CASE WHEN trans_type='sell' THEN COALESCE(value,0) ELSE 0 END) as total_sell,
+         SUM(CASE WHEN trans_type NOT IN ('buy','sell') THEN 1 ELSE 0 END) as other_count,
+         MIN(trans_date) as first_tx,
+         MAX(trans_date) as last_tx,
+         MAX(shares_after) as latest_holdings
+       FROM insider_transactions_history
+       ${whereClause}
+       GROUP BY ticker, company
+       ORDER BY tx_count DESC
+       LIMIT 50`
+    ).bind(binding).all();
+    const companies = (byTickerRes.results || []).map(r => ({
+      ticker: r.ticker || null,
+      company: r.company || null,
+      latestTitle: r.latest_title || null,
+      txCount: r.tx_count || 0,
+      totalBuy: r.total_buy || 0,
+      totalSell: r.total_sell || 0,
+      netFlow: (r.total_buy || 0) - (r.total_sell || 0),
+      otherCount: r.other_count || 0,
+      firstTx: r.first_tx || null,
+      lastTx: r.last_tx || null,
+      latestHoldings: r.latest_holdings || null,
+    }));
+
+    // 2. Breakdown par trans_code (Phase 2 enrichi : Don, Vesting, etc.)
+    const byCodeRes = await env.HISTORY.prepare(
+      `SELECT
+         COALESCE(trans_code, '_null') as code,
+         trans_type,
+         COUNT(*) as cnt,
+         SUM(COALESCE(value, 0)) as total_value
+       FROM insider_transactions_history
+       ${whereClause}
+       GROUP BY COALESCE(trans_code, '_null'), trans_type
+       ORDER BY cnt DESC`
+    ).bind(binding).all();
+    const typeBreakdown = (byCodeRes.results || []).map(r => ({
+      code: r.code === '_null' ? null : r.code,
+      transType: r.trans_type,
+      count: r.cnt || 0,
+      totalValue: r.total_value || 0,
+    }));
+
+    // 3. Pattern mensuel sur 12 derniers mois (saisonnalite des trades)
+    const monthRes = await env.HISTORY.prepare(
+      `SELECT
+         substr(trans_date, 1, 7) as ym,
+         COUNT(*) as cnt,
+         SUM(CASE WHEN trans_type='buy'  THEN COALESCE(value,0) ELSE 0 END) as buy_value,
+         SUM(CASE WHEN trans_type='sell' THEN COALESCE(value,0) ELSE 0 END) as sell_value
+       FROM insider_transactions_history
+       ${whereClause}
+         AND trans_date >= date('now', '-12 months')
+       GROUP BY substr(trans_date, 1, 7)
+       ORDER BY ym ASC`
+    ).bind(binding).all();
+    const monthlyPattern = (monthRes.results || []).map(r => ({
+      yearMonth: r.ym,
+      count: r.cnt || 0,
+      buyValue: r.buy_value || 0,
+      sellValue: r.sell_value || 0,
+    }));
+
+    // 4. Transactions recentes (100 dernieres, triees par date desc)
+    const txRes = await env.HISTORY.prepare(
+      `SELECT
+         trans_date, filing_date, ticker, company, title, trans_type, trans_code,
+         shares, price, value, shares_after, source, accession
+       FROM insider_transactions_history
+       ${whereClause}
+       ORDER BY trans_date DESC, filing_date DESC
+       LIMIT 100`
+    ).bind(binding).all();
+    const transactions = (txRes.results || []).map(r => ({
+      transDate: r.trans_date,
+      filingDate: r.filing_date,
+      ticker: r.ticker || null,
+      company: r.company || null,
+      title: r.title || null,
+      transType: r.trans_type || 'other',
+      transCode: r.trans_code || null,
+      shares: r.shares || 0,
+      price: r.price || 0,
+      value: r.value || 0,
+      sharesAfter: r.shares_after || null,
+      source: r.source || null,
+      accession: r.accession || null,
+    }));
+
+    // 5. Identite resolue : nom le plus frequent + CIK si on l'a trouve
+    // Recupere le CIK le plus frequent pour les recherches par nom (peut etre
+    // utile pour deep-link vers SEC EDGAR meme si l'user a cherche par nom).
+    const idRes = await env.HISTORY.prepare(
+      `SELECT insider, insider_cik, COUNT(*) as cnt
+       FROM insider_transactions_history
+       ${whereClause}
+         AND insider_cik IS NOT NULL AND insider_cik != ''
+       GROUP BY insider, insider_cik
+       ORDER BY cnt DESC
+       LIMIT 1`
+    ).bind(binding).all();
+    const resolvedIdentity = idRes.results && idRes.results[0];
+    const insiderName = resolvedIdentity
+      ? resolvedIdentity.insider
+      : (transactions[0] && transactions[0].title ? nameParam : nameParam);
+    const insiderCik = resolvedIdentity
+      ? String(resolvedIdentity.insider_cik || '')
+      : (cikParam || null);
+
+    // Aggregats globaux (somme sur toutes les companies)
+    const totalBuy = companies.reduce((s, c) => s + c.totalBuy, 0);
+    const totalSell = companies.reduce((s, c) => s + c.totalSell, 0);
+    const totalTx = companies.reduce((s, c) => s + c.txCount, 0);
+
+    const result = {
+      identity: {
+        name: insiderName,
+        cik: insiderCik,
+        // Lien SEC EDGAR direct : si on a un CIK, on peut pointer le user
+        // vers la page officielle pour cross-verification.
+        secEdgarUrl: insiderCik
+          ? `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${insiderCik.padStart(10, '0')}&type=4&dateb=&owner=include&count=40`
+          : null,
+      },
+      summary: {
+        totalCompanies: companies.length,
+        totalTransactions: totalTx,
+        totalBuyValue: totalBuy,
+        totalSellValue: totalSell,
+        netFlow: totalBuy - totalSell,
+        firstActivity: companies.reduce((m, c) => !m || (c.firstTx && c.firstTx < m) ? c.firstTx : m, null),
+        lastActivity: companies.reduce((m, c) => !m || (c.lastTx && c.lastTx > m) ? c.lastTx : m, null),
+      },
+      companies,
+      typeBreakdown,
+      monthlyPattern,
+      transactions,
+      generatedAt: new Date().toISOString(),
+    };
+
+    try { await env.CACHE?.put(cacheKey, JSON.stringify(result), { expirationTtl: 900 }); } catch {}
+    return jsonResponse(result, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'insider-profile query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
 
 // ============================================================
 // SIGNAL DETAIL : Score movers (Lot 2 — stub pour route, implémenté plus tard)

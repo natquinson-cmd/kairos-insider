@@ -126,6 +126,9 @@ def collect_inserts():
             ticker = tx.get('ticker') or ''
             company = tx.get('company') or ''
             insider = tx.get('insider') or tx.get('owner') or ''
+            # Phase B (mai 2026) : insider_cik = rptOwnerCik SEC = cle canonique
+            # de la personne (cross-company). NULL pour BaFin/AMF (pas de CIK SEC).
+            insider_cik = str(tx.get('insiderCik') or tx.get('owner_cik') or '').lstrip('0') or ''
             title = tx.get('title') or tx.get('role') or ''
             trans_type = normalize_type(tx.get('type'))
             # Code SEC brut (P/S/A/D/F/M/G/...) - NULL pour BaFin/AMF qui n'ont pas
@@ -154,10 +157,10 @@ def collect_inserts():
             sql_lines.append(
                 f"INSERT OR IGNORE INTO insider_transactions_history "
                 f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                f"insider, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
+                f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
                 f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
                 f"{esc(accession)}, {esc(cik)}, {esc(ticker)}, {esc(company)}, "
-                f"{esc(insider)}, {esc(title)}, {esc(trans_type)}, {esc(trans_code)}, "
+                f"{esc(insider)}, {esc(insider_cik)}, {esc(title)}, {esc(trans_type)}, {esc(trans_code)}, "
                 f"{integer(shares)}, {num(price)}, {num(value)}, "
                 f"{integer(shares_after)}, {integer(line_num)});"
             )

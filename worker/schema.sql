@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS insider_transactions_history (
   ticker TEXT,                    -- ticker (peut etre NULL pour EU non-resolus)
   company TEXT,
   insider TEXT NOT NULL,          -- nom du declarant
+  insider_cik TEXT,               -- CIK SEC du reporting owner (cross-company lookup canonical)
   title TEXT,                     -- role (CEO, CFO, Director, 10% owner...)
   trans_type TEXT NOT NULL,       -- 'buy' | 'sell' | 'other' | 'option-exercise'
   trans_code TEXT,                -- code SEC brut : P/S/A/D/F/M/G/I/J/C/X/W/L/V/Z (NULL pour BaFin/AMF)

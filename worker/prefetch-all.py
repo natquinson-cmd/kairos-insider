@@ -39,6 +39,10 @@ def parse_form4(xml, now_str):
     ticker = get_simple('issuerTradingSymbol')
     company = get_simple('issuerName')
     owner = get_simple('rptOwnerName')
+    # rptOwnerCik (Phase B 2026-05) : CIK SEC du dirigeant, unique meme s'il
+    # change de nom (mariage, divorce...) ou de role. Cle canonique pour le
+    # cross-company lookup (LEVINSON ARTHUR D = CIK 1214128 sur AAPL, GOOGL...).
+    owner_cik = get_simple('rptOwnerCik').lstrip('0') or ''
     title = get_simple('officerTitle')
 
     transactions = []
@@ -79,6 +83,7 @@ def parse_form4(xml, now_str):
         'ticker': ticker,
         'company': company,
         'owner': owner,
+        'ownerCik': owner_cik,  # Phase B : cle canonique cross-company
         'title': title,
         'transactions': transactions,
     }
@@ -198,6 +203,8 @@ for day_offset in range(0, fetch_days):
                 # FIX (mai 2026) : on preserve 'code' (lettre SEC P/S/A/D/F/M/G/...) et
                 # 'ad' (Acquired/Disposed) pour permettre des labels precis cote UI.
                 # Avant on les droppait -> tout finissait en 'other' = perte d'info massive.
+                # Phase B (mai 2026) : 'insiderCik' = rptOwnerCik = cle canonique de la
+                # personne (cross-company lookup pour les fiches dirigeants).
                 for tx in parsed_txs:
                     all_transactions.append({
                         'fileDate': file_date,
@@ -206,6 +213,7 @@ for day_offset in range(0, fetch_days):
                         'ticker': parsed_ticker,
                         'company': parsed['company'] or company_name_meta,
                         'insider': parsed['owner'] or insider_name,
+                        'insiderCik': parsed.get('ownerCik') or '',  # Phase B
                         'title': parsed_title,
                         'type': tx['type'],
                         'code': tx.get('code') or '',      # SEC : P/S/A/D/F/M/G/I/J/C/X/W/L/V/Z
