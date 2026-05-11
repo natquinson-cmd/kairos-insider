@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-mockup-floats-real-fix"></script>
+  <script src="assets/i18n.js?v=20260511-ticker-reduced-motion"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -721,11 +721,16 @@
     /* Réduit les animations pour les users qui l'ont demandé (WCAG 2.3.3).
        Exceptions : les graphiques informatifs (Fear & Greed gauge + chart)
        conservent leurs animations car elles aident a lire la donnee, pas
-       juste decoratives. */
+       juste decoratives.
+       FIX (mai 2026) : ajout de .ticker-tape-track aux exceptions. Avant, sur
+       iOS avec "Reduce Motion" actif (frequent), l'animation tickerScroll
+       passait a 0.01ms iter=1 -> le track sautait a translateX(-50%) et
+       restait fige -> "ticker ne defile pas, infos disparaissent".
+       Le ticker est INFORMATIONNEL (signaux live), pas decoratif. */
     @media (prefers-reduced-motion: reduce) {
-      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *),
-      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *)::before,
-      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *)::after {
+      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *):not(.ticker-tape-track),
+      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *):not(.ticker-tape-track)::before,
+      *:not(#fgNeedle):not(#fgNeedle *):not(#fgHistoryChart):not(#fgHistoryChart *):not(.ticker-tape-track)::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
