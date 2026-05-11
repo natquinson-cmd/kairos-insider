@@ -6455,6 +6455,43 @@
       }
     }
 
+    // FIX (mai 2026) : declenche le mail de bienvenue au signup.
+    //
+    // Bug initial : seul le formulaire newsletter de landing-v2 declenchait
+    // /send-welcome. Les vrais utilisateurs qui creaient un compte (email/
+    // pwd ou Google SSO) sur le dashboard ne recevaient AUCUN mail. Cf le
+    // 1er signup du 11 mai 16:32 reste sans accuse de bienvenue.
+    //
+    // Idempotence : on passe l'uid Firebase au worker qui maintient une
+    // KV `welcome-sent:{uid}` avec TTL 1 an. Si le user se reconnecte plus
+    // tard (sign-out puis sign-in), pas de doublon.
+    //
+    // Fire-and-forget : l'envoi est async non-bloquant. Si Brevo est down
+    // ou si le reseau retourne 500, le signup reussit quand meme. On log
+    // a la console pour debug mais on ne montre pas d'erreur a l'user
+    // (perception 'mail spammy' a eviter).
+    //
+    // Detection lang : on lit le toggle KairosI18n actuel. Fallback FR si
+    // KairosI18n indispo (ex: chargement en cours). Permet aux users qui
+    // ont switche en EN avant de signer de recevoir directement l'EN.
+    async function sendWelcomeEmailFor(user) {
+      if (!user || !user.email || !user.uid) return;
+      try {
+        const lang = (window.KairosI18n && window.KairosI18n.getLang && window.KairosI18n.getLang() === 'en') ? 'en' : 'fr';
+        await fetch(`${API_BASE}/send-welcome`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user.email,
+            lang,
+            uid: user.uid, // active l'idempotence KV cote worker
+          }),
+        });
+      } catch (e) {
+        console.debug('[welcome-email] send failed (non-blocking):', e);
+      }
+    }
+
     async function handleSignup(e) {
       e.preventDefault();
       const email = document.getElementById('signupEmail').value;
@@ -6474,7 +6511,13 @@
       btn.disabled = true;
       try {
         const cred = await window.__fbAuth.createUserWithEmailAndPassword(firebaseAuth, email, password);
-        if (cred?.user?.uid) recordConsent(cred.user.uid, 'email');
+        if (cred?.user?.uid) {
+          recordConsent(cred.user.uid, 'email');
+          // Welcome email (fire-and-forget, idempotent via KV). Cf
+          // sendWelcomeEmailFor() pour le pourquoi : sans cette ligne, les
+          // signups dashboard ne recevaient jamais le mail de bienvenue.
+          sendWelcomeEmailFor(cred.user);
+        }
       } catch (err) {
         const messages = {
           'auth/email-already-in-use': t('auth.error.email_in_use', 'Cet email est déjà utilisé.'),
@@ -6524,6 +6567,11 @@
         const isNewUser = cred?._tokenResponse?.isNewUser === true;
         if (isNewUser && cred?.user?.uid) {
           recordConsent(cred.user.uid, 'google');
+          // Welcome email (fire-and-forget, idempotent via KV). Voir
+          // commentaire sur sendWelcomeEmailFor() pour le rationale.
+          // Note : on n'envoie QUE si isNewUser=true, pour eviter de
+          // re-bombarder les users existants qui se reconnectent.
+          sendWelcomeEmailFor(cred.user);
         }
       } catch (err) {
         if (err.code !== 'auth/popup-closed-by-user') {

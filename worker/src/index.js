@@ -6144,9 +6144,29 @@ async function handleSendWelcome(request, env, origin) {
     const body = await request.json();
     const email = (body.email || '').trim().toLowerCase();
     const lang = (body.lang === 'en' ? 'en' : 'fr');  // strict whitelist
+    // Optionnel : Firebase Auth UID pour idempotence KV. Quand le dashboard
+    // declenche /send-welcome automatiquement au signup, le meme uid peut
+    // re-arriver si le user clear ses cookies + recree compte avec meme
+    // email, ou si le client retry sur erreur reseau. Sans uid (cas
+    // newsletter form ou curl manuel), pas d'idempotence -> on envoie tjrs.
+    const uid = body.uid ? String(body.uid).trim().slice(0, 200) : '';
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!email || !emailRegex.test(email) || email.length > 200) {
       return jsonResponse({ error: 'Invalid email' }, 400, origin);
+    }
+
+    // Idempotence : si on a deja envoye le welcome pour cet uid, skip.
+    // TTL 1 an = un user qui re-signin/relogin 100x ne re-recoit pas le
+    // mail. Si on doit relancer manuellement, le curl sans uid bypasse.
+    const idemKey = uid ? `welcome-sent:${uid}` : null;
+    if (idemKey) {
+      const already = await env.CACHE.get(idemKey).catch(() => null);
+      if (already) {
+        return jsonResponse({
+          ok: true, skipped: true, reason: 'already-sent',
+          sentAt: already,
+        }, 200, origin);
+      }
     }
 
     const { subject, html } = buildWelcomeEmail(lang);
@@ -6182,6 +6202,15 @@ async function handleSendWelcome(request, env, origin) {
       const errText = await brevoResponse.text().catch(() => '');
       console.error('Brevo error:', brevoResponse.status, errText);
       return jsonResponse({ error: 'Email service error' }, 500, origin);
+    }
+
+    // Marque l'envoi en KV pour idempotence (uniquement si uid fourni).
+    // 1 an = couvre largement les cas reels de re-login multiples.
+    if (idemKey) {
+      const sentAt = new Date().toISOString();
+      await env.CACHE.put(idemKey, sentAt, {
+        expirationTtl: 365 * 24 * 3600,
+      }).catch(() => {});
     }
 
     const data = await brevoResponse.json();
