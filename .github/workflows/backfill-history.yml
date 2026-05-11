@@ -1,0 +1,182 @@
+name: Backfill History (force_full SEC + push D1)
+
+# =================================================================
+# Workflow MANUEL ONLY pour back-enrichir l'historique insider 90j.
+# =================================================================
+# Pourquoi separe de update-13f.yml :
+# - update-13f.yml tourne quotidiennement (cron 1h30 UTC) en mode
+#   incremental : ~2-3 jours a fetch via SEC EDGAR, total ~25 min.
+#   Timeout strict pour ne pas bloquer le runner.
+# - backfill-history.yml ne tourne QUE manuellement (workflow_dispatch)
+#   pour des operations de back-enrichissement one-shot, typiquement :
+#   * Apres ajout d'un nouveau champ a la table D1 (ex: trans_code,
+#     insider_cik) → on doit re-fetch les 90 derniers jours pour
+#     populer le champ sur les anciennes lignes.
+#   * Apres un fix de parsing prefetch-all.py → on re-fetch pour
+#     corriger les valeurs en base.
+# - Le workflow precedent essayait de gerer les 2 cas via un input
+#   force_full + timeout-minutes dynamique. Resultat : timeouts au
+#   bout de 90 min car la chaine complete (prefetch + BaFin + AMF +
+#   13D/G + Trends + ETF + push D1) ne tient pas dans 90 min en mode
+#   force_full. Cf run 25670195267 du 11 mai 2026, kill a 14:42 UTC.
+#
+# Ce workflow :
+# - Job timeout = 360 min (max GitHub free) au lieu de 90 min.
+# - Step prefetch-all timeout = 180 min (3h) avec headroom large.
+# - PYTHONUNBUFFERED=1 herite au niveau job → logs en live en cas
+#   de kill (vs les 90 min de silence total du run precedent).
+# - Skip les etapes hors-scope du backfill insider : 13D/G, Google
+#   Trends, ETF data, Short Interest, Kairos Scores. Ces dataset
+#   sont enrichis par le cron quotidien et n'ont rien a voir avec
+#   le back-enrichissement trans_code / insider_cik.
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_bafin:
+        description: 'Skip BaFin fetch (DE Directors Dealings) ?'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      skip_amf:
+        description: 'Skip AMF fetch (FR dirigeants) ?'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+# Variables heritees par tous les steps :
+# - CLOUDFLARE_* : credentials pour wrangler kv put / D1
+# - PYTHONUNBUFFERED=1 : essentiel ici, sans ca les logs sont vides
+#   en cas de kill par timeout (cf run 25670195267).
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    # 6h = 360 min = max free tier GitHub Actions. Headroom genereux
+    # pour faire passer toute la chaine (prefetch-all 90 min + downstream
+    # 30 min) avec marge pour les retries reseau / backoff SEC EDGAR.
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      # ===== ETAPE 1 : SEC EDGAR Form 4 force-full 90 jours =====
+      # On part de zero (pas de download de l'existant car FORCE_FULL=1
+      # ignore l'historique de toute facon). 90 jours x rate-limit SEC
+      # 10 req/s = 75-90 min typique. Timeout 180 min = 2x headroom.
+      - name: Force-full SEC fetch (prefetch-all.py FORCE_FULL=1)
+        env:
+          FORCE_FULL: '1'
+        run: cd worker && python prefetch-all.py
+        timeout-minutes: 180
+
+      # ===== ETAPE 2 : BaFin (DE Directors Dealings) =====
+      # Skipable via input. Utile de l'inclure pour avoir un push D1
+      # complet (transactions DE recentes aussi enrichies).
+      - name: Fetch BaFin Directors' Dealings (DE + Europe)
+        if: ${{ github.event.inputs.skip_bafin != 'true' }}
+        run: cd worker && python fetch-bafin.py
+        timeout-minutes: 10
+        continue-on-error: true
+
+      # ===== ETAPE 3 : AMF (FR dirigeants) =====
+      - name: Fetch AMF Declarations dirigeants (FR + Euronext)
+        if: ${{ github.event.inputs.skip_amf != 'true' }}
+        run: cd worker && python fetch-amf.py
+        timeout-minutes: 15
+        continue-on-error: true
+
+      # ===== ETAPE 4 : Enrich tickers BaFin+AMF via OpenFIGI =====
+      - name: Restore ISIN->ticker cache
+        if: ${{ github.event.inputs.skip_bafin != 'true' || github.event.inputs.skip_amf != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: worker/isin_ticker_cache.json
+          key: isin-ticker-cache-v1
+
+      - name: Enrich BaFin + AMF transactions with tickers (OpenFIGI)
+        if: ${{ github.event.inputs.skip_bafin != 'true' || github.event.inputs.skip_amf != 'true' }}
+        run: cd worker && python enrich-tickers.py
+        timeout-minutes: 15
+        continue-on-error: true
+
+      # ===== ETAPE 5 : Merge SEC + BaFin + AMF =====
+      # Produit transactions_data.json (le fichier consomme par
+      # push-insiders-to-d1.py et par le KV insider-transactions).
+      - name: Merge sources (SEC + BaFin + AMF) into unified transactions_data.json
+        run: cd worker && python merge-sources.py
+        timeout-minutes: 5
+
+      # ===== ETAPE 6 : Upload Transactions+Clusters au KV =====
+      # On remplace l'integralite du KV insider-transactions par la
+      # version back-enrichie. C'est OK car merge-sources.py garde
+      # bien l'historique completselon la meme logique que le cron.
+      - name: Upload Transactions + Clusters to KV
+        run: |
+          cd worker
+          if [ -f transactions_data.json ]; then
+            wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-transactions" --path=transactions_data.json
+            echo "Transactions uploaded ($(wc -c < transactions_data.json) bytes)"
+          else
+            echo "ERROR: transactions_data.json missing"
+            exit 1
+          fi
+          if [ -f clusters_data.json ]; then
+            wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-clusters" --path=clusters_data.json
+            echo "Clusters uploaded"
+          fi
+        timeout-minutes: 10
+
+      # ===== ETAPE 7 : Push Insider Transactions vers D1 =====
+      # OBJECTIF PRINCIPAL DU BACKFILL : les anciennes lignes D1 ont
+      # NULL sur les nouveaux champs (trans_code, insider_cik). Ce
+      # push utilise INSERT OR REPLACE → les rows existantes sont
+      # UPDATE-ees avec les nouvelles valeurs. Apres ce step, les 90
+      # derniers jours d'historique sont totalement enrichis.
+      - name: Push Insider Transactions history to D1 (back-enrich trans_code + insider_cik)
+        run: |
+          cd worker
+          python push-insiders-to-d1.py
+        timeout-minutes: 60
+
+      # ===== ETAPE 8 : Summary =====
+      - name: Summary
+        if: always()
+        run: |
+          cd worker
+          echo "=== Backfill summary ==="
+          echo "BaFin skipped: ${{ github.event.inputs.skip_bafin }}"
+          echo "AMF skipped: ${{ github.event.inputs.skip_amf }}"
+          if [ -f transactions_data.json ]; then
+            python -c "
+          import json
+          with open('transactions_data.json') as f: d = json.load(f)
+          tx = d.get('transactions', d) if isinstance(d, dict) else d
+          if isinstance(tx, list):
+              # Compte combien ont trans_code populated (back-enrich efficace ?)
+              with_code = sum(1 for t in tx if t.get('code') or t.get('transCode'))
+              with_cik = sum(1 for t in tx if t.get('insiderCik'))
+              print(f'  Total tx: {len(tx)}')
+              print(f'  Avec trans_code: {with_code} ({100*with_code//max(1,len(tx))}%)')
+              print(f'  Avec insider_cik: {with_cik} ({100*with_cik//max(1,len(tx))}%)')
+          " 2>/dev/null || echo "  (parsing optionnel)"
+          fi

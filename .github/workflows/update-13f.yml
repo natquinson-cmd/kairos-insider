@@ -8,16 +8,10 @@ on:
     # Heures HH:30 evitent le pic top-of-hour de queue GitHub.
     # Run total: ~50 min (insiders SEC + AMF + BaFin + 13F + ETFs + Trends)
     - cron: '30 1 * * *'
+  # Manuel autorise mais SANS input force_full : pour les back-enrichissements
+  # one-shot (90 jours d'historique), utiliser backfill-history.yml qui a un
+  # timeout 6h (vs 25 min ici).
   workflow_dispatch:
-    inputs:
-      force_full:
-        description: 'Force full refetch (90 jours, ignore l historique) - utile pour back-enrichir les nouveaux champs (trans_code, insider_cik)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
 
 jobs:
   update-data:
@@ -133,16 +127,15 @@ jobs:
         continue-on-error: true
 
       - name: Unified fetch (Transactions + Clusters from same source)
-        # FORCE_FULL : si workflow_dispatch.force_full == 'true', force le refetch
-        # complet 90 jours (ignore l'historique existant). Utile pour back-enrichir
-        # les transactions avec les nouveaux champs preserves (code, ad, insiderCik).
-        # Timeout adapte au mode : 25 min en incremental (cron quotidien : 2-3 jours
-        # a fetch, suffit largement) ; 90 min en FORCE_FULL (90 jours = ~45k filings
-        # x rate-limit SEC 10 req/s = 75 min typique).
-        env:
-          FORCE_FULL: ${{ github.event.inputs.force_full == 'true' && '1' || '' }}
+        # Mode incremental UNIQUEMENT : on lit transactions_data.json existant
+        # via le step "Download existing transactions from KV" ci-dessus, et
+        # prefetch-all.py ne refetche que les ~2-3 derniers jours. ~25 min max.
+        #
+        # Pour un back-enrichissement complet 90 jours (apres ajout d'un
+        # nouveau champ a la table D1), utiliser backfill-history.yml qui a
+        # un timeout 6h et est dedie a cet usage one-shot.
         run: cd worker && python prefetch-all.py
-        timeout-minutes: ${{ github.event.inputs.force_full == 'true' && 90 || 25 }}
+        timeout-minutes: 25
 
       - name: Fetch BaFin Directors' Dealings (DE + Europe)
         run: cd worker && python fetch-bafin.py
