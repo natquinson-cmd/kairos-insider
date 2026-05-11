@@ -286,6 +286,27 @@ export const EU_YAHOO_SYMBOLS = [
   { match: 'PARTNERS GROUP', symbol: 'PGHN.SW' },
   { match: 'SWISSCOM', symbol: 'SCMN.SW' },
   { match: 'GEBERIT', symbol: 'GEBN.SW' },
+  { match: 'IDORSIA', symbol: 'IDIA.SW' },        // pharma (spin-off Actelion)
+  { match: 'GALENICA', symbol: 'GALE.SW' },       // pharma distribution
+  { match: 'CHOCOLADEFABRIKEN LINDT', symbol: 'LISN.SW' },
+  { match: 'LINDT & SPRUNGLI', symbol: 'LISN.SW' },
+  { match: 'LINDT', symbol: 'LISN.SW' },
+  { match: 'ALLREAL', symbol: 'ALLN.SW' },        // immobilier
+  { match: 'SONOVA', symbol: 'SOON.SW' },         // appareils auditifs
+  { match: 'STRAUMANN', symbol: 'STMN.SW' },      // implants dentaires
+  { match: 'SCHINDLER', symbol: 'SCHP.SW' },      // ascenseurs
+  { match: 'KUEHNE NAGEL', symbol: 'KNIN.SW' },   // logistique
+  { match: 'KUEHNE + NAGEL', symbol: 'KNIN.SW' },
+  { match: 'SIG GROUP', symbol: 'SIGN.SW' },      // packaging
+  { match: 'TEMENOS', symbol: 'TEMN.SW' },        // software banking
+  { match: 'JULIUS BAER', symbol: 'BAER.SW' },
+  { match: 'SWISS LIFE', symbol: 'SLHN.SW' },
+  { match: 'BARRY CALLEBAUT', symbol: 'BARN.SW' },// chocolat industriel
+  { match: 'EMS-CHEMIE', symbol: 'EMSN.SW' },
+  { match: 'CLARIANT', symbol: 'CLN.SW' },
+  { match: 'BASILEA', symbol: 'BSLN.SW' },        // pharma
+  { match: 'POLYPEPTIDE', symbol: 'PPGN.SW' },    // pharma
+  { match: 'VAT GROUP', symbol: 'VACN.SW' },      // vacuum tech (semi)
 
   // ========== ITALIE (FTSE MIB) ==========
   { match: 'ENEL SPA', symbol: 'ENEL.MI' },
