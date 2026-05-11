@@ -2640,10 +2640,15 @@
           userAgent: navigator.userAgent.slice(0, 200)
         });
         try {
+          // FIX (mai 2026) : on passe la langue courante pour que le worker
+          // genere le welcome dans la bonne langue (FR ou EN). Le mail est
+          // maintenant genere cote code (vs templateId Brevo), donc i18n
+          // contrôlee ici. Defaut : 'fr' si KairosI18n indispo.
+          const lang = (window.KairosI18n && window.KairosI18n.getLang && window.KairosI18n.getLang() === 'en') ? 'en' : 'fr';
           await fetch('https://kairos-insider-api.natquinson.workers.dev/send-welcome', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email, lang })
           });
         } catch (e) {}
         message.textContent = t('cta.newsletter_ok', '✓ Parfait ! Vous êtes inscrit à la newsletter.');

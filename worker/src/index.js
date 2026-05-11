@@ -5767,15 +5767,238 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
   console.log(`Welcome email sent to ${email}`);
 }
 
+// ============================================================
+// Welcome email — HTML inline FR + EN (refonte mai 2026)
+// ============================================================
+// Le mail est genere cote code (vs templateId Brevo) car :
+// - le template Brevo etait caduc (reflechissait un produit early stage,
+//   plus aligne avec l'offre actuelle Smart Money multi-marches).
+// - source de verite unique = code, evolution = push git.
+// - i18n FR/EN natif via param `lang`.
+//
+// L'HTML email respecte les contraintes des clients mail :
+// - tables pour layout (pas de flexbox supporte par Outlook < 2019)
+// - CSS inline uniquement (les <style> sont souvent strippes)
+// - largeur max 600px (standard)
+// - logo en absolute URL (pas de chemin relatif)
+// - couleurs en clair (les dark themes cassent dans Outlook)
+function buildWelcomeEmail(lang) {
+  const isEn = lang === 'en';
+  const subject = isEn
+    ? 'Welcome to Kairos Insider — your Smart Money access is ready'
+    : 'Bienvenue sur Kairos Insider — votre accès Smart Money est prêt';
+
+  // Couleurs marque (light theme pour compat Outlook)
+  const C = {
+    bg: '#F8FAFC',          // page background
+    surface: '#FFFFFF',     // card
+    border: '#E2E8F0',
+    text: '#0F172A',        // slate-900
+    muted: '#64748B',       // slate-500
+    primary: '#74b9ff',     // accent bleu
+    primary2: '#a29bfe',    // accent violet (gradient)
+    accent: '#10B981',      // green achat
+    accentRed: '#EF4444',
+  };
+
+  // Copies localisees
+  const T = isEn ? {
+    hero: 'Welcome to Kairos Insider',
+    sub: 'You now have access to the only French-built Smart Money platform tracking insiders, hedge funds, and activists across <strong>11 European + US regulators</strong> in real time.',
+    f1Title: 'Decode any stock in 30 seconds',
+    f1Body: 'Type a ticker and get a <strong>Kairos Score 0–100</strong> synthesizing 8 axes : insiders, hedge funds 13F, ETFs, politicians, price momentum, fundamentals, analysts, valuation.',
+    f2Title: 'Track insider transactions in 9 markets',
+    f2Body: 'SEC (US), AMF (FR), BaFin (DE), FCA (UK), AFM (NL), SIX (CH), CONSOB (IT), CNMV (ES), SEDI (CA). Daily refresh.',
+    f3Title: 'Spot the activist funds early',
+    f3Body: 'Elliott, Ackman, Cevian, Trian, Icahn… when they cross 5% of a company\'s capital, you see it <strong>10 days before</strong> the public 13F filings.',
+    cta: 'Open my dashboard',
+    plansTitle: 'Free, Pro 19€/month and Elite',
+    plansBody: 'Free gives you 5 stock analyses/day + insider flows. <strong>Pro</strong> unlocks unlimited analyses, advanced screener, watchlist + alerts, activists, hedge funds, daily brief. <strong>Elite</strong> adds CSV export, API access, Telegram alerts.',
+    footerNote: 'You\'re receiving this email because you signed up at kairosinsider.fr.',
+    contact: 'Questions ? Just reply — or write to',
+    unsubscribe: 'Unsubscribe',
+    legal: 'Kairos Insider — Smart Money platform for European retail investors. Not investment advice.',
+  } : {
+    hero: 'Bienvenue sur Kairos Insider',
+    sub: 'Vous avez maintenant accès à la seule plateforme française qui suit en temps réel les <strong>dirigeants, hedge funds et activistes</strong> sur 11 régulateurs européens + SEC américaine.',
+    f1Title: 'Décryptez n\'importe quelle action en 30 secondes',
+    f1Body: 'Tapez un ticker et obtenez un <strong>Kairos Score 0–100</strong> synthèse de 8 axes : initiés, hedge funds 13F, ETF, politiciens, momentum prix, fondamentaux, analystes, valorisation.',
+    f2Title: 'Suivez les transactions d\'initiés sur 9 marchés',
+    f2Body: 'SEC (US), AMF (FR), BaFin (DE), FCA (UK), AFM (NL), SIX (CH), CONSOB (IT), CNMV (ES), SEDI (CA). Mise à jour quotidienne.',
+    f3Title: 'Repérez les fonds offensifs en avance',
+    f3Body: 'Elliott, Ackman, Cevian, Trian, Icahn… quand ils franchissent 5% du capital d\'une société, vous le voyez <strong>10 jours avant</strong> les 13F publics.',
+    cta: 'Ouvrir mon dashboard',
+    plansTitle: 'Free, Pro 19€/mois et Elite',
+    plansBody: 'Le plan Free vous offre 5 analyses/jour + les flux d\'initiés. <strong>Pro</strong> débloque les analyses illimitées, le screener avancé, watchlist + alertes, fonds offensifs, hedge funds, brief quotidien. <strong>Elite</strong> ajoute l\'export CSV, l\'API et les alertes Telegram.',
+    footerNote: 'Vous recevez cet email car vous vous êtes inscrit sur kairosinsider.fr.',
+    contact: 'Une question ? Répondez directement — ou écrivez à',
+    unsubscribe: 'Se désinscrire',
+    legal: 'Kairos Insider — Plateforme Smart Money pour investisseurs particuliers européens. Ceci n\'est pas un conseil en investissement.',
+  };
+
+  // Note : on hebergera le logo en absolute URL. assets/logo-256.png deja
+  // deploye sur GitHub Pages -> https://kairosinsider.fr/assets/logo-256.png
+  const LOGO = 'https://kairosinsider.fr/assets/logo-256.png';
+  const DASHBOARD = 'https://kairosinsider.fr/dashboard.html' + (isEn ? '?lang=en' : '');
+  const PLANS = 'https://kairosinsider.fr/dashboard.html#plans' + (isEn ? '&lang=en' : '');
+  const CONTACT_EMAIL = 'contact@kairosinsider.fr';
+  const UNSUB = 'https://kairosinsider.fr/unsubscribe' + (isEn ? '?lang=en' : '');
+
+  // Pre-header (texte cache qui s'affiche dans la preview boite mail)
+  const preheader = isEn
+    ? 'Decode any stock, track insiders + activists across 9 markets. Free plan included.'
+    : 'Décryptez une action, suivez initiés + activistes sur 9 marchés. Plan gratuit inclus.';
+
+  const html = `<!DOCTYPE html>
+<html lang="${isEn ? 'en' : 'fr'}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${C.text};-webkit-font-smoothing:antialiased">
+
+<!-- Preheader cache -->
+<div style="display:none;font-size:1px;color:${C.bg};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden">${preheader}</div>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${C.bg}">
+  <tr>
+    <td align="center" style="padding:32px 16px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:${C.surface};border:1px solid ${C.border};border-radius:16px;overflow:hidden">
+
+        <!-- HEADER : logo + nom -->
+        <tr>
+          <td style="padding:32px 32px 8px 32px;text-align:center">
+            <img src="${LOGO}" alt="Kairos Insider" width="64" height="64" style="display:inline-block;border:0;width:64px;height:64px;border-radius:12px">
+            <div style="margin-top:12px;font-size:13px;letter-spacing:1.4px;color:${C.muted};font-weight:600;text-transform:uppercase">Kairos Insider</div>
+          </td>
+        </tr>
+
+        <!-- HERO -->
+        <tr>
+          <td style="padding:8px 32px 24px 32px;text-align:center">
+            <h1 style="margin:8px 0 12px 0;font-size:26px;line-height:1.2;font-weight:700;color:${C.text}">${T.hero}</h1>
+            <p style="margin:0;font-size:15px;line-height:1.55;color:${C.muted}">${T.sub}</p>
+          </td>
+        </tr>
+
+        <!-- CTA principal -->
+        <tr>
+          <td style="padding:8px 32px 24px 32px;text-align:center">
+            <a href="${DASHBOARD}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,${C.primary},${C.primary2});color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;border-radius:10px">${T.cta} →</a>
+          </td>
+        </tr>
+
+        <!-- Separator -->
+        <tr><td style="padding:0 32px"><div style="border-top:1px solid ${C.border}"></div></td></tr>
+
+        <!-- FEATURE 1 : decryptage -->
+        <tr>
+          <td style="padding:24px 32px 8px 32px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td width="44" valign="top" style="padding-right:14px">
+                  <div style="width:44px;height:44px;border-radius:10px;background:rgba(116,185,255,0.15);text-align:center;line-height:44px;font-size:22px">🔍</div>
+                </td>
+                <td valign="top">
+                  <div style="font-size:15px;font-weight:600;color:${C.text};margin-bottom:4px">${T.f1Title}</div>
+                  <div style="font-size:14px;line-height:1.55;color:${C.muted}">${T.f1Body}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- FEATURE 2 : initiés multi-marchés -->
+        <tr>
+          <td style="padding:16px 32px 8px 32px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td width="44" valign="top" style="padding-right:14px">
+                  <div style="width:44px;height:44px;border-radius:10px;background:rgba(16,185,129,0.13);text-align:center;line-height:44px;font-size:22px">📊</div>
+                </td>
+                <td valign="top">
+                  <div style="font-size:15px;font-weight:600;color:${C.text};margin-bottom:4px">${T.f2Title}</div>
+                  <div style="font-size:14px;line-height:1.55;color:${C.muted}">${T.f2Body}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- FEATURE 3 : activistes -->
+        <tr>
+          <td style="padding:16px 32px 24px 32px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td width="44" valign="top" style="padding-right:14px">
+                  <div style="width:44px;height:44px;border-radius:10px;background:rgba(250,204,21,0.18);text-align:center;line-height:44px;font-size:22px">⚡</div>
+                </td>
+                <td valign="top">
+                  <div style="font-size:15px;font-weight:600;color:${C.text};margin-bottom:4px">${T.f3Title}</div>
+                  <div style="font-size:14px;line-height:1.55;color:${C.muted}">${T.f3Body}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Separator -->
+        <tr><td style="padding:0 32px"><div style="border-top:1px solid ${C.border}"></div></td></tr>
+
+        <!-- BLOC PLANS -->
+        <tr>
+          <td style="padding:24px 32px 24px 32px">
+            <div style="font-size:13px;font-weight:600;color:${C.primary};letter-spacing:0.8px;margin-bottom:8px;text-transform:uppercase">${T.plansTitle}</div>
+            <p style="margin:0;font-size:14px;line-height:1.55;color:${C.muted}">${T.plansBody}</p>
+            <a href="${PLANS}" style="display:inline-block;margin-top:14px;padding:10px 18px;background:${C.surface};border:1px solid ${C.border};color:${C.text};text-decoration:none;font-weight:600;font-size:13px;border-radius:8px">${isEn ? 'Compare plans' : 'Comparer les plans'} →</a>
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td style="padding:24px 32px 32px 32px;background:${C.bg};text-align:center;border-top:1px solid ${C.border}">
+            <div style="font-size:12px;color:${C.muted};line-height:1.6">
+              ${T.footerNote}<br>
+              ${T.contact} <a href="mailto:${CONTACT_EMAIL}" style="color:${C.primary};text-decoration:none">${CONTACT_EMAIL}</a>
+            </div>
+            <div style="margin-top:14px;font-size:11px;color:${C.muted}">
+              <a href="${UNSUB}" style="color:${C.muted};text-decoration:underline">${T.unsubscribe}</a>
+              &nbsp;·&nbsp;
+              <a href="https://kairosinsider.fr/cgu" style="color:${C.muted};text-decoration:underline">${isEn ? 'Terms' : 'CGU'}</a>
+              &nbsp;·&nbsp;
+              <a href="https://kairosinsider.fr/privacy" style="color:${C.muted};text-decoration:underline">${isEn ? 'Privacy' : 'Confidentialité'}</a>
+            </div>
+            <div style="margin-top:14px;font-size:10.5px;color:${C.muted};line-height:1.5">${T.legal}</div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
 async function handleSendWelcome(request, env, origin) {
   try {
     const body = await request.json();
     const email = (body.email || '').trim().toLowerCase();
+    const lang = (body.lang === 'en' ? 'en' : 'fr');  // strict whitelist
     const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     if (!email || !emailRegex.test(email) || email.length > 200) {
       return jsonResponse({ error: 'Invalid email' }, 400, origin);
     }
 
+    const { subject, html } = buildWelcomeEmail(lang);
+
+    // Envoi via Brevo en mode htmlContent direct (vs templateId).
+    // Cf refonte mai 2026 : le template Brevo etait caduc, on bascule sur
+    // une generation cote code (i18n FR/EN, evolution = push git).
     const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -5784,18 +6007,30 @@ async function handleSendWelcome(request, env, origin) {
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        templateId: parseInt(env.BREVO_TEMPLATE_ID),
+        sender: {
+          name: env.BREVO_SENDER_NAME || 'Kairos Insider',
+          email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
+        },
+        replyTo: {
+          name: 'Kairos Insider',
+          email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
+        },
         to: [{ email }],
+        subject,
+        htmlContent: html,
+        // tags pour stats Brevo (filtrer "welcome FR" vs "welcome EN")
+        tags: ['welcome', `welcome-${lang}`],
       }),
     });
 
     if (!brevoResponse.ok) {
-      console.error('Brevo error:', brevoResponse.status);
+      const errText = await brevoResponse.text().catch(() => '');
+      console.error('Brevo error:', brevoResponse.status, errText);
       return jsonResponse({ error: 'Email service error' }, 500, origin);
     }
 
     const data = await brevoResponse.json();
-    return jsonResponse({ ok: true, messageId: data.messageId }, 200, origin);
+    return jsonResponse({ ok: true, messageId: data.messageId, lang }, 200, origin);
   } catch (err) {
     console.error('handleSendWelcome error:', err);
     return jsonResponse({ error: 'Internal error' }, 500, origin);
