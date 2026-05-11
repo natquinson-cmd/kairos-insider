@@ -8055,10 +8055,11 @@ async function handleScheduleDGActivists(url, env, origin) {
 // Output : 30-50 items melanges (rotation aleatoire pour variete visuelle).
 // Cache 5 min KV. Public via /api/ticker-tape (FREE).
 async function handleTickerTape(env, origin) {
-  // v3 (mai 2026) : bump apres fix bug fallback "ticker = nom tronque" qui
-  // creait des items cliquables menant a une fausse fiche stock (ex:
-  // "WELLINGTON MANAG" -> 0P0001LJHT.L fonds UCITS).
-  const cacheKey = 'ticker-tape:v3';
+  // v4 (mai 2026) : bump apres ajout du filtre final unique qui drop tout
+  // item sans ticker valide, quelle que soit sa source. Defense en
+  // profondeur : meme si une source ajoute un futur bug, le filtre
+  // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
+  const cacheKey = 'ticker-tape:v4';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -8175,6 +8176,10 @@ async function handleTickerTape(env, origin) {
     if (insClusters?.clusters) {
       const clusterItems = insClusters.clusters
         .filter(c => c.totalValue >= 1000000)
+        // FIX (mai 2026) : on exige un ticker non-vide. Sans ticker, le clic
+        // dans la barre defilante n'a aucune cible d'analyse (cf bug
+        // "WELLINGTON MANAG" pour les EU thresholds).
+        .filter(c => c.ticker && String(c.ticker).trim())
         .sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''))
         .slice(0, 5);
       for (const c of clusterItems) {
@@ -8228,8 +8233,23 @@ async function handleTickerTape(env, origin) {
     log.warn('ticker-tape.aggregate.error', { error: String(e && e.message || e) });
   }
 
+  // FILTRE FINAL (mai 2026) : derniere ligne de defense. Quelle que soit
+  // la source qui a pousse l'item, on garantit qu'aucun ne sort sans un
+  // ticker valide. Format ticker : 1-12 chars alphanum + . - / _
+  // (ex: AAPL, BNP.PA, BRK-B, 1810.HK, 0P0001LJHT.L). Rejette tout nom
+  // contenant un espace ou des caracteres non-ticker.
+  const TICKER_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,15}$/;
+  const itemsValid = items.filter(it => {
+    const tk = String(it && it.ticker || '').trim();
+    if (!tk) return false;
+    if (!TICKER_RE.test(tk)) {
+      log.warn('ticker-tape.drop.invalid_ticker', { ticker: tk, type: it?.type });
+      return false;
+    }
+    return true;
+  });
   // Shuffle (rotation aleatoire pour variete visuelle entre refreshes)
-  const shuffled = items.sort(() => Math.random() - 0.5).slice(0, 40);
+  const shuffled = itemsValid.sort(() => Math.random() - 0.5).slice(0, 40);
 
   const payload = {
     _cachedAt: Date.now(),
