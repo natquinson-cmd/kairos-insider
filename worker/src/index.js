@@ -5867,11 +5867,49 @@ function buildWelcomeEmail(lang) {
   };
 
   const LOGO = 'https://kairosinsider.fr/assets/logo-256.png';
+  // Icones PNG dediees au mail welcome (96x96 @2x retina, generees via
+  // scripts/generate-email-icons.py). Remplacent les emojis 🔍 ⚡ 🌍 qui
+  // rendaient differemment selon l'OS (Apple emoji != Microsoft emoji !=
+  // Google emoji = pas premium).
+  const ICON_DECODE = 'https://kairosinsider.fr/assets/email/icon-decode.png';
+  const ICON_ACTIVISTS = 'https://kairosinsider.fr/assets/email/icon-activists.png';
+  const ICON_MARKETS = 'https://kairosinsider.fr/assets/email/icon-markets.png';
   const DASHBOARD = 'https://kairosinsider.fr/dashboard.html' + (isEn ? '?lang=en' : '');
   const PLANS = 'https://kairosinsider.fr/dashboard.html#plans' + (isEn ? '&lang=en' : '');
   const FONDS_OFFENSIFS = 'https://kairosinsider.fr/dashboard.html#activists' + (isEn ? '&lang=en' : '');
   const CONTACT_EMAIL = 'contact@kairosinsider.fr';
   const UNSUB = 'https://kairosinsider.fr/unsubscribe' + (isEn ? '?lang=en' : '');
+
+  // Grille des 9 regulateurs : flag chip = drapeau (flagcdn 80px PNG retina)
+  // + acronyme. Affiches en 3 lignes de 3 chips dans la feature 3.
+  // L'ordre privilegie SEC en 1er (volume), FCA en 2 (anglo), puis
+  // BaFin/AMF/AFM/SIX/CONSOB/CNMV/SEDI.
+  const REGULATORS = [
+    { cc: 'us', label: 'SEC' },
+    { cc: 'gb', label: 'FCA' },
+    { cc: 'de', label: 'BaFin' },
+    { cc: 'fr', label: 'AMF' },
+    { cc: 'nl', label: 'AFM' },
+    { cc: 'ch', label: 'SIX' },
+    { cc: 'it', label: 'CONSOB' },
+    { cc: 'es', label: 'CNMV' },
+    { cc: 'ca', label: 'SEDI' },
+  ];
+  // Helper : un chip drapeau + acronyme. width 80 sur flagcdn = retina sharp
+  // a 20px de rendu. Border subtle + bg surface2 pour profondeur.
+  const regChip = (r) => `
+    <td valign="middle" align="center" style="padding:4px" width="33%">
+      <div style="background:${C.surface2};border:1px solid ${C.border};border-radius:9px;padding:8px 6px">
+        <img src="https://flagcdn.com/w80/${r.cc}.png" width="22" height="16" alt="${r.label}" style="display:inline-block;border:0;vertical-align:middle;border-radius:2px">
+        <span style="margin-left:8px;font-size:12.5px;font-weight:600;color:${C.text};vertical-align:middle;letter-spacing:0.2px">${r.label}</span>
+      </div>
+    </td>`;
+  const regulatorsGrid = `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:6px">
+      <tr>${REGULATORS.slice(0, 3).map(regChip).join('')}</tr>
+      <tr>${REGULATORS.slice(3, 6).map(regChip).join('')}</tr>
+      <tr>${REGULATORS.slice(6, 9).map(regChip).join('')}</tr>
+    </table>`;
 
   const preheader = isEn
     ? 'Track insiders, hedge funds and activists across 9 markets. The signals 45 days before the rest.'
@@ -5977,11 +6015,11 @@ function buildWelcomeEmail(lang) {
 
         <!-- FEATURE 1 -->
         <tr>
-          <td style="padding:0 32px 16px 32px">
+          <td style="padding:0 32px 18px 32px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td width="48" valign="top" style="padding-right:16px">
-                  <div style="width:42px;height:42px;border-radius:11px;background:rgba(116,185,255,0.12);border:1px solid rgba(116,185,255,0.22);text-align:center;line-height:42px;font-size:20px">🔍</div>
+                <td width="56" valign="top" style="padding-right:16px">
+                  <img src="${ICON_DECODE}" alt="" width="48" height="48" style="display:block;border:0;width:48px;height:48px">
                 </td>
                 <td valign="top">
                   <div style="font-size:15.5px;font-weight:700;color:${C.text};margin-bottom:4px">${T.f1Title}</div>
@@ -5994,11 +6032,11 @@ function buildWelcomeEmail(lang) {
 
         <!-- FEATURE 2 -->
         <tr>
-          <td style="padding:0 32px 16px 32px">
+          <td style="padding:0 32px 18px 32px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td width="48" valign="top" style="padding-right:16px">
-                  <div style="width:42px;height:42px;border-radius:11px;background:rgba(250,204,21,0.13);border:1px solid rgba(250,204,21,0.25);text-align:center;line-height:42px;font-size:20px">⚡</div>
+                <td width="56" valign="top" style="padding-right:16px">
+                  <img src="${ICON_ACTIVISTS}" alt="" width="48" height="48" style="display:block;border:0;width:48px;height:48px">
                 </td>
                 <td valign="top">
                   <div style="font-size:15.5px;font-weight:700;color:${C.text};margin-bottom:4px">${T.f2Title}</div>
@@ -6014,8 +6052,8 @@ function buildWelcomeEmail(lang) {
           <td style="padding:0 32px 32px 32px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
-                <td width="48" valign="top" style="padding-right:16px">
-                  <div style="width:42px;height:42px;border-radius:11px;background:rgba(16,185,129,0.13);border:1px solid rgba(16,185,129,0.25);text-align:center;line-height:42px;font-size:20px">🌍</div>
+                <td width="56" valign="top" style="padding-right:16px">
+                  <img src="${ICON_MARKETS}" alt="" width="48" height="48" style="display:block;border:0;width:48px;height:48px">
                 </td>
                 <td valign="top">
                   <div style="font-size:15.5px;font-weight:700;color:${C.text};margin-bottom:4px">${T.f3Title}</div>
