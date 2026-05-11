@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260510-logout-reload"></script>
+  <script src="assets/i18n.js?v=20260511-mobile-grid-overflow"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -932,9 +932,15 @@
         min-height: 40px;
       }
 
-      /* Grilles qui étaient en auto-fit : force 1 col si écran étroit */
+      /* Grilles qui étaient en auto-fit : force 1 col si écran étroit.
+         FIX mobile (mai 2026) : ajout du sélecteur descendant (sans ">") pour
+         capter les grilles IMBRIQUEES dans .section-page (ex : la grille radar
+         Kairos Score + breakdown 8 axes qui avait minmax(380px,1fr) fixe et
+         debordait sur mobile). Le ">" original ne ciblait que les enfants
+         directs et laissait passer les grilles internes des render*. */
       .charts-row,
-      .section-page > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+      .section-page > div[style*="grid-template-columns"],
+      .section-page div[style*="grid-template-columns"][style*="minmax"] { grid-template-columns: 1fr !important; }
 
       /* Modals plein écran */
       #supportModal > div,
@@ -11052,8 +11058,12 @@
             </div>
           </div>
 
-          <!-- LIGNE 2 : radar (gauche, AGRANDI) | breakdown 8 axes (droite, plus serre) -->
-          <div style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(380px, 1fr) minmax(320px, 1fr);gap:18px;align-items:center">
+          <!-- LIGNE 2 : radar (gauche, AGRANDI) | breakdown 8 axes (droite, plus serre)
+               FIX mobile (mai 2026) : auto-fit pour collapse en 1 col < 700px.
+               Avant : "minmax(380px, 1fr) minmax(320px, 1fr)" = 700px min total
+               -> overflow horizontal sur mobile (le user ne voyait plus la partie
+               droite et ne pouvait pas dezoomer). -->
+          <div class="kairos-score-row" style="position:relative;z-index:1;display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:18px;align-items:center">
 
             <!-- Radar SVG (column 1, max-width:520 vs 440 avant pour gain ~18%) -->
             <div style="position:relative;text-align:center">
