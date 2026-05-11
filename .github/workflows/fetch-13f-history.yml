@@ -23,6 +23,12 @@ on:
         required: false
         default: '50'
 
+# PYTHONUNBUFFERED=1 : sans ca, Python buffer stdout en CI (pipe vs tty)
+# et si un step timeout, tout le buffer de prints est perdu (cf bug
+# observe sur update-13f.yml run 25670195267).
+env:
+  PYTHONUNBUFFERED: '1'
+
 jobs:
   fetch-history:
     runs-on: ubuntu-latest

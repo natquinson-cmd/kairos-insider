@@ -29,6 +29,14 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # FIX (mai 2026) : sans ca, Python buffer stdout en blocs de 8 KB
+      # car CI != terminal. Les print() restent en buffer et ne sont flushes
+      # qu'a la sortie normale du process. Si un step est kill par timeout
+      # (cf run 25670195267, prefetch-all.py kill a 90 min FORCE_FULL),
+      # tout le buffer est perdu -> logs vides -> impossible de diagnostiquer
+      # OU le script etait bloque. PYTHONUNBUFFERED=1 force l'ecriture
+      # immediate apres chaque print(), exposant la progression en live.
+      PYTHONUNBUFFERED: '1'
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4

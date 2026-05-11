@@ -32,6 +32,15 @@ on:
     - cron: '30 1 * * *'
   workflow_dispatch:
 
+# Variables exposees a tous les jobs et steps de ce workflow.
+# PYTHONUNBUFFERED=1 force l'ecriture immediate de stdout apres chaque
+# print() — indispensable en CI ou Python detecte un pipe (vs terminal)
+# et active le block buffering par defaut. Sans ca, en cas de timeout
+# d'un step, tout le buffer de prints est perdu = logs vides = pas de
+# diagnostic (cf bug observe sur update-13f.yml run 25670195267).
+env:
+  PYTHONUNBUFFERED: '1'
+
 jobs:
   amf-thresholds:
     runs-on: ubuntu-latest
