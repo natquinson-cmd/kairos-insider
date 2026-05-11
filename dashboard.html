@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-insider-profile"></script>
+  <script src="assets/i18n.js?v=20260511-insider-profile-i18n"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -5865,55 +5865,108 @@
 
     // Traductions des codes SEC Form 4 (transactionCode) vers label + tooltip
     // Reference officielle : https://www.sec.gov/about/forms/form4data.pdf
-    // Expose sur window pour reutilisation dans renderInsiderProfile.
-    window.TX_TYPES = {
-      'P': 'Achat', 'S': 'Vente', 'A': 'Attribution', 'D': 'Cession',
-      'G': 'Don', 'M': 'Exercice', 'F': 'Retenue fiscale', 'X': 'Exercice',
-      'C': 'Conversion', 'E': 'Expiration', 'H': 'Expiration anticipée',
-      'I': 'Acquisition discrétionnaire', 'W': 'Acquisition volontaire',
-      'J': 'Divers', 'L': 'Petit achat', 'V': 'Déclaration volontaire',
-      'Z': 'Fiducie de vote',
+    // FR + EN : deux maps separees, selectionnees dynamiquement via getLang()
+    // dans getTxTypes() / getTxTypesTip(). Permet le hot-swap au changement
+    // de langue sans recharger la page.
+    const TX_TYPES_MAP = {
+      fr: {
+        'P': 'Achat', 'S': 'Vente', 'A': 'Attribution', 'D': 'Cession',
+        'G': 'Don', 'M': 'Exercice', 'F': 'Retenue fiscale', 'X': 'Exercice',
+        'C': 'Conversion', 'E': 'Expiration', 'H': 'Expiration anticipée',
+        'I': 'Acquisition discrétionnaire', 'W': 'Acquisition volontaire',
+        'J': 'Divers', 'L': 'Petit achat', 'V': 'Déclaration volontaire',
+        'Z': 'Fiducie de vote',
+      },
+      en: {
+        'P': 'Buy', 'S': 'Sell', 'A': 'Award', 'D': 'Disposition',
+        'G': 'Gift', 'M': 'Exercise', 'F': 'Tax withhold', 'X': 'Exercise',
+        'C': 'Conversion', 'E': 'Expiration', 'H': 'Early expiration',
+        'I': 'Discretionary', 'W': 'Inheritance',
+        'J': 'Other', 'L': 'Small acq.', 'V': 'Voluntary',
+        'Z': 'Voting trust',
+      },
     };
-    // Tooltip detaille pour chaque code SEC : explique CE QUE c'est
-    // (acquisition/disposition + nature) et le signal sous-jacent.
-    const TX_TYPES_TIP = {
-      'P': 'Achat marché ouvert — vrai signal bullish (insider met son argent)',
-      'S': 'Vente marché ouvert — peut être bear, ou simplement diversification',
-      'A': 'Attribution gratuite (RSU vesting, performance shares) — rémunération, signal neutre',
-      'D': 'Cession à l\'émetteur (typiquement retenue fiscale lors du vesting) — signal neutre',
-      'F': 'Retenue de titres pour payer l\'exercice ou l\'impôt — signal neutre',
-      'M': 'Exercice d\'option dérivée — souvent suivi d\'une vente (à surveiller)',
-      'G': 'Don de titres (charité, famille) — signal neutre, pas bear',
-      'I': 'Transaction discrétionnaire via plan d\'entreprise — signal neutre',
-      'J': 'Autre acquisition / disposition (catégorie fourre-tout SEC)',
-      'C': 'Conversion d\'un titre dérivé en actions ordinaires — signal neutre',
-      'X': 'Exercice d\'option in-the-money — souvent suivi de vente',
-      'W': 'Acquisition par testament / succession — signal neutre',
-      'L': 'Petite acquisition (<10 000 $) exemptée — signal très faible',
-      'V': 'Déclaration volontaire (pas obligatoire au sens SEC)',
-      'Z': 'Dépôt ou retrait depuis fiducie de vote',
-      'E': 'Expiration d\'une position dérivée longue',
-      'H': 'Expiration ou annulation d\'une position dérivée courte',
+    const TX_TYPES_TIP_MAP = {
+      fr: {
+        'P': 'Achat marché ouvert — vrai signal bullish (insider met son argent)',
+        'S': 'Vente marché ouvert — peut être bear, ou simplement diversification',
+        'A': 'Attribution gratuite (RSU vesting, performance shares) — rémunération, signal neutre',
+        'D': 'Cession à l\'émetteur (typiquement retenue fiscale lors du vesting) — signal neutre',
+        'F': 'Retenue de titres pour payer l\'exercice ou l\'impôt — signal neutre',
+        'M': 'Exercice d\'option dérivée — souvent suivi d\'une vente (à surveiller)',
+        'G': 'Don de titres (charité, famille) — signal neutre, pas bear',
+        'I': 'Transaction discrétionnaire via plan d\'entreprise — signal neutre',
+        'J': 'Autre acquisition / disposition (catégorie fourre-tout SEC)',
+        'C': 'Conversion d\'un titre dérivé en actions ordinaires — signal neutre',
+        'X': 'Exercice d\'option in-the-money — souvent suivi de vente',
+        'W': 'Acquisition par testament / succession — signal neutre',
+        'L': 'Petite acquisition (<10 000 $) exemptée — signal très faible',
+        'V': 'Déclaration volontaire (pas obligatoire au sens SEC)',
+        'Z': 'Dépôt ou retrait depuis fiducie de vote',
+        'E': 'Expiration d\'une position dérivée longue',
+        'H': 'Expiration ou annulation d\'une position dérivée courte',
+      },
+      en: {
+        'P': 'Open market purchase — true bullish signal (insider putting their own money in)',
+        'S': 'Open market sale — can be bearish, or just diversification',
+        'A': 'Free stock award (RSU vesting, performance shares) — compensation, neutral signal',
+        'D': 'Disposition to issuer (typically tax withholding at vesting) — neutral signal',
+        'F': 'Shares withheld to pay exercise or tax — neutral signal',
+        'M': 'Derivative option exercise — often followed by a sale (watch closely)',
+        'G': 'Gift of shares (charity, family) — neutral signal, not bearish',
+        'I': 'Discretionary transaction via company plan — neutral signal',
+        'J': 'Other acquisition / disposition (SEC catch-all category)',
+        'C': 'Conversion of a derivative security to common stock — neutral signal',
+        'X': 'In-the-money option exercise — often followed by sale',
+        'W': 'Inheritance / will acquisition — neutral signal',
+        'L': 'Small acquisition (<$10,000) exempted — very weak signal',
+        'V': 'Voluntary disclosure (not required by SEC)',
+        'Z': 'Deposit or withdrawal from voting trust',
+        'E': 'Long derivative position expiration',
+        'H': 'Short derivative position expiration or cancellation',
+      },
     };
-    // Alias local pour compatibilite avec le code legacy (refs `TX_TYPES`
-    // bareword sans `window.`). Pointe sur la meme map.
-    const TX_TYPES = window.TX_TYPES;
+    function getTxTypes() {
+      const lang = (typeof getLang === 'function') ? getLang() : 'fr';
+      return TX_TYPES_MAP[lang] || TX_TYPES_MAP.fr;
+    }
+    function getTxTypesTip() {
+      const lang = (typeof getLang === 'function') ? getLang() : 'fr';
+      return TX_TYPES_TIP_MAP[lang] || TX_TYPES_TIP_MAP.fr;
+    }
+    // Compat : code legacy reference `TX_TYPES` bareword. On garde une vue
+    // FR par defaut (les composants modernes appellent getTxTypes() pour
+    // recuperer la map a jour selon getLang()).
+    const TX_TYPES = TX_TYPES_MAP.fr;
+    window.TX_TYPES = TX_TYPES;
     // Helper : retourne {label, cls, tooltip} pour un row insider.
-    // Priorise t.transCode/t.code (code SEC granulaire) si dispo, sinon fallback
-    // sur t.type (buy/sell/other) pour les anciennes lignes non enrichies.
-    function txTypeBadge(t) {
-      const code = (t.transCode || t.code || '').toUpperCase();
-      if (code && TX_TYPES[code]) {
-        // Classe CSS : .buy pour P, .sell pour S, .other pour le reste (neutre gris)
+    // Param renomme `tx` pour eviter le shadowing du `t()` global d'i18n.
+    // Priorise tx.transCode/tx.code (code SEC granulaire) si dispo, sinon
+    // fallback sur tx.type (buy/sell/other) pour les anciennes lignes non
+    // enrichies. Lang-aware : getTxTypes()/getTxTypesTip() reflechissent
+    // getLang() dynamiquement.
+    function txTypeBadge(tx) {
+      const code = (tx.transCode || tx.code || '').toUpperCase();
+      const txMap = getTxTypes();
+      const tipMap = getTxTypesTip();
+      const isEn = (typeof getLang === 'function' && getLang() === 'en');
+      if (code && txMap[code]) {
         const cls = code === 'P' ? 'buy' : code === 'S' ? 'sell' : 'other';
-        const label = TX_TYPES[code].toUpperCase();
-        const tip = TX_TYPES_TIP[code] || '';
-        return { label, cls, tooltip: tip ? `Code SEC ${code} — ${tip}` : `Code SEC ${code}` };
+        const label = txMap[code].toUpperCase();
+        const tip = tipMap[code] || '';
+        const codePrefix = isEn ? 'SEC code' : 'Code SEC';
+        return { label, cls, tooltip: tip ? `${codePrefix} ${code} — ${tip}` : `${codePrefix} ${code}` };
       }
       // Fallback : type normalise (anciennes lignes sans code SEC preserve)
-      if (t.type === 'buy') return { label: 'ACHAT', cls: 'buy', tooltip: 'Achat marché ouvert' };
-      if (t.type === 'sell') return { label: 'VENTE', cls: 'sell', tooltip: 'Vente marché ouvert' };
-      return { label: 'AUTRE', cls: 'other', tooltip: 'Type non-buy/sell (vesting RSU, don, exercice option, retenue fiscale...). Le code SEC précis sera disponible après le prochain refresh quotidien.' };
+      if (tx.type === 'buy') return { label: isEn ? 'BUY' : 'ACHAT', cls: 'buy', tooltip: isEn ? 'Open market purchase' : 'Achat marché ouvert' };
+      if (tx.type === 'sell') return { label: isEn ? 'SELL' : 'VENTE', cls: 'sell', tooltip: isEn ? 'Open market sale' : 'Vente marché ouvert' };
+      return {
+        label: isEn ? 'OTHER' : 'AUTRE',
+        cls: 'other',
+        tooltip: isEn
+          ? 'Non-buy/sell type (RSU vesting, gift, option exercise, tax withholding...). The exact SEC code will be available after the next daily refresh.'
+          : 'Type non-buy/sell (vesting RSU, don, exercice option, retenue fiscale...). Le code SEC précis sera disponible après le prochain refresh quotidien.',
+      };
     }
 
     const AD_TYPES = { 'A': 'Achat', 'D': 'Vente' };
@@ -9246,12 +9299,14 @@
       const body = document.getElementById('insiderProfileBody');
       if (!body) return;
       const displayName = name || `CIK ${cik}`;
+      const _back = t('insider.profile.back', '← Retour');
+      const _loading = t('insider.profile.loading', 'Chargement du profil…');
       body.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
-          <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px">← Retour</button>
+          <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px">${_back}</button>
           <h2 style="margin:0;font-size:22px">${escapeHtmlClient(displayName)}</h2>
         </div>
-        <div style="padding:40px;text-align:center;color:var(--text-muted)">Chargement du profil…</div>
+        <div style="padding:40px;text-align:center;color:var(--text-muted)">${_loading}</div>
       `;
       try {
         const params = {};
@@ -9261,10 +9316,12 @@
         renderInsiderProfile(data);
       } catch (e) {
         if (e.code === 'PREMIUM_REQUIRED') return; // paywall affiche par apiFetch
+        const _errPrefix = t('insider.profile.error_prefix', 'Erreur : ');
+        const _retry = t('insider.profile.retry', 'Réessayer');
         body.innerHTML = `
           <div style="padding:40px;text-align:center">
-            <div style="font-size:14px;color:#EF4444;margin-bottom:8px">Erreur : ${escapeHtmlClient(e.message || 'echec du chargement')}</div>
-            <button onclick="loadInsiderProfile('${String(name||'').replace(/'/g,"\\'")}', '${String(cik||'').replace(/'/g,"\\'")}')" style="padding:8px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);cursor:pointer">Reessayer</button>
+            <div style="font-size:14px;color:#EF4444;margin-bottom:8px">${_errPrefix}${escapeHtmlClient(e.message || 'load failed')}</div>
+            <button onclick="loadInsiderProfile('${String(name||'').replace(/'/g,"\\'")}', '${String(cik||'').replace(/'/g,"\\'")}')" style="padding:8px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);cursor:pointer">${_retry}</button>
           </div>
         `;
       }
@@ -9275,6 +9332,7 @@
       if (!body || !data) return;
       const idn = data.identity || {};
       const sum = data.summary || {};
+      const _locale = (typeof getLang === 'function' && getLang() === 'en') ? 'en-US' : 'fr-FR';
 
       // Formatters
       const fmtUsd = (n) => {
@@ -9287,64 +9345,66 @@
       };
       const fmtDate = (d) => {
         if (!d) return '—';
-        try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+        try { return new Date(d).toLocaleDateString(_locale, { day: '2-digit', month: 'short', year: 'numeric' }); }
         catch { return d; }
       };
-      const fmtNum = (n) => (n == null) ? '—' : Number(n).toLocaleString('fr-FR');
+      const fmtNum = (n) => (n == null) ? '—' : Number(n).toLocaleString(_locale);
       const netColor = sum.netFlow > 0 ? '#10B981' : sum.netFlow < 0 ? '#EF4444' : 'var(--text-muted)';
 
       // ========== HEADER : identite + summary KPIs ==========
       const headerHtml = `
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
-          <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px">← Retour</button>
+          <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px">${t('insider.profile.back', '← Retour')}</button>
           <h2 style="margin:0;font-size:22px;color:var(--text-primary)">${escapeHtmlClient(idn.name || '—')}</h2>
-          ${idn.cik ? `<span style="font-size:11px;color:var(--text-muted);font-family:monospace;background:var(--surface-2);padding:2px 8px;border-radius:4px">CIK ${idn.cik}</span>` : ''}
-          ${idn.secEdgarUrl ? `<a href="${idn.secEdgarUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-blue);text-decoration:underline">Voir sur SEC EDGAR ↗</a>` : ''}
+          ${idn.cik ? `<span style="font-size:11px;color:var(--text-muted);font-family:monospace;background:var(--surface-2);padding:2px 8px;border-radius:4px">${t('insider.profile.cik_badge', 'CIK')} ${idn.cik}</span>` : ''}
+          ${idn.secEdgarUrl ? `<a href="${idn.secEdgarUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-blue);text-decoration:underline">${t('insider.profile.sec_edgar_link', 'Voir sur SEC EDGAR ↗')}</a>` : ''}
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Sociétés</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.kpi_companies', 'Sociétés')}</div>
             <div style="font-size:22px;font-weight:700;color:var(--text-primary)">${fmtNum(sum.totalCompanies || 0)}</div>
           </div>
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Transactions</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.kpi_transactions', 'Transactions')}</div>
             <div style="font-size:22px;font-weight:700;color:var(--text-primary)">${fmtNum(sum.totalTransactions || 0)}</div>
           </div>
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Acheté</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.kpi_bought', 'Acheté')}</div>
             <div style="font-size:22px;font-weight:700;color:#10B981">${fmtUsd(sum.totalBuyValue)}</div>
           </div>
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Vendu</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.kpi_sold', 'Vendu')}</div>
             <div style="font-size:22px;font-weight:700;color:#EF4444">${fmtUsd(sum.totalSellValue)}</div>
           </div>
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Net Flow</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.kpi_netflow', 'Net Flow')}</div>
             <div style="font-size:22px;font-weight:700;color:${netColor}">${sum.netFlow > 0 ? '+' : ''}${fmtUsd(sum.netFlow)}</div>
           </div>
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Dernière tx</div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.kpi_last_tx', 'Dernière tx')}</div>
             <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-top:4px">${fmtDate(sum.lastActivity)}</div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">depuis ${fmtDate(sum.firstActivity)}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${t('insider.profile.kpi_since', 'depuis')} ${fmtDate(sum.firstActivity)}</div>
           </div>
         </div>
       `;
 
       // ========== SOCIETES (companies aggregations) ==========
       const companies = data.companies || [];
+      const _thStyle = 'text-align:left;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600';
+      const _thStyleR = _thStyle.replace('text-align:left', 'text-align:right');
       const companiesHtml = companies.length === 0
-        ? '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune société trouvée</div>'
+        ? `<div style="color:var(--text-muted);text-align:center;padding:20px">${t('insider.profile.empty_companies', 'Aucune société trouvée')}</div>`
         : `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead><tr style="border-bottom:1px solid var(--border)">
-              <th style="text-align:left;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Ticker</th>
-              <th style="text-align:left;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Société</th>
-              <th style="text-align:left;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Rôle</th>
-              <th style="text-align:right;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Tx</th>
-              <th style="text-align:right;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Acheté</th>
-              <th style="text-align:right;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Vendu</th>
-              <th style="text-align:right;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Net</th>
-              <th style="text-align:right;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Holdings</th>
-              <th style="text-align:right;padding:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Dernière</th>
+              <th style="${_thStyle}">${t('insider.profile.col_ticker', 'Ticker')}</th>
+              <th style="${_thStyle}">${t('insider.profile.col_company', 'Société')}</th>
+              <th style="${_thStyle}">${t('insider.profile.col_role', 'Rôle')}</th>
+              <th style="${_thStyleR}">${t('insider.profile.col_tx', 'Tx')}</th>
+              <th style="${_thStyleR}">${t('insider.profile.col_bought', 'Acheté')}</th>
+              <th style="${_thStyleR}">${t('insider.profile.col_sold', 'Vendu')}</th>
+              <th style="${_thStyleR}">${t('insider.profile.col_net', 'Net')}</th>
+              <th style="${_thStyleR}">${t('insider.profile.col_holdings', 'Holdings')}</th>
+              <th style="${_thStyleR}">${t('insider.profile.col_last_tx', 'Dernière')}</th>
             </tr></thead>
             <tbody>
               ${companies.map(c => {
@@ -9369,15 +9429,17 @@
 
       // ========== BREAKDOWN par trans_code (Phase 2 enrichi) ==========
       const breakdown = data.typeBreakdown || [];
-      // Groupe par code, affiche le label friendly
-      const TX_TYPE_FR = (window.TX_TYPES) || {};
+      // Groupe par code, affiche le label friendly LANG-AWARE
+      const txTypeMap = getTxTypes();
+      const _isEn = (typeof getLang === 'function' && getLang() === 'en');
+      const _lblFallback = { buy: _isEn ? 'Buy' : 'Achat', sell: _isEn ? 'Sell' : 'Vente', other: _isEn ? 'Other' : 'Autre' };
       const breakdownHtml = breakdown.length === 0
         ? ''
         : `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px">
             ${breakdown.map(b => {
-              const label = b.code && TX_TYPE_FR[b.code]
-                ? TX_TYPE_FR[b.code]
-                : (b.transType === 'buy' ? 'Achat' : b.transType === 'sell' ? 'Vente' : 'Autre');
+              const label = b.code && txTypeMap[b.code]
+                ? txTypeMap[b.code]
+                : (b.transType === 'buy' ? _lblFallback.buy : b.transType === 'sell' ? _lblFallback.sell : _lblFallback.other);
               const color = b.transType === 'buy' ? '#10B981' : b.transType === 'sell' ? '#EF4444' : 'var(--text-muted)';
               return `<div style="padding:10px 12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
                 <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">${escapeHtmlClient(label)}${b.code ? ` <span style="opacity:0.5">(${b.code})</span>` : ''}</div>
@@ -9389,17 +9451,18 @@
 
       // ========== TRANSACTIONS récentes (100 dernieres) ==========
       const txs = data.transactions || [];
+      const _thStyleS = 'padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600';
       const txsHtml = txs.length === 0
-        ? '<div style="color:var(--text-muted);text-align:center;padding:20px">Aucune transaction</div>'
+        ? `<div style="color:var(--text-muted);text-align:center;padding:20px">${t('insider.profile.empty_txs', 'Aucune transaction')}</div>`
         : `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead><tr style="border-bottom:1px solid var(--border)">
-              <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Date</th>
-              <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Ticker</th>
-              <th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Type</th>
-              <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Actions</th>
-              <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Prix</th>
-              <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Valeur</th>
-              <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600">Rôle</th>
+              <th style="text-align:left;${_thStyleS}">${t('insider.profile.col_date', 'Date')}</th>
+              <th style="text-align:left;${_thStyleS}">${t('insider.profile.col_ticker', 'Ticker')}</th>
+              <th style="text-align:center;${_thStyleS}">${t('insider.profile.col_type', 'Type')}</th>
+              <th style="text-align:right;${_thStyleS}">${t('insider.profile.col_shares', 'Actions')}</th>
+              <th style="text-align:right;${_thStyleS}">${t('insider.profile.col_price', 'Prix')}</th>
+              <th style="text-align:right;${_thStyleS}">${t('insider.profile.col_value', 'Valeur')}</th>
+              <th style="text-align:left;${_thStyleS}">${t('insider.profile.col_role', 'Rôle')}</th>
             </tr></thead>
             <tbody>
               ${txs.map(tx => {
@@ -9420,16 +9483,17 @@
           </table></div>`;
 
       // ========== ASSEMBLE ==========
+      const _h3Style = 'font-size:14px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:32px 0 12px;font-weight:600';
       body.innerHTML = `
         ${headerHtml}
 
-        <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:24px 0 12px;font-weight:600">🏢 Sociétés où il/elle est insider</h3>
+        <h3 style="${_h3Style};margin-top:24px">${t('insider.profile.companies_section', '🏢 Sociétés où il/elle est insider')}</h3>
         ${companiesHtml}
 
-        ${breakdown.length > 0 ? `<h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:32px 0 12px;font-weight:600">📊 Types de transactions</h3>
+        ${breakdown.length > 0 ? `<h3 style="${_h3Style}">${t('insider.profile.types_section', '📊 Types de transactions')}</h3>
         ${breakdownHtml}` : ''}
 
-        <h3 style="font-size:14px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:32px 0 12px;font-weight:600">📈 Transactions récentes <span style="font-size:11px;text-transform:none;letter-spacing:normal;color:var(--text-muted);font-weight:400">(100 dernières)</span></h3>
+        <h3 style="${_h3Style}">${t('insider.profile.txs_section', '📈 Transactions récentes')} <span style="font-size:11px;text-transform:none;letter-spacing:normal;color:var(--text-muted);font-weight:400">${t('insider.profile.txs_count_suffix', '(100 dernières)')}</span></h3>
         ${txsHtml}
       `;
     }
@@ -9551,7 +9615,8 @@
         // si dispo (canonical SEC) sinon le nom complet (fallback noisy).
         const insiderCikEsc = String(t.insiderCik || '').replace(/'/g, "\\'");
         const insiderNameEsc = insiderFull.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const insiderCell = `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${insiderFull.replace(/"/g, '&quot;')} · Cliquer pour ouvrir la fiche"
+        const _clickTip = t('insider.profile.click_to_open', 'Cliquer pour ouvrir la fiche');
+        const insiderCell = `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="${insiderFull.replace(/"/g, '&quot;')} · ${_clickTip}"
           onclick="openInsiderProfile('${insiderNameEsc}', '${insiderCikEsc}')"
           onmouseover="this.style.color='var(--accent-blue)'"
           onmouseout="this.style.color=''"><span style="border-bottom:1px dashed currentColor">${insiderShort}</span></td>`;
