@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-html-entity-decode"></script>
+  <script src="assets/i18n.js?v=20260511-unify-screener-insider"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3721,16 +3721,12 @@
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.consensus_cta">Voir le consensus →</div>
           </div>
 
-          <div onclick="switchSection('screener')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
-            <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:4px;font-size:10px;color:#3B82F6;font-weight:700;letter-spacing:0.5px">NEW</div>
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-              <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,0.14);color:#3B82F6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/><path d="M11 8v6"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
-            </div>
-            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.screener_title">Screener Avancé</h4>
-            <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.screener_desc">Filtres combinables sur l'historique complet des transactions insider : ticker, période (jusqu'à 5 ans), rôle (CEO/CFO), montant min, source. <strong>Export CSV</strong> des résultats.</p>
-            <div style="margin-top:12px;font-size:12px;color:#3B82F6" data-i18n="dash.home.screener_cta">Lancer une recherche →</div>
-          </div>
+          <!-- UNIFICATION (mai 2026) : la card "Screener Avance" a ete retiree.
+               Elle pointait vers une page distincte qui a ete fusionnee dans
+               "Transactions Insiders" (filtres avances accessibles via le bloc
+               depliable directement sur la page Initiés). La card
+               "Transactions Insiders" plus bas couvre desormais les 2 cas
+               d'usage : transactions recentes + screener avance complet. -->
 
           <div onclick="switchSection('activists')" class="home-card" data-required-plan="pro" style="padding:22px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-1));border:1px solid rgba(245,158,11,0.28);border-radius:12px;cursor:pointer;transition:all 0.2s;position:relative">
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4);border-radius:4px;font-size:10px;color:#F59E0B;font-weight:700;letter-spacing:0.5px">NEW</div>
@@ -17896,16 +17892,14 @@
         exportBtn.style.opacity = '0.5';
       }
       screenerResults = [];
-      // Sortir du mode avance : revenir aux transactions recentes (KV)
+      // Sortir du mode avance : revenir aux transactions recentes (KV).
+      // Le container scrTableArea est legacy/unused depuis l'unification mai 2026.
       screenerActive = false;
-      const scrArea = document.getElementById('scrTableArea');
-      if (scrArea) {
-        scrArea.style.display = 'none';
-        scrArea.innerHTML = '';
-      }
-      // Re-render la table principale (transactions recentes du KV)
-      if (typeof renderInsiderPage === 'function') {
-        currentPage = 0;
+      // Re-fetch les recentes KV + re-render dans le SAME container insiderTableArea.
+      if (typeof loadInsiderTrades === 'function') {
+        loadInsiderTrades();
+      } else if (typeof renderInsiderPage === 'function') {
+        insiderDisplayedCount = INSIDER_INITIAL_COUNT;
         renderInsiderPage();
       }
     }
@@ -17919,20 +17913,16 @@
         Toast.warning('Veuillez vous connecter.');
         return;
       }
-      // Active le mode avance : on bascule l'affichage du tableau KV vers
-      // scrTableArea (D1 historique). Les filtres rapides + pagination KV
-      // sont masques pour eviter la confusion entre les 2 datasets.
+      // UNIFICATION (mai 2026) : meme container que la vue "Récents" (KV).
+      // Affiche le spinner dans insiderTableArea puis les rows D1 transformees
+      // seront rendues via renderInsiderPage (memes colonnes, meme style).
       screenerActive = true;
-      screenerDisplayedCount = SCREENER_INITIAL_COUNT;  // reset 'Voir plus'
+      screenerDisplayedCount = SCREENER_INITIAL_COUNT;
       const insiderArea = document.getElementById('insiderTableArea');
-      const insiderPagTop = document.getElementById('insiderPaginationTop');
-      const insiderPagBot = document.getElementById('insiderPagination');
-      if (insiderArea) insiderArea.style.display = 'none';
-      if (insiderPagTop) insiderPagTop.style.display = 'none';
-      if (insiderPagBot) insiderPagBot.style.display = 'none';
-      const tableArea = document.getElementById('scrTableArea');
-      tableArea.style.display = 'block';
-      tableArea.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche en cours...</div>';
+      if (insiderArea) {
+        insiderArea.style.display = 'block';
+        insiderArea.innerHTML = '<div class="loading"><div class="spinner"></div>Recherche en cours...</div>';
+      }
       const countEl = document.getElementById('scrCount');
       if (countEl) countEl.textContent = '';
 
@@ -17948,7 +17938,7 @@
 
         // Client-side guard : exige au moins un filtre (comme le backend)
         if (!ticker && !insider && !type && !role && !source) {
-          tableArea.innerHTML = '<div style="padding:40px;text-align:center;color:var(--accent-red)">Precisez au moins un filtre : ticker, insider, type, role ou source.</div>';
+          if (insiderArea) insiderArea.innerHTML = '<div style="padding:40px;text-align:center;color:var(--accent-red)">Précisez au moins un filtre : ticker, insider, type, rôle ou source.</div>';
           document.getElementById('scrCount').textContent = '';
           return;
         }
@@ -17967,7 +17957,7 @@
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) {
-          tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status}).</div>`;
+          if (insiderArea) insiderArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur API (${res.status}).</div>`;
           return;
         }
         const data = await res.json();
@@ -17992,12 +17982,47 @@
 
         screenerResults = rows;
         document.getElementById('scrCount').textContent = `${rows.length} transactions trouvees`;
-        renderScreenerTable(rows);
+
+        // UNIFICATION (mai 2026) : on injecte les rows D1 dans le meme pipeline
+        // que la table "Récents" (KV), donc rendu IDENTIQUE (memes colonnes,
+        // memes badges code SEC, memes noms cliquables -> fiche dirigeant).
+        // Avant : renderScreenerTable utilisait des colonnes differentes
+        // (SRC | DATE | TICKER | ENTREPRISE | INSIDER | ROLE | TYPE | QTY | PRIX | VALEUR)
+        // confusant pour l'user.
+        // Transformation : format D1 -> format JSON/KV attendu par renderInsiderPage
+        const transformed = rows.map(r => ({
+          date: r.trans_date || r.filing_date,
+          fileDate: r.filing_date || r.trans_date,
+          ticker: r.ticker || '',
+          company: r.company || '',
+          insider: r.insider || '',
+          insiderCik: r.insider_cik || '',
+          title: r.title || '',
+          type: r.trans_type || 'other',
+          code: r.trans_code || '',
+          transCode: r.trans_code || '',  // alias frontend
+          shares: r.shares,
+          price: r.price,
+          value: r.value,
+          source: (r.source || '').toLowerCase(),
+          market: r.market || (r.source === 'SEC' ? 'US' : r.source === 'AMF' ? 'FR' : r.source === 'BAFIN' ? 'DE' : r.source === 'FCA' ? 'UK' : 'US'),
+          region: r.region || (r.source === 'SEC' ? 'US' : 'Europe'),
+          currency: r.currency || (r.source === 'SEC' ? 'USD' : 'EUR'),
+        }));
+        // Remplace les transactions affichees + reset pagination + render.
+        // On reset insiderDisplayedCount (et non currentPage qui est inutilise)
+        // pour que la pagination 'Voir plus' reparte du debut apres une recherche.
+        allInsiderTx = transformed;
+        totalTrades = transformed.length;
+        insiderDisplayedCount = INSIDER_INITIAL_COUNT;
+        renderInsiderPage();
+
         const btn = document.getElementById('scrExportBtn');
         btn.disabled = rows.length === 0;
         btn.style.opacity = rows.length === 0 ? '0.5' : '1';
       } catch (e) {
-        tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
+        const tableArea = document.getElementById('insiderTableArea');
+        if (tableArea) tableArea.innerHTML = `<div style="padding:40px;text-align:center;color:var(--accent-red)">Erreur : ${escapeHtml(e.message || e)}</div>`;
       }
     }
 
@@ -20188,11 +20213,17 @@
       }
     }
 
-    // Ouvre le Screener filtre par nom d'insider (reutilise par l'onglet Transversaux de Signaux Insiders).
+    // Ouvre la page Initiés (unifiée) filtree par nom d'insider.
+    // UNIFICATION (mai 2026) : bascule sur 'insider' au lieu de 'screener'
+    // pour que tout se passe sur le meme ecran.
     function openScreenerForInsider(insiderName) {
       if (!insiderName) return;
-      switchSection('screener');
+      switchSection('insider');
       setTimeout(() => {
+        // Ouvre le bloc Filtres avancés (collapsible <details>) pour montrer
+        // qu'on est passe en mode historique 1 an avec filtre par initie.
+        const details = document.getElementById('advFiltersDetails');
+        if (details) details.open = true;
         const input = document.getElementById('scrInsider');
         if (input) {
           input.value = insiderName;
@@ -20303,14 +20334,18 @@
     function openScreenerForTicker(ticker) {
       const tk = (ticker || '').toUpperCase().trim();
       if (!tk) return;
-      // Switch vers l'onglet Screener (triggera le gate premium si besoin)
-      switchSection('screener');
-      // Attendre que la section soit visible, puis prefill + run
+      // UNIFICATION (mai 2026) : on bascule sur la section Initiés (unifiée
+      // avec recherche avancée). Les filtres "Récents" + filtres avances
+      // sont sur la meme page maintenant.
+      switchSection('insider');
       setTimeout(() => {
+        // Ouvre le bloc Filtres avancés (collapsible <details>) pour que
+        // l'user voit qu'on a passe en mode historique 1 an.
+        const details = document.getElementById('advFiltersDetails');
+        if (details) details.open = true;
         const input = document.getElementById('scrTicker');
         if (input) {
           input.value = tk;
-          // Reset les autres filtres pour un reset propre
           document.getElementById('scrDays').value = '365';
           document.getElementById('scrType').value = '';
           document.getElementById('scrRole').value = '';
@@ -20318,7 +20353,6 @@
           document.getElementById('scrInsider').value = '';
           document.getElementById('scrMinValue').value = '';
           document.getElementById('scrSort').value = 'date-desc';
-          // Auto-run
           runScreener();
         }
       }, 100);
