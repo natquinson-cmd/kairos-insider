@@ -211,9 +211,13 @@
     }
     .kc-footer a { color: #9CA3AF; text-decoration: none; }
     @media (max-width: 480px) {
-      .kc-panel { right: 12px; bottom: 88px; width: calc(100vw - 24px); height: calc(100vh - 120px); max-height: 600px; }
-      .kc-bubble { right: 16px; bottom: 16px; }
-      .kc-hint { right: 16px; bottom: 88px; }
+      /* Mobile : bubble plus petite (52 vs 60) + position legerement plus
+         pres du coin pour eviter l'overlay sur le texte hero. Le panel
+         prend 92vh quand ouvert (au lieu de 100vh-120 qui laissait du vide). */
+      .kc-bubble { width: 52px; height: 52px; right: 14px; bottom: 14px; }
+      .kc-bubble svg { width: 26px; height: 26px; }
+      .kc-panel { right: 10px; bottom: 76px; width: calc(100vw - 20px); height: calc(100vh - 96px); max-height: 600px; }
+      .kc-hint { right: 14px; bottom: 76px; max-width: 180px; font-size: 11.5px; }
     }
   `;
 

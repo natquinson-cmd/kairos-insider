@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260511-mobile-grid-overflow"></script>
+  <script src="assets/i18n.js?v=20260511-mobile-pass"></script>
 
   <style>
     :root {
@@ -1264,6 +1264,49 @@
       .why-trust { grid-template-columns: repeat(2, 1fr); gap: 12px; }
       .trust-badges { grid-template-columns: 1fr; gap: 10px; padding: 20px; }
     }
+    /* ===== MOBILE COMPACT (mai 2026) =====
+       Fix overflow + overlap : logo trop large vs CTA "Mon Dashboard" qui se
+       chevauchent sur iPhone. Hero-badge "LIVE" wrappe sur 2 lignes. */
+    @media (max-width: 640px) {
+      /* Container : padding lateral reduit (24 -> 14) pour gagner ~20px utiles */
+      .container { padding: 0 14px; }
+      /* Nav : padding vertical reduit + logo compact */
+      nav { padding: 14px 0; }
+      .logo { gap: 8px; }
+      .logo-mark { width: 32px; height: 32px; }
+      .logo-text { font-size: 18px; white-space: nowrap; }
+      /* CTA "Mon Dashboard" / "Essayer gratuitement" : plus compact */
+      .nav-links li:last-child a.btn-primary,
+      .nav-links a.btn {
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+      }
+      /* Hero badge "LIVE..." : font plus petit + padding serre. Le texte
+         peut wrapper sur 2 lignes mais reste lisible. */
+      .hero-badge {
+        font-size: 11px !important;
+        padding: 6px 12px !important;
+        line-height: 1.4;
+      }
+      /* Hero meta (les ✓ Donnees live · Alertes < 8 min...) : items
+         plus serres, font reduit */
+      .hero-meta {
+        gap: 8px 14px;
+        font-size: 12px;
+      }
+      /* Stats-bar : 1 col au lieu de 2 sur tres petits ecrans */
+      .stats-bar { grid-template-columns: 1fr; }
+    }
+    /* iPhone SE / 12 mini (< 380px) : padding encore plus serre */
+    @media (max-width: 380px) {
+      .container { padding: 0 12px; }
+      .logo-text { font-size: 16px; }
+      .nav-links li:last-child a.btn-primary,
+      .nav-links a.btn {
+        padding: 7px 10px !important;
+        font-size: 11px !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1285,11 +1328,30 @@
     body.has-beta-banner .ticker-tape { top: 85px !important; }
     body.has-beta-banner #pageMain,
     body.has-beta-banner main { margin-top: 40px; }
+    /* Mobile compact (mai 2026) : banner sur 1-2 lignes max, font plus petit,
+       padding reduit. La nav est decalee de 44px (au lieu de 56) car la
+       banner est plus serree avec les nouveaux styles. */
     @media (max-width: 640px) {
-      body.has-beta-banner nav { top: 56px !important; }
-      body.has-beta-banner .ticker-tape { top: 101px !important; }
+      #betaUrgencyBanner {
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+        line-height: 1.3 !important;
+      }
+      #betaUrgencyBanner > div {
+        gap: 8px !important;
+      }
+      #betaUrgencyBanner > div > span {
+        font-size: 11px !important;
+        gap: 4px !important;
+      }
+      #betaUrgencyBanner a {
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+      }
+      body.has-beta-banner nav { top: 44px !important; }
+      body.has-beta-banner .ticker-tape { top: 89px !important; }
       body.has-beta-banner #pageMain,
-      body.has-beta-banner main { margin-top: 56px; }
+      body.has-beta-banner main { margin-top: 44px; }
     }
   </style>
   <div id="betaUrgencyBanner">
@@ -2688,6 +2750,6 @@
 
   <!-- Chatbot widget : assistant IA pour repondre aux questions des visiteurs
        et collecter feedback. Lazy-loaded en defer pour ne pas bloquer le LCP. -->
-  <script src="assets/chatbot.js?v=20260509-robot" defer></script>
+  <script src="assets/chatbot.js?v=20260511-mobile-compact" defer></script>
 </body>
 </html>
