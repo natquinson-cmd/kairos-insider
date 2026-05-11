@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-trans-code"></script>
+  <script src="assets/i18n.js?v=20260511-gantt-tolerance"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -18575,24 +18575,33 @@
         });
       }
       // Statut d'un slot expected via match dans actualRuns (v2)
-      // Tolerance dynamique : pour un cron */5min on tolere 3 min, pour daily 30 min.
-      const statusForSlot = (slotIso, actualRuns, lastRun, expectedCount) => {
+      // Tolerance dynamique : pour un cron */5min on tolere 3 min, pour daily
+      // jusqu'a 60 min (un workflow qui tourne 30 min log son completion 30 min
+      // apres le slot cron -> il faut au moins 30 min de buffer).
+      // FIX (mai 2026) : avant tolerance cap = 30 min, donc un workflow daily
+      // qui tourne 30+ min affichait son slot en "missed" car le check `<` etait
+      // strict. + intregration de avgDurationSec dans le calcul de tolerance.
+      const statusForSlot = (slotIso, actualRuns, lastRun, expectedCount, avgDurationSec) => {
         const slotTs = new Date(slotIso).getTime();
-        // Tolerance proportionnelle a la frequence : intervalle moyen / 2.
-        // Cap min 2 min, max 30 min.
+        // Tolerance = max(intervalMs/2, avgDurationSec + 5min buffer)
+        // Cap min 2 min, max 60 min (au-dela on pollue trop la timeline).
         const intervalMs = expectedCount > 0 ? (24 * 60 * 60 * 1000) / expectedCount : 0;
-        const tolerance = Math.max(2 * 60 * 1000, Math.min(30 * 60 * 1000, intervalMs / 2));
+        const baseTol = intervalMs / 2;
+        const durTol = (avgDurationSec || 0) * 1000 + 5 * 60 * 1000;
+        const tolerance = Math.max(2 * 60 * 1000, Math.min(60 * 60 * 1000, Math.max(baseTol, durTol)));
         // Si slot futur -> scheduled
         if (slotTs > now + 60000) return { status: 'scheduled' };
         // Cherche un actualRun dans la fenetre [slotTs - tolerance, slotTs + tolerance]
+        // Note : <= au lieu de < pour les cas de diff exactement = tolerance.
         if (Array.isArray(actualRuns)) {
           for (const ar of actualRuns) {
             const arTs = ar.ts * 1000;
-            if (Math.abs(arTs - slotTs) < tolerance) {
+            if (Math.abs(arTs - slotTs) <= tolerance) {
               return {
                 status: ar.status === 'failed' ? 'failed' : (ar.status === 'partial' ? 'partial' : 'ok'),
                 durationSec: ar.durationSec,
                 summary: ar.summary,
+                matchedTs: ar.ts, // pour deduper les manual runs apres
               };
             }
           }
@@ -18601,8 +18610,8 @@
         // (utile au 1er deploiement quand runHistory est vide).
         if (lastRun && lastRun.ts) {
           const lastTs = lastRun.ts * 1000;
-          if (Math.abs(lastTs - slotTs) < tolerance) {
-            return { status: lastRun.status === 'failed' ? 'failed' : 'ok' };
+          if (Math.abs(lastTs - slotTs) <= tolerance) {
+            return { status: lastRun.status === 'failed' ? 'failed' : 'ok', matchedTs: lastRun.ts };
           }
         }
         // Slot passe sans aucun match -> missed
@@ -18646,21 +18655,47 @@
 
       const rows = data.jobs.map(j => {
         // Workflow_dispatch only (cron desactive) : pas de slots, juste un placeholder
-        const segments = j.cronDisabled
-          ? `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;color:var(--text-muted);font-style:italic;letter-spacing:0.04em">manuel uniquement</div>`
-          : (j.expectedRuns || []).map(slotIso => {
-          const slotInfo = statusForSlot(slotIso, j.actualRuns, j.lastRun, j.expectedRunsTotal);
-          const slotTs = new Date(slotIso).getTime();
-          const xPct = ((slotTs - from) / totalMs) * 100;
-          // Largeur proportionnelle a la duree typique du job (clampee 0.5%-4%)
-          const widthPct = Math.max(0.5, Math.min(4, (j.avgDurationSec * 1000 / totalMs) * 100));
-          const c = colorFor(slotInfo.status);
-          const dt = new Date(slotIso).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-          const dur = slotInfo.durationSec ? ` (${slotInfo.durationSec}s)` : '';
-          const sum = slotInfo.summary ? ` — ${slotInfo.summary.slice(0, 60)}` : '';
-          const tip = `${dt} — ${slotInfo.status}${dur}${sum}`;
-          return `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
-        }).join('');
+        let segments = '';
+        // Track les actualRuns deja matches a un slot pour eviter le double-affichage
+        // (sinon le manual run aurait 2 segments : 1 pour le slot match + 1 pour off-schedule).
+        const matchedActualTs = new Set();
+        if (j.cronDisabled) {
+          segments = `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;color:var(--text-muted);font-style:italic;letter-spacing:0.04em">manuel uniquement</div>`;
+        } else {
+          segments = (j.expectedRuns || []).map(slotIso => {
+            const slotInfo = statusForSlot(slotIso, j.actualRuns, j.lastRun, j.expectedRunsTotal, j.avgDurationSec);
+            const slotTs = new Date(slotIso).getTime();
+            const xPct = ((slotTs - from) / totalMs) * 100;
+            // Largeur proportionnelle a la duree typique du job (clampee 0.5%-4%)
+            const widthPct = Math.max(0.5, Math.min(4, (j.avgDurationSec * 1000 / totalMs) * 100));
+            const c = colorFor(slotInfo.status);
+            const dt = new Date(slotIso).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const dur = slotInfo.durationSec ? ` (${slotInfo.durationSec}s)` : '';
+            const sum = slotInfo.summary ? ` — ${slotInfo.summary.slice(0, 60)}` : '';
+            const tip = `${dt} — ${slotInfo.status}${dur}${sum}`;
+            if (slotInfo.matchedTs) matchedActualTs.add(slotInfo.matchedTs);
+            return `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:8px;height:14px;width:${widthPct}%;min-width:3px;background:${c.bg};border:1px solid ${c.border};border-radius:2px;cursor:default"></div>`;
+          }).join('');
+          // FIX (mai 2026) : render aussi les actualRuns qui n'ont matche aucun slot expected.
+          // C'est typiquement le cas des runs MANUELS via "▶ Lancer" : leur timestamp ne
+          // tombe pas sur un slot cron, donc avant ils etaient invisibles dans la timeline
+          // (et leur slot cron a 01:30 affichait "missed" en gris). Maintenant on les affiche
+          // comme segments distincts avec un style outline (cercle/triangle) pour signaler
+          // "off-schedule manual run". Position = ts reel, style = pill plus fine + outlined.
+          const offSchedule = (j.actualRuns || []).filter(ar => ar.ts && !matchedActualTs.has(ar.ts));
+          for (const ar of offSchedule) {
+            const arMs = ar.ts * 1000;
+            if (arMs < from || arMs > now) continue;
+            const xPct = ((arMs - from) / totalMs) * 100;
+            const c = colorFor(ar.status === 'failed' ? 'failed' : (ar.status === 'partial' ? 'partial' : 'ok'));
+            const dt = new Date(arMs).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const dur = ar.durationSec ? ` (${ar.durationSec}s)` : '';
+            const sum = ar.summary ? ` — ${ar.summary.slice(0, 60)}` : '';
+            const tip = `🔧 Run manuel : ${dt} — ${ar.status}${dur}${sum}`;
+            // Style outlined : background semi-transparent + border epaisse + triangle indicateur
+            segments += `<div title="${tip.replace(/"/g, '&quot;')}" style="position:absolute;left:${xPct}%;top:5px;height:20px;width:6px;min-width:6px;background:transparent;border:2px dashed ${c.bg};border-radius:2px;cursor:default;box-shadow:inset 0 0 0 1px ${c.bg}40"></div>`;
+          }
+        }
 
         // Bouton re-run selon le type. CF cron + GitHub Actions : 1 click trigger.
         let runBtn = '';
@@ -18756,6 +18791,7 @@
           <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;display:inline-block"></span>Partial</div>
           <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#9CA3AF;border-radius:2px;display:inline-block"></span>Missed (pas de run)</div>
           <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#374151;border-radius:2px;display:inline-block"></span>Scheduled (à venir)</div>
+          <div style="display:flex;align-items:center;gap:5px" title="Run manuel hors slot cron (déclenché via ▶ Lancer)"><span style="width:6px;height:14px;background:transparent;border:2px dashed #10B981;border-radius:2px;display:inline-block"></span>Run manuel (hors planning cron)</div>
         </div>
       `;
 
