@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260511-home-cleanup"></script>
+  <script src="assets/i18n.js?v=20260511-banner-spacing"></script>
 
   <style>
     :root {
@@ -1329,8 +1329,10 @@
     body.has-beta-banner #pageMain,
     body.has-beta-banner main { margin-top: 40px; }
     /* Mobile compact (mai 2026) : banner sur 1-2 lignes max, font plus petit,
-       padding reduit. La nav est decalee de 44px (au lieu de 56) car la
-       banner est plus serree avec les nouveaux styles. */
+       padding reduit. La nav est decalee de la hauteur reelle du banner
+       (~76px = 2 lignes texte + bouton + padding) avec un peu de respiration.
+       FIX (mai 2026) : avant on avait nav top:44px mais le banner faisait en
+       fait ~70px sur mobile -> la nav remontait sous le banner. */
     @media (max-width: 640px) {
       #betaUrgencyBanner {
         padding: 6px 8px !important;
@@ -1348,10 +1350,10 @@
         padding: 4px 10px !important;
         font-size: 11px !important;
       }
-      body.has-beta-banner nav { top: 44px !important; }
-      body.has-beta-banner .ticker-tape { top: 89px !important; }
+      body.has-beta-banner nav { top: 76px !important; }
+      body.has-beta-banner .ticker-tape { top: 121px !important; }
       body.has-beta-banner #pageMain,
-      body.has-beta-banner main { margin-top: 44px; }
+      body.has-beta-banner main { margin-top: 76px; }
     }
   </style>
   <div id="betaUrgencyBanner">
