@@ -5789,7 +5789,10 @@ function buildWelcomeEmail(lang) {
     ? 'Welcome. You just gained 45 days.'
     : 'Bienvenue. Vous venez de prendre 45 jours d\'avance.';
 
-  // Palette dark premium (kairos brand gradient = #74b9ff -> #a29bfe)
+  // Palette dark premium — gradient brand match logo
+  // (logo va de bleu vif top-left vers rose magenta bottom-right, en
+  // passant par violet au milieu). Pastel #74b9ff/#a29bfe v2 etait trop
+  // pale sur fond dark et ne matchait pas le logo. v3 = saturated brand.
   const C = {
     bg: '#0A0E1A',          // page background — deep navy black
     surface: '#11162A',     // card background
@@ -5800,12 +5803,16 @@ function buildWelcomeEmail(lang) {
     textDim: '#CBD5E1',     // slate-300
     muted: '#94A3B8',       // slate-400
     mutedDeep: '#64748B',   // slate-500
-    primary: '#74b9ff',
-    primary2: '#a29bfe',
+    primary: '#3B82F6',     // blue-500 (matche le bleu du logo top-left)
+    primary2: '#EC4899',    // pink-500 (matche le magenta du logo bottom-right)
     accent: '#10B981',
     yellow: '#FACC15',
     red: '#EF4444',
   };
+  // rgba helpers pour les bgs/borders gradient subtils (sinon on a hardcode
+  // partout en rgba(R,G,B,a) avec les valeurs decimales du blue/pink primary)
+  const C_PRIMARY_RGB = '59,130,246';      // #3B82F6
+  const C_PRIMARY2_RGB = '236,72,153';     // #EC4899
 
   // Copies localisees — punchy version
   const T = isEn ? {
@@ -5969,7 +5976,7 @@ function buildWelcomeEmail(lang) {
         <!-- CTA principal -->
         <tr>
           <td style="padding:0 32px 32px 32px;text-align:center">
-            <a href="${DASHBOARD}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,${C.primary},${C.primary2});color:#0A0E1A;text-decoration:none;font-weight:700;font-size:15px;border-radius:10px;letter-spacing:0.3px">${T.cta} →</a>
+            <a href="${DASHBOARD}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,${C.primary},${C.primary2});color:#FFFFFF;text-decoration:none;font-weight:700;font-size:15px;border-radius:10px;letter-spacing:0.3px">${T.cta} →</a>
           </td>
         </tr>
 
@@ -5993,7 +6000,7 @@ function buildWelcomeEmail(lang) {
         <!-- LIVE SIGNAL TEASER : exemple concret pour creer le wow -->
         <tr>
           <td style="padding:0 32px 32px 32px">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(162,155,254,0.06));border:1px solid rgba(116,185,255,0.22);border-radius:14px">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:linear-gradient(135deg,rgba(${C_PRIMARY_RGB},0.10),rgba(${C_PRIMARY2_RGB},0.08));border:1px solid rgba(${C_PRIMARY_RGB},0.26);border-radius:14px">
               <tr>
                 <td style="padding:22px 22px 20px 22px">
                   <div style="display:inline-block;padding:4px 10px;background:rgba(250,204,21,0.15);border:1px solid rgba(250,204,21,0.35);border-radius:6px;font-size:10px;letter-spacing:1.2px;color:${C.yellow};font-weight:700;text-transform:uppercase">⚡ ${T.liveBadge}</div>
@@ -6083,7 +6090,7 @@ function buildWelcomeEmail(lang) {
                 </td>
                 <!-- Pro (highlighted) -->
                 <td valign="top" width="33%" style="padding:0 6px">
-                  <div style="background:linear-gradient(135deg,rgba(116,185,255,0.10),rgba(162,155,254,0.06));border:1px solid rgba(116,185,255,0.28);border-radius:12px;padding:14px 14px 16px 14px;height:100%;position:relative">
+                  <div style="background:linear-gradient(135deg,rgba(${C_PRIMARY_RGB},0.12),rgba(${C_PRIMARY2_RGB},0.08));border:1px solid rgba(${C_PRIMARY_RGB},0.32);border-radius:12px;padding:14px 14px 16px 14px;height:100%;position:relative">
                     <div style="font-size:13px;font-weight:700;background:linear-gradient(135deg,${C.primary},${C.primary2});-webkit-background-clip:text;background-clip:text;color:${C.primary};margin-bottom:4px">${T.planProName}</div>
                     <div style="font-size:11.5px;line-height:1.5;color:${C.textDim}">${T.planProBody}</div>
                   </div>
