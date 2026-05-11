@@ -3322,7 +3322,16 @@ async function handleHistoryInsider(url, env, origin) {
   }
 
   try {
-    const conditions = ["filing_date >= date('now', ?)"];
+    // FIX (mai 2026) : avant on filtrait sur filing_date uniquement ; pour
+    // certains tickers (ex AMG.AS avec backfill) filing_date pouvait etre
+    // anterieur de plusieurs mois a trans_date -> la card "Initiés" affichait
+    // 0 transactions alors que le widget "Activite 7j" (qui filtre sur
+    // trans_date) en montrait 3. Maintenant on filtre sur trans_date qui est
+    // ce que l'utilisateur attend (date reelle de la transaction). filing_date
+    // garde son interet pour l'ordre d'affichage (recence du depot).
+    // COALESCE pour les anciennes lignes avec trans_date NULL : fallback sur
+    // filing_date pour ne pas perdre les rows.
+    const conditions = ["COALESCE(trans_date, filing_date) >= date('now', ?)"];
     const args = [`-${days} days`];
     if (ticker) { conditions.push('ticker = ?'); args.push(ticker); }
     if (typeFilter && ['buy', 'sell', 'other', 'option-exercise'].includes(typeFilter)) {
@@ -3345,7 +3354,7 @@ async function handleHistoryInsider(url, env, origin) {
                         trans_type, shares, price, value, shares_after
                  FROM insider_transactions_history
                  WHERE ${conditions.join(' AND ')}
-                 ORDER BY filing_date DESC, trans_date DESC
+                 ORDER BY COALESCE(trans_date, filing_date) DESC, filing_date DESC
                  LIMIT ?`;
     const result = await env.HISTORY.prepare(sql).bind(...args).all();
     const rows = result.results || [];
@@ -3384,7 +3393,7 @@ async function handleHistoryInsiderStats(url, env, origin) {
     const statsRes = await env.HISTORY.prepare(
       `SELECT trans_type, COUNT(*) as cnt, SUM(value) as total_value, SUM(shares) as total_shares
        FROM insider_transactions_history
-       WHERE ticker = ? AND filing_date >= date('now', ?)
+       WHERE ticker = ? AND COALESCE(trans_date, filing_date) >= date('now', ?)
        GROUP BY trans_type`
     ).bind(ticker, `-${days} days`).all();
 
@@ -3401,7 +3410,7 @@ async function handleHistoryInsiderStats(url, env, origin) {
     const uniqueRes = await env.HISTORY.prepare(
       `SELECT COUNT(DISTINCT insider) as cnt
        FROM insider_transactions_history
-       WHERE ticker = ? AND filing_date >= date('now', ?)`
+       WHERE ticker = ? AND COALESCE(trans_date, filing_date) >= date('now', ?)`
     ).bind(ticker, `-${days} days`).first();
 
     // Top 10 insiders par volume (buy + sell)
@@ -3411,7 +3420,7 @@ async function handleHistoryInsiderStats(url, env, origin) {
               SUM(CASE WHEN trans_type='sell' THEN value ELSE 0 END) as sell_value,
               COUNT(*) as tx_count
        FROM insider_transactions_history
-       WHERE ticker = ? AND filing_date >= date('now', ?)
+       WHERE ticker = ? AND COALESCE(trans_date, filing_date) >= date('now', ?)
          AND trans_type IN ('buy','sell')
        GROUP BY insider
        ORDER BY (buy_value + sell_value) DESC
