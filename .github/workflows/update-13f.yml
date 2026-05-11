@@ -9,6 +9,15 @@ on:
     # Run total: ~50 min (insiders SEC + AMF + BaFin + 13F + ETFs + Trends)
     - cron: '30 1 * * *'
   workflow_dispatch:
+    inputs:
+      force_full:
+        description: 'Force full refetch (90 jours, ignore l historique) - utile pour back-enrichir les nouveaux champs (trans_code, insider_cik)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   update-data:
@@ -116,8 +125,13 @@ jobs:
         continue-on-error: true
 
       - name: Unified fetch (Transactions + Clusters from same source)
+        # FORCE_FULL : si workflow_dispatch.force_full == 'true', force le refetch
+        # complet 90 jours (ignore l'historique existant). Utile pour back-enrichir
+        # les transactions avec les nouveaux champs preserves (code, ad, insiderCik).
+        env:
+          FORCE_FULL: ${{ github.event.inputs.force_full == 'true' && '1' || '' }}
         run: cd worker && python prefetch-all.py
-        timeout-minutes: 20
+        timeout-minutes: 30
 
       - name: Fetch BaFin Directors' Dealings (DE + Europe)
         run: cd worker && python fetch-bafin.py
