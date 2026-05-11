@@ -8055,7 +8055,10 @@ async function handleScheduleDGActivists(url, env, origin) {
 // Output : 30-50 items melanges (rotation aleatoire pour variete visuelle).
 // Cache 5 min KV. Public via /api/ticker-tape (FREE).
 async function handleTickerTape(env, origin) {
-  const cacheKey = 'ticker-tape:v2';
+  // v3 (mai 2026) : bump apres fix bug fallback "ticker = nom tronque" qui
+  // creait des items cliquables menant a une fausse fiche stock (ex:
+  // "WELLINGTON MANAG" -> 0P0001LJHT.L fonds UCITS).
+  const cacheKey = 'ticker-tape:v3';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -8118,6 +8121,14 @@ async function handleTickerTape(env, origin) {
       { kv: 'nl-thresholds-recent', flag: '🇳🇱', country: 'NL', minPct: 5, max: 6 },
       { kv: 'ch-thresholds-recent', flag: '🇨🇭', country: 'CH', minPct: 3, max: 5 },
     ];
+    // Helper : detecte les cibles qui sont des FONDS/véhicules (UCITS, SICAV,
+    // OPCVM, ETF, trust, OEIC, etc.) et non des actions investissables.
+    // Si la cible est un fonds, on skip l'item : un clic dessus emmenerait
+    // l'user vers une "fausse" fiche action (cf bug "WELLINGTON MANAG" -> fonds
+    // UCITS Wellington Health Care 0P0001LJHT.L, sans signal d'initiés/13F).
+    const FUND_KEYWORDS_RE = /\b(funds?|ucits|sicav|opcvm|oeic|trust|s\.?p\.?i\.?c\.?a\.?v|fcp|fia|reit|etf|index fund|asset management|investment company|holdings? plc)\b/i;
+    const isFundTarget = (name) => name && FUND_KEYWORDS_RE.test(name);
+
     for (const src of euSources) {
       const data = await env.CACHE.get(src.kv, 'json').catch(() => null);
       if (!data?.filings) continue;
@@ -8126,6 +8137,15 @@ async function handleTickerTape(env, origin) {
       const euItems = data.filings
         .filter(f => f.fileDate >= cutoff7d && f.percentOfClass != null && f.percentOfClass >= src.minPct)
         .filter(f => f.targetName) // need at least target name
+        // FIX (mai 2026) : on exige un ticker resolu (yahooSymbol ou ticker).
+        // Avant on fallback sur le nom tronque a 16 chars ("WELLINGTON MANAG"),
+        // ce qui creait des items cliquables qui menaient nulle part.
+        .filter(f => pickTicker(f))
+        // FIX (mai 2026) : on exclut les cibles qui sont elles-memes des fonds.
+        // Un threshold filing sur "Wellington Management Funds (Ireland) plc"
+        // n'a aucun sens dans une barre Smart Money : la cible est un vehicule,
+        // pas une action operationnelle.
+        .filter(f => !isFundTarget(f.targetName))
         .sort((a, b) => {
           // Trier par date desc puis pct desc
           const dCmp = (b.fileDate || '').localeCompare(a.fileDate || '');
@@ -8134,7 +8154,7 @@ async function handleTickerTape(env, origin) {
         })
         .slice(0, src.max);
       for (const f of euItems) {
-        const tk = pickTicker(f) || (f.targetName || '').slice(0, 16);
+        const tk = pickTicker(f);  // garanti non-null par le filter ci-dessus
         const filerN = shortFiler(f.filerName) || 'Filer';
         const isInteresting = !isPassive(f.filerName);  // tag différent pour activists vs index funds
         items.push({
