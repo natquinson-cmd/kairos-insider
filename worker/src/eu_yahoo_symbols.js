@@ -243,7 +243,14 @@ export const EU_YAHOO_SYMBOLS = [
   { match: 'BOSKALIS', symbol: 'BOKA.AS' },
   { match: 'JDE PEET', symbol: 'JDEP.AS' },
   { match: 'SIF HOLDING', symbol: 'SIFG.AS' },
-  { match: 'AMG', symbol: 'AMG.AS' },        // backup short
+  // SUPPRIME (mai 2026) : { match: 'AMG', symbol: 'AMG.AS' } "backup short".
+  // Cette regle trop agressive matchait le ticker US "AMG" (Affiliated Managers
+  // Group, NYSE) et le redirigeait vers AMG.AS (Critical Materials, Amsterdam).
+  // Resultat : un user qui cliquait "AMG · US" dans l'autocomplete tombait sur
+  // la fiche AMG.AS au lieu de l'AMG US. Les 2 regles specifiques au-dessus
+  // (AMG CRITICAL, AMG ADVANCED METALLURGICAL) couvrent les recherches par
+  // nom complet legitimes (qui contiennent ces mots-cles). Plain "AMG" passe
+  // maintenant via Yahoo Search resolver qui priorise le match exact symbol.
   { match: 'ASML', symbol: 'ASML.AS' },
   { match: 'PROSUS', symbol: 'PRX.AS' },
   { match: 'ADYEN', symbol: 'ADYEN.AS' },

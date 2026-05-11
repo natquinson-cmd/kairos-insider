@@ -118,8 +118,13 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
       }
     } catch {}
 
-    // STRATEGIE 2 : fallback sur le mapping local (instantanee)
-    if (!resolvedFromName) {
+    // STRATEGIE 2 : fallback sur le mapping local (instantanee).
+    // FIX (mai 2026) : on ne lance le local mapping que si c'est une recherche
+    // par NOM (espaces ou chars speciaux ou string >12 chars). Pour les
+    // tickers courts type "AMG", "CRBP", on fait confiance a Yahoo Search
+    // qui priorise le match exact symbol. Sinon des regles trop agressives
+    // (ex AMG -> AMG.AS) cassaient les recherches de tickers US homonymes.
+    if (!resolvedFromName && isSearchByName) {
       try {
         const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
         const looked = lookupEuYahooSymbol(userInputRaw, null);
