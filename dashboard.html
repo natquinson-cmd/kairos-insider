@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-ticker-reduced-motion"></script>
+  <script src="assets/i18n.js?v=20260511-trans-code"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -5854,13 +5854,54 @@
       },
     };
 
-    // Traductions
+    // Traductions des codes SEC Form 4 (transactionCode) vers label + tooltip
+    // Reference officielle : https://www.sec.gov/about/forms/form4data.pdf
     const TX_TYPES = {
       'P': 'Achat', 'S': 'Vente', 'A': 'Attribution', 'D': 'Cession',
       'G': 'Don', 'M': 'Exercice', 'F': 'Retenue fiscale', 'X': 'Exercice',
       'C': 'Conversion', 'E': 'Expiration', 'H': 'Expiration anticipée',
       'I': 'Acquisition discrétionnaire', 'W': 'Acquisition volontaire',
+      'J': 'Divers', 'L': 'Petit achat', 'V': 'Déclaration volontaire',
+      'Z': 'Fiducie de vote',
     };
+    // Tooltip detaille pour chaque code SEC : explique CE QUE c'est
+    // (acquisition/disposition + nature) et le signal sous-jacent.
+    const TX_TYPES_TIP = {
+      'P': 'Achat marché ouvert — vrai signal bullish (insider met son argent)',
+      'S': 'Vente marché ouvert — peut être bear, ou simplement diversification',
+      'A': 'Attribution gratuite (RSU vesting, performance shares) — rémunération, signal neutre',
+      'D': 'Cession à l\'émetteur (typiquement retenue fiscale lors du vesting) — signal neutre',
+      'F': 'Retenue de titres pour payer l\'exercice ou l\'impôt — signal neutre',
+      'M': 'Exercice d\'option dérivée — souvent suivi d\'une vente (à surveiller)',
+      'G': 'Don de titres (charité, famille) — signal neutre, pas bear',
+      'I': 'Transaction discrétionnaire via plan d\'entreprise — signal neutre',
+      'J': 'Autre acquisition / disposition (catégorie fourre-tout SEC)',
+      'C': 'Conversion d\'un titre dérivé en actions ordinaires — signal neutre',
+      'X': 'Exercice d\'option in-the-money — souvent suivi de vente',
+      'W': 'Acquisition par testament / succession — signal neutre',
+      'L': 'Petite acquisition (<10 000 $) exemptée — signal très faible',
+      'V': 'Déclaration volontaire (pas obligatoire au sens SEC)',
+      'Z': 'Dépôt ou retrait depuis fiducie de vote',
+      'E': 'Expiration d\'une position dérivée longue',
+      'H': 'Expiration ou annulation d\'une position dérivée courte',
+    };
+    // Helper : retourne {label, cls, tooltip} pour un row insider.
+    // Priorise t.transCode/t.code (code SEC granulaire) si dispo, sinon fallback
+    // sur t.type (buy/sell/other) pour les anciennes lignes non enrichies.
+    function txTypeBadge(t) {
+      const code = (t.transCode || t.code || '').toUpperCase();
+      if (code && TX_TYPES[code]) {
+        // Classe CSS : .buy pour P, .sell pour S, .other pour le reste (neutre gris)
+        const cls = code === 'P' ? 'buy' : code === 'S' ? 'sell' : 'other';
+        const label = TX_TYPES[code].toUpperCase();
+        const tip = TX_TYPES_TIP[code] || '';
+        return { label, cls, tooltip: tip ? `Code SEC ${code} — ${tip}` : `Code SEC ${code}` };
+      }
+      // Fallback : type normalise (anciennes lignes sans code SEC preserve)
+      if (t.type === 'buy') return { label: 'ACHAT', cls: 'buy', tooltip: 'Achat marché ouvert' };
+      if (t.type === 'sell') return { label: 'VENTE', cls: 'sell', tooltip: 'Vente marché ouvert' };
+      return { label: 'AUTRE', cls: 'other', tooltip: 'Type non-buy/sell (vesting RSU, don, exercice option, retenue fiscale...). Le code SEC précis sera disponible après le prochain refresh quotidien.' };
+    }
 
     const AD_TYPES = { 'A': 'Achat', 'D': 'Vente' };
 
@@ -9230,9 +9271,11 @@
 
       let rows = '';
       for (const t of pageTx) {
-        const typeLabel = t.type === 'buy' ? '<span class="pill buy">ACHAT</span>'
-          : t.type === 'sell' ? '<span class="pill sell">VENTE</span>'
-          : '<span class="pill other">AUTRE</span>';
+        // Type badge : utilise le code SEC granulaire (P/S/A/D/F/M/G/...)
+        // si dispo, sinon fallback sur t.type (buy/sell/other). Tooltip
+        // explicite ce que signifie le code et son signal.
+        const badge = txTypeBadge(t);
+        const typeLabel = `<span class="pill ${badge.cls}" title="${badge.tooltip.replace(/"/g, '&quot;')}">${badge.label}</span>`;
 
         // Marché / devise (défaut US/USD pour les anciennes transactions SEC non taguées)
         const market = t.market || 'US';

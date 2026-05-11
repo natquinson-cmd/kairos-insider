@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS insider_transactions_history (
   insider TEXT NOT NULL,          -- nom du declarant
   title TEXT,                     -- role (CEO, CFO, Director, 10% owner...)
   trans_type TEXT NOT NULL,       -- 'buy' | 'sell' | 'other' | 'option-exercise'
+  trans_code TEXT,                -- code SEC brut : P/S/A/D/F/M/G/I/J/C/X/W/L/V/Z (NULL pour BaFin/AMF)
   shares INTEGER,
   price REAL,
   value REAL,                     -- shares * price en devise d'origine

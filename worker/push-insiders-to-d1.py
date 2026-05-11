@@ -76,6 +76,17 @@ def normalize_type(t):
     return t if t in ('buy', 'sell') else 'other'
 
 
+def normalize_code(c):
+    """Normalise un code SEC vers un caractere unique majuscule.
+    Codes SEC valides : P S A D F M G I J C X W L V Z H E O K T U Y.
+    Pour BaFin/AMF qui n'ont pas de code lettre, retourne NULL (=> ''/None)."""
+    if not c: return None
+    c = str(c).strip().upper()
+    if len(c) == 1 and c.isalpha():
+        return c
+    return None
+
+
 def collect_inserts():
     """Rassemble toutes les transactions depuis les sources locales."""
     sql_lines = []
@@ -117,6 +128,9 @@ def collect_inserts():
             insider = tx.get('insider') or tx.get('owner') or ''
             title = tx.get('title') or tx.get('role') or ''
             trans_type = normalize_type(tx.get('type'))
+            # Code SEC brut (P/S/A/D/F/M/G/...) - NULL pour BaFin/AMF qui n'ont pas
+            # de lettre code. Permet le label friendly cote UI (Don/Vesting/etc.)
+            trans_code = normalize_code(tx.get('code') or tx.get('trans_code'))
             shares = tx.get('shares')
             price = tx.get('price')
             value = tx.get('value')
@@ -140,10 +154,10 @@ def collect_inserts():
             sql_lines.append(
                 f"INSERT OR IGNORE INTO insider_transactions_history "
                 f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                f"insider, title, trans_type, shares, price, value, shares_after, line_num) "
+                f"insider, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
                 f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
                 f"{esc(accession)}, {esc(cik)}, {esc(ticker)}, {esc(company)}, "
-                f"{esc(insider)}, {esc(title)}, {esc(trans_type)}, "
+                f"{esc(insider)}, {esc(title)}, {esc(trans_type)}, {esc(trans_code)}, "
                 f"{integer(shares)}, {num(price)}, {num(value)}, "
                 f"{integer(shares_after)}, {integer(line_num)});"
             )

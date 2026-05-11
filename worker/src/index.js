@@ -2312,7 +2312,7 @@ async function handleTickerActivity(url, env, origin) {
       cutoff.setDate(cutoff.getDate() - days);
       const cutoffStr = cutoff.toISOString().slice(0, 10);
       const insRes = await env.HISTORY.prepare(
-        `SELECT trans_date, insider, title, trans_type, shares, value, ticker
+        `SELECT trans_date, insider, title, trans_type, trans_code, shares, value, ticker
          FROM insider_transactions_history
          WHERE ticker = ? AND trans_date >= ?
          ORDER BY trans_date DESC, value DESC
@@ -2324,6 +2324,7 @@ async function handleTickerActivity(url, env, origin) {
           filer: r.insider,
           role: r.title,
           type: r.trans_type, // 'buy' | 'sell' | 'other' | 'option-exercise'
+          transCode: r.trans_code || null, // SEC : P/S/A/D/F/M/G/I/J/C/X/W/L/V
           shares: r.shares,
           value: r.value,
         });
@@ -2931,7 +2932,7 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
 
     const query = `
       SELECT
-        trans_date, filing_date, insider, title, trans_type,
+        trans_date, filing_date, insider, title, trans_type, trans_code,
         shares, price, value, source, accession
       FROM insider_transactions_history
       WHERE ticker = ?
@@ -2948,6 +2949,7 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
       insider: r.insider,
       title: r.title || '',
       transType: r.trans_type || 'other',
+      transCode: r.trans_code || null, // SEC : P/S/A/D/F/M/G/...
       shares: r.shares || 0,
       price: r.price || 0,
       value: r.value || 0,

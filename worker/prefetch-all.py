@@ -195,6 +195,9 @@ for day_offset in range(0, fetch_days):
                 total_parsed += 1
 
                 # Ajouter les transactions individuelles (avec CIK pour reconstruire les clusters)
+                # FIX (mai 2026) : on preserve 'code' (lettre SEC P/S/A/D/F/M/G/...) et
+                # 'ad' (Acquired/Disposed) pour permettre des labels precis cote UI.
+                # Avant on les droppait -> tout finissait en 'other' = perte d'info massive.
                 for tx in parsed_txs:
                     all_transactions.append({
                         'fileDate': file_date,
@@ -205,6 +208,8 @@ for day_offset in range(0, fetch_days):
                         'insider': parsed['owner'] or insider_name,
                         'title': parsed_title,
                         'type': tx['type'],
+                        'code': tx.get('code') or '',      # SEC : P/S/A/D/F/M/G/I/J/C/X/W/L/V/Z
+                        'ad': tx.get('ad') or '',          # SEC : 'A' (Acquired) ou 'D' (Disposed)
                         'shares': tx['shares'],
                         'price': tx['price'],
                         'value': tx['value'],
