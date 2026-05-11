@@ -80,6 +80,9 @@ def parse_form4(xml, now_str):
     ticker = get_simple('issuerTradingSymbol')
     company = get_simple('issuerName')
     owner = get_simple('rptOwnerName')
+    # Phase B (mai 2026) : rptOwnerCik = CIK SEC du dirigeant (canonical pour
+    # cross-company lookup dans les fiches insider).
+    owner_cik = get_simple('rptOwnerCik').lstrip('0') or ''
     title = get_simple('officerTitle')
 
     transactions = []
@@ -120,6 +123,7 @@ def parse_form4(xml, now_str):
 
     return {
         'ticker': ticker, 'company': company, 'owner': owner,
+        'owner_cik': owner_cik,  # Phase B (mai 2026) : cle canonique cross-company
         'title': title, 'transactions': transactions,
     }
 
@@ -237,6 +241,11 @@ def _process_filing(hit, day_date, now_str):
         trans_type = tx.get('type') or 'other'
         insider = parsed['owner'] or insider_name
         cik_clean = str(company_cik or '').lstrip('0')
+        # Phase 2 (mai 2026) : code SEC granulaire (P/S/A/D/F/M/G/...)
+        # Phase B (mai 2026) : insider_cik (rptOwnerCik) pour cross-company lookup
+        raw_code = (tx.get('code') or '').strip().upper()
+        trans_code = raw_code if (len(raw_code) == 1 and raw_code.isalpha()) else ''
+        insider_cik = parsed.get('owner_cik') or ''
         group_key = ('SEC', adsh, cik_clean, insider, trans_date, trans_type)
         out.append({
             'group_key': group_key,
@@ -247,8 +256,10 @@ def _process_filing(hit, day_date, now_str):
             'ticker': parsed['ticker'],
             'company': parsed['company'] or company_name_meta,
             'insider': insider,
+            'insider_cik': insider_cik,  # Phase B
             'title': parsed['title'],
             'trans_type': trans_type,
+            'trans_code': trans_code,  # Phase 2 : preserve la lettre SEC
             'shares': tx['shares'],
             'price': tx['price'],
             'value': tx['value'],
@@ -305,11 +316,12 @@ def fetch_day_transactions(day_date, now_str):
                     sql_lines.append(
                         f"INSERT OR IGNORE INTO insider_transactions_history "
                         f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                        f"insider, title, trans_type, shares, price, value, shares_after, line_num) "
+                        f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
                         f"VALUES ({esc(r['file_date'])}, {esc(r['trans_date'])}, 'SEC', "
                         f"{esc(r['adsh'])}, {esc(r['cik_clean'])}, {esc(r['ticker'])}, "
-                        f"{esc(r['company'])}, {esc(r['insider'])}, {esc(r['title'])}, "
-                        f"{esc(r['trans_type'])}, {integer(r['shares'])}, {num(r['price'])}, "
+                        f"{esc(r['company'])}, {esc(r['insider'])}, {esc(r.get('insider_cik') or None)}, "
+                        f"{esc(r['title'])}, {esc(r['trans_type'])}, {esc(r.get('trans_code') or None)}, "
+                        f"{integer(r['shares'])}, {num(r['price'])}, "
                         f"{num(r['value'])}, {integer(r['shares_after'])}, {integer(line_num)});"
                     )
                     total_tx += 1

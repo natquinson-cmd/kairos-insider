@@ -155,6 +155,10 @@ for day_offset in range(0, 30):
             total_parsed += 1
 
             for tx in parsed['transactions']:
+                # FIX (mai 2026) : preserve 'code' (lettre SEC P/S/A/D/F/M/G/...) et
+                # 'ad' (Acquired/Disposed). Avant ces champs etaient dropees ici
+                # alors que parse_form4 les extrait correctement -> labels granulaires
+                # impossibles cote UI ('AUTRE' partout au lieu de DON/VESTING/etc.)
                 all_transactions.append({
                     'fileDate': file_date,
                     'date': tx['date'] or file_date,
@@ -163,6 +167,8 @@ for day_offset in range(0, 30):
                     'insider': parsed['owner'],
                     'title': parsed['title'],
                     'type': tx['type'],
+                    'code': tx.get('code') or '',  # SEC : P/S/A/D/F/M/G/I/J/C/X/W/L/V/Z
+                    'ad': tx.get('ad') or '',      # SEC : 'A' (Acquired) ou 'D' (Disposed)
                     'shares': tx['shares'],
                     'price': tx['price'],
                     'value': tx['value'],
