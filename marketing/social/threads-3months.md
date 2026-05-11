@@ -1682,7 +1682,7 @@ Tous mes guides complets en 1 lien :
 
 📖 kairosinsider.fr/blog
 
-Et l'essai gratuit Kairos Insider (3 analyses/jour, 0 CB) :
+Et l'essai gratuit Kairos Insider (4 analyses/jour, 0 CB) :
 → kairosinsider.fr
 
 Thread épinglé avec ce plan pendant 3 mois.
