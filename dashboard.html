@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-tickertape-guard"></script>
+  <script src="assets/i18n.js?v=20260511-real-star-markers"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -11080,6 +11080,54 @@
       }
     }
 
+    // ============================================================
+    // Dessine une vraie etoile 5 branches dans un canvas pour usage en
+    // pointStyle Chart.js. Le 'star' natif de Chart.js dessine un asterisque
+    // 6 branches (lignes croisees) qui rend moche. Cette fonction dessine
+    // une etoile pleine 5 branches comme le ★ Unicode de la legende.
+    // Cache les canvases par (radius, fill, hover) pour eviter de re-creer
+    // un canvas a chaque marker.
+    // ============================================================
+    const _starCanvasCache = new Map();
+    function makeFiveStarCanvas(radius, fill, hover) {
+      const key = `${radius}|${fill}|${hover ? 1 : 0}`;
+      if (_starCanvasCache.has(key)) return _starCanvasCache.get(key);
+      // Padding pour glow + bordure (sinon les pointes sont rognees)
+      const pad = hover ? 6 : 4;
+      const size = (radius + pad) * 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const cx = size / 2;
+      const cy = size / 2;
+      const outer = radius;
+      const inner = radius * 0.42;  // ratio classique etoile 5 branches equilibree
+      ctx.beginPath();
+      // 10 points alternant outer/inner, pointe vers le haut (angle -90deg)
+      for (let i = 0; i < 10; i++) {
+        const r = (i % 2 === 0) ? outer : inner;
+        const angle = (Math.PI / 5) * i - Math.PI / 2;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      // Glow leger pour ressortir sur fond sombre (plus marque en hover)
+      ctx.shadowColor = fill;
+      ctx.shadowBlur = hover ? 8 : 4;
+      ctx.fillStyle = fill;
+      ctx.fill();
+      // Contour subtil pour delimiter sur les zones lumineuses
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = hover ? '#FEF9C3' : 'rgba(133, 77, 14, 0.55)';
+      ctx.lineWidth = hover ? 1.5 : 1;
+      ctx.stroke();
+      _starCanvasCache.set(key, canvas);
+      return canvas;
+    }
+
     // Ajoute une dataset supplementaire au stockChart : markers pour chaque filing 13D/G
     function addActivistMarkersToChart(filings) {
       if (!stockChart || !filings || !filings.length) return;
@@ -11138,23 +11186,32 @@
       const hasMarkers = overlay.some(v => v !== null);
       if (!hasMarkers) return;
 
+      // Genere un canvas etoile 5 branches par marker (per-point pointStyle).
+      // Les positions sans filing recoivent 'circle' (radius 0 -> invisible).
+      // Note : Chart.js n'a pas de pointHoverStyle pour swap d'image au hover,
+      // le glow est donc deja inclus dans le canvas de base et pointHoverRadius
+      // augmente uniquement la zone de hit detection.
+      const STAR_FILL = '#FACC15';   // yellow-400 (match la legende)
+      const pointStyles = radii.map(r => r > 0 ? makeFiveStarCanvas(r, STAR_FILL, false) : 'circle');
+
       stockChart.data.datasets.push({
         label: 'Fonds offensifs',
         data: overlay,
         _meta: meta,
-        // pointStyle 'star' est dessine en ligne (borderColor fait la couleur).
-        // On utilise jaune vibrant pour matcher la legende et bien ressortir.
-        borderColor: '#FACC15',          // yellow-400
-        backgroundColor: '#FACC15',
-        pointBorderColor: '#FACC15',
-        pointBorderWidth: 2.5,            // plus epais pour visibilite
-        pointBackgroundColor: '#FACC15',
-        pointStyle: 'star',              // etoile 5 branches
+        // Per-point canvas etoiles. Avec un Image/Canvas comme pointStyle,
+        // Chart.js dessine l'image a sa taille naturelle (controlee dans le
+        // canvas) au lieu du rendu vectoriel 'star' natif (asterisque).
+        pointStyle: pointStyles,
+        // borderColor/backgroundColor ignores avec pointStyle=Canvas mais
+        // conserves au cas ou Chart.js fallback (point sans canvas) ou
+        // si la legende interne est activee un jour.
+        borderColor: STAR_FILL,
+        backgroundColor: STAR_FILL,
+        // pointRadius : utilise pour la zone de hit detection (tooltip).
+        // Le rendu visuel vient du canvas (taille controlee par le radius
+        // passe a makeFiveStarCanvas). On garde radii pour hover precis.
         pointRadius: radii,
         pointHoverRadius: radii.map(r => r ? r + 3 : 0),
-        pointHoverBackgroundColor: '#FEF08A',   // yellow-200 lighter on hover
-        pointHoverBorderColor: '#FDE047',       // yellow-300 halo
-        pointHoverBorderWidth: 3.5,
         showLine: false,
         order: -1,  // au-dessus des autres markers
       });
