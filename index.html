@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260511-mobile-ticker-pulse"></script>
+  <script src="assets/i18n.js?v=20260511-mockup-floats-real-fix"></script>
 
   <style>
     :root {
@@ -511,13 +511,11 @@
     .mockup-float.activists .act-fund { font-weight: 700; color: #F9FAFB; font-size: 11px; }
     .mockup-float.activists .act-pct { color: #FBBF24; font-weight: 700; font-size: 10px; }
 
-    /* Hide extra floats on mobile pour ne pas surcharger */
-    @media (max-width: 860px) {
-      .mockup-float.cluster,
-      .mockup-float.watchlist,
-      .mockup-float.topinsiders,
-      .mockup-float.activists { display: none; }
-    }
+    /* (Supprime mai 2026) : ancienne regle @media (max-width: 860px) qui cachait
+       .cluster, .watchlist, .topinsiders, .activists. Remplacee par la regle
+       @media (max-width: 900px) ligne 1247+ qui les transforme en cards stackees
+       (position:static + transform:none + max-width 340px centre). Resultat :
+       3 badges marketing visibles sous le mockup AAPL en mobile. */
 
     /* ===== STATS BAR ===== */
     .stats-bar {
