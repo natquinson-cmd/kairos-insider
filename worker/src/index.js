@@ -3138,6 +3138,15 @@ async function handleInsiderProfile(url, env, origin) {
       ? String(resolvedIdentity.insider_cik || '')
       : (cikParam || null);
 
+    // Roles vus : distinct des roles/titres pour la bio header.
+    // Limite a 3 et exclut les titres vides/courts (<= 1 char).
+    const rolesSet = new Set();
+    for (const tx of transactions) {
+      const ttl = (tx.title || '').trim();
+      if (ttl && ttl.length > 1) rolesSet.add(ttl);
+    }
+    const rolesSeen = Array.from(rolesSet).slice(0, 5);
+
     // Aggregats globaux (somme sur toutes les companies)
     const totalBuy = companies.reduce((s, c) => s + c.totalBuy, 0);
     const totalSell = companies.reduce((s, c) => s + c.totalSell, 0);
@@ -3147,6 +3156,7 @@ async function handleInsiderProfile(url, env, origin) {
       identity: {
         name: insiderName,
         cik: insiderCik,
+        rolesSeen,  // Phase B (mai 2026) : roles distincts pour la bio header
         // Lien SEC EDGAR direct : si on a un CIK, on peut pointer le user
         // vers la page officielle pour cross-verification.
         secEdgarUrl: insiderCik

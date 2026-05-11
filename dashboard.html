@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-flux-compact"></script>
+  <script src="assets/i18n.js?v=20260511-profile-avatar"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -9399,13 +9399,41 @@
       const fmtNum = (n) => (n == null) ? '—' : Number(n).toLocaleString(_locale);
       const netColor = sum.netFlow > 0 ? '#10B981' : sum.netFlow < 0 ? '#EF4444' : 'var(--text-muted)';
 
-      // ========== HEADER : identite + summary KPIs ==========
+      // ========== HEADER : avatar + identite + summary KPIs ==========
+      // Avatar : initiales sur gradient bleu/violet (style Google Material).
+      // Le hash du nom -> couleur deterministe (memes 2 mots = meme couleur).
+      // Pour les insiders avec nom de famille en premier (style SEC "LEVINSON
+      // ARTHUR D"), on prend les 2 premiers mots.
+      const nameForInitials = (idn.name || '?').trim();
+      const initials = nameForInitials.split(/\s+/).slice(0, 2)
+        .map(w => (w[0] || '').toUpperCase()).join('') || '?';
+      // Hue stable par nom (gradient slight variation)
+      let hash = 0;
+      for (let i = 0; i < nameForInitials.length; i++) hash = ((hash << 5) - hash + nameForInitials.charCodeAt(i)) | 0;
+      const hue1 = Math.abs(hash) % 360;
+      const hue2 = (hue1 + 35) % 360;
+      const avatarBg = `linear-gradient(135deg, hsl(${hue1},65%,55%), hsl(${hue2},70%,45%))`;
+
+      // Mini-bio computed-from-data (Phase B partielle) : roles vus + nb societes
+      // + premiere activite. Plus tard : enrichissement Wikipedia via API.
+      const _bioRoles = (idn.rolesSeen || []).slice(0, 3).join(' · ');
+      const _bioParts = [];
+      if (sum.totalCompanies > 0) _bioParts.push(`${sum.totalCompanies} ${sum.totalCompanies > 1 ? 'sociétés' : 'société'}`);
+      if (sum.firstActivity) _bioParts.push(`actif depuis ${fmtDate(sum.firstActivity)}`);
+      const bioComputed = _bioRoles || _bioParts.join(' · ');
+
       const headerHtml = `
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
-          <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px">${t('insider.profile.back', '← Retour')}</button>
-          <h2 style="margin:0;font-size:22px;color:var(--text-primary)">${escapeHtmlClient(idn.name || '—')}</h2>
-          ${idn.cik ? `<span style="font-size:11px;color:var(--text-muted);font-family:monospace;background:var(--surface-2);padding:2px 8px;border-radius:4px">${t('insider.profile.cik_badge', 'CIK')} ${idn.cik}</span>` : ''}
-          ${idn.secEdgarUrl ? `<a href="${idn.secEdgarUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-blue);text-decoration:underline">${t('insider.profile.sec_edgar_link', 'Voir sur SEC EDGAR ↗')}</a>` : ''}
+        <div style="display:flex;align-items:flex-start;gap:18px;margin-bottom:18px;flex-wrap:wrap">
+          <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px;flex-shrink:0;align-self:center">${t('insider.profile.back', '← Retour')}</button>
+          <div style="width:64px;height:64px;border-radius:50%;background:${avatarBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;letter-spacing:0.02em;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,0.25)" title="${escapeHtmlClient(nameForInitials)}">${escapeHtmlClient(initials)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+              <h2 style="margin:0;font-size:22px;color:var(--text-primary)">${escapeHtmlClient(idn.name || '—')}</h2>
+              ${idn.cik ? `<span style="font-size:11px;color:var(--text-muted);font-family:monospace;background:var(--surface-2);padding:2px 8px;border-radius:4px">${t('insider.profile.cik_badge', 'CIK')} ${idn.cik}</span>` : ''}
+              ${idn.secEdgarUrl ? `<a href="${idn.secEdgarUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-blue);text-decoration:underline">${t('insider.profile.sec_edgar_link', 'Voir sur SEC EDGAR ↗')}</a>` : ''}
+            </div>
+            ${bioComputed ? `<div style="font-size:13px;color:var(--text-secondary);line-height:1.5">${escapeHtmlClient(bioComputed)}</div>` : ''}
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">
           <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
@@ -9442,7 +9470,7 @@
       const _thStyleR = _thStyle.replace('text-align:left', 'text-align:right');
       const companiesHtml = companies.length === 0
         ? `<div style="color:var(--text-muted);text-align:center;padding:20px">${t('insider.profile.empty_companies', 'Aucune société trouvée')}</div>`
-        : `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+        : `<div style="overflow-x:auto"><table class="table-no-sticky" style="width:100%;border-collapse:collapse;font-size:13px">
             <thead><tr style="border-bottom:1px solid var(--border)">
               <th style="${_thStyle}">${t('insider.profile.col_ticker', 'Ticker')}</th>
               <th style="${_thStyle}">${t('insider.profile.col_company', 'Société')}</th>
@@ -9502,7 +9530,7 @@
       const _thStyleS = 'padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:600';
       const txsHtml = txs.length === 0
         ? `<div style="color:var(--text-muted);text-align:center;padding:20px">${t('insider.profile.empty_txs', 'Aucune transaction')}</div>`
-        : `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+        : `<div style="overflow-x:auto"><table class="table-no-sticky" style="width:100%;border-collapse:collapse;font-size:13px">
             <thead><tr style="border-bottom:1px solid var(--border)">
               <th style="text-align:left;${_thStyleS}">${t('insider.profile.col_date', 'Date')}</th>
               <th style="text-align:left;${_thStyleS}">${t('insider.profile.col_ticker', 'Ticker')}</th>
