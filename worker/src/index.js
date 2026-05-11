@@ -7959,10 +7959,18 @@ async function handleScheduleDGTicker(url, env, origin) {
   // FIX (mai 2026 / UBI.PA Ubisoft) : les filings AMF/BaFin/FCA/etc. n'ont
   // souvent PAS de field ticker (ticker=''), juste targetName + yahooSymbol
   // ajoute par l'enrichment. Le filter doit aussi matcher sur yahooSymbol.
+  // FIX (mai 2026 v2 / Allreal CH) : si l'enrichment principal a rate
+  // (ex: yahooSymbol pre-populated wrong), on retente lookupEuYahooSymbol
+  // sur le targetName a la volee dans le filter. Filet de securite.
   let filings = merged.filings.filter(f => {
     const t = (f.ticker || '').toUpperCase();
     const ys = (f.yahooSymbol || '').toUpperCase();
     if (t === ticker || ys === ticker) return true;  // match exact (ticker OU yahoo)
+    // Fallback : applique le mapping local au targetName et compare
+    if (f.targetName && f.country && f.country !== 'US') {
+      const reLookup = lookupEuYahooSymbol(f.targetName, f.country);
+      if (reLookup && reLookup.toUpperCase() === ticker) return true;
+    }
     if (hasYahooSuffix) {
       // EU input -> exclure les tickers US sans suffixe (MC=Moelis, BN=Brookfield, etc.)
       // Accepter uniquement les variations EU avec un suffixe pays.
