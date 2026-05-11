@@ -108,30 +108,37 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const hasYahooSuffix = /\.(PA|L|DE|AS|SW|MI|MC|ST|OL|CO|HE|TO|AX|HK|SG)$/i.test(ticker);
 
   if (!hasYahooSuffix || isSearchByName) {
-    // STRATEGIE 1 : Yahoo Search (universel, accepte espaces et nom complet)
-    try {
-      const yahooResolved = await resolveTickerViaYahooSearch(userInputRaw, env);
-      if (yahooResolved && yahooResolved !== userInputRaw && yahooResolved !== ticker) {
-        ticker = yahooResolved;
-        resolvedFromName = true;
-        console.log(`[STOCK] Yahoo Search "${userInputRaw}" -> "${ticker}"`);
-      }
-    } catch {}
-
-    // STRATEGIE 2 : fallback sur le mapping local (instantanee).
-    // FIX (mai 2026) : on ne lance le local mapping que si c'est une recherche
-    // par NOM (espaces ou chars speciaux ou string >12 chars). Pour les
-    // tickers courts type "AMG", "CRBP", on fait confiance a Yahoo Search
-    // qui priorise le match exact symbol. Sinon des regles trop agressives
-    // (ex AMG -> AMG.AS) cassaient les recherches de tickers US homonymes.
-    if (!resolvedFromName && isSearchByName) {
+    // STRATEGIE 1 : mapping local CURATED en priorite pour les recherches par NOM.
+    // FIX (mai 2026) : avant on faisait Yahoo Search d'abord, qui pouvait
+    // renvoyer la mauvaise listing (ex: "GALENICA AG" -> 0ROG.L Londres au
+    // lieu de GALE.SW Suisse, primaire et beaucoup plus liquide). Le mapping
+    // local est curated et plus fiable pour les ~150 sociétés europeennes
+    // importantes qu'on couvre. Yahoo Search ne sert qu'en fallback si pas
+    // de match local.
+    // Important : on n'utilise le local mapping QUE pour les recherches par
+    // NOM (isSearchByName=true). Pour les tickers courts type "AMG", "CRBP",
+    // Yahoo Search reste primaire (match exact symbol).
+    if (isSearchByName) {
       try {
         const { lookupEuYahooSymbol } = await import('./eu_yahoo_symbols.js');
         const looked = lookupEuYahooSymbol(userInputRaw, null);
         if (looked && looked !== userInputRaw) {
           ticker = looked;
           resolvedFromName = true;
-          console.log(`[STOCK] Local mapping "${userInputRaw}" -> "${ticker}"`);
+          console.log(`[STOCK] Local mapping (priority) "${userInputRaw}" -> "${ticker}"`);
+        }
+      } catch {}
+    }
+
+    // STRATEGIE 2 : fallback Yahoo Search si pas de match local.
+    // (Couvre les sociétés pas dans notre mapping curated.)
+    if (!resolvedFromName) {
+      try {
+        const yahooResolved = await resolveTickerViaYahooSearch(userInputRaw, env);
+        if (yahooResolved && yahooResolved !== userInputRaw && yahooResolved !== ticker) {
+          ticker = yahooResolved;
+          resolvedFromName = true;
+          console.log(`[STOCK] Yahoo Search (fallback) "${userInputRaw}" -> "${ticker}"`);
         }
       } catch {}
     }
