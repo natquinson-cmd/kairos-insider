@@ -77,13 +77,16 @@ def parse_form4(xml, now_str):
         m = re.search(rf'<{tag}>([^<]*)</{tag}>', xml)
         return m.group(1).strip() if m else ''
 
-    ticker = get_simple('issuerTradingSymbol')
-    company = get_simple('issuerName')
-    owner = get_simple('rptOwnerName')
+    # FIX (mai 2026) : decode HTML entities (idem prefetch-all.py)
+    import html as _html_mod
+    _decode = lambda s: _html_mod.unescape(s) if s else s
+    ticker = _decode(get_simple('issuerTradingSymbol'))
+    company = _decode(get_simple('issuerName'))
+    owner = _decode(get_simple('rptOwnerName'))
     # Phase B (mai 2026) : rptOwnerCik = CIK SEC du dirigeant (canonical pour
     # cross-company lookup dans les fiches insider).
     owner_cik = get_simple('rptOwnerCik').lstrip('0') or ''
-    title = get_simple('officerTitle')
+    title = _decode(get_simple('officerTitle'))
 
     transactions = []
     for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):

@@ -36,14 +36,20 @@ def parse_form4(xml, now_str):
         m = re.search(rf'<{tag}>([^<]*)</{tag}>', xml)
         return m.group(1).strip() if m else ''
 
-    ticker = get_simple('issuerTradingSymbol')
-    company = get_simple('issuerName')
-    owner = get_simple('rptOwnerName')
+    # FIX (mai 2026) : decode HTML entities pour les Form 4 qui contiennent
+    # souvent 'VP R&amp;D', 'Smith & Wesson', etc. Sans decode, on stocke
+    # l'entite textuelle en D1 -> double-encode au render frontend -> affiche
+    # 'VP R&amp;D' au lieu de 'VP R&D'.
+    import html as _html_mod
+    _decode = lambda s: _html_mod.unescape(s) if s else s
+    ticker = _decode(get_simple('issuerTradingSymbol'))
+    company = _decode(get_simple('issuerName'))
+    owner = _decode(get_simple('rptOwnerName'))
     # rptOwnerCik (Phase B 2026-05) : CIK SEC du dirigeant, unique meme s'il
     # change de nom (mariage, divorce...) ou de role. Cle canonique pour le
     # cross-company lookup (LEVINSON ARTHUR D = CIK 1214128 sur AAPL, GOOGL...).
     owner_cik = get_simple('rptOwnerCik').lstrip('0') or ''
-    title = get_simple('officerTitle')
+    title = _decode(get_simple('officerTitle'))
 
     transactions = []
     for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):
