@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-mockup-floats-mobile"></script>
+  <script src="assets/i18n.js?v=20260511-mobile-ticker-pulse"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -412,12 +412,15 @@
       font-size: 11px;
       font-style: italic;
     }
-    /* Mobile : ticker plus dense, items plus serres */
+    /* Mobile : ticker plus haut (36 vs 28) + font lisible (12 vs 11) +
+       anim plus rapide (90s) pour que l'user voie defiler tous les signaux.
+       Avant 28px etait trop fin pour afficher drapeau + ticker bold + label
+       + valeur confortablement -> l'info semblait coupee. */
     @media (max-width: 700px) {
-      .ticker-tape { height: 28px; }
-      .ticker-tape-item { padding: 0 12px; font-size: 11px; gap: 6px; }
-      .ticker-tape-ticker { font-size: 11.5px; }
-      .ticker-tape-track { animation-duration: 140s; }
+      .ticker-tape { height: 36px; }
+      .ticker-tape-item { padding: 0 14px; font-size: 12px; gap: 8px; }
+      .ticker-tape-ticker { font-size: 12.5px; }
+      .ticker-tape-track { animation-duration: 90s; }
     }
 
     .nav-links { display: flex; gap: 24px; align-items: center; list-style: none; }
@@ -937,10 +940,17 @@
          capter les grilles IMBRIQUEES dans .section-page (ex : la grille radar
          Kairos Score + breakdown 8 axes qui avait minmax(380px,1fr) fixe et
          debordait sur mobile). Le ">" original ne ciblait que les enfants
-         directs et laissait passer les grilles internes des render*. */
+         directs et laissait passer les grilles internes des render*.
+         EXCLUSION : #marketPulse + .signals-grid gardent leur auto-fit pour
+         afficher 2-3 cards par ligne (sinon trop d'espace vertical vide). */
       .charts-row,
-      .section-page > div[style*="grid-template-columns"],
-      .section-page div[style*="grid-template-columns"][style*="minmax"] { grid-template-columns: 1fr !important; }
+      .section-page > div[style*="grid-template-columns"]:not(#marketPulse):not(.signals-grid),
+      .section-page div[style*="grid-template-columns"][style*="minmax"]:not(#marketPulse):not(.signals-grid) { grid-template-columns: 1fr !important; }
+      /* Market pulse : 2 colonnes sur mobile (5 items = 2+2+1, F&G alone
+         en row 3). Plus aere que 1 col, sans etre etrique comme 3 cols. */
+      #marketPulse { grid-template-columns: repeat(2, 1fr) !important; }
+      /* Top signaux du jour : garde auto-fit minmax(280px) -> collapse a 1 col
+         seulement sous 280px (iPhone SE = 375 -> 1 col forcement). */
 
       /* Modals plein écran */
       #supportModal > div,
@@ -1307,9 +1317,14 @@
        mais le contenu .dashboard-layout reste a 77px -> "Hey, voici ce qui
        bouge" etait masque par le ticker. On augmente le padding-top. */
     body.has-beta-banner .dashboard-layout { padding-top: 117px; }
+    /* Mobile (mai 2026) : ticker tape passe de 28 -> 36px pour lisibilite,
+       donc on bump le padding-top en consequence pour eviter overlap. */
+    @media (max-width: 700px) {
+      .dashboard-layout { padding-top: 85px; } /* nav 45 + ticker 36 + 4 buffer */
+    }
     @media (max-width: 640px) {
-      /* Mobile : banner ~76px + nav 45 + ticker 32 = 153px de chrome haut */
-      body.has-beta-banner .dashboard-layout { padding-top: 153px; }
+      /* Banner ~76px + nav 45 + ticker 36 + 4 buffer = 161px */
+      body.has-beta-banner .dashboard-layout { padding-top: 161px; }
     }
 
     /* Sidebar */
@@ -5729,8 +5744,15 @@
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
         const items = data.items || [];
+        // FIX (mai 2026) : avant on remplacait par "Aucun signal recent" si
+        // items vides -> au refresh 5min, si l'API retourne vide ponctuellement,
+        // la barre se vidait. Maintenant on garde le contenu precedent si la
+        // reponse est vide ET qu'on a deja du contenu actif (track.children > 0).
         if (!items.length) {
-          track.innerHTML = '<span class="ticker-tape-loading">Aucun signal récent · sources en cache</span>';
+          if (!track.children.length || track.querySelector('.ticker-tape-loading')) {
+            track.innerHTML = '<span class="ticker-tape-loading">Aucun signal récent · sources en cache</span>';
+          }
+          // Sinon on garde le contenu valide en place, on retentera au prochain refresh.
           return;
         }
         // Drapeaux : flagcdn.com PNG (les emoji regional indicators ne
