@@ -5811,7 +5811,7 @@ function buildWelcomeEmail(lang) {
   const T = isEn ? {
     heroLine1: 'They\'re buying.',
     heroLine2: 'You\'ll know when.',
-    sub: 'Every day, 200+ executives, hedge funds and activists file transactions with regulators. Kairos surfaces the signals that matter — and notifies you.',
+    sub: 'Every day, hundreds of executives, hedge funds and activists file transactions with regulators. Kairos surfaces the signals that matter — and notifies you.',
     kpi1Num: '11', kpi1Lbl: 'regulators',
     kpi2Num: '45k', kpi2Lbl: 'monthly tx',
     kpi3Num: '9', kpi3Lbl: 'markets',
@@ -5839,7 +5839,7 @@ function buildWelcomeEmail(lang) {
   } : {
     heroLine1: 'Ils achètent.',
     heroLine2: 'Vous saurez quand.',
-    sub: 'Chaque jour, 200+ dirigeants, hedge funds et activistes déposent leurs transactions auprès des régulateurs. Kairos remonte les signaux qui comptent — et vous prévient.',
+    sub: 'Chaque jour, des centaines de dirigeants, hedge funds et activistes déposent leurs transactions auprès des régulateurs. Kairos remonte les signaux qui comptent — et vous prévient.',
     kpi1Num: '11', kpi1Lbl: 'régulateurs',
     kpi2Num: '45k', kpi2Lbl: 'tx / mois',
     kpi3Num: '9', kpi3Lbl: 'marchés',
