@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260511-hash-plus-decode"></script>
+  <script src="assets/i18n.js?v=20260511-clickable-insiders-stock"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -10880,19 +10880,27 @@
           const buys = data.insiderTrades.filter(t => t.type === 'buy').length;
           const sells = data.insiderTrades.filter(t => t.type === 'sell').length;
           const top = data.insiderTrades.slice(0, 4);
-          const rows = top.map(t => {
-            const isBuy = t.type === 'buy';
-            const color = isBuy ? '#10B981' : t.type === 'sell' ? '#EF4444' : '#9CA3AF';
-            const icon = isBuy ? '🟢' : t.type === 'sell' ? '🔴' : '⚪';
+          const rows = top.map(tx => {
+            const isBuy = tx.type === 'buy';
+            const color = isBuy ? '#10B981' : tx.type === 'sell' ? '#EF4444' : '#9CA3AF';
+            const icon = isBuy ? '🟢' : tx.type === 'sell' ? '🔴' : '⚪';
+            // Lien fiche dirigeant cliquable (Phase A+B 2026-05).
+            const _filerEsc = (tx.filer || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const _cikEsc = String(tx.insiderCik || tx.filerCik || '').replace(/'/g, "\\'");
+            const _filerShort = (tx.filer || '').slice(0, 24);
             return `
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
                 <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">
-                  <span style="margin-right:5px">${icon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient((t.filer || '').slice(0, 24))}</strong>
-                  ${t.role ? `<span style="color:var(--text-muted);font-size:10px;margin-left:4px">${escapeHtmlClient(t.role.slice(0, 12))}</span>` : ''}
+                  <span style="margin-right:5px">${icon}</span><strong onclick="event.stopPropagation();openInsiderProfile('${_filerEsc}', '${_cikEsc}')"
+                    style="color:var(--text-primary);cursor:pointer;border-bottom:1px dashed currentColor"
+                    onmouseover="this.style.color='var(--accent-blue)'"
+                    onmouseout="this.style.color='var(--text-primary)'"
+                    title="${t('insider.profile.click_to_open', 'Cliquer pour ouvrir la fiche')}">${escapeHtmlClient(_filerShort)}</strong>
+                  ${tx.role ? `<span style="color:var(--text-muted);font-size:10px;margin-left:4px">${escapeHtmlClient(tx.role.slice(0, 12))}</span>` : ''}
                 </div>
                 <div style="color:${color};font-weight:600;flex-shrink:0;text-align:right">
-                  <div>${fmtShares(t.shares)} sh${t.value ? ' · ' + fmtUsd(t.value) : ''}</div>
-                  <div style="font-size:10px;opacity:0.7">${fmtD(t.date)}</div>
+                  <div>${fmtShares(tx.shares)} sh${tx.value ? ' · ' + fmtUsd(tx.value) : ''}</div>
+                  <div style="font-size:10px;opacity:0.7">${fmtD(tx.date)}</div>
                 </div>
               </div>`;
           }).join('');
@@ -11935,20 +11943,30 @@
                 const limit = !currentUser ? anonLimit : fullLimit;
                 const visible = allTx.slice(0, limit);
                 const hidden = allTx.length - visible.length;
-                let html = visible.map(t => `
+                let html = visible.map(tx => {
+                  // Lien fiche dirigeant (Phase A+B 2026-05) : nom cliquable.
+                  // Uses tx.insiderCik si dispo (canonical SEC), fallback nom.
+                  const _insiderFull = (tx.insider || '').slice(0, 25);
+                  const _insiderEsc = (tx.insider || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                  const _cikEsc = String(tx.insiderCik || '').replace(/'/g, "\\'");
+                  return `
                   <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
                     <div style="display:flex;justify-content:space-between">
                       <div>
-                        <strong>${(t.insider||'').slice(0,25)}</strong>
-                        <span style="font-size:11px;opacity:0.5;margin-left:6px">${t.title || ''}</span>
+                        <strong onclick="openInsiderProfile('${_insiderEsc}', '${_cikEsc}')"
+                          style="cursor:pointer;border-bottom:1px dashed currentColor"
+                          onmouseover="this.style.color='var(--accent-blue)'"
+                          onmouseout="this.style.color=''"
+                          title="Cliquer pour ouvrir la fiche">${_insiderFull}</strong>
+                        <span style="font-size:11px;opacity:0.5;margin-left:6px">${tx.title || ''}</span>
                       </div>
-                      <span style="color:${t.type==='buy'?'#2ecc71':t.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(t.type)}</span>
+                      <span style="color:${tx.type==='buy'?'#2ecc71':tx.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(tx.type)}</span>
                     </div>
                     <div style="font-size:11px;opacity:0.6;margin-top:2px">
-                      ${fmtDate(t.fileDate)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ ' + fmtCurr(t.price, t.currency||cur) : ''} ${t.value ? '→ <strong>' + fmtCurr(t.value, t.currency||cur) + '</strong>' : ''}
+                      ${fmtDate(tx.fileDate)} · ${tx.shares ? tx.shares.toLocaleString('fr-FR') + ' titres' : ''} ${tx.price ? '@ ' + fmtCurr(tx.price, tx.currency||cur) : ''} ${tx.value ? '→ <strong>' + fmtCurr(tx.value, tx.currency||cur) + '</strong>' : ''}
                     </div>
                   </div>
-                `).join('');
+                `;}).join('');
                 if (visible.length === 0) {
                   html = `<div style="opacity:0.5;padding:12px 0">${L.emptyTransactions}</div>`;
                 }
@@ -20079,20 +20097,28 @@
         // Render top 30 dans la card (vs 15 avant — plus de place avec l'historique)
         const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
         const fmtD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
-        listEl.innerHTML = rows.slice(0, 30).map(t => `
+        // Phase A+B (mai 2026) : nom dirigeant cliquable -> openInsiderProfile.
+        listEl.innerHTML = rows.slice(0, 30).map(r => {
+          const _insiderEsc = (r.insider || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          const _cikEsc = String(r.insider_cik || r.insiderCik || '').replace(/'/g, "\\'");
+          return `
           <div style="padding:8px 0;border-bottom:1px solid var(--divider)">
             <div style="display:flex;justify-content:space-between">
               <div>
-                <strong>${esc((t.insider||'').slice(0, 25))}</strong>
-                <span style="font-size:11px;opacity:0.5;margin-left:6px">${esc(t.title || '')}</span>
+                <strong onclick="event.stopPropagation();openInsiderProfile('${_insiderEsc}', '${_cikEsc}')"
+                  style="cursor:pointer;border-bottom:1px dashed currentColor"
+                  onmouseover="this.style.color='var(--accent-blue)'"
+                  onmouseout="this.style.color=''"
+                  title="${t('insider.profile.click_to_open', 'Cliquer pour ouvrir la fiche')}">${esc((r.insider||'').slice(0, 25))}</strong>
+                <span style="font-size:11px;opacity:0.5;margin-left:6px">${esc(r.title || '')}</span>
               </div>
-              <span style="color:${t.trans_type==='buy'?'#2ecc71':t.trans_type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${t.trans_type==='buy'?'● Achat':t.trans_type==='sell'?'● Vente':'● '+esc(t.trans_type||'')}</span>
+              <span style="color:${r.trans_type==='buy'?'#2ecc71':r.trans_type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${r.trans_type==='buy'?'● Achat':r.trans_type==='sell'?'● Vente':'● '+esc(r.trans_type||'')}</span>
             </div>
             <div style="font-size:11px;opacity:0.6;margin-top:2px">
-              ${fmtD(t.filing_date || t.trans_date)} · ${t.shares ? t.shares.toLocaleString('fr-FR') + ' titres' : ''} ${t.price ? '@ $' + t.price.toFixed(2) : ''} ${t.value ? '→ <strong>$' + (Math.abs(t.value) >= 1e6 ? (t.value/1e6).toFixed(1)+'M' : (t.value/1e3).toFixed(0)+'K') + '</strong>' : ''}
+              ${fmtD(r.filing_date || r.trans_date)} · ${r.shares ? r.shares.toLocaleString('fr-FR') + ' titres' : ''} ${r.price ? '@ $' + r.price.toFixed(2) : ''} ${r.value ? '→ <strong>$' + (Math.abs(r.value) >= 1e6 ? (r.value/1e6).toFixed(1)+'M' : (r.value/1e3).toFixed(0)+'K') + '</strong>' : ''}
             </div>
-          </div>
-        `).join('') + (rows.length > 30 ? `<div style="padding:10px 0;text-align:center;font-size:11px;opacity:0.6">+ ${rows.length - 30} autres — <a href="#" onclick="openScreenerForTicker('${ticker}');return false" style="color:#74b9ff">voir dans le Screener</a></div>` : '');
+          </div>`;
+        }).join('') + (rows.length > 30 ? `<div style="padding:10px 0;text-align:center;font-size:11px;opacity:0.6">+ ${rows.length - 30} autres — <a href="#" onclick="openScreenerForTicker('${ticker}');return false" style="color:#74b9ff">voir dans le Screener</a></div>` : '');
       } catch (e) {
         if (listEl) listEl.innerHTML = `<div style="opacity:0.5;padding:12px 0">Erreur : ${escapeHtml(e.message || e)}</div>`;
       }

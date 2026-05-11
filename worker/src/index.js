@@ -2317,7 +2317,7 @@ async function handleTickerActivity(url, env, origin) {
       cutoff.setDate(cutoff.getDate() - days);
       const cutoffStr = cutoff.toISOString().slice(0, 10);
       const insRes = await env.HISTORY.prepare(
-        `SELECT trans_date, insider, title, trans_type, trans_code, shares, value, ticker
+        `SELECT trans_date, insider, insider_cik, title, trans_type, trans_code, shares, value, ticker
          FROM insider_transactions_history
          WHERE ticker = ? AND trans_date >= ?
          ORDER BY trans_date DESC, value DESC
@@ -2327,6 +2327,7 @@ async function handleTickerActivity(url, env, origin) {
         insiderTrades.push({
           date: r.trans_date,
           filer: r.insider,
+          insiderCik: r.insider_cik || null, // Phase B (mai 2026) : permet openInsiderProfile precis
           role: r.title,
           type: r.trans_type, // 'buy' | 'sell' | 'other' | 'option-exercise'
           transCode: r.trans_code || null, // SEC : P/S/A/D/F/M/G/I/J/C/X/W/L/V
@@ -3350,8 +3351,8 @@ async function handleHistoryInsider(url, env, origin) {
     }
     args.push(limit);
 
-    const sql = `SELECT filing_date, trans_date, source, ticker, company, insider, title,
-                        trans_type, shares, price, value, shares_after
+    const sql = `SELECT filing_date, trans_date, source, ticker, company, insider, insider_cik, title,
+                        trans_type, trans_code, shares, price, value, shares_after
                  FROM insider_transactions_history
                  WHERE ${conditions.join(' AND ')}
                  ORDER BY COALESCE(trans_date, filing_date) DESC, filing_date DESC
