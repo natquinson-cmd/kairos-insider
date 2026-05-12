@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-autocomplete-ranking"></script>
+  <script src="assets/i18n.js?v=20260512-13d-red-13da-orange"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -4060,14 +4060,15 @@
             <span class="period-label">Type :</span>
             <div class="period-buttons">
               <!-- Codes couleur cohérents avec la légende du tableau :
-                   Offensifs = gradient orange/rouge (mêmes tons que badge ⚡ OFFENSIF)
-                   13D = orange (#F59E0B) — actif
+                   Offensifs = gradient orange (badge ⚡ OFFENSIF)
+                   13D = ROUGE (#EF4444) — actif initial, signal le plus fort
+                   13D/A = orange (#F59E0B) — amendement
                    13G = vert (#10B981) — passif
                    Tous = neutre -->
               <button class="period-btn active" onclick="setActPreset('filter','activists',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Tous les filings activistes (vrais hostiles + contrôle interne)">⚡ Offensifs</button>
               <button class="period-btn" onclick="setActPreset('filter','hostile',this)" style="border-color:rgba(239,68,68,0.5);color:#FCA5A5" title="Activistes hostiles uniquement (Elliott, Ackman, Icahn… — exclut les holdings parent-filiale type Imperial→C3is)">⚡ Hostiles</button>
               <button class="period-btn" onclick="setActPreset('filter','controlling',this)" style="border-color:rgba(59,130,246,0.5);color:#60A5FA" title="Contrôle interne — parent/filiale, holdings, founders maintenant >40% du capital">🏢 Contrôle</button>
-              <button class="period-btn" onclick="setActPreset('filter','13D',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Schedule 13D — prise active >5%">Actifs</button>
+              <button class="period-btn" onclick="setActPreset('filter','13D',this)" style="border-color:rgba(239,68,68,0.5);color:#EF4444" title="Schedule 13D — prise active initiale >5% (signal activiste le plus fort)">Actifs</button>
               <button class="period-btn" onclick="setActPreset('filter','13G',this)" style="border-color:rgba(16,185,129,0.4);color:#10B981" title="Schedule 13G — prise passive >5% (Vanguard/BlackRock)">Passifs</button>
               <button class="period-btn" onclick="setActPreset('filter','all',this)" title="Toutes les déclarations >5% du capital">Tous</button>
             </div>
@@ -8644,10 +8645,10 @@
       ].join('');
 
       const activistBody = [
-        mkRow('DIS',  'Trian Partners',   '13D · 14 avr', '#F59E0B'),
-        mkRow('SBUX', 'Elliott Mgmt',     '13D · 12 avr', '#F59E0B'),
+        mkRow('DIS',  'Trian Partners',   '13D · 14 avr', '#EF4444'),
+        mkRow('SBUX', 'Elliott Mgmt',     '13D · 12 avr', '#EF4444'),
         mkRow('NFLX', 'Pershing Square',  '13G · 11 avr', '#10B981'),
-        mkRow('HLT',  'Starboard Value',  '13D · 09 avr', '#F59E0B'),
+        mkRow('HLT',  'Starboard Value',  '13D · 09 avr', '#EF4444'),
       ].join('');
 
       // i18n date format : 'fr-FR' → '9 mai', 'en-US' → 'May 9'
@@ -8876,7 +8877,10 @@
             .trim();
         };
         const activistItems = (data.activistsFresh || []).slice(0, 5).map(a => {
-          const formColor = /13D/.test(a.form || '') ? '#F59E0B' : '#10B981';
+          // 13D initial = rouge (signal fort), 13D/A = orange (amendement),
+          // 13G/G-A = vert (passif). Match la legende du tableau Fonds Offensifs.
+          const formRaw = (a.form || '').toUpperCase();
+          const formColor = /13D\/A/.test(formRaw) ? '#F59E0B' : /13D/.test(formRaw) ? '#EF4444' : '#10B981';
           const form = shortForm(a.form);
           const date = fmtD(a.date);
           const rightText = [form, date].filter(Boolean).join(' · ');
@@ -10717,10 +10721,15 @@
         const fmtLongD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
 
         // Badge de forme en pill colorée (13D/13D-A offensif / 13G/13G-A passif)
+        // FIX (mai 2026) : hierarchie de couleur inversee.
+        // - 13D (initial, le moment ou l'activiste se revele) = ROUGE FORT
+        // - 13D/A (amendement, juste un update) = ORANGE
+        // Avant : 13D etait orange et 13D/A rouge = signal le plus fort
+        // visuellement etait sur l'amendement, pas la nouvelle entree.
         const formBadgeHtml = (form) => {
           if (!form) return '';
-          if (/13D\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(239,68,68,0.20);color:#EF4444;border:1px solid rgba(239,68,68,0.45);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D/A</span>';
-          if (/13D/.test(form))   return '<span style="padding:3px 10px;background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.35);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D</span>';
+          if (/13D\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.35);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D/A</span>';
+          if (/13D/.test(form))   return '<span style="padding:3px 10px;background:rgba(239,68,68,0.20);color:#EF4444;border:1px solid rgba(239,68,68,0.45);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13D</span>';
           if (/13G\/A/.test(form)) return '<span style="padding:3px 10px;background:rgba(107,114,128,0.15);color:#9CA3AF;border:1px solid rgba(107,114,128,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13G/A</span>';
           if (/13G/.test(form))   return '<span style="padding:3px 10px;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">13G</span>';
           return `<span style="padding:3px 10px;background:var(--surface-2);color:var(--text-muted);border-radius:100px;font-size:10px">${escapeHtmlClient(form)}</span>`;
@@ -20125,8 +20134,11 @@
         const formBadge = (form) => {
           if (!form) return '';
           const s = 'style="cursor:help;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:4px"';
-          if (/13D\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(239,68,68,0.30);color:#FCA5A5;border:1.5px solid rgba(239,68,68,0.65);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13D — mise à jour d'une position ACTIVE : le filer ajuste sa déclaration, l'intention d'influencer la gestion reste en place.">13D/A <span style="opacity:0.85;font-weight:500">· Actif</span></span>`;
-          if (/13D/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13D — prise ACTIVE >5% : le filer a l'intention d'influencer la stratégie (board, buybacks, spin-off, fusion…). Signal activiste fort.">13D <span style="opacity:0.75;font-weight:500">· Actif</span></span>`;
+          // FIX (mai 2026) : 13D (initial) en ROUGE FORT (signal majeur,
+          // l'activiste se revele), 13D/A en ORANGE (amendement, update).
+          // Avant : c'etait inverse, le 13D/A volait la vedette au 13D.
+          if (/13D\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13D — mise à jour d'une position ACTIVE : le filer ajuste sa déclaration, l'intention d'influencer la gestion reste en place.">13D/A <span style="opacity:0.75;font-weight:500">· Actif</span></span>`;
+          if (/13D/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(239,68,68,0.20);color:#EF4444;border:1.5px solid rgba(239,68,68,0.55);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13D — PRISE ACTIVE INITIALE >5% : le filer se revele et a l'intention d'influencer la strategie (board, buybacks, spin-off, fusion…). Signal activiste le plus fort.">13D <span style="opacity:0.85;font-weight:500">· Actif</span></span>`;
           if (/13G\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13G — mise à jour d'une position PASSIVE : le filer ajuste sa déclaration sans intention d'influencer la gestion.">13G/A <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
           if (/13G/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13G — prise PASSIVE >5% : simple déclaration d'investissement, sans intention d'influencer la stratégie (Vanguard, BlackRock, family offices…).">13G <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
           // Formes EU : franchissement de seuil (AMF, BaFin, FCA, AFM, SIX...)
@@ -20331,8 +20343,8 @@
           <div style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;font-size:12px;line-height:1.6;color:var(--text-secondary)">
             <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:6px">
               <strong style="color:var(--text-primary);font-size:13px">Légende :</strong>
-              <span><span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700">13D</span> <strong style="color:#F59E0B">Actif</strong> — intention d'influencer</span>
-              <span><span style="padding:2px 7px;background:rgba(239,68,68,0.20);color:#EF4444;border:1px solid rgba(239,68,68,0.45);border-radius:6px;font-size:10px;font-weight:700">13D/A</span> Amendement position active</span>
+              <span><span style="padding:2px 7px;background:rgba(239,68,68,0.20);color:#EF4444;border:1.5px solid rgba(239,68,68,0.55);border-radius:6px;font-size:10px;font-weight:700">13D</span> <strong style="color:#EF4444">Actif</strong> — intention d'influencer (1er dépôt)</span>
+              <span><span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700">13D/A</span> Amendement (mise à jour)</span>
               <span><span style="padding:2px 7px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700">13G</span> <strong style="color:#10B981">Passif</strong> — simple investissement</span>
               <span><span style="padding:2px 7px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700">13G/A</span> Amendement position passive</span>
               <span><span style="padding:2px 7px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700">⚡ OFFENSIF</span> Fonds activiste reconnu <span style="color:var(--text-muted);cursor:help" title="Liste hardcodée de ~28 activists institutionnels connus : Elliott, Ackman, Icahn, Peltz (Trian), Starboard, Loeb (Third Point), ValueAct, Cevian, JANA, Greenlight/Einhorn…">(détails)</span></span>
