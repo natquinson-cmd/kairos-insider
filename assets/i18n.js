@@ -684,6 +684,11 @@
       'stock.chart.range.1y': '1A',
       'stock.chart.range.2y': '2A',
       'stock.chart.range.5y': '5A',
+      // Style toggle (line vs candlestick) visible en mode 1J
+      'stock.chart.style.line': 'Courbe lineaire',
+      'stock.chart.style.line_short': 'Ligne',
+      'stock.chart.style.candle': 'Chandeliers japonais OHLC (open / high / low / close)',
+      'stock.chart.style.candle_short': 'Bougies',
       'dash.sidebar.elite_section': 'Elite',
       'dash.sidebar.elite_alerts': 'Alertes temps-réel',
       'dash.sidebar.elite_backtests': 'Backtests',
@@ -1772,6 +1777,11 @@
       'stock.chart.range.1y': '1Y',
       'stock.chart.range.2y': '2Y',
       'stock.chart.range.5y': '5Y',
+      // Style toggle (line vs candlestick) visible in 1D mode
+      'stock.chart.style.line': 'Line chart',
+      'stock.chart.style.line_short': 'Line',
+      'stock.chart.style.candle': 'Japanese candlestick chart (OHLC)',
+      'stock.chart.style.candle_short': 'Candles',
       'dash.sidebar.elite_section': 'Elite',
       'dash.sidebar.elite_alerts': 'Real-time alerts',
       'dash.sidebar.elite_backtests': 'Backtests',

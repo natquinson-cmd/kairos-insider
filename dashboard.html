@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-intraday-1d-view"></script>
+  <script src="assets/i18n.js?v=20260512-candlestick-toggle"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -10548,6 +10548,13 @@
     // Stocke le ticker + range courant pour le period selector sur le chart
     let currentStockTicker = null;
     let currentChartRange = '1y';
+    // Style de chart : 'line' (defaut, sur toutes les periodes) ou 'candle'
+    // (chandeliers OHLC, dispo uniquement en mode 1J intraday). Persist dans
+    // localStorage pour que la preference user soit conservee entre sessions.
+    let currentChartStyle = (() => {
+      try { return localStorage.getItem('kairos_chart_style') || 'line'; }
+      catch { return 'line'; }
+    })();
     // Cache la derniere reponse API pour permettre un re-render sans refetch
     // (utilise par le listener kairos:langchange ci-dessous pour traduire la
     // page Decode a stock quand l'utilisateur switche FR<->EN sans avoir a
@@ -10567,12 +10574,35 @@
     // pas a l'intraday, donc rien a placer sur l'axe horaire).
     let _intradayRefreshTimer = null;
 
+    // Toggle entre style 'line' (defaut) et 'candle' (chandeliers OHLC).
+    // Le toggle UI #chartStyleToggle n'est visible qu'en mode 1J intraday.
+    // Le changement de style ne necessite PAS de re-fetch : les data OHLC
+    // sont deja dans currentStockData (worker les renvoie en intraday).
+    function setChartStyle(style) {
+      if (style !== 'line' && style !== 'candle') return;
+      currentChartStyle = style;
+      try { localStorage.setItem('kairos_chart_style', style); } catch {}
+      // Update visual state des boutons toggle
+      document.querySelectorAll('#chartStyleToggle .chart-range-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.style === style);
+      });
+      // Re-render le chart avec le nouveau style (sans re-fetch)
+      if (currentStockData && typeof window._rebuildStockPriceChart === 'function') {
+        window._rebuildStockPriceChart(currentStockData, { intraday: currentChartRange === '1d' });
+      }
+    }
+
     async function changeChartRange(range, opts = {}) {
       if (!currentStockTicker) return;
       currentChartRange = range;
+      // Affiche/masque le toggle Style (visible seulement en 1J intraday)
+      const styleToggle = document.getElementById('chartStyleToggle');
+      if (styleToggle) {
+        styleToggle.style.display = (range === '1d') ? 'flex' : 'none';
+      }
       // Update visual state des boutons (skip si c'est un auto-refresh silent)
       if (!opts.silent) {
-        document.querySelectorAll('.chart-range-btn').forEach(btn => {
+        document.querySelectorAll('#chartPeriodSelector .chart-range-btn').forEach(btn => {
           btn.classList.toggle('active', btn.dataset.range === range);
         });
       }
@@ -10591,6 +10621,8 @@
       try {
         const data = await apiFetch(`/api/stock/${encodeURIComponent(currentStockTicker)}?range=${encodeURIComponent(range)}`);
         if (data && data.chart && typeof window._rebuildStockPriceChart === 'function') {
+          // Sauvegarde pour permettre setChartStyle() de re-rendre sans re-fetch
+          currentStockData = data;
           window._rebuildStockPriceChart(data, { intraday: range === '1d' });
           // Re-ajoute les markers fonds offensifs (le rebuild reset les datasets)
           // SAUF en mode 1d intraday : les filings sont au jour, pas a l'intraday.
@@ -12299,17 +12331,24 @@
               <span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#EC4899);box-shadow:0 0 12px rgba(139,92,246,0.6)"></span>
               ${t('stock.chart.title', 'Cours & signaux smart money')}
             </h3>
-            <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)" id="chartPeriodSelector">
-              ${[
-                ['1d', t('stock.chart.range.1d', '1J')],
-                ['1mo','1M'], ['3mo','3M'], ['6mo','6M'],
-                ['1y', t('stock.chart.range.1y', '1A')],
-                ['2y', t('stock.chart.range.2y', '2A')],
-                ['5y', t('stock.chart.range.5y', '5A')],
-                ['max','MAX']
-              ].map(([range, label]) => `
-                <button type="button" onclick="changeChartRange('${range}')" data-range="${range}" class="chart-range-btn${currentChartRange === range ? ' active' : ''}">${label}</button>
-              `).join('')}
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <!-- Toggle Chandelier <-> Ligne (visible uniquement en mode 1J intraday) -->
+              <div id="chartStyleToggle" style="display:none;gap:0;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)">
+                <button type="button" onclick="setChartStyle('line')" data-style="line" class="chart-range-btn active" title="${t('stock.chart.style.line', 'Courbe lineaire')}">📈 ${t('stock.chart.style.line_short', 'Ligne')}</button>
+                <button type="button" onclick="setChartStyle('candle')" data-style="candle" class="chart-range-btn" title="${t('stock.chart.style.candle', 'Chandeliers japonais OHLC')}">📊 ${t('stock.chart.style.candle_short', 'Bougies')}</button>
+              </div>
+              <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)" id="chartPeriodSelector">
+                ${[
+                  ['1d', t('stock.chart.range.1d', '1J')],
+                  ['1mo','1M'], ['3mo','3M'], ['6mo','6M'],
+                  ['1y', t('stock.chart.range.1y', '1A')],
+                  ['2y', t('stock.chart.range.2y', '2A')],
+                  ['5y', t('stock.chart.range.5y', '5A')],
+                  ['max','MAX']
+                ].map(([range, label]) => `
+                  <button type="button" onclick="changeChartRange('${range}')" data-range="${range}" class="chart-range-btn${currentChartRange === range ? ' active' : ''}">${label}</button>
+                `).join('')}
+              </div>
             </div>
           </div>
           <div style="position:relative;z-index:1;display:flex;gap:14px;margin-bottom:10px;font-size:11px;opacity:0.8;flex-wrap:wrap">
@@ -13282,6 +13321,17 @@
             }
           });
 
+          // ============================================================
+          // MODE CANDLESTICK (mai 2026) : si intraday + toggle 'candle', on
+          // remplace le dataset line par 2 datasets bar :
+          // - wicks (mèches) : barres fines de [low, high]
+          // - bodies (corps) : barres épaisses de [min(open,close),
+          //   max(open,close)], vert si close>=open, rouge sinon
+          // Implementé en natif Chart.js (bar floating bars). Pas besoin
+          // d'ajouter le plugin chartjs-chart-financial.
+          // ============================================================
+          const useCandles = isIntraday && currentChartStyle === 'candle';
+
           // Gradient vertical pour le remplissage sous la ligne : plus intense
           // en haut, disparait en bas. Donne un effet "glow" propre au cours.
           const fillGradient = ctx.createLinearGradient(0, 0, 0, 280);
@@ -13294,24 +13344,70 @@
           strokeGradient.addColorStop(0, '#3B82F6');
           strokeGradient.addColorStop(0.55, '#8B5CF6');
           strokeGradient.addColorStop(1, '#EC4899');
-          const datasets = [{
-            label: d.ticker,
-            data: values,
-            borderColor: strokeGradient,
-            backgroundColor: fillGradient,
-            borderWidth: 2.5,
-            pointRadius: 0,
-            pointHoverRadius: 5,
-            pointHoverBackgroundColor: '#F9A8D4',
-            pointHoverBorderColor: '#fff',
-            pointHoverBorderWidth: 2,
-            fill: true,
-            tension: 0.35,                           // courbe lisse (monotone-cubic feeling)
-            cubicInterpolationMode: 'monotone',      // evite les overshoots bizarres
-            borderJoinStyle: 'round',
-            borderCapStyle: 'round',
-            order: 2,
-          }];
+
+          let datasets;
+          if (useCandles) {
+            // Construire les data points OHLC depuis points (qui ont .open/.high/.low/.close en intraday)
+            const wickData = points.map(p => (p.high != null && p.low != null) ? [p.low, p.high] : [p.close, p.close]);
+            const bodyData = points.map(p => {
+              const o = p.open != null ? p.open : p.close;
+              const c = p.close;
+              return [Math.min(o, c), Math.max(o, c)];
+            });
+            const bodyColors = points.map(p => {
+              const o = p.open != null ? p.open : p.close;
+              return p.close >= o ? '#10B981' : '#EF4444'; // bullish vert / bearish rouge
+            });
+            datasets = [
+              // Wicks (mèches) : barres très fines low-high, couleur grise
+              {
+                label: d.ticker + ' (wicks)',
+                type: 'bar',
+                data: wickData,
+                backgroundColor: 'rgba(148,163,184,0.55)',
+                borderWidth: 0,
+                barThickness: 1,
+                grouped: false,
+                stack: 'candle',
+                order: 3,
+              },
+              // Corps : barres épaisses open-close, couleur selon direction
+              {
+                label: d.ticker,
+                type: 'bar',
+                data: bodyData,
+                backgroundColor: bodyColors,
+                borderColor: bodyColors,
+                borderWidth: 0,
+                barThickness: 'flex',                   // s'adapte au nb de bougies
+                maxBarThickness: 14,
+                minBarLength: 1,
+                grouped: false,
+                stack: 'candle',
+                order: 2,
+              },
+            ];
+          } else {
+            // Style line classique (defaut)
+            datasets = [{
+              label: d.ticker,
+              data: values,
+              borderColor: strokeGradient,
+              backgroundColor: fillGradient,
+              borderWidth: 2.5,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              pointHoverBackgroundColor: '#F9A8D4',
+              pointHoverBorderColor: '#fff',
+              pointHoverBorderWidth: 2,
+              fill: true,
+              tension: 0.35,                           // courbe lisse (monotone-cubic feeling)
+              cubicInterpolationMode: 'monotone',      // evite les overshoots bizarres
+              borderJoinStyle: 'round',
+              borderCapStyle: 'round',
+              order: 2,
+            }];
+          }
 
           const hasBuys = buyOverlay.some(v => v !== null);
           const hasSells = sellOverlay.some(v => v !== null);

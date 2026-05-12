@@ -762,17 +762,27 @@ async function fetchYahooQuote(ticker, range = '1y') {
     const timestamps = result.timestamp || [];
     const quote = (result.indicators && result.indicators.quote && result.indicators.quote[0]) || {};
     const closes = quote.close || [];
+    const opens = quote.open || [];
+    const highs = quote.high || [];
+    const lows = quote.low || [];
 
     // Points pour le sparkline / chart.
     // Intraday (interval=5m / 15m) : on garde le timestamp ISO complet
     // (YYYY-MM-DDTHH:MM) pour permettre au front d'afficher l'heure.
     // Daily : juste YYYY-MM-DD comme avant.
+    // OHLC ajoute pour activer le mode "chandelier" en intraday (mai 2026).
     const isIntraday = interval !== '1d';
     const chartPoints = timestamps.map((ts, i) => ({
       date: isIntraday
         ? new Date(ts * 1000).toISOString().slice(0, 16)  // YYYY-MM-DDTHH:MM
         : new Date(ts * 1000).toISOString().slice(0, 10), // YYYY-MM-DD
       close: closes[i],
+      // OHLC : optionnel, present uniquement pour intraday (le front s'en
+      // sert pour le mode chandelier). En mode daily, ignore : la valeur
+      // close suffit pour la courbe lineaire.
+      open: isIntraday ? opens[i] : undefined,
+      high: isIntraday ? highs[i] : undefined,
+      low: isIntraday ? lows[i] : undefined,
     })).filter(p => p.close != null);
 
     // DAILY change : on doit prendre le VRAI previous close, pas chartPreviousClose
