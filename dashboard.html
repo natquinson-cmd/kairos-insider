@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-candlestick-fix-render"></script>
+  <script src="assets/i18n.js?v=20260512-candle-overlap-ohlc"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -13359,19 +13359,20 @@
               const o = p.open != null ? p.open : p.close;
               return p.close >= o ? '#10B981' : '#EF4444'; // bullish vert / bearish rouge
             });
-            // 2 datasets bar superposes au meme x (pas de stack, pas de grouped).
-            // Chart.js avec type='bar' + data=[[from,to],...] dessine des
-            // floating bars. Les wicks (fins) et bodies (epais) partagent
-            // l'x mais se superposent naturellement.
+            // 2 datasets bar superposes au meme x via grouped: false.
+            // Sans grouped:false, Chart.js dodge les 2 datasets cote a cote
+            // (wick a gauche, body a droite). On veut qu'ils partagent
+            // exactement le meme x, body au centre, wick traversant.
             datasets = [
               // Wicks (mèches) : barres très fines low-high, couleur grise
               {
-                label: d.ticker + ' (HL)',
+                label: d.ticker + ' HL',
                 data: wickData,
-                backgroundColor: 'rgba(148,163,184,0.75)',
+                backgroundColor: 'rgba(148,163,184,0.85)',
                 borderWidth: 0,
-                barPercentage: 0.08,                // mèche tres fine (~8% de la cellule)
+                barPercentage: 0.10,                // mèche fine (~10% de la cellule)
                 categoryPercentage: 1.0,
+                grouped: false,                     // overlap au meme x (pas dodge)
                 order: 3,
               },
               // Corps : barres épaisses open-close, couleur selon direction
@@ -13382,6 +13383,7 @@
                 borderWidth: 0,
                 barPercentage: 0.7,                 // corps 70% de la cellule
                 categoryPercentage: 1.0,
+                grouped: false,                     // overlap au meme x (pas dodge)
                 order: 2,
               },
             ];
@@ -13481,7 +13483,10 @@
                     color: getCssVar('--chart-text-strong'),
                     boxWidth: 12, boxHeight: 12, padding: 12,
                     font: { size: 11 },
-                    usePointStyle: true,  // utilise pointStyle (canvas) dans la legende
+                    usePointStyle: true,
+                    // Cache le dataset wick (label se termine par ' HL')
+                    // de la legende — c'est un detail technique des candles.
+                    filter: (item) => !/ HL$/.test(item.text || ''),
                   },
                 },
                 tooltip: {
@@ -13496,8 +13501,13 @@
                   titleFont: { size: 12, weight: '600' },
                   bodyFont: { size: 12 },
                   bodySpacing: 4,
-                  // Filtre : ne montre que les datasets qui ont une valeur a cet index
-                  filter: (item) => item.parsed.y !== null && item.parsed.y !== undefined,
+                  // Filtre : skip les valeurs null + skip le dataset wick en mode
+                  // candle (redondant avec le body qui affiche deja OHLC complet).
+                  filter: (item) => {
+                    if (item.parsed.y === null || item.parsed.y === undefined) return false;
+                    if (/ HL$/.test(item.dataset.label || '')) return false;
+                    return true;
+                  },
                   callbacks: {
                     title: function(items) {
                       if (!items.length) return '';
@@ -13505,6 +13515,19 @@
                     },
                     label: function(ctx) {
                       const ds = ctx.dataset;
+                      // Mode candle : affiche OHLC complet pour le body
+                      if (useCandles && ds.label === d.ticker) {
+                        const p = points[ctx.dataIndex];
+                        if (p && p.open != null && p.high != null && p.low != null) {
+                          return [
+                            `O: ${fmtCurr(p.open)}`,
+                            `H: ${fmtCurr(p.high)}`,
+                            `L: ${fmtCurr(p.low)}`,
+                            `C: ${fmtCurr(p.close)}`,
+                          ];
+                        }
+                        return `Cours : ${fmtCurr(p ? p.close : null)}`;
+                      }
                       if (ds.label === d.ticker) {
                         return `Cours : ${fmtCurr(ctx.parsed.y)}`;
                       }
