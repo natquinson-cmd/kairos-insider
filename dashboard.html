@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-nature-i18n-fr-en"></script>
+  <script src="assets/i18n.js?v=20260512-intraday-1d-view"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -10558,32 +10558,74 @@
     // Fetch uniquement /api/stock avec nouveau range, rebuild le chart via
     // window._rebuildStockPriceChart (closure defini dans renderStockAnalysis),
     // puis re-injecte les markers fonds offensifs.
-    async function changeChartRange(range) {
+    //
+    // MODE 1J (intraday, mai 2026) : si range === '1d', auto-refresh toutes
+    // les 30 sec (Yahoo cache ~5-15 min). Donne un ressenti quasi-realtime
+    // sans coût (Yahoo gratuit, delay 15-20 min mais l'user voit que ça
+    // bouge regulierement).
+    // Markers activistes : caches en mode 1d (les filings sont dates au jour,
+    // pas a l'intraday, donc rien a placer sur l'axe horaire).
+    let _intradayRefreshTimer = null;
+
+    async function changeChartRange(range, opts = {}) {
       if (!currentStockTicker) return;
       currentChartRange = range;
-      // Update visual state des boutons
-      document.querySelectorAll('.chart-range-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.range === range);
-      });
-      // Fade subtil du canvas chart le temps du fetch
+      // Update visual state des boutons (skip si c'est un auto-refresh silent)
+      if (!opts.silent) {
+        document.querySelectorAll('.chart-range-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.range === range);
+        });
+      }
+      // Stop l'auto-refresh si on quitte le mode 1d
+      if (range !== '1d' && _intradayRefreshTimer) {
+        clearInterval(_intradayRefreshTimer);
+        _intradayRefreshTimer = null;
+      }
+      // Fade subtil du canvas chart le temps du fetch (skip sur auto-refresh
+      // pour ne pas faire clignoter le chart toutes les 30s)
       const canvas = document.getElementById('stockPriceChart');
-      if (canvas) {
+      if (canvas && !opts.silent) {
         canvas.style.transition = 'opacity 0.15s';
         canvas.style.opacity = '0.4';
       }
       try {
         const data = await apiFetch(`/api/stock/${encodeURIComponent(currentStockTicker)}?range=${encodeURIComponent(range)}`);
         if (data && data.chart && typeof window._rebuildStockPriceChart === 'function') {
-          window._rebuildStockPriceChart(data);
+          window._rebuildStockPriceChart(data, { intraday: range === '1d' });
           // Re-ajoute les markers fonds offensifs (le rebuild reset les datasets)
-          loadActivistsForTicker(currentStockTicker).catch(() => {});
+          // SAUF en mode 1d intraday : les filings sont au jour, pas a l'intraday.
+          if (range !== '1d') {
+            loadActivistsForTicker(currentStockTicker).catch(() => {});
+          }
         }
       } catch (e) {
         console.error('changeChartRange error:', e);
       } finally {
-        if (canvas) canvas.style.opacity = '1';
+        if (canvas && !opts.silent) canvas.style.opacity = '1';
+      }
+      // Active l'auto-refresh 30s en mode 1d (uniquement sur le call user,
+      // pas sur les auto-refresh eux-memes)
+      if (range === '1d' && !opts.silent && !_intradayRefreshTimer) {
+        _intradayRefreshTimer = setInterval(() => {
+          if (currentChartRange === '1d' && currentStockTicker) {
+            changeChartRange('1d', { silent: true });
+          } else {
+            clearInterval(_intradayRefreshTimer);
+            _intradayRefreshTimer = null;
+          }
+        }, 30 * 1000);
       }
     }
+
+    // Cleanup : stop l'auto-refresh si on quitte la page Decode a stock
+    // ou si on switche sur un autre ticker (sera relance par changeChartRange).
+    function stopIntradayRefresh() {
+      if (_intradayRefreshTimer) {
+        clearInterval(_intradayRefreshTimer);
+        _intradayRefreshTimer = null;
+      }
+    }
+    window.addEventListener('beforeunload', stopIntradayRefresh);
 
     // Quota Free : 4 analyses / jour pour les inscrits, 2 / jour pour les
     // visiteurs anonymes (pattern product-led : voir 2 fiches puis hard wall
@@ -12259,8 +12301,12 @@
             </h3>
             <div style="display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:10px;border:1px solid var(--border)" id="chartPeriodSelector">
               ${[
-                ['1mo','1M'], ['3mo','3M'], ['6mo','6M'], ['1y','1A'],
-                ['2y','2A'], ['5y','5A'], ['max','MAX']
+                ['1d', t('stock.chart.range.1d', '1J')],
+                ['1mo','1M'], ['3mo','3M'], ['6mo','6M'],
+                ['1y', t('stock.chart.range.1y', '1A')],
+                ['2y', t('stock.chart.range.2y', '2A')],
+                ['5y', t('stock.chart.range.5y', '5A')],
+                ['max','MAX']
               ].map(([range, label]) => `
                 <button type="button" onclick="changeChartRange('${range}')" data-range="${range}" class="chart-range-btn${currentChartRange === range ? ' active' : ''}">${label}</button>
               `).join('')}
@@ -13146,12 +13192,23 @@
       // re-rendre tout le body.innerHTML de stockAnalysis.
       // Save sur window pour acces cross-scope.
       // ============================================================
-      window._rebuildStockPriceChart = function(newD) {
+      window._rebuildStockPriceChart = function(newD, opts) {
         const d = newD;
+        const isIntraday = !!(opts && opts.intraday);
         const insiders = d.insiders || {};
         const cur = d.price?.currency || 'USD';
         const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat('fr-FR', { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
-        const fmtDate = (s) => { try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }); } catch { return s; } };
+        // Format label axe X : heures HH:MM en intraday, date complete sinon
+        const fmtDate = (s) => {
+          try {
+            const dObj = new Date(s);
+            if (isIntraday) {
+              // ISO 'YYYY-MM-DDTHH:MM' -> '10:30' (locale FR/EN)
+              return dObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            }
+            return dObj.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+          } catch { return s; }
+        };
 
       // Render chart prix + superposition insiders
       if (d.chart && d.chart.points && d.chart.points.length > 0) {

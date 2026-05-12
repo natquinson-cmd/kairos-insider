@@ -740,9 +740,18 @@ async function resolveTickerViaYahooSearch(query, env) {
 async function fetchYahooQuote(ticker, range = '1y') {
   const empty = { price: null, chart: null, company: { name: ticker } };
   try {
-    // chart v8 : prix courant + historique daily (range configurable : 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, max)
-    // Pour > 1y, Yahoo renvoie interval=1d avec un nombre de points proportionnel.
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${encodeURIComponent(range)}&includePrePost=false`;
+    // chart v8 : prix courant + historique configurable.
+    // Mapping range -> interval :
+    // - 1d  -> interval=5m  (78 bougies sur la session de 6h30 = bon zoom intraday)
+    // - 5d  -> interval=15m (intraday sur 5 jours)
+    // - 1mo -> interval=1d  (~22 jours ouvres)
+    // - 3mo, 6mo, 1y, 2y, 5y, 10y, max -> interval=1d
+    // NB Yahoo : interval=5m ne supporte que range jusqu'a 60d. interval=1m
+    // ne supporte que range jusqu'a 7d. On utilise 5m pour le 1d intraday.
+    let interval = '1d';
+    if (range === '1d') interval = '5m';
+    else if (range === '5d') interval = '15m';
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${encodeURIComponent(range)}&includePrePost=false`;
     const resp = await fetchWithRetry(url, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } }, { retries: 2, label: `yahoo-quote:${ticker}` });
     if (!resp.ok) return empty;
     const json = await resp.json();
@@ -754,9 +763,15 @@ async function fetchYahooQuote(ticker, range = '1y') {
     const quote = (result.indicators && result.indicators.quote && result.indicators.quote[0]) || {};
     const closes = quote.close || [];
 
-    // Points pour le sparkline / chart (on subsample si >260 points)
+    // Points pour le sparkline / chart.
+    // Intraday (interval=5m / 15m) : on garde le timestamp ISO complet
+    // (YYYY-MM-DDTHH:MM) pour permettre au front d'afficher l'heure.
+    // Daily : juste YYYY-MM-DD comme avant.
+    const isIntraday = interval !== '1d';
     const chartPoints = timestamps.map((ts, i) => ({
-      date: new Date(ts * 1000).toISOString().slice(0, 10),
+      date: isIntraday
+        ? new Date(ts * 1000).toISOString().slice(0, 16)  // YYYY-MM-DDTHH:MM
+        : new Date(ts * 1000).toISOString().slice(0, 10), // YYYY-MM-DD
       close: closes[i],
     })).filter(p => p.close != null);
 

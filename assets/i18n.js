@@ -679,6 +679,11 @@
       'tx.tooltip.sell': 'Vente marché ouvert',
       'tx.tooltip.other': 'Type non-buy/sell (vesting RSU, don, exercice option, retenue fiscale...). Le code SEC précis sera disponible après le prochain refresh quotidien.',
       'tx.code.prefix': 'Code SEC',
+      // Period selector du chart prix sur la fiche Action
+      'stock.chart.range.1d': '1J',
+      'stock.chart.range.1y': '1A',
+      'stock.chart.range.2y': '2A',
+      'stock.chart.range.5y': '5A',
       'dash.sidebar.elite_section': 'Elite',
       'dash.sidebar.elite_alerts': 'Alertes temps-réel',
       'dash.sidebar.elite_backtests': 'Backtests',
@@ -1762,6 +1767,11 @@
       'tx.tooltip.sell': 'Open market sale',
       'tx.tooltip.other': 'Non-buy/sell type (RSU vesting, gift, option exercise, tax withholding...). The exact SEC code will be available after the next daily refresh.',
       'tx.code.prefix': 'SEC code',
+      // Period selector on stock chart
+      'stock.chart.range.1d': '1D',
+      'stock.chart.range.1y': '1Y',
+      'stock.chart.range.2y': '2Y',
+      'stock.chart.range.5y': '5Y',
       'dash.sidebar.elite_section': 'Elite',
       'dash.sidebar.elite_alerts': 'Real-time alerts',
       'dash.sidebar.elite_backtests': 'Backtests',
