@@ -14,6 +14,34 @@ UA = 'KairosInsider contact@kairosinsider.fr'
 # Utile apres un fix du pipeline (ex: pagination bumpee) pour backfiller d'anciens jours tronques.
 FORCE_FULL = '--force' in sys.argv or os.environ.get('FORCE_FULL') == '1'
 
+# FIX (mai 2026) : permettre de surcharger le nombre de jours en mode FORCE_FULL.
+# Sans override, on tape DAYS=90 (defini plus bas). Avec override, on peut limiter
+# a 30/60/etc. pour :
+# - chunker un backfill trop long (run #25694298062 a timeout a 80 jours sur 90)
+# - debug ciblé sur une fenetre courte
+# - rejouer un crash partiel sans tout refaire
+# Override possible via :
+# - CLI : python prefetch-all.py --days 60
+# - env : FORCE_DAYS=60 python prefetch-all.py
+_force_days_override = 0
+try:
+    _force_days_override = int(os.environ.get('FORCE_DAYS', '0') or '0')
+except Exception:
+    pass
+for _i, _arg in enumerate(sys.argv):
+    if _arg == '--days' and _i + 1 < len(sys.argv):
+        try:
+            _force_days_override = int(sys.argv[_i + 1])
+        except Exception:
+            pass
+        break
+    if _arg.startswith('--days='):
+        try:
+            _force_days_override = int(_arg.split('=', 1)[1])
+        except Exception:
+            pass
+        break
+
 def fetch(url):
     req = urllib.request.Request(url, headers={'User-Agent': UA})
     try:
@@ -121,11 +149,12 @@ existing_file_dates = sorted({t.get('fileDate', '') for t in sec_rows if t.get('
 latest_existing = existing_file_dates[0] if existing_file_dates else ''
 
 if FORCE_FULL:
-    # Backfill force : on refetch les 90 jours, et on IGNORE l'historique existant
-    # (les transactions seront reconstruites from scratch, sans doublons)
-    fetch_days = DAYS
+    # Backfill force : on refetch DAYS jours (90 par defaut), ou la valeur
+    # surchargee via --days N / FORCE_DAYS=N. Ignore l'historique existant.
+    fetch_days = _force_days_override if _force_days_override > 0 else DAYS
+    fetch_days = min(fetch_days, DAYS)  # safeguard : on ne depasse jamais DAYS
     existing_tx = []  # force la reconstruction complete
-    print(f'Fetch FORCE FULL: {fetch_days} jours (historique ignore)')
+    print(f'Fetch FORCE FULL: {fetch_days} jours (historique ignore' + (f', override via --days/FORCE_DAYS' if _force_days_override else '') + ')')
 elif latest_existing:
     # Refetch depuis 2 jours avant le latest existing (overlap pour les late-filings)
     from_date = datetime.strptime(latest_existing, '%Y-%m-%d') - timedelta(days=2)

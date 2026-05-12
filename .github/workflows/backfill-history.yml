@@ -33,6 +33,15 @@ name: Backfill History (force_full SEC + push D1)
 on:
   workflow_dispatch:
     inputs:
+      days:
+        description: 'Nombre de jours a backfiller (max 90)'
+        required: false
+        default: '90'
+        type: choice
+        options:
+          - '30'
+          - '60'
+          - '90'
       skip_bafin:
         description: 'Skip BaFin fetch (DE Directors Dealings) ?'
         required: false
@@ -79,15 +88,19 @@ jobs:
       - name: Install Wrangler
         run: npm install -g wrangler
 
-      # ===== ETAPE 1 : SEC EDGAR Form 4 force-full 90 jours =====
-      # On part de zero (pas de download de l'existant car FORCE_FULL=1
-      # ignore l'historique de toute facon). 90 jours x rate-limit SEC
-      # 10 req/s = 75-90 min typique. Timeout 180 min = 2x headroom.
+      # ===== ETAPE 1 : SEC EDGAR Form 4 force-full N jours =====
+      # On part de zero (FORCE_FULL=1 ignore l'historique existant).
+      # Mesure observee sur run #25694298062 : ~2,25 min/jour SEC EDGAR
+      # (rate-limit 10 req/s + parsing XML + retry/backoff sur 429).
+      # 90 jours -> ~205 min theoriques, donc on prend 270 min de timeout
+      # pour avoir 30% de marge confortable. Si on chunke (ex: days=60),
+      # le timeout reste mais on termine bien plus tot.
       - name: Force-full SEC fetch (prefetch-all.py FORCE_FULL=1)
         env:
           FORCE_FULL: '1'
+          FORCE_DAYS: ${{ github.event.inputs.days }}
         run: cd worker && python prefetch-all.py
-        timeout-minutes: 180
+        timeout-minutes: 270
 
       # ===== ETAPE 2 : BaFin (DE Directors Dealings) =====
       # Skipable via input. Utile de l'inclure pour avoir un push D1
