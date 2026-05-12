@@ -94,8 +94,13 @@ def parse_form4(xml, now_str):
         def get_val(tag):
             m = re.search(rf'<{tag}>\s*<value>([^<]*)</value>', block, re.DOTALL)
             return m.group(1).strip() if m else ''
+        # FIX (mai 2026) : voir prefetch-all.py meme commentaire.
+        # transactionCode est BARE dans le SEC Form 4 XML.
+        def get_bare(tag):
+            m = re.search(rf'<{tag}>\s*([^<\s][^<]*?)\s*</{tag}>', block)
+            return m.group(1).strip() if m else ''
 
-        code = get_val('transactionCode')
+        code = get_bare('transactionCode')
         try:
             shares = float(get_val('transactionShares') or 0)
             price = float(get_val('transactionPricePerShare') or 0)

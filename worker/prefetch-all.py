@@ -85,8 +85,16 @@ def parse_form4(xml, now_str):
         def get_val(tag):
             m = re.search(rf'<{tag}>\s*<value>([^<]*)</value>', block, re.DOTALL)
             return m.group(1).strip() if m else ''
+        # FIX (mai 2026) : transactionCode est BARE dans le SEC Form 4 XML
+        # (cf doc SEC : <transactionCoding><transactionCode>P</transactionCode>...).
+        # get_val() cherchait <transactionCode><value>X</value></transactionCode>
+        # qui n'existe JAMAIS -> code etait toujours '' -> tous les badges
+        # affichaient "OTHER" sans le code SEC granulaire.
+        def get_bare(tag):
+            m = re.search(rf'<{tag}>\s*([^<\s][^<]*?)\s*</{tag}>', block)
+            return m.group(1).strip() if m else ''
 
-        code = get_val('transactionCode')
+        code = get_bare('transactionCode')
         shares = float(get_val('transactionShares') or 0)
         price = float(get_val('transactionPricePerShare') or 0)
         ad = get_val('transactionAcquiredDisposedCode')
