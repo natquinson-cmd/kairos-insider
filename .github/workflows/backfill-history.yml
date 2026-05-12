@@ -185,11 +185,14 @@ jobs:
           with open('transactions_data.json') as f: d = json.load(f)
           tx = d.get('transactions', d) if isinstance(d, dict) else d
           if isinstance(tx, list):
-              # Compte combien ont trans_code populated (back-enrich efficace ?)
-              with_code = sum(1 for t in tx if t.get('code') or t.get('transCode'))
-              with_cik = sum(1 for t in tx if t.get('insiderCik'))
+              # Compte rows enrichies. FIX (mai 2026) : les noms de champs
+              # dans le JSON merge sont 'code' et 'ownerCik' (cf prefetch-all
+              # parse_form4 lignes 79 et 92). Le precedent Summary cherchait
+              # 'transCode' (camelCase, n'existe pas) -> faux 0%.
+              with_code = sum(1 for t in tx if t.get('code'))
+              with_cik = sum(1 for t in tx if t.get('ownerCik') or t.get('insiderCik') or t.get('insider_cik'))
               print(f'  Total tx: {len(tx)}')
-              print(f'  Avec trans_code: {with_code} ({100*with_code//max(1,len(tx))}%)')
-              print(f'  Avec insider_cik: {with_cik} ({100*with_cik//max(1,len(tx))}%)')
+              print(f'  Avec trans_code (champ JSON code): {with_code} ({100*with_code//max(1,len(tx))}%)')
+              print(f'  Avec insider_cik (champ JSON ownerCik): {with_cik} ({100*with_cik//max(1,len(tx))}%)')
           " 2>/dev/null || echo "  (parsing optionnel)"
           fi
