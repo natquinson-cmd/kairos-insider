@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-offensif-to-activiste"></script>
+  <script src="assets/i18n.js?v=20260512-tx-badge-i18n"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -5964,23 +5964,34 @@
       const code = (tx.transCode || tx.code || '').toUpperCase();
       const txMap = getTxTypes();
       const tipMap = getTxTypesTip();
-      const isEn = (typeof getLang === 'function' && getLang() === 'en');
+      // FIX (mai 2026) : on utilise directement t() i18n + KairosI18n.getLang()
+      // plutot que des ternaires isEn ? 'BUY' : 'ACHAT'. Plus robuste : si une
+      // race condition fait que getLang() retourne 'en' alors que la page est
+      // en FR (cache stale, init order, etc.), t() lit KairosI18n.t qui reflete
+      // CURRENT_LANG synchronise avec la sidebar / data-i18n.
+      const isEn = !!(window.KairosI18n && window.KairosI18n.getLang() === 'en');
       if (code && txMap[code]) {
         const cls = code === 'P' ? 'buy' : code === 'S' ? 'sell' : 'other';
         const label = txMap[code].toUpperCase();
         const tip = tipMap[code] || '';
-        const codePrefix = isEn ? 'SEC code' : 'Code SEC';
+        const codePrefix = t('tx.code.prefix', 'Code SEC');
         return { label, cls, tooltip: tip ? `${codePrefix} ${code} — ${tip}` : `${codePrefix} ${code}` };
       }
       // Fallback : type normalise (anciennes lignes sans code SEC preserve)
-      if (tx.type === 'buy') return { label: isEn ? 'BUY' : 'ACHAT', cls: 'buy', tooltip: isEn ? 'Open market purchase' : 'Achat marché ouvert' };
-      if (tx.type === 'sell') return { label: isEn ? 'SELL' : 'VENTE', cls: 'sell', tooltip: isEn ? 'Open market sale' : 'Vente marché ouvert' };
+      if (tx.type === 'buy') return {
+        label: t('tx.label.buy', 'ACHAT'),
+        cls: 'buy',
+        tooltip: t('tx.tooltip.buy', 'Achat marché ouvert'),
+      };
+      if (tx.type === 'sell') return {
+        label: t('tx.label.sell', 'VENTE'),
+        cls: 'sell',
+        tooltip: t('tx.tooltip.sell', 'Vente marché ouvert'),
+      };
       return {
-        label: isEn ? 'OTHER' : 'AUTRE',
+        label: t('tx.label.other', 'AUTRE'),
         cls: 'other',
-        tooltip: isEn
-          ? 'Non-buy/sell type (RSU vesting, gift, option exercise, tax withholding...). The exact SEC code will be available after the next daily refresh.'
-          : 'Type non-buy/sell (vesting RSU, don, exercice option, retenue fiscale...). Le code SEC précis sera disponible après le prochain refresh quotidien.',
+        tooltip: t('tx.tooltip.other', 'Type non-buy/sell (vesting RSU, don, exercice option, retenue fiscale...). Le code SEC précis sera disponible après le prochain refresh quotidien.'),
       };
     }
 
