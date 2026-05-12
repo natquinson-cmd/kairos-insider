@@ -155,16 +155,23 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   }
 
   // Valide le range (Yahoo supporte : 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
-  const ALLOWED_RANGES = ['1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'max'];
+  // FIX (mai 2026) : ajout de '1d' et '5d' qui manquaient dans la whitelist.
+  // Sans eux, un clic sur "1J" cote front fallback silencieusement a '1y' et
+  // l'user voyait 1 an de donnees daily au lieu d'une session intraday 5min.
+  const ALLOWED_RANGES = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'max'];
   const effectiveRange = ALLOWED_RANGES.includes(chartRange) ? chartRange : '1y';
 
-  // Cache : 2 variantes (public tronque / premium complet) x range
+  // Cache : 2 variantes (public tronque / premium complet) x range.
+  // FIX (mai 2026) : TTL court (30s) pour range=1d intraday, sinon
+  // l'auto-refresh 30s cote front sert du cache au lieu de re-fetcher
+  // Yahoo et la courbe ne bouge jamais.
   // v9 : bump pour purger d'eventuels caches "empty" (BEN, etc.) ou stockanalysis
   // a renvoye empty transient et le worker a cache 15 min un resultat vide.
-  // En +, ajout d'une protection looksEmpty -> TTL 60s au lieu de 15 min.
+  const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
   const cacheKey = `stock-analysis:v9:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
-  if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < CACHE_TTL * 1000) {
+  const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
+  if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
     return cached;
   }
 
@@ -464,11 +471,14 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     && (!result.news || result.news.length === 0)
     && (!result.peers || result.peers.length === 0)
   );
-  const effectiveTtl = looksEmpty ? 60 : CACHE_TTL;
+  // TTL ecriture : 30s en intraday (sinon l'auto-refresh 30s cote front
+  // sert du cache stale), 60s si resultat vide (retry rapide), CACHE_TTL
+  // (15 min) sinon.
+  const effectiveTtl = isIntradayRange ? 30 : (looksEmpty ? 60 : CACHE_TTL);
   if (looksEmpty) {
     console.warn(`[STOCK] Empty result for ${ticker} - caching only 60s for retry`);
   }
-  // Cache KV (15 min en normal, 60s si resultat vide pour permettre retry rapide)
+  // Cache KV : intraday=30s, empty=60s, normal=15 min
   try {
     await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: effectiveTtl });
   } catch (e) {
