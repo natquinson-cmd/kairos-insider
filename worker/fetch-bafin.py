@@ -118,7 +118,9 @@ stats = {
     'kept': 0,
     'skipped_us': 0,
     'skipped_empty_isin': 0,
-    'skipped_other_type': 0,
+    # 'skipped_other_type' supprime depuis mai 2026 : on garde maintenant les
+    # rows 'other' avec leur code raw pour back-enrichir l'UI granulaire.
+    'kept_other_type': 0,
     'skipped_no_price': 0,
     'skipped_not_share': 0,
 }
@@ -169,9 +171,15 @@ for letter in letters:
 
         geschaeft = (r.get(col_geschaeft) or '') if col_geschaeft else ''
         tx_type = type_from_geschaeft(geschaeft)
+        # FIX (mai 2026) : on ne droppe plus les rows non-buy/sell. On les
+        # garde avec tx_type='other' et on stocke le 'geschaeft' raw dans
+        # 'code' pour que l'UI puisse afficher le detail ('Schenkung',
+        # 'Aktienzuteilung', 'Erbe', 'Aktienoptionen', etc.).
+        # Avant : skipped_other_type droppait silencieusement ~600 rows/mois
+        # (cf logs des runs : "Skipped other type : 613").
+        # Maintenant : on les remonte avec le code raw, l'UI fait le tri.
         if tx_type == 'other':
-            stats['skipped_other_type'] += 1
-            continue
+            stats['kept_other_type'] += 1
 
         price = parse_german_number(r.get(col_price, '') if col_price else '')
         value = parse_german_number(r.get(col_value, '') if col_value else '')
@@ -198,6 +206,14 @@ for letter in letters:
         # Devise : l'emetteur est la meilleure heuristique. Pour UK (GB), GBP ; sinon EUR (majoritaire en DE, NL, AT, LU, CH)
         # NB : le CSV BaFin exprime TOUJOURS les montants en EUR (converti a la source) donc on garde EUR.
         currency = 'EUR'
+        # FIX (mai 2026) : normalise le 'Art des Geschäfts' BaFin raw
+        # (Kauf, Verkauf, Schenkung, Aktienzuteilung, Erbe, Aktienoptionen,
+        # etc.) en label friendly pour la colonne 'code' D1. Strip + capitalize.
+        geschaeft_label = (geschaeft or '').strip()
+        # BaFin envoie parfois en lowercase ou UPPERCASE inconsistant
+        if geschaeft_label and geschaeft_label.isupper():
+            geschaeft_label = geschaeft_label.capitalize()
+
         all_transactions.append({
             'fileDate': file_date,
             'date': tx_date or file_date,
@@ -208,6 +224,7 @@ for letter in letters:
             'insider': (r.get(col_insider) or '').strip(),
             'title': (r.get(col_position) or '').strip(),
             'type': tx_type,
+            'code': geschaeft_label,  # BaFin Art des Geschäfts brute
             'shares': shares,
             'price': round(price, 2),
             'value': round(value, 2),
@@ -247,7 +264,7 @@ print(f'  Kept                 : {stats["kept"]} (before dedupe)')
 print(f'  De-duplicated        : {len(all_transactions)} (removed {dups} dupes)')
 print(f'  Skipped empty ISIN   : {stats["skipped_empty_isin"]}')
 print(f'  Skipped US ISIN      : {stats["skipped_us"]}')
-print(f'  Skipped other type   : {stats["skipped_other_type"]}')
+print(f'  Kept other type      : {stats["kept_other_type"]} (Schenkung, Aktienzuteilung, etc. — fix mai 2026)')
 print(f'  Skipped no price     : {stats["skipped_no_price"]}')
 print(f'  Skipped non-share    : {stats["skipped_not_share"]}')
 

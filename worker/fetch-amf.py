@@ -269,6 +269,16 @@ def parse_page(html, today_str, cutoff_str):
         # Calcul value : priorite au montant declare, sinon qty * price
         value = montant if montant > 0 else round(qty * price, 2)
 
+        # FIX (mai 2026) : preserve la nature exacte de l'operation AMF
+        # ('Acquisition', 'Cession', 'Souscription', 'Exercice d'option',
+        # 'Attribution gratuite', 'Donation', etc.) dans le champ 'code',
+        # pour qu'apres push D1, l'UI puisse afficher le label granulaire
+        # au lieu du fallback "AUTRE" sur les types exotiques.
+        # On normalise : strip + Capitalize 1ere lettre (cohérent avec
+        # convention SEC 1-letter codes).
+        op_label = (op_text or '').strip()
+        if op_label and op_label.islower():
+            op_label = op_label.capitalize()
         txs.append({
             'fileDate': decla_date,
             'date': date_op or decla_date,
@@ -279,6 +289,7 @@ def parse_page(html, today_str, cutoff_str):
             'insider': auteur,
             'title': title,
             'type': tx_type,
+            'code': op_label,  # AMF nature operation brute (texte libre)
             'shares': qty,
             'price': round(price, 4),
             'value': round(value, 2),
