@@ -154,8 +154,26 @@ def collect_inserts():
                 continue
             seen_keys.add(full_key)
 
+            # FIX CRITIQUE (mai 2026) : INSERT OR REPLACE (au lieu de OR IGNORE
+            # avant). Le OR IGNORE empechait le back-enrichissement des rows
+            # existantes : quand on ajoutait trans_code et insider_cik en
+            # nouveaux champs, les anciens INSERT etaient ignores car PK
+            # (source, accession, cik, insider, trans_date, trans_type,
+            # line_num) deja presente -> les rows restaient avec NULL sur les
+            # nouveaux champs. Le run #25721079156 (backfill 60j) avait l'air
+            # de marcher mais en realite n'a updaté aucune row pre-existante,
+            # juste insere les nouvelles. Symptome utilisateur : badges "OTHER"
+            # sans le code SEC granulaire (M/G/F/etc.) sur la fiche Initiés.
+            #
+            # INSERT OR REPLACE est safe ici car :
+            # - la PK matche exactement le tuple naturel de la transaction
+            # - les valeurs re-fetchees sont les memes que l'origine (filing
+            #   SEC immutable) sauf les NOUVEAUX champs qu'on veut justement
+            #   ecraser de NULL vers la valeur
+            # - prefetch-all parse les XML SEC de maniere deterministe ->
+            #   line_num reproductible
             sql_lines.append(
-                f"INSERT OR IGNORE INTO insider_transactions_history "
+                f"INSERT OR REPLACE INTO insider_transactions_history "
                 f"(filing_date, trans_date, source, accession, cik, ticker, company, "
                 f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
                 f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
