@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-13d-red-13da-orange"></script>
+  <script src="assets/i18n.js?v=20260512-activistes-rename"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3548,7 +3548,7 @@
         <div class="sidebar-title" data-i18n="dash.sidebar.smart_money">Smart Money</div>
         <!-- Sidebar simplifiee : regroupement par source SEC.
              Insiders (Form 4) : Transactions recentes + Signaux & Clusters + Screener
-             Fonds Offensifs (Schedule 13D/G)
+             Activistes (Schedule 13D/G)
              Hedge Funds (Form 13F-HR) : Portefeuilles + Consensus
              ETF thematiques (providers) -->
         <button class="sidebar-item" data-section="insider" data-premium="true" onclick="switchSection('insider')">
@@ -3558,7 +3558,7 @@
         </button>
         <button class="sidebar-item" data-section="activists" data-premium="true" onclick="switchSection('activists')">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
-          <span data-i18n="dash.sidebar.activists">Fonds Offensifs</span>
+          <span data-i18n="dash.sidebar.activists">Activistes</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
         <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')">
@@ -3734,7 +3734,7 @@
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,0.16);color:#F59E0B;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
               <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
             </div>
-            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.activists_title">Fonds Offensifs <span style="font-size:11px;color:var(--text-muted);font-weight:400">(Activistes)</span></h4>
+            <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.activists_title">Activistes <span style="font-size:11px;color:var(--text-muted);font-weight:400">(13D/G)</span></h4>
             <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.activists_desc">Quand <strong>Elliott, Ackman ou Icahn</strong> achètent plus de 5 % d'une société pour forcer un changement. Signal <strong>10 jours</strong> avant les 13F — souvent avant une forte hausse du cours.</p>
             <div style="margin-top:12px;font-size:12px;color:#F59E0B" data-i18n="dash.home.activists_cta">Voir les déclarations →</div>
           </div>
@@ -4032,7 +4032,7 @@
 
       <!-- ===== SECTION: FONDS OFFENSIFS (ACTIVIST INVESTORS / 13D/G) ===== -->
       <div class="section-page" id="section-activists">
-        <h2>Fonds Offensifs</h2>
+        <h2 data-i18n="dash.activists.pageTitle">Activistes</h2>
 
         <!-- BARRE DE RECHERCHE TICKER — meme style que Initiés Explorer -->
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 24px;display:flex;gap:10px;align-items:stretch">
@@ -4065,12 +4065,12 @@
                    13D/A = orange (#F59E0B) — amendement
                    13G = vert (#10B981) — passif
                    Tous = neutre -->
-              <button class="period-btn active" onclick="setActPreset('filter','activists',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Tous les filings activistes (vrais hostiles + contrôle interne)">⚡ Offensifs</button>
+              <button class="period-btn" onclick="setActPreset('filter','activists',this)" style="border-color:rgba(245,158,11,0.4);color:#F59E0B" title="Tous les filings activistes (vrais hostiles + contrôle interne)">⚡ Offensifs</button>
               <button class="period-btn" onclick="setActPreset('filter','hostile',this)" style="border-color:rgba(239,68,68,0.5);color:#FCA5A5" title="Activistes hostiles uniquement (Elliott, Ackman, Icahn… — exclut les holdings parent-filiale type Imperial→C3is)">⚡ Hostiles</button>
               <button class="period-btn" onclick="setActPreset('filter','controlling',this)" style="border-color:rgba(59,130,246,0.5);color:#60A5FA" title="Contrôle interne — parent/filiale, holdings, founders maintenant >40% du capital">🏢 Contrôle</button>
               <button class="period-btn" onclick="setActPreset('filter','13D',this)" style="border-color:rgba(239,68,68,0.5);color:#EF4444" title="Schedule 13D — prise active initiale >5% (signal activiste le plus fort)">Actifs</button>
               <button class="period-btn" onclick="setActPreset('filter','13G',this)" style="border-color:rgba(16,185,129,0.4);color:#10B981" title="Schedule 13G — prise passive >5% (Vanguard/BlackRock)">Passifs</button>
-              <button class="period-btn" onclick="setActPreset('filter','all',this)" title="Toutes les déclarations >5% du capital">Tous</button>
+              <button class="period-btn active" onclick="setActPreset('filter','all',this)" title="Toutes les déclarations >5% du capital">Tous</button>
             </div>
           </div>
           <!-- Marché : dropdown CUSTOM (les <option> natifs ne supportent
@@ -4129,8 +4129,8 @@
           <div style="padding:16px 0 4px">
             <!-- Selects caches : actFilter (utilise par les period-btn Type) -->
             <select id="actFilter" style="display:none">
-              <option value="activists" selected>activists</option>
-              <option value="all">all</option>
+              <option value="all" selected>all</option>
+              <option value="activists">activists</option>
               <option value="13D">13D</option>
               <option value="13G">13G</option>
               <option value="up">up</option>
@@ -5043,7 +5043,7 @@
             </label>
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-2));border:1px solid rgba(245,158,11,0.28);border-radius:8px">
               <input type="checkbox" id="wlTypeActivist" onchange="saveWatchlistPrefs()" style="accent-color:#F59E0B" />
-              <span style="font-size:13px">⚡ Fonds offensifs (13D/G, signal activiste)</span>
+              <span style="font-size:13px">⚡ Activistes (13D/G, signal de positionnement)</span>
             </label>
           </div>
 
@@ -6946,7 +6946,7 @@
       pro: [
         { ok: true,  text: '<strong>Kairos Score</strong> complet — 8 axes · 3 349 tickers' },
         { ok: true,  text: 'Initiés : transactions · signaux · convergences · screener' },
-        { ok: true,  text: '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)' },
+        { ok: true,  text: '<strong>Activistes</strong> (Elliott, Ackman, Icahn…)' },
         { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
         { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
         { ok: true,  text: 'Watchlist + Brief quotidien par email' },
@@ -8719,7 +8719,7 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)">
               <div class="signal-card-icon icon-pink"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">${t('dash.home.signal_activist_title', 'Fonds offensifs frais')}</div>
+                <div class="signal-card-title">${t('dash.home.signal_activist_title', 'Activistes récents')}</div>
                 <div class="signal-card-sub">${t('dash.home.signal_activist_sub', 'Derniers dépôts 13D/G')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
@@ -8908,7 +8908,7 @@
             <div class="signal-card-head signal-card-head-clickable" style="border-color:rgba(236,72,153,0.3)" onclick="switchSection('activists')" title="${t('dash.home.signal_open_detail', 'Ouvrir l\'analyse détaillée')}">
               <div class="signal-card-icon icon-pink"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
               <div style="flex:1">
-                <div class="signal-card-title">${t('dash.home.signal_activist_title', 'Fonds offensifs frais')}</div>
+                <div class="signal-card-title">${t('dash.home.signal_activist_title', 'Activistes récents')}</div>
                 <div class="signal-card-sub">${t('dash.home.signal_activist_sub', 'Derniers dépôts 13D/G')}</div>
               </div>
               <span class="signal-card-chevron">→</span>
@@ -9275,10 +9275,13 @@
     // SIGNAL DETAIL — Activists (Lot 4, enrichissement section existante)
     // ============================================================
     const ACTIVISTS_PRESETS = {
-      default: { days: '30', filter: 'activists', ticker: '' },
+      // FIX (mai 2026) : default = 'all' au lieu de 'activists' pour montrer
+      // toutes les declarations >5% a l'arrivee sur la page (donne plus de
+      // donnees en surface, l'user filtre apres).
+      default: { days: '30', filter: 'all', ticker: '' },
       week: { days: '7', filter: 'all', ticker: '' },
       '13donly': { days: '30', filter: '13D', ticker: '' },
-      bigOnes: { days: '90', filter: 'activists', ticker: '' }, // le filtre "méga" se fait via le tri côté table
+      bigOnes: { days: '90', filter: 'all', ticker: '' },
       all90: { days: '90', filter: 'all', ticker: '' },
     };
 
@@ -10712,10 +10715,10 @@
           : 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(251,191,36,0.04))';
         const borderColor = isActivist ? 'rgba(245,158,11,0.38)' : 'rgba(245,158,11,0.28)';
         const title = isActivist
-          ? `⚡ Fonds offensif détecté sur ${escapeHtmlClient(ticker)}`
+          ? `⚡ Activiste détecté sur ${escapeHtmlClient(ticker)}`
           : `📊 Gros actionnaires sur ${escapeHtmlClient(ticker)}`;
         const subtitle = isActivist
-          ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · <strong style="color:#F59E0B">${res.activistsCount} fonds offensif${res.activistsCount > 1 ? 's' : ''} connu${res.activistsCount > 1 ? 's' : ''}</strong>`
+          ? `${res.total} déclaration${res.total > 1 ? 's' : ''} · <strong style="color:#F59E0B">${res.activistsCount} activiste${res.activistsCount > 1 ? 's' : ''} reconnu${res.activistsCount > 1 ? 's' : ''}</strong>`
           : `${res.total} déclaration${res.total > 1 ? 's' : ''} > 5% du capital`;
 
         const fmtLongD = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
@@ -20348,12 +20351,6 @@
               <span><span style="padding:2px 7px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700">13G</span> <strong style="color:#10B981">Passif</strong> — simple investissement</span>
               <span><span style="padding:2px 7px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700">13G/A</span> Amendement position passive</span>
               <span><span style="padding:2px 7px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700">⚡ OFFENSIF</span> Fonds activiste reconnu <span style="color:var(--text-muted);cursor:help" title="Liste hardcodée de ~28 activists institutionnels connus : Elliott, Ackman, Icahn, Peltz (Trian), Starboard, Loeb (Third Point), ValueAct, Cevian, JANA, Greenlight/Einhorn…">(détails)</span></span>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding-top:8px;border-top:1px solid var(--border);color:var(--text-muted);font-size:11px">
-              <strong style="color:var(--text-primary);font-size:12px">Colonne % capital :</strong>
-              <span>Valeur principale = <strong style="color:var(--text-primary)">position TOTALE</strong> après le filing.</span>
-              <span>Ligne <span style="color:#10B981;font-weight:600">▲ +Xpt</span> ou <span style="color:#EF4444;font-weight:600">▼ −Xpt</span> = <strong style="color:var(--text-primary)">variation</strong> vs filing précédent du même fonds (= le mouvement qui a déclenché le /A).</span>
-              <span style="color:var(--text-muted);cursor:help" title="Le calcul du delta nécessite le filing précédent du même fonds sur ce ticker dans notre cache (30 jours). Si le dépôt initial est plus ancien, on ne peut pas calculer la variation — on affiche 'ajust.'">ℹ pourquoi parfois 'ajust.' ?</span>
             </div>
           </div>
           <div class="table-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:12px">

@@ -154,7 +154,7 @@
       'feat.deep.desc': 'Une fiche exhaustive par action : <strong>Kairos Score</strong> visuel, ratios de valorisation, santé financière, historique earnings, concurrents sectoriels, objectifs analystes, chart avec les trades des initiés superposés. Tout ce qu\'il faut <strong>sans changer d\'onglet</strong>.',
       'feat.deep.chip': '● Des milliers de tickers',
 
-      'feat.activists.title': 'Fonds Offensifs <span style="font-size:13px;color:var(--text-muted);font-weight:400">(Activistes)</span>',
+      'feat.activists.title': 'Activistes <span style="font-size:13px;color:var(--text-muted);font-weight:400">(13D/G)</span>',
       'feat.activists.desc_html': 'Quand un <strong>fonds offensif</strong> comme Elliott, Ackman ou Icahn achète plus de <strong>5 % d\'une entreprise</strong>, c\'est pour <strong>forcer un changement</strong> (vente d\'une division, CEO remplacé, rachats d\'actions). Carl Icahn chez Apple 2013 → +30 %. Kairos détecte ces déclarations en <strong>10 jours</strong> — 35 jours plus rapide que les 13F.',
       'feat.activists.chip': 'NEW · Signal 10 jours',
 
@@ -252,7 +252,7 @@
       'pricing.premium.f_score': 'Kairos Score composite 0-100 (radar 8 axes + synthèse)',
       'pricing.premium.f_insiders': 'Transactions insiders SEC + AMF + BaFin en détail',
       'pricing.premium.f_clusters': 'Signaux Insiders (convergences 90j)',
-      'pricing.premium.f_activists': '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)',
+      'pricing.premium.f_activists': '<strong>Activistes</strong> (Elliott, Ackman, Icahn…)',
       'pricing.premium.f_funds': '500+ hedge funds 13F consolidés',
       'pricing.premium.f_consensus': 'Consensus Hedge Funds avec ★ conviction',
       'pricing.premium.f_etf': '11 ETF Live (politique, ARK, sentiment, income, thématiques)',
@@ -277,7 +277,7 @@
       'pricing.pro.f_insiders': 'Initiés (SEC + AMF + BaFin) avec 3 sous-onglets',
       'pricing.pro.f_clusters': 'Signaux &amp; Clusters insiders (4 angles)',
       'pricing.pro.f_screener': 'Screener avancé (insiders + hedge funds)',
-      'pricing.pro.f_activists': '<strong>Fonds Offensifs</strong> (Elliott, Ackman, Icahn…)',
+      'pricing.pro.f_activists': '<strong>Activistes</strong> (Elliott, Ackman, Icahn…)',
       'pricing.pro.f_hedgefunds': '<strong>200+ Hedge Funds 13F</strong> + Consensus',
       'pricing.pro.f_etf': '11 ETF thématiques live (NANC, GOP, ARK…)',
       'pricing.pro.f_watchlist': 'Watchlist + Brief quotidien par email',
@@ -299,7 +299,7 @@
       'mockup.section.transactions': 'Transactions initiés récentes',
       'mockup.float.cluster_title': "Vague d'initiés · NVDA",
       'mockup.watchlist.entered_etf': 'Entrée NANC',
-      'mockup.float.activists_title': 'Fonds Offensifs · 30j',
+      'mockup.float.activists_title': 'Activistes · 30j',
       // Backtest h2
       'home.backtest.h2_part1': 'Combien auriez-vous gagné',
       'home.backtest.h2_part2': 'en suivant ces fonds légendaires ?',
@@ -668,7 +668,8 @@
       'dash.sidebar.shorts': 'Short Interest',
       'dash.sidebar.watchlist': 'Ma Watchlist',
       'dash.sidebar.screener': 'Screener Avance',
-      'dash.sidebar.activists': 'Fonds Offensifs',
+      'dash.sidebar.activists': 'Activistes',
+      'dash.activists.pageTitle': 'Activistes',
       'dash.sidebar.elite_section': 'Elite',
       'dash.sidebar.elite_alerts': 'Alertes temps-réel',
       'dash.sidebar.elite_backtests': 'Backtests',
@@ -749,7 +750,7 @@
       'dash.home.screener_desc': 'Filtres combinables sur l\'historique complet des transactions insider : ticker, période (jusqu\'à 5 ans), rôle (CEO/CFO), montant min, source. <strong>Export CSV</strong> des résultats.',
       'dash.home.screener_cta': 'Lancer une recherche →',
 
-      'dash.home.activists_title': 'Fonds Offensifs <span style="font-size:11px;color:var(--text-muted);font-weight:400">(Activistes)</span>',
+      'dash.home.activists_title': 'Activistes <span style="font-size:11px;color:var(--text-muted);font-weight:400">(13D/G)</span>',
       'dash.home.activists_desc': 'Quand <strong>Elliott, Ackman ou Icahn</strong> achètent plus de 5 % d\'une société pour forcer un changement. Signal <strong>10 jours</strong> avant les 13F — souvent avant une forte hausse du cours.',
       'dash.home.activists_cta': 'Voir les déclarations →',
 
@@ -1743,6 +1744,7 @@
       'dash.sidebar.screener': 'Advanced Screener',
       'dash.sidebar.top_insiders': 'Top Insiders',
       'dash.sidebar.activists': 'Activist Investors',
+      'dash.activists.pageTitle': 'Activist Investors',
       'dash.sidebar.elite_section': 'Elite',
       'dash.sidebar.elite_alerts': 'Real-time alerts',
       'dash.sidebar.elite_backtests': 'Backtests',
