@@ -543,6 +543,8 @@
       'hedge.search.placeholder': '🔍 Fonds OU action détenue (ex: Berkshire, Apple, AAPL, Nvidia)...',
       'hedge.search.hint': 'Tape pour filtrer',
       'hedge.search.subhint': '💡 Tu peux aussi chercher par <strong>action</strong> que les fonds détiennent — ex : "Apple" affiche tous les fonds qui ont des actions Apple en portefeuille.',
+      // Liste Top 50 positions d'un fond — nom d'action cliquable
+      'hedge.holding.clickTooltip': 'Cliquer pour ouvrir la fiche action',
       // Consensus vote cards
       'stock.cons.strongBuy': 'Achat fort',
       'stock.cons.buy': 'Achat',
@@ -1710,6 +1712,8 @@
       'hedge.search.placeholder': '🔍 Fund OR held stock (e.g. Berkshire, Apple, AAPL, Nvidia)...',
       'hedge.search.hint': 'Type to filter',
       'hedge.search.subhint': '💡 You can also search by <strong>stock</strong> the funds hold — e.g. "Apple" shows all funds with Apple shares in their portfolio.',
+      // Top 50 positions list — clickable stock name
+      'hedge.holding.clickTooltip': 'Click to open stock analysis',
       'stock.cons.strongBuy': 'Strong buy',
       'stock.cons.buy': 'Buy',
       'stock.cons.hold': 'Hold',
