@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-anon-cta-cleanup"></script>
+  <script src="assets/i18n.js?v=20260513-news-clamp-mobile"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1263,6 +1263,12 @@
     }
     @media (max-width: 600px) {
       .auth-card { padding: 32px 22px; max-width: 100%; }
+      /* News rows : sur mobile, on passe la meta (date + source) en-dessous
+         du titre pour gagner toute la largeur horizontale pour le titre.
+         Sinon le 'flex-shrink:0' sur la meta + le titre tronque mal. */
+      .news-row { flex-direction: column !important; align-items: stretch !important; gap: 3px !important; }
+      .news-row .news-meta { font-size: 10.5px !important; opacity: 0.5 !important; }
+      .news-row .news-title { -webkit-line-clamp: 3 !important; } /* +1 ligne car plus de place verticale */
     }
     .auth-card .logo-mark { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 16px; }
     .auth-card h2 { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 24px; margin-bottom: 8px; }
@@ -13220,11 +13226,18 @@
             <h3 style="margin:0 0 12px;font-size:16px">${L.secNews}</h3>
             <div style="display:grid;gap:4px">
               ${news.slice(0, 10).map(n => {
-                const dateStr = n.pubDate ? new Date(n.pubDate).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+                // FIX (mai 2026, retour user mobile) : les titres news debordaient
+                // hors de l'ecran sur mobile. Solution : 2 lignes max avec ellipsis
+                // (-webkit-line-clamp) + min-width:0 sur le flex child (classique
+                // gotcha qui empeche le shrink des enfants flex).
+                // Date pousse en-dessous sur mobile pour gagner de la place
+                // horizontale pour le titre.
+                const _locale = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
+                const dateStr = n.pubDate ? new Date(n.pubDate).toLocaleDateString(_locale, {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
                 return `
-                <a href="${n.link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;padding:7px 10px;background:var(--bg-card);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--bg-card)'">
-                  <div style="flex:1;font-size:13px;color:#74b9ff;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${n.title.replace(/"/g, '&quot;')}">${n.title}</div>
-                  <div style="font-size:11px;opacity:0.55;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums">${dateStr}${n.source ? ` · <span style="opacity:0.85">${n.source}</span>` : ''}</div>
+                <a href="${n.link}" target="_blank" rel="noopener" class="news-row" style="display:flex;align-items:flex-start;gap:12px;padding:8px 10px;background:var(--bg-card);border-radius:6px;color:inherit;text-decoration:none;transition:background 0.2s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--bg-card)'">
+                  <div class="news-title" style="flex:1;min-width:0;font-size:13px;color:#74b9ff;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis" title="${n.title.replace(/"/g, '&quot;')}">${n.title}</div>
+                  <div class="news-meta" style="font-size:11px;opacity:0.55;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums">${dateStr}${n.source ? ` · <span style="opacity:0.85">${n.source}</span>` : ''}</div>
                 </a>
               `; }).join('')}
             </div>
