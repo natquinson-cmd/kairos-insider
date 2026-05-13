@@ -1185,7 +1185,7 @@
       'auth.login.forgot': 'Mot de passe oublié ?',
       // Signup mode
       'auth.signup.title': 'Crée ton compte gratuit',
-      'auth.signup.subtitle': 'Aucune carte bancaire. 30 secondes. Pour toujours.',
+      'auth.signup.subtitle': 'Sans carte bancaire. Sans engagement. 30 secondes.',
       'auth.signup.benefit_analyses_html': '<strong>4 analyses smart money / jour</strong> (au lieu de 2 en anonyme)',
       'auth.signup.benefit_trends_html': '<strong>Tendances retail</strong> · les tickers qui explosent en recherche Google',
       'auth.signup.benefit_fg_html': '<strong>Fear &amp; Greed Index</strong> · le pouls du marché en temps réel',
@@ -2332,7 +2332,7 @@
       'auth.login.forgot': 'Forgot password?',
       // Signup mode
       'auth.signup.title': 'Create your free account',
-      'auth.signup.subtitle': 'No credit card. 30 seconds. Forever.',
+      'auth.signup.subtitle': 'No credit card. No commitment. 30 seconds.',
       'auth.signup.benefit_analyses_html': '<strong>4 smart money analyses / day</strong> (vs 2 anonymous)',
       'auth.signup.benefit_trends_html': '<strong>Retail trends</strong> · tickers blowing up in Google search',
       'auth.signup.benefit_fg_html': '<strong>Fear &amp; Greed Index</strong> · live market pulse',

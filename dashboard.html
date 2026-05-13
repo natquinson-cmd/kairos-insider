@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-insider-i18n-full"></script>
+  <script src="assets/i18n.js?v=20260513-mobile-nav-fix"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -987,11 +987,26 @@
     @media (max-width: 380px) {
       h1 { font-size: 20px; }
       .page-title { font-size: 22px !important; }
-      #navProfileBtn, #navSupportBtn { width: 30px; height: 30px; }
-      .nav-links { gap: 6px; }
+      /* FIX (mai 2026) : ajout de min-width + flex-shrink:0 pour eviter
+         que les boutons cercles soient ETIRES en ovales par le flex
+         layout du nav-links sur mobile. Le ? et l'avatar NQ doivent
+         rester des cercles parfaits. */
+      #navProfileBtn, #navSupportBtn, #navThemeBtn, #navLangBtn {
+        width: 30px !important; height: 30px !important;
+        min-width: 30px; min-height: 30px;
+        flex: 0 0 30px;
+        aspect-ratio: 1 / 1;
+      }
+      /* Plus d'espacement entre les boutons (eviter chevauchement ?/NQ) */
+      .nav-links { gap: 8px; }
       /* Logo encore plus petit sur iPhone SE pour garantir 1 ligne */
       .logo-text { font-size: 17px !important; }
       .logo-mark { width: 30px !important; height: 30px !important; }
+    }
+    /* Defense globale : les boutons cercles de la nav doivent TOUJOURS
+       rester ronds, meme si le flex layout veut les etirer. */
+    #navProfileBtn, #navSupportBtn, #navThemeBtn, #navLangBtn, #navUpgradeBtn {
+      flex-shrink: 0;
     }
     .profile-menu-item {
       display: flex;
@@ -3213,7 +3228,7 @@
       <!-- MODE INSCRIPTION -->
       <div id="authSignup" style="display:none">
         <h2 style="font-size:22px;margin-bottom:4px;background:linear-gradient(135deg,#3B82F6,#8B5CF6 55%,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800" data-i18n="auth.signup.title">Crée ton compte gratuit</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px" data-i18n="auth.signup.subtitle">Aucune carte bancaire. 30 secondes. Pour toujours.</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px" data-i18n="auth.signup.subtitle">Sans carte bancaire. Sans engagement. 30 secondes.</p>
 
         <!-- Bénéfices reels du tier Free (vs anonyme) -->
         <div style="background:linear-gradient(135deg,rgba(59,130,246,0.07),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.20);border-radius:12px;padding:14px 16px;margin-bottom:16px">
