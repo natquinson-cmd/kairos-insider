@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-hedge-search-server-index"></script>
+  <script src="assets/i18n.js?v=20260513-hedge-search-apifetch-auth"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14129,16 +14129,20 @@
             }
           }
 
-          // ETAPE 2 : appel endpoint server pour liste des detenteurs
-          const resp = await fetch(`${API_BASE}/api/13f-funds-by-holding?holding=${encodeURIComponent(companyQuery)}`);
-          if (!resp.ok) {
+          // ETAPE 2 : appel endpoint server pour liste des detenteurs.
+          // FIX (mai 2026 v2) : utiliser apiFetch (auth Firebase) au lieu de fetch
+          // direct -> evite le 401 'No token provided' pour les users logges.
+          let data;
+          try {
+            data = await apiFetch('/api/13f-funds-by-holding', { holding: companyQuery });
+          } catch (e) {
+            console.warn('[filterHedgeFunds] endpoint call failed:', e);
             if (hint) {
               hint.textContent = `0 fonds trouvé`;
               hint.style.color = '#EF4444';
             }
             return;
           }
-          const data = await resp.json();
           const holderFunds = Array.isArray(data.funds) ? data.funds : [];
           if (holderFunds.length === 0) {
             if (hint) {
