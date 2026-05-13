@@ -11,7 +11,7 @@
  *   - Premium (auth + abo) : /api/all-transactions, /api/clusters, /api/13f-*, /api/etf-*
  */
 
-import { handleStockAnalysis } from './stock-api.js';
+import { handleStockAnalysis, normalizeCompanyName } from './stock-api.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
 import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 // Resvg WASM : SVG -> PNG pour les OG images (Twitter Card spec exige PNG/JPG).

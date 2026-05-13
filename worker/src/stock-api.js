@@ -1966,7 +1966,7 @@ async function aggregateInsiders(ticker, env) {
 // AGGREGATORS : Smart Money 13F
 // Match par nom d'entreprise normalise (les 13F stockent CUSIP + nom, pas ticker).
 // ============================================================
-function normalizeCompanyName(name) {
+export function normalizeCompanyName(name) {
   if (!name) return '';
   return String(name)
     .normalize('NFD')                  // Decompose accents : "MOËT" -> "MO" + "Ë" decomposed
