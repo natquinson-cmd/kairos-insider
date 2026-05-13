@@ -17,9 +17,14 @@ name: Realtime Form 4 Refresh 30 min (insiders US)
 
 on:
   schedule:
-    # :20 et :50 (decale de :15/:45 de realtime-30min.yml pour eviter la
-    # charge SEC simultanee + reduit la concurrence sur le KV insider-transactions).
-    - cron: '20,50 * * * *'
+    # FIX (mai 2026) : passe de '20,50 * * * *' (toutes les 30 min) a
+    # '30 * * * *' (toutes les heures a la demi-heure, decale du realtime-30min
+    # qui tourne a :00).
+    # Cause : GitHub Actions schedule throttling drop ~80% des slots quand
+    # l'usage minute du compte est eleve. Reduire la frequence reduit la
+    # pression quota -> moins de drops -> latence reelle meilleure.
+    # Trade-off : latence max Form 4 = 1h au lieu de 30 min theoriques.
+    - cron: '30 * * * *'
   workflow_dispatch:
 
 concurrency:
