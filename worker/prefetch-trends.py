@@ -273,6 +273,19 @@ def main():
     if failed:
         print(f'Failed: {len(failed)} (first 10: {failed[:10]})')
 
+    # SANITY CHECK (mai 2026, retour user "plus trop de donnees ici") :
+    # Si pytrends est rate-limite et qu'on n'a recupere quasi rien, on REFUSE
+    # d'ecrire les fichiers JSON -> le step "Upload Google Trends to KV" du
+    # workflow ne triggers pas (guard `if [ -f trends_hot.json ]`), donc la
+    # bonne donnee precedente reste en KV.
+    # Avant : un run dégradé (1 ticker CAC) ecrasait 91 tickers de la veille.
+    MIN_RESULTS_TO_SAVE = 20
+    if len(results) < MIN_RESULTS_TO_SAVE:
+        print(f'\n!!! SANITY CHECK FAILED: only {len(results)} tickers fetched (min={MIN_RESULTS_TO_SAVE}).')
+        print('!!! NOT saving trends_data.json/trends_hot.json to preserve previous good data in KV.')
+        print('!!! Most likely cause: pytrends rate-limited (429). Re-run workflow later.')
+        return  # exit 0 (workflow continues, mais upload skipe par `hashFiles` check)
+
     # Sauvegarde
     payload = {
         'updatedAt': datetime.utcnow().isoformat() + 'Z',
