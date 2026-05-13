@@ -5199,6 +5199,30 @@
         <!-- KPIs -->
         <div id="portfolioKpis" style="display:none">
 
+          <!-- ============================================================
+               POSITIONS EN COURS — TOUT EN HAUT (mai 2026).
+               Section "produit d'appel" : ce que l'user voit en premier
+               quand il arrive dans Mon Portefeuille. Reconstitue les
+               positions detenues (buys - sells par ticker), affiche par
+               ligne le logo + qty + prix moyen + prix actuel + variation
+               veille + sparkline 1Y + cout + P&L latent + badge smart
+               money 30j (driver du funnel Pro+ via modal upsell).
+               KPIs / charts / calendrier viennent APRES.
+               ============================================================ -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+            <div>
+              <h3 style="font-family:'Space Grotesk';font-size:18px;margin:0" data-i18n="dash.portfolio.positions_title">Positions en cours</h3>
+              <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0" data-i18n="dash.portfolio.positions_sub">Smart money sur vos positions — 30 derniers jours</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
+              <span id="portfolioPositionsToolbar"></span>
+            </div>
+          </div>
+          <div id="portfolioPositionsArea" style="margin-bottom:28px">
+            <div class="loading" style="padding:24px 0"><div class="spinner"></div><span data-i18n="dash.portfolio.positions_loading">Analyse des positions en cours...</span></div>
+          </div>
+
           <!-- HERO KPI : 3 grandes cartes -->
           <div class="hero-kpi">
             <!-- CARTE 1 : Performance globale -->
@@ -5410,27 +5434,6 @@
               <div class="stat-label" style="margin-bottom:12px">Gains moyens</div>
               <canvas id="chartAvgGains" height="180"></canvas>
             </div>
-          </div>
-
-          <!-- ============================================================
-               POSITIONS EN COURS — reconstituees depuis les transactions
-               (achats - ventes par ticker). Pour CHAQUE position detenue,
-               on affiche les signaux smart money 30j : insider activity,
-               score delta, ETF moves. Le badge sert de teaser vers les
-               alertes Pro+ pour les users gratuits (click -> modal upsell).
-               ============================================================ -->
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:32px;gap:12px;flex-wrap:wrap">
-            <div>
-              <h3 style="font-family:'Space Grotesk';font-size:16px;margin:0" data-i18n="dash.portfolio.positions_title">Positions en cours</h3>
-              <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0" data-i18n="dash.portfolio.positions_sub">Smart money sur vos positions — 30 derniers jours</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
-              <span id="portfolioPositionsToolbar"></span>
-            </div>
-          </div>
-          <div id="portfolioPositionsArea">
-            <div class="loading" style="padding:24px 0"><div class="spinner"></div><span data-i18n="dash.portfolio.positions_loading">Analyse des positions en cours...</span></div>
           </div>
 
           <!-- Tableau des trades -->
