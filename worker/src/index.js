@@ -3092,13 +3092,18 @@ function _generateWikiCandidates(rawName) {
   const words = cleaned.split(' ').filter(Boolean);
   // 1. Original (title cased) : "John Smith" reste, "JOHN SMITH" -> "John Smith"
   candidates.push(titleCase(cleaned));
-  // 2. Si SEC format (all caps + 2+ mots) : inversion "BUFFETT WARREN" -> "Warren Buffett"
-  if (cleaned === cleaned.toUpperCase() && words.length >= 2) {
-    // Strip suffixes communs (JR, SR, II, III, IV) avant inversion
+  // 2. FIX (mai 2026 v2) : ALWAYS try last-first inversion (regardless of case).
+  // Avant : check 'all uppercase' rate les cas SEC stockes en title case
+  // dans D1 (ex 'Parekh Kevan' au lieu de 'PAREKH KEVAN'). Maintenant on
+  // tente toujours l'inversion "Last First" -> "First Last".
+  // Ex: 'Parekh Kevan' -> 'Kevan Parekh' (= la vraie page Wikipedia).
+  // Si pas SEC format (vrai nom 'First Last'), l'inversion produit 'Last First'
+  // qui ne matchera juste pas, mais c'est pas grave (silent fallback).
+  if (words.length >= 2) {
     const SUFFIXES = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V']);
     let body = words.slice();
     let suffix = '';
-    if (SUFFIXES.has(body[body.length - 1])) {
+    if (SUFFIXES.has(body[body.length - 1].toUpperCase())) {
       suffix = ' ' + body.pop();
     }
     if (body.length >= 2) {
@@ -3118,7 +3123,12 @@ function _looksLikePersonDescription(desc) {
 
 async function fetchWikipediaPerson(name, env) {
   if (!name) return null;
-  const cacheKey = `wiki-person:v1:${name.toLowerCase().trim().slice(0, 80)}`;
+  // Bump v1 -> v2 (mai 2026) : v1 cachait 'found:false' pour les noms SEC
+  // title-case ('Parekh Kevan') car l'inversion last-first ne se declenchait
+  // que sur ALL-CAPS. v2 force re-fetch avec la nouvelle logique qui essaie
+  // toujours les 2 ordres -> remonte les pages WP qui existent vraiment
+  // (ex: en.wikipedia.org/wiki/Kevan_Parekh pour 'Parekh Kevan').
+  const cacheKey = `wiki-person:v2:${name.toLowerCase().trim().slice(0, 80)}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached !== null && cached !== undefined) {
@@ -3486,11 +3496,10 @@ async function handleInsiderProfile(url, env, origin) {
     return jsonResponse({ error: 'Missing name or cik' }, 400, origin);
   }
 
-  // Cache key v4 (mai 2026) : bump apres fix Yahoo officer (crumb auth).
-  // v3 cachait yahooOfficer:null pour TOUS les insiders car le helper ne
-  // passait pas le crumb -> Yahoo retournait 'Invalid Crumb' 401 -> empty.
-  // v4 force re-fetch avec la session crumb correcte.
-  const cacheKey = `profile:v4:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
+  // Cache key v5 (mai 2026) : bump apres fix Wikipedia (inversion last-first
+  // toujours tentee, plus seulement sur ALL-CAPS). v4 cachait wikipedia:null
+  // pour les insiders title-case dont la page WP existe (ex Parekh Kevan).
+  const cacheKey = `profile:v5:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return jsonResponse(cached, 200, origin);
