@@ -1221,6 +1221,9 @@
       'dash.portfolio.col_1y': '1 an',
       'dash.portfolio.help_region_eu': '🇪🇺 Brokers Européens',
       'dash.portfolio.help_region_us': '🇺🇸 Brokers Américains',
+      'dash.portfolio.realized_title': 'Performance réalisée',
+      'dash.portfolio.realized_badge': 'Trades clôturés',
+      'dash.portfolio.total_realized': 'P&L réalisé',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2476,6 +2479,9 @@
       'dash.portfolio.col_1y': '1Y',
       'dash.portfolio.help_region_eu': '🇪🇺 European Brokers',
       'dash.portfolio.help_region_us': '🇺🇸 US Brokers',
+      'dash.portfolio.realized_title': 'Realized performance',
+      'dash.portfolio.realized_badge': 'Closed trades',
+      'dash.portfolio.total_realized': 'Realized P&L',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',

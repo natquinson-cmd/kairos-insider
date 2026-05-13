@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-portfolio-brokers-eu-us"></script>
+  <script src="assets/i18n.js?v=20260513-portfolio-realized-latent"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1772,8 +1772,22 @@
       font-variant-numeric: tabular-nums;
     }
     .positions-total-pnl .positions-total-value { font-size: 20px; }
+    .positions-total-realized .positions-total-value { font-size: 18px; opacity: 0.92; }
     .positions-total-pnl-positive { color: #10B981; }
     .positions-total-pnl-negative { color: #EF4444; }
+    /* Badge "Trades clôturés" sur le header de la section P&L réalisé */
+    .pnl-section-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      background: rgba(139,92,246,0.10);
+      border: 1px solid rgba(139,92,246,0.32);
+      color: #A78BFA;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
 
     .positions-table {
       width: 100%;
@@ -5283,6 +5297,17 @@
           </div>
           <div id="portfolioPositionsArea" style="margin-bottom:28px">
             <div class="loading" style="padding:24px 0"><div class="spinner"></div><span data-i18n="dash.portfolio.positions_loading">Analyse des positions en cours...</span></div>
+          </div>
+
+          <!-- ============================================================
+               PERFORMANCE REALISEE (section header explicite)
+               Distinction critique pour eviter la confusion user :
+               - Positions en cours (au-dessus) = P&L LATENT (non-realise)
+               - Hero KPI + Charts (ci-dessous) = P&L REALISE (trades clos)
+               ============================================================ -->
+          <div style="display:flex;align-items:center;gap:10px;margin:8px 0 14px">
+            <h3 style="font-family:'Space Grotesk';font-size:18px;margin:0;color:var(--text-primary)" data-i18n="dash.portfolio.realized_title">Performance réalisée</h3>
+            <span class="pnl-section-badge" data-i18n="dash.portfolio.realized_badge">Trades clôturés</span>
           </div>
 
           <!-- HERO KPI : 3 grandes cartes -->
@@ -18455,6 +18480,41 @@
       trades.forEach(t => { const s = t.symbol || 'Autre'; assetMap[s] = (assetMap[s] || 0) + Math.abs(t.pnl); });
       const sortedAssets = Object.entries(assetMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
       const pieColors = ['#3B82F6', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#6B7280'];
+
+      // Plugin labels % DANS chaque slice du donut.
+      // Calcule l'angle au milieu de chaque slice et place le texte la-bas.
+      // Skip si la slice est < 5% (overlap garanti sinon).
+      const total = sortedAssets.reduce((s, [, v]) => s + v, 0);
+      const pieValueLabelsPlugin = {
+        id: 'pieValueLabels',
+        afterDatasetsDraw(chart) {
+          const { ctx, data } = chart;
+          if (!total || total === 0) return;
+          const meta = chart.getDatasetMeta(0);
+          if (!meta || !meta.data) return;
+          ctx.save();
+          ctx.font = '700 11px Inter, system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#fff';
+          data.datasets[0].data.forEach((value, i) => {
+            const arc = meta.data[i];
+            if (!arc) return;
+            const pct = (value / total) * 100;
+            if (pct < 5) return; // skip slices trop petites
+            // Calcule le point milieu de l'arc (entre inner et outer radius)
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            const radius = (arc.innerRadius + arc.outerRadius) / 2;
+            const x = arc.x + Math.cos(angle) * radius;
+            const y = arc.y + Math.sin(angle) * radius;
+            ctx.fillText(pct.toFixed(0) + '%', x, y);
+          });
+          ctx.restore();
+        }
+      };
+
       portfolioCharts.pie = new Chart(document.getElementById('chartAssetPie'), {
         type: 'doughnut',
         data: { labels: sortedAssets.map(a => a[0]), datasets: [{ data: sortedAssets.map(a => Math.round(a[1] * 100) / 100), backgroundColor: pieColors.slice(0, sortedAssets.length), borderWidth: 0 }] },
@@ -18462,9 +18522,10 @@
           responsive: true,
           plugins: {
             legend: { position: 'right', labels: { color: getCssVar('--text-secondary'), font: { size: 11 }, boxWidth: 12 } },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtEur(ctx.raw)}` } }
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${fmtEur(ctx.raw)} (${((ctx.raw / total) * 100).toFixed(1)}%)` } }
           }
-        }
+        },
+        plugins: [pieValueLabelsPlugin]
       });
 
       // P&L par période (bar) — avec sélecteur Jour/Semaine/Mois/Année
@@ -18499,27 +18560,35 @@
       const avgWinV = wins.length > 0 ? wins.reduce((s,t) => s+t.pnl, 0)/wins.length : 0;
       const avgLossV = losses.length > 0 ? losses.reduce((s,t) => s+t.pnl, 0)/losses.length : 0;
       const maxLoss = losses.length > 0 ? Math.min(...losses.map(t => t.pnl)) : 0;
-      // Plugin inline pour afficher la valeur au bout de chaque bar
-      // (pas de dependance chartjs-plugin-datalabels). Compute pour H-bars
-      // (indexAxis: 'y') : aligne le texte juste apres la fin de la barre.
+      // Plugin labels valeurs DANS les bars horizontales (pas a cote).
+      // Pour h-bar : texte aligne a droite, place a 8px de la fin INTERIEURE
+      // de la barre. Couleur blanche avec ombre noire pour lisibilite sur
+      // toute teinte de fond. Skip si la barre est trop courte (< 50px).
       const barValueLabelsPlugin = {
         id: 'barValueLabels',
         afterDatasetsDraw(chart) {
-          const { ctx, data, scales } = chart;
-          if (!ctx || !data?.datasets?.[0]?.data) return;
+          const { ctx, data, chartArea, scales } = chart;
+          if (!ctx || !data?.datasets?.[0]?.data || !chartArea) return;
           ctx.save();
-          ctx.font = '600 11px Inter, system-ui, sans-serif';
-          ctx.fillStyle = getCssVar('--text-primary') || '#fff';
+          ctx.font = '700 11px Inter, system-ui, sans-serif';
           ctx.textBaseline = 'middle';
+          // Ombre pour contraste sur toutes couleurs de bar
+          ctx.shadowColor = 'rgba(0,0,0,0.55)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#fff';
+          const zeroX = scales.x.getPixelForValue(0);
           data.datasets[0].data.forEach((value, i) => {
             const meta = chart.getDatasetMeta(0).data[i];
             if (!meta) return;
             const { x, y } = meta.tooltipPosition();
             const v = Number(value) || 0;
+            const barLength = Math.abs(x - zeroX);
+            if (barLength < 50) return; // barre trop courte pour label INSIDE
             const label = `${v >= 0 ? '+' : ''}${fmtEur(v)}`;
-            // H-bar : place le label a droite de la barre (avec 6px de gap)
-            ctx.textAlign = v >= 0 ? 'left' : 'right';
-            const padX = v >= 0 ? 6 : -6;
+            // INSIDE : positives -> texte align right pres de la droite de la barre
+            // negatives -> texte align left pres de la gauche de la barre
+            ctx.textAlign = v >= 0 ? 'right' : 'left';
+            const padX = v >= 0 ? -8 : 8;
             ctx.fillText(label, x + padX, y);
           });
           ctx.restore();
@@ -18536,9 +18605,7 @@
         options: {
           responsive: true,
           indexAxis: 'y',
-          // Padding droit augmente pour laisser place aux labels positifs
-          // (et padding gauche pour les labels negatifs cote bars rouges).
-          layout: { padding: { left: 60, right: 60 } },
+          // Pas de padding extra car les labels sont INSIDE les bars
           plugins: {
             legend: { display: false },
             tooltip: { callbacks: { label: (ctx) => `${ctx.raw >= 0 ? '+' : ''}${fmtEur(ctx.raw)}` } }
@@ -18595,27 +18662,40 @@
       const sorted = Object.entries(periodMap).sort((a, b) => a[0].localeCompare(b[0]));
       const maxTicks = pnlPeriod === 'day' ? 15 : pnlPeriod === 'week' ? 20 : pnlPeriod === 'month' ? 20 : 10;
 
-      // Plugin labels valeurs : actif seulement si <= 25 bars (sinon overlap).
-      // Pour bars VERTICALES : label au-dessus (positif) ou en-dessous (negatif).
+      // Plugin labels valeurs DANS les bars verticales (pas au-dessus/dessous).
+      // Pour positives : aligne en haut INTERIEUR de la barre. Pour negatives :
+      // en bas INTERIEUR. Couleur blanche + shadow pour lisibilite.
+      // Actif seulement si <= 25 bars (sinon overlap inevitable).
       const showValueLabels = sorted.length <= 25;
       const vBarValueLabelsPlugin = {
         id: 'vBarValueLabels',
         afterDatasetsDraw(chart) {
           if (!showValueLabels) return;
-          const { ctx, data } = chart;
+          const { ctx, data, scales } = chart;
           ctx.save();
-          ctx.font = '600 10px Inter, system-ui, sans-serif';
-          ctx.fillStyle = getCssVar('--text-primary') || '#fff';
+          ctx.font = '700 10px Inter, system-ui, sans-serif';
+          ctx.shadowColor = 'rgba(0,0,0,0.55)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#fff';
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
+          const zeroY = scales.y.getPixelForValue(0);
           data.datasets[0].data.forEach((value, i) => {
             const meta = chart.getDatasetMeta(0).data[i];
             if (!meta) return;
             const { x, y } = meta.tooltipPosition();
             const v = Number(value) || 0;
+            const barHeight = Math.abs(y - zeroY);
+            if (barHeight < 18) return; // barre trop courte pour label INSIDE
             const label = `${v >= 0 ? '+' : ''}${fmtEur(v)}`;
-            const yOffset = v >= 0 ? -4 : 14;
-            ctx.fillText(label, x, y + yOffset);
+            if (v >= 0) {
+              // Positive : place le label en HAUT INTERIEUR (juste apres le bord superieur)
+              ctx.textBaseline = 'top';
+              ctx.fillText(label, x, y + 4);
+            } else {
+              // Negative : place le label en BAS INTERIEUR (juste avant le bord inferieur)
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(label, x, y - 4);
+            }
           });
           ctx.restore();
         }
@@ -18634,8 +18714,8 @@
         },
         options: {
           responsive: true,
-          // Padding top/bottom pour laisser place aux labels au-dessus/en-dessous.
-          layout: showValueLabels ? { padding: { top: 18, bottom: 6 } } : { padding: 0 },
+          // Plus de padding extra : les labels sont INSIDE les bars.
+          layout: { padding: 0 },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -19062,6 +19142,13 @@
           <td class="pos-sm" style="text-align:right"><span class="sm-badge sm-badge-empty" data-loading="1">…</span></td>
         </tr>`).join('');
 
+      // P&L realise total = somme des t.pnl de tous les trades clos.
+      // Pour CSV IBKR avec colonne Realized P/L, cette somme = realized total.
+      // Pour autres formats ou pnl = amount, c'est moins precis mais reste
+      // informatif (positif = cash positif net, negatif = cash sortant net).
+      const totalRealized = (Array.isArray(portfolioTrades) ? portfolioTrades : [])
+        .reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+
       area.innerHTML = `
         <div class="positions-card">
           <div class="positions-card-header">
@@ -19081,6 +19168,10 @@
               <div class="positions-total-item positions-total-pnl">
                 <div class="positions-total-label" data-i18n="dash.portfolio.total_unrealized">P&L latent</div>
                 <div class="positions-total-value" id="positionsTotalUnrealized">…</div>
+              </div>
+              <div class="positions-total-item positions-total-realized">
+                <div class="positions-total-label" data-i18n="dash.portfolio.total_realized">P&L réalisé</div>
+                <div class="positions-total-value"><span class="${totalRealized >= 0 ? 'positions-total-pnl-positive' : 'positions-total-pnl-negative'}">${totalRealized >= 0 ? '+' : ''}${_fmtMoneyCompact(totalRealized)}</span></div>
               </div>
             </div>
           </div>
