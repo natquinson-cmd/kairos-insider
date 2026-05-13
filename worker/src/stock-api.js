@@ -1492,6 +1492,36 @@ const EU_TO_US_ADR = {
   // IBEX 35
   'SAN.MC': 'SAN', 'TEF.MC': 'TEF', 'ITX.MC': 'IDEXY', 'IBE.MC': 'IBDRY',
   'BBVA.MC': 'BBVA', 'REP.MC': 'REPYY', 'AENA.MC': 'ANYYY',
+  // ===========================================================================
+  // CANADA (TSX) - mai 2026 : ajout pour couvrir CSU.TO, RY.TO, etc.
+  // Finnhub free tier ne couvre pas les .TO directement -> fallback ADR US.
+  // Top 40 TSX par market cap. La plupart sont cross-listed NYSE/NASDAQ donc
+  // l'ADR est le meme ticker que TSX (RY, TD, BMO, etc.). Pour les "Inc-only-TSX"
+  // (CSU, ATD, DOL, etc.), on utilise leur OTC US Pink Sheets equivalent.
+  // ===========================================================================
+  // Banks
+  'RY.TO': 'RY', 'TD.TO': 'TD', 'BMO.TO': 'BMO', 'BNS.TO': 'BNS', 'CM.TO': 'CM',
+  'NA.TO': 'NTIOF',
+  // Energy
+  'ENB.TO': 'ENB', 'TRP.TO': 'TRP', 'CNQ.TO': 'CNQ', 'SU.TO': 'SU',
+  'IMO.TO': 'IMO', 'CVE.TO': 'CVE', 'PPL.TO': 'PBA', 'TOU.TO': 'TOU',
+  // Tech / Software
+  'SHOP.TO': 'SHOP', 'CSU.TO': 'CNSWF', 'OTEX.TO': 'OTEX', 'GIB-A.TO': 'GIB',
+  'DSG.TO': 'DGGXF', 'KXS.TO': 'KXSCF', 'LSPD.TO': 'LSPD',
+  // Asset Management / Insurance
+  'BN.TO': 'BN', 'BAM.TO': 'BAM', 'MFC.TO': 'MFC', 'SLF.TO': 'SLF', 'POW.TO': 'PWCDF',
+  'IFC.TO': 'IFCZF', 'GWO.TO': 'GWLIF', 'FFH.TO': 'FRFHF',
+  // Telecom / Media
+  'BCE.TO': 'BCE', 'T.TO': 'TU', 'RCI-B.TO': 'RCI',
+  // Materials / Mining
+  'NTR.TO': 'NTR', 'ABX.TO': 'GOLD', 'AEM.TO': 'AEM', 'FNV.TO': 'FNV',
+  'TECK-B.TO': 'TECK', 'WPM.TO': 'WPM', 'K.TO': 'KGC', 'PAAS.TO': 'PAAS',
+  // Industrials / Transport
+  'CP.TO': 'CP', 'CNR.TO': 'CNI', 'WCN.TO': 'WCN', 'GFL.TO': 'GFL',
+  // Retail / Consumer
+  'ATD.TO': 'ANCUF', 'L.TO': 'LBLCF', 'DOL.TO': 'DLMAF', 'MRU.TO': 'MRUCF', 'WN.TO': 'WNGRF',
+  // Other
+  'TRI.TO': 'TRI', 'WSP.TO': 'WSPOF', 'WEED.TO': 'CGC',
 };
 
 async function fetchFinnhubMetrics(ticker, apiKey, env) {
