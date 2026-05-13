@@ -5,10 +5,30 @@ Produit 2 fichiers :
   - clusters_data.json : clusters d'insiders (pour l'onglet Signaux)
 Les 2 onglets utilisent exactement les memes filings.
 """
-import json, re, time, urllib.request, subprocess, sys, os
+import json, re, time, urllib.request, urllib.parse, subprocess, sys, os
 from datetime import datetime, timedelta
 
 UA = 'KairosInsider contact@kairosinsider.fr'
+
+# ============================================================
+# SEC PROXY (mai 2026) — Bypass GitHub Actions IP blacklist
+# ============================================================
+# Si SEC_PROXY_URL et KAIROS_ADMIN_API_KEY sont definis, les fetches SEC
+# sont routes via notre Cloudflare Worker (/api/admin/sec-proxy?url=...)
+# qui re-tape SEC depuis les IPs Cloudflare (jamais blacklistees).
+# Sinon, fallback sur fetch direct comme avant (backward-compat).
+#
+# Activer dans .github/workflows/update-13f.yml :
+#   env:
+#     SEC_PROXY_URL: 'https://kairos-insider-api.natquinson.workers.dev/api/admin/sec-proxy'
+#     KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+SEC_PROXY_URL = os.environ.get('SEC_PROXY_URL', '').strip()
+SEC_PROXY_API_KEY = os.environ.get('KAIROS_ADMIN_API_KEY', '').strip()
+USE_PROXY = bool(SEC_PROXY_URL and SEC_PROXY_API_KEY)
+if USE_PROXY:
+    print(f'[prefetch-all] SEC proxy ENABLED via {SEC_PROXY_URL}', flush=True)
+else:
+    print(f'[prefetch-all] SEC proxy disabled (direct fetch from GitHub IPs)', flush=True)
 
 # --force (CLI flag) ou FORCE_FULL=1 (env var) : ignore l'historique et refetch les 90 jours complets.
 # Utile apres un fix du pipeline (ex: pagination bumpee) pour backfiller d'anciens jours tronques.
@@ -43,7 +63,7 @@ for _i, _arg in enumerate(sys.argv):
         break
 
 def fetch(url, max_retries=3):
-    """Fetch SEC EDGAR avec retry + logging explicite.
+    """Fetch SEC EDGAR avec retry + logging explicite + proxy optionnel.
 
     FIX (mai 2026) : avant, le try/except etait MUET (catch-all -> return None).
     Resultat : quand SEC rate-limit ou retourne 429/503, le script pensait
@@ -54,53 +74,80 @@ def fetch(url, max_retries=3):
     avec backoff exponential sur les erreurs transientes (429, 503, timeout,
     ConnectionResetError). 3 retries -> 2s, 4s, 8s wait.
 
-    NB : SEC EDGAR fair-use = 10 req/s max. GitHub Actions IPs sont parfois
-    blacklistees temporairement (IP partagees abusees par d'autres scrapers).
+    Si SEC_PROXY_URL + KAIROS_ADMIN_API_KEY sont definis (cf en-tete du
+    script), on route via notre Cloudflare Worker au lieu d'attaquer SEC
+    directement. Necessaire car les IPs GitHub Actions sont parfois
+    blacklistees temporairement (IPs partagees abusees par d'autres scrapers).
     """
     import urllib.error
     import socket
+
+    # ---- Si proxy active : transforme l'URL pour router via le worker ----
+    if USE_PROXY:
+        fetch_url = f"{SEC_PROXY_URL}?url={urllib.parse.quote(url, safe='')}"
+        extra_headers = {'X-Admin-API-Key': SEC_PROXY_API_KEY}
+    else:
+        fetch_url = url
+        extra_headers = {}
+
     for attempt in range(max_retries):
-        req = urllib.request.Request(url, headers={
+        headers = {
             'User-Agent': UA,
             'Accept': 'application/json,text/html,*/*',
             'Accept-Encoding': 'gzip, deflate',
-        })
+            **extra_headers,
+        }
+        req = urllib.request.Request(fetch_url, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:  # +5s vs avant car proxy ajoute ~100ms
                 raw = resp.read()
-                # Si le serveur a renvoye gzip, decompresser
                 if resp.headers.get('Content-Encoding') == 'gzip':
                     import gzip
                     raw = gzip.decompress(raw)
+                # Log defensif si proxy renvoie 200 mais le worker indique
+                # un status SEC non-200 dans X-SEC-Status (passthrough)
+                sec_status = resp.headers.get('X-SEC-Status')
+                if sec_status and sec_status not in ('200', '304'):
+                    print(f'  [fetch proxy] SEC returned {sec_status} (proxy 200) | {url[:90]}', flush=True)
                 return raw.decode('utf-8', errors='replace')
         except urllib.error.HTTPError as e:
-            # 429 (rate limit) ou 503 (service unavailable) : retry avec backoff.
-            # 4xx autres (403, 404...) : abandon (probleme structurel).
             if e.code in (429, 503, 504):
                 wait_sec = 2 ** (attempt + 1)
                 print(f'  [fetch retry {attempt+1}/{max_retries}] HTTP {e.code} {e.reason} | wait {wait_sec}s | {url[:90]}...', flush=True)
                 time.sleep(wait_sec)
                 continue
+            # 401/403 sur le proxy = probleme d'auth (mauvaise admin key)
+            if e.code in (401, 403) and USE_PROXY:
+                print(f'  [fetch FAIL] PROXY AUTH {e.code} {e.reason} — verifier KAIROS_ADMIN_API_KEY', flush=True)
+                return None
             print(f'  [fetch FAIL] HTTP {e.code} {e.reason} | {url[:120]}', flush=True)
             return None
         except (urllib.error.URLError, socket.timeout, ConnectionResetError, TimeoutError) as e:
-            # Network errors : retry
             wait_sec = 2 ** (attempt + 1)
             print(f'  [fetch retry {attempt+1}/{max_retries}] NET {type(e).__name__}: {e} | wait {wait_sec}s', flush=True)
             time.sleep(wait_sec)
             continue
         except Exception as e:
-            # Unexpected error
             print(f'  [fetch FAIL] {type(e).__name__}: {e} | {url[:120]}', flush=True)
             return None
-    # Out of retries
     print(f'  [fetch GIVE UP] {max_retries} retries echoues | {url[:120]}', flush=True)
     return None
 
 def curl_fetch(url):
+    """Fetch XML SEC EDGAR (utilise pour les Form 4 XML, le gros volume :
+    1 appel par filing = potentiellement 1000-5000 calls/run).
+    Route via le proxy CF si USE_PROXY=True, sinon curl direct."""
+    if USE_PROXY:
+        proxy_url = f"{SEC_PROXY_URL}?url={urllib.parse.quote(url, safe='')}"
+        cmd = [
+            'curl', '-s', '-H', f'User-Agent: {UA}',
+            '-H', f'X-Admin-API-Key: {SEC_PROXY_API_KEY}',
+            proxy_url,
+        ]
+    else:
+        cmd = ['curl', '-s', '-H', f'User-Agent: {UA}', url]
     try:
-        result = subprocess.run(['curl', '-s', '-H', f'User-Agent: {UA}', url],
-                                capture_output=True, timeout=15)
+        result = subprocess.run(cmd, capture_output=True, timeout=20)
         return result.stdout.decode('utf-8', errors='replace') if result.returncode == 0 else None
     except:
         return None

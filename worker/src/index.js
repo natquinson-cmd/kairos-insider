@@ -843,6 +843,16 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'POST' && path === '/api/admin/log-workflow-run') {
           return handleAdminLogWorkflowRun(request, env, origin);
         }
+        // PROXY SEC EDGAR (mai 2026, fix data Insiders US bloquee depuis 8 mai) :
+        // Les IPs GitHub Actions sont parfois rate-limited / blacklistees par SEC
+        // EDGAR (fair-use policy 10 req/s, IPs partagees abusees par d'autres
+        // scrapers). Solution : on tape SEC depuis les IPs Cloudflare via ce
+        // proxy. CF a une bonne reputation SEC + pas de rate-limit partage.
+        // Usage : curl "...sec-proxy?url=https%3A%2F%2Fefts.sec.gov%2F..." -H "X-Admin-API-Key: ..."
+        // Whitelist hostname : seul *.sec.gov accepte (defense en profondeur si la clef leak).
+        if (request.method === 'GET' && path === '/api/admin/sec-proxy') {
+          return handleAdminSecProxy(url, env, origin);
+        }
         // Trigger un GitHub Actions workflow via l'API REST.
         // Body: { workflowFile: 'update-13f.yml', ref?: 'main' }
         // Necessite secret env.GITHUB_PAT (PAT avec scope 'repo' ou fine-grained 'actions:write').
@@ -11333,6 +11343,97 @@ async function handleAdminLogWorkflowRun(request, env, origin) {
   return jsonResponse({ ok: true, jobId, ts: payload.ts }, 200, origin);
 }
 
+// ============================================================
+// SEC EDGAR PROXY — Fix data Insiders US bloquee (mai 2026)
+// ============================================================
+// Forward GET requests vers SEC EDGAR depuis les IPs Cloudflare (pas les
+// IPs GitHub Actions partagees + rate-limited). Whitelist *.sec.gov + auth
+// par X-Admin-API-Key (deja verifie en amont si on arrive ici).
+//
+// Defensif : on cap la response a 10 MB (les Form 4 XML les plus gros font
+// ~50 KB, les search-index pages ~300 KB, donc 10 MB est tres confortable).
+//
+// Cache CF natif (cf.cacheTtl=60) : un GET identique dans la minute sera
+// servi du cache CF sans refetch SEC, utile si plusieurs scripts pop le
+// meme XML / search en parallele.
+async function handleAdminSecProxy(url, env, origin) {
+  const targetUrl = url.searchParams.get('url');
+  if (!targetUrl) {
+    return jsonResponse({ error: 'Missing url param' }, 400, origin);
+  }
+
+  // Validation : seul *.sec.gov est accepte (whitelist hostname pour eviter
+  // qu'une fuite de l'admin key transforme le worker en open proxy).
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch {
+    return jsonResponse({ error: 'Invalid URL' }, 400, origin);
+  }
+  if (parsed.protocol !== 'https:') {
+    return jsonResponse({ error: 'Only HTTPS allowed' }, 400, origin);
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (host !== 'sec.gov' && !host.endsWith('.sec.gov')) {
+    return jsonResponse({ error: 'Only sec.gov hostnames allowed', host }, 400, origin);
+  }
+
+  // Fetch via fetch() natif Workers (cf.cacheTtl = mise en cache edge CF)
+  let secResp;
+  try {
+    secResp = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        // Meme UA que les scripts pour rester coherent vis-a-vis de la SEC
+        // (fair-use policy demande un UA identifiable avec email contact)
+        'User-Agent': 'KairosInsider contact@kairosinsider.fr',
+        'Accept': 'application/json,text/html,application/xml,*/*',
+        'Accept-Encoding': 'gzip, deflate',
+      },
+      cf: {
+        cacheTtl: 60,           // CF edge cache 60s — coherent avec realtime-30min cron
+        cacheEverything: true,
+      },
+    });
+  } catch (e) {
+    return jsonResponse({
+      error: 'SEC fetch failed',
+      detail: String(e.message || e).slice(0, 300),
+      url: targetUrl.slice(0, 200),
+    }, 502, origin);
+  }
+
+  // Cap response size pour eviter qu'un endpoint SEC mal compris pull 100 MB
+  // (un timeout Worker = exhaustion CPU, mais aussi bandwidth ingress facture).
+  const contentLength = Number(secResp.headers.get('Content-Length') || 0);
+  const MAX_SIZE = 10 * 1024 * 1024;   // 10 MB
+  if (contentLength > MAX_SIZE) {
+    return jsonResponse({
+      error: 'Response too large',
+      size: contentLength,
+      max: MAX_SIZE,
+    }, 502, origin);
+  }
+
+  // Stream le body en passthrough (preserve les bytes exacts incluant l'eventuel
+  // gzip). On laisse CF gerer la decompression eventuelle automatiquement.
+  // Passe-through du status code pour que le client (script Python) puisse
+  // differencier 200 OK vs 429 vs 503 et appliquer son retry logic.
+  const respHeaders = new Headers();
+  respHeaders.set('Content-Type', secResp.headers.get('Content-Type') || 'application/octet-stream');
+  respHeaders.set('X-SEC-Status', String(secResp.status));
+  respHeaders.set('X-SEC-Url', targetUrl.slice(0, 200));
+  // CORS-friendly meme si proxy interne (jamais consomme par browser, mais
+  // au cas ou on debug avec curl --include depuis local).
+  respHeaders.set('Access-Control-Allow-Origin', origin || '*');
+
+  return new Response(secResp.body, {
+    status: secResp.status,
+    statusText: secResp.statusText,
+    headers: respHeaders,
+  });
+}
+
 async function appendRunHistory(env, jobName, payload) {
   try {
     const key = `runHistory:${jobName}`;
@@ -11446,6 +11547,20 @@ const JOB_REGISTRY = [
     lastRunKey: 'lastRun:fetch-13f-history',
     historyKey: 'runHistory:fetch-13f-history',
     description: 'Backfill historique trimestriel des 13F sur ~12 ans (50 filings max/fond) pour les 47 fonds du CIK_MAP. Source : SEC EDGAR submissions API + parsing XML info tables. Push KV 13f-history-{filer_key} avec liste de filings + positions par trimestre. Sert le backtest long-terme et le tracking trimestriel des mouvements (entrées/sorties). Cron mensuel le 1er à 2h UTC = 4h Paris (suffit car les 13F sont publiés trimestriellement avec 45 jours de lag).',
+  },
+  {
+    id: 'backfill-history',
+    name: 'Backfill History (force_full 90j)',
+    // Cron string fictive : cronDisabled=true neutralise le parser, on ne
+    // calcule pas de slots attendus dans la timeline 24h.
+    cron: '0 0 * * *',
+    cronDisabled: true,
+    type: 'github-actions',
+    workflowFile: 'backfill-history.yml',
+    avgDurationSec: 7200, // ~2h typique (90 min prefetch + 30 min downstream + push D1)
+    lastRunKey: 'lastRun:backfill-history',
+    historyKey: 'runHistory:backfill-history',
+    description: 'Workflow MANUEL pour back-enrichir 90 jours d\'historique SEC EDGAR Form 4 + push D1. Utilise quand on ajoute un nouveau champ a la table D1 (ex: trans_code, insider_cik) et qu\'on doit retraiter les anciennes lignes. Job timeout 360 min (vs 90 min sur update-13f), step prefetch-all timeout 180 min. PYTHONUNBUFFERED=1 pour logs en live. Chaine focalisee insider uniquement (SEC + BaFin + AMF + merge + KV + push D1), skip les datasets non-concernes par le backfill (13D/G, Trends, ETF, scores).',
   },
   // Cloudflare Workers crons (definis dans wrangler.toml). Le worker ecrit
   // directement runHistory:* via appendRunHistory().
