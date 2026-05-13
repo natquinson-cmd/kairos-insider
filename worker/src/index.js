@@ -2486,8 +2486,8 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   )].slice(0, 50);
   if (tickers.length === 0) return jsonResponse({ summaries: {}, days }, 200, origin);
 
-  // v2 (mai 2026) : ajout currentPrice + currency dans summaries
-  const cacheKey = `pf-summary:v2:${tickers.slice().sort().join(',')}:${days}d`;
+  // v3 (mai 2026) : ajout prevClose + changePct + sparkline 1Y dans summaries
+  const cacheKey = `pf-summary:v3:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -2632,21 +2632,29 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       }
     } catch (e) { console.warn('pf-summary etf failed:', e); }
 
-    // 4) CURRENT PRICES (parallel, cap = tickers.length max 50)
-    // Permet le calcul UI du P&L latent (currentPrice - avgPrice) * netQty.
-    // Reuse fetchCurrentPriceCached : Yahoo Finance regular market price,
-    // cache KV 4h. Si Yahoo down -> currentPrice = null, le front gracieux.
-    let pricesByTicker = {};
+    // 4) TICKER SNAPSHOTS enrichis (mai 2026 v3) :
+    // 1 seul appel Yahoo par ticker -> current + prevClose + changePct +
+    // sparkline 1Y (closes hebdo). Cache KV 4h. Permet le rendu UI :
+    //   - colonne "Prix actuel" + variation veille (rouge/vert)
+    //   - mini courbe 1Y SVG inline sur chaque ligne
+    //   - P&L latent ((current - avg) * qty)
+    let snapshotsByTicker = {};
     try {
-      const pricePromises = tickers.map(t => fetchCurrentPriceCached(t, env));
-      const prices = await Promise.all(pricePromises);
+      const snapshotPromises = tickers.map(t => fetchTickerSnapshotCached(t, env));
+      const snapshots = await Promise.all(snapshotPromises);
       tickers.forEach((t, i) => {
-        const p = prices[i];
-        if (p && typeof p.price === 'number' && p.price > 0) {
-          pricesByTicker[t] = { price: p.price, currency: p.currency || 'USD' };
+        const s = snapshots[i];
+        if (s && typeof s.current === 'number' && s.current > 0) {
+          snapshotsByTicker[t] = {
+            current: s.current,
+            prevClose: s.prevClose,
+            changePct: s.changePct,
+            currency: s.currency || 'USD',
+            sparkline: s.sparkline || [],
+          };
         }
       });
-    } catch (e) { console.warn('pf-summary prices failed:', e); }
+    } catch (e) { console.warn('pf-summary snapshots failed:', e); }
 
     // 5) Compose summary final + verdict
     const summaries = {};
@@ -2655,7 +2663,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       const sPrev = scoresPrev[ticker];
       const ins = insidersByTicker[ticker] || { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
       const etf = etfByTicker[ticker] || { newCount: 0, exitCount: 0 };
-      const priceInfo = pricesByTicker[ticker] || null;
+      const snap = snapshotsByTicker[ticker] || null;
 
       const scoreNow = sNow ? sNow.total : null;
       const scoreDelta = (sNow && sPrev && sNow.date !== sPrev.date) ? Number((sNow.total - sPrev.total).toFixed(1)) : null;
@@ -2679,10 +2687,14 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
         etf,
         verdict,
         eventsTotal: ins.count + etf.newCount + etf.exitCount + (scoreDelta && Math.abs(scoreDelta) >= 3 ? 1 : 0),
-        // Prix courant (Yahoo regular market price, cache 4h) pour le calcul
-        // UI du P&L latent. null si Yahoo down ou ticker introuvable.
-        currentPrice: priceInfo ? priceInfo.price : null,
-        currency: priceInfo ? priceInfo.currency : null,
+        // Snapshot ticker enrichi (Yahoo, cache 4h) : current + prevClose +
+        // changePct + currency + sparkline 1Y (~52 closes hebdo).
+        // null si Yahoo down ou ticker introuvable -> front gracieux.
+        currentPrice: snap ? snap.current : null,
+        currency: snap ? snap.currency : null,
+        prevClose: snap ? snap.prevClose : null,
+        changePct: snap ? snap.changePct : null,
+        sparkline: snap ? snap.sparkline : null,
       };
     }
 
@@ -3537,6 +3549,70 @@ function _matchOfficerToInsider(insiderName, officers) {
 //
 // Pour les tickers EU (.PA, .DE, etc.), accepte tel quel. Pour les tickers
 // canadiens (.TO), idem (Yahoo gere). Si echec -> null silencieux.
+// ============================================================
+// SNAPSHOT TICKER ENRICHI (mai 2026) : 1 seul appel Yahoo retourne
+//   - current     : regularMarketPrice
+//   - prevClose   : chartPreviousClose (= cloture jour precedent)
+//   - changePct   : variation % vs cloture veille
+//   - sparkline   : tableau de ~52 closes hebdo (1 an) pour mini graph UI
+//   - currency
+//
+// Utilise par /api/portfolio/smart-money-summary pour enrichir la table
+// "Positions en cours" avec logo + variation veille + mini courbe 1Y.
+//
+// Cache KV 'ticker-snapshot:v1:{TICKER}' 4h (success ET null).
+// ============================================================
+async function fetchTickerSnapshotCached(ticker, env) {
+  if (!ticker) return null;
+  const tickerUp = String(ticker).toUpperCase();
+  const cacheKey = `ticker-snapshot:v1:${tickerUp}`;
+  try {
+    const cached = await env.CACHE?.get(cacheKey, 'json');
+    if (cached && (cached.current === null || typeof cached.current === 'number')) return cached;
+  } catch {}
+
+  let result = null;
+  try {
+    // range=1y, interval=1wk -> ~52 points hebdo (1 an de sparkline).
+    // meta contient regularMarketPrice + chartPreviousClose meme avec 1y range.
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(tickerUp)}?interval=1wk&range=1y`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (KairosInsider; +contact@kairosinsider.fr)' },
+      cf: { cacheTtl: 14400 },
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      const r = json?.chart?.result?.[0];
+      const meta = r?.meta || {};
+      const current = meta.regularMarketPrice;
+      const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? null;
+      if (typeof current === 'number' && current > 0) {
+        // Extrait les closes hebdo (filtre les nulls = marche ferme) pour la sparkline.
+        // On garde max 52 points pour rester compact en JSON.
+        const closes = (r.indicators?.quote?.[0]?.close || [])
+          .filter(v => typeof v === 'number' && !isNaN(v));
+        const sparkline = closes.slice(-52);
+        const changePct = (typeof prevClose === 'number' && prevClose > 0)
+          ? ((current - prevClose) / prevClose) * 100
+          : null;
+        result = {
+          current,
+          prevClose,
+          changePct: changePct !== null ? Number(changePct.toFixed(2)) : null,
+          currency: meta.currency || 'USD',
+          sparkline,
+          asOf: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+        };
+      }
+    }
+  } catch { /* Silent */ }
+
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify(result || { current: null }), { expirationTtl: 14400 });
+  } catch {}
+  return result;
+}
+
 async function fetchCurrentPriceCached(ticker, env) {
   if (!ticker) return null;
   const tickerUp = String(ticker).toUpperCase();

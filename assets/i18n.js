@@ -1217,6 +1217,8 @@
       'dash.portfolio.total_market': 'Valeur actuelle',
       'dash.portfolio.total_unrealized': 'P&L latent',
       'dash.portfolio.col_unrealized': 'P&L latent',
+      'dash.portfolio.col_now': 'Maintenant',
+      'dash.portfolio.col_1y': '1 an',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2468,6 +2470,8 @@
       'dash.portfolio.total_market': 'Market value',
       'dash.portfolio.total_unrealized': 'Unrealized P&L',
       'dash.portfolio.col_unrealized': 'Unrealized P&L',
+      'dash.portfolio.col_now': 'Now',
+      'dash.portfolio.col_1y': '1Y',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',
