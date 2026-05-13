@@ -556,7 +556,8 @@
       'stock.synth.convictionNegative': "À noter : les dirigeants vendent ou n'achètent pas, ce qui réduit la conviction interne.",
       // ===== Wave 7 - chart, panels, consensus votes, health labels =====
       'stock.chart.title': 'Cours & signaux smart money',
-      'stock.chart.activistMarker': 'fonds offensif (13D/G)',
+      'stock.chart.activistMarker': 'activistes (13D/G)',
+      'stock.activists.title_template': 'Activistes financiers sur {ticker}',
       'stock.chart.insiderSells': 'Ventes insiders',
       'stock.section.peers': '🎯 Concurrents sectoriels',
       'stock.section.consensus_full': '🎯 Consensus analystes',
@@ -1861,7 +1862,8 @@
       'stock.synth.convictionNegative': 'Note: insiders are selling or not buying, which reduces internal conviction.',
       // ===== Wave 7 =====
       'stock.chart.title': 'Price & smart money signals',
-      'stock.chart.activistMarker': 'activist fund (13D/G)',
+      'stock.chart.activistMarker': 'activists (13D/G)',
+      'stock.activists.title_template': 'Activist investors on {ticker}',
       'stock.chart.insiderSells': 'Insider sells',
       'stock.section.peers': '🎯 Sector peers',
       'stock.section.consensus_full': '🎯 Analyst consensus',
