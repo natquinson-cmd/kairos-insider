@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260511-html-entity-decode"></script>
+  <script src="assets/i18n.js?v=20260513-portfolio-promo-brokers"></script>
 
   <style>
     :root {
@@ -670,6 +670,104 @@
     }
     .feature-big-chip.live { color: #34D399; background: rgba(16, 185, 129, 0.1); }
     .feature-big-chip.new { color: #FBBF24; background: rgba(251, 191, 36, 0.1); }
+
+    /* ===== PORTFOLIO PROMO SECTION (mai 2026) =====
+       Promotes Mon Portefeuille as free lead-gen + Pro+ funnel.
+       Logo wall of 20 brokers EU + US inspired by Stripe/Plaid trust pages. */
+    .promo-bullets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 8px 0 36px;
+    }
+    .promo-bullet {
+      background: linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.02));
+      border: 1px solid rgba(59,130,246,0.18);
+      border-radius: 14px;
+      padding: 20px 22px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .promo-bullet:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(59,130,246,0.12);
+    }
+    .promo-bullet-icon { font-size: 28px; margin-bottom: 8px; line-height: 1; }
+    .promo-bullet-title {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .promo-bullet-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .brokers-wall {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      margin-top: 12px;
+    }
+    .brokers-wall-region {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .brokers-wall-flag { font-size: 18px; }
+    .brokers-wall-region:not(:first-child) { margin-top: 28px; }
+    .brokers-wall-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 14px;
+    }
+    .brokers-wall-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+    .brokers-wall-logo:hover {
+      transform: translateY(-2px);
+      border-color: rgba(59,130,246,0.4);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    }
+    .brokers-wall-logo img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 8px;
+      padding: 4px;
+    }
+    .brokers-wall-logo span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+      line-height: 1.3;
+    }
+    @media (max-width: 720px) {
+      .promo-bullets { grid-template-columns: 1fr; gap: 12px; }
+      .brokers-wall { padding: 20px 14px; }
+      .brokers-wall-row { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+      .brokers-wall-logo img { width: 30px; height: 30px; }
+      .brokers-wall-logo span { font-size: 11px; }
+    }
 
     /* ===== COMPARAISON ===== */
     .comparison-wrap {
@@ -1981,10 +2079,89 @@
 
         <div class="feature-big">
           <div class="feature-big-icon orange">💼</div>
-          <h3><span data-i18n="feat.portfolio.title">Mon Portefeuille</span> <span style="color:#FDE047;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:rgba(250,204,21,0.18);border:1px solid rgba(250,204,21,0.35);padding:2px 7px;border-radius:100px;margin-left:6px;vertical-align:middle">Beta</span></h3>
-          <p data-i18n="feat.portfolio.desc_html">Importez votre historique depuis n'importe quelle plateforme (Trade Republic, Degiro, Boursorama, eToro…). Suivez vos performances mensuelles, win rate, drawdown. <em>Synchronisation automatique avec brokers à venir.</em></p>
-          <span class="feature-big-chip new" data-i18n="feat.portfolio.chip">BETA · Multi-broker CSV</span>
+          <h3 data-i18n="feat.portfolio.title">Mon Portefeuille</h3>
+          <p data-i18n="feat.portfolio.desc_html">Importez votre CSV depuis <strong>20+ brokers EU et US</strong> (Trade Republic, Degiro, Fidelity, Schwab, Robinhood…). Détection automatique. <strong>Alertes smart money</strong> sur vos positions, P&amp;L latent en temps réel, win rate, drawdown.</p>
+          <span class="feature-big-chip new" data-i18n="feat.portfolio.chip">100% gratuit · 20+ brokers · Smart money</span>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PORTFOLIO PROMO : 20+ brokers + value props =====
+       Promotes Mon Portefeuille comme produit d'appel gratuit + funnel
+       Pro+ (alertes smart money sur les positions detenues). Logo strip
+       montre la couverture 20 brokers EU + US. Inspire de Stripe/Plaid
+       "trusted by" walls. ============================================ -->
+  <section class="section" id="portfolio-promo" style="padding-top:24px;padding-bottom:56px">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="promo.portfolio.badge">📊 Mon Portefeuille — 100% gratuit</span>
+        <h2><span data-i18n="promo.portfolio.title_part1">Importez votre portefeuille en</span> <span class="gradient-text" data-i18n="promo.portfolio.title_highlight">1 clic</span><span data-i18n="promo.portfolio.title_part2">, recevez les alertes smart money</span></h2>
+        <p class="section-subtitle" data-i18n="promo.portfolio.subtitle">Glissez votre CSV — détection automatique du broker. Voyez vos positions reconstruites avec <strong>P&amp;L latent</strong>, <strong>variation veille</strong>, <strong>tendance 1 an</strong>. Pour chaque ligne, recevez les alertes <strong>insiders, hedge funds, Kairos Score</strong> qui bougent sur vos tickers.</p>
+      </div>
+
+      <!-- Value props : 3 bullets -->
+      <div class="promo-bullets">
+        <div class="promo-bullet">
+          <div class="promo-bullet-icon">📤</div>
+          <div class="promo-bullet-title" data-i18n="promo.portfolio.b1_title">Détection automatique</div>
+          <div class="promo-bullet-desc" data-i18n="promo.portfolio.b1_desc">CSV de n'importe quel broker → on identifie tout seul.</div>
+        </div>
+        <div class="promo-bullet">
+          <div class="promo-bullet-icon">📈</div>
+          <div class="promo-bullet-title" data-i18n="promo.portfolio.b2_title">Vos positions enrichies</div>
+          <div class="promo-bullet-desc" data-i18n="promo.portfolio.b2_desc">Logo, prix actuel, variation veille, sparkline 1 an, P&amp;L latent.</div>
+        </div>
+        <div class="promo-bullet">
+          <div class="promo-bullet-icon">🔔</div>
+          <div class="promo-bullet-title" data-i18n="promo.portfolio.b3_title">Alertes smart money</div>
+          <div class="promo-bullet-desc" data-i18n="promo.portfolio.b3_desc">Un insider vend sur AAPL que vous détenez ? Vous savez le jour même.</div>
+        </div>
+      </div>
+
+      <!-- Logo strip : 20 brokers organises EU / US -->
+      <div class="brokers-wall">
+        <div class="brokers-wall-region">
+          <span class="brokers-wall-flag">🇪🇺</span>
+          <span class="brokers-wall-label" data-i18n="promo.portfolio.brokers_eu">Brokers Européens</span>
+        </div>
+        <div class="brokers-wall-row">
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/traderepublic.com" alt="Trade Republic" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Trade Republic</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/degiro.com" alt="Degiro" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Degiro</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/trading212.com" alt="Trading 212" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Trading 212</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/scalable.capital" alt="Scalable Capital" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Scalable</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/lightyear.com" alt="Lightyear" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Lightyear</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/comdirect.de" alt="Comdirect" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Comdirect</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/boursorama.com" alt="Boursorama" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Boursorama</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/boursedirect.fr" alt="Bourse Direct" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Bourse Direct</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/fortuneo.fr" alt="Fortuneo" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Fortuneo</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/revolut.com" alt="Revolut" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Revolut</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/ig.com" alt="IG Markets" loading="lazy" onerror="this.parentNode.style.display='none'"><span>IG Markets</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/xtb.com" alt="XTB" loading="lazy" onerror="this.parentNode.style.display='none'"><span>XTB</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/etoro.com" alt="eToro" loading="lazy" onerror="this.parentNode.style.display='none'"><span>eToro</span></div>
+        </div>
+
+        <div class="brokers-wall-region">
+          <span class="brokers-wall-flag">🇺🇸</span>
+          <span class="brokers-wall-label" data-i18n="promo.portfolio.brokers_us">Brokers Américains</span>
+        </div>
+        <div class="brokers-wall-row">
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/fidelity.com" alt="Fidelity" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Fidelity</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/schwab.com" alt="Charles Schwab" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Charles Schwab</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/vanguard.com" alt="Vanguard" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Vanguard</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/robinhood.com" alt="Robinhood" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Robinhood</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/etrade.com" alt="E*TRADE" loading="lazy" onerror="this.parentNode.style.display='none'"><span>E*TRADE</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/webull.com" alt="Webull" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Webull</span></div>
+          <div class="brokers-wall-logo"><img src="https://logo.clearbit.com/interactivebrokers.com" alt="Interactive Brokers" loading="lazy" onerror="this.parentNode.style.display='none'"><span>Interactive Brokers</span></div>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:36px">
+        <a href="dashboard.html#portfolio" class="btn btn-primary btn-large" style="display:inline-flex;align-items:center;gap:8px">
+          <span>📥</span>
+          <span data-i18n="promo.portfolio.cta">Importer mon portefeuille maintenant</span>
+        </a>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:10px" data-i18n="promo.portfolio.cta_note">Gratuit · Aucune carte requise · Vos données ne quittent pas votre compte</p>
       </div>
     </div>
   </section>
