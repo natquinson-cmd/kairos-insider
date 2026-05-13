@@ -3211,87 +3211,128 @@ async function handleInsiderProfile(url, env, origin) {
   const whereClause = 'WHERE (' + conditions.join(' OR ') + ')';
 
   try {
-    // 1. Agregations par ticker (companies where this person is insider)
-    const byTickerRes = await env.HISTORY.prepare(
+    // ============================================================
+    // FIX (mai 2026, retour user 'doublons fiche insider') :
+    // On fetch TOUTES les transactions de l'insider (jusqu'a 5000) en UNE
+    // query, puis on dedup + aggregate cote JS. Avant : 4 SQL queries avec
+    // SUM/COUNT directs, qui doublaient les chiffres quand D1 contient
+    // des duplicates (D1 INSERT OR IGNORE constraint incomplete, ou Form 4
+    // ingere via 2 sources).
+    // Dedup key : (insider_cik || insider, accession, trans_date, ticker,
+    // shares, price, trans_type). Si ces 7 champs sont identiques entre
+    // 2 rows, on garde la 1ere (deterministe par filing_date desc).
+    // ============================================================
+    const allRes = await env.HISTORY.prepare(
       `SELECT
-         ticker, company, MAX(title) as latest_title,
-         COUNT(*) as tx_count,
-         SUM(CASE WHEN trans_type='buy'  THEN COALESCE(value,0) ELSE 0 END) as total_buy,
-         SUM(CASE WHEN trans_type='sell' THEN COALESCE(value,0) ELSE 0 END) as total_sell,
-         SUM(CASE WHEN trans_type NOT IN ('buy','sell') THEN 1 ELSE 0 END) as other_count,
-         MIN(trans_date) as first_tx,
-         MAX(trans_date) as last_tx,
-         MAX(shares_after) as latest_holdings
+         insider, insider_cik, trans_date, filing_date, ticker, company, title,
+         trans_type, trans_code, shares, price, value, shares_after, source, accession
        FROM insider_transactions_history
        ${whereClause}
-       GROUP BY ticker, company
-       ORDER BY tx_count DESC
-       LIMIT 50`
+       ORDER BY trans_date DESC, filing_date DESC, rowid ASC
+       LIMIT 5000`
     ).bind(...bindings).all();
-    const companies = (byTickerRes.results || []).map(r => ({
-      ticker: r.ticker || null,
-      company: r.company || null,
-      latestTitle: r.latest_title || null,
-      txCount: r.tx_count || 0,
-      totalBuy: r.total_buy || 0,
-      totalSell: r.total_sell || 0,
-      netFlow: (r.total_buy || 0) - (r.total_sell || 0),
-      otherCount: r.other_count || 0,
-      firstTx: r.first_tx || null,
-      lastTx: r.last_tx || null,
-      latestHoldings: r.latest_holdings || null,
-    }));
+    const rawRows = allRes.results || [];
 
-    // 2. Breakdown par trans_code (Phase 2 enrichi : Don, Vesting, etc.)
-    const byCodeRes = await env.HISTORY.prepare(
-      `SELECT
-         COALESCE(trans_code, '_null') as code,
-         trans_type,
-         COUNT(*) as cnt,
-         SUM(COALESCE(value, 0)) as total_value
-       FROM insider_transactions_history
-       ${whereClause}
-       GROUP BY COALESCE(trans_code, '_null'), trans_type
-       ORDER BY cnt DESC`
-    ).bind(...bindings).all();
-    const typeBreakdown = (byCodeRes.results || []).map(r => ({
-      code: r.code === '_null' ? null : r.code,
-      transType: r.trans_type,
-      count: r.cnt || 0,
-      totalValue: r.total_value || 0,
-    }));
+    // Dedup deterministique sur la cle composite. accession devrait suffire
+    // dans un monde ideal (1 filing = 1 ligne par tx), mais on inclut
+    // shares/price/trans_type/trans_date pour gerer :
+    // - Form 4 ingere 2x via SEC direct + retro-fill (meme accession, double row)
+    // - Form 4 corrige/amendee (meme accession, valeurs differentes)
+    // - Tx legacy sans accession (= null/empty) -> on fallback sur les attributs
+    const seen = new Set();
+    const txRows = [];
+    let dupesDropped = 0;
+    for (const r of rawRows) {
+      const cikOrName = (r.insider_cik || r.insider || '').toString().trim().toLowerCase();
+      const key = [
+        cikOrName,
+        r.accession || '',
+        r.trans_date || '',
+        (r.ticker || '').toUpperCase(),
+        Math.round(Number(r.shares) || 0),
+        Math.round((Number(r.price) || 0) * 10000) / 10000,
+        r.trans_type || '',
+      ].join('|');
+      if (seen.has(key)) { dupesDropped++; continue; }
+      seen.add(key);
+      txRows.push(r);
+    }
 
-    // 3. Pattern mensuel sur 12 derniers mois (saisonnalite des trades)
-    const monthRes = await env.HISTORY.prepare(
-      `SELECT
-         substr(trans_date, 1, 7) as ym,
-         COUNT(*) as cnt,
-         SUM(CASE WHEN trans_type='buy'  THEN COALESCE(value,0) ELSE 0 END) as buy_value,
-         SUM(CASE WHEN trans_type='sell' THEN COALESCE(value,0) ELSE 0 END) as sell_value
-       FROM insider_transactions_history
-       ${whereClause}
-         AND trans_date >= date('now', '-12 months')
-       GROUP BY substr(trans_date, 1, 7)
-       ORDER BY ym ASC`
-    ).bind(...bindings).all();
-    const monthlyPattern = (monthRes.results || []).map(r => ({
-      yearMonth: r.ym,
-      count: r.cnt || 0,
-      buyValue: r.buy_value || 0,
-      sellValue: r.sell_value || 0,
-    }));
+    // === 1. Companies aggregation (recalcule depuis txRows deduped) ===
+    const companiesMap = new Map();
+    for (const r of txRows) {
+      const key = `${r.ticker || ''}|${r.company || ''}`;
+      if (!companiesMap.has(key)) {
+        companiesMap.set(key, {
+          ticker: r.ticker || null,
+          company: r.company || null,
+          latestTitle: r.title || null,
+          txCount: 0,
+          totalBuy: 0,
+          totalSell: 0,
+          otherCount: 0,
+          firstTx: r.trans_date || null,
+          lastTx: r.trans_date || null,
+          latestHoldings: r.shares_after || null,
+        });
+      }
+      const c = companiesMap.get(key);
+      c.txCount++;
+      const value = Number(r.value) || 0;
+      if (r.trans_type === 'buy') c.totalBuy += value;
+      else if (r.trans_type === 'sell') c.totalSell += value;
+      else c.otherCount++;
+      if (r.trans_date && (!c.firstTx || r.trans_date < c.firstTx)) c.firstTx = r.trans_date;
+      if (r.trans_date && (!c.lastTx || r.trans_date > c.lastTx)) c.lastTx = r.trans_date;
+      // latest title : on prend non-vide en priorite (la 1ere row du tri date DESC)
+      if (!c.latestTitle && r.title) c.latestTitle = r.title;
+      // latest holdings : la plus recente (txRows trie par date DESC, donc la 1ere)
+      if (c.latestHoldings == null && r.shares_after != null) c.latestHoldings = r.shares_after;
+    }
+    const companies = Array.from(companiesMap.values())
+      .map(c => ({ ...c, netFlow: c.totalBuy - c.totalSell }))
+      .sort((a, b) => b.txCount - a.txCount)
+      .slice(0, 50);
 
-    // 4. Transactions recentes (100 dernieres, triees par date desc)
-    const txRes = await env.HISTORY.prepare(
-      `SELECT
-         trans_date, filing_date, ticker, company, title, trans_type, trans_code,
-         shares, price, value, shares_after, source, accession
-       FROM insider_transactions_history
-       ${whereClause}
-       ORDER BY trans_date DESC, filing_date DESC
-       LIMIT 100`
-    ).bind(...bindings).all();
-    const transactions = (txRes.results || []).map(r => ({
+    // === 2. Type breakdown (par trans_code + trans_type) ===
+    const breakdownMap = new Map();
+    for (const r of txRows) {
+      const key = `${r.trans_code || '_null'}|${r.trans_type || ''}`;
+      if (!breakdownMap.has(key)) {
+        breakdownMap.set(key, {
+          code: r.trans_code || null,
+          transType: r.trans_type,
+          count: 0,
+          totalValue: 0,
+        });
+      }
+      const b = breakdownMap.get(key);
+      b.count++;
+      b.totalValue += Number(r.value) || 0;
+    }
+    const typeBreakdown = Array.from(breakdownMap.values())
+      .sort((a, b) => b.count - a.count);
+
+    // === 3. Monthly pattern (12 derniers mois) ===
+    const now12mo = new Date();
+    now12mo.setMonth(now12mo.getMonth() - 12);
+    const cutoffYm = now12mo.toISOString().slice(0, 7);
+    const monthMap = new Map();
+    for (const r of txRows) {
+      const ym = (r.trans_date || '').slice(0, 7);
+      if (!ym || ym < cutoffYm) continue;
+      if (!monthMap.has(ym)) monthMap.set(ym, { yearMonth: ym, count: 0, buyValue: 0, sellValue: 0 });
+      const m = monthMap.get(ym);
+      m.count++;
+      const v = Number(r.value) || 0;
+      if (r.trans_type === 'buy') m.buyValue += v;
+      else if (r.trans_type === 'sell') m.sellValue += v;
+    }
+    const monthlyPattern = Array.from(monthMap.values())
+      .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+
+    // === 4. Transactions list (top 100 par date desc, deja triees par SQL) ===
+    const transactions = txRows.slice(0, 100).map(r => ({
       transDate: r.trans_date,
       filingDate: r.filing_date,
       ticker: r.ticker || null,
@@ -3376,6 +3417,13 @@ async function handleInsiderProfile(url, env, origin) {
       monthlyPattern,
       transactions,
       wikipedia,  // mai 2026 : { title, description, extract, photoUrl, wikiUrl } | null
+      _meta: {
+        // Stats dedup (mai 2026) pour monitoring de l'integrite D1.
+        // Si dupesDropped > 0 sur beaucoup d'insiders -> bug ingestion a investiguer.
+        rawRowsFetched: rawRows.length,
+        afterDedup: txRows.length,
+        dupesDropped,
+      },
       generatedAt: new Date().toISOString(),
     };
 
