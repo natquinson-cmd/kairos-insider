@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-force-reload-fr-table"></script>
+  <script src="assets/i18n.js?v=20260513-insider-wikipedia-photo-bio"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -9701,8 +9701,18 @@
       const hue2 = (hue1 + 35) % 360;
       const avatarBg = `linear-gradient(135deg, hsl(${hue1},65%,55%), hsl(${hue2},70%,45%))`;
 
-      // Mini-bio computed-from-data (Phase B partielle) : roles vus + nb societes
-      // + premiere activite. Plus tard : enrichissement Wikipedia via API.
+      // Enrichissement Wikipedia (mai 2026) : si on a une photo + bio Wikipedia,
+      // on utilise la photo a la place de l'avatar initiales. Sinon, fallback
+      // initiales sur gradient (= ancien comportement).
+      const wiki = data.wikipedia || null;
+      const hasWikiPhoto = wiki && wiki.photoUrl;
+      const avatarHtml = hasWikiPhoto
+        ? `<img src="${wiki.photoUrl}" alt="${escapeHtmlClient(wiki.title || nameForInitials)}" loading="lazy"
+             style="width:96px;height:96px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,0.25);border:2px solid var(--border)"
+             onerror="this.outerHTML='<div style=&quot;width:96px;height:96px;border-radius:50%;background:${avatarBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,0.25)&quot;>${escapeHtmlClient(initials)}</div>'" />`
+        : `<div style="width:96px;height:96px;border-radius:50%;background:${avatarBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;letter-spacing:0.02em;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,0.25)" title="${escapeHtmlClient(nameForInitials)}">${escapeHtmlClient(initials)}</div>`;
+
+      // Mini-bio computed-from-data : roles vus + nb societes + premiere activite.
       // Decode les entités HTML dans les roles SEC (ex: 'VP R&amp;D' -> 'VP R&D')
       // pour eviter le double-encoding une fois passe dans safeHtml.
       const _bioRoles = (idn.rolesSeen || []).slice(0, 3).map(r => decodeHtmlEntities(r)).join(' · ');
@@ -9710,18 +9720,30 @@
       if (sum.totalCompanies > 0) _bioParts.push(`${sum.totalCompanies} ${sum.totalCompanies > 1 ? 'sociétés' : 'société'}`);
       if (sum.firstActivity) _bioParts.push(`actif depuis ${fmtDate(sum.firstActivity)}`);
       const bioComputed = _bioRoles || _bioParts.join(' · ');
+      // Wikipedia description courte (ex: "American business magnate") + extract long
+      const wikiDescriptionHtml = wiki && wiki.description
+        ? `<div style="font-size:12px;color:var(--text-muted);font-style:italic;margin-top:2px">${escapeHtmlClient(wiki.description)}</div>`
+        : '';
+      const wikiExtractHtml = wiki && wiki.extract
+        ? `<div style="margin-top:10px;padding:12px 14px;background:var(--surface-1);border-left:3px solid var(--accent-blue);border-radius:6px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
+             ${escapeHtmlClient(wiki.extract)}
+             ${wiki.wikiUrl ? `<a href="${wiki.wikiUrl}" target="_blank" rel="noopener" style="display:inline-block;margin-left:6px;font-size:11px;color:var(--accent-blue);text-decoration:underline;font-style:italic">${t('insider.profile.wiki_source', 'Source : Wikipedia ↗')}</a>` : ''}
+           </div>`
+        : '';
 
       const headerHtml = `
         <div style="display:flex;align-items:flex-start;gap:18px;margin-bottom:18px;flex-wrap:wrap">
           <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px;flex-shrink:0;align-self:center">${t('insider.profile.back', '← Retour')}</button>
-          <div style="width:64px;height:64px;border-radius:50%;background:${avatarBg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;letter-spacing:0.02em;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,0.25)" title="${escapeHtmlClient(nameForInitials)}">${escapeHtmlClient(initials)}</div>
+          ${avatarHtml}
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
               <h2 style="margin:0;font-size:22px;color:var(--text-primary)">${escapeHtmlClient(idn.name || '—')}</h2>
               ${idn.cik ? `<span style="font-size:11px;color:var(--text-muted);font-family:monospace;background:var(--surface-2);padding:2px 8px;border-radius:4px">${t('insider.profile.cik_badge', 'CIK')} ${idn.cik}</span>` : ''}
               ${idn.secEdgarUrl ? `<a href="${idn.secEdgarUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent-blue);text-decoration:underline">${t('insider.profile.sec_edgar_link', 'Voir sur SEC EDGAR ↗')}</a>` : ''}
             </div>
-            ${bioComputed ? `<div style="font-size:13px;color:var(--text-secondary);line-height:1.5">${safeHtml(bioComputed)}</div>` : ''}
+            ${wikiDescriptionHtml}
+            ${bioComputed ? `<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px">${safeHtml(bioComputed)}</div>` : ''}
+            ${wikiExtractHtml}
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">

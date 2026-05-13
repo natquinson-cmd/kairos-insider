@@ -3074,6 +3074,92 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
 
 // ============================================================
 // PROFIL DIRIGEANT (Phase A+B 2026-05)
+// ============================================================
+// Wikipedia REST API enrichment for insider profiles (mai 2026)
+// ============================================================
+// Couverture ~5-10% : seulement les insiders avec page Wikipedia (CEOs
+// celebres, founders, politicians). Pour les CFOs / directors moyens,
+// retourne null silencieusement (fallback avatar initiales cote frontend).
+//
+// SEC stocke les noms en format "LASTNAME FIRST [MIDDLE]" (ex: "BUFFETT WARREN E").
+// On essaie plusieurs candidats (ordre normal + inverse) pour trouver
+// la bonne page Wikipedia. Cache 7 jours dans KV.
+function _generateWikiCandidates(rawName) {
+  const cleaned = String(rawName || '').trim().replace(/\s+/g, ' ');
+  if (!cleaned || cleaned.length < 3) return [];
+  const candidates = [];
+  const titleCase = (s) => s.toLowerCase().replace(/(^|[\s\-])([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
+  const words = cleaned.split(' ').filter(Boolean);
+  // 1. Original (title cased) : "John Smith" reste, "JOHN SMITH" -> "John Smith"
+  candidates.push(titleCase(cleaned));
+  // 2. Si SEC format (all caps + 2+ mots) : inversion "BUFFETT WARREN" -> "Warren Buffett"
+  if (cleaned === cleaned.toUpperCase() && words.length >= 2) {
+    // Strip suffixes communs (JR, SR, II, III, IV) avant inversion
+    const SUFFIXES = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V']);
+    let body = words.slice();
+    let suffix = '';
+    if (SUFFIXES.has(body[body.length - 1])) {
+      suffix = ' ' + body.pop();
+    }
+    if (body.length >= 2) {
+      // Reorder : last word first becomes last
+      const reordered = [...body.slice(1), body[0]].join(' ') + suffix;
+      candidates.push(titleCase(reordered));
+    }
+  }
+  // Dedup
+  return [...new Set(candidates)].filter(c => c.length >= 3);
+}
+
+function _looksLikePersonDescription(desc) {
+  if (!desc) return true;  // pas de description -> assume person (verifie par autres signaux)
+  return /\b(born|businessman|businesswoman|investor|CEO|chief|director|executive|chairman|founder|economist|politician|lawyer|entrepreneur|engineer|scientist|philanthropist|chairperson|president of)/i.test(desc);
+}
+
+async function fetchWikipediaPerson(name, env) {
+  if (!name) return null;
+  const cacheKey = `wiki-person:v1:${name.toLowerCase().trim().slice(0, 80)}`;
+  try {
+    const cached = await env.CACHE?.get(cacheKey, 'json');
+    if (cached !== null && cached !== undefined) {
+      // Cache avec sentinel null (= pas trouve) pour ne pas re-hit Wikipedia
+      // chaque request quand l'insider n'est pas connu.
+      return cached.found ? cached.data : null;
+    }
+  } catch {}
+
+  const candidates = _generateWikiCandidates(name);
+  let found = null;
+  for (const candidate of candidates) {
+    try {
+      const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(candidate)}?redirect=true`;
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'KairosInsider/1.0 (contact@kairosinsider.fr)' },
+        cf: { cacheTtl: 86400 * 7 },  // edge cache 7d
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      // type='standard' filtre les pages d'homonymie ('disambiguation') et redirects
+      if (data.type !== 'standard') continue;
+      if (data.description && !_looksLikePersonDescription(data.description)) continue;
+      found = {
+        title: data.title || candidate,
+        description: data.description || null,
+        extract: (data.extract || '').slice(0, 500),
+        photoUrl: data.thumbnail?.source || data.originalimage?.source || null,
+        wikiUrl: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(candidate.replace(/ /g, '_'))}`,
+      };
+      break;
+    } catch { /* try next candidate */ }
+  }
+
+  // Cache 7d (found OR not-found avec sentinel)
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify({ found: !!found, data: found }), { expirationTtl: 86400 * 7 });
+  } catch {}
+  return found;
+}
+
 // GET /api/insider/profile?name=...&cik=...
 // Renvoie pour un insider donne :
 //   - identite (name, roles vus, CIK SEC s'il existe)
@@ -3081,6 +3167,7 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
 //   - typeBreakdown : aggregations par trans_code (buy/sell/award/gift/...)
 //   - monthlyPattern : nombre de tx par mois sur 12 mois (saisonnalite)
 //   - recentTransactions : top 100 tx triees par date desc
+//   - wikipedia : { title, description, extract, photoUrl, wikiUrl } ou null (mai 2026)
 // Priorise insider_cik s'il est fourni (canonical, evite les homonymes) ;
 // fallback sur le nom (case-insensitive, trim).
 // Cache KV 15 min (profile:{cik|name}). Auth Pro+ via le wrapper d'auth.
@@ -3254,6 +3341,16 @@ async function handleInsiderProfile(url, env, origin) {
     const totalSell = companies.reduce((s, c) => s + c.totalSell, 0);
     const totalTx = companies.reduce((s, c) => s + c.txCount, 0);
 
+    // Enrichissement Wikipedia (mai 2026, Phase 1 fiche insider) :
+    // Photo + bio courte pour les CEOs / figures publiques. Echec silencieux
+    // si pas trouve (coverage ~5-10%) -> frontend fallback avatar initiales.
+    let wikipedia = null;
+    try {
+      wikipedia = await fetchWikipediaPerson(insiderName, env);
+    } catch (e) {
+      // Silent : Wikipedia indispo -> on continue sans
+    }
+
     const result = {
       identity: {
         name: insiderName,
@@ -3278,6 +3375,7 @@ async function handleInsiderProfile(url, env, origin) {
       typeBreakdown,
       monthlyPattern,
       transactions,
+      wikipedia,  // mai 2026 : { title, description, extract, photoUrl, wikiUrl } | null
       generatedAt: new Date().toISOString(),
     };
 
