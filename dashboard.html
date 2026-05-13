@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-portfolio-csv-refactor"></script>
+  <script src="assets/i18n.js?v=20260513-portfolio-positions-smartmoney"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1710,6 +1710,175 @@
         gap: 4px;
       }
     }
+
+    /* ============================================================
+       POSITIONS EN COURS — table avec badges smart money par ligne
+       ============================================================ */
+    .positions-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .positions-table thead th {
+      background: var(--surface-2);
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .positions-table tbody td {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    .positions-table tbody tr:last-child td { border-bottom: none; }
+    .positions-table tbody tr:hover { background: var(--surface-2); }
+    .positions-table .pos-ticker {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+    .positions-table .pos-ticker:hover { color: var(--accent-blue); }
+    .positions-table .pos-qty {
+      text-align: right;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .positions-table .pos-cost {
+      text-align: right;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Badge smart money : compteur d'evenements + verdict color */
+    .sm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .sm-badge:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .sm-badge.verdict-bullish {
+      background: rgba(34,197,94,0.12);
+      color: #16a34a;
+      border-color: rgba(34,197,94,0.3);
+    }
+    .sm-badge.verdict-bearish {
+      background: rgba(239,68,68,0.12);
+      color: #dc2626;
+      border-color: rgba(239,68,68,0.3);
+    }
+    .sm-badge.verdict-mixed {
+      background: rgba(245,158,11,0.12);
+      color: #d97706;
+      border-color: rgba(245,158,11,0.3);
+    }
+    .sm-badge.verdict-neutral {
+      background: var(--surface-2);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+    .sm-badge-locked::after {
+      content: "🔒";
+      margin-left: 4px;
+      font-size: 11px;
+      opacity: 0.7;
+    }
+    .sm-badge-empty {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px dashed var(--border);
+      cursor: default;
+    }
+    .sm-badge-empty:hover { transform: none; box-shadow: none; }
+
+    /* Empty state quand aucune position en cours */
+    .positions-empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 14px;
+      background: var(--surface-1);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+    .positions-empty strong { color: var(--text-secondary); display: block; margin-bottom: 6px; font-size: 15px; }
+
+    /* Modal upsell : reuse .modal-overlay defini plus haut, ajouts specifiques */
+    .modal-inner.smart-money-upsell {
+      max-width: 520px;
+      width: 100%;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+    }
+    .modal-inner.smart-money-upsell .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .modal-inner.smart-money-upsell h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px;
+      margin: 0;
+      color: var(--text-primary);
+    }
+    .modal-inner.smart-money-upsell .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .modal-inner.smart-money-upsell .modal-close:hover {
+      background: var(--surface-2);
+      color: var(--text-primary);
+    }
+    .modal-inner.smart-money-upsell .modal-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .upsell-event {
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface-2);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .upsell-event .upsell-event-icon { font-size: 18px; }
+    .upsell-event .upsell-event-body { flex: 1; }
+    .upsell-event .upsell-event-title { font-weight: 600; color: var(--text-primary); }
+    .upsell-event .upsell-event-detail { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
 
     /* RADAR PORTEFEUILLE legacy classes kept for backward-compat (CSS dead but harmless) */
     .radar-portfolio {
@@ -5162,15 +5331,55 @@
             </div>
           </div>
 
+          <!-- ============================================================
+               POSITIONS EN COURS — reconstituees depuis les transactions
+               (achats - ventes par ticker). Pour CHAQUE position detenue,
+               on affiche les signaux smart money 30j : insider activity,
+               score delta, ETF moves. Le badge sert de teaser vers les
+               alertes Pro+ pour les users gratuits (click -> modal upsell).
+               ============================================================ -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:32px">
+            <div>
+              <h3 style="font-family:'Space Grotesk';font-size:16px;margin:0" data-i18n="dash.portfolio.positions_title">Positions en cours</h3>
+              <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0" data-i18n="dash.portfolio.positions_sub">Smart money sur vos positions — 30 derniers jours</p>
+            </div>
+            <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
+          </div>
+          <div id="portfolioPositionsArea">
+            <div class="loading" style="padding:24px 0"><div class="spinner"></div><span data-i18n="dash.portfolio.positions_loading">Analyse des positions en cours...</span></div>
+          </div>
+
           <!-- Tableau des trades -->
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 style="font-family:'Space Grotesk';font-size:16px">Historique des trades</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:32px">
+            <h3 style="font-family:'Space Grotesk';font-size:16px" data-i18n="dash.portfolio.history_title">Historique des trades</h3>
             <div style="display:flex;gap:8px">
               <span id="portfolioTradeCount" style="font-size:12px;color:var(--text-muted)"></span>
-              <button class="btn-search" onclick="clearPortfolio()" style="font-size:11px;padding:6px 12px;color:var(--accent-red)">Supprimer mes données</button>
+              <button class="btn-search" onclick="clearPortfolio()" style="font-size:11px;padding:6px 12px;color:var(--accent-red)" data-i18n="dash.portfolio.clear_btn">Supprimer mes données</button>
             </div>
           </div>
           <div id="portfolioTableArea"></div>
+        </div>
+
+        <!-- ============================================================
+             MODAL : upsell Pro+ pour alertes smart money
+             Trigger : free user clique sur un badge "🔔 N alertes" sur une
+             position en cours. Affiche le detail des mouvements smart money
+             reels sur SA position (insider trades, score delta), avec CTA
+             vers /abonnement.
+             ============================================================ -->
+        <div class="modal-overlay" id="smartMoneyUpsellModal" onclick="if(event.target===this)closeSmartMoneyUpsellModal()" style="display:none">
+          <div class="modal-inner smart-money-upsell">
+            <div class="modal-header">
+              <h3 id="smartMoneyUpsellTitle">🔔 Smart money sur AAPL</h3>
+              <button class="modal-close" onclick="closeSmartMoneyUpsellModal()">✕</button>
+            </div>
+            <p class="modal-sub" data-i18n="dash.portfolio.upsell_sub">Voici les mouvements smart money detectes sur cette position dans les 30 derniers jours. Activez Pro+ pour recevoir ces alertes en temps reel par email.</p>
+            <div id="smartMoneyUpsellBody"></div>
+            <div style="margin-top:20px;text-align:center">
+              <a href="/abonnement" class="btn-primary" style="display:inline-block;padding:12px 28px;font-weight:600;text-decoration:none;border-radius:8px" data-i18n="dash.portfolio.upsell_cta">⚡ Activer les alertes Pro+</a>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:8px" data-i18n="dash.portfolio.upsell_note">Annulation a tout moment · 14j gratuits</p>
+            </div>
+          </div>
         </div>
 
         <!-- Modaux broker + manage data RETIRES (mai 2026) :
@@ -17793,6 +18002,9 @@
       buildPortfolioDailyCal();
       renderMonthlyHeatmap();
 
+      // Positions en cours (avant le tableau d'historique) — avec badges smart money
+      try { renderCurrentPositions(); } catch (e) { console.error('[positions] render error:', e); }
+
       // Trade table
       renderPortfolioTable();
     }
@@ -18150,6 +18362,220 @@
 
       document.getElementById('monthlyHeatmap').innerHTML = html;
     }
+
+    // ============================================================
+    // POSITIONS EN COURS : agrege portfolioTrades par ticker
+    // (buys - sells) pour reconstituer ce que l'user detient encore.
+    // Sert de base aux badges smart money (insider, score, ETF) par ligne.
+    // ============================================================
+    function computeCurrentPositions(trades) {
+      if (!Array.isArray(trades) || trades.length === 0) return [];
+      const bySymbol = new Map();
+      for (const t of trades) {
+        if (!t.symbol) continue;
+        // Normalise le ticker : enleve les suffixes brokers (.US, .L, etc.) qui
+        // n'existent pas dans D1 + uppercase. Ex: "AAPL.US" -> "AAPL".
+        const sym = String(t.symbol).toUpperCase().split('.')[0].split(' ')[0].trim();
+        if (!sym) continue;
+        // size : certains parsers (Bourso) ne capturent pas size -> skip
+        const size = Math.abs(Number(t.size) || 0);
+        if (size === 0) continue;
+        const price = Number(t.closePrice) || Number(t.openPrice) || 0;
+        const isSell = (t.type === 'sell');
+        let slot = bySymbol.get(sym);
+        if (!slot) { slot = { symbol: sym, buyQty: 0, sellQty: 0, buyCost: 0, sellRevenue: 0, lastDate: '' }; bySymbol.set(sym, slot); }
+        if (isSell) { slot.sellQty += size; slot.sellRevenue += size * price; }
+        else { slot.buyQty += size; slot.buyCost += size * price; }
+        if (t.date && t.date > slot.lastDate) slot.lastDate = t.date;
+      }
+      const positions = [];
+      for (const slot of bySymbol.values()) {
+        const netQty = slot.buyQty - slot.sellQty;
+        if (netQty <= 0.0001) continue; // exclus fully exited + bruit float
+        const avgPrice = slot.buyQty > 0 ? (slot.buyCost / slot.buyQty) : 0;
+        positions.push({
+          symbol: slot.symbol,
+          netQty,
+          avgPrice,
+          totalCost: avgPrice * netQty,
+          lastTradeDate: slot.lastDate,
+        });
+      }
+      // Tri par valeur de la position (proxy importance) decroissante
+      positions.sort((a, b) => b.totalCost - a.totalCost);
+      return positions;
+    }
+
+    // Cache local du summary smart money (evite refetch a chaque rerender)
+    let _smPositionsSummaryCache = null;
+    let _smPositionsLastTickersKey = '';
+
+    async function fetchSmartMoneySummary(tickers) {
+      if (!tickers || tickers.length === 0) return {};
+      const key = tickers.slice().sort().join(',');
+      if (_smPositionsSummaryCache && _smPositionsLastTickersKey === key) {
+        return _smPositionsSummaryCache;
+      }
+      try {
+        const data = await apiFetch('/api/portfolio/smart-money-summary?tickers=' + encodeURIComponent(tickers.join(',')) + '&days=30');
+        const summaries = (data && data.summaries) || {};
+        _smPositionsSummaryCache = summaries;
+        _smPositionsLastTickersKey = key;
+        return summaries;
+      } catch (e) {
+        console.warn('[positions] smart-money-summary fetch failed:', e);
+        return {};
+      }
+    }
+
+    function _fmtMoneyCompact(v) {
+      if (v == null || isNaN(v)) return '—';
+      const n = Math.abs(v);
+      if (n >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+      if (n >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (n >= 1e3) return (v / 1e3).toFixed(0) + 'k';
+      return v.toFixed(0);
+    }
+
+    function _buildSmartMoneyBadge(symbol, summary, isPremiumUser) {
+      if (!summary || summary.eventsTotal === 0) {
+        return `<span class="sm-badge sm-badge-empty" title="Aucun mouvement smart money detecte 30j">— RAS 30j</span>`;
+      }
+      const verdict = summary.verdict || 'neutral';
+      const ins = summary.insider || {};
+      const etf = summary.etf || {};
+      const score = summary.score || {};
+      const parts = [];
+      if (ins.count > 0) {
+        const tone = ins.buys > ins.sells ? '🟢' : (ins.sells > ins.buys ? '🔴' : '⚫');
+        parts.push(`${tone} ${ins.count} insider${ins.count > 1 ? 's' : ''}`);
+      }
+      if (etf.newCount + etf.exitCount > 0) {
+        parts.push(`📊 ${etf.newCount}↑/${etf.exitCount}↓ ETF`);
+      }
+      if (score.delta30d != null && Math.abs(score.delta30d) >= 3) {
+        parts.push(`⚡ Score ${score.delta30d > 0 ? '+' : ''}${score.delta30d}`);
+      }
+      const lbl = parts.join(' · ') || `${summary.eventsTotal} mvt${summary.eventsTotal > 1 ? 's' : ''}`;
+      const lockedClass = isPremiumUser ? '' : ' sm-badge-locked';
+      const action = isPremiumUser
+        ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${symbol}'), 150)"`
+        : `onclick="openSmartMoneyUpsellModal('${symbol}')"`;
+      const title = isPremiumUser ? `Ouvrir la fiche action ${symbol}` : `${summary.eventsTotal} mouvements smart money 30j — Activez Pro+ pour les recevoir en temps reel`;
+      return `<span class="sm-badge verdict-${verdict}${lockedClass}" ${action} title="${title}">${lbl}</span>`;
+    }
+
+    async function renderCurrentPositions() {
+      const area = document.getElementById('portfolioPositionsArea');
+      const countEl = document.getElementById('portfolioPositionsCount');
+      if (!area) return;
+      const positions = computeCurrentPositions(portfolioTrades);
+      if (positions.length === 0) {
+        if (countEl) countEl.textContent = '';
+        area.innerHTML = `
+          <div class="positions-empty">
+            <strong>Aucune position en cours detectee</strong>
+            Votre CSV contient uniquement des trades cloturés (P&L réalisé). Importez un fichier de transactions (achats + ventes) pour voir vos positions actuelles.
+          </div>`;
+        return;
+      }
+      if (countEl) countEl.textContent = `${positions.length} ticker${positions.length > 1 ? 's' : ''}`;
+
+      // Affiche d'abord la table sans les badges (instant), puis ajoute les badges quand le fetch resout
+      const tickers = positions.map(p => p.symbol);
+      const isPremiumUser = (typeof isPremium !== 'undefined' && isPremium === true);
+
+      const rowsHtml = positions.map(p => `
+        <tr data-pos-symbol="${p.symbol}">
+          <td><span class="pos-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${p.symbol}'), 150)" title="Analyser ${p.symbol}">${p.symbol}</span></td>
+          <td class="pos-qty">${fmtNum(p.netQty)}</td>
+          <td class="pos-cost">${p.avgPrice > 0 ? '~' + _fmtMoneyCompact(p.avgPrice) : '—'}</td>
+          <td class="pos-cost">${_fmtMoneyCompact(p.totalCost)}</td>
+          <td class="pos-sm" style="text-align:right"><span class="sm-badge sm-badge-empty" data-loading="1">…</span></td>
+        </tr>`).join('');
+
+      area.innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="positions-table">
+            <thead>
+              <tr>
+                <th data-i18n="dash.portfolio.col_ticker">Ticker</th>
+                <th style="text-align:right" data-i18n="dash.portfolio.col_qty">Quantité</th>
+                <th style="text-align:right" data-i18n="dash.portfolio.col_avg">Prix moyen</th>
+                <th style="text-align:right" data-i18n="dash.portfolio.col_total">Coût total</th>
+                <th style="text-align:right" data-i18n="dash.portfolio.col_smart">Smart money 30j</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+      try { if (typeof applyTranslations === 'function') applyTranslations(); } catch {}
+
+      // Charge les summaries en background et remplace les badges
+      const summaries = await fetchSmartMoneySummary(tickers);
+      for (const p of positions) {
+        const row = area.querySelector(`tr[data-pos-symbol="${p.symbol}"] .pos-sm`);
+        if (!row) continue;
+        row.innerHTML = _buildSmartMoneyBadge(p.symbol, summaries[p.symbol], isPremiumUser);
+      }
+    }
+
+    // ============================================================
+    // MODAL UPSELL Pro+ : details smart money + CTA abonnement
+    // ============================================================
+    function openSmartMoneyUpsellModal(symbol) {
+      const modal = document.getElementById('smartMoneyUpsellModal');
+      const titleEl = document.getElementById('smartMoneyUpsellTitle');
+      const bodyEl = document.getElementById('smartMoneyUpsellBody');
+      if (!modal || !titleEl || !bodyEl) return;
+      titleEl.textContent = `🔔 Smart money sur ${symbol}`;
+      const sum = (_smPositionsSummaryCache || {})[symbol];
+      if (!sum) { bodyEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Chargement…</p>'; }
+      else {
+        const events = [];
+        if (sum.insider && sum.insider.count > 0) {
+          const ti = sum.insider.topInsider;
+          events.push({
+            icon: sum.insider.sells > sum.insider.buys ? '🔴' : '🟢',
+            title: `${sum.insider.count} mouvement${sum.insider.count > 1 ? 's' : ''} d'initiés`,
+            detail: ti ? `Dernier : ${ti.name} (${ti.title || 'insider'}) — ${ti.type} ${_fmtMoneyCompact(ti.value)}$ le ${ti.date}` : `${sum.insider.buys} achat(s) · ${sum.insider.sells} vente(s)`,
+          });
+        }
+        if (sum.score && sum.score.delta30d != null && Math.abs(sum.score.delta30d) >= 1) {
+          events.push({
+            icon: sum.score.delta30d > 0 ? '⚡' : '⚠️',
+            title: `Kairos Score ${sum.score.delta30d > 0 ? '+' : ''}${sum.score.delta30d} pts sur 30j`,
+            detail: sum.score.now != null ? `Score actuel : ${sum.score.now}/100` : '',
+          });
+        }
+        if (sum.etf && (sum.etf.newCount + sum.etf.exitCount) > 0) {
+          events.push({
+            icon: '📊',
+            title: `Mouvements ETF`,
+            detail: `${sum.etf.newCount} ETF ont initie une position · ${sum.etf.exitCount} ont sorti la position`,
+          });
+        }
+        if (events.length === 0) {
+          bodyEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Aucun mouvement majeur detecte sur 30j — mais Pro+ vous alerte des le 1er signal.</p>';
+        } else {
+          bodyEl.innerHTML = events.map(e => `
+            <div class="upsell-event">
+              <div class="upsell-event-icon">${e.icon}</div>
+              <div class="upsell-event-body">
+                <div class="upsell-event-title">${e.title}</div>
+                ${e.detail ? `<div class="upsell-event-detail">${e.detail}</div>` : ''}
+              </div>
+            </div>`).join('');
+        }
+      }
+      modal.style.display = 'flex';
+    }
+    function closeSmartMoneyUpsellModal() {
+      const modal = document.getElementById('smartMoneyUpsellModal');
+      if (modal) modal.style.display = 'none';
+    }
+    window.openSmartMoneyUpsellModal = openSmartMoneyUpsellModal;
+    window.closeSmartMoneyUpsellModal = closeSmartMoneyUpsellModal;
 
     function renderPortfolioTable() {
       const area = document.getElementById('portfolioTableArea');

@@ -665,6 +665,12 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'GET' && path === '/api/portfolio/brokers') {
           return jsonResponse(handlePortfolioBrokers(env, origin), 200, origin);
         }
+        // Smart Money Summary par tickers : accessible FREE + Pro+
+        // Sert de teaser dans la section "Positions en cours" : free users
+        // voient combien d'alertes ils ratent sur leurs propres positions.
+        if (request.method === 'GET' && path === '/api/portfolio/smart-money-summary') {
+          return handlePortfolioSmartMoneySummary(url, env, origin);
+        }
         // Autres routes : Pro+ uniquement (le sync API est une feature premium)
         const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
         const isPremium = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
@@ -2446,6 +2452,228 @@ async function handleTickerActivity(url, env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'ticker-activity query failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// PORTFOLIO SMART MONEY SUMMARY (batch par tickers)
+// GET /api/portfolio/smart-money-summary?tickers=AAPL,MSFT,GOOG[&days=30]
+// Public (free + premium) : alimente la section "Positions en cours" du
+// dashboard Mon Portefeuille pour TOUS les users. Le badge sert de teaser
+// vers les alertes Pro+ : un user gratuit voit qu'il y a 3 mouvements
+// insider sur AAPL qu'il detient, click -> modal upgrade.
+//
+// Retourne, pour chaque ticker :
+//   {
+//     score: { now, delta30d },
+//     insider: { count, buys, sells, totalSellValue, totalBuyValue, topInsider },
+//     etf: { newCount, exitCount, biggestDelta },
+//     verdict: 'bullish' | 'bearish' | 'mixed' | 'neutral'
+//   }
+//
+// Cache : KV 'pf-summary:{tickers-sorted}:{days}' 15 min.
+// Auth : aucune (data publique SEC + scores Kairos).
+// ============================================================
+async function handlePortfolioSmartMoneySummary(url, env, origin) {
+  const tickersRaw = (url.searchParams.get('tickers') || '').toUpperCase();
+  const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 90);
+  if (!tickersRaw) return jsonResponse({ error: 'Missing tickers param (comma-separated)' }, 400, origin);
+  if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
+
+  // Normalise + dedup + cap a 50 tickers (au-dela on degrade silencieusement)
+  const tickers = [...new Set(
+    tickersRaw.split(',').map(t => t.replace(/[^A-Z0-9.\-]/g, '').trim()).filter(Boolean)
+  )].slice(0, 50);
+  if (tickers.length === 0) return jsonResponse({ summaries: {}, days }, 200, origin);
+
+  const cacheKey = `pf-summary:${tickers.slice().sort().join(',')}:${days}d`;
+  try {
+    if (env.CACHE) {
+      const cached = await env.CACHE.get(cacheKey, 'json');
+      if (cached) return jsonResponse({ ...cached, cached: true }, 200, origin);
+    }
+  } catch {}
+
+  try {
+    // Date cutoff pour comparaisons "il y a N jours"
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+    // Placeholders pour la clause IN (...) : SQLite ne gere pas les array params
+    const placeholders = tickers.map(() => '?').join(',');
+
+    // 1) SCORES : dernier total + total au cutoff par ticker
+    // Une seule requete avec GROUP BY ticker + agregation custom : pour chaque
+    // ticker on veut le total au MAX(date) ET au date <= cutoff. SQLite n'a
+    // pas FIRST_VALUE() dans la build D1, donc on fait 2 sous-queries.
+    const scoresNow = {};
+    const scoresPrev = {};
+    try {
+      const nowRes = await env.HISTORY.prepare(
+        `SELECT s.ticker, s.total, s.date
+         FROM score_history s
+         INNER JOIN (
+           SELECT ticker, MAX(date) AS d
+           FROM score_history
+           WHERE ticker IN (${placeholders})
+           GROUP BY ticker
+         ) m ON s.ticker = m.ticker AND s.date = m.d`
+      ).bind(...tickers).all();
+      for (const r of (nowRes.results || [])) {
+        scoresNow[r.ticker] = { total: r.total, date: r.date };
+      }
+
+      const prevRes = await env.HISTORY.prepare(
+        `SELECT s.ticker, s.total, s.date
+         FROM score_history s
+         INNER JOIN (
+           SELECT ticker, MAX(date) AS d
+           FROM score_history
+           WHERE ticker IN (${placeholders}) AND date <= ?
+           GROUP BY ticker
+         ) m ON s.ticker = m.ticker AND s.date = m.d`
+      ).bind(...tickers, cutoffStr).all();
+      for (const r of (prevRes.results || [])) {
+        scoresPrev[r.ticker] = { total: r.total, date: r.date };
+      }
+    } catch (e) { console.warn('pf-summary scores failed:', e); }
+
+    // 2) INSIDERS : agreges par ticker + type sur la fenetre
+    const insidersByTicker = {};
+    try {
+      const insRes = await env.HISTORY.prepare(
+        `SELECT ticker, trans_type, COUNT(*) AS cnt, SUM(value) AS total_value
+         FROM insider_transactions_history
+         WHERE ticker IN (${placeholders}) AND trans_date >= ?
+         GROUP BY ticker, trans_type`
+      ).bind(...tickers, cutoffStr).all();
+      for (const r of (insRes.results || [])) {
+        if (!insidersByTicker[r.ticker]) {
+          insidersByTicker[r.ticker] = { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
+        }
+        const slot = insidersByTicker[r.ticker];
+        slot.count += r.cnt;
+        if (r.trans_type === 'buy') { slot.buys = r.cnt; slot.totalBuyValue = r.total_value || 0; }
+        else if (r.trans_type === 'sell') { slot.sells = r.cnt; slot.totalSellValue = r.total_value || 0; }
+        else { slot.others += r.cnt; }
+      }
+
+      // Top insider par ticker (le plus gros trade en valeur dans la fenetre)
+      const topRes = await env.HISTORY.prepare(
+        `SELECT i.ticker, i.insider, i.title, i.trans_type, i.value, i.trans_date
+         FROM insider_transactions_history i
+         INNER JOIN (
+           SELECT ticker, MAX(value) AS max_v
+           FROM insider_transactions_history
+           WHERE ticker IN (${placeholders}) AND trans_date >= ? AND value IS NOT NULL
+           GROUP BY ticker
+         ) m ON i.ticker = m.ticker AND i.value = m.max_v
+         WHERE i.trans_date >= ?
+         LIMIT 200`
+      ).bind(...tickers, cutoffStr, cutoffStr).all();
+      const seen = new Set();
+      for (const r of (topRes.results || [])) {
+        if (seen.has(r.ticker)) continue;
+        seen.add(r.ticker);
+        if (!insidersByTicker[r.ticker]) continue;
+        insidersByTicker[r.ticker].topInsider = {
+          name: r.insider,
+          title: r.title,
+          type: r.trans_type,
+          value: r.value,
+          date: r.trans_date,
+        };
+      }
+    } catch (e) { console.warn('pf-summary insiders failed:', e); }
+
+    // 3) ETF : nouveaux entrants / sortants par ticker sur la fenetre
+    const etfByTicker = {};
+    try {
+      const latestRes = await env.HISTORY.prepare(`SELECT MAX(date) AS max_d FROM etf_snapshots`).all();
+      const latestDate = latestRes.results?.[0]?.max_d;
+      if (latestDate) {
+        // Compte les ETFs OU le ticker apparait aujourd'hui mais pas avant cutoff (entrants)
+        // et OU il etait avant cutoff mais plus aujourd'hui (sortants).
+        // Approche : 2 set difference cote SQL via NOT EXISTS.
+        const newRes = await env.HISTORY.prepare(
+          `SELECT ticker, COUNT(DISTINCT etf_symbol) AS cnt
+           FROM etf_snapshots e
+           WHERE e.ticker IN (${placeholders}) AND e.date = ?
+             AND NOT EXISTS (
+               SELECT 1 FROM etf_snapshots p
+               WHERE p.ticker = e.ticker AND p.etf_symbol = e.etf_symbol AND p.date <= ?
+             )
+           GROUP BY ticker`
+        ).bind(...tickers, latestDate, cutoffStr).all();
+        for (const r of (newRes.results || [])) {
+          if (!etfByTicker[r.ticker]) etfByTicker[r.ticker] = { newCount: 0, exitCount: 0 };
+          etfByTicker[r.ticker].newCount = r.cnt;
+        }
+
+        const exitRes = await env.HISTORY.prepare(
+          `SELECT ticker, COUNT(DISTINCT etf_symbol) AS cnt
+           FROM (
+             SELECT DISTINCT ticker, etf_symbol
+             FROM etf_snapshots
+             WHERE ticker IN (${placeholders}) AND date <= ?
+           ) p
+           WHERE NOT EXISTS (
+             SELECT 1 FROM etf_snapshots cur
+             WHERE cur.ticker = p.ticker AND cur.etf_symbol = p.etf_symbol AND cur.date = ?
+           )
+           GROUP BY ticker`
+        ).bind(...tickers, cutoffStr, latestDate).all();
+        for (const r of (exitRes.results || [])) {
+          if (!etfByTicker[r.ticker]) etfByTicker[r.ticker] = { newCount: 0, exitCount: 0 };
+          etfByTicker[r.ticker].exitCount = r.cnt;
+        }
+      }
+    } catch (e) { console.warn('pf-summary etf failed:', e); }
+
+    // 4) Compose summary final + verdict
+    const summaries = {};
+    for (const ticker of tickers) {
+      const sNow = scoresNow[ticker];
+      const sPrev = scoresPrev[ticker];
+      const ins = insidersByTicker[ticker] || { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
+      const etf = etfByTicker[ticker] || { newCount: 0, exitCount: 0 };
+
+      const scoreNow = sNow ? sNow.total : null;
+      const scoreDelta = (sNow && sPrev && sNow.date !== sPrev.date) ? Number((sNow.total - sPrev.total).toFixed(1)) : null;
+
+      // Verdict : combinaison simple insider net + etf flux + score delta
+      let bullishPts = 0, bearishPts = 0;
+      if (ins.buys > ins.sells) bullishPts += 1; else if (ins.sells > ins.buys) bearishPts += 1;
+      if (ins.totalBuyValue > ins.totalSellValue * 1.5) bullishPts += 1;
+      if (ins.totalSellValue > ins.totalBuyValue * 1.5) bearishPts += 1;
+      if (etf.newCount > etf.exitCount) bullishPts += 1; else if (etf.exitCount > etf.newCount) bearishPts += 1;
+      if (scoreDelta !== null && scoreDelta >= 3) bullishPts += 1;
+      else if (scoreDelta !== null && scoreDelta <= -3) bearishPts += 1;
+      let verdict = 'neutral';
+      if (bullishPts > bearishPts + 1) verdict = 'bullish';
+      else if (bearishPts > bullishPts + 1) verdict = 'bearish';
+      else if (bullishPts > 0 && bearishPts > 0) verdict = 'mixed';
+
+      summaries[ticker] = {
+        score: { now: scoreNow, delta30d: scoreDelta },
+        insider: ins,
+        etf,
+        verdict,
+        eventsTotal: ins.count + etf.newCount + etf.exitCount + (scoreDelta && Math.abs(scoreDelta) >= 3 ? 1 : 0),
+      };
+    }
+
+    const payload = { summaries, days, generatedAt: new Date().toISOString() };
+    try {
+      if (env.CACHE) {
+        await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 900 });
+      }
+    } catch {}
+
+    return jsonResponse(payload, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: 'pf-summary query failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

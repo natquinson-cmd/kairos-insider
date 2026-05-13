@@ -1191,6 +1191,20 @@
       'dash.portfolio.help_modal_title': '📖 Comment exporter mon historique CSV ?',
       'dash.portfolio.help_modal_sub': 'Chaque broker propose un export de votre historique de transactions. Voici où le trouver :',
       'dash.portfolio.help_modal_note': '💡 Le CSV doit contenir au minimum : <strong>date, ticker (ou nom action), type (achat/vente), quantité, prix</strong>. La plupart des brokers exportent ces colonnes par défaut. Si votre broker n\'est pas listé, essayez quand même — notre parser est tolérant.',
+      // Positions en cours (refonte mai 2026 — produit d'appel + funnel Pro+)
+      'dash.portfolio.positions_title': 'Positions en cours',
+      'dash.portfolio.positions_sub': 'Smart money sur vos positions — 30 derniers jours',
+      'dash.portfolio.positions_loading': 'Analyse des positions en cours...',
+      'dash.portfolio.history_title': 'Historique des trades',
+      'dash.portfolio.clear_btn': 'Supprimer mes données',
+      'dash.portfolio.col_ticker': 'Ticker',
+      'dash.portfolio.col_qty': 'Quantité',
+      'dash.portfolio.col_avg': 'Prix moyen',
+      'dash.portfolio.col_total': 'Coût total',
+      'dash.portfolio.col_smart': 'Smart money 30j',
+      'dash.portfolio.upsell_sub': 'Voici les mouvements smart money détectés sur cette position dans les 30 derniers jours. Activez Pro+ pour recevoir ces alertes en temps réel par email.',
+      'dash.portfolio.upsell_cta': '⚡ Activer les alertes Pro+',
+      'dash.portfolio.upsell_note': 'Annulation à tout moment · 14j gratuits',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2416,6 +2430,20 @@
       'dash.portfolio.help_modal_title': '📖 How to export my CSV history?',
       'dash.portfolio.help_modal_sub': 'Every broker offers a transactions history export. Here\'s where to find it:',
       'dash.portfolio.help_modal_note': '💡 The CSV must contain at least: <strong>date, ticker (or stock name), type (buy/sell), quantity, price</strong>. Most brokers export these columns by default. If your broker isn\'t listed, try anyway — our parser is tolerant.',
+      // Current positions (rebuild May 2026 — free-tier hook + Pro+ funnel)
+      'dash.portfolio.positions_title': 'Current positions',
+      'dash.portfolio.positions_sub': 'Smart money on your positions — last 30 days',
+      'dash.portfolio.positions_loading': 'Analyzing current positions...',
+      'dash.portfolio.history_title': 'Trades history',
+      'dash.portfolio.clear_btn': 'Delete my data',
+      'dash.portfolio.col_ticker': 'Ticker',
+      'dash.portfolio.col_qty': 'Quantity',
+      'dash.portfolio.col_avg': 'Avg price',
+      'dash.portfolio.col_total': 'Total cost',
+      'dash.portfolio.col_smart': 'Smart money 30d',
+      'dash.portfolio.upsell_sub': 'Here are the smart money movements detected on this position over the last 30 days. Activate Pro+ to receive these alerts in real time by email.',
+      'dash.portfolio.upsell_cta': '⚡ Activate Pro+ alerts',
+      'dash.portfolio.upsell_note': 'Cancel anytime · 14 days free',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',
