@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260512-candle-overlap-ohlc"></script>
+  <script src="assets/i18n.js?v=20260513-insider-i18n-full"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3871,7 +3871,7 @@
       <!-- ===== SECTION: INSIDER TRADES ===== -->
       <div class="section-page" id="section-insider">
         <h2 data-i18n="dash.section.insider.title">Explorer les transactions</h2>
-        <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — déclarations officielles SEC (US), AMF (France) et BaFin (Europe), mises a jour quotidiennement. Recherche libre + filtres avancés dépliables (jusqu'à 5 ans d'historique, exports CSV).</p>
+        <p class="section-desc" data-i18n="dash.section.insider.desc">Achats et ventes des dirigeants — déclarations officielles SEC (US), AMF (France) et BaFin (Europe), mises à jour quotidiennement. Recherche libre + filtres avancés dépliables (jusqu'à 5 ans d'historique, exports CSV).</p>
 
         <!-- HUB INSIDERS (toutes les donnees issues de SEC Form 4 + BaFin + AMF) -->
         <div class="hub-tabs" role="tablist">
@@ -3881,34 +3881,34 @@
 
         <div class="stock-search-bar" style="position:relative;max-width:600px;margin:20px 0 30px;display:flex;gap:10px;align-items:stretch">
           <div style="position:relative;flex:1">
-            <input id="searchInsider" type="text" placeholder="Rechercher ticker, ISIN ou entreprise (ex: AAPL, Siemens, DE0007100000)..." autocomplete="off"
+            <input id="searchInsider" type="text" placeholder="" data-i18n-placeholder="insider.search.placeholder" autocomplete="off"
                    style="width:100%;padding:14px 18px;font-size:16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;">
             <div id="searchInsiderSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-top:none;border-radius:0 0 10px 10px;max-height:320px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px var(--shadow-card)"></div>
           </div>
-          <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" style="display:none">Effacer</button>
+          <button class="btn-search" onclick="clearInsiderSearch()" id="clearInsiderBtn" data-i18n="insider.search.clear" style="display:none">Effacer</button>
         </div>
 
         <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">
           <div class="period-selector" style="margin-bottom:0">
-            <span class="period-label">Période :</span>
+            <span class="period-label" data-i18n="insider.filter.period">Période :</span>
             <div class="period-buttons">
-              <button class="period-btn" data-days="7" onclick="selectPeriod(7)">7 jours</button>
-              <button class="period-btn active" data-days="30" onclick="selectPeriod(30)">30 jours</button>
-              <button class="period-btn" data-days="90" onclick="selectPeriod(90)">Tout</button>
+              <button class="period-btn" data-days="7" onclick="selectPeriod(7)" data-i18n="insider.filter.period.7d">7 jours</button>
+              <button class="period-btn active" data-days="30" onclick="selectPeriod(30)" data-i18n="insider.filter.period.30d">30 jours</button>
+              <button class="period-btn" data-days="90" onclick="selectPeriod(90)" data-i18n="insider.filter.period.all">Tout</button>
             </div>
           </div>
           <div class="period-selector" style="margin-bottom:0">
-            <span class="period-label">Type :</span>
+            <span class="period-label" data-i18n="insider.filter.type">Type :</span>
             <div class="period-buttons">
-              <button class="period-btn active" data-type="all" onclick="selectType('all')">Tous</button>
-              <button class="period-btn" data-type="buy" onclick="selectType('buy')" style="color:var(--accent-green)">Achats</button>
-              <button class="period-btn" data-type="sell" onclick="selectType('sell')" style="color:var(--accent-red)">Ventes</button>
+              <button class="period-btn active" data-type="all" onclick="selectType('all')" data-i18n="insider.filter.type.all">Tous</button>
+              <button class="period-btn" data-type="buy" onclick="selectType('buy')" data-i18n="insider.filter.type.buy" style="color:var(--accent-green)">Achats</button>
+              <button class="period-btn" data-type="sell" onclick="selectType('sell')" data-i18n="insider.filter.type.sell" style="color:var(--accent-red)">Ventes</button>
             </div>
           </div>
           <div class="period-selector" style="margin-bottom:0">
-            <span class="period-label">Marché :</span>
+            <span class="period-label" data-i18n="insider.filter.market">Marché :</span>
             <div class="period-buttons">
-              <button class="period-btn active" data-region="all" onclick="selectRegion('all')">Tous</button>
+              <button class="period-btn active" data-region="all" onclick="selectRegion('all')" data-i18n="insider.filter.market.all">Tous</button>
               <button class="period-btn" data-region="US" onclick="selectRegion('US')"><img src="https://flagcdn.com/w20/us.png" width="20" height="15" alt="US" style="vertical-align:middle;border-radius:2px;margin-right:6px"> US</button>
               <button class="period-btn" data-region="Europe" onclick="selectRegion('Europe')"><img src="https://flagcdn.com/w20/eu.png" width="20" height="15" alt="Europe" style="vertical-align:middle;border-radius:2px;margin-right:6px"> Europe</button>
             </div>
@@ -3922,39 +3922,39 @@
         <details id="advFiltersDetails" style="background:linear-gradient(135deg,rgba(116,185,255,0.06),rgba(162,155,254,0.03));border:1px solid rgba(116,185,255,0.22);border-radius:12px;padding:14px 18px;margin-bottom:24px">
           <summary style="display:flex;gap:12px;align-items:center;font-weight:600;color:#74b9ff;font-size:14px;list-style:none;outline:none;cursor:pointer">
             <span style="font-size:18px">🔬</span>
-            <span>Filtres avancés &mdash; recherche historique (jusqu'à 5 ans, export CSV)</span>
-            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
+            <span data-i18n="insider.advfilter.title">Filtres avancés &mdash; recherche historique (jusqu'à 5 ans, export CSV)</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400" data-i18n="insider.advfilter.expandHint">Cliquer pour déplier</span>
           </summary>
           <div style="padding:16px 0 4px">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px">
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
-                <input id="scrTicker" type="text" placeholder="ex: AAPL" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
+                <label data-i18n="insider.advfilter.ticker" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Ticker</label>
+                <input id="scrTicker" type="text" placeholder="ex: AAPL" data-i18n-placeholder="insider.advfilter.ticker.ph" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
+                <label data-i18n="insider.advfilter.period" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Période</label>
                 <select id="scrDays" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="30">30 jours</option>
-                  <option value="90" selected>90 jours</option>
-                  <option value="180">6 mois</option>
-                  <option value="365">1 an</option>
-                  <option value="1095">3 ans</option>
-                  <option value="1825">5 ans</option>
+                  <option value="30" data-i18n="insider.advfilter.period.30d">30 jours</option>
+                  <option value="90" selected data-i18n="insider.advfilter.period.90d">90 jours</option>
+                  <option value="180" data-i18n="insider.advfilter.period.6m">6 mois</option>
+                  <option value="365" data-i18n="insider.advfilter.period.1y">1 an</option>
+                  <option value="1095" data-i18n="insider.advfilter.period.3y">3 ans</option>
+                  <option value="1825" data-i18n="insider.advfilter.period.5y">5 ans</option>
                 </select>
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
+                <label data-i18n="insider.advfilter.type" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Type</label>
                 <select id="scrType" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="">Tous</option>
-                  <option value="buy">Achat</option>
-                  <option value="sell">Vente</option>
-                  <option value="option-exercise">Exercice option</option>
+                  <option value="" data-i18n="insider.advfilter.type.all">Tous</option>
+                  <option value="buy" data-i18n="insider.advfilter.type.buy">Achat</option>
+                  <option value="sell" data-i18n="insider.advfilter.type.sell">Vente</option>
+                  <option value="option-exercise" data-i18n="insider.advfilter.type.exercise">Exercice option</option>
                 </select>
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
+                <label data-i18n="insider.advfilter.role" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Role</label>
                 <select id="scrRole" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="">Tous</option>
+                  <option value="" data-i18n="insider.advfilter.type.all">Tous</option>
                   <option value="CEO">CEO</option>
                   <option value="CFO">CFO</option>
                   <option value="Director">Director</option>
@@ -3965,9 +3965,9 @@
                 </select>
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Source</label>
+                <label data-i18n="insider.advfilter.source" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Source</label>
                 <select id="scrSource" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="">Toutes</option>
+                  <option value="" data-i18n="insider.advfilter.source.all">Toutes</option>
                   <option value="SEC">SEC (US)</option>
                   <option value="AMF">AMF (FR)</option>
                   <option value="BAFIN">BaFin (DE)</option>
@@ -3976,31 +3976,31 @@
                 </select>
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nom insider</label>
+                <label data-i18n="insider.advfilter.insiderName" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Nom insider</label>
                 <input id="scrInsider" type="text" placeholder="ex: Musk" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Montant min (USD)</label>
+                <label data-i18n="insider.advfilter.minValue" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Montant min (USD)</label>
                 <input id="scrMinValue" type="number" placeholder="ex: 100000" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none" />
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Tri</label>
+                <label data-i18n="insider.advfilter.sort" style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:6px">Tri</label>
                 <select id="scrSort" style="width:100%;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);outline:none">
-                  <option value="date-desc">Date ↓ (recent)</option>
-                  <option value="date-asc">Date ↑ (ancien)</option>
-                  <option value="value-desc">Montant ↓ (gros)</option>
-                  <option value="value-asc">Montant ↑ (petit)</option>
-                  <option value="ticker-asc">Ticker A→Z</option>
+                  <option value="date-desc" data-i18n="insider.advfilter.sort.dateDesc">Date ↓ (recent)</option>
+                  <option value="date-asc" data-i18n="insider.advfilter.sort.dateAsc">Date ↑ (ancien)</option>
+                  <option value="value-desc" data-i18n="insider.advfilter.sort.valueDesc">Montant ↓ (gros)</option>
+                  <option value="value-asc" data-i18n="insider.advfilter.sort.valueAsc">Montant ↑ (petit)</option>
+                  <option value="ticker-asc" data-i18n="insider.advfilter.sort.tickerAsc">Ticker A→Z</option>
                 </select>
               </div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
               <button onclick="runScreener()" style="padding:10px 20px;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                Lancer la recherche avancée
+                <span data-i18n="insider.advfilter.runSearch">Lancer la recherche avancée</span>
               </button>
-              <button onclick="resetScreener()" style="padding:10px 20px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:8px;font-weight:500;cursor:pointer">Reset filtres</button>
-              <button id="scrExportBtn" onclick="exportScreenerCsv()" disabled style="padding:10px 20px;background:rgba(16,185,129,0.15);color:var(--accent-green);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5">
+              <button onclick="resetScreener()" data-i18n="insider.advfilter.resetFilters" style="padding:10px 20px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:8px;font-weight:500;cursor:pointer">Reset filtres</button>
+              <button id="scrExportBtn" onclick="exportScreenerCsv()" disabled data-i18n="insider.advfilter.exportCsv" style="padding:10px 20px;background:rgba(16,185,129,0.15);color:var(--accent-green);border:1px solid rgba(16,185,129,0.25);border-radius:8px;font-weight:600;cursor:pointer;opacity:0.5">
                 📥 Export CSV
               </button>
               <span id="scrCount" style="margin-left:auto;font-size:13px;color:var(--text-secondary)"></span>
@@ -4012,7 +4012,7 @@
              selon que l'user a lancé ou non la recherche avancée. Pattern 'Voir plus'
              en bas du tableau (mai 2026) — plus de pagination Page X/Y. -->
         <div id="insiderTableArea">
-          <div class="loading"><div class="spinner"></div>Chargement des données SEC...</div>
+          <div class="loading"><div class="spinner"></div><span data-i18n="insider.loading">Chargement des données SEC...</span></div>
         </div>
 
         <!-- Conteneur résultats screener avancé : reste vide tant que l'user
@@ -6056,6 +6056,8 @@
         'erbe':                   { label: 'Héritage',     tooltip: 'Erbe — Acquisition par héritage' },
         'aktienoptionen':         { label: 'Exercice opt.', tooltip: "Aktienoptionen — Exercice d'options" },
         'aktien':                 { label: 'Transaction',  tooltip: 'Aktien — Transaction générique sur actions' },
+        'sonstiges':              { label: 'Autre',        tooltip: 'Sonstiges — Autre type de transaction (catégorie BaFin fourre-tout)' },
+        'andere':                 { label: 'Autre',        tooltip: 'Andere — Autre type de transaction (variante BaFin)' },
       },
       en: {
         // AMF (FR raw) -> label EN
@@ -6077,6 +6079,8 @@
         'erbe':                   { label: 'Inheritance',  tooltip: 'Erbe — Inheritance acquisition' },
         'aktienoptionen':         { label: 'Option exercise', tooltip: 'Aktienoptionen — Option exercise' },
         'aktien':                 { label: 'Tx',           tooltip: 'Aktien — Generic share transaction' },
+        'sonstiges':              { label: 'Other',        tooltip: 'Sonstiges — Other transaction type (BaFin catch-all)' },
+        'andere':                 { label: 'Other',        tooltip: 'Andere — Other transaction type (BaFin variant)' },
       },
     };
     function getNatureLabel(codeRaw) {
@@ -6268,7 +6272,11 @@
     const fmtDate = (s) => {
       if (!s) return '—';
       const d = new Date(s + 'T00:00:00');
-      return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+      // FIX (mai 2026) : locale dynamique selon la langue active.
+      // Avant : toujours 'fr-FR' (13 mai 2026), maintenant 'en-US' (May 13, 2026)
+      // si l'user a switch en EN.
+      const locale = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
+      return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
     // Pre-compile une fois : tri par longueur decroissante + escape regex + \b word boundaries
@@ -9882,8 +9890,10 @@
         // la date de transaction en sous-ligne si elle differe.
         const primaryDate = t.fileDate || t.date;
         const showTxDate = t.date && t.date !== t.fileDate;
+        const _txDateLabel = window.KairosI18n && window.KairosI18n.getLang() === 'en' ? 'tx:' : 'tx :';
+        const _txDateTitle = t('insider.table.txDateTooltip', 'Date de la transaction');
         const dateCell = showTxDate
-          ? `<div>${fmtDate(primaryDate)}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px" title="Date de la transaction">tx : ${fmtDate(t.date)}</div>`
+          ? `<div>${fmtDate(primaryDate)}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px" title="${_txDateTitle}">${_txDateLabel} ${fmtDate(t.date)}</div>`
           : fmtDate(primaryDate);
 
         // Insider truncation TRES compacte : max 22 chars + tooltip complet au survol
@@ -9934,21 +9944,24 @@
         label: 'transactions',
       });
 
+      // i18n des en-tetes + compteur (FR par defaut, EN si lang switch)
+      const _locale = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
+      const _foundTxt = t('insider.table.foundCount', '{n} transactions trouvées').replace('{n}', filtered.length.toLocaleString(_locale));
       area.innerHTML = `
-        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${filtered.length.toLocaleString('fr-FR')} transactions trouvées</p>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${_foundTxt}</p>
         <div class="table-wrap">
           <table style="min-width:1100px">
             <thead><tr>
-              <th>Date</th>
-              <th>Marché</th>
-              <th>Ticker</th>
-              <th>Entreprise</th>
-              <th style="text-align:center">Type</th>
-              <th style="text-align:right">Actions</th>
-              <th style="text-align:right">Prix</th>
-              <th style="text-align:right">Valeur</th>
-              <th>Declarant</th>
-              <th>Poste</th>
+              <th>${t('insider.table.col.date', 'Date')}</th>
+              <th>${t('insider.table.col.market', 'Marché')}</th>
+              <th>${t('insider.table.col.ticker', 'Ticker')}</th>
+              <th>${t('insider.table.col.company', 'Entreprise')}</th>
+              <th style="text-align:center">${t('insider.table.col.type', 'Type')}</th>
+              <th style="text-align:right">${t('insider.table.col.shares', 'Actions')}</th>
+              <th style="text-align:right">${t('insider.table.col.price', 'Prix')}</th>
+              <th style="text-align:right">${t('insider.table.col.value', 'Valeur')}</th>
+              <th>${t('insider.table.col.declarant', 'Déclarant')}</th>
+              <th>${t('insider.table.col.title', 'Poste')}</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
