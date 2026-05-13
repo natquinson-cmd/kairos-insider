@@ -1,0 +1,62 @@
+name: Cleanup Insider Duplicates (one-shot)
+
+# ============================================================================
+# Workflow manuel one-shot pour supprimer les duplicates accumules dans la
+# table D1 insider_transactions_history avant le fix push-insiders-to-d1
+# (mai 2026).
+#
+# CAUSE racine : push-insiders-to-d1.py assignait line_num=0,1,2,3 a 4 rows
+# identiques car la PK contenait line_num. Resultat : duplicates D1 ->
+# fiche Insider montrait des totaux gonfles (cf retour user 'rows en double').
+#
+# A LANCER UNE FOIS via le bouton "Lancer" du dashboard admin, OU via :
+#   gh workflow run "Cleanup Insider Duplicates (one-shot)"
+#
+# Le workflow execute worker/cleanup-insider-duplicates.sql qui :
+#   1. Compte les rows avant/apres
+#   2. Identifie les duplicates par (source, accession, cik, insider,
+#      trans_date, trans_type, shares, price, value)
+#   3. DELETE les rows redondantes (garde la plus ancienne = MIN(ROWID))
+#   4. Verifie qu'il n'y a plus de duplicates
+#
+# Apres cleanup, le profile cache KV (15 min) doit etre invalide pour que
+# l'UI reflete les nouveaux totaux. Le worker fait ca naturellement quand
+# le user re-visite la fiche dans 15 min, OU on bump le cacheKey si besoin.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Run cleanup SQL on D1 (kairos-history)
+        run: |
+          cd worker
+          npx wrangler d1 execute kairos-history --remote --file cleanup-insider-duplicates.sql
+        timeout-minutes: 8
+
+      - name: Log cleanup run
+        if: always()
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+        run: |
+          STATUS="${{ job.status }}"
+          [ "$STATUS" = "success" ] && STATUS="ok" || STATUS="failed"
+          curl -sS -X POST \
+            -H "X-Admin-API-Key: $ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
+            -d "{\"jobId\":\"cleanup-insider-duplicates\",\"status\":\"$STATUS\",\"summary\":\"one-shot D1 dedup\"}" \
+            | head -c 200
+          echo ""

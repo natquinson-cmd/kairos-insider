@@ -116,8 +116,19 @@ def collect_inserts():
         print(f'  {filename}: {len(txs)} transactions lues')
         total_in += len(txs)
 
-        # Regroupe par (source, accession, insider, trans_date, trans_type) pour assigner line_num
-        group_counter = {}
+        # FIX (mai 2026) : dedup par CONTENU avant d'assigner line_num.
+        # Avant : on assignait line_num=0,1,2,3 a 4 rows identiques (memes shares,
+        # price, value) -> 4 rows D1 distinctes a cause de line_num dans la PK.
+        # Maintenant : on regroupe d'abord par (group_key + content_key), on
+        # garde 1 row par contenu unique, puis on assigne line_num aux rows
+        # restantes (= seulement les vraies multi-line-items de Form 4).
+        #
+        # content_key = (shares, price, value, trans_code, shares_after) :
+        # 2 rows avec ces 5 champs identiques sont a 99% des duplicates d'ingest
+        # (SEC Form 4 consolide les buys identiques en 1 ligne). Le 1% restant
+        # (transactions reellement identiques au sein d'un meme filing) perd
+        # 1 row = acceptable vs gonfler les totaux par 4.
+        groups_content = {}  # group_key -> { content_key -> tx }
 
         for tx in txs:
             source = infer_source(tx, default_source)
@@ -144,44 +155,84 @@ def collect_inserts():
             if not insider or not trans_type:
                 continue
 
-            # Assigner line_num incremental pour le meme tuple
+            # Dedup par contenu : on round shares + price + value pour gerer les
+            # petites variations de parsing (62.0 vs 62.00 vs 62.0001 = 1 row).
             group_key = (source, accession, cik, insider, trans_date, trans_type)
-            line_num = group_counter.get(group_key, 0)
-            group_counter[group_key] = line_num + 1
-
-            full_key = group_key + (line_num,)
-            if full_key in seen_keys:
-                continue
-            seen_keys.add(full_key)
-
-            # FIX CRITIQUE (mai 2026) : INSERT OR REPLACE (au lieu de OR IGNORE
-            # avant). Le OR IGNORE empechait le back-enrichissement des rows
-            # existantes : quand on ajoutait trans_code et insider_cik en
-            # nouveaux champs, les anciens INSERT etaient ignores car PK
-            # (source, accession, cik, insider, trans_date, trans_type,
-            # line_num) deja presente -> les rows restaient avec NULL sur les
-            # nouveaux champs. Le run #25721079156 (backfill 60j) avait l'air
-            # de marcher mais en realite n'a updaté aucune row pre-existante,
-            # juste insere les nouvelles. Symptome utilisateur : badges "OTHER"
-            # sans le code SEC granulaire (M/G/F/etc.) sur la fiche Initiés.
-            #
-            # INSERT OR REPLACE est safe ici car :
-            # - la PK matche exactement le tuple naturel de la transaction
-            # - les valeurs re-fetchees sont les memes que l'origine (filing
-            #   SEC immutable) sauf les NOUVEAUX champs qu'on veut justement
-            #   ecraser de NULL vers la valeur
-            # - prefetch-all parse les XML SEC de maniere deterministe ->
-            #   line_num reproductible
-            sql_lines.append(
-                f"INSERT OR REPLACE INTO insider_transactions_history "
-                f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
-                f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
-                f"{esc(accession)}, {esc(cik)}, {esc(ticker)}, {esc(company)}, "
-                f"{esc(insider)}, {esc(insider_cik)}, {esc(title)}, {esc(trans_type)}, {esc(trans_code)}, "
-                f"{integer(shares)}, {num(price)}, {num(value)}, "
-                f"{integer(shares_after)}, {integer(line_num)});"
+            content_key = (
+                int(shares) if shares is not None else 0,
+                round(float(price), 4) if price is not None else 0.0,
+                round(float(value), 2) if value is not None else 0.0,
+                trans_code or '',
+                int(shares_after) if shares_after is not None else 0,
             )
+
+            # Garde la 1ere occurence (= les autres sont des duplicates ingest)
+            if group_key not in groups_content:
+                groups_content[group_key] = {}
+            if content_key in groups_content[group_key]:
+                continue  # vraie duplicate (meme contenu) : skip
+            # Stocke la tx complete avec ses metadata pour assignation line_num apres
+            groups_content[group_key][content_key] = {
+                'source': source, 'accession': accession, 'cik': cik, 'ticker': ticker,
+                'company': company, 'insider': insider, 'insider_cik': insider_cik,
+                'title': title, 'trans_type': trans_type, 'trans_code': trans_code,
+                'shares': shares, 'price': price, 'value': value,
+                'shares_after': shares_after, 'filing_date': filing_date, 'trans_date': trans_date,
+            }
+
+        # Assigne line_num aux rows deduped et genere SQL
+        for group_key, content_map in groups_content.items():
+            for line_num, (content_key, t) in enumerate(content_map.items()):
+                source = t['source']
+                accession = t['accession']
+                cik = t['cik']
+                ticker = t['ticker']
+                company = t['company']
+                insider = t['insider']
+                insider_cik = t['insider_cik']
+                title = t['title']
+                trans_type = t['trans_type']
+                trans_code = t['trans_code']
+                shares = t['shares']
+                price = t['price']
+                value = t['value']
+                shares_after = t['shares_after']
+                filing_date = t['filing_date']
+                trans_date = t['trans_date']
+
+                full_key = group_key + (line_num,)
+                if full_key in seen_keys:
+                    continue
+                seen_keys.add(full_key)
+
+                # FIX CRITIQUE (mai 2026) : INSERT OR REPLACE (au lieu de OR IGNORE
+                # avant). Le OR IGNORE empechait le back-enrichissement des rows
+                # existantes : quand on ajoutait trans_code et insider_cik en
+                # nouveaux champs, les anciens INSERT etaient ignores car PK
+                # (source, accession, cik, insider, trans_date, trans_type,
+                # line_num) deja presente -> les rows restaient avec NULL sur les
+                # nouveaux champs. Le run #25721079156 (backfill 60j) avait l'air
+                # de marcher mais en realite n'a updaté aucune row pre-existante,
+                # juste insere les nouvelles. Symptome utilisateur : badges "OTHER"
+                # sans le code SEC granulaire (M/G/F/etc.) sur la fiche Initiés.
+                #
+                # INSERT OR REPLACE est safe ici car :
+                # - la PK matche exactement le tuple naturel de la transaction
+                # - les valeurs re-fetchees sont les memes que l'origine (filing
+                #   SEC immutable) sauf les NOUVEAUX champs qu'on veut justement
+                #   ecraser de NULL vers la valeur
+                # - prefetch-all parse les XML SEC de maniere deterministe ->
+                #   line_num reproductible
+                sql_lines.append(
+                    f"INSERT OR REPLACE INTO insider_transactions_history "
+                    f"(filing_date, trans_date, source, accession, cik, ticker, company, "
+                    f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
+                    f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
+                    f"{esc(accession)}, {esc(cik)}, {esc(ticker)}, {esc(company)}, "
+                    f"{esc(insider)}, {esc(insider_cik)}, {esc(title)}, {esc(trans_type)}, {esc(trans_code)}, "
+                    f"{integer(shares)}, {num(price)}, {num(value)}, "
+                    f"{integer(shares_after)}, {integer(line_num)});"
+                )
 
     print(f'  Total: {total_in} tx lues, {len(sql_lines)} INSERT prets (dedup local)')
     return sql_lines
