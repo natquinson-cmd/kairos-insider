@@ -1,0 +1,97 @@
+name: Realtime Form 4 Refresh 30 min (insiders US)
+
+# ============================================================================
+# Cron 30 min pour les Form 4 (transactions des insiders US, SEC EDGAR).
+# Equivalent du realtime-30min.yml mais pour Form 4 specifiquement.
+#
+# Faisable depuis le fix dedup adsh (mai 2026) :
+# - Avant : 12-15 min/run (re-fetchait ~3200 XMLs dont 95% deja connus)
+# - Apres : 30-60s/run (skip XML fetch des filings deja indexes)
+#
+# Et le proxy SEC Cloudflare Worker contourne le rate-limit / blacklist
+# des IPs GitHub Actions (cf bug data figee depuis 8 mai 2026).
+#
+# Sources : Form 4 SEC uniquement (BaFin + AMF restent sur realtime-30min.yml,
+# 13F + ETF + Trends + scores restent sur update-13f.yml daily).
+# ============================================================================
+
+on:
+  schedule:
+    # :20 et :50 (decale de :15/:45 de realtime-30min.yml pour eviter la
+    # charge SEC simultanee + reduit la concurrence sur le KV insider-transactions).
+    - cron: '20,50 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: realtime-form4-30min
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  # SEC proxy CF (mai 2026) — contourne le blacklist IPs GitHub Actions
+  SEC_PROXY_URL: 'https://kairos-insider-api.natquinson.workers.dev/api/admin/sec-proxy'
+  KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+  PYTHONUNBUFFERED: '1'
+  KV_NS: aca7ff9d2a244b06ae92d6a7129b4cc4
+
+jobs:
+  fetch-form4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - run: npm install -g wrangler
+
+      # Download existant : transactions_data.json contient SEC + BaFin + AMF mergees.
+      # prefetch-all.py split en interne (NON_SEC_SOURCES) et preserve non-SEC intact.
+      - name: Download existing transactions from KV
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=$KV_NS --remote "insider-transactions" > transactions_data.json 2>/dev/null || echo '{}' > transactions_data.json
+          echo "Existing data: $(wc -c < transactions_data.json) bytes"
+
+      # Run prefetch-all.py avec dedup adsh + proxy CF.
+      # Devrait prendre 30-60s en steady state (95%+ des filings deja indexes).
+      # Au 1er run apres deploy : ~5-10 min (existing_adsh vide).
+      - name: Unified fetch Form 4 (incremental, dedup adsh, proxy CF)
+        run: cd worker && python -u prefetch-all.py
+        timeout-minutes: 10
+
+      - name: Upload Transactions + Clusters to KV
+        if: hashFiles('worker/transactions_data.json') != ''
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=$KV_NS --remote "insider-transactions" --path=transactions_data.json
+          if [ -f clusters_data.json ]; then
+            wrangler kv key put --namespace-id=$KV_NS --remote "insider-clusters" --path=clusters_data.json
+          fi
+          echo "Transactions + clusters uploaded"
+
+      # Push to D1 : INSERT OR IGNORE garantit pas de doublons. Necessaire pour
+      # garder Top Insiders ROI, screener, fiches dirigeants a jour avec les
+      # nouveaux Form 4. Skip si pas de NEW filings (rapide en steady state).
+      - name: Push Insider Transactions to D1
+        if: hashFiles('worker/transactions_data.json') != ''
+        run: |
+          cd worker
+          python push-insiders-to-d1.py
+        timeout-minutes: 5
+        continue-on-error: true
+
+      # Log dans runHistory:form4-realtime pour le dashboard admin
+      # (badge "Frais X min" + Gantt 24h).
+      - name: Log run
+        if: always()
+        run: |
+          curl -sS -X POST \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
+            -d "{\"jobId\":\"form4-realtime\",\"status\":\"ok\",\"summary\":\"30-min Form 4 cycle\"}" \
+            | head -c 200
+          echo ""

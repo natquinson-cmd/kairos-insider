@@ -242,12 +242,37 @@ try:
 except:
     print('Pas d\'historique existant')
 
+# ============================================================
+# SEPARATE SEC vs non-SEC (mai 2026) — ce script ne touche QUE le
+# SEC. Les rows BaFin/AMF sont preserves intacts et re-ecrites a la
+# fin avec les nouvelles tx SEC. Sans ca, le 30-min cron Form 4
+# dropperait BaFin/AMF a chaque run (fetched_dates clash).
+# ============================================================
+NON_SEC_SOURCES = {'bafin', 'amf'}
+existing_sec_tx = [t for t in existing_tx if t.get('source', 'sec') not in NON_SEC_SOURCES]
+existing_other_tx = [t for t in existing_tx if t.get('source', 'sec') in NON_SEC_SOURCES]
+print(f'  Split historique: {len(existing_sec_tx)} SEC | {len(existing_other_tx)} non-SEC (preserve intact)', flush=True)
+
+# ============================================================
+# DEDUP INDEX (mai 2026) — gros gain perf : on skip le XML fetch
+# des filings deja connus. Sans ca, chaque run re-telecharge ~3200
+# XMLs (4j x 800 filings) dont 95% sont des doublons. Avec dedup,
+# on ne touche QUE les nouveaux filings -> run 30-min faisable.
+# ============================================================
+# adsh = accession number SEC (ex: '0001000228-26-001234'). Unique
+# par filing. Stocke dans chaque tx depuis ce fix.
+# Note : les tx existantes pre-fix n'ont pas adsh -> set vide au
+# 1er run apres deploy, dedup kicks in au 2eme run (perf normale).
+existing_adsh = set()
+for _t in existing_sec_tx:
+    _a = _t.get('adsh')
+    if _a:
+        existing_adsh.add(_a)
+print(f'Filings deja indexes (adsh): {len(existing_adsh)}', flush=True)
+
 # Determiner jusqu'a quand l'historique est deja a jour.
-# IMPORTANT : on regarde uniquement les lignes SEC (source != 'bafin' et market in US/absent).
-# Sinon, si l'historique contient des lignes BaFin plus recentes que SEC (courant), l'incremental
-# verrait max(fileDate) = BaFin et sauterait les nouveaux filings SEC.
-sec_rows = [t for t in existing_tx if t.get('source', 'sec') != 'bafin' and t.get('region', 'US') == 'US']
-existing_file_dates = sorted({t.get('fileDate', '') for t in sec_rows if t.get('fileDate')}, reverse=True)
+# IMPORTANT : on regarde uniquement les lignes SEC.
+existing_file_dates = sorted({t.get('fileDate', '') for t in existing_sec_tx if t.get('fileDate')}, reverse=True)
 latest_existing = existing_file_dates[0] if existing_file_dates else ''
 
 if FORCE_FULL:
@@ -277,10 +302,13 @@ company_insiders = {}  # company_cik -> { company, ticker, insiders: { name: { d
 
 total_hits = 0
 total_parsed = 0
+total_skipped_dedup = 0  # Compteur de filings skips grace au dedup adsh
+seen_adsh_this_run = set()   # adsh vus dans ce run (fetch OU skip), pour merge propre
 
 for day_offset in range(0, fetch_days):
     day_date = (now - timedelta(days=day_offset)).strftime('%Y-%m-%d')
     day_hits_count = 0    # Compteur par jour (sinon on ne voit que le total cumule)
+    day_skipped_count = 0
     day_fetch_fail = False
 
     # Pagination complete: on continue tant qu'il y a des resultats (max 10 pages = 1000 filings/jour)
@@ -322,6 +350,16 @@ for day_offset in range(0, fetch_days):
             if len(ciks) < 2:
                 continue
 
+            # DEDUP (mai 2026) : si on a deja indexe ce filing dans un run
+            # precedent, on saute le fetch XML (95% des calls SEC en cron 30 min).
+            # On marque l'adsh comme "vu ce run" pour que le merge garde la tx
+            # existante (sinon kept_old la dropperait sur les jours refetches).
+            if adsh in existing_adsh:
+                seen_adsh_this_run.add(adsh)
+                total_skipped_dedup += 1
+                day_skipped_count += 1
+                continue
+
             company_cik = ciks[1]
             company_cik_clean = company_cik.lstrip('0')
             insider_name = re.sub(r'\s*\(CIK \d+\)', '', (src.get('display_names', [''])[0])).strip()
@@ -342,6 +380,8 @@ for day_offset in range(0, fetch_days):
                 parsed_title = parsed['title']
                 parsed_txs = parsed['transactions']
                 total_parsed += 1
+                # Mark this adsh as seen (will be added to all_transactions below)
+                seen_adsh_this_run.add(adsh)
 
                 # Ajouter les transactions individuelles (avec CIK pour reconstruire les clusters)
                 # FIX (mai 2026) : on preserve 'code' (lettre SEC P/S/A/D/F/M/G/...) et
@@ -349,6 +389,8 @@ for day_offset in range(0, fetch_days):
                 # Avant on les droppait -> tout finissait en 'other' = perte d'info massive.
                 # Phase B (mai 2026) : 'insiderCik' = rptOwnerCik = cle canonique de la
                 # personne (cross-company lookup pour les fiches dirigeants).
+                # DEDUP fix (mai 2026) : 'adsh' = accession number SEC = cle unique
+                # du filing. Permet de skipper le re-fetch XML au prochain run.
                 for tx in parsed_txs:
                     all_transactions.append({
                         'fileDate': file_date,
@@ -366,6 +408,7 @@ for day_offset in range(0, fetch_days):
                         'price': tx['price'],
                         'value': tx['value'],
                         'sharesAfter': tx['sharesAfter'],
+                        'adsh': adsh,  # cle unique SEC pour le dedup
                     })
 
             # Tracker pour les clusters (meme sans XML)
@@ -412,14 +455,17 @@ for day_offset in range(0, fetch_days):
     # pas de fail (= jour sans filings, ex: weekend).
     # Avant : seulement tous les 5 jours, et avec le total cumule -> on ne
     # voyait pas si un jour specifique etait casse.
+    # Dedup stat (mai 2026) : nb de filings skippes ce jour grace au cache adsh.
     marker = ''
     if day_fetch_fail and day_hits_count == 0:
         marker = ' ⚠ FETCH FAIL'
     elif day_hits_count == 0:
         marker = ' (no filings)'
-    print(f'  Day {day_date}: {day_hits_count} hits this day | cumul: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} tx{marker}', flush=True)
+    skip_str = f' | skip dedup: {day_skipped_count}' if day_skipped_count else ''
+    print(f'  Day {day_date}: {day_hits_count} hits this day{skip_str} | cumul: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} tx{marker}', flush=True)
 
 print(f'\nTotal: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} transactions')
+print(f'Dedup adsh: {total_skipped_dedup} filings skippes (= XML fetch evite)', flush=True)
 
 # ============================================================
 # ETAPE 2 : Fusionner avec l'historique existant (cumulatif)
@@ -429,11 +475,36 @@ fetched_dates = set()
 for d in range(0, fetch_days):
     fetched_dates.add((now - timedelta(days=d)).strftime('%Y-%m-%d'))
 
-# On garde les anciennes tx uniquement pour les dates NON refetchees
-kept_old = [t for t in existing_tx if t.get('fileDate', '') not in fetched_dates]
-print(f'Anciennes transactions conservees: {len(kept_old)}')
+# ============================================================
+# MERGE v2 (mai 2026, dedup adsh) — strategy par adsh quand dispo :
+# - Si tx existante a 'adsh' (= nouveau schema) :
+#     drop SEULEMENT si on a re-fetche ce filing ce run (= adsh dans
+#     fetched_adsh). Sinon keep, meme si fileDate est dans la fenetre
+#     (= filing skip par le dedup, on garde la donnee originelle).
+# - Si tx existante n'a PAS 'adsh' (= ancien schema, pre-fix) :
+#     fallback comportement original : drop si fileDate dans la fenetre
+#     refetchee (= on suppose qu'on a fresh data du XML).
+# Apres ~2-3 runs avec ce fix, tous les tx auront un adsh -> branche
+# fallback morte. Coexiste proprement pendant la transition.
+# ============================================================
+fetched_adsh = {t.get('adsh') for t in all_transactions if t.get('adsh')}
+kept_old = []
+for t in existing_sec_tx:  # SEULEMENT les rows SEC (non-SEC reajoutes en fin)
+    a = t.get('adsh')
+    if a:
+        if a in fetched_adsh:
+            continue  # remplace par fresh data
+        kept_old.append(t)
+    else:
+        # Ancien schema : fallback sur fileDate
+        if t.get('fileDate', '') in fetched_dates:
+            continue
+        kept_old.append(t)
+print(f'Anciennes SEC tx conservees: {len(kept_old)}')
 
-all_transactions = all_transactions + kept_old
+# Concat : nouvelles SEC tx + anciennes SEC kept + non-SEC preserve intact
+all_transactions = all_transactions + kept_old + existing_other_tx
+print(f'  + {len(existing_other_tx)} non-SEC (BaFin/AMF) re-ajoutes intacts', flush=True)
 all_transactions.sort(key=lambda t: t.get('date', ''), reverse=True)
 
 # Limiter a 90 jours max (fenetre glissante)

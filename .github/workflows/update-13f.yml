@@ -31,6 +31,12 @@ jobs:
       # OU le script etait bloque. PYTHONUNBUFFERED=1 force l'ecriture
       # immediate apres chaque print(), exposant la progression en live.
       PYTHONUNBUFFERED: '1'
+      # SEC PROXY (mai 2026) — route les fetches SEC via Cloudflare Worker
+      # pour eviter le rate-limit / blacklist des IPs GitHub Actions.
+      # prefetch-all.py et fetch-13dg.py detectent ces 2 env vars et basculent
+      # automatiquement vers le proxy (sinon fallback direct fetch).
+      SEC_PROXY_URL: 'https://kairos-insider-api.natquinson.workers.dev/api/admin/sec-proxy'
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
