@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-portfolio-score-gauge"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-resolve-eu"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -5560,16 +5560,15 @@
                veille + sparkline 1Y + cout + P&L latent + badge smart
                money 30j (driver du funnel Pro+ via modal upsell).
                KPIs / charts / calendrier viennent APRES.
+
+               Titre + subtitle retire (retour user : doublon avec le H2
+               "Mon Portefeuille" + le label "POSITIONS LIVE · 30J" de
+               la card. Seule la toolbar (count + boutons) reste,
+               alignee a droite pour conserver l'acces aux actions.
                ============================================================ -->
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap">
-            <div>
-              <h3 style="font-family:'Space Grotesk';font-size:18px;margin:0" data-i18n="dash.portfolio.positions_title">Positions en cours</h3>
-              <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0" data-i18n="dash.portfolio.positions_sub">Smart money sur vos positions — 30 derniers jours</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
-              <span id="portfolioPositionsToolbar"></span>
-            </div>
+          <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+            <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
+            <span id="portfolioPositionsToolbar"></span>
           </div>
           <div id="portfolioPositionsArea" style="margin-bottom:28px">
             <div class="loading" style="padding:24px 0"><div class="spinner"></div><span data-i18n="dash.portfolio.positions_loading">Analyse des positions en cours...</span></div>
@@ -19343,21 +19342,32 @@
       if (!rawSymbol) return null;
       const key = String(rawSymbol).trim().toUpperCase();
       if (_tickerResolveCache.has(key)) return _tickerResolveCache.get(key);
-      // Fast path : symbol deja propre (1-5 chars majuscules sans suffix) ->
-      // skip l'appel Yahoo, le ticker est probablement deja canonique US.
-      if (/^[A-Z]{1,5}$/.test(key)) {
-        _tickerResolveCache.set(key, key);
-        return key;
-      }
+      // Note (mai 2026, retour user LVMH) : pas de fast path.
+      // Avant : on skipait l'appel Yahoo pour les symbols /^[A-Z]{1,5}$/ en
+      // pensant qu'ils etaient deja canoniques US. MAIS "LVMH" passait dans
+      // ce filet alors qu'il n'existe pas en US (D1 a "LVMUY" / "LVMHF" ADR).
+      // Resultat : la ligne LVMH affichait "—" partout (cours, score, P&L
+      // latent, smart money). Maintenant on resoud TOUJOURS via Yahoo qui
+      // mappe correctement LVMH -> LVMUY, BRK.B -> BRK-B, etc.
+      // Cout : 1 fetch par ticker unique * N positions = ~14 parallel calls
+      // pour un portfolio typique, ~200-400ms total via Promise.all. Le
+      // cache local persiste -> renders suivants instantanes.
       try {
         const results = await searchYahooTickers(key);
         if (Array.isArray(results) && results.length > 0) {
-          // Prefere les listings US (no suffix .PA/.AS/.DE/.L/.HK/.MX, etc.)
-          // car D1 score_history est keyee par ticker US.
-          const isUsListed = (t) => /^[A-Z]{1,5}$/.test(String(t || '').toUpperCase());
-          const usResult = results.find(r => isUsListed(r.ticker || r.symbol));
-          const pick = usResult || results[0];
-          const canonical = String(pick.ticker || pick.symbol || key).toUpperCase();
+          // Heuristique de selection (par ordre de preference) :
+          // 1. Match exact = le user a tape le ticker canonique -> garde-le
+          // 2. Listing US plain (^[A-Z]{1,5}$) : ex AAPL, LVMUY, BRK
+          // 3. Listing US avec tiret (^[A-Z.]{1,7}$) : ex BRK-B, BRK.B
+          // 4. Premier resultat (fallback EU si rien d'US)
+          const sym = (r) => String(r.ticker || r.symbol || '').toUpperCase();
+          const isPlainUs = (t) => /^[A-Z]{1,5}$/.test(t);
+          const isUsWithDash = (t) => /^[A-Z]{1,5}[-.][A-Z0-9]$/.test(t);
+          const exact = results.find(r => sym(r) === key);
+          const plain = results.find(r => isPlainUs(sym(r)));
+          const dash = results.find(r => isUsWithDash(sym(r)));
+          const pick = exact || plain || dash || results[0];
+          const canonical = sym(pick) || key;
           _tickerResolveCache.set(key, canonical);
           return canonical;
         }
