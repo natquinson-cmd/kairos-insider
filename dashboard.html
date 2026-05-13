@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-portfolio-logo-spark-now"></script>
+  <script src="assets/i18n.js?v=20260513-portfolio-brokers-eu-us"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1694,6 +1694,14 @@
       color: var(--text-secondary);
       line-height: 1.5;
     }
+    .broker-help-region {
+      margin: 18px 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+    }
+    .broker-help-region:first-of-type { margin-top: 8px; }
     @media (max-width: 600px) {
       .broker-help-item {
         grid-template-columns: 1fr;
@@ -5155,39 +5163,93 @@
               <h3 data-i18n="dash.portfolio.help_modal_title">📖 Comment exporter mon historique CSV ?</h3>
               <button class="modal-close" onclick="closeCsvHelpModal()">✕</button>
             </div>
-            <p class="modal-sub" data-i18n="dash.portfolio.help_modal_sub">Chaque broker propose un export de votre historique de transactions. Voici où le trouver :</p>
+            <p class="modal-sub" data-i18n="dash.portfolio.help_modal_sub">Chaque broker propose un export de votre historique. La détection du broker est automatique : importez juste le CSV.</p>
+
+            <h4 class="broker-help-region" data-i18n="dash.portfolio.help_region_eu">🇪🇺 Brokers Européens</h4>
             <div class="broker-help-list">
               <div class="broker-help-item">
-                <strong>IG Markets</strong>
-                <span>Mon compte → Historique → Exporter CSV</span>
-              </div>
-              <div class="broker-help-item">
                 <strong>Trade Republic</strong>
-                <span>Profil → Documents → Relevés de compte (PDF + CSV mensuel)</span>
+                <span>Profil → Documents → Relevés de compte</span>
               </div>
               <div class="broker-help-item">
                 <strong>Degiro</strong>
-                <span>Activité → Transactions → Filtrer la période → Export</span>
+                <span>Activité → Transactions → Export</span>
               </div>
               <div class="broker-help-item">
-                <strong>eToro</strong>
-                <span>Portfolio → History → Export (compte démo & réel)</span>
+                <strong>Trading 212</strong>
+                <span>History → Export (XLSX/CSV par compte ISA/Invest)</span>
               </div>
               <div class="broker-help-item">
-                <strong>Interactive Brokers</strong>
-                <span>Reports → Activity → Custom statement → Download CSV</span>
+                <strong>Scalable Capital</strong>
+                <span>Konto → Umsätze → Export CSV</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Lightyear</strong>
+                <span>Activity → Export → CSV</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Comdirect</strong>
+                <span>Postbox → Umsatzanzeige → Export</span>
               </div>
               <div class="broker-help-item">
                 <strong>Boursorama</strong>
                 <span>Mon compte → Mes ordres → Historique → Exporter</span>
               </div>
               <div class="broker-help-item">
+                <strong>Bourse Direct</strong>
+                <span>Compte → Opérations → Historique → Export Excel</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Fortuneo</strong>
+                <span>Mes comptes → Relevé d'opérations → Télécharger</span>
+              </div>
+              <div class="broker-help-item">
                 <strong>Revolut</strong>
-                <span>Stocks → Statements → Generate statement (CSV)</span>
+                <span>Stocks → Statements → Generate statement</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>IG Markets</strong>
+                <span>Mon compte → Historique → Exporter CSV</span>
               </div>
               <div class="broker-help-item">
                 <strong>XTB</strong>
                 <span>xStation → History → Export to CSV</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>eToro</strong>
+                <span>Portfolio → History → Export</span>
+              </div>
+            </div>
+
+            <h4 class="broker-help-region" data-i18n="dash.portfolio.help_region_us">🇺🇸 Brokers Américains</h4>
+            <div class="broker-help-list">
+              <div class="broker-help-item">
+                <strong>Fidelity</strong>
+                <span>Accounts → History → Download (CSV par compte)</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Charles Schwab</strong>
+                <span>History → Transactions → Export → CSV</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Vanguard</strong>
+                <span>My Accounts → Activity → Download (CSV)</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Robinhood</strong>
+                <span>Account → Statements & History → Activity → Export</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>E*TRADE</strong>
+                <span>Accounts → Transactions → Download CSV</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Webull</strong>
+                <span>Transactions → Filter date → Export to CSV</span>
+              </div>
+              <div class="broker-help-item">
+                <strong>Interactive Brokers</strong>
+                <span>Reports → Activity → Custom statement → Download CSV</span>
               </div>
             </div>
             <p style="font-size:12px;color:var(--text-muted);margin-top:16px;line-height:1.5" data-i18n="dash.portfolio.help_modal_note">
@@ -17764,6 +17826,35 @@
 
     function detectPlatform(headers) {
       const h = headers.join('|');
+      // === US brokers — signatures distinctives ===
+      // Fees & Comm = signature unique Schwab (commission + fees combined col)
+      if (h.includes('fees & comm') || h.includes('fees and comm')) return { name: 'Charles Schwab', parser: parseSchwab };
+      // Webull : Filled Notional + Avg Price = distinctif
+      if (h.includes('filled notional') || (h.includes('filled time') && h.includes('avg price'))) return { name: 'Webull', parser: parseWebull };
+      // E*TRADE : TransactionType + SecurityType en 1 mot CamelCase
+      if (h.includes('transactiontype') && h.includes('securitytype')) return { name: 'E*TRADE', parser: parseEtrade };
+      // Robinhood : Trans Code = signature unique
+      if (h.includes('trans code') && h.includes('activity date')) return { name: 'Robinhood', parser: parseRobinhood };
+      // Vanguard : Share Price + Principal Amount = combo unique
+      if (h.includes('share price') && h.includes('principal amount')) return { name: 'Vanguard', parser: parseVanguard };
+      // Fidelity : Run Date + Action + Symbol = combo distinctif
+      if (h.includes('run date') && h.includes('action') && h.includes('symbol')) return { name: 'Fidelity', parser: parseFidelity };
+
+      // === EU brokers — signatures distinctives ===
+      // Trading 212 : "No. of shares" + "Price / share" (espaces conserves)
+      if (h.includes('no. of shares') && h.includes('price / share')) return { name: 'Trading 212', parser: parseTrading212 };
+      // Lightyear : Asset + ISIN + (pas de Name -> distingue de TR)
+      if (h.includes('asset') && h.includes('isin') && h.includes('quantity') && !h.includes('name')) return { name: 'Lightyear', parser: parseLightyear };
+      // Scalable Capital : Bezeichnung + Stück (allemand)
+      if (h.includes('bezeichnung') && (h.includes('stück') || h.includes('stuck'))) return { name: 'Scalable Capital', parser: parseScalable };
+      // Comdirect : Buchungstag + Vorgang (allemand)
+      if (h.includes('buchungstag') && h.includes('vorgang')) return { name: 'Comdirect', parser: parseComdirect };
+      // Fortuneo : "Date opération" (avec accent, distinctif vs Boursorama)
+      if ((h.includes('date opération') || h.includes('date operation')) && (h.includes('libellé') || h.includes('libelle'))) return { name: 'Fortuneo', parser: parseFortuneo };
+      // Bourse Direct : Montant brut + Libelle (Boursorama n'a pas "montant brut")
+      if (h.includes('montant brut') && (h.includes('libellé') || h.includes('libelle'))) return { name: 'Bourse Direct', parser: parseBourseDirect };
+
+      // === Existants (ordre original conserve) ===
       if (h.includes('dateutc') && h.includes('pl amount')) return { name: 'IG Markets', parser: parseIG };
       if (h.includes('isin') && h.includes('produit')) return { name: 'Degiro', parser: parseDegiro };
       if (h.includes('position id') && h.includes('amount')) return { name: 'eToro', parser: parseEtoro };
@@ -17903,6 +17994,237 @@
         size: 0, openPrice: 0, closePrice: 0,
         ref: '', type: toNum(col(h, c, 'montant', 'amount')) >= 0 ? 'buy' : 'sell',
         fees: toNum(col(h, c, 'frais', 'courtage')),
+      };
+    }
+
+    // ============================================================
+    // PHASE B (mai 2026) : extension brokers US + EU manquants
+    // 6 US (Fidelity, Charles Schwab, Robinhood, E*TRADE, Webull, Vanguard)
+    // 6 EU (Trading 212, Lightyear, Scalable Capital, Comdirect, Fortuneo,
+    //       Bourse Direct)
+    // ============================================================
+    function _normalizeAction(v) {
+      const s = String(v || '').toLowerCase().trim();
+      if (s.includes('sell') || s.includes('sold') || s.includes('vente') || s.includes('verkauf')) return 'sell';
+      return 'buy';
+    }
+
+    // Fidelity — "Brokerage History" export
+    // Headers : Run Date, Action, Symbol, Security Description, Security Type,
+    //           Quantity, Price ($), Commission ($), Fees ($), Amount ($), ...
+    function parseFidelity(h, c) {
+      const action = col(h, c, 'action');
+      const qty = toNum(col(h, c, 'quantity'));
+      const price = toNum(col(h, c, 'price ($)', 'price'));
+      const amount = toNum(col(h, c, 'amount ($)', 'amount'));
+      const commission = toNum(col(h, c, 'commission ($)', 'commission'));
+      const fees = toNum(col(h, c, 'fees ($)', 'fees'));
+      return {
+        date: toDate(col(h, c, 'run date', 'settlement date')),
+        symbol: col(h, c, 'symbol'),
+        pnl: amount, size: Math.abs(qty),
+        openPrice: 0, closePrice: price,
+        ref: '', type: _normalizeAction(action),
+        fees: Math.abs(commission) + Math.abs(fees),
+      };
+    }
+
+    // Charles Schwab — "Transactions" export
+    // Headers : Date, Action, Symbol, Description, Quantity, Price, Fees & Comm, Amount
+    function parseSchwab(h, c) {
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'symbol'),
+        pnl: toNum(col(h, c, 'amount')),
+        size: Math.abs(toNum(col(h, c, 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price')),
+        ref: '', type: _normalizeAction(col(h, c, 'action')),
+        fees: Math.abs(toNum(col(h, c, 'fees & comm', 'fees and comm'))),
+      };
+    }
+
+    // Robinhood — Activity export
+    // Headers : Activity Date, Process Date, Settle Date, Instrument, Description,
+    //           Trans Code, Quantity, Price, Amount
+    function parseRobinhood(h, c) {
+      const code = (col(h, c, 'trans code') || '').toLowerCase();
+      // Trans codes Robinhood : Buy, Sell, GOLD, DTAX, ACH, INT, MINT, etc.
+      // On garde seulement Buy/Sell pour les trades.
+      const isBuy = code === 'buy' || code.startsWith('buy');
+      const isSell = code === 'sell' || code.startsWith('sell');
+      if (!isBuy && !isSell) return null;
+      return {
+        date: toDate(col(h, c, 'activity date', 'trade date', 'settle date')),
+        symbol: col(h, c, 'instrument', 'symbol'),
+        pnl: toNum(col(h, c, 'amount')),
+        size: Math.abs(toNum(col(h, c, 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price')),
+        ref: '', type: isSell ? 'sell' : 'buy',
+        fees: 0,
+      };
+    }
+
+    // E*TRADE — Transactions export
+    // Headers : TransactionDate, TransactionType, SecurityType, Symbol, Quantity,
+    //           Amount, Price, Commission, Description
+    function parseEtrade(h, c) {
+      return {
+        date: toDate(col(h, c, 'transactiondate', 'transaction date')),
+        symbol: col(h, c, 'symbol'),
+        pnl: toNum(col(h, c, 'amount')),
+        size: Math.abs(toNum(col(h, c, 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price')),
+        ref: '', type: _normalizeAction(col(h, c, 'transactiontype', 'transaction type')),
+        fees: Math.abs(toNum(col(h, c, 'commission', 'fee'))),
+      };
+    }
+
+    // Webull — Order History export
+    // Headers : Symbol, Filled Time, Side, Status, Total Qty, Avg Price,
+    //           Filled Notional, Order Type
+    function parseWebull(h, c) {
+      const status = (col(h, c, 'status') || '').toLowerCase();
+      if (status && !status.includes('filled')) return null;  // skip canceled
+      return {
+        date: toDate(col(h, c, 'filled time', 'place time', 'trade date')),
+        symbol: col(h, c, 'symbol'),
+        pnl: toNum(col(h, c, 'filled notional', 'amount')),
+        size: Math.abs(toNum(col(h, c, 'total qty', 'quantity', 'filled qty'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'avg price', 'price')),
+        ref: '', type: _normalizeAction(col(h, c, 'side')),
+        fees: 0,
+      };
+    }
+
+    // Vanguard — Brokerage History export
+    // Headers : Account Number, Trade Date, Settlement Date, Transaction Type,
+    //           Investment Name, Symbol, Shares, Share Price, Principal Amount,
+    //           Commission Fees, Net Amount
+    function parseVanguard(h, c) {
+      return {
+        date: toDate(col(h, c, 'trade date', 'settlement date')),
+        symbol: col(h, c, 'symbol'),
+        pnl: toNum(col(h, c, 'net amount', 'principal amount', 'amount')),
+        size: Math.abs(toNum(col(h, c, 'shares', 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'share price', 'price')),
+        ref: '', type: _normalizeAction(col(h, c, 'transaction type')),
+        fees: Math.abs(toNum(col(h, c, 'commission fees', 'commission', 'fees'))),
+      };
+    }
+
+    // Trading 212 — Statement export
+    // Headers : Action, Time, ISIN, Ticker, Name, No. of shares, Price / share,
+    //           Currency (Price / share), Total, ...
+    function parseTrading212(h, c) {
+      const action = (col(h, c, 'action') || '').toLowerCase();
+      // Trading 212 actions: "Market buy", "Market sell", "Deposit", "Dividend",
+      // "Interest on cash", "FX conversion", etc.
+      if (!(action.includes('buy') || action.includes('sell'))) return null;
+      return {
+        date: toDate(col(h, c, 'time', 'date')),
+        symbol: col(h, c, 'ticker', 'name'),
+        pnl: toNum(col(h, c, 'total')),
+        size: Math.abs(toNum(col(h, c, 'no. of shares', 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price / share', 'price')),
+        ref: col(h, c, 'id', 'order id'),
+        type: action.includes('sell') ? 'sell' : 'buy',
+        fees: Math.abs(toNum(col(h, c, 'currency conversion fee', 'charge amount'))),
+      };
+    }
+
+    // Lightyear — Transaction history export
+    // Headers : Date, Type, Asset, ISIN, Quantity, Price, Total, Currency, Fee, Order ID
+    function parseLightyear(h, c) {
+      const type = (col(h, c, 'type') || '').toLowerCase();
+      if (!(type.includes('buy') || type.includes('sell'))) return null;
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'asset', 'ticker', 'symbol'),
+        pnl: toNum(col(h, c, 'total', 'amount')),
+        size: Math.abs(toNum(col(h, c, 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'price')),
+        ref: col(h, c, 'order id', 'id'),
+        type: type.includes('sell') ? 'sell' : 'buy',
+        fees: Math.abs(toNum(col(h, c, 'fee', 'fees'))),
+      };
+    }
+
+    // Scalable Capital (DE) — Umsätze export (allemand)
+    // Headers typiques : Datum, Typ, ISIN, Bezeichnung, Stück, Kurs, Betrag, Gebühren
+    function parseScalable(h, c) {
+      const type = (col(h, c, 'typ', 'type') || '').toLowerCase();
+      // 'Kauf' = buy, 'Verkauf' = sell en allemand
+      const isSell = type.includes('verkauf') || type.includes('sell');
+      const isBuy = type.includes('kauf') || type.includes('buy');
+      if (!isBuy && !isSell) return null;
+      return {
+        date: toDate(col(h, c, 'datum', 'date')),
+        symbol: col(h, c, 'bezeichnung', 'name'),
+        pnl: toNum(col(h, c, 'betrag', 'amount')),
+        size: Math.abs(toNum(col(h, c, 'stück', 'stuck', 'menge', 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'kurs', 'price')),
+        ref: col(h, c, 'referenz', 'reference', 'id'),
+        type: isSell ? 'sell' : 'buy',
+        fees: Math.abs(toNum(col(h, c, 'gebühren', 'gebuhren', 'fees'))),
+      };
+    }
+
+    // Comdirect (DE) — Umsatzanzeige export
+    // Headers : Buchungstag, Wertstellung, Vorgang, Buchungstext, Umsatz in EUR
+    function parseComdirect(h, c) {
+      const vorgang = (col(h, c, 'vorgang') || '').toLowerCase();
+      // Vorgang : 'Wertpapierkauf', 'Wertpapierverkauf', etc.
+      const isSell = vorgang.includes('verkauf');
+      const isBuy = vorgang.includes('kauf');
+      if (!isBuy && !isSell) return null;
+      // Comdirect ne separe pas symbol/qty/price dans des colonnes claires :
+      // tout est dans 'Buchungstext'. On parse approximativement.
+      const text = col(h, c, 'buchungstext', 'beschreibung') || '';
+      const m = text.match(/([A-Z0-9.]{2,8})\s+(\d+)\s+([\d.,]+)/);
+      return {
+        date: toDate(col(h, c, 'buchungstag', 'wertstellung', 'date')),
+        symbol: m ? m[1] : (col(h, c, 'isin') || text).slice(0, 12),
+        pnl: toNum(col(h, c, 'umsatz in eur', 'umsatz', 'betrag', 'amount')),
+        size: m ? toNum(m[2]) : 0,
+        openPrice: 0, closePrice: m ? toNum(m[3]) : 0,
+        ref: '', type: isSell ? 'sell' : 'buy',
+        fees: 0,
+      };
+    }
+
+    // Fortuneo (FR) — Releve operations export
+    // Headers : Date opération, Libellé, Quantité, Cours, Montant brut, Frais, Montant net
+    function parseFortuneo(h, c) {
+      const libelle = (col(h, c, 'libellé', 'libelle') || '').toLowerCase();
+      const isSell = libelle.includes('vente');
+      const isBuy = libelle.includes('achat');
+      if (!isBuy && !isSell) return null;
+      return {
+        date: toDate(col(h, c, 'date opération', 'date operation', 'date')),
+        symbol: col(h, c, 'libellé', 'libelle', 'valeur'),
+        pnl: toNum(col(h, c, 'montant net', 'net', 'montant brut', 'montant')),
+        size: Math.abs(toNum(col(h, c, 'quantité', 'quantite', 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'cours', 'price')),
+        ref: '', type: isSell ? 'sell' : 'buy',
+        fees: Math.abs(toNum(col(h, c, 'frais', 'courtage', 'fees'))),
+      };
+    }
+
+    // Bourse Direct (FR) — Releve operations
+    // Headers : Date, Libellé, Quantité, Cours, Montant brut, Frais, Net
+    function parseBourseDirect(h, c) {
+      const libelle = (col(h, c, 'libellé', 'libelle') || '').toLowerCase();
+      const isSell = libelle.includes('vente');
+      const isBuy = libelle.includes('achat');
+      if (!isBuy && !isSell) return null;
+      return {
+        date: toDate(col(h, c, 'date')),
+        symbol: col(h, c, 'libellé', 'libelle', 'valeur'),
+        pnl: toNum(col(h, c, 'net', 'montant net', 'montant brut', 'montant')),
+        size: Math.abs(toNum(col(h, c, 'quantité', 'quantite', 'quantity'))),
+        openPrice: 0, closePrice: toNum(col(h, c, 'cours', 'prix')),
+        ref: '', type: isSell ? 'sell' : 'buy',
+        fees: Math.abs(toNum(col(h, c, 'frais', 'fees'))),
       };
     }
 

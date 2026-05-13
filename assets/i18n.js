@@ -1189,7 +1189,7 @@
       'dash.portfolio.more_brokers': '+ autres',
       'dash.portfolio.help_link': '📖 Comment exporter mon CSV ?',
       'dash.portfolio.help_modal_title': '📖 Comment exporter mon historique CSV ?',
-      'dash.portfolio.help_modal_sub': 'Chaque broker propose un export de votre historique de transactions. Voici où le trouver :',
+      'dash.portfolio.help_modal_sub': 'Chaque broker propose un export de votre historique. La détection du broker est automatique : importez juste le CSV.',
       'dash.portfolio.help_modal_note': '💡 Le CSV doit contenir au minimum : <strong>date, ticker (ou nom action), type (achat/vente), quantité, prix</strong>. La plupart des brokers exportent ces colonnes par défaut. Si votre broker n\'est pas listé, essayez quand même — notre parser est tolérant.',
       // Positions en cours (refonte mai 2026 — produit d'appel + funnel Pro+)
       'dash.portfolio.positions_title': 'Positions en cours',
@@ -1219,6 +1219,8 @@
       'dash.portfolio.col_unrealized': 'P&L latent',
       'dash.portfolio.col_now': 'Maintenant',
       'dash.portfolio.col_1y': '1 an',
+      'dash.portfolio.help_region_eu': '🇪🇺 Brokers Européens',
+      'dash.portfolio.help_region_us': '🇺🇸 Brokers Américains',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2442,7 +2444,7 @@
       'dash.portfolio.more_brokers': '+ more',
       'dash.portfolio.help_link': '📖 How to export my CSV?',
       'dash.portfolio.help_modal_title': '📖 How to export my CSV history?',
-      'dash.portfolio.help_modal_sub': 'Every broker offers a transactions history export. Here\'s where to find it:',
+      'dash.portfolio.help_modal_sub': 'Every broker offers a history export. Broker auto-detection: just import the CSV.',
       'dash.portfolio.help_modal_note': '💡 The CSV must contain at least: <strong>date, ticker (or stock name), type (buy/sell), quantity, price</strong>. Most brokers export these columns by default. If your broker isn\'t listed, try anyway — our parser is tolerant.',
       // Current positions (rebuild May 2026 — free-tier hook + Pro+ funnel)
       'dash.portfolio.positions_title': 'Current positions',
@@ -2472,6 +2474,8 @@
       'dash.portfolio.col_unrealized': 'Unrealized P&L',
       'dash.portfolio.col_now': 'Now',
       'dash.portfolio.col_1y': '1Y',
+      'dash.portfolio.help_region_eu': '🇪🇺 European Brokers',
+      'dash.portfolio.help_region_us': '🇺🇸 US Brokers',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',
