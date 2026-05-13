@@ -42,13 +42,60 @@ for _i, _arg in enumerate(sys.argv):
             pass
         break
 
-def fetch(url):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            return resp.read().decode('utf-8', errors='replace')
-    except:
-        return None
+def fetch(url, max_retries=3):
+    """Fetch SEC EDGAR avec retry + logging explicite.
+
+    FIX (mai 2026) : avant, le try/except etait MUET (catch-all -> return None).
+    Resultat : quand SEC rate-limit ou retourne 429/503, le script pensait
+    qu'il n'y avait simplement pas de filings ce jour-la -> data vide depuis
+    le 8 mai sans qu'on s'en apercoive (run 25779497844, 25714338359...).
+
+    Maintenant : on log chaque echec avec status code + reason, et on retry
+    avec backoff exponential sur les erreurs transientes (429, 503, timeout,
+    ConnectionResetError). 3 retries -> 2s, 4s, 8s wait.
+
+    NB : SEC EDGAR fair-use = 10 req/s max. GitHub Actions IPs sont parfois
+    blacklistees temporairement (IP partagees abusees par d'autres scrapers).
+    """
+    import urllib.error
+    import socket
+    for attempt in range(max_retries):
+        req = urllib.request.Request(url, headers={
+            'User-Agent': UA,
+            'Accept': 'application/json,text/html,*/*',
+            'Accept-Encoding': 'gzip, deflate',
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                raw = resp.read()
+                # Si le serveur a renvoye gzip, decompresser
+                if resp.headers.get('Content-Encoding') == 'gzip':
+                    import gzip
+                    raw = gzip.decompress(raw)
+                return raw.decode('utf-8', errors='replace')
+        except urllib.error.HTTPError as e:
+            # 429 (rate limit) ou 503 (service unavailable) : retry avec backoff.
+            # 4xx autres (403, 404...) : abandon (probleme structurel).
+            if e.code in (429, 503, 504):
+                wait_sec = 2 ** (attempt + 1)
+                print(f'  [fetch retry {attempt+1}/{max_retries}] HTTP {e.code} {e.reason} | wait {wait_sec}s | {url[:90]}...', flush=True)
+                time.sleep(wait_sec)
+                continue
+            print(f'  [fetch FAIL] HTTP {e.code} {e.reason} | {url[:120]}', flush=True)
+            return None
+        except (urllib.error.URLError, socket.timeout, ConnectionResetError, TimeoutError) as e:
+            # Network errors : retry
+            wait_sec = 2 ** (attempt + 1)
+            print(f'  [fetch retry {attempt+1}/{max_retries}] NET {type(e).__name__}: {e} | wait {wait_sec}s', flush=True)
+            time.sleep(wait_sec)
+            continue
+        except Exception as e:
+            # Unexpected error
+            print(f'  [fetch FAIL] {type(e).__name__}: {e} | {url[:120]}', flush=True)
+            return None
+    # Out of retries
+    print(f'  [fetch GIVE UP] {max_retries} retries echoues | {url[:120]}', flush=True)
+    return None
 
 def curl_fetch(url):
     try:
@@ -186,6 +233,8 @@ total_parsed = 0
 
 for day_offset in range(0, fetch_days):
     day_date = (now - timedelta(days=day_offset)).strftime('%Y-%m-%d')
+    day_hits_count = 0    # Compteur par jour (sinon on ne voit que le total cumule)
+    day_fetch_fail = False
 
     # Pagination complete: on continue tant qu'il y a des resultats (max 10 pages = 1000 filings/jour)
     # Les jours tres charges peuvent avoir 400-800 filings, il faut tout recuperer
@@ -195,15 +244,20 @@ for day_offset in range(0, fetch_days):
         url = f'https://efts.sec.gov/LATEST/search-index?q=&forms=4&dateRange=custom&startdt={day_date}&enddt={day_date}&from={page_from}&size=100'
         raw = fetch(url)
         if not raw:
+            # FIX (mai 2026) : track explicit que le fetch a echoue (vs juste pas de hits)
+            day_fetch_fail = True
             break
         try:
             data = json.loads(raw)
-        except:
+        except Exception as e:
+            print(f'  [day {day_date}] JSON decode error : {e} | raw[:200]={raw[:200] if raw else "None"}', flush=True)
+            day_fetch_fail = True
             break
 
         hits = data.get('hits', {}).get('hits', [])
         if not hits:
             break
+        day_hits_count += len(hits)
         total_hits += len(hits)
 
         for hit in hits:
@@ -306,8 +360,17 @@ for day_offset in range(0, fetch_days):
         page_from += 100
         time.sleep(0.3)
 
-    if day_offset % 5 == 0:
-        print(f'  Day {day_date}: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} tx')
+    # FIX (mai 2026) : log par jour, pas tous les 5. Marque les jours qui
+    # ont 0 hits + fetch_fail (= probleme reseau/rate-limit) vs 0 hits +
+    # pas de fail (= jour sans filings, ex: weekend).
+    # Avant : seulement tous les 5 jours, et avec le total cumule -> on ne
+    # voyait pas si un jour specifique etait casse.
+    marker = ''
+    if day_fetch_fail and day_hits_count == 0:
+        marker = ' ⚠ FETCH FAIL'
+    elif day_hits_count == 0:
+        marker = ' (no filings)'
+    print(f'  Day {day_date}: {day_hits_count} hits this day | cumul: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} tx{marker}', flush=True)
 
 print(f'\nTotal: {total_hits} hits, {total_parsed} parsed, {len(all_transactions)} transactions')
 
