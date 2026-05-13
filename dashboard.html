@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-portfolio-live-refresh"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-score-gauge"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1760,10 +1760,16 @@
     }
     .portfolio-toast-close:hover { color: var(--text-primary); }
 
-    /* Sparkline progression du Kairos Score (remplace radar) */
+    /* Sparkline progression du Kairos Score (legacy, plus rendered) */
     .positions-table .pos-score-progress {
       display: block;
       filter: drop-shadow(0 1px 2px rgba(0,0,0,0.12));
+    }
+    /* Turbometre Kairos Score : drop-shadow subtle pour faire ressortir
+       le gauge contre le fond du tableau, sans alourdir visuellement. */
+    .positions-table .pos-score-gauge {
+      display: block;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.20));
     }
 
     @media (max-width: 640px) {
@@ -19450,12 +19456,52 @@
     // Liste des 8 dimensions (utilisee dans tooltip + breakdown).
     const _RADAR_DIMS = ['insider', 'smart_money', 'gov_guru', 'momentum', 'valuation', 'analyst', 'health', 'earnings'];
 
-    // Mini sparkline d'evolution du Kairos Score sur 12 mois (~20 points).
-    // Remplace l'ancien radar (retour user "rend moche"). Affiche :
-    //   - 3 bandes horizontales background (rouge 0-50, orange 50-70, vert 70-100)
-    //   - 1 polyline (ligne) connectant les points historiques
-    //   - 1 area fill subtle sous la ligne
-    //   - 1 dot au dernier point colorise selon valeur courante
+    // Turbometre Kairos Score : gauge semicirculaire 3 zones colorees
+    // (rouge 0-50 / orange 50-70 / vert 70-100) + aiguille pointant la valeur.
+    // Pattern speedometer dashboard (Stripe Atlas score, Apollo health gauge).
+    // User retour : "enleve le graph (sparkline) et remplace par un turbometre
+    // avec les couleurs d'echelle du Kairos Score".
+    function _renderScoreGaugeSvg(score, opts) {
+      const width = (opts && opts.width) || 88;
+      const height = (opts && opts.height) || 48;
+      const cx = width / 2;
+      const cy = height - 4; // anchor pres du bas (centre du demi-cercle)
+      const radius = Math.min(width / 2 - 5, height - 8);
+      // Mapping score -> angle radians : PI (gauche) a 0 (droite) via le haut
+      const scoreToAngle = (s) => Math.PI * (1 - s / 100);
+      const pointAt = (s) => {
+        const a = scoreToAngle(s);
+        return {
+          x: cx + radius * Math.cos(a),
+          y: cy - radius * Math.sin(a), // y inverse en SVG
+        };
+      };
+      const arcPath = (sFrom, sTo) => {
+        const p1 = pointAt(sFrom);
+        const p2 = pointAt(sTo);
+        // Sweep=1 pour arcs petits (<180°) en sens horaire SVG (= vers le haut
+        // car y inverse). Large-arc=0 car aucun segment ne fait plus que 180°.
+        return `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${radius} ${radius} 0 0 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+      };
+      const sClamped = Math.max(0, Math.min(100, Number(score) || 0));
+      const indicatorPt = pointAt(sClamped);
+      return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="pos-score-gauge">
+        <!-- 3 zones de couleur (echelle Kairos Score) -->
+        <path d="${arcPath(0, 50)}" fill="none" stroke="#EF4444" stroke-width="5" stroke-opacity="0.80" stroke-linecap="round"/>
+        <path d="${arcPath(50, 70)}" fill="none" stroke="#F59E0B" stroke-width="5" stroke-opacity="0.80"/>
+        <path d="${arcPath(70, 100)}" fill="none" stroke="#10B981" stroke-width="5" stroke-opacity="0.80" stroke-linecap="round"/>
+        <!-- Aiguille du centre vers la valeur courante -->
+        <line x1="${cx}" y1="${cy}" x2="${indicatorPt.x.toFixed(1)}" y2="${indicatorPt.y.toFixed(1)}" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- Pivot central + tete d'aiguille -->
+        <circle cx="${cx}" cy="${cy}" r="2.3" fill="#fff"/>
+        <circle cx="${indicatorPt.x.toFixed(1)}" cy="${indicatorPt.y.toFixed(1)}" r="2.6" fill="#fff" stroke="rgba(0,0,0,0.5)" stroke-width="0.6"/>
+      </svg>`;
+    }
+
+    // (Legacy, garde au cas ou) Mini sparkline d'evolution du Kairos Score
+    // sur 12 mois (~20 points). Remplace par _renderScoreGaugeSvg apres
+    // retour user. Le worker continue de renvoyer score.history qui peut
+    // alimenter une autre vue future (tooltip detail, page action, etc).
     function _renderScoreProgressSvg(history, opts) {
       if (!Array.isArray(history) || history.length < 2) return '';
       const width = (opts && opts.width) || 88;
@@ -19849,9 +19895,9 @@
             const deltaStr = (delta != null && Math.abs(delta) >= 1)
               ? `<span class="pos-score-delta ${delta >= 0 ? 'pos-score-delta-pos' : 'pos-score-delta-neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(0)}</span>`
               : '';
-            const chartHtml = (history && history.length >= 2)
-              ? _renderScoreProgressSvg(history, { width: 88, height: 36 })
-              : '';
+            // Turbometre (gauge) avec les couleurs d'echelle du Kairos Score.
+            // Avant : sparkline progression historique (retour user "rend moche").
+            const chartHtml = _renderScoreGaugeSvg(total, { width: 88, height: 48 });
             const tip = _scoreTooltip(sub);
             scoreCell.innerHTML = `
               <div class="pos-score-cell" title="${tip}">
