@@ -1390,11 +1390,15 @@
     body.has-beta-banner .ticker-tape { top: 85px !important; }
     body.has-beta-banner #pageMain,
     body.has-beta-banner main { margin-top: 40px; }
-    /* Mobile compact (mai 2026) : banner sur 1-2 lignes max, font plus petit,
-       padding reduit. La nav est decalee de la hauteur reelle du banner
-       (~76px = 2 lignes texte + bouton + padding) avec un peu de respiration.
-       FIX (mai 2026) : avant on avait nav top:44px mais le banner faisait en
-       fait ~70px sur mobile -> la nav remontait sous le banner. */
+    /* Mobile compact (mai 2026, v2) : banner sur 2 lignes (text + CTA) avec
+       hauteur calee proprement.
+       FIX (mai 2026 v2) : v1 avait offset 76px mais le banner faisait ~90px
+       sur iPhone (text + bouton wrap + safe-area), le hero-badge et la nav
+       passaient SOUS le banner -> "Réserver ma place" semblait cheaucher
+       le ticker "🔴 LIVE".
+       - Hide "Plus que X jours" sur < 640px (gain ~30 chars) -> texte sur 1 ligne
+       - Bump offset 76 -> 88px pour s'assurer que rien n'overlap
+       - .ticker-tape n'existe pas sur la landing -> rule retiree (etait du dashboard) */
     @media (max-width: 640px) {
       #betaUrgencyBanner {
         padding: 6px 8px !important;
@@ -1403,19 +1407,27 @@
       }
       #betaUrgencyBanner > div {
         gap: 8px !important;
+        flex-wrap: wrap;
       }
       #betaUrgencyBanner > div > span {
         font-size: 11px !important;
         gap: 4px !important;
       }
+      /* Hide "Plus que X jours" sur mobile pour eviter le wrap a 3 lignes */
+      #betaBannerRemaining { display: none !important; }
+      /* Le separateur " · " avant "Plus que..." disparait avec la regle parent
+         qui hide tout le span. On a aussi besoin de hide le " · " precedent.
+         Trick : on cache le 2eme separator au niveau du span parent via :before. */
+      #betaUrgencyBanner > div > span::after {
+        content: "";  /* override le texte ' · Plus que ... jours' implicit */
+      }
       #betaUrgencyBanner a {
         padding: 4px 10px !important;
         font-size: 11px !important;
       }
-      body.has-beta-banner nav { top: 76px !important; }
-      body.has-beta-banner .ticker-tape { top: 121px !important; }
+      body.has-beta-banner nav { top: 88px !important; }
       body.has-beta-banner #pageMain,
-      body.has-beta-banner main { margin-top: 76px; }
+      body.has-beta-banner main { margin-top: 88px; }
     }
   </style>
   <div id="betaUrgencyBanner">
@@ -1507,7 +1519,7 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="pulse"></span>
-            <span data-i18n="hero.badge">🔴 LIVE · Refresh toutes les 30 min · Alertes Telegram en moins de 8 min</span>
+            <span data-i18n="hero.badge">🔴 LIVE · Refresh toutes les heures · Alertes Telegram en moins de 8 min</span>
           </div>
 
           <h1>
