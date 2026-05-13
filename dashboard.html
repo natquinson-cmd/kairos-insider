@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-hedge-detail-clear-inline-display"></script>
+  <script src="assets/i18n.js?v=20260513-hedge-detail-filter-by-holder"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14046,6 +14046,12 @@
     // Utilise les data-fund-search attributes ajoutes a chaque row.
     let _hedgeFundsResolveTimer = null;     // debounce ticker resolution
     let _hedgeFundsLastResolved = '';        // dedup : meme ticker = pas re-resolve
+    // State du filtre "par action detenue" (mai 2026) :
+    // Quand on cherche par stock (TXN, Apple), on garde la query normalisee pour
+    // filtrer ensuite les top 50 du detail-row au clic. Le user voit alors UNIQUEMENT
+    // la ligne de la position cherchee + un banner "Position dans {query}" + bouton
+    // "Voir toutes les positions du fond" pour expand.
+    let _hedgeFundsHolderFilter = null;  // { query, matchKey, normalized }
     function filterHedgeFunds(query) {
       const area = document.getElementById('thirteenFArea');
       if (!area) return;
@@ -14073,6 +14079,13 @@
           if (detailRow) detailRow.style.display = 'none';
         }
       });
+      // Si on trouve via substring (visible > 0) ou query vide, on n'est PAS en
+      // mode "filter par stock" -> clear le holder filter pour ne pas filtrer
+      // le detail au clic. Si visible === 0, le serveur va peut-etre matcher
+      // et setter _hedgeFundsHolderFilter (cf _scheduleTickerResolveForHedgeFunds).
+      if (!q || visible > 0) {
+        _hedgeFundsHolderFilter = null;
+      }
       if (hint) {
         hint.textContent = q ? `${visible} fonds trouvé${visible > 1 ? 's' : ''}` : 'Tape pour filtrer';
         hint.style.color = q && visible === 0 ? '#EF4444' : 'var(--text-muted)';
@@ -14204,11 +14217,118 @@
               : `0 fonds trouvé`;
             hint.style.color = visible > 0 ? '#10B981' : '#EF4444';
           }
+
+          // Set le holder filter pour que toggleFund filtre le detail au clic.
+          // Normalize la query (memes regles que cote worker normalizeCompanyName)
+          // pour matcher les noms des holdings (UPPERCASE, strip Inc/Corp, etc.).
+          if (visible > 0) {
+            _hedgeFundsHolderFilter = {
+              query: companyQuery,
+              matchKey: data.matchKey || '',
+              normalized: data.normalized || normalizeNameClientSide(companyQuery),
+            };
+          } else {
+            _hedgeFundsHolderFilter = null;
+          }
         } catch (e) {
           console.warn('[filterHedgeFunds] holder lookup failed:', e);
         }
       }, 400);
     }
+
+    // Replicate worker normalizeCompanyName (FR/EN suffixes strip + uppercase).
+    // Utilise pour matcher cote client les holdings du detail-row contre la query.
+    function normalizeNameClientSide(name) {
+      if (!name) return '';
+      return String(name)
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toUpperCase()
+        .replace(/[.,\-]/g, ' ')
+        .replace(/\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|SOCIETE PAR ACTIONS SIMPLIFIEE)\b/g, '')
+        .replace(/\s+(INC|INCORPORATED|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A|KGAA|GMBH)\b/g, '')
+        .replace(/\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|INC|CORP|CO|LTD|PLC|LLC|LP|GROUP|SA|SE|AG|NV)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    // Applique le filtre holder sur un detail-row (= ne montre QUE la position
+    // qui matche la query, masque les autres top 50). Appele depuis toggleFund.
+    // Pas no-op : si _hedgeFundsHolderFilter est null, on RESTORE l'affichage
+    // de toutes les positions (cas user a tape stock, clique fond, clear search,
+    // re-clique meme fond -> doit voir tout le portfolio).
+    function applyHolderFilterToDetail(detailRow) {
+      if (!detailRow) return;
+      const tbody = detailRow.querySelector('.fund-detail-inner table tbody');
+      if (!tbody) return;
+      const trs = tbody.querySelectorAll('tr');
+      const filter = _hedgeFundsHolderFilter;
+      // Cherche un banner deja injecte (cas re-toggle)
+      const oldBanner = detailRow.querySelector('.holder-filter-banner');
+      if (oldBanner) oldBanner.remove();
+
+      if (!filter || !filter.normalized) {
+        // No filter active -> restore tous les rows
+        trs.forEach(tr => { tr.style.display = ''; });
+        return;
+      }
+
+      const normQuery = filter.normalized;
+      let matchedCount = 0;
+      let totalCount = 0;
+      trs.forEach(tr => {
+        totalCount++;
+        const span = tr.querySelector('.holding-name-link');
+        const holdingName = span ? (span.dataset.stockName || '') : (tr.textContent || '').slice(0, 60);
+        const norm = normalizeNameClientSide(holdingName);
+        // Match : exact OU prefixe (gere "TEXAS INSTRUMENTS" vs "TEXAS INSTRUMENTS INCORPORATED")
+        const isMatch = norm === normQuery || norm.startsWith(normQuery + ' ') || normQuery.startsWith(norm + ' ');
+        if (isMatch) {
+          tr.style.display = '';
+          matchedCount++;
+        } else {
+          tr.style.display = 'none';
+        }
+      });
+
+      // Injecte un banner explicatif + bouton "Voir tout" si on a filtre
+      if (totalCount > matchedCount) {
+        const wrap = detailRow.querySelector('.fund-detail-inner');
+        if (wrap) {
+          const banner = document.createElement('div');
+          banner.className = 'holder-filter-banner';
+          banner.style.cssText = 'margin:8px 0 12px;padding:10px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.10),rgba(116,185,255,0.04));border:1px dashed rgba(116,185,255,0.35);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px';
+          const labelTxt = filter.query || filter.matchKey || filter.normalized;
+          banner.innerHTML = `
+            <div style="color:var(--text-secondary)">
+              🔍 Affichage filtré sur <strong style="color:#74b9ff">${escapeHtmlClient(labelTxt)}</strong>
+              · ${matchedCount}/${totalCount} positions affichées
+            </div>
+            <button type="button" onclick="showAllFundPositions(this)"
+              style="padding:5px 10px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">
+              Voir toutes les positions
+            </button>`;
+          // Insere apres le sub-header (juste avant le .table-wrap)
+          const tableWrap = wrap.querySelector('.table-wrap');
+          if (tableWrap) tableWrap.parentNode.insertBefore(banner, tableWrap);
+          else wrap.appendChild(banner);
+        }
+      }
+    }
+
+    // Bouton "Voir toutes les positions" du banner : restore tous les rows
+    // sans toucher au filtre global de la table (l'user voit toujours uniquement
+    // les fonds qui detiennent X, mais peut maintenant voir le portfolio complet
+    // d'un fond specifique).
+    function showAllFundPositions(btn) {
+      const detailRow = btn.closest('.fund-detail-row');
+      if (!detailRow) return;
+      const tbody = detailRow.querySelector('.fund-detail-inner table tbody');
+      if (tbody) tbody.querySelectorAll('tr').forEach(tr => { tr.style.display = ''; });
+      const banner = detailRow.querySelector('.holder-filter-banner');
+      if (banner) banner.remove();
+    }
+    window.showAllFundPositions = showAllFundPositions;
 
     // ============================================================
     // HEDGE FUNDS — State module-level pour sort/filter sans re-fetch
@@ -14583,6 +14703,11 @@
             fundRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
         }, 50);
+
+        // Si on est en mode "filtre par stock detenu" (l'user a cherche TXN/Apple),
+        // on masque les autres holdings du detail-row pour ne montrer QUE la position
+        // de la stock cherchee. Ajoute un banner + bouton "Voir tout" pour revenir.
+        applyHolderFilterToDetail(detailRow);
 
         // Charger les charts si pas encore fait
         if (!fundChartsLoaded[idx]) {
