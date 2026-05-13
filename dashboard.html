@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-hedge-detail-filter-by-holder"></script>
+  <script src="assets/i18n.js?v=20260513-hedge-synthetic-row-rank51"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14221,11 +14221,20 @@
           // Set le holder filter pour que toggleFund filtre le detail au clic.
           // Normalize la query (memes regles que cote worker normalizeCompanyName)
           // pour matcher les noms des holdings (UPPERCASE, strip Inc/Corp, etc.).
+          // BONUS (mai 2026) : on garde les financial details retournes par le
+          // server (value, pct, sharesChange) pour SYNTHETISER un row dans le
+          // detail quand la position est rank #51+ (= absente du top 50 client).
           if (visible > 0) {
+            const fundsByName = new Map();
+            for (const f of holderFunds) {
+              const k = (f.fundName || '').toLowerCase().trim();
+              if (k) fundsByName.set(k, f);
+            }
             _hedgeFundsHolderFilter = {
               query: companyQuery,
               matchKey: data.matchKey || '',
               normalized: data.normalized || normalizeNameClientSide(companyQuery),
+              fundsByName,
             };
           } else {
             _hedgeFundsHolderFilter = null;
@@ -14261,12 +14270,15 @@
       if (!detailRow) return;
       const tbody = detailRow.querySelector('.fund-detail-inner table tbody');
       if (!tbody) return;
-      const trs = tbody.querySelectorAll('tr');
       const filter = _hedgeFundsHolderFilter;
-      // Cherche un banner deja injecte (cas re-toggle)
+      // Cleanup d'un eventuel re-toggle :
+      // - banner injecte au passage precedent
+      // - synthetic rows ajoutes au passage precedent (eviter doublons)
       const oldBanner = detailRow.querySelector('.holder-filter-banner');
       if (oldBanner) oldBanner.remove();
+      tbody.querySelectorAll('.holder-synthetic-row').forEach(r => r.remove());
 
+      const trs = tbody.querySelectorAll('tr');
       if (!filter || !filter.normalized) {
         // No filter active -> restore tous les rows
         trs.forEach(tr => { tr.style.display = ''; });
@@ -14290,6 +14302,61 @@
           tr.style.display = 'none';
         }
       });
+
+      // FIX (mai 2026, retour user) : si aucune match dans le top 50 displaye
+      // alors que le server a confirme que ce fond detient la stock, on
+      // SYNTHETISE une ligne virtuelle avec les data du server (value, pct,
+      // sharesChange). Cas typique : la position est rank #51+ pour ce fond,
+      // donc absente du top 50 saved client, mais le ticker-index server la connait.
+      if (matchedCount === 0 && filter.fundsByName) {
+        // Recupere les data du fund depuis le state global (via _origIdx)
+        const detailIdx = parseInt(String(detailRow.id || '').replace('fund-detail-', ''), 10);
+        const fundData = _hedgeFundsState.funds.find(f => f._origIdx === detailIdx);
+        const candidateNames = [
+          fundData?.fundName, fundData?.label,
+        ].filter(Boolean).map(s => s.toLowerCase().trim());
+
+        let serverFund = null;
+        for (const name of candidateNames) {
+          if (filter.fundsByName.has(name)) { serverFund = filter.fundsByName.get(name); break; }
+        }
+
+        if (serverFund) {
+          // Synthese du row : meme structure que les rows existants pour cohesion visuelle.
+          // value/pct/sharesChange du server, shares = N/A (pas dans le payload index)
+          const labelTxt = filter.query || filter.matchKey || filter.normalized;
+          const delta = Number(serverFund.sharesChange) || 0;
+          let changeHtml;
+          if (delta > 1) {
+            changeHtml = `<span style="color:var(--accent-green);font-weight:700">&#9650; +${delta.toFixed(1)}%</span>`;
+          } else if (delta < -1) {
+            changeHtml = `<span style="color:var(--accent-red);font-weight:700">&#9660; ${delta.toFixed(1)}%</span>`;
+          } else {
+            changeHtml = '<span style="color:var(--text-muted)">—</span>';
+          }
+          const pct = Number(serverFund.pct) || 0;
+          const value = Number(serverFund.value) || 0;
+          const barWidth = Math.min(Math.max(pct * 2, 2), 100);
+          const valueStr = value >= 1e9 ? `$${(value/1e9).toFixed(1)} Md` :
+                           value >= 1e6 ? `$${(value/1e6).toFixed(1)} M` :
+                           value >= 1e3 ? `$${(value/1e3).toFixed(0)} k` :
+                           `$${Math.round(value)}`;
+          const syntheticTr = document.createElement('tr');
+          syntheticTr.className = 'holder-synthetic-row';
+          syntheticTr.innerHTML = `
+            <td>
+              <span style="color:var(--text-primary)">${escapeHtmlClient(labelTxt)}</span>
+              <span style="margin-left:6px;padding:1px 6px;font-size:9px;font-weight:800;background:rgba(116,185,255,0.15);color:#74b9ff;border-radius:3px;letter-spacing:0.04em">RANK #51+</span>
+            </td>
+            <td style="text-align:right;color:var(--text-muted)">—</td>
+            <td style="text-align:right">${valueStr}</td>
+            <td style="text-align:right"><span class="pct-bar" style="width:${barWidth}px"></span>${pct}%</td>
+            <td style="text-align:right">${changeHtml}</td>
+          `;
+          tbody.insertBefore(syntheticTr, tbody.firstChild);
+          matchedCount = 1;
+        }
+      }
 
       // Injecte un banner explicatif + bouton "Voir tout" si on a filtre
       if (totalCount > matchedCount) {
