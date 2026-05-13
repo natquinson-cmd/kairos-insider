@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-portfolio-ticker-resolve"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-live-refresh"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1632,6 +1632,126 @@
       background: var(--surface-2);
       color: var(--text-primary);
       border-color: rgba(139,92,246,0.45);
+    }
+    /* Bouton "Supprimer" : style rouge subtil, opacite low default pour ne
+       pas attirer le regard, hover plus visible (rouge solid). */
+    .positions-delete-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      background: transparent;
+      color: rgba(239,68,68,0.75);
+      border: 1px solid rgba(239,68,68,0.30);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .positions-delete-btn:hover {
+      background: rgba(239,68,68,0.10);
+      color: #EF4444;
+      border-color: rgba(239,68,68,0.55);
+    }
+    /* Modal de confirmation suppression : style focus rouge */
+    .modal-inner.delete-portfolio-modal {
+      max-width: 480px;
+      width: 100%;
+      background: var(--surface-1);
+      border: 1px solid rgba(239,68,68,0.30);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 12px 40px rgba(239,68,68,0.18);
+    }
+    .delete-portfolio-modal .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .delete-portfolio-modal h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 17px;
+      margin: 0;
+      color: #EF4444;
+    }
+    .delete-portfolio-modal .modal-close {
+      background: none; border: none;
+      color: var(--text-muted); font-size: 20px;
+      cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    }
+    .delete-portfolio-modal .modal-close:hover {
+      background: var(--surface-2); color: var(--text-primary);
+    }
+    .delete-portfolio-modal .modal-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .delete-modal-ok:disabled {
+      opacity: 0.4 !important;
+      cursor: not-allowed !important;
+    }
+
+    /* TOAST notification import : top right, animation slide-in + fade-out */
+    .portfolio-toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      max-width: 380px;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-left: 3px solid #10B981;
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      z-index: 9999;
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .portfolio-toast-show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .portfolio-toast.portfolio-toast-warn { border-left-color: #F59E0B; }
+    .portfolio-toast-icon {
+      font-size: 22px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .portfolio-toast-body { flex: 1; min-width: 0; }
+    .portfolio-toast-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .portfolio-toast-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .portfolio-toast-close {
+      background: none; border: none;
+      color: var(--text-muted); font-size: 14px;
+      cursor: pointer; padding: 0 4px;
+      align-self: flex-start;
+    }
+    .portfolio-toast-close:hover { color: var(--text-primary); }
+
+    /* Sparkline progression du Kairos Score (remplace radar) */
+    .positions-table .pos-score-progress {
+      display: block;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.12));
     }
 
     @media (max-width: 640px) {
@@ -5673,6 +5793,40 @@
         </div>
 
         <!-- ============================================================
+             MODAL : confirmation 2-etapes pour suppression du portfolio.
+             Empeche les clics accidentels via une saisie obligatoire du
+             mot "SUPPRIMER" (FR) ou "DELETE" (EN).
+             ============================================================ -->
+        <div class="modal-overlay" id="deletePortfolioModal" onclick="if(event.target===this)closeDeletePortfolioModal()" style="display:none">
+          <div class="modal-inner delete-portfolio-modal">
+            <div class="modal-header">
+              <h3>🗑 Supprimer toutes les données ?</h3>
+              <button class="modal-close" onclick="closeDeletePortfolioModal()">✕</button>
+            </div>
+            <p class="modal-sub" data-i18n="dash.portfolio.delete_warn">Cette action supprime <strong class="delete-modal-count">0</strong> trades importés, vos positions reconstruites et tous les snapshots Firebase associés. <strong>Action irréversible.</strong></p>
+            <div style="margin:18px 0 8px">
+              <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:8px" data-i18n="dash.portfolio.delete_prompt">Tapez <strong>SUPPRIMER</strong> pour confirmer :</label>
+              <input type="text" class="delete-modal-input" oninput="_checkDeleteConfirmText(this)" placeholder="SUPPRIMER" autocomplete="off" spellcheck="false"
+                     style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:14px;text-transform:uppercase;letter-spacing:0.04em" />
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+              <button onclick="closeDeletePortfolioModal()" style="padding:10px 18px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-size:13px" data-i18n="dash.portfolio.delete_cancel">Annuler</button>
+              <button class="delete-modal-ok" disabled onclick="closeDeletePortfolioModal();clearPortfolio(true)" style="padding:10px 18px;background:#EF4444;border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;opacity:1;transition:all 0.15s" data-i18n="dash.portfolio.delete_confirm">Supprimer définitivement</button>
+            </div>
+          </div>
+        </div>
+        <!-- ============================================================
+             TOAST : feedback import CSV (ajoutés / doublons ignorés) -->
+        <div id="portfolioToast" class="portfolio-toast" style="display:none">
+          <span class="portfolio-toast-icon">✅</span>
+          <div class="portfolio-toast-body">
+            <div class="portfolio-toast-title"></div>
+            <div class="portfolio-toast-sub"></div>
+          </div>
+          <button class="portfolio-toast-close" onclick="document.getElementById('portfolioToast').style.display='none'">✕</button>
+        </div>
+
+        <!-- ============================================================
              MODAL : upsell Pro+ pour alertes smart money
              Trigger : free user clique sur un badge "🔔 N alertes" sur une
              position en cours. Affiche le detail des mouvements smart money
@@ -8398,6 +8552,15 @@
         } else {
           stopAdminAutoRefresh();
         }
+      }
+
+      // Auto-refresh portfolio : 30s. Lance quand on entre dans la section
+      // portfolio + arret quand on quitte (evite les fetch en arriere-plan
+      // sur d'autres pages). Donnees live -> prix + variation + scores
+      // refresh sans intervention manuelle.
+      if (typeof startPortfolioAutoRefresh === 'function') {
+        if (section === 'portfolio') startPortfolioAutoRefresh();
+        else stopPortfolioAutoRefresh();
       }
 
       // Les charts/canvas doivent etre redessines quand la section passe de hidden a visible
@@ -17931,6 +18094,12 @@
         if (newTrades.length === 0 && dupes > 0) {
           status.style.color = 'var(--accent-red)';
           status.textContent = `${dupes} doublons détectés — aucun nouveau trade importe.`;
+          _showPortfolioToast({
+            icon: '⚠️',
+            title: `Aucun nouveau trade ajouté`,
+            sub: `${dupes} doublon${dupes > 1 ? 's' : ''} ignoré${dupes > 1 ? 's' : ''} (déjà présents dans votre portefeuille)`,
+            tone: 'warn',
+          });
           return;
         }
 
@@ -17938,6 +18107,14 @@
         const dupeMsg = dupes > 0 ? ` (${dupes} doublons ignores)` : '';
         status.style.color = 'var(--accent-green)';
         status.textContent = `${newTrades.length} nouveaux trades importes (${trades[0]._platform || 'auto'})${dupeMsg} — Total: ${portfolioTrades.length}`;
+
+        // Toast feedback : visuel proeminent avec compteurs + auto-hide 6s.
+        _showPortfolioToast({
+          icon: dupes > 0 && newTrades.length === 0 ? '⚠️' : '✅',
+          title: `${newTrades.length} trade${newTrades.length > 1 ? 's' : ''} ajouté${newTrades.length > 1 ? 's' : ''} · ${trades[0]._platform || 'auto'}`,
+          sub: `${dupes} doublon${dupes > 1 ? 's' : ''} ignoré${dupes > 1 ? 's' : ''} · Total portefeuille : ${portfolioTrades.length} trades`,
+          tone: newTrades.length > 0 ? 'success' : 'warn',
+        });
 
         renderPortfolio();
         savePortfolioToFirebase();
@@ -19201,6 +19378,16 @@
       if (n >= 1e3) return (v / 1e3).toFixed(0) + 'k';
       return v.toFixed(0);
     }
+    // Format complet avec separateurs milliers (pas de K/M abbreviations).
+    // Utilise dans les totaux du header positions ou la precision compte.
+    function _fmtMoneyFull(v) {
+      if (v == null || isNaN(v)) return '—';
+      try {
+        return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v);
+      } catch {
+        return String(Math.round(v));
+      }
+    }
 
     // Sparkline SVG inline (1 ligne sans aire) optimisee pour ~52 points.
     // Auto-scale Y sur min/max + 5% padding pour eviter que la ligne touche
@@ -19248,40 +19435,44 @@
       return `https://assets.parqet.com/logos/symbol/${encodeURIComponent(symbol)}`;
     }
 
-    // Mini radar SVG inline pour les 8 sous-scores Kairos.
-    // Echelle : chaque sub-score est sur 0-20 (sortie du pipeline scoring).
-    // Couleur de fond / fill / stroke : bleu Kairos #3B82F6 avec opacite
-    // croissante (bg 6% / fill 35% / stroke 100%).
-    // Ordre des axes (CW depuis le haut) :
-    //   insider, smart_money, gov_guru, momentum, valuation, analyst, health, earnings
+    // Liste des 8 dimensions (utilisee dans tooltip + breakdown).
     const _RADAR_DIMS = ['insider', 'smart_money', 'gov_guru', 'momentum', 'valuation', 'analyst', 'health', 'earnings'];
-    function _renderRadarSvg(subScores, opts) {
-      if (!subScores || typeof subScores !== 'object') return '';
-      const size = (opts && opts.size) || 56;
-      const cx = size / 2, cy = size / 2;
-      const radius = (size / 2) - 4;
-      const max = 20; // typical max par sub-score (sortie pipeline scoring)
-      const n = _RADAR_DIMS.length;
-      const angleStep = (2 * Math.PI) / n;
-      // Polygon des valeurs : chaque point est (val/max) du radius sur son axe
-      const valPts = _RADAR_DIMS.map((d, i) => {
-        const v = Math.max(0, Math.min(max, Number(subScores[d]) || 0));
-        const ratio = v / max;
-        const angle = -Math.PI / 2 + i * angleStep;
-        const x = cx + Math.cos(angle) * radius * ratio;
-        const y = cy + Math.sin(angle) * radius * ratio;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(' ');
-      // Octogone max (background)
-      const maxPts = _RADAR_DIMS.map((_, i) => {
-        const angle = -Math.PI / 2 + i * angleStep;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(' ');
-      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" class="pos-radar-svg">
-        <polygon points="${maxPts}" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.22)" stroke-width="0.5"/>
-        <polygon points="${valPts}" fill="rgba(59,130,246,0.35)" stroke="#3B82F6" stroke-width="1.2" stroke-linejoin="round"/>
+
+    // Mini sparkline d'evolution du Kairos Score sur 12 mois (~20 points).
+    // Remplace l'ancien radar (retour user "rend moche"). Affiche :
+    //   - 3 bandes horizontales background (rouge 0-50, orange 50-70, vert 70-100)
+    //   - 1 polyline (ligne) connectant les points historiques
+    //   - 1 area fill subtle sous la ligne
+    //   - 1 dot au dernier point colorise selon valeur courante
+    function _renderScoreProgressSvg(history, opts) {
+      if (!Array.isArray(history) || history.length < 2) return '';
+      const width = (opts && opts.width) || 88;
+      const height = (opts && opts.height) || 38;
+      const pad = 2;
+      const innerW = width - 2 * pad;
+      const innerH = height - 2 * pad;
+      // Y axis FIXE 0-100 (l'echelle Kairos Score), pas auto-scale, pour qu'on
+      // voie ou se situe la ligne par rapport aux seuils 50/70 (bandes color).
+      const yFor = (v) => pad + innerH * (1 - Math.max(0, Math.min(100, v)) / 100);
+      const xFor = (i) => pad + (innerW * i) / (history.length - 1);
+      const linePts = history.map((v, i) => `${xFor(i).toFixed(1)},${yFor(v).toFixed(1)}`).join(' ');
+      const last = history[history.length - 1];
+      const lastColor = last >= 70 ? '#10B981' : (last >= 50 ? '#F59E0B' : '#EF4444');
+      const lastX = xFor(history.length - 1);
+      const lastY = yFor(last);
+      // Polygone d'aire ferme : line + descend au bas + ferme cote gauche
+      const areaPts = linePts + ` ${xFor(history.length - 1).toFixed(1)},${(height - pad).toFixed(1)} ${pad},${(height - pad).toFixed(1)}`;
+      // Bandes color : 0-50 rouge, 50-70 orange, 70-100 vert (Y inverse car SVG)
+      const yRed = yFor(50), yOrange = yFor(70), yTop = pad;
+      const bands = `
+        <rect x="${pad}" y="${yRed}" width="${innerW}" height="${(height - pad) - yRed}" fill="rgba(239,68,68,0.07)"/>
+        <rect x="${pad}" y="${yOrange}" width="${innerW}" height="${yRed - yOrange}" fill="rgba(245,158,11,0.07)"/>
+        <rect x="${pad}" y="${yTop}" width="${innerW}" height="${yOrange - yTop}" fill="rgba(16,185,129,0.07)"/>`;
+      return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="pos-score-progress" preserveAspectRatio="none">
+        ${bands}
+        <polygon points="${areaPts}" fill="${lastColor}" fill-opacity="0.10" stroke="none"/>
+        <polyline points="${linePts}" fill="none" stroke="${lastColor}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="2.2" fill="${lastColor}" stroke="#fff" stroke-width="0.8"/>
       </svg>`;
     }
 
@@ -19400,6 +19591,61 @@
       return `<span class="sm-badge-group verdict-${verdict}">${sub.join('')}</span>`;
     }
 
+    // Toast feedback portfolio : popup auto-hide 6s en haut a droite avec
+    // compteurs (X trades ajoutes, Y doublons ignores). Remplace le simple
+    // status text pour plus de visibilite a l'import.
+    let _portfolioToastTimer = null;
+    function _showPortfolioToast({ icon, title, sub, tone }) {
+      const el = document.getElementById('portfolioToast');
+      if (!el) return;
+      const iconEl = el.querySelector('.portfolio-toast-icon');
+      const titleEl = el.querySelector('.portfolio-toast-title');
+      const subEl = el.querySelector('.portfolio-toast-sub');
+      if (iconEl) iconEl.textContent = icon || '✅';
+      if (titleEl) titleEl.textContent = title || '';
+      if (subEl) subEl.textContent = sub || '';
+      el.className = 'portfolio-toast' + (tone ? ' portfolio-toast-' + tone : '');
+      el.style.display = 'flex';
+      el.classList.add('portfolio-toast-show');
+      // Auto-hide apres 6s (assez pour lire confortablement)
+      if (_portfolioToastTimer) clearTimeout(_portfolioToastTimer);
+      _portfolioToastTimer = setTimeout(() => {
+        el.classList.remove('portfolio-toast-show');
+        setTimeout(() => { el.style.display = 'none'; }, 250);
+      }, 6000);
+    }
+    window._showPortfolioToast = _showPortfolioToast;
+
+    // ============================================================
+    // AUTO-REFRESH 30s du tableau Positions en cours.
+    // Le worker cache pf-summary 60s + snapshots 5min -> refresh client
+    // 30s capte les nouveaux prix Yahoo / scores Kairos sans pollution.
+    // Stop des qu'on quitte la section (switchSection).
+    // ============================================================
+    let _portfolioRefreshTimer = null;
+    const PORTFOLIO_REFRESH_MS = 30000;
+    function startPortfolioAutoRefresh() {
+      if (_portfolioRefreshTimer) return;
+      _portfolioRefreshTimer = setInterval(() => {
+        // Invalide le cache local pour forcer un fetch (sinon on relit la meme
+        // reponse depuis _smPositionsSummaryCache qui est key sur tickers list)
+        _smPositionsSummaryCache = null;
+        _smPositionsLastTickersKey = '';
+        // Re-render le tableau positions (avec son flow async normal)
+        if (typeof renderCurrentPositions === 'function') {
+          renderCurrentPositions().catch(e => console.warn('[portfolio-refresh]', e));
+        }
+      }, PORTFOLIO_REFRESH_MS);
+    }
+    function stopPortfolioAutoRefresh() {
+      if (_portfolioRefreshTimer) {
+        clearInterval(_portfolioRefreshTimer);
+        _portfolioRefreshTimer = null;
+      }
+    }
+    window.startPortfolioAutoRefresh = startPortfolioAutoRefresh;
+    window.stopPortfolioAutoRefresh = stopPortfolioAutoRefresh;
+
     // Bascule le hero entre empty (visible) et filled (cache).
     // Appele depuis renderPortfolio (apres chargement Firebase ou apres
     // import CSV). Decouple du nombre de positions OUVERTES : meme si l'user
@@ -19418,16 +19664,18 @@
       if (!area) return;
       updateImportHeroState();
       const positions = computeCurrentPositions(portfolioTrades);
-      // Toolbar : 2 boutons "+ Importer plus" + "📚 Brokers compatibles".
-      // Le 2e est toujours dispo (memes en filled state) car l'user retour :
-      // "le modal CSV doit etre visible meme quand j'ai deja des donnees"
-      // -> il sert aussi a verifier que son broker est supporte avant
-      // d'importer un nouveau CSV.
+      // Toolbar : "+ Importer plus" + "📚 Brokers" + "🗑 Supprimer".
+      // Toujours visible (filled state) car le user veut acceder a la liste
+      // des brokers + au reset depuis le header. La suppression a une
+      // confirmation 2-etapes (confirmDeletePortfolio) au lieu d'un simple
+      // confirm() pour eviter les clics accidentels sur 14+ positions.
       const hasTrades = portfolioTrades && portfolioTrades.length > 0;
-      const toolbarBtn = hasTrades
-        ? `<button class="positions-import-btn" onclick="document.getElementById('csvFileInput').click()" title="Importer un autre CSV (fusion automatique)" data-i18n="dash.portfolio.import_more">+ Importer plus</button>
-           <button class="positions-help-btn" onclick="openCsvHelpModal()" title="Voir la liste des 20 brokers compatibles + instructions export" data-i18n="dash.portfolio.brokers_btn">📚 Brokers</button>`
-        : `<button class="positions-help-btn" onclick="openCsvHelpModal()" title="Voir la liste des 20 brokers compatibles + instructions export" data-i18n="dash.portfolio.brokers_btn">📚 Brokers</button>`;
+      const importBtn = `<button class="positions-import-btn" onclick="document.getElementById('csvFileInput').click()" title="Importer un autre CSV (fusion automatique)" data-i18n="dash.portfolio.import_more">+ Importer plus</button>`;
+      const helpBtn = `<button class="positions-help-btn" onclick="openCsvHelpModal()" title="Voir la liste des 20 brokers compatibles + instructions export" data-i18n="dash.portfolio.brokers_btn">📚 Brokers</button>`;
+      const deleteBtn = hasTrades
+        ? `<button class="positions-delete-btn" onclick="confirmDeletePortfolio()" title="Supprimer toutes les données du portefeuille (confirmation requise)" data-i18n="dash.portfolio.delete_btn">🗑 Supprimer</button>`
+        : '';
+      const toolbarBtn = hasTrades ? (importBtn + helpBtn + deleteBtn) : helpBtn;
       // Slot pour les boutons — injecté dans le header de la section positions
       const headerSlot = document.getElementById('portfolioPositionsToolbar');
       if (headerSlot) headerSlot.innerHTML = toolbarBtn;
@@ -19496,7 +19744,7 @@
             <div class="positions-card-totals" id="positionsTotalsArea">
               <div class="positions-total-item">
                 <div class="positions-total-label" data-i18n="dash.portfolio.total_invested">Investi</div>
-                <div class="positions-total-value" id="positionsTotalInvested">${_fmtMoneyCompact(positions.reduce((s, p) => s + p.totalCost, 0))}</div>
+                <div class="positions-total-value" id="positionsTotalInvested">${_fmtMoneyFull(positions.reduce((s, p) => s + p.totalCost, 0))}</div>
               </div>
               <div class="positions-total-item">
                 <div class="positions-total-label" data-i18n="dash.portfolio.total_market">Valeur actuelle</div>
@@ -19508,7 +19756,7 @@
               </div>
               <div class="positions-total-item positions-total-realized">
                 <div class="positions-total-label" data-i18n="dash.portfolio.total_realized">P&L réalisé</div>
-                <div class="positions-total-value"><span class="${totalRealized >= 0 ? 'positions-total-pnl-positive' : 'positions-total-pnl-negative'}">${totalRealized >= 0 ? '+' : ''}${_fmtMoneyCompact(totalRealized)}</span></div>
+                <div class="positions-total-value"><span class="${totalRealized >= 0 ? 'positions-total-pnl-positive' : 'positions-total-pnl-negative'}">${totalRealized >= 0 ? '+' : ''}${_fmtMoneyFull(totalRealized)}</span></div>
               </div>
             </div>
           </div>
@@ -19574,24 +19822,29 @@
           }
         }
 
-        // Cellule "Kairos Score" : total + mini radar SVG (8 sub-scores)
+        // Cellule "Kairos Score" : total + mini sparkline d'evolution 12 mois.
+        // Avant : radar octogone 8 sub-scores (retour user "rend moche").
+        // Apres : progression chart avec bandes color seuils (rouge/orange/vert).
         const scoreCell = row.querySelector('.pos-score');
         const score = (sum && sum.score) || null;
         if (scoreCell) {
           const total = (score && score.now != null) ? Number(score.now) : null;
           const delta = (score && score.delta30d != null) ? Number(score.delta30d) : null;
           const sub = (score && score.sub) ? score.sub : null;
+          const history = (score && Array.isArray(score.history)) ? score.history : null;
           if (total != null) {
             const color = _scoreColor(total);
             const deltaStr = (delta != null && Math.abs(delta) >= 1)
               ? `<span class="pos-score-delta ${delta >= 0 ? 'pos-score-delta-pos' : 'pos-score-delta-neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(0)}</span>`
               : '';
-            const radarHtml = sub ? _renderRadarSvg(sub, { size: 50 }) : '';
+            const chartHtml = (history && history.length >= 2)
+              ? _renderScoreProgressSvg(history, { width: 88, height: 36 })
+              : '';
             const tip = _scoreTooltip(sub);
             scoreCell.innerHTML = `
               <div class="pos-score-cell" title="${tip}">
                 <div class="pos-score-num" style="color:${color}">${total.toFixed(0)}${deltaStr}</div>
-                ${radarHtml}
+                ${chartHtml}
               </div>`;
           } else {
             scoreCell.innerHTML = '<span style="color:var(--text-muted);font-size:11px">—</span>';
@@ -19628,11 +19881,11 @@
       }, 0);
       const marketEl = document.getElementById('positionsTotalMarket');
       const unrealEl = document.getElementById('positionsTotalUnrealized');
-      if (marketEl) marketEl.textContent = _fmtMoneyCompact(marketWithFallback);
+      if (marketEl) marketEl.textContent = _fmtMoneyFull(marketWithFallback);
       if (unrealEl) {
         const sign = totalUnrealized >= 0 ? '+' : '';
         const pct = totalInvested > 0 ? (totalUnrealized / totalInvested) * 100 : 0;
-        unrealEl.innerHTML = `<span class="${totalUnrealized >= 0 ? 'positions-total-pnl-positive' : 'positions-total-pnl-negative'}">${sign}${_fmtMoneyCompact(totalUnrealized)} <span style="font-size:12px;opacity:0.75">(${sign}${pct.toFixed(1)}%)</span></span>`;
+        unrealEl.innerHTML = `<span class="${totalUnrealized >= 0 ? 'positions-total-pnl-positive' : 'positions-total-pnl-negative'}">${sign}${_fmtMoneyFull(totalUnrealized)} <span style="font-size:12px;opacity:0.75">(${sign}${pct.toFixed(1)}%)</span></span>`;
         if (priceCoverage < positions.length) {
           const missing = positions.length - priceCoverage;
           unrealEl.innerHTML += `<div style="font-size:10px;color:var(--text-muted);font-weight:400;margin-top:4px">${missing} ticker${missing > 1 ? 's' : ''} sans cours dispo</div>`;
@@ -19779,8 +20032,46 @@
       }
     }
 
-    async function clearPortfolio() {
-      if (!confirm('Supprimer toutes vos données de trading ? Cette action est irreversible.')) return;
+    // Confirmation 2-etapes avant suppression : modal avec compteur + input
+    // de validation. L'user doit taper "SUPPRIMER" (FR) ou "DELETE" (EN) pour
+    // activer le bouton de confirmation. Empeche les clics accidentels apres
+    // 14+ positions importees + plusieurs heures de revue.
+    function confirmDeletePortfolio() {
+      const modal = document.getElementById('deletePortfolioModal');
+      if (modal) {
+        const countEl = modal.querySelector('.delete-modal-count');
+        const inputEl = modal.querySelector('.delete-modal-input');
+        const okBtn = modal.querySelector('.delete-modal-ok');
+        if (countEl) countEl.textContent = `${portfolioTrades.length}`;
+        if (inputEl) inputEl.value = '';
+        if (okBtn) okBtn.disabled = true;
+        modal.style.display = 'flex';
+        setTimeout(() => inputEl?.focus(), 50);
+      } else {
+        // Fallback si le modal n'est pas dans le DOM (ne devrait jamais arriver)
+        if (confirm('Supprimer toutes vos données ? Cette action est irréversible.')) {
+          clearPortfolio(true);
+        }
+      }
+    }
+    function closeDeletePortfolioModal() {
+      const modal = document.getElementById('deletePortfolioModal');
+      if (modal) modal.style.display = 'none';
+    }
+    function _checkDeleteConfirmText(input) {
+      const modal = document.getElementById('deletePortfolioModal');
+      if (!modal) return;
+      const okBtn = modal.querySelector('.delete-modal-ok');
+      if (!okBtn) return;
+      const valid = String(input.value).trim().toUpperCase() === 'SUPPRIMER' || String(input.value).trim().toUpperCase() === 'DELETE';
+      okBtn.disabled = !valid;
+    }
+    window.confirmDeletePortfolio = confirmDeletePortfolio;
+    window.closeDeletePortfolioModal = closeDeletePortfolioModal;
+    window._checkDeleteConfirmText = _checkDeleteConfirmText;
+
+    async function clearPortfolio(skipConfirm) {
+      if (!skipConfirm && !confirm('Supprimer toutes vos données de trading ? Cette action est irreversible.')) return;
       portfolioTrades = [];
       if (currentUser) {
         try {

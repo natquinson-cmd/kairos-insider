@@ -2486,9 +2486,10 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   )].slice(0, 50);
   if (tickers.length === 0) return jsonResponse({ summaries: {}, days }, 200, origin);
 
-  // v5 (mai 2026) : ajout 8 sub-scores Kairos (insider/smart_money/gov_guru/
-  // momentum/valuation/analyst/health/earnings) pour radar SVG cote UI
-  const cacheKey = `pf-summary:v5:${tickers.slice().sort().join(',')}:${days}d`;
+  // v6 (mai 2026) : ajout scoreHistory (~20 points) pour sparkline progression
+  // + cache passe a 60s (vs 900s precedemment) car le tableau positions s'auto
+  // refresh cote client toutes les 30s.
+  const cacheKey = `pf-summary:v6:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -2552,6 +2553,44 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
         scoresPrev[r.ticker] = { total: r.total, date: r.date };
       }
     } catch (e) { console.warn('pf-summary scores failed:', e); }
+
+    // Score HISTORY : ~20 points par ticker sur les 12 derniers mois.
+    // Permet l'affichage d'un mini graphique de progression (sparkline)
+    // en remplacement du radar (retour user : "le radar rend moche").
+    // SQL : 1 batch query avec IN -> JS resample a ~20 points.
+    const scoreHistByTicker = {};
+    try {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const yearCutoff = oneYearAgo.toISOString().slice(0, 10);
+      const histRes = await env.HISTORY.prepare(
+        `SELECT ticker, date, total
+         FROM score_history
+         WHERE ticker IN (${placeholders}) AND date >= ?
+         ORDER BY ticker, date ASC`
+      ).bind(...tickers, yearCutoff).all();
+      // Group par ticker
+      const grouped = {};
+      for (const r of (histRes.results || [])) {
+        if (!grouped[r.ticker]) grouped[r.ticker] = [];
+        grouped[r.ticker].push({ date: r.date, total: r.total });
+      }
+      // Resample a ~20 points (sample uniformement dans l'array trie par date)
+      const TARGET_POINTS = 20;
+      for (const [ticker, arr] of Object.entries(grouped)) {
+        if (arr.length <= TARGET_POINTS) {
+          scoreHistByTicker[ticker] = arr.map(p => Number(p.total));
+        } else {
+          const step = (arr.length - 1) / (TARGET_POINTS - 1);
+          const sampled = [];
+          for (let i = 0; i < TARGET_POINTS; i++) {
+            const idx = Math.round(i * step);
+            sampled.push(Number(arr[idx].total));
+          }
+          scoreHistByTicker[ticker] = sampled;
+        }
+      }
+    } catch (e) { console.warn('pf-summary scoreHistory failed:', e); }
 
     // 2) INSIDERS : agreges par ticker + type sur la fenetre
     const insidersByTicker = {};
@@ -2741,7 +2780,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       else if (bullishPts > 0 && bearishPts > 0) verdict = 'mixed';
 
       summaries[ticker] = {
-        score: { now: scoreNow, delta30d: scoreDelta, sub: sNow ? sNow.sub : null },
+        score: { now: scoreNow, delta30d: scoreDelta, sub: sNow ? sNow.sub : null, history: scoreHistByTicker[ticker] || null },
         insider: ins,
         etf,
         activists: act,
@@ -2761,7 +2800,9 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
     const payload = { summaries, days, generatedAt: new Date().toISOString() };
     try {
       if (env.CACHE) {
-        await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 900 });
+        // Cache court : 60s pour permettre auto-refresh client 30s avec data
+        // raisonnablement fraiche. Avant : 900s (15min) qui dejouait l'idee.
+        await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: 60 });
       }
     } catch {}
 
@@ -3638,7 +3679,9 @@ async function fetchTickerSnapshotCached(ticker, env) {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(tickerUp)}?interval=1wk&range=1y`;
     const resp = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (KairosInsider; +contact@kairosinsider.fr)' },
-      cf: { cacheTtl: 14400 },
+      // Edge cache 5min : balance Yahoo politeness vs live-ness portfolio.
+      // Permet l'auto-refresh client 30s d'avoir des prix frais sans hammer Yahoo.
+      cf: { cacheTtl: 300 },
     });
     if (resp.ok) {
       const json = await resp.json();
@@ -3668,7 +3711,8 @@ async function fetchTickerSnapshotCached(ticker, env) {
   } catch { /* Silent */ }
 
   try {
-    await env.CACHE?.put(cacheKey, JSON.stringify(result || { current: null }), { expirationTtl: 14400 });
+    // KV cache 5min (vs 4h avant) : balance Yahoo rate-limit vs portfolio live.
+    await env.CACHE?.put(cacheKey, JSON.stringify(result || { current: null }), { expirationTtl: 300 });
   } catch {}
   return result;
 }
