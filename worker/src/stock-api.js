@@ -1265,7 +1265,8 @@ async function fetchStockAnalysisEmployees(ticker) {
 // Depuis 2024, Yahoo exige un "crumb" CSRF + cookie de session.
 // On le met en cache KV 6h pour eviter un roundtrip a chaque requete.
 // ============================================================
-async function getYahooSession(env, forceRefresh = false) {
+export const YAHOO_UA_EXPORT = YAHOO_UA;
+export async function getYahooSession(env, forceRefresh = false) {
   const KEY = 'yahoo-session-v1';
   if (!forceRefresh) {
     const cached = await env.CACHE.get(KEY, 'json');

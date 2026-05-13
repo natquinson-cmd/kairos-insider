@@ -11,7 +11,7 @@
  *   - Premium (auth + abo) : /api/all-transactions, /api/clusters, /api/13f-*, /api/etf-*
  */
 
-import { handleStockAnalysis, normalizeCompanyName } from './stock-api.js';
+import { handleStockAnalysis, normalizeCompanyName, getYahooSession, YAHOO_UA_EXPORT } from './stock-api.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
 import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 // Resvg WASM : SVG -> PNG pour les OG images (Twitter Card spec exige PNG/JPG).
@@ -3176,7 +3176,10 @@ async function fetchWikipediaPerson(name, env) {
 async function fetchYahooOfficers(ticker, env) {
   if (!ticker) return [];
   const tickerUp = String(ticker).toUpperCase();
-  const cacheKey = `yahoo-officers:v1:${tickerUp}`;
+  // Bump v1 -> v2 (mai 2026) : v1 cachait l'empty result du fail crumb sans
+  // backoff -> 7 jours d'officers vides pour tout le monde. v2 ajoute le
+  // crumb auth + cache differencie (7j succes, 1h echec) -> retry rapide.
+  const cacheKey = `yahoo-officers:v2:${tickerUp}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return cached.officers || [];
@@ -3184,12 +3187,21 @@ async function fetchYahooOfficers(ticker, env) {
 
   let officers = [];
   try {
-    // Pas de crumb requis pour assetProfile (= public info). Si Yahoo bloque,
-    // on degrade gracieusement (officers vide, pas d'erreur).
-    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(tickerUp)}?modules=assetProfile`;
+    // FIX (mai 2026) : Yahoo v10/quoteSummary REQUIERT crumb + cookie depuis 2024.
+    // Sans, on recoit 'Unauthorized: Invalid Crumb'. On reutilise la session
+    // exportee de stock-api.js (cache KV 6h).
+    const session = await getYahooSession(env);
+    if (!session.crumb || !session.cookie) {
+      // Pas de session -> probleme cote Yahoo, retourne empty avec cache court
+      throw new Error('No Yahoo session');
+    }
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(tickerUp)}?modules=assetProfile&crumb=${encodeURIComponent(session.crumb)}`;
     const resp = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (KairosInsider; +contact@kairosinsider.fr)' },
-      cf: { cacheTtl: 86400 * 7 },
+      headers: {
+        'User-Agent': YAHOO_UA_EXPORT,
+        'Cookie': session.cookie,
+        'Accept': 'application/json',
+      },
     });
     if (resp.ok) {
       const json = await resp.json();
@@ -3208,10 +3220,13 @@ async function fetchYahooOfficers(ticker, env) {
         }));
       }
     }
-  } catch (e) { /* Silent : Yahoo down or blocked */ }
+  } catch (e) { /* Silent : Yahoo down, crumb invalid, ou rate-limited */ }
 
+  // Cache differencie : 7 jours sur succes (officers stables trimestriellement),
+  // 1h sur empty (pour retry rapide si Yahoo etait temporairement down).
   try {
-    await env.CACHE?.put(cacheKey, JSON.stringify({ officers }), { expirationTtl: 86400 * 7 });
+    const ttl = officers.length > 0 ? 86400 * 7 : 3600;
+    await env.CACHE?.put(cacheKey, JSON.stringify({ officers }), { expirationTtl: ttl });
   } catch {}
   return officers;
 }
@@ -3471,11 +3486,11 @@ async function handleInsiderProfile(url, env, origin) {
     return jsonResponse({ error: 'Missing name or cik' }, 400, origin);
   }
 
-  // Cache key v3 (mai 2026) : bump apres ajout phases 1-4 (Wikipedia,
-  // Yahoo officer, GDELT news, trading stats). Les caches v2 ne contiennent
-  // pas ces nouveaux champs -> doivent etre invalides pour que l'user voie
-  // les nouvelles donnees sans attendre 15 min.
-  const cacheKey = `profile:v3:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
+  // Cache key v4 (mai 2026) : bump apres fix Yahoo officer (crumb auth).
+  // v3 cachait yahooOfficer:null pour TOUS les insiders car le helper ne
+  // passait pas le crumb -> Yahoo retournait 'Invalid Crumb' 401 -> empty.
+  // v4 force re-fetch avec la session crumb correcte.
+  const cacheKey = `profile:v4:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return jsonResponse(cached, 200, origin);
