@@ -1179,7 +1179,18 @@
       'dash.section.shorts.title': 'Short Interest',
       'dash.section.shorts.desc': 'Actions les plus shortées du marché US — détectez les potentiels short squeezes.',
       'dash.section.portfolio.title': 'Mon Portefeuille',
-      'dash.section.portfolio.desc': 'Suivez la performance de vos trades et branchez votre broker pour un suivi automatique de vos positions avec <strong>alertes smart money</strong> contextuelles.',
+      'dash.section.portfolio.desc': 'Importez votre historique de trades en CSV pour analyser votre <strong>performance</strong>, votre <strong>P&L</strong>, votre <strong>calendrier</strong>, et bientôt recevoir des <strong>alertes smart money</strong> sur vos positions.',
+
+      // ==== IMPORT CSV PORTEFEUILLE (refonte mai 2026, CSV-only) ====
+      'dash.portfolio.import_title': 'Importez votre historique de trades',
+      'dash.portfolio.import_sub': 'Glissez votre fichier CSV ici ou cliquez pour parcourir',
+      'dash.portfolio.import_btn': 'Choisir un fichier CSV',
+      'dash.portfolio.brokers_label': 'Compatible avec :',
+      'dash.portfolio.more_brokers': '+ autres',
+      'dash.portfolio.help_link': '📖 Comment exporter mon CSV ?',
+      'dash.portfolio.help_modal_title': '📖 Comment exporter mon historique CSV ?',
+      'dash.portfolio.help_modal_sub': 'Chaque broker propose un export de votre historique de transactions. Voici où le trouver :',
+      'dash.portfolio.help_modal_note': '💡 Le CSV doit contenir au minimum : <strong>date, ticker (ou nom action), type (achat/vente), quantité, prix</strong>. La plupart des brokers exportent ces colonnes par défaut. Si votre broker n\'est pas listé, essayez quand même — notre parser est tolérant.',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2393,7 +2404,18 @@
       'dash.section.shorts.title': 'Short Interest',
       'dash.section.shorts.desc': 'Most shorted stocks in the US market — spot potential short squeezes.',
       'dash.section.portfolio.title': 'My Portfolio',
-      'dash.section.portfolio.desc': 'Track your trades performance and connect your broker for automatic positions sync with contextual <strong>smart money alerts</strong>.',
+      'dash.section.portfolio.desc': 'Import your trades history as CSV to analyze your <strong>performance</strong>, <strong>P&L</strong>, <strong>calendar</strong>, and soon receive <strong>smart money alerts</strong> on your positions.',
+
+      // ==== PORTFOLIO CSV IMPORT (rebuild May 2026, CSV-only) ====
+      'dash.portfolio.import_title': 'Import your trades history',
+      'dash.portfolio.import_sub': 'Drop your CSV file here or click to browse',
+      'dash.portfolio.import_btn': 'Choose a CSV file',
+      'dash.portfolio.brokers_label': 'Compatible with:',
+      'dash.portfolio.more_brokers': '+ more',
+      'dash.portfolio.help_link': '📖 How to export my CSV?',
+      'dash.portfolio.help_modal_title': '📖 How to export my CSV history?',
+      'dash.portfolio.help_modal_sub': 'Every broker offers a transactions history export. Here\'s where to find it:',
+      'dash.portfolio.help_modal_note': '💡 The CSV must contain at least: <strong>date, ticker (or stock name), type (buy/sell), quantity, price</strong>. Most brokers export these columns by default. If your broker isn\'t listed, try anyway — our parser is tolerant.',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',
