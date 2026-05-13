@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-portfolio-broker-logos"></script>
+  <script src="assets/i18n.js?v=20260513-portfolio-free-registered"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -17792,9 +17792,15 @@
 
     async function handleCsvFile(file) {
       if (!file) return;
-      // Defense en profondeur : bloque l'import si pas d'abonnement actif
-      if (!isPremium) {
-        document.getElementById('paywallOverlay').classList.remove('hidden');
+      // Portfolio = produit d'appel gratuit pour les utilisateurs INSCRITS (mai 2026).
+      // Avant : check isPremium -> bloquait meme les inscrits non-Pro+ (paywall).
+      // Maintenant : check currentUser -> bloque uniquement les anonymes,
+      // avec authOverlay (inscription gratuite) au lieu du paywall Pro+.
+      // Strategie : portfolio = funnel d'acquisition free, alertes smart money
+      // sur les positions = la vraie valeur Pro+ (via modal upsell sur badges).
+      if (!currentUser) {
+        const authOverlay = document.getElementById('authOverlay');
+        if (authOverlay) authOverlay.classList.remove('hidden');
         return;
       }
       const status = document.getElementById('csvStatus');

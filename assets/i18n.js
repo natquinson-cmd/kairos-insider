@@ -166,7 +166,7 @@
       'feat.portfolio.desc_html': 'Importez votre CSV depuis <strong>20+ brokers EU et US</strong> (Trade Republic, Degiro, Fidelity, Schwab, Robinhood…). Détection automatique. <strong>Alertes smart money</strong> sur vos positions, P&L latent en temps réel, win rate, drawdown.',
       'feat.portfolio.chip': '100% gratuit · 20+ brokers · Smart money',
       // Section promo Mon Portefeuille (landing page)
-      'promo.portfolio.badge': '📊 Mon Portefeuille — 100% gratuit',
+      'promo.portfolio.badge': '📊 Mon Portefeuille — Gratuit avec un compte',
       'promo.portfolio.title_part1': 'Importez votre portefeuille en',
       'promo.portfolio.title_highlight': '1 clic',
       'promo.portfolio.title_part2': ', recevez les alertes smart money',
@@ -180,7 +180,7 @@
       'promo.portfolio.brokers_eu': 'Brokers Européens',
       'promo.portfolio.brokers_us': 'Brokers Américains',
       'promo.portfolio.cta': 'Importer mon portefeuille maintenant',
-      'promo.portfolio.cta_note': 'Gratuit · Aucune carte requise · Vos données ne quittent pas votre compte',
+      'promo.portfolio.cta_note': 'Gratuit · Inscription rapide (pas de CB) · Vos données restent dans votre compte',
 
       // ==== COMPARAISON ====
       'comp.badge': 'Comparaison',
@@ -1459,7 +1459,7 @@
       'feat.portfolio.desc_html': 'Import your CSV from <strong>20+ EU and US brokers</strong> (Trade Republic, Degiro, Fidelity, Schwab, Robinhood…). Auto-detection. <strong>Smart money alerts</strong> on your positions, real-time unrealized P&L, win rate, drawdown.',
       'feat.portfolio.chip': '100% free · 20+ brokers · Smart money',
       // My Portfolio promo section (landing page)
-      'promo.portfolio.badge': '📊 My Portfolio — 100% free',
+      'promo.portfolio.badge': '📊 My Portfolio — Free with an account',
       'promo.portfolio.title_part1': 'Import your portfolio in',
       'promo.portfolio.title_highlight': '1 click',
       'promo.portfolio.title_part2': ', get smart money alerts',
@@ -1473,7 +1473,7 @@
       'promo.portfolio.brokers_eu': 'European Brokers',
       'promo.portfolio.brokers_us': 'US Brokers',
       'promo.portfolio.cta': 'Import my portfolio now',
-      'promo.portfolio.cta_note': 'Free · No credit card · Your data stays in your account',
+      'promo.portfolio.cta_note': 'Free · Quick signup (no credit card) · Your data stays in your account',
 
       'comp.badge': 'Comparison',
       'comp.title_part1': 'Why',
