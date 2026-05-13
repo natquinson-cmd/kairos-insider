@@ -3496,10 +3496,11 @@ async function handleInsiderProfile(url, env, origin) {
     return jsonResponse({ error: 'Missing name or cik' }, 400, origin);
   }
 
-  // Cache key v5 (mai 2026) : bump apres fix Wikipedia (inversion last-first
-  // toujours tentee, plus seulement sur ALL-CAPS). v4 cachait wikipedia:null
-  // pour les insiders title-case dont la page WP existe (ex Parekh Kevan).
-  const cacheKey = `profile:v5:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
+  // Cache key v6 (mai 2026) : bump apres cleanup duplicates D1 (8567 rows
+  // supprimees par le workflow cleanup-insider-duplicates one-shot). v5
+  // cachait les responses avec les anciens totaux gonfles (rows D1 dupliquees).
+  // v6 force fresh fetch sur la table maintenant propre.
+  const cacheKey = `profile:v6:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return jsonResponse(cached, 200, origin);
