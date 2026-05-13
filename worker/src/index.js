@@ -11576,6 +11576,17 @@ const JOB_REGISTRY = [
     description: 'Refresh haute volatilité toutes les 30 min (à *:15 et *:45). 4 jobs en parallèle : (1) SEC 13D/A activistes + rebuild indexes filer/EU-UK, (2) AMF FR déclarations dirigeants, (3) BaFin DE Directors\' Dealings, (4) seuils EU (AMF + BaFin + AFM NL via Playwright stealth). Latence ~10 min total grâce à la parallélisation. Décalé de :00/:30 pour éviter la course avec update-13f (1:30 UTC). Concurrency cancel-in-progress = pas d\'empilement si run > 30 min.',
   },
   {
+    id: 'form4-realtime',
+    name: 'Realtime Form 4 30 min (insiders US)',
+    cron: '20,50 * * * *',
+    type: 'github-actions',
+    workflowFile: 'realtime-form4-30min.yml',
+    avgDurationSec: 120,    // 1er run ~7m49s, steady state 1-3min grace au dedup adsh
+    lastRunKey: 'lastRun:form4-realtime',
+    historyKey: 'runHistory:form4-realtime',
+    description: 'Refresh Form 4 SEC (insiders US) toutes les 30 min (à *:20 et *:50, décalé du realtime-30min pour éviter la collision SEC). Utilise le proxy CF Worker /api/admin/sec-proxy pour contourner le rate-limit des IPs GitHub Actions (fix mai 2026 après data figée 6 jours). Dedup adsh : skip XML fetch des filings déjà indexés (~95% en steady state) -> run de 30-60s vs 12-15 min sans dedup. Split SEC vs non-SEC (BaFin/AMF preserves intacts). Push D1 INSERT OR IGNORE pour Top Insiders ROI history.',
+  },
+  {
     id: 'backup',
     name: 'Backup D1 + KV → R2',
     cron: '0 1 * * *',
