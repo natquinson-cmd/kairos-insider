@@ -2486,7 +2486,8 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   )].slice(0, 50);
   if (tickers.length === 0) return jsonResponse({ summaries: {}, days }, 200, origin);
 
-  const cacheKey = `pf-summary:${tickers.slice().sort().join(',')}:${days}d`;
+  // v2 (mai 2026) : ajout currentPrice + currency dans summaries
+  const cacheKey = `pf-summary:v2:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -2631,13 +2632,30 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       }
     } catch (e) { console.warn('pf-summary etf failed:', e); }
 
-    // 4) Compose summary final + verdict
+    // 4) CURRENT PRICES (parallel, cap = tickers.length max 50)
+    // Permet le calcul UI du P&L latent (currentPrice - avgPrice) * netQty.
+    // Reuse fetchCurrentPriceCached : Yahoo Finance regular market price,
+    // cache KV 4h. Si Yahoo down -> currentPrice = null, le front gracieux.
+    let pricesByTicker = {};
+    try {
+      const pricePromises = tickers.map(t => fetchCurrentPriceCached(t, env));
+      const prices = await Promise.all(pricePromises);
+      tickers.forEach((t, i) => {
+        const p = prices[i];
+        if (p && typeof p.price === 'number' && p.price > 0) {
+          pricesByTicker[t] = { price: p.price, currency: p.currency || 'USD' };
+        }
+      });
+    } catch (e) { console.warn('pf-summary prices failed:', e); }
+
+    // 5) Compose summary final + verdict
     const summaries = {};
     for (const ticker of tickers) {
       const sNow = scoresNow[ticker];
       const sPrev = scoresPrev[ticker];
       const ins = insidersByTicker[ticker] || { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
       const etf = etfByTicker[ticker] || { newCount: 0, exitCount: 0 };
+      const priceInfo = pricesByTicker[ticker] || null;
 
       const scoreNow = sNow ? sNow.total : null;
       const scoreDelta = (sNow && sPrev && sNow.date !== sPrev.date) ? Number((sNow.total - sPrev.total).toFixed(1)) : null;
@@ -2661,6 +2679,10 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
         etf,
         verdict,
         eventsTotal: ins.count + etf.newCount + etf.exitCount + (scoreDelta && Math.abs(scoreDelta) >= 3 ? 1 : 0),
+        // Prix courant (Yahoo regular market price, cache 4h) pour le calcul
+        // UI du P&L latent. null si Yahoo down ou ticker introuvable.
+        currentPrice: priceInfo ? priceInfo.price : null,
+        currency: priceInfo ? priceInfo.currency : null,
       };
     }
 

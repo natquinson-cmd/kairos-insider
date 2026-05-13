@@ -1211,6 +1211,12 @@
       'dash.portfolio.import_more': '+ Importer plus',
       'dash.portfolio.no_positions_title': 'Aucune position en cours détectée',
       'dash.portfolio.no_positions_sub': 'Votre CSV contient uniquement des trades clôturés (P&L réalisé). Importez un fichier de transactions (achats + ventes) pour voir vos positions actuelles.',
+      // Card englobante positions en cours (mai 2026 — funnel Pro+ + P&L latent)
+      'dash.portfolio.positions_live_label': 'Positions live · 30j',
+      'dash.portfolio.total_invested': 'Investi',
+      'dash.portfolio.total_market': 'Valeur actuelle',
+      'dash.portfolio.total_unrealized': 'P&L latent',
+      'dash.portfolio.col_unrealized': 'P&L latent',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2456,6 +2462,12 @@
       'dash.portfolio.import_more': '+ Import more',
       'dash.portfolio.no_positions_title': 'No current positions detected',
       'dash.portfolio.no_positions_sub': 'Your CSV only contains closed trades (realized P&L). Import a transactions file (buys + sells) to see your current positions.',
+      // Card wrapper for current positions (May 2026 — Pro+ funnel + unrealized P&L)
+      'dash.portfolio.positions_live_label': 'Live positions · 30d',
+      'dash.portfolio.total_invested': 'Invested',
+      'dash.portfolio.total_market': 'Market value',
+      'dash.portfolio.total_unrealized': 'Unrealized P&L',
+      'dash.portfolio.col_unrealized': 'Unrealized P&L',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',
