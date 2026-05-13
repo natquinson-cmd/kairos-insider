@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-news-overflow-pc"></script>
+  <script src="assets/i18n.js?v=20260513-funds-sort"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -2980,6 +2980,32 @@
     .fund-row td:first-child { font-weight: 700; color: var(--accent-blue); }
     .fund-row .chevron { display: inline-block; transition: transform 0.3s; font-size: 12px; color: var(--text-muted); margin-left: 6px; }
     .fund-row.expanded .chevron { transform: rotate(90deg); }
+
+    /* ===== SORTABLE HEADERS (Hedge Funds + autres tableaux) =====
+       Header cliquable avec icone de tri : ⇅ idle, ↑ asc, ↓ desc.
+       Hover : highlight subtil. user-select:none pour eviter le drag-select au double-click. */
+    .funds-table-wrap th.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .funds-table-wrap th.sortable:hover {
+      background: var(--surface-2) !important;
+      color: var(--accent-blue);
+    }
+    .funds-table-wrap th.sortable .sort-icon {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
+      opacity: 0.35;
+      transition: opacity 0.15s, color 0.15s;
+      vertical-align: 1px;
+    }
+    .funds-table-wrap th.sortable.sort-active .sort-icon {
+      opacity: 1;
+      color: var(--accent-blue);
+    }
+    .funds-table-wrap th.sortable:hover .sort-icon { opacity: 0.8; }
     .fund-detail-row { display: none; }
     .fund-detail-row.open { display: table-row; }
     .fund-detail-cell {
@@ -13930,6 +13956,20 @@
       }
     }
 
+    // ============================================================
+    // HEDGE FUNDS — State module-level pour sort/filter sans re-fetch
+    // ============================================================
+    // _origIdx (= position dans la reponse API, 0-based) sert d'identifiant
+    // stable pour data-fund-idx, id="fund-detail-X", fundChartsLoaded[X], etc.
+    // Quand on trie, l'ORDRE des rows change mais les IDs sous-jacents
+    // restent les memes -> toggleFund(idx) marche toujours, le cache
+    // fundChartsLoaded reste valide, et on n'a pas a re-fetch /api/13f-funds.
+    let _hedgeFundsState = {
+      funds: [],          // donnees brutes de l'API (avec _origIdx annote)
+      sortKey: null,      // 'aum' | 'perf' | 'perfY' | 'positions' | 'filingDate' | null
+      sortDir: null,      // 'asc' | 'desc' | null
+    };
+
     async function load13FFunds() {
       const area = document.getElementById('thirteenFArea');
       try {
@@ -13938,124 +13978,212 @@
           area.innerHTML = '<div class="empty-state"><p>Aucune donnee de fonds disponible.</p></div>';
           return;
         }
-
-        let rows = '';
-        for (let i = 0; i < funds.length; i++) {
-          const f = funds[i];
-          const aum = f.totalValue > 0 ? fmtCurShort(f.totalValue) : 'N/A';
-          const holdings = f.holdingsCount || 0;
-
-          const perf = f.performance;
-          const perfStr = perf !== null && perf !== undefined
-            ? `<span style="color:var(--accent-${perf >= 0 ? 'green' : 'red'});font-weight:700">${perf >= 0 ? '+' : ''}${perf}%</span>`
-            : '—';
-
-          const perfY = f.perfAnnual;
-          const perfYStr = perfY !== null && perfY !== undefined
-            ? `<span style="color:var(--accent-${perfY >= 0 ? 'green' : 'red'});font-weight:700">${perfY >= 0 ? '+' : ''}${perfY}%</span>`
-            : '—';
-
-          // Fusion Investisseur + Fonds + Categorie : tout regroupe dans
-          // une seule cellule (label gros + sous-titres) -> 9 colonnes -> 6
-          const labelTxt = f.label || f.fundName || 'Inconnu';
-          const fundTxt = f.fundName && f.fundName !== labelTxt ? f.fundName : '';
-          const categoryTxt = f.category || '';
-          const subline = [fundTxt, categoryTxt].filter(Boolean).join(' · ');
-
-          // Searchable text : label + fundName + category - utilise pour filterHedgeFunds()
-          const searchableText = [labelTxt, fundTxt, categoryTxt].filter(Boolean).join(' ').toLowerCase();
-          rows += `<tr class="fund-row" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
-            <td style="opacity:0.6">${i + 1}</td>
-            <td>
-              <div style="font-weight:600;color:var(--text-primary)">${labelTxt} <span class="chevron">&#9654;</span></div>
-              ${subline ? `<div style="font-size:11px;opacity:0.55;margin-top:2px">${subline}</div>` : ''}
-            </td>
-            <td style="text-align:right;font-weight:600">${aum}</td>
-            <td style="text-align:right">${perfStr}</td>
-            <td style="text-align:right">${perfYStr}</td>
-            <td style="text-align:right">${holdings > 0 ? fmtNum(holdings) : '—'}</td>
-            <td class="last-update" style="text-align:right;white-space:nowrap">${fmtDate(f.filingDate)}</td>
-          </tr>`;
-
-          // Ligne dépliable avec les top holdings
-          let detailContent = '';
-          if (f.topHoldings && f.topHoldings.length > 0) {
-            let holdingRows = '';
-            for (const h of f.topHoldings) {
-              const barWidth = Math.min(Math.max(h.pct * 2, 2), 100);
-
-              // Indicateur de variation
-              let changeHtml = '';
-              if (h.status === 'new') {
-                changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
-              } else if (h.sharesChange !== null && h.sharesChange !== undefined) {
-                const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-                const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
-                changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
-              } else {
-                changeHtml = '<span style="color:var(--text-muted)">—</span>';
-              }
-
-              holdingRows += `<tr>
-                <td style="color:var(--text-primary)">${h.name}</td>
-                <td style="text-align:right">${fmtNum(h.shares)}</td>
-                <td style="text-align:right">${fmtCurShort(h.value)}</td>
-                <td style="text-align:right"><span class="pct-bar" style="width:${barWidth}px"></span>${h.pct}%</td>
-                <td style="text-align:right">${changeHtml}</td>
-              </tr>`;
-            }
-
-            const prevLabel = f.prevReportDate ? ` vs ${fmtDate(f.prevReportDate)}` : '';
-            detailContent = `
-              <div id="fund-charts-${i}"></div>
-              <div class="sub-header">
-                <span>Top ${f.topHoldings.length} positions</span>
-                <span class="last-update">Positions au ${fmtDate(f.reportDate)}${prevLabel}</span>
-              </div>
-              <div class="table-wrap" style="border:none">
-                <table>
-                  <thead><tr>
-                    <th>Action</th>
-                    <th style="text-align:right">Nb d'actions</th>
-                    <th style="text-align:right">Valeur</th>
-                    <th style="text-align:right">% du portefeuille</th>
-                    <th style="text-align:right">Variation</th>
-                  </tr></thead>
-                  <tbody>${holdingRows}</tbody>
-                </table>
-              </div>`;
-          } else {
-            detailContent = '<p style="color:var(--text-muted);padding:8px 0;">Donnees de positions indisponibles pour ce fonds (format XML non standard).</p>';
-          }
-
-          rows += `<tr class="fund-detail-row" id="fund-detail-${i}">
-            <td colspan="7" class="fund-detail-cell">
-              <div class="fund-detail-inner">${detailContent}</div>
-            </td>
-          </tr>`;
-        }
-
-        area.innerHTML = `
-          <div class="table-wrap funds-table-wrap">
-            <table>
-              <thead><tr>
-                <th style="width:40px">#</th>
-                <th>Investisseur</th>
-                <th style="text-align:right;white-space:nowrap">AUM estimé</th>
-                <th style="text-align:right;white-space:nowrap" title="Performance du dernier trimestre">Perf. trim.</th>
-                <th style="text-align:right;white-space:nowrap" title="Performance sur 1 an">Perf. 1 an</th>
-                <th style="text-align:right">Positions</th>
-                <th style="text-align:right;white-space:nowrap">Dernière MàJ</th>
-              </tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>`;
+        // Annote chaque fund avec son index original (= rang AUM API)
+        // pour que data-fund-idx/id reste stable au sort.
+        _hedgeFundsState.funds = funds.map((f, i) => ({ ...f, _origIdx: i }));
+        // Reset sort a chaque nouveau load (au cas ou le user a switch de page)
+        _hedgeFundsState.sortKey = null;
+        _hedgeFundsState.sortDir = null;
+        renderHedgeFundsTable();
       } catch (err) {
         if (err.message !== 'Unauthorized') {
           area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
         }
       }
     }
+
+    // Renderer reutilisable : appele par load13FFunds (initial) et
+    // sortHedgeFunds (apres toggle de tri). Lit le state, applique le
+    // sort, render le HTML, puis re-applique le filtre search live.
+    function renderHedgeFundsTable() {
+      const area = document.getElementById('thirteenFArea');
+      if (!area) return;
+      const state = _hedgeFundsState;
+      let funds = state.funds.slice();
+
+      // ---- SORT ----
+      // Convention : on extrait la valeur a comparer. null/undefined -> bottom
+      // dans les 2 directions (ascendant ou descendant), pour eviter qu'un
+      // fonds sans perf annuelle plombe le top quand on tri par perf.
+      if (state.sortKey && state.sortDir) {
+        const getVal = (f) => {
+          switch (state.sortKey) {
+            case 'aum':         return f.totalValue ?? null;
+            case 'perf':        return f.performance ?? null;
+            case 'perfY':       return f.perfAnnual ?? null;
+            case 'positions':   return f.holdingsCount ?? null;
+            case 'filingDate':  return f.filingDate || null;
+            default: return null;
+          }
+        };
+        funds.sort((a, b) => {
+          const va = getVal(a), vb = getVal(b);
+          if (va == null && vb == null) return 0;
+          if (va == null) return 1;   // nulls bottom
+          if (vb == null) return -1;
+          let cmp;
+          if (typeof va === 'string') cmp = va.localeCompare(vb);
+          else cmp = va - vb;
+          return state.sortDir === 'asc' ? cmp : -cmp;
+        });
+      }
+
+      // ---- ROWS ----
+      let rows = '';
+      for (let pos = 0; pos < funds.length; pos++) {
+        const f = funds[pos];
+        const i = f._origIdx;                       // ID stable
+        const displayRank = pos + 1;                // rang visible (suit le sort)
+        const aum = f.totalValue > 0 ? fmtCurShort(f.totalValue) : 'N/A';
+        const holdings = f.holdingsCount || 0;
+
+        const perf = f.performance;
+        const perfStr = perf !== null && perf !== undefined
+          ? `<span style="color:var(--accent-${perf >= 0 ? 'green' : 'red'});font-weight:700">${perf >= 0 ? '+' : ''}${perf}%</span>`
+          : '—';
+
+        const perfY = f.perfAnnual;
+        const perfYStr = perfY !== null && perfY !== undefined
+          ? `<span style="color:var(--accent-${perfY >= 0 ? 'green' : 'red'});font-weight:700">${perfY >= 0 ? '+' : ''}${perfY}%</span>`
+          : '—';
+
+        const labelTxt = f.label || f.fundName || 'Inconnu';
+        const fundTxt = f.fundName && f.fundName !== labelTxt ? f.fundName : '';
+        const categoryTxt = f.category || '';
+        const subline = [fundTxt, categoryTxt].filter(Boolean).join(' · ');
+
+        const searchableText = [labelTxt, fundTxt, categoryTxt].filter(Boolean).join(' ').toLowerCase();
+        rows += `<tr class="fund-row" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
+          <td style="opacity:0.6">${displayRank}</td>
+          <td>
+            <div style="font-weight:600;color:var(--text-primary)">${labelTxt} <span class="chevron">&#9654;</span></div>
+            ${subline ? `<div style="font-size:11px;opacity:0.55;margin-top:2px">${subline}</div>` : ''}
+          </td>
+          <td style="text-align:right;font-weight:600">${aum}</td>
+          <td style="text-align:right">${perfStr}</td>
+          <td style="text-align:right">${perfYStr}</td>
+          <td style="text-align:right">${holdings > 0 ? fmtNum(holdings) : '—'}</td>
+          <td class="last-update" style="text-align:right;white-space:nowrap">${fmtDate(f.filingDate)}</td>
+        </tr>`;
+
+        // Detail row (top holdings) — IDs stables sur _origIdx
+        let detailContent = '';
+        if (f.topHoldings && f.topHoldings.length > 0) {
+          let holdingRows = '';
+          for (const h of f.topHoldings) {
+            const barWidth = Math.min(Math.max(h.pct * 2, 2), 100);
+            let changeHtml = '';
+            if (h.status === 'new') {
+              changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
+            } else if (h.sharesChange !== null && h.sharesChange !== undefined) {
+              const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+              const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
+              changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
+            } else {
+              changeHtml = '<span style="color:var(--text-muted)">—</span>';
+            }
+            holdingRows += `<tr>
+              <td style="color:var(--text-primary)">${h.name}</td>
+              <td style="text-align:right">${fmtNum(h.shares)}</td>
+              <td style="text-align:right">${fmtCurShort(h.value)}</td>
+              <td style="text-align:right"><span class="pct-bar" style="width:${barWidth}px"></span>${h.pct}%</td>
+              <td style="text-align:right">${changeHtml}</td>
+            </tr>`;
+          }
+
+          const prevLabel = f.prevReportDate ? ` vs ${fmtDate(f.prevReportDate)}` : '';
+          detailContent = `
+            <div id="fund-charts-${i}"></div>
+            <div class="sub-header">
+              <span>Top ${f.topHoldings.length} positions</span>
+              <span class="last-update">Positions au ${fmtDate(f.reportDate)}${prevLabel}</span>
+            </div>
+            <div class="table-wrap" style="border:none">
+              <table>
+                <thead><tr>
+                  <th>Action</th>
+                  <th style="text-align:right">Nb d'actions</th>
+                  <th style="text-align:right">Valeur</th>
+                  <th style="text-align:right">% du portefeuille</th>
+                  <th style="text-align:right">Variation</th>
+                </tr></thead>
+                <tbody>${holdingRows}</tbody>
+              </table>
+            </div>`;
+        } else {
+          detailContent = '<p style="color:var(--text-muted);padding:8px 0;">Donnees de positions indisponibles pour ce fonds (format XML non standard).</p>';
+        }
+
+        rows += `<tr class="fund-detail-row" id="fund-detail-${i}">
+          <td colspan="7" class="fund-detail-cell">
+            <div class="fund-detail-inner">${detailContent}</div>
+          </td>
+        </tr>`;
+      }
+
+      // ---- HEADER avec sort indicators ----
+      // Icone : ⇅ idle (gris), ↑ asc, ↓ desc. Class 'sort-active' bascule
+      // l'icone en accent-blue plein opaque (cf CSS .funds-table-wrap th.sortable.sort-active).
+      const sortIcon = (key) => {
+        if (state.sortKey !== key) return '<span class="sort-icon">⇅</span>';
+        return state.sortDir === 'asc'
+          ? '<span class="sort-icon">↑</span>'
+          : '<span class="sort-icon">↓</span>';
+      };
+      const sortCls = (key) => state.sortKey === key ? 'sortable sort-active' : 'sortable';
+      const titleSort = window.KairosI18n && window.KairosI18n.getLang() === 'en'
+        ? 'Click to sort'
+        : 'Cliquer pour trier';
+
+      area.innerHTML = `
+        <div class="table-wrap funds-table-wrap">
+          <table>
+            <thead><tr>
+              <th style="width:40px">#</th>
+              <th>Investisseur</th>
+              <th class="${sortCls('aum')}" onclick="sortHedgeFunds('aum')" style="text-align:right;white-space:nowrap" title="${titleSort}">AUM estimé${sortIcon('aum')}</th>
+              <th class="${sortCls('perf')}" onclick="sortHedgeFunds('perf')" style="text-align:right;white-space:nowrap" title="Performance du dernier trimestre — ${titleSort}">Perf. trim.${sortIcon('perf')}</th>
+              <th class="${sortCls('perfY')}" onclick="sortHedgeFunds('perfY')" style="text-align:right;white-space:nowrap" title="Performance sur 1 an — ${titleSort}">Perf. 1 an${sortIcon('perfY')}</th>
+              <th class="${sortCls('positions')}" onclick="sortHedgeFunds('positions')" style="text-align:right" title="${titleSort}">Positions${sortIcon('positions')}</th>
+              <th class="${sortCls('filingDate')}" onclick="sortHedgeFunds('filingDate')" style="text-align:right;white-space:nowrap" title="${titleSort}">Dernière MàJ${sortIcon('filingDate')}</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+
+      // Reset le cache de charts depliables : on vient de recreer les containers
+      // 'fund-charts-X' vides, donc le prochain toggleFund doit re-rendre les
+      // charts. Sans ca, fundChartsLoaded[idx]=true bloque le chart render
+      // et le user voit un detail sans treemap/sparkline.
+      fundChartsLoaded = {};
+      destroyCharts();
+
+      // Re-applique le filtre search live (si user avait tape avant le sort)
+      const searchInput = document.getElementById('hedgeFundsSearch');
+      if (searchInput && searchInput.value) {
+        filterHedgeFunds(searchInput.value);
+      }
+    }
+
+    // Sort 3-state : 1er clic asc → 2e desc → 3e reset (ordre original API).
+    // Pour les colonnes numeriques (AUM, perf, positions), on demarre par DESC
+    // (intuitif : "tri par AUM" = "plus gros d'abord"). Pour les dates,
+    // DESC aussi (plus recent d'abord).
+    function sortHedgeFunds(key) {
+      const state = _hedgeFundsState;
+      if (state.sortKey === key) {
+        // Cycle desc → asc → null
+        if (state.sortDir === 'desc') state.sortDir = 'asc';
+        else if (state.sortDir === 'asc') { state.sortKey = null; state.sortDir = null; }
+        else state.sortDir = 'desc';
+      } else {
+        state.sortKey = key;
+        state.sortDir = 'desc';  // start desc pour numerics + dates
+      }
+      renderHedgeFundsTable();
+    }
+    // Expose globalement pour les onclick="sortHedgeFunds(...)" inline.
+    window.sortHedgeFunds = sortHedgeFunds;
 
     let fundChartsLoaded = {};
 
