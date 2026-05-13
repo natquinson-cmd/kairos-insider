@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-insider-wikipedia-photo-bio"></script>
+  <script src="assets/i18n.js?v=20260513-insider-phase234-yahoo-gdelt-winrate"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -9731,6 +9731,24 @@
            </div>`
         : '';
 
+      // Phase 2 : Yahoo officer info (age + total pay + officer title)
+      const officer = data.yahooOfficer || null;
+      const officerBioBits = [];
+      if (officer) {
+        if (officer.title && officer.title !== (idn.rolesSeen || [])[0]) officerBioBits.push(escapeHtmlClient(officer.title));
+        if (officer.age) officerBioBits.push(`${officer.age} ${t('insider.profile.years_old', 'ans')}`);
+        else if (officer.yearBorn) officerBioBits.push(`${t('insider.profile.born_in', 'né en')} ${officer.yearBorn}`);
+        if (officer.totalPay && officer.totalPay > 0) {
+          officerBioBits.push(`${t('insider.profile.total_pay', 'rémunération')} ${fmtUsd(officer.totalPay)}${officer.fiscalYear ? ` (FY${officer.fiscalYear})` : ''}`);
+        }
+      }
+      const yahooOfficerHtml = officerBioBits.length > 0
+        ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted)">
+             <span style="color:#a29bfe">●</span> ${officerBioBits.join(' · ')}
+             ${officer && officer.foundInTicker ? `<span style="opacity:0.6;font-size:11px;margin-left:4px">${t('insider.profile.officer_source', 'via').replace(/^/, '— Yahoo Finance ')}${officer.foundInTicker}</span>` : ''}
+           </div>`
+        : '';
+
       const headerHtml = `
         <div style="display:flex;align-items:flex-start;gap:18px;margin-bottom:18px;flex-wrap:wrap">
           <button onclick="history.back()" style="padding:6px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;font-size:13px;flex-shrink:0;align-self:center">${t('insider.profile.back', '← Retour')}</button>
@@ -9743,6 +9761,7 @@
             </div>
             ${wikiDescriptionHtml}
             ${bioComputed ? `<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px">${safeHtml(bioComputed)}</div>` : ''}
+            ${yahooOfficerHtml}
             ${wikiExtractHtml}
           </div>
         </div>
@@ -9869,16 +9888,98 @@
             </tbody>
           </table></div>`;
 
+      // ========== TRADING STATS (Phase 4 mai 2026) ==========
+      const stats = data.tradingStats || null;
+      let tradingStatsHtml = '';
+      if (stats && stats.totalBuysAnalyzed > 0) {
+        const winColor = stats.winRate >= 60 ? '#10B981' : stats.winRate >= 40 ? '#F59E0B' : '#EF4444';
+        const retColor = stats.avgReturnPct > 0 ? '#10B981' : stats.avgReturnPct < 0 ? '#EF4444' : 'var(--text-muted)';
+        const sign = (n) => (n > 0 ? '+' : '');
+        const renderPick = (p, label) => p ? `
+          <div style="padding:12px 14px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${label}</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-size:14px;font-weight:700;color:var(--accent-blue);font-family:monospace">${escapeHtmlClient(p.ticker)}</span>
+              <span style="font-size:18px;font-weight:700;color:${p.gainPct > 0 ? '#10B981' : '#EF4444'}">${sign(p.gainPct)}${p.gainPct}%</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">$${p.buyPrice.toFixed(2)} → $${p.currentPrice.toFixed(2)} · ${fmtDate(p.transDate)}</div>
+          </div>` : '';
+        tradingStatsHtml = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px">
+            <div style="padding:14px;background:var(--surface-1);border:1px solid ${winColor}40;border-radius:10px">
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.winrate', 'Win rate')}</div>
+              <div style="font-size:22px;font-weight:700;color:${winColor}">${stats.winRate}%</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${t('insider.profile.winrate_sub', '% achats en gain')}</div>
+            </div>
+            <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.bigwin', 'Big wins')}</div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-primary)">${stats.bigWinRate}%</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${t('insider.profile.bigwin_sub', '% achats > +10%')}</div>
+            </div>
+            <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.avg_return', 'Retour moyen')}</div>
+              <div style="font-size:22px;font-weight:700;color:${retColor}">${sign(stats.avgReturnPct)}${stats.avgReturnPct}%</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${t('insider.profile.avg_return_sub', 'pondéré par $')}</div>
+            </div>
+            <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
+              <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${t('insider.profile.buys_analyzed', 'Achats analysés')}</div>
+              <div style="font-size:22px;font-weight:700;color:var(--text-primary)">${stats.totalBuysAnalyzed}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${stats.uniqueTickersAnalyzed} ${t('insider.profile.tickers', 'tickers')}</div>
+            </div>
+          </div>
+          ${stats.bestPick || stats.worstPick ? `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:14px">
+              ${renderPick(stats.bestPick, t('insider.profile.best_pick', '🏆 Meilleur pari'))}
+              ${renderPick(stats.worstPick, t('insider.profile.worst_pick', '📉 Pire pari'))}
+            </div>
+          ` : ''}
+          <div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-bottom:8px">
+            ⚠ ${t('insider.profile.stats_disclaimer', "Retours bruts (current price vs buy price), non annualisés, non comparés au marché.")}
+          </div>
+        `;
+      }
+
+      // ========== NEWS (Phase 3 mai 2026, GDELT 30j) ==========
+      const newsArticles = data.news || [];
+      const fmtNewsDate = (ymd) => {
+        // GDELT format : YYYYMMDDTHHMMSSZ
+        if (!ymd || ymd.length < 8) return '';
+        try {
+          const iso = `${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}`;
+          return new Date(iso).toLocaleDateString(_locale, { day: '2-digit', month: 'short' });
+        } catch { return ''; }
+      };
+      const newsHtml = newsArticles.length === 0 ? '' : `
+        <div style="display:grid;gap:8px;margin-bottom:14px">
+          ${newsArticles.map(a => `
+            <a href="${escapeHtmlClient(a.url)}" target="_blank" rel="noopener" class="news-row"
+               style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;color:inherit;text-decoration:none;transition:background 0.15s;min-width:0"
+               onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='var(--surface-1)'">
+              <div style="flex:1;min-width:0;font-size:13px;color:#74b9ff;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis" title="${escapeHtmlClient(a.title)}">${escapeHtmlClient(a.title)}</div>
+              <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;text-align:right">
+                <div>${fmtNewsDate(a.seenDate)}</div>
+                <div style="opacity:0.7;margin-top:2px">${escapeHtmlClient(a.domain.slice(0, 22))}</div>
+              </div>
+            </a>
+          `).join('')}
+        </div>
+      `;
+
       // ========== ASSEMBLE ==========
       const _h3Style = 'font-size:14px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin:32px 0 12px;font-weight:600';
       body.innerHTML = `
         ${headerHtml}
+
+        ${tradingStatsHtml ? `<h3 style="${_h3Style};margin-top:24px">${t('insider.profile.trading_stats_section', '🎯 Track record (achats analysés)')}</h3>${tradingStatsHtml}` : ''}
 
         <h3 style="${_h3Style};margin-top:24px">${t('insider.profile.companies_section', '🏢 Sociétés où il/elle est insider')}</h3>
         ${companiesHtml}
 
         ${breakdown.length > 0 ? `<h3 style="${_h3Style}">${t('insider.profile.types_section', '📊 Types de transactions')}</h3>
         ${breakdownHtml}` : ''}
+
+        ${newsArticles.length > 0 ? `<h3 style="${_h3Style}">${t('insider.profile.news_section', '📰 News récentes')} <span style="font-size:11px;text-transform:none;letter-spacing:normal;color:var(--text-muted);font-weight:400">${t('insider.profile.news_subtitle', '(30 jours, source GDELT)')}</span></h3>
+        ${newsHtml}` : ''}
 
         <h3 style="${_h3Style}">${t('insider.profile.txs_section', '📈 Transactions récentes')} <span style="font-size:11px;text-transform:none;letter-spacing:normal;color:var(--text-muted);font-weight:400">${t('insider.profile.txs_count_suffix', '(100 dernières)')}</span></h3>
         ${txsHtml}

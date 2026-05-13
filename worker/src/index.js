@@ -3160,6 +3160,295 @@ async function fetchWikipediaPerson(name, env) {
   return found;
 }
 
+// ============================================================
+// Yahoo Finance officer enrichment (Phase 2, mai 2026)
+// ============================================================
+// Pour les insiders qui sont des C-suite officers, Yahoo expose dans
+// /quoteSummary?modules=assetProfile la liste companyOfficers avec :
+// name, title, age, yearBorn, totalPay, exercisedValue, fiscalYear.
+//
+// Coverage : ~95% pour les CEOs/CFOs des companies cotees, mais zero
+// pour les directors / 10% owners externes (Yahoo ne liste que les C-suite).
+//
+// On essaie jusqu'a 3 companies du profil (le plus actif d'abord) et on
+// match par name fuzzy (lastname + firstname overlap >= 50%).
+// Cache 7 jours par ticker.
+async function fetchYahooOfficers(ticker, env) {
+  if (!ticker) return [];
+  const tickerUp = String(ticker).toUpperCase();
+  const cacheKey = `yahoo-officers:v1:${tickerUp}`;
+  try {
+    const cached = await env.CACHE?.get(cacheKey, 'json');
+    if (cached) return cached.officers || [];
+  } catch {}
+
+  let officers = [];
+  try {
+    // Pas de crumb requis pour assetProfile (= public info). Si Yahoo bloque,
+    // on degrade gracieusement (officers vide, pas d'erreur).
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(tickerUp)}?modules=assetProfile`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (KairosInsider; +contact@kairosinsider.fr)' },
+      cf: { cacheTtl: 86400 * 7 },
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      const profile = json?.quoteSummary?.result?.[0]?.assetProfile;
+      if (profile && Array.isArray(profile.companyOfficers)) {
+        const raw = (f) => (f && typeof f === 'object' && 'raw' in f) ? f.raw : f;
+        officers = profile.companyOfficers.map(o => ({
+          name: o.name || '',
+          title: o.title || '',
+          age: raw(o.age) || null,
+          yearBorn: raw(o.yearBorn) || null,
+          totalPay: raw(o.totalPay) || null,
+          exercisedValue: raw(o.exercisedValue) || null,
+          unexercisedValue: raw(o.unexercisedValue) || null,
+          fiscalYear: raw(o.fiscalYear) || null,
+        }));
+      }
+    }
+  } catch (e) { /* Silent : Yahoo down or blocked */ }
+
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify({ officers }), { expirationTtl: 86400 * 7 });
+  } catch {}
+  return officers;
+}
+
+// Normalize un nom pour matching : strip titles (Mr, Mrs, Dr...), suffixes
+// (Jr, Sr, II, III...), punctuation. Upper case, trim.
+function _normalizeNameForMatch(name) {
+  if (!name) return '';
+  return String(name)
+    .toUpperCase()
+    .replace(/\b(MR|MRS|MS|MISS|DR|PROF|SIR|MISS)\.?\b/g, '')
+    .replace(/\b(JR|SR|II|III|IV|V)\.?\b/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Match un insider name (SEC format ou autre) contre la liste des officers.
+// Score = overlap de mots / max(words). Threshold 50% (= 2 mots partages min
+// sur "Anthony Noto" vs "Mr. Anthony J. Noto" -> 2/3 = 67% -> match OK).
+function _matchOfficerToInsider(insiderName, officers) {
+  if (!insiderName || !officers?.length) return null;
+  const insWords = new Set(_normalizeNameForMatch(insiderName).split(' ').filter(w => w.length > 1));
+  if (insWords.size === 0) return null;
+
+  let bestMatch = null;
+  let bestScore = 0;
+  for (const officer of officers) {
+    const offWords = new Set(_normalizeNameForMatch(officer.name).split(' ').filter(w => w.length > 1));
+    if (offWords.size === 0) continue;
+    let shared = 0;
+    for (const w of insWords) if (offWords.has(w)) shared++;
+    const score = shared / Math.max(insWords.size, offWords.size);
+    if (score > bestScore && score >= 0.5) {
+      bestScore = score;
+      bestMatch = officer;
+    }
+  }
+  return bestMatch;
+}
+
+// ============================================================
+// Current price fetch (Phase 4, mai 2026)
+// ============================================================
+// Helper minimal pour fetcher le prix actuel d'un ticker via Yahoo v8/chart
+// (pas de crumb requis). Cache KV 4h (price evolue durant la session mais
+// pas besoin de refresh par minute pour win-rate calculation).
+//
+// Pour les tickers EU (.PA, .DE, etc.), accepte tel quel. Pour les tickers
+// canadiens (.TO), idem (Yahoo gere). Si echec -> null silencieux.
+async function fetchCurrentPriceCached(ticker, env) {
+  if (!ticker) return null;
+  const tickerUp = String(ticker).toUpperCase();
+  const cacheKey = `current-price:v1:${tickerUp}`;
+  try {
+    const cached = await env.CACHE?.get(cacheKey, 'json');
+    if (cached && typeof cached.price === 'number') return cached;
+  } catch {}
+
+  let result = null;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(tickerUp)}?interval=1d&range=5d`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (KairosInsider; +contact@kairosinsider.fr)' },
+      cf: { cacheTtl: 14400 }, // 4h edge cache
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      const r = json?.chart?.result?.[0];
+      const price = r?.meta?.regularMarketPrice;
+      if (typeof price === 'number' && price > 0) {
+        result = {
+          price,
+          currency: r?.meta?.currency || 'USD',
+          asOf: r?.meta?.regularMarketTime ? new Date(r.meta.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
+        };
+      }
+    }
+  } catch { /* Silent */ }
+
+  // Cache 4h (success ou null pour eviter retries chaud)
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify(result || { price: null }), { expirationTtl: 14400 });
+  } catch {}
+  return result;
+}
+
+// Compute win-rate + ROI stats pour les BUY transactions d'un insider.
+// Pour chaque buy a prix P, on calcule pct_gain = (current - P) / P.
+// Stats : winRate (% gain > 0), bigWinRate (% gain > 10%), avgReturnPct,
+// best/worst pick. NOTE: pct_gain n'est PAS annualise (un buy de 2020
+// avec +200% est compte comme un buy de 2026 avec +200%). Acceptable
+// pour un MVP "track record" mais a affiner plus tard avec hold period.
+async function computeInsiderTradingStats(txRows, env) {
+  if (!txRows?.length) return null;
+  // Collect unique tickers from BUY transactions avec price > 0
+  const tickerToBuys = new Map();  // ticker -> [{ price, value, transDate }]
+  for (const r of txRows) {
+    if (r.trans_type !== 'buy') continue;
+    if (!r.ticker || !r.price || r.price <= 0) continue;
+    if (!tickerToBuys.has(r.ticker)) tickerToBuys.set(r.ticker, []);
+    tickerToBuys.get(r.ticker).push({
+      price: Number(r.price),
+      value: Number(r.value) || 0,
+      transDate: r.trans_date,
+    });
+  }
+  if (tickerToBuys.size === 0) return null;
+
+  // Fetch current price for each unique ticker (parallel mais cap a 20
+  // pour eviter d'inonder Yahoo pour les insiders avec 50+ tickers)
+  const tickers = Array.from(tickerToBuys.keys()).slice(0, 20);
+  const pricePromises = tickers.map(t => fetchCurrentPriceCached(t, env));
+  const prices = await Promise.all(pricePromises);
+  const tickerPrice = new Map();
+  tickers.forEach((t, i) => {
+    if (prices[i] && typeof prices[i].price === 'number') {
+      tickerPrice.set(t, prices[i].price);
+    }
+  });
+
+  // Compute gains
+  const gains = [];  // [{ ticker, transDate, buyPrice, currentPrice, gainPct, value }]
+  for (const [ticker, buys] of tickerToBuys) {
+    const currentPrice = tickerPrice.get(ticker);
+    if (!currentPrice) continue;
+    for (const b of buys) {
+      const gainPct = ((currentPrice - b.price) / b.price) * 100;
+      gains.push({
+        ticker,
+        transDate: b.transDate,
+        buyPrice: b.price,
+        currentPrice,
+        gainPct: Math.round(gainPct * 10) / 10,
+        value: b.value,
+      });
+    }
+  }
+  if (gains.length === 0) return null;
+
+  const totalBuys = gains.length;
+  const wins = gains.filter(g => g.gainPct > 0).length;
+  const bigWins = gains.filter(g => g.gainPct > 10).length;
+  const winRate = Math.round((wins / totalBuys) * 100);
+  const bigWinRate = Math.round((bigWins / totalBuys) * 100);
+  // Value-weighted average return (un buy de $10M compte plus qu'un buy de $10k)
+  const totalValue = gains.reduce((s, g) => s + g.value, 0);
+  const avgReturnPct = totalValue > 0
+    ? Math.round((gains.reduce((s, g) => s + g.gainPct * g.value, 0) / totalValue) * 10) / 10
+    : Math.round((gains.reduce((s, g) => s + g.gainPct, 0) / gains.length) * 10) / 10;
+  // Best / worst pick
+  const sorted = [...gains].sort((a, b) => b.gainPct - a.gainPct);
+  const bestPick = sorted[0];
+  const worstPick = sorted[sorted.length - 1];
+
+  return {
+    totalBuysAnalyzed: totalBuys,
+    uniqueTickersAnalyzed: tickerPrice.size,
+    winRate,         // % de buys avec gain > 0
+    bigWinRate,      // % de buys avec gain > 10%
+    avgReturnPct,    // gain moyen pondere par value
+    bestPick: bestPick && bestPick.gainPct > 0 ? {
+      ticker: bestPick.ticker, gainPct: bestPick.gainPct, transDate: bestPick.transDate,
+      buyPrice: bestPick.buyPrice, currentPrice: bestPick.currentPrice,
+    } : null,
+    worstPick: worstPick && worstPick.gainPct < 0 ? {
+      ticker: worstPick.ticker, gainPct: worstPick.gainPct, transDate: worstPick.transDate,
+      buyPrice: worstPick.buyPrice, currentPrice: worstPick.currentPrice,
+    } : null,
+    // Note disclosure : pct non-annualise. Pour des buys de 5+ ans, le %
+    // brut est trompeur (le marche aurait progresse de toute facon). Une
+    // future iteration calculera l'alpha vs S&P 500 sur la meme periode.
+    note: 'gainPct = (current - buyPrice) / buyPrice. Non annualise, non benchmarked.',
+  };
+}
+
+// ============================================================
+// GDELT news mentions (Phase 3, mai 2026)
+// ============================================================
+// GDELT 2.0 Doc API : gratuit, illimite, sans API key.
+// Endpoint : https://api.gdeltproject.org/api/v2/doc/doc
+// Query : nom de l'insider (normalize Title Case + quote) optionnellement
+// combine avec ticker pour reduire les false positives (Anthony Noto
+// pourrait matcher un autre Anthony Noto).
+//
+// Coverage : tres bonne pour les nommes anglo-saxons (gros media US/UK).
+// Pour les noms SEC en all-caps "RIOJAS JOSE DAVID", on convertit en
+// Title Case avant la query pour matcher les sources de news.
+// Cache 24h par insider name + ticker.
+async function fetchGdeltNews(name, primaryTicker, env) {
+  if (!name || name.length < 4) return [];
+  // Title Case + quote pour matching exact dans GDELT
+  const titleCase = (s) => s.toLowerCase().replace(/(^|[\s\-])([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
+  const normalizedName = titleCase(name.replace(/\s+/g, ' ').trim());
+  const cacheKey = `gdelt-news:v1:${normalizedName.toLowerCase()}:${(primaryTicker || '').toUpperCase()}`;
+  try {
+    const cached = await env.CACHE?.get(cacheKey, 'json');
+    if (cached) return cached.articles || [];
+  } catch {}
+
+  // Construit la query : "Jose David Riojas" optionnellement + ticker pour
+  // disambig. GDELT supporte phrase search avec guillemets.
+  let queryParts = [`"${normalizedName}"`];
+  // On n'ajoute PAS le ticker au query : reduit trop la couverture (GDELT
+  // indexe par contenu textuel, pas par symbol financier). Pour les insiders
+  // peu mediatises, on prefere un match large.
+
+  const queryStr = queryParts.join(' ');
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(queryStr)}&mode=ArtList&format=json&maxrecords=10&timespan=30d&sort=DateDesc`;
+
+  let articles = [];
+  try {
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'KairosInsider/1.0 (contact@kairosinsider.fr)' },
+      cf: { cacheTtl: 86400 },
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data.articles)) {
+        articles = data.articles.slice(0, 10).map(a => ({
+          title: a.title || '',
+          url: a.url || '',
+          domain: a.domain || '',
+          seenDate: a.seendate || '',  // Format: YYYYMMDDTHHMMSSZ
+          language: a.language || 'eng',
+          sourceCountry: a.sourcecountry || '',
+        }));
+      }
+    }
+  } catch (e) { /* Silent : GDELT down or no results */ }
+
+  try {
+    await env.CACHE?.put(cacheKey, JSON.stringify({ articles }), { expirationTtl: 86400 });
+  } catch {}
+  return articles;
+}
+
 // GET /api/insider/profile?name=...&cik=...
 // Renvoie pour un insider donne :
 //   - identite (name, roles vus, CIK SEC s'il existe)
@@ -3168,6 +3457,7 @@ async function fetchWikipediaPerson(name, env) {
 //   - monthlyPattern : nombre de tx par mois sur 12 mois (saisonnalite)
 //   - recentTransactions : top 100 tx triees par date desc
 //   - wikipedia : { title, description, extract, photoUrl, wikiUrl } ou null (mai 2026)
+//   - yahooOfficer : { name, title, age, yearBorn, totalPay, foundInTicker } ou null (Phase 2, mai 2026)
 // Priorise insider_cik s'il est fourni (canonical, evite les homonymes) ;
 // fallback sur le nom (case-insensitive, trim).
 // Cache KV 15 min (profile:{cik|name}). Auth Pro+ via le wrapper d'auth.
@@ -3392,6 +3682,47 @@ async function handleInsiderProfile(url, env, origin) {
       // Silent : Wikipedia indispo -> on continue sans
     }
 
+    // Enrichissement Yahoo officer (Phase 2, mai 2026) :
+    // Age, yearBorn, totalPay, exercisedValue depuis Yahoo /quoteSummary.
+    // Coverage ~95% pour les CEOs/CFOs des companies cotees, zero pour les
+    // directors externes / 10% owners qui ne sont pas C-suite.
+    // On essaie jusqu'a 3 companies (les plus actives d'abord) jusqu'a
+    // trouver un match. Cache 7 jours par ticker (companyOfficers change
+    // tres rarement, ~trimestriellement avec les proxies).
+    let yahooOfficer = null;
+    if (companies.length > 0) {
+      for (const c of companies.slice(0, 3)) {
+        if (!c.ticker) continue;
+        try {
+          const officers = await fetchYahooOfficers(c.ticker, env);
+          const match = _matchOfficerToInsider(insiderName, officers);
+          if (match) {
+            yahooOfficer = { ...match, foundInTicker: c.ticker };
+            break;
+          }
+        } catch { /* try next ticker */ }
+      }
+    }
+
+    // Phase 3 (mai 2026) : GDELT news mentions des 30 derniers jours.
+    // Pour les insiders mediatises (CEOs, founders, politicians), on remonte
+    // les top articles de news. Pour les directors peu connus, retourne [].
+    // Echec silencieux : GDELT indispo -> articles vide.
+    let news = [];
+    try {
+      const primaryTicker = companies[0]?.ticker || null;
+      news = await fetchGdeltNews(insiderName, primaryTicker, env);
+    } catch { /* silent */ }
+
+    // Phase 4 (mai 2026) : trading stats (win rate, ROI brut, best/worst pick).
+    // Calcule depuis txRows deduped (BUY only avec price > 0). Fetch prix
+    // actuel via Yahoo pour chaque ticker unique (cap 20). Silencieux si
+    // tous les prix sont KO.
+    let tradingStats = null;
+    try {
+      tradingStats = await computeInsiderTradingStats(txRows, env);
+    } catch { /* silent */ }
+
     const result = {
       identity: {
         name: insiderName,
@@ -3417,6 +3748,9 @@ async function handleInsiderProfile(url, env, origin) {
       monthlyPattern,
       transactions,
       wikipedia,  // mai 2026 : { title, description, extract, photoUrl, wikiUrl } | null
+      yahooOfficer,  // Phase 2 mai 2026 : { name, title, age, yearBorn, totalPay, exercisedValue, foundInTicker } | null
+      news,  // Phase 3 mai 2026 : [{ title, url, domain, seenDate, language, sourceCountry }] (max 10, 30j)
+      tradingStats,  // Phase 4 mai 2026 : { winRate, bigWinRate, avgReturnPct, bestPick, worstPick, ... } | null
       _meta: {
         // Stats dedup (mai 2026) pour monitoring de l'integrite D1.
         // Si dupesDropped > 0 sur beaucoup d'insiders -> bug ingestion a investiguer.
