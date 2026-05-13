@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-home-portfolio-widget"></script>
+  <script src="assets/i18n.js?v=20260514-market-pulse-compact"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -4679,7 +4679,7 @@
           </div>
 
           <!-- Market Pulse : S&P 500, NASDAQ, Dow, VIX, Fear & Greed -->
-          <div id="marketPulse" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px;overflow:hidden">
+          <div id="marketPulse" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:6px;overflow:hidden">
             <div class="pulse-skel" style="padding:8px 12px;color:var(--text-muted);font-size:12px;grid-column:1/-1;text-align:center">Chargement du pouls du marché…</div>
           </div>
         </div>
@@ -9664,62 +9664,57 @@
         const fg = data.feargreed;
         const fmtPct = (n) => (n == null) ? '—' : ((n > 0 ? '+' : '') + n.toFixed(2) + '%');
         const fmtPrice = (n) => (n == null) ? '—' : n >= 1000 ? Math.round(n).toLocaleString('fr-FR') : n.toFixed(2);
+        // Cellule MarketPulse compacte (mai 2026, retour user "reduit la
+        // hauteur de cette card"). Avant : padding 10/14 + font 19px price +
+        // margins 4/2 = ~104px par cellule. Apres : padding 5/10 + font 16px
+        // + margins 2/1 = ~64px, soit -40%.
         const pulse = (label, data, small) => {
-          if (!data) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${label}</div><div>—</div></div>`;
+          if (!data) return `<div style="padding:5px 10px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">${label}</div><div>—</div></div>`;
           const color = data.changePct > 0 ? '#10B981' : data.changePct < 0 ? '#EF4444' : 'var(--text-muted)';
           const arrow = data.changePct > 0 ? '▲' : data.changePct < 0 ? '▼' : '—';
           return `
-            <div style="padding:10px 14px;text-align:center">
-              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">${label}</div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:${small ? '16px' : '19px'};font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtPrice(data.price)}</div>
-              <div style="font-size:11px;color:${color};font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(data.changePct)}</div>
+            <div style="padding:5px 10px;text-align:center">
+              <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">${label}</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:${small ? '14px' : '16px'};font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1.1">${fmtPrice(data.price)}</div>
+              <div style="font-size:10px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(data.changePct)}</div>
             </div>`;
         };
         const fgCard = () => {
-          if (!fg || fg.score == null) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">F&amp;G Index</div><div>—</div></div>`;
+          if (!fg || fg.score == null) return `<div style="padding:5px 10px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">F&amp;G Index</div><div>—</div></div>`;
           const s = fg.score;
           const color = s <= 25 ? '#EF4444' : s <= 45 ? '#F97316' : s <= 55 ? '#94A3B8' : s <= 75 ? '#84CC16' : '#10B981';
-          // Delta vs la veille (comme les autres indices)
           const delta = fg.delta;
           const deltaColor = (delta == null) ? 'var(--text-muted)' : delta > 0 ? '#10B981' : delta < 0 ? '#EF4444' : 'var(--text-muted)';
           const arrow = (delta == null) ? '' : delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
           const deltaStr = (delta == null) ? '—' : (delta > 0 ? '+' : '') + delta + 'pt';
-          // Mini barometre horizontal : 5 segments colorés (peur ext → avidité ext)
-          // + marker vertical à la position du score
-          const pctPos = Math.max(0, Math.min(100, s));
-          const barometer = `
-            <svg viewBox="0 0 100 14" style="width:70px;height:12px;display:block;margin:3px auto">
-              <rect x="0"  width="19" height="8" y="3" fill="#EF4444" rx="1"/>
-              <rect x="20" width="19" height="8" y="3" fill="#F97316" rx="1"/>
-              <rect x="40" width="19" height="8" y="3" fill="#94A3B8" rx="1"/>
-              <rect x="60" width="19" height="8" y="3" fill="#84CC16" rx="1"/>
-              <rect x="80" width="19" height="8" y="3" fill="#10B981" rx="1"/>
-              <polygon points="${pctPos - 2},0 ${pctPos + 2},0 ${pctPos},4" fill="${color}"/>
-              <polygon points="${pctPos - 2},14 ${pctPos + 2},14 ${pctPos},10" fill="${color}"/>
-            </svg>`;
+          // Turbometre F&G : 5 zones colorees (Extreme Fear -> Extreme Greed)
+          // + aiguille blanche. Remplace l'ancien barometer horizontal (retour
+          // user "met une gauge pour Fear and Greed").
+          const gauge = _renderFearGreedGaugeSvg(s, { width: 56, height: 28 });
           return `
-            <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="F&amp;G hier: ${fg.previousClose != null ? fg.previousClose : '?'} · cliquer pour voir l'historique 1 an">
-              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">Fear &amp; Greed</div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${color};line-height:1">${s}<span style="font-size:12px;opacity:0.65;font-weight:600">/100</span></div>
-              ${barometer}
-              <div style="font-size:11px;color:${deltaColor};font-weight:600;font-variant-numeric:tabular-nums">${arrow} ${deltaStr}</div>
+            <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:5px 10px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="F&amp;G hier: ${fg.previousClose != null ? fg.previousClose : '?'} · cliquer pour voir l'historique 1 an">
+              <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">Fear &amp; Greed</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:6px;line-height:1">
+                <span style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:${color}">${s}</span>
+                ${gauge}
+              </div>
+              <div style="font-size:10px;color:${deltaColor};font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px">${arrow} ${deltaStr}</div>
             </div>`;
         };
         // VIX cliquable : onclick → section VIX dedicated
         const vixCard = () => {
-          if (!vix) return `<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">VIX</div><div>—</div></div>`;
+          if (!vix) return `<div style="padding:5px 10px;text-align:center;color:var(--text-muted);font-size:11px"><div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">VIX</div><div>—</div></div>`;
           const color = vix.changePct > 0 ? '#10B981' : vix.changePct < 0 ? '#EF4444' : 'var(--text-muted)';
           const arrow = vix.changePct > 0 ? '▲' : vix.changePct < 0 ? '▼' : '—';
-          // VIX zones : calme <15, normal 15-20, stress 20-25, panique 25-40, crash >40
           const v = vix.price;
           const zone = v < 15 ? 'Calme' : v < 20 ? 'Normal' : v < 25 ? 'Stress' : v < 40 ? 'Panique' : 'Crash';
           const zoneColor = v < 15 ? '#10B981' : v < 20 ? '#84CC16' : v < 25 ? '#F59E0B' : v < 40 ? '#EF4444' : '#B91C1C';
           return `
-            <div onclick="switchSection('vix')" style="cursor:pointer;padding:10px 14px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="VIX — indice de peur (volatilité implicite S&P). Cliquer pour voir l'historique 1 an.">
-              <div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:600">VIX</div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtPrice(vix.price)}</div>
-              <div style="font-size:10px;color:${zoneColor};font-weight:700;margin-top:1px;text-transform:uppercase;letter-spacing:0.04em">${zone}</div>
-              <div style="font-size:11px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(vix.changePct)}</div>
+            <div onclick="switchSection('vix')" style="cursor:pointer;padding:5px 10px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="VIX — indice de peur (volatilité implicite S&P). Cliquer pour voir l'historique 1 an.">
+              <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">VIX</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1.1">${fmtPrice(vix.price)}</div>
+              <div style="font-size:9px;color:${zoneColor};font-weight:700;margin-top:1px;text-transform:uppercase;letter-spacing:0.04em">${zone}</div>
+              <div style="font-size:10px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(vix.changePct)}</div>
             </div>`;
         };
         container.innerHTML = `
@@ -19852,6 +19847,48 @@
         <circle cx="${indicatorPt.x.toFixed(1)}" cy="${indicatorPt.y.toFixed(1)}" r="${headR.toFixed(1)}" fill="#fff" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>
       </svg>`;
     }
+
+    // Turbometre Fear & Greed : meme principe que _renderScoreGaugeSvg mais
+    // avec 5 zones (au lieu de 3) qui matchent l'echelle CNN F&G :
+    //   0-25  : Extreme Fear  (rouge)
+    //   25-45 : Fear          (orange)
+    //   45-55 : Neutral       (gris)
+    //   55-75 : Greed         (vert clair)
+    //   75-100: Extreme Greed (vert fonce)
+    function _renderFearGreedGaugeSvg(score, opts) {
+      const width = (opts && opts.width) || 60;
+      const height = (opts && opts.height) || 32;
+      const cx = width / 2;
+      const cy = height - 3;
+      const radius = Math.min(width / 2 - 3, height - 5);
+      const strokeW = Math.max(2, Math.min(5, radius * 0.18));
+      const pivotR = Math.max(1.3, radius * 0.07);
+      const headR = Math.max(1.5, radius * 0.085);
+      const needleW = Math.max(1.2, radius * 0.05);
+      const scoreToAngle = (s) => Math.PI * (1 - s / 100);
+      const pointAt = (s) => {
+        const a = scoreToAngle(s);
+        return { x: cx + radius * Math.cos(a), y: cy - radius * Math.sin(a) };
+      };
+      const arcPath = (sFrom, sTo) => {
+        const p1 = pointAt(sFrom);
+        const p2 = pointAt(sTo);
+        return `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${radius} ${radius} 0 0 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+      };
+      const sClamped = Math.max(0, Math.min(100, Number(score) || 0));
+      const indicatorPt = pointAt(sClamped);
+      return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:2px auto">
+        <path d="${arcPath(0, 25)}" fill="none" stroke="#EF4444" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.85" stroke-linecap="round"/>
+        <path d="${arcPath(25, 45)}" fill="none" stroke="#F97316" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.85"/>
+        <path d="${arcPath(45, 55)}" fill="none" stroke="#94A3B8" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.85"/>
+        <path d="${arcPath(55, 75)}" fill="none" stroke="#84CC16" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.85"/>
+        <path d="${arcPath(75, 100)}" fill="none" stroke="#10B981" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.85" stroke-linecap="round"/>
+        <line x1="${cx}" y1="${cy}" x2="${indicatorPt.x.toFixed(1)}" y2="${indicatorPt.y.toFixed(1)}" stroke="#fff" stroke-width="${needleW.toFixed(1)}" stroke-linecap="round"/>
+        <circle cx="${cx}" cy="${cy}" r="${pivotR.toFixed(1)}" fill="#fff"/>
+        <circle cx="${indicatorPt.x.toFixed(1)}" cy="${indicatorPt.y.toFixed(1)}" r="${headR.toFixed(1)}" fill="#fff" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>
+      </svg>`;
+    }
+    window._renderFearGreedGaugeSvg = _renderFearGreedGaugeSvg;
 
     // (Legacy, garde au cas ou) Mini sparkline d'evolution du Kairos Score
     // sur 12 mois (~20 points). Remplace par _renderScoreGaugeSvg apres
