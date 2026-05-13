@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-insider-phase234-yahoo-gdelt-winrate"></script>
+  <script src="assets/i18n.js?v=20260513-sidebar-tooltips"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3597,11 +3597,11 @@
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Replier/Deplier">&#9776;</button>
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Replier / Déplier" data-i18n-title="dash.sidebar.toggle">&#9776;</button>
 
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.dashboard">Tableau de bord</div>
-        <button class="sidebar-item active" data-section="home" onclick="switchSection('home')">
+        <button class="sidebar-item active" data-section="home" onclick="switchSection('home')" title="Accueil" data-i18n-title="dash.sidebar.home">
           <span class="sidebar-icon icon-slate"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
           <span data-i18n="dash.sidebar.home">Accueil</span>
         </button>
@@ -3612,7 +3612,7 @@
         <!-- Analyse action : accessible AUSSI aux users Free (quota 3/jour).
              Gate geree cote loadStockAnalysis, pas en sidebar (on veut que
              les free decouvrent le produit). -->
-        <button class="sidebar-item" data-section="stockAnalysis" onclick="switchSection('stockAnalysis')">
+        <button class="sidebar-item" data-section="stockAnalysis" onclick="switchSection('stockAnalysis')" title="Décrypter une valeur" data-i18n-title="dash.sidebar.stock_analysis">
           <span class="sidebar-icon icon-blue"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
           <span data-i18n="dash.sidebar.stock_analysis">Décrypter une valeur</span>
         </button>
@@ -3625,22 +3625,22 @@
              Activistes (Schedule 13D/G)
              Hedge Funds (Form 13F-HR) : Portefeuilles + Consensus
              ETF thematiques (providers) -->
-        <button class="sidebar-item" data-section="insider" data-premium="true" onclick="switchSection('insider')">
+        <button class="sidebar-item" data-section="insider" data-premium="true" onclick="switchSection('insider')" title="Initiés" data-i18n-title="dash.sidebar.insiders">
           <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
           <span data-i18n="dash.sidebar.insiders">Initiés</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="activists" data-premium="true" onclick="switchSection('activists')">
+        <button class="sidebar-item" data-section="activists" data-premium="true" onclick="switchSection('activists')" title="Activistes" data-i18n-title="dash.sidebar.activists">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
           <span data-i18n="dash.sidebar.activists">Activistes</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')">
+        <button class="sidebar-item" data-section="13f" data-premium="true" onclick="switchSection('13f')" title="Hedge Funds" data-i18n-title="dash.sidebar.hedge_funds">
           <span class="sidebar-icon icon-teal"><svg viewBox="0 0 24 24"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span>
           <span data-i18n="dash.sidebar.hedge_funds">Hedge Funds</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
-        <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')">
+        <button class="sidebar-item" data-section="etf" data-premium="true" onclick="switchSection('etf')" title="ETF Live" data-i18n-title="dash.sidebar.etf_live">
           <span class="sidebar-icon icon-cyan"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
           <span data-i18n="dash.sidebar.etf_live">ETF Live</span>
           <span class="sidebar-badge premium-badge">PRO</span>
@@ -3650,12 +3650,12 @@
       <!-- ===== SECTION ELITE (power users : API + alertes + backtests) ===== -->
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.elite_section">Elite</div>
-        <button class="sidebar-item" data-section="eliteAlerts" data-elite="true" onclick="switchSection('eliteAlerts')">
+        <button class="sidebar-item" data-section="eliteAlerts" data-elite="true" onclick="switchSection('eliteAlerts')" title="Alertes temps-réel" data-i18n-title="dash.sidebar.elite_alerts">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
           <span data-i18n="dash.sidebar.elite_alerts">Alertes temps-réel</span>
           <span class="sidebar-badge elite-badge">ELITE</span>
         </button>
-        <button class="sidebar-item" data-section="eliteBacktests" data-elite="true" onclick="switchSection('eliteBacktests')">
+        <button class="sidebar-item" data-section="eliteBacktests" data-elite="true" onclick="switchSection('eliteBacktests')" title="Backtests" data-i18n-title="dash.sidebar.elite_backtests">
           <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
           <span data-i18n="dash.sidebar.elite_backtests">Backtests</span>
           <span class="sidebar-badge elite-badge">ELITE</span>
@@ -3664,12 +3664,12 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.my_trading">Mon Trading</div>
-        <button class="sidebar-item" data-section="portfolio" data-premium="true" onclick="switchSection('portfolio')">
+        <button class="sidebar-item" data-section="portfolio" data-premium="true" onclick="switchSection('portfolio')" title="Mon Portefeuille" data-i18n-title="dash.sidebar.portfolio">
           <span class="sidebar-icon icon-pink"><svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
           <span data-i18n="dash.sidebar.portfolio">Mon Portefeuille</span>
           <span class="sidebar-badge beta-badge" title="Module en bêta — synchronisation automatique à venir">BETA</span>
         </button>
-        <button class="sidebar-item" data-section="watchlist" data-premium="true" onclick="switchSection('watchlist')">
+        <button class="sidebar-item" data-section="watchlist" data-premium="true" onclick="switchSection('watchlist')" title="Ma Watchlist" data-i18n-title="dash.sidebar.watchlist">
           <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
           <span data-i18n="dash.sidebar.watchlist">Ma Watchlist</span>
           <span class="sidebar-badge premium-badge">PRO</span>
@@ -3678,15 +3678,15 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.indicators">Indicateurs</div>
-        <button class="sidebar-item" data-section="hotStocks" onclick="switchSection('hotStocks')">
+        <button class="sidebar-item" data-section="hotStocks" onclick="switchSection('hotStocks')" title="Tendances retail" data-i18n-title="dash.sidebar.hot_stocks">
           <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>
           <span data-i18n="dash.sidebar.hot_stocks">Tendances retail</span>
         </button>
-        <button class="sidebar-item" data-section="feargreed" onclick="switchSection('feargreed')">
+        <button class="sidebar-item" data-section="feargreed" onclick="switchSection('feargreed')" title="Fear & Greed" data-i18n-title="dash.sidebar.fear_greed">
           <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></span>
           <span data-i18n="dash.sidebar.fear_greed">Fear & Greed</span>
         </button>
-        <button class="sidebar-item" data-section="shorts" onclick="switchSection('shorts')">
+        <button class="sidebar-item" data-section="shorts" onclick="switchSection('shorts')" title="Short Interest" data-i18n-title="dash.sidebar.shorts">
           <span class="sidebar-icon icon-indigo"><svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></span>
           <span data-i18n="dash.sidebar.shorts">Short Interest</span>
         </button>
@@ -3695,7 +3695,7 @@
       <!-- ===== SECTION ADMIN : affichee seulement si l'email du user est dans ADMIN_EMAILS cote Worker -->
       <div class="sidebar-section" id="sidebarAdminSection" style="display:none">
         <div class="sidebar-title">Admin</div>
-        <button class="sidebar-item" data-section="admin" onclick="switchSection('admin')">
+        <button class="sidebar-item" data-section="admin" onclick="switchSection('admin')" title="Admin" data-i18n-title="dash.sidebar.admin">
           <span class="sidebar-icon icon-red"><svg viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/><path d="M9 12l2 2 4-4"/></svg></span>
           <span data-i18n="dash.sidebar.admin">Tableau de bord</span>
           <span class="sidebar-badge" style="background:rgba(239,68,68,0.18);color:#F87171;border:1px solid rgba(239,68,68,0.28)">ADMIN</span>

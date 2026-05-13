@@ -794,6 +794,7 @@
       'dash.sidebar.elite_alerts': 'Alertes temps-réel',
       'dash.sidebar.elite_backtests': 'Backtests',
       'dash.sidebar.admin': 'Tableau de bord',
+      'dash.sidebar.toggle': 'Replier / Déplier la barre latérale',
       'dash.sidebar.account': 'Compte',
       'dash.sidebar.profile': 'Mon Profil',
 
@@ -2007,6 +2008,7 @@
       'dash.sidebar.elite_alerts': 'Real-time alerts',
       'dash.sidebar.elite_backtests': 'Backtests',
       'dash.sidebar.admin': 'Dashboard',
+      'dash.sidebar.toggle': 'Collapse / Expand sidebar',
       'dash.sidebar.account': 'Account',
       'dash.sidebar.profile': 'My Profile',
 
