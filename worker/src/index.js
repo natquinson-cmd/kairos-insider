@@ -1105,6 +1105,90 @@ async function handleApiRoute(path, url, env, origin) {
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
     return jsonResponse(data, 200, origin);
   }
+  // ============================================================
+  // /api/13f-funds-by-holding (mai 2026)
+  // ============================================================
+  // Retourne la liste des fonds qui detiennent une action donnee, via le
+  // 13f-ticker-index KV (cap 15 fonds par ticker : 8 activists + 7 passifs).
+  //
+  // Bypass la limite "top 50 holdings par fond" du KV 13f-all-funds : un fond
+  // qui detient AAPL en position #100 dans son portefeuille n'est PAS dans
+  // sa propre top_holdings[:50], mais EST dans ticker-index['APPLE'] si
+  // c'est un top-15 holder global.
+  //
+  // Utilise par la page Hedge Funds (recherche par action) et le bouton
+  // "Voir tous les fonds qui detiennent X" depuis la fiche action.
+  //
+  // Params : ?holding=Apple ou ?name=Apple (alias). Le worker normalise via
+  // normalizeCompanyName + match exact + match par prefixe (gere les
+  // troncatures SEC 30 chars type "LVMH MOET HENNESSY LOUIS VUITT").
+  if (path === '/api/13f-funds-by-holding') {
+    const rawQuery = url.searchParams.get('holding') || url.searchParams.get('name') || '';
+    if (!rawQuery || rawQuery.length < 2) {
+      return jsonResponse({ error: 'Missing or too short query (min 2 chars)', funds: [] }, 400, origin);
+    }
+    try {
+      const normalized = normalizeCompanyName(rawQuery);
+      if (!normalized) return jsonResponse({ funds: [], normalized: '', matched: 0 }, 200, origin);
+
+      const index = await env.CACHE.get('13f-ticker-index', 'json');
+      if (!index || typeof index !== 'object') {
+        return jsonResponse({ error: 'Ticker index unavailable', funds: [] }, 503, origin);
+      }
+
+      // Match exact OU prefixe (cf aggregate13F : couvre LVMH tronque a 30 chars)
+      let entries = index[normalized] || null;
+      let matchKey = entries ? normalized : null;
+      if (!entries) {
+        const candidateKeys = Object.keys(index).filter(k => {
+          if (k === normalized) return true;
+          if (k.startsWith(normalized + ' ')) return true;
+          if (normalized.startsWith(k + ' ')) return true;
+          // SEC truncation 30-char tolerance
+          if (k.length >= 20 && normalized.startsWith(k)) return true;
+          return false;
+        });
+        if (candidateKeys.length) {
+          entries = [];
+          for (const k of candidateKeys) entries = entries.concat(index[k] || []);
+          matchKey = candidateKeys.join(' | ');
+          // Dedup par fundName (les troncatures peuvent matcher plusieurs cles)
+          const seen = new Set();
+          entries = entries.filter(h => {
+            const key = (h.n || h.fundName || '') + '|' + (h.d || h.reportDate || '');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        }
+      }
+
+      if (!entries || !entries.length) {
+        return jsonResponse({ funds: [], normalized, matched: 0, matchKey: null }, 200, origin);
+      }
+
+      // Format leger pour le client : fundName + financial details
+      const funds = entries.map(h => ({
+        fundName: h.n || h.fundName || '',
+        value: Number(h.v ?? h.value) || 0,
+        pct: Number(h.p ?? h.pct) || 0,
+        sharesChange: Number(h.c ?? h.sharesChange) || 0,
+        reportDate: h.d || h.reportDate || '',
+        isOffensive: (h.o === 1 || h.isOffensive === true),
+      }));
+
+      return jsonResponse({
+        query: rawQuery,
+        normalized,
+        matchKey,
+        matched: funds.length,
+        funds,
+      }, 200, origin);
+    } catch (e) {
+      log.error('13f-funds-by-holding.error', { query: rawQuery, detail: String(e.message || e).slice(0, 300) });
+      return jsonResponse({ error: 'Internal error', funds: [] }, 500, origin);
+    }
+  }
   if (path === '/api/13f-consensus') {
     return handleSmartMoneyConsensus(env, origin);
   }

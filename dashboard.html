@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-i18n-fundamentals-consensus"></script>
+  <script src="assets/i18n.js?v=20260513-hedge-search-server-index"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14073,72 +14073,125 @@
         hint.style.color = q && visible === 0 ? '#EF4444' : 'var(--text-muted)';
       }
 
-      // FIX (mai 2026) : si 0 match ET query ressemble a un ticker, on resout
-      // via Yahoo Search pour obtenir le nom d'entreprise -> re-filter sur ce nom.
-      // Heuristique : 2-6 chars ALL caps OU ALL lowercase (pas Mixed comme "Berkshire"),
-      // alphanumeric + optionnel suffix .PA/.L/.AS/-A.
-      // Match : TXN, AAPL, MSFT, BRK-B, MC.PA, ASML.AS, txn, aapl.
-      // Exclu : Berkshire (mixed case, 9 chars), Apple (5 chars mixed),
-      //         Pershing, Soros (mixed case).
+      // FIX v5 (mai 2026, Option B server-side) : si 0 match côte substring,
+      // on appelle /api/13f-funds-by-holding qui utilise le ticker-index complet
+      // (15 fonds top par ticker, vs top 50 holdings/fond du KV principal).
+      // Couvre les positions rank 51+ et les small caps que substring rate.
+      // Plus de check looksLikeTicker : on accepte tout (Apple, Nebius, TXN,
+      // BERKSHIRE, etc.). Le endpoint server gere la normalisation + match.
+      // Le debounce 400ms evite de spammer le worker pendant que l'user tape.
       const trimmed = query.trim();
-      const looksLikeTicker = trimmed.length >= 2 && trimmed.length <= 7 &&
-        (/^[A-Z][A-Z0-9.\-]+$/.test(trimmed) || /^[a-z][a-z0-9.\-]+$/.test(trimmed));
-      if (visible === 0 && q && looksLikeTicker) {
+      if (visible === 0 && trimmed.length >= 2) {
         _scheduleTickerResolveForHedgeFunds(trimmed);
       }
     }
 
-    // Resolution async ticker -> company name avec debounce 400ms.
-    // Quand un user tape "TXN" et que ca matche 0 fonds, on appelle Yahoo
-    // Search pour resoudre TXN -> "Texas Instruments Incorporated", puis on
-    // re-filtre avec ce nom. L'input est aussi remis a jour pour montrer
-    // la resolution (UX trust).
-    function _scheduleTickerResolveForHedgeFunds(rawTicker) {
+    // Resolution async query -> liste des fonds detenteurs via endpoint server.
+    // Strategie mai 2026 (Option B) : on appelle /api/13f-funds-by-holding qui
+    // utilise le ticker-index complet (15 fonds top/ticker, vs top 50 holdings
+    // par fond du KV principal). Couvre les positions rank 51+.
+    //
+    // Flow :
+    // 1. Si query ressemble a un ticker (TXN, AAPL), on resout d'abord via
+    //    Yahoo Search pour avoir le nom de company (mieux que d'envoyer "TXN"
+    //    a un endpoint qui s'attend a "TEXAS INSTRUMENTS").
+    // 2. Sinon (Apple, Nebius), on appelle directement le endpoint.
+    // 3. Endpoint retourne { funds: [{ fundName, value, pct, ... }] }.
+    // 4. On filtre la table en matchant les fundName retournes (exact match).
+    function _scheduleTickerResolveForHedgeFunds(rawQuery) {
       if (_hedgeFundsResolveTimer) clearTimeout(_hedgeFundsResolveTimer);
-      const upper = String(rawTicker || '').trim().toUpperCase();
-      if (!upper || _hedgeFundsLastResolved === upper) return;
+      const trimmed = String(rawQuery || '').trim();
+      if (!trimmed || _hedgeFundsLastResolved === trimmed.toLowerCase()) return;
       const hint = document.getElementById('hedgeFundsSearchHint');
       // Hint loading immediate (pendant le debounce 400ms)
       if (hint) {
-        hint.textContent = `🔍 Résolution ${upper}…`;
+        hint.textContent = `🔍 ${trimmed}…`;
         hint.style.color = 'var(--text-muted)';
       }
       _hedgeFundsResolveTimer = setTimeout(async () => {
-        _hedgeFundsLastResolved = upper;
+        _hedgeFundsLastResolved = trimmed.toLowerCase();
         try {
-          const results = await searchYahooTickers(upper);
-          if (!results || results.length === 0) {
+          // ETAPE 1 : si query ressemble a un ticker -> resoudre via Yahoo
+          // pour obtenir le nom complet (sinon "TXN" ne matche rien côte SEC).
+          // Pattern : 2-6 chars all-caps ou all-lowercase, alphanumeric + suffixes.
+          const isTickerLike = /^[A-Z][A-Z0-9.\-]{1,6}$/.test(trimmed) || /^[a-z][a-z0-9.\-]{1,6}$/.test(trimmed);
+          let companyQuery = trimmed;
+          if (isTickerLike) {
+            try {
+              const yahoo = await searchYahooTickers(trimmed.toUpperCase());
+              if (yahoo && yahoo.length > 0) {
+                const r0 = yahoo[0];
+                const fullName = r0.name || r0.shortName || r0.longName || '';
+                if (fullName) companyQuery = fullName;
+              }
+            } catch (e) {
+              console.warn('[filterHedgeFunds] Yahoo resolve fail (fallback to raw query):', e);
+            }
+          }
+
+          // ETAPE 2 : appel endpoint server pour liste des detenteurs
+          const resp = await fetch(`${API_BASE}/api/13f-funds-by-holding?holding=${encodeURIComponent(companyQuery)}`);
+          if (!resp.ok) {
             if (hint) {
-              hint.textContent = `0 fonds trouvé (ticker inconnu)`;
+              hint.textContent = `0 fonds trouvé`;
               hint.style.color = '#EF4444';
             }
             return;
           }
-          const r0 = results[0];
-          const fullName = r0.name || r0.shortName || r0.longName || '';
-          if (!fullName) return;
-          // Nettoie le nom pour matcher les holdings 13F :
-          // - Strip suffixes corporates (Inc, Corp, etc.) -> souvent absents
-          //   ou differents dans les filings 13F
-          // - Prend les 2 premiers mots significatifs (ex: "Texas Instruments"
-          //   sans le "Incorporated" / "Inc") -> match plus robuste
-          const cleaned = fullName
-            .replace(/[.,]/g, ' ')
-            .replace(/\s+(Inc|Incorporated|Corp|Corporation|Co|Company|Ltd|Limited|PLC|LLC|LP|Holdings|Group|SA|SE|AG|NV)\b/gi, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-          const finalQuery = cleaned.split(/\s+/).slice(0, 2).join(' ');
-          if (!finalQuery || finalQuery.length < 2) return;
+          const data = await resp.json();
+          const holderFunds = Array.isArray(data.funds) ? data.funds : [];
+          if (holderFunds.length === 0) {
+            if (hint) {
+              hint.textContent = `0 fonds trouvé`;
+              hint.style.color = '#EF4444';
+            }
+            return;
+          }
+
           // Verifier que l'input n'a pas change entre-temps
           const inp = document.getElementById('hedgeFundsSearch');
-          if (!inp || inp.value.trim().toUpperCase() !== upper) return;
-          // Update input pour montrer la resolution
-          inp.value = finalQuery;
-          // Re-filter avec le nom resolu (sync call, pas de recursion infinie
-          // car le pattern looksLikeTicker exclut les noms a espaces)
-          filterHedgeFunds(finalQuery);
+          if (!inp || inp.value.trim().toLowerCase() !== trimmed.toLowerCase()) return;
+
+          // ETAPE 3 : filtre la table par match exact sur fundName/label
+          // (vs substring : on veut PRECISEMENT les fonds renvoyes par l'API)
+          const holderNamesLower = new Set(
+            holderFunds.map(f => (f.fundName || '').toLowerCase().trim()).filter(Boolean)
+          );
+          const area = document.getElementById('thirteenFArea');
+          if (!area) return;
+          const rows = area.querySelectorAll('tr.fund-row');
+          let visible = 0;
+          rows.forEach(row => {
+            // Le label du fond est dans la 2eme cellule (strong text)
+            // On essaie de matcher par data-fund-search qui contient label+fundName
+            const searchableText = (row.dataset.fundSearch || '').toLowerCase();
+            // Match : si AU MOINS UN holder name est SUBSTRING du searchable text
+            // (gere les differences mineures entre fundName 13F et label affiche)
+            let matches = false;
+            for (const hn of holderNamesLower) {
+              if (hn && searchableText.includes(hn)) { matches = true; break; }
+            }
+            const idx = row.dataset.fundIdx;
+            const detailRow = idx ? area.querySelector(`#fund-detail-${idx}`) : null;
+            if (matches) {
+              row.style.display = '';
+              if (detailRow && detailRow.classList.contains('expanded')) detailRow.style.display = '';
+              visible++;
+            } else {
+              row.style.display = 'none';
+              if (detailRow) detailRow.style.display = 'none';
+            }
+          });
+
+          if (hint) {
+            const label = data.matchKey || companyQuery;
+            hint.textContent = visible > 0
+              ? `${visible} fonds détiennent "${label.slice(0, 40)}"`
+              : `0 fonds trouvé`;
+            hint.style.color = visible > 0 ? '#10B981' : '#EF4444';
+          }
         } catch (e) {
-          console.warn('[filterHedgeFunds] Yahoo resolution failed:', e);
+          console.warn('[filterHedgeFunds] holder lookup failed:', e);
         }
       }, 400);
     }
