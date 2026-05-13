@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-stockcard-hf-scroll-like-insiders"></script>
+  <script src="assets/i18n.js?v=20260513-recent-activity-i18n"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -11240,9 +11240,26 @@
           if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
           return '$' + Math.round(n);
         };
+        // FIX i18n (mai 2026) : locale dynamique pour fmtD (fr-FR / en-US)
+        const _locale = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
         const fmtD = (d) => {
           if (!d) return '';
-          try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return d; }
+          try { return new Date(d).toLocaleDateString(_locale, { day: '2-digit', month: 'short' }); } catch { return d; }
+        };
+
+        // i18n labels par axe (override le c.label FR renvoye par l'API)
+        // Aligne avec _bdLabel utilise par le breakdown radar plus bas.
+        const _scoreLabels = {
+          insider:    t('stock.bd.insider', 'Signal des initiés'),
+          smartMoney: t('stock.bd.smartMoney', 'Hedge funds (13F)'),
+          smart_money: t('stock.bd.smartMoney', 'Hedge funds (13F)'),  // snake_case D1
+          govGuru:    t('stock.bd.govGuru', 'Politiciens & gourous'),
+          gov_guru:   t('stock.bd.govGuru', 'Politiciens & gourous'),  // snake_case D1
+          momentum:   t('stock.bd.momentum', 'Momentum du cours'),
+          earnings:   t('stock.bd.earnings', 'Momentum résultats'),
+          analyst:    t('stock.bd.analyst', 'Consensus analystes'),
+          valuation:  t('stock.bd.valuation', 'Valorisation'),
+          health:     t('stock.bd.health', 'Santé financière'),
         };
 
         // Score delta card avec BREAKDOWN explicatif (mai 2026)
@@ -11265,30 +11282,42 @@
             // et offsetters (sens inverse) pour eviter le texte incoherent
             // "Cette baisse vient principalement de Momentum (+2pt)" quand les
             // vraies dimensions baissieres sont absentes/masquees.
-            const direction = delta > 0 ? 'hausse' : 'baisse';
+            const direction = delta > 0
+              ? t('stock.recent.directionUp', 'hausse')
+              : t('stock.recent.directionDown', 'baisse');
             const expectedSign = delta > 0 ? 1 : -1;
+            // Translate c.label via c.key fallback (API renvoie FR labels)
+            const lblFor = (c) => _scoreLabels[c.key] || c.label || c.key;
             const renderPiece = c => {
               const sign = c.delta > 0 ? '+' : '';
               const col = c.delta > 0 ? '#10B981' : c.delta < 0 ? '#EF4444' : '#9CA3AF';
-              return `<strong style="color:${col}">${c.label}</strong> (${sign}${c.delta}pt)`;
+              return `<strong style="color:${col}">${lblFor(c)}</strong> (${sign}${c.delta}pt)`;
             };
             const drivers = contribs.filter(c => Math.sign(c.delta) === expectedSign).slice(0, 3);
             const offsetters = contribs.filter(c => Math.sign(c.delta) === -expectedSign).slice(0, 2);
             let narr = '';
             if (drivers.length > 0) {
               const driverPieces = drivers.map(renderPiece);
-              narr = drivers.length === 1
-                ? `Cette ${direction} vient principalement de ${driverPieces[0]}.`
-                : `Cette ${direction} vient principalement de ${driverPieces.slice(0, -1).join(', ')} et ${driverPieces[driverPieces.length - 1]}.`;
+              if (drivers.length === 1) {
+                narr = t('stock.recent.narrSingle', 'Cette {direction} vient principalement de {driver}.')
+                  .replace('{direction}', direction)
+                  .replace('{driver}', driverPieces[0]);
+              } else {
+                narr = t('stock.recent.narrMulti', 'Cette {direction} vient principalement de {drivers} et {lastDriver}.')
+                  .replace('{direction}', direction)
+                  .replace('{drivers}', driverPieces.slice(0, -1).join(', '))
+                  .replace('{lastDriver}', driverPieces[driverPieces.length - 1]);
+              }
               if (offsetters.length > 0) {
                 const offsetPieces = offsetters.map(renderPiece);
-                narr += ` Partiellement compensée par ${offsetPieces.join(', ')}.`;
+                narr += t('stock.recent.narrOffset', ' Partiellement compensée par {offsetters}.')
+                  .replace('{offsetters}', offsetPieces.join(', '));
               }
             } else if (offsetters.length > 0) {
               // Aucun driver dans le sens du total : variations mixtes contradictoires.
-              // Probable cumul de micro-variations + erreurs d'arrondi cote D1.
               const offsetPieces = offsetters.map(renderPiece);
-              narr = `Variation contre-intuitive : seules ${offsetPieces.join(', ')} ressortent (sens inverse du total).`;
+              narr = t('stock.recent.narrCounter', 'Variation contre-intuitive : seules {offsetters} ressortent (sens inverse du total).')
+                .replace('{offsetters}', offsetPieces.join(', '));
             }
 
             // Petite liste detaillee : barres horizontales par dimension
@@ -11320,7 +11349,7 @@
 
           scoreHTML = `
             <div class="activity-card">
-              <div class="activity-card-label">📊 Kairos Score</div>
+              <div class="activity-card-label">📊 ${t('stock.recent.kairosScore', 'Kairos Score')}</div>
               <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
                 <div style="font-size:28px;font-weight:800;color:var(--text-primary)">${data.score.now}</div>
                 <div style="font-size:12px;color:var(--text-muted)">/100</div>
@@ -11328,7 +11357,7 @@
                   ${deltaArrow} ${deltaSign}${delta}pt
                 </div>
               </div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">vs ${fmtD(data.score.datePrevious)} (${data.score.previous}/100)</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${t('stock.recent.vsDate', 'vs {date} ({prev}/100)').replace('{date}', fmtD(data.score.datePrevious)).replace('{prev}', data.score.previous)}</div>
               ${breakdownHTML}
             </div>`;
         }
@@ -11337,26 +11366,23 @@
         let etfHTML = '';
         if (hasEtf) {
           const top = data.etfChanges.slice(0, 5);
-          // Format compact de la date (ex: "3 avr."). Pour 'new' = date d'entree,
-          // 'exit' = date de derniere presence avant sortie, 'increased'/'decreased'
-          // = date du snapshot le plus recent (pas de date precise de transition).
           const fmtEventDate = (iso) => {
             if (!iso) return '';
-            try { return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+            try { return new Date(iso).toLocaleDateString(_locale, { day: 'numeric', month: 'short' }); }
             catch { return iso; }
           };
           const rows = top.map(e => {
             const statusIcon = e.status === 'new' ? '🆕' : e.status === 'exit' ? '❌' : e.status === 'increased' ? '📈' : '📉';
             const statusColor = e.status === 'new' || e.status === 'increased' ? '#10B981' : '#EF4444';
             const deltaText = e.status === 'new'
-              ? `entrée ${e.currWeight.toFixed(2)}%`
+              ? t('stock.recent.etfEntered', 'entrée {pct}%').replace('{pct}', e.currWeight.toFixed(2))
               : e.status === 'exit'
-              ? `sorti (était ${e.prevWeight.toFixed(2)}%)`
+              ? t('stock.recent.etfExited', 'sorti (était {pct}%)').replace('{pct}', e.prevWeight.toFixed(2))
               : `${e.delta > 0 ? '+' : ''}${e.delta.toFixed(2)}pt (${e.prevWeight.toFixed(2)}% → ${e.currWeight.toFixed(2)}%)`;
             const dateLabel = fmtEventDate(e.eventDate);
-            const dateTooltip = e.status === 'new' ? 'Date d\'entrée dans l\'ETF'
-                              : e.status === 'exit' ? 'Dernière date où le ticker était encore dans l\'ETF'
-                              : 'Date du dernier snapshot observé';
+            const dateTooltip = e.status === 'new' ? t('stock.recent.etfDateTipNew', "Date d'entrée dans l'ETF")
+                              : e.status === 'exit' ? t('stock.recent.etfDateTipExit', "Dernière date où le ticker était encore dans l'ETF")
+                              : t('stock.recent.etfDateTipDelta', 'Date du dernier snapshot observé');
             const dateChip = dateLabel
               ? `<span title="${dateTooltip}" style="font-size:10px;color:var(--text-muted);margin-left:8px;padding:1px 6px;border:1px solid var(--border);border-radius:6px;white-space:nowrap">${dateLabel}</span>`
               : '';
@@ -11369,9 +11395,12 @@
                 </div>
               </div>`;
           }).join('');
+          const _etfTitle = data.etfChanges.length > 1
+            ? t('stock.recent.etfTitleMulti', 'ETF ({n} mouvements)').replace('{n}', data.etfChanges.length)
+            : t('stock.recent.etfTitleSingle', 'ETF ({n} mouvement)').replace('{n}', data.etfChanges.length);
           etfHTML = `
             <div class="activity-card" style="flex:1.4">
-              <div class="activity-card-label">💼 ETF (${data.etfChanges.length} mouvement${data.etfChanges.length > 1 ? 's' : ''})</div>
+              <div class="activity-card-label">💼 ${_etfTitle}</div>
               <div style="margin-top:6px">${rows}</div>
             </div>`;
         }
@@ -11408,7 +11437,7 @@
           }).join('');
           insiderHTML = `
             <div class="activity-card" style="flex:1.4">
-              <div class="activity-card-label">🕴️ Insiders (${buys ? buys + ' 🟢' : ''}${buys && sells ? ' / ' : ''}${sells ? sells + ' 🔴' : ''}${!buys && !sells ? data.insiderTrades.length : ''})</div>
+              <div class="activity-card-label">🕴️ ${t('stock.recent.insidersTitle', 'Insiders')} (${buys ? buys + ' 🟢' : ''}${buys && sells ? ' / ' : ''}${sells ? sells + ' 🔴' : ''}${!buys && !sells ? data.insiderTrades.length : ''})</div>
               <div style="margin-top:6px">${rows}</div>
             </div>`;
         }
@@ -11444,7 +11473,7 @@
           </style>
           <div class="activity-widget-wrap">
             <div class="activity-widget-title">
-              📍 Activité récente <span class="pill">${data.days} derniers jours</span>
+              📍 ${t('stock.recent.title', 'Activité récente')} <span class="pill">${t('stock.recent.lastDays', '{n} derniers jours').replace('{n}', data.days)}</span>
             </div>
             <div class="activity-cards">${scoreHTML}${etfHTML}${insiderHTML}</div>
           </div>`;
