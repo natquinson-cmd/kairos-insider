@@ -558,9 +558,18 @@
       white-space: nowrap;
     }
 
-    /* ===== SECTIONS ===== */
-    .section { padding: 120px 0; position: relative; }
-    .section-header { text-align: center; max-width: 720px; margin: 0 auto 60px; }
+    /* ===== SECTIONS =====
+       FIX (mai 2026, retour user) : reduit le padding entre sections.
+       Avant 120px desktop / 120px mobile (trop d'air), maintenant
+       80px desktop / 56px mobile + section-header margin reduite.
+       La landing fait ~33% plus court a scroller.
+    */
+    .section { padding: 80px 0; position: relative; }
+    .section-header { text-align: center; max-width: 720px; margin: 0 auto 40px; }
+    @media (max-width: 760px) {
+      .section { padding: 56px 0; }
+      .section-header { margin: 0 auto 32px; }
+    }
     .section-badge {
       display: inline-block; padding: 6px 14px;
       background: rgba(139, 92, 246, 0.1);
@@ -667,12 +676,19 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      overflow: hidden;
+      /* FIX (mai 2026, retour user mobile) : overflow-x:auto pour permettre
+         le scroll horizontal sur mobile. Avant : overflow:hidden masquait
+         les colonnes hors-ecran sans permettre de scroller. */
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       margin-top: 40px;
     }
     .comparison-table {
       width: 100%;
       border-collapse: collapse;
+      /* min-width pour forcer le tableau a ne pas s'ecraser sur mobile.
+         5 colonnes a ~140px chacune = 700px minimum. En dessous, scroll. */
+      min-width: 700px;
     }
     .comparison-table th, .comparison-table td {
       padding: 14px 18px;
@@ -687,17 +703,46 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      /* Sticky en haut pour que les noms de concurrents restent visibles
+         au scroll vertical sur les longs tableaux comparatifs. */
+      position: sticky; top: 0; z-index: 2;
     }
     .comparison-table th.kairos {
       background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.15));
       color: var(--text-primary);
     }
     .comparison-table tr:last-child td { border-bottom: none; }
-    .comparison-table .feature-name { text-align: left; font-weight: 500; color: var(--text-primary); }
+    .comparison-table .feature-name {
+      text-align: left; font-weight: 500; color: var(--text-primary);
+      /* Sticky 1ere colonne : la colonne "Fonctionnalite" reste visible
+         pendant le scroll horizontal mobile. Sinon l'user voit "✓ ✗ ✗ ✓"
+         sans savoir de quelle ligne il s'agit. */
+      position: sticky; left: 0;
+      background: var(--bg-card);
+      z-index: 1;
+      /* Ombre subtile a droite pour signaler la separation avec le content
+         scrollable. */
+      box-shadow: 4px 0 8px -4px rgba(0, 0, 0, 0.3);
+    }
     .comparison-table .yes { color: #34D399; font-weight: 700; font-size: 16px; }
     .comparison-table .no { color: #6B7280; font-size: 16px; }
     .comparison-table .partial { color: #FBBF24; font-weight: 700; }
     .comparison-table td.kairos-col { background: rgba(59, 130, 246, 0.05); }
+    /* Indicateur visuel "swipe horizontal" sur mobile uniquement,
+       hint pour que l'user comprenne qu'il peut scroller. */
+    @media (max-width: 760px) {
+      .comparison-wrap::after {
+        content: "← Faites défiler →";
+        display: block;
+        text-align: center;
+        font-size: 11px;
+        color: var(--text-muted);
+        padding: 8px 0 10px;
+        opacity: 0.6;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border);
+      }
+    }
     /* Badge "Bientot" pour les features en cours de developpement */
     .badge-soon {
       display: inline-block;
@@ -936,7 +981,10 @@
     }
 
     /* ===== CTA FINAL ===== */
-    .cta-section { padding: 80px 0 120px; }
+    .cta-section { padding: 56px 0 80px; }
+    @media (max-width: 760px) {
+      .cta-section { padding: 40px 0 56px; }
+    }
     .cta-box {
       background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
       border: 1px solid rgba(59, 130, 246, 0.25);
