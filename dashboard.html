@@ -18338,13 +18338,34 @@
     function pCalPrev() { pCalMonth--; if(pCalMonth<0){pCalMonth=11;pCalYear--;} buildPortfolioDailyCal(); }
     function pCalNext() { pCalMonth++; if(pCalMonth>11){pCalMonth=0;pCalYear++;} buildPortfolioDailyCal(); }
 
+    // Reattribue les dates weekend a un jour ouvre adjacent.
+    // Raison : certains brokers exportent en date de settlement (J+2) ou en
+    // date UTC qui peut tomber un samedi/dimanche pour des trades faits le
+    // vendredi US. Sans ce roll, ces trades disparaissaient de la grille
+    // 5j/semaine (line 18395) ET du total hebdo, alors qu'ils etaient
+    // comptes dans la heatmap mensuelle -> incoherence visible.
+    // Convention : samedi/dimanche -> vendredi precedent (proche du close US).
+    function _rollToWeekday(dateStr) {
+      if (!dateStr || typeof dateStr !== 'string') return dateStr;
+      const parts = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!parts) return dateStr;
+      // Construit la Date en UTC pour eviter les decalages timezone qui
+      // pourraient changer le jour de la semaine au passage local <-> UTC.
+      const d = new Date(Date.UTC(+parts[1], +parts[2] - 1, +parts[3]));
+      const dow = d.getUTCDay();
+      if (dow === 0) d.setUTCDate(d.getUTCDate() - 2);      // dimanche -> vendredi
+      else if (dow === 6) d.setUTCDate(d.getUTCDate() - 1); // samedi -> vendredi
+      return d.toISOString().slice(0, 10);
+    }
+
     function buildPortfolioDailyCal() {
       const trades = portfolioTrades;
-      // Aggregate by day
+      // Aggregate by day (avec roll des trades weekend vers vendredi precedent)
       const dayData = {};
       trades.forEach(t => {
-        const d = t.date;
-        if (!d) return;
+        const rawD = t.date;
+        if (!rawD) return;
+        const d = _rollToWeekday(rawD);
         if (!dayData[d]) dayData[d] = { pnl: 0, trades: 0 };
         dayData[d].pnl += t.pnl;
         dayData[d].trades++;
@@ -18372,7 +18393,9 @@
       let runningCap = Math.abs(startCap) || 10000;
 
       let html = '';
-      ['Lun','Mar','Mer','Jeu','Ven','S'].forEach(d => { html += `<div class="p-day-header">${d}</div>`; });
+      // "Sem." = total hebdomadaire (= 6e colonne apres Lun-Ven). Avant c'etait
+      // "S" tout court qui pretait a confusion (lu comme "Samedi") -> retour user.
+      ['Lun','Mar','Mer','Jeu','Ven','Sem.'].forEach(d => { html += `<div class="p-day-header">${d}</div>`; });
       for (let i = 0; i < offset; i++) html += '<div class="p-day-cell empty"></div>';
 
       let totalWinDays = 0, totalLossDays = 0, totalTradeDays = 0;
