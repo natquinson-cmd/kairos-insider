@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-portfolio-free-registered"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-sub-badges"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1942,6 +1942,52 @@
       cursor: default;
     }
     .sm-badge-empty:hover { transform: none; box-shadow: none; }
+
+    /* Container de sous-badges (1 par type d'evenement smart money).
+       La couleur de bordure du container vient du verdict global. */
+    .sm-badge-group {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+      padding: 3px 4px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .sm-badge-group.verdict-bullish { border-color: rgba(34,197,94,0.32); background: rgba(34,197,94,0.06); }
+    .sm-badge-group.verdict-bearish { border-color: rgba(239,68,68,0.32); background: rgba(239,68,68,0.06); }
+    .sm-badge-group.verdict-mixed   { border-color: rgba(245,158,11,0.32); background: rgba(245,158,11,0.06); }
+    .sm-badge-group.verdict-neutral { border-color: var(--border); background: var(--surface-2); }
+
+    /* Sous-badge cliquable individuellement -> ouvre l'ecran detaille filtre. */
+    .sm-sub-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--surface-1);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .sm-sub-badge:hover {
+      transform: translateY(-1px);
+      background: var(--surface-2);
+      color: var(--text-primary);
+      border-color: rgba(59,130,246,0.4);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+    }
+    .sm-sub-badge.sm-badge-locked::after {
+      content: '🔒';
+      margin-left: 3px;
+      font-size: 10px;
+      opacity: 0.7;
+    }
 
     /* Empty state quand aucune position en cours */
     .positions-empty {
@@ -19095,6 +19141,58 @@
       return `https://assets.parqet.com/logos/symbol/${encodeURIComponent(symbol)}`;
     }
 
+    // ============================================================
+    // NAVIGATION FILTREE depuis les sous-badges smart money.
+    // Chaque sous-badge ouvre l'ecran detaille correspondant
+    // PRE-FILTRE sur le ticker de la position.
+    // ============================================================
+    function _openInsiderForTicker(ticker) {
+      // Reuse openExplorerForCluster : switch section insider + ticker filter + 30j
+      if (typeof openExplorerForCluster === 'function') {
+        openExplorerForCluster(ticker, 30, 'all');
+      } else {
+        // Fallback : juste switch + ticker dans le search input
+        switchSection('insider');
+        setTimeout(() => {
+          const inp = document.getElementById('searchInsider');
+          if (inp) inp.value = ticker;
+          if (typeof insiderSearchQuery !== 'undefined') insiderSearchQuery = String(ticker).toUpperCase();
+          if (typeof renderInsiderPage === 'function') renderInsiderPage();
+        }, 150);
+      }
+    }
+    function _openActivistsForTicker(ticker) {
+      // Reuse pattern existant dans loadActivistsForTicker du stockAnalysis
+      switchSection('activists');
+      setTimeout(() => {
+        const inp = document.getElementById('actTicker');
+        if (inp) inp.value = ticker;
+        const filter = document.getElementById('actFilter');
+        if (filter) filter.value = 'all';
+        if (typeof loadActivists === 'function') loadActivists();
+      }, 150);
+    }
+    function _openEtfForTicker(ticker) {
+      // Pas de filtre ticker natif dans la section ETF (qui groupe par ETF, pas
+      // par stock). On ouvre la fiche action -> loadEtfHistoryFor cree
+      // automatiquement le widget #etfHistorySlot. Scroll dessus quand il
+      // apparait (poll 200ms x 20 max = ~4s).
+      switchSection('stockAnalysis');
+      setTimeout(() => {
+        if (typeof loadStockAnalysis === 'function') loadStockAnalysis(ticker);
+        let tries = 0;
+        const tryScroll = () => {
+          const slot = document.getElementById('etfHistorySlot');
+          if (slot) { slot.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+          if (++tries < 20) setTimeout(tryScroll, 200);
+        };
+        setTimeout(tryScroll, 800);
+      }, 150);
+    }
+    window._openInsiderForTicker = _openInsiderForTicker;
+    window._openActivistsForTicker = _openActivistsForTicker;
+    window._openEtfForTicker = _openEtfForTicker;
+
     function _buildSmartMoneyBadge(symbol, summary, isPremiumUser) {
       if (!summary || summary.eventsTotal === 0) {
         return `<span class="sm-badge sm-badge-empty" title="Aucun mouvement smart money detecte 30j">— RAS 30j</span>`;
@@ -19102,25 +19200,38 @@
       const verdict = summary.verdict || 'neutral';
       const ins = summary.insider || {};
       const etf = summary.etf || {};
+      const act = summary.activists || { count: 0 };
       const score = summary.score || {};
-      const parts = [];
+      const lockedClass = isPremiumUser ? '' : ' sm-badge-locked';
+      const sub = []; // array de sous-badges HTML
+      // Helper : choisit l'action selon isPremium (upsell modal pour free)
+      const actionFor = (openFn, tooltip) => isPremiumUser
+        ? `onclick="event.stopPropagation();${openFn}('${symbol}')" title="${tooltip}"`
+        : `onclick="event.stopPropagation();openSmartMoneyUpsellModal('${symbol}')" title="Activez Pro+ pour les alertes en temps reel"`;
+
       if (ins.count > 0) {
         const tone = ins.buys > ins.sells ? '🟢' : (ins.sells > ins.buys ? '🔴' : '⚫');
-        parts.push(`${tone} ${ins.count} insider${ins.count > 1 ? 's' : ''}`);
+        const tip = `${ins.count} mouvement${ins.count > 1 ? 's' : ''} d'initiés 30j — Ouvrir l'écran Initiés filtré sur ${symbol}`;
+        sub.push(`<span class="sm-sub-badge${lockedClass}" ${actionFor('_openInsiderForTicker', tip)}>${tone} ${ins.count} insider${ins.count > 1 ? 's' : ''}</span>`);
+      }
+      if (act.count > 0) {
+        const icon = act.isActivist ? '⚔️' : '📋';
+        const tip = `${act.count} déclaration${act.count > 1 ? 's' : ''} 13D/G 30j — Ouvrir l'écran Activistes filtré sur ${symbol}`;
+        sub.push(`<span class="sm-sub-badge${lockedClass}" ${actionFor('_openActivistsForTicker', tip)}>${icon} ${act.count} 13D/G</span>`);
       }
       if (etf.newCount + etf.exitCount > 0) {
-        parts.push(`📊 ${etf.newCount}↑/${etf.exitCount}↓ ETF`);
+        const tip = `${etf.newCount} ETF entrés, ${etf.exitCount} sortis 30j — Voir le détail sur la fiche action`;
+        sub.push(`<span class="sm-sub-badge${lockedClass}" ${actionFor('_openEtfForTicker', tip)}>📊 ${etf.newCount}↑/${etf.exitCount}↓ ETF</span>`);
       }
       if (score.delta30d != null && Math.abs(score.delta30d) >= 3) {
-        parts.push(`⚡ Score ${score.delta30d > 0 ? '+' : ''}${score.delta30d}`);
+        const tip = `Kairos Score ${score.delta30d > 0 ? '+' : ''}${score.delta30d}pt sur 30j — Voir l'analyse complète`;
+        sub.push(`<span class="sm-sub-badge${lockedClass}" ${actionFor('_openEtfForTicker', tip)}>⚡ ${score.delta30d > 0 ? '+' : ''}${score.delta30d}pt</span>`);
       }
-      const lbl = parts.join(' · ') || `${summary.eventsTotal} mvt${summary.eventsTotal > 1 ? 's' : ''}`;
-      const lockedClass = isPremiumUser ? '' : ' sm-badge-locked';
-      const action = isPremiumUser
-        ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${symbol}'), 150)"`
-        : `onclick="openSmartMoneyUpsellModal('${symbol}')"`;
-      const title = isPremiumUser ? `Ouvrir la fiche action ${symbol}` : `${summary.eventsTotal} mouvements smart money 30j — Activez Pro+ pour les recevoir en temps reel`;
-      return `<span class="sm-badge verdict-${verdict}${lockedClass}" ${action} title="${title}">${lbl}</span>`;
+      if (sub.length === 0) {
+        return `<span class="sm-badge verdict-${verdict}${lockedClass}" title="${summary.eventsTotal} mouvements 30j">${summary.eventsTotal} mvt${summary.eventsTotal > 1 ? 's' : ''}</span>`;
+      }
+      // Container avec verdict color (bordure) + sous-badges cliquables independants
+      return `<span class="sm-badge-group verdict-${verdict}">${sub.join('')}</span>`;
     }
 
     // Bascule le hero entre empty (visible) et filled (cache).

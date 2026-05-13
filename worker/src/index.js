@@ -2486,8 +2486,8 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   )].slice(0, 50);
   if (tickers.length === 0) return jsonResponse({ summaries: {}, days }, 200, origin);
 
-  // v3 (mai 2026) : ajout prevClose + changePct + sparkline 1Y dans summaries
-  const cacheKey = `pf-summary:v3:${tickers.slice().sort().join(',')}:${days}d`;
+  // v4 (mai 2026) : ajout activists (count + topActivist) par ticker
+  const cacheKey = `pf-summary:v4:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -2632,7 +2632,50 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       }
     } catch (e) { console.warn('pf-summary etf failed:', e); }
 
-    // 4) TICKER SNAPSHOTS enrichis (mai 2026 v3) :
+    // 4) ACTIVISTS (fonds offensifs 13D/G) par ticker sur la fenetre.
+    // On lit le KV 13dg-recent (deja agrege par le pipeline 13D/G) + sources
+    // EU (AMF, BaFin, UK, NL, CH, IT, ES) pour les seuils >5%. 1 KV read par
+    // source -> compte les filings par ticker dans la fenetre {days}.
+    const activistsByTicker = {};
+    try {
+      const [secAct, amfAct, bafinAct, ukAct, nlAct] = await Promise.all([
+        env.CACHE?.get('13dg-recent', 'json').catch(() => null),
+        env.CACHE?.get('amf-thresholds-recent', 'json').catch(() => null),
+        env.CACHE?.get('bafin-thresholds-recent', 'json').catch(() => null),
+        env.CACHE?.get('uk-thresholds-recent', 'json').catch(() => null),
+        env.CACHE?.get('nl-thresholds-recent', 'json').catch(() => null),
+      ]);
+      const tickerSet = new Set(tickers);
+      const allFilings = [];
+      for (const src of [secAct, amfAct, bafinAct, ukAct, nlAct]) {
+        if (src?.filings) {
+          for (const f of src.filings) {
+            const t = String(f.ticker || '').toUpperCase();
+            if (!t || !tickerSet.has(t)) continue;
+            // Filtre par date (fenetre {days})
+            const fd = f.fileDate || f.filedAt || f.date;
+            if (fd && fd < cutoffStr) continue;
+            allFilings.push({ ...f, ticker: t });
+          }
+        }
+      }
+      // Aggregate per ticker
+      for (const f of allFilings) {
+        if (!activistsByTicker[f.ticker]) {
+          activistsByTicker[f.ticker] = { count: 0, latestFiler: null, latestDate: null, isActivist: false };
+        }
+        const slot = activistsByTicker[f.ticker];
+        slot.count++;
+        if (f.isActivist) slot.isActivist = true;
+        const fd = f.fileDate || f.filedAt || f.date;
+        if (fd && (!slot.latestDate || fd > slot.latestDate)) {
+          slot.latestDate = fd;
+          slot.latestFiler = f.filer || f.investorName || null;
+        }
+      }
+    } catch (e) { console.warn('pf-summary activists failed:', e); }
+
+    // 5) TICKER SNAPSHOTS enrichis (mai 2026 v3) :
     // 1 seul appel Yahoo par ticker -> current + prevClose + changePct +
     // sparkline 1Y (closes hebdo). Cache KV 4h. Permet le rendu UI :
     //   - colonne "Prix actuel" + variation veille (rouge/vert)
@@ -2663,6 +2706,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       const sPrev = scoresPrev[ticker];
       const ins = insidersByTicker[ticker] || { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
       const etf = etfByTicker[ticker] || { newCount: 0, exitCount: 0 };
+      const act = activistsByTicker[ticker] || { count: 0, latestFiler: null, latestDate: null, isActivist: false };
       const snap = snapshotsByTicker[ticker] || null;
 
       const scoreNow = sNow ? sNow.total : null;
@@ -2674,6 +2718,8 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       if (ins.totalBuyValue > ins.totalSellValue * 1.5) bullishPts += 1;
       if (ins.totalSellValue > ins.totalBuyValue * 1.5) bearishPts += 1;
       if (etf.newCount > etf.exitCount) bullishPts += 1; else if (etf.exitCount > etf.newCount) bearishPts += 1;
+      // Activist (13D/G) : forte conviction = >5% achete = bullish signal
+      if (act.isActivist) bullishPts += 1;
       if (scoreDelta !== null && scoreDelta >= 3) bullishPts += 1;
       else if (scoreDelta !== null && scoreDelta <= -3) bearishPts += 1;
       let verdict = 'neutral';
@@ -2685,8 +2731,9 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
         score: { now: scoreNow, delta30d: scoreDelta },
         insider: ins,
         etf,
+        activists: act,
         verdict,
-        eventsTotal: ins.count + etf.newCount + etf.exitCount + (scoreDelta && Math.abs(scoreDelta) >= 3 ? 1 : 0),
+        eventsTotal: ins.count + etf.newCount + etf.exitCount + act.count + (scoreDelta && Math.abs(scoreDelta) >= 3 ? 1 : 0),
         // Snapshot ticker enrichi (Yahoo, cache 4h) : current + prevClose +
         // changePct + currency + sparkline 1Y (~52 closes hebdo).
         // null si Yahoo down ou ticker introuvable -> front gracieux.
