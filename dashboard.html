@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-portfolio-resolve-eu"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-gauge-small"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -19472,11 +19472,17 @@
     // User retour : "enleve le graph (sparkline) et remplace par un turbometre
     // avec les couleurs d'echelle du Kairos Score".
     function _renderScoreGaugeSvg(score, opts) {
-      const width = (opts && opts.width) || 88;
-      const height = (opts && opts.height) || 48;
+      const width = (opts && opts.width) || 56;
+      const height = (opts && opts.height) || 30;
       const cx = width / 2;
-      const cy = height - 4; // anchor pres du bas (centre du demi-cercle)
-      const radius = Math.min(width / 2 - 5, height - 8);
+      const cy = height - 3; // anchor pres du bas (centre du demi-cercle)
+      const radius = Math.min(width / 2 - 3, height - 5);
+      // Scaling proportionnel aux dimensions : strokes + dots scale avec radius
+      // pour que le gauge garde un aspect coherent quelle que soit la taille.
+      const strokeW = Math.max(2, Math.min(5, radius * 0.17));
+      const pivotR = Math.max(1.3, radius * 0.07);
+      const headR = Math.max(1.5, radius * 0.085);
+      const needleW = Math.max(1.2, radius * 0.05);
       // Mapping score -> angle radians : PI (gauche) a 0 (droite) via le haut
       const scoreToAngle = (s) => Math.PI * (1 - s / 100);
       const pointAt = (s) => {
@@ -19489,22 +19495,20 @@
       const arcPath = (sFrom, sTo) => {
         const p1 = pointAt(sFrom);
         const p2 = pointAt(sTo);
-        // Sweep=1 pour arcs petits (<180°) en sens horaire SVG (= vers le haut
-        // car y inverse). Large-arc=0 car aucun segment ne fait plus que 180°.
         return `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${radius} ${radius} 0 0 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
       };
       const sClamped = Math.max(0, Math.min(100, Number(score) || 0));
       const indicatorPt = pointAt(sClamped);
       return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="pos-score-gauge">
         <!-- 3 zones de couleur (echelle Kairos Score) -->
-        <path d="${arcPath(0, 50)}" fill="none" stroke="#EF4444" stroke-width="5" stroke-opacity="0.80" stroke-linecap="round"/>
-        <path d="${arcPath(50, 70)}" fill="none" stroke="#F59E0B" stroke-width="5" stroke-opacity="0.80"/>
-        <path d="${arcPath(70, 100)}" fill="none" stroke="#10B981" stroke-width="5" stroke-opacity="0.80" stroke-linecap="round"/>
+        <path d="${arcPath(0, 50)}" fill="none" stroke="#EF4444" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.80" stroke-linecap="round"/>
+        <path d="${arcPath(50, 70)}" fill="none" stroke="#F59E0B" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.80"/>
+        <path d="${arcPath(70, 100)}" fill="none" stroke="#10B981" stroke-width="${strokeW.toFixed(1)}" stroke-opacity="0.80" stroke-linecap="round"/>
         <!-- Aiguille du centre vers la valeur courante -->
-        <line x1="${cx}" y1="${cy}" x2="${indicatorPt.x.toFixed(1)}" y2="${indicatorPt.y.toFixed(1)}" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="${cx}" y1="${cy}" x2="${indicatorPt.x.toFixed(1)}" y2="${indicatorPt.y.toFixed(1)}" stroke="#fff" stroke-width="${needleW.toFixed(1)}" stroke-linecap="round"/>
         <!-- Pivot central + tete d'aiguille -->
-        <circle cx="${cx}" cy="${cy}" r="2.3" fill="#fff"/>
-        <circle cx="${indicatorPt.x.toFixed(1)}" cy="${indicatorPt.y.toFixed(1)}" r="2.6" fill="#fff" stroke="rgba(0,0,0,0.5)" stroke-width="0.6"/>
+        <circle cx="${cx}" cy="${cy}" r="${pivotR.toFixed(1)}" fill="#fff"/>
+        <circle cx="${indicatorPt.x.toFixed(1)}" cy="${indicatorPt.y.toFixed(1)}" r="${headR.toFixed(1)}" fill="#fff" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>
       </svg>`;
     }
 
@@ -19920,6 +19924,11 @@
         }
 
         // Cellule P&L latent : (currentPrice - avgPrice) * netQty
+        // Format complet (pas en K) si l'espace le permet -- retour user :
+        // "dans la colonne P&L latent, on doit voir le chiffre complet
+        // si assez d'espace". On utilise _fmtMoneyFull avec separateurs
+        // milliers ; la cellule a white-space:nowrap pour eviter le wrap
+        // qui casserait le layout sur une grosse valeur (ex: +123 456).
         const unrealizedCell = row.querySelector('.pos-unrealized');
         if (!unrealizedCell) continue;
         if (currentPrice && p.avgPrice > 0) {
@@ -19932,8 +19941,8 @@
           const sign = unrealized >= 0 ? '+' : '';
           const cls = unrealized >= 0 ? 'pos-unrealized-positive' : 'pos-unrealized-negative';
           unrealizedCell.className = 'pos-unrealized ' + cls;
-          unrealizedCell.style.cssText = 'text-align:right';
-          unrealizedCell.innerHTML = `<div style="font-weight:600">${sign}${_fmtMoneyCompact(unrealized)}</div><div style="font-size:11px;opacity:0.75">${sign}${pct.toFixed(1)}%</div>`;
+          unrealizedCell.style.cssText = 'text-align:right;white-space:nowrap';
+          unrealizedCell.innerHTML = `<div style="font-weight:600">${sign}${_fmtMoneyFull(unrealized)}</div><div style="font-size:11px;opacity:0.75">${sign}${pct.toFixed(1)}%</div>`;
         } else {
           unrealizedCell.textContent = '—';
         }
