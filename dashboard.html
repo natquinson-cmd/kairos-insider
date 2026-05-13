@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-portfolio-google-favicons"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-score-radar"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1879,6 +1879,41 @@
     .positions-table .pos-spark-svg {
       display: inline-block;
       vertical-align: middle;
+    }
+    /* Cellule Kairos Score : nombre big + radar SVG octogone sous (8 dims) */
+    .positions-table .pos-score-cell {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: help;
+    }
+    .positions-table .pos-score-num {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .positions-table .pos-score-delta {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+    .positions-table .pos-score-delta-pos {
+      color: #10B981;
+      background: rgba(16,185,129,0.12);
+    }
+    .positions-table .pos-score-delta-neg {
+      color: #EF4444;
+      background: rgba(239,68,68,0.12);
+    }
+    .positions-table .pos-radar-svg {
+      display: block;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.10));
     }
     .positions-table .pos-qty {
       text-align: right;
@@ -19141,6 +19176,65 @@
       return `https://assets.parqet.com/logos/symbol/${encodeURIComponent(symbol)}`;
     }
 
+    // Mini radar SVG inline pour les 8 sous-scores Kairos.
+    // Echelle : chaque sub-score est sur 0-20 (sortie du pipeline scoring).
+    // Couleur de fond / fill / stroke : bleu Kairos #3B82F6 avec opacite
+    // croissante (bg 6% / fill 35% / stroke 100%).
+    // Ordre des axes (CW depuis le haut) :
+    //   insider, smart_money, gov_guru, momentum, valuation, analyst, health, earnings
+    const _RADAR_DIMS = ['insider', 'smart_money', 'gov_guru', 'momentum', 'valuation', 'analyst', 'health', 'earnings'];
+    function _renderRadarSvg(subScores, opts) {
+      if (!subScores || typeof subScores !== 'object') return '';
+      const size = (opts && opts.size) || 56;
+      const cx = size / 2, cy = size / 2;
+      const radius = (size / 2) - 4;
+      const max = 20; // typical max par sub-score (sortie pipeline scoring)
+      const n = _RADAR_DIMS.length;
+      const angleStep = (2 * Math.PI) / n;
+      // Polygon des valeurs : chaque point est (val/max) du radius sur son axe
+      const valPts = _RADAR_DIMS.map((d, i) => {
+        const v = Math.max(0, Math.min(max, Number(subScores[d]) || 0));
+        const ratio = v / max;
+        const angle = -Math.PI / 2 + i * angleStep;
+        const x = cx + Math.cos(angle) * radius * ratio;
+        const y = cy + Math.sin(angle) * radius * ratio;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      // Octogone max (background)
+      const maxPts = _RADAR_DIMS.map((_, i) => {
+        const angle = -Math.PI / 2 + i * angleStep;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" class="pos-radar-svg">
+        <polygon points="${maxPts}" fill="rgba(59,130,246,0.06)" stroke="rgba(59,130,246,0.22)" stroke-width="0.5"/>
+        <polygon points="${valPts}" fill="rgba(59,130,246,0.35)" stroke="#3B82F6" stroke-width="1.2" stroke-linejoin="round"/>
+      </svg>`;
+    }
+
+    // Couleur du score selon valeur : vert (>=70), orange (50-69), rouge (<50)
+    function _scoreColor(s) {
+      if (s == null) return 'var(--text-muted)';
+      if (s >= 70) return '#10B981';
+      if (s >= 50) return '#F59E0B';
+      return '#EF4444';
+    }
+    function _scoreTooltip(sub) {
+      if (!sub) return 'Kairos Score : pas de breakdown disponible';
+      const labels = {
+        insider: 'Initiés',
+        smart_money: 'Hedge funds',
+        gov_guru: 'Politiciens & gourous',
+        momentum: 'Momentum',
+        valuation: 'Valorisation',
+        analyst: 'Analystes',
+        health: 'Santé fin.',
+        earnings: 'Earnings',
+      };
+      return _RADAR_DIMS.map(d => `${labels[d]} ${sub[d] != null ? Number(sub[d]).toFixed(0) : '—'}/20`).join(' · ');
+    }
+
     // ============================================================
     // NAVIGATION FILTREE depuis les sous-badges smart money.
     // Chaque sous-badge ouvre l'ecran detaille correspondant
@@ -19288,6 +19382,7 @@
           <td class="pos-cost">${p.avgPrice > 0 ? '~' + _fmtMoneyCompact(p.avgPrice) : '—'}</td>
           <td class="pos-now" data-pos-now="${p.symbol}" style="text-align:right;color:var(--text-muted)">…</td>
           <td class="pos-spark" data-pos-spark="${p.symbol}" style="text-align:center"><span style="color:var(--text-muted);font-size:11px">…</span></td>
+          <td class="pos-score" data-pos-score="${p.symbol}" style="text-align:center"><span style="color:var(--text-muted);font-size:11px">…</span></td>
           <td class="pos-cost">${_fmtMoneyCompact(p.totalCost)}</td>
           <td class="pos-unrealized" data-pos-unrealized="${p.symbol}" style="text-align:right;color:var(--text-muted)">—</td>
           <td class="pos-sm" style="text-align:right"><span class="sm-badge sm-badge-empty" data-loading="1">…</span></td>
@@ -19335,6 +19430,7 @@
                   <th style="text-align:right" data-i18n="dash.portfolio.col_avg">Prix moyen</th>
                   <th style="text-align:right" data-i18n="dash.portfolio.col_now">Maintenant</th>
                   <th style="text-align:center" data-i18n="dash.portfolio.col_1y">1 an</th>
+                  <th style="text-align:center" data-i18n="dash.portfolio.col_score">Kairos Score</th>
                   <th style="text-align:right" data-i18n="dash.portfolio.col_total">Coût</th>
                   <th style="text-align:right" data-i18n="dash.portfolio.col_unrealized">P&L latent</th>
                   <th style="text-align:right" data-i18n="dash.portfolio.col_smart">Smart money 30j</th>
@@ -19384,6 +19480,30 @@
             sparkCell.innerHTML = _renderSparklineSvg(sparkline);
           } else {
             sparkCell.innerHTML = '<span style="color:var(--text-muted);font-size:11px">—</span>';
+          }
+        }
+
+        // Cellule "Kairos Score" : total + mini radar SVG (8 sub-scores)
+        const scoreCell = row.querySelector('.pos-score');
+        const score = (sum && sum.score) || null;
+        if (scoreCell) {
+          const total = (score && score.now != null) ? Number(score.now) : null;
+          const delta = (score && score.delta30d != null) ? Number(score.delta30d) : null;
+          const sub = (score && score.sub) ? score.sub : null;
+          if (total != null) {
+            const color = _scoreColor(total);
+            const deltaStr = (delta != null && Math.abs(delta) >= 1)
+              ? `<span class="pos-score-delta ${delta >= 0 ? 'pos-score-delta-pos' : 'pos-score-delta-neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(0)}</span>`
+              : '';
+            const radarHtml = sub ? _renderRadarSvg(sub, { size: 50 }) : '';
+            const tip = _scoreTooltip(sub);
+            scoreCell.innerHTML = `
+              <div class="pos-score-cell" title="${tip}">
+                <div class="pos-score-num" style="color:${color}">${total.toFixed(0)}${deltaStr}</div>
+                ${radarHtml}
+              </div>`;
+          } else {
+            scoreCell.innerHTML = '<span style="color:var(--text-muted);font-size:11px">—</span>';
           }
         }
 

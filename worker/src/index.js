@@ -2486,8 +2486,9 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   )].slice(0, 50);
   if (tickers.length === 0) return jsonResponse({ summaries: {}, days }, 200, origin);
 
-  // v4 (mai 2026) : ajout activists (count + topActivist) par ticker
-  const cacheKey = `pf-summary:v4:${tickers.slice().sort().join(',')}:${days}d`;
+  // v5 (mai 2026) : ajout 8 sub-scores Kairos (insider/smart_money/gov_guru/
+  // momentum/valuation/analyst/health/earnings) pour radar SVG cote UI
+  const cacheKey = `pf-summary:v5:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -2508,11 +2509,15 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
     // Une seule requete avec GROUP BY ticker + agregation custom : pour chaque
     // ticker on veut le total au MAX(date) ET au date <= cutoff. SQLite n'a
     // pas FIRST_VALUE() dans la build D1, donc on fait 2 sous-queries.
+    // Sub-scores fetches : total + 8 dimensions (insider, smart_money,
+    // gov_guru, momentum, valuation, analyst, health, earnings).
+    // Permet rendering radar SVG cote UI sur chaque ligne du portfolio.
     const scoresNow = {};
     const scoresPrev = {};
     try {
       const nowRes = await env.HISTORY.prepare(
-        `SELECT s.ticker, s.total, s.date
+        `SELECT s.ticker, s.total, s.date, s.insider, s.smart_money,
+                s.gov_guru, s.momentum, s.valuation, s.analyst, s.health, s.earnings
          FROM score_history s
          INNER JOIN (
            SELECT ticker, MAX(date) AS d
@@ -2522,7 +2527,15 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
          ) m ON s.ticker = m.ticker AND s.date = m.d`
       ).bind(...tickers).all();
       for (const r of (nowRes.results || [])) {
-        scoresNow[r.ticker] = { total: r.total, date: r.date };
+        scoresNow[r.ticker] = {
+          total: r.total, date: r.date,
+          sub: {
+            insider: r.insider, smart_money: r.smart_money,
+            gov_guru: r.gov_guru, momentum: r.momentum,
+            valuation: r.valuation, analyst: r.analyst,
+            health: r.health, earnings: r.earnings,
+          },
+        };
       }
 
       const prevRes = await env.HISTORY.prepare(
@@ -2728,7 +2741,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       else if (bullishPts > 0 && bearishPts > 0) verdict = 'mixed';
 
       summaries[ticker] = {
-        score: { now: scoreNow, delta30d: scoreDelta },
+        score: { now: scoreNow, delta30d: scoreDelta, sub: sNow ? sNow.sub : null },
         insider: ins,
         etf,
         activists: act,
