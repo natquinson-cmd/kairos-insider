@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-funds-sort"></script>
+  <script src="assets/i18n.js?v=20260513-funds-treemap-search-holdings"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -3021,8 +3021,13 @@
       transition: max-height 0.4s ease, padding 0.3s ease;
       padding: 0 20px;
     }
+    /* FIX (mai 2026, retour user) : 650px clippait le tableau Top 50 positions
+       situe SOUS le treemap (520px). Bump a 1800px (treemap 320px reduit +
+       header + table top 50). Sans overflow:auto pour eviter le double scroll
+       (page + panel) qui casse l'UX. Le treemap est lui meme reduit a 320px
+       (cf renderChartsForHoldings opts.treemapHeight). */
     .fund-detail-row.open .fund-detail-inner {
-      max-height: 650px;
+      max-height: 1800px;
       padding: 20px;
     }
     .fund-detail-inner .sub-header {
@@ -4432,12 +4437,23 @@
           <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
-        <!-- SEARCH BAR FONDS : trouve Berkshire Hathaway, Pershing Square, Tiger Global... -->
-        <div style="position:relative;margin:16px 0 20px;max-width:560px">
-          <input id="hedgeFundsSearch" type="text" placeholder="🔍 Rechercher un fonds (ex: Berkshire, Pershing, Buffett, Soros)..." autocomplete="off"
+        <!-- SEARCH BAR : 2 dimensions de recherche fusionnees (mai 2026) :
+             1) Fonds (Berkshire, Pershing, Buffett, Soros, Tiger Global...)
+             2) Action detenue (Apple, AAPL, Nvidia, NVDA...) -> filtre les
+                fonds qui detiennent cette action dans leur top 30+.
+             Le data-fund-search inclut nom du fonds + manager + categorie +
+             noms+tickers des holdings (cf renderHedgeFundsTable). -->
+        <div style="position:relative;margin:16px 0 8px;max-width:680px">
+          <input id="hedgeFundsSearch" type="text"
+                 placeholder="🔍 Fonds OU action détenue (ex: Berkshire, Apple, AAPL, Nvidia)..."
+                 data-i18n-placeholder="hedge.search.placeholder"
+                 autocomplete="off"
                  style="width:100%;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;font-size:14px;font-family:inherit"
                  oninput="filterHedgeFunds(this.value)" />
-          <div id="hedgeFundsSearchHint" style="position:absolute;right:14px;top:14px;font-size:11px;color:var(--text-muted);pointer-events:none">Tape pour filtrer</div>
+          <div id="hedgeFundsSearchHint" style="position:absolute;right:14px;top:14px;font-size:11px;color:var(--text-muted);pointer-events:none" data-i18n="hedge.search.hint">Tape pour filtrer</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin:0 0 20px;line-height:1.5" data-i18n="hedge.search.subhint">
+          💡 Tu peux aussi chercher par <strong>action</strong> que les fonds détiennent — ex : "Apple" affiche tous les fonds qui ont des actions Apple en portefeuille.
         </div>
 
         <!-- Bloc résumé : Activité du dernier trimestre -->
@@ -12580,6 +12596,22 @@
                 return html;
               })()}
             </div>
+            ${(sm.fundCount || 0) > 0 && currentUser ? `
+              <!-- LIEN VERS HEDGE FUNDS PAGE FILTREE (mai 2026) :
+                   Permet de voir TOUS les fonds qui detiennent ce ticker
+                   (pas juste le top 5/20 affiche ici) + d'explorer leurs
+                   autres positions. navigateToFundsWithHolding() switch
+                   la section + pre-fill le search. -->
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--divider);text-align:center">
+                <a href="#13f?holding=${encodeURIComponent(d.ticker || '')}"
+                   onclick="event.preventDefault();navigateToFundsWithHolding('${(d.ticker || '').replace(/'/g, "\\'")}')"
+                   style="display:inline-block;font-size:12px;color:var(--accent-blue);text-decoration:none;font-weight:600;padding:6px 12px;border-radius:6px;transition:background 0.15s"
+                   onmouseover="this.style.background='rgba(116,185,255,0.08)'"
+                   onmouseout="this.style.background='transparent'">
+                  ${t('stock.hf.viewAllFunds', 'Voir tous les fonds qui détiennent {ticker} →').replace('{ticker}', (d.ticker || '').toUpperCase())}
+                </a>
+              </div>
+            ` : ''}
           </div>
 
           <!-- POLITICIENS / GURUS -->
@@ -13985,12 +14017,52 @@
         _hedgeFundsState.sortKey = null;
         _hedgeFundsState.sortDir = null;
         renderHedgeFundsTable();
+
+        // FEATURE (mai 2026) : deep-link par hash URL.
+        // - #13f?holding=AAPL : pre-fill le search avec 'AAPL' + filtre direct
+        //   (utilise depuis la fiche action "Voir tous les fonds qui detiennent
+        //   {ticker}", ou via copie de lien)
+        // - #13f sans param : pas de filtre
+        const hashMatch = window.location.hash.match(/[?&]holding=([^&]+)/);
+        if (hashMatch) {
+          const holdingQuery = decodeURIComponent(hashMatch[1]);
+          const searchInput = document.getElementById('hedgeFundsSearch');
+          if (searchInput) {
+            searchInput.value = holdingQuery;
+            filterHedgeFunds(holdingQuery);
+          }
+        }
       } catch (err) {
         if (err.message !== 'Unauthorized') {
           area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
         }
       }
     }
+
+    // Helper pour naviguer depuis la fiche action -> Hedge Funds avec filtre
+    // pre-applique sur l'action. Utilise par le lien "Voir tous les fonds qui
+    // detiennent {ticker}" dans le bloc Smart Money de stockAnalysis.
+    // - Met le hash a jour (bookmarkable / partageable)
+    // - switchSection('13f') charge la page si pas encore chargee
+    // - setTimeout reapplique le filtre meme si la page etait deja chargee
+    //   (cas frequent : user fait des aller-retour entre fiche et hedge funds)
+    function navigateToFundsWithHolding(ticker) {
+      const q = String(ticker || '').trim();
+      if (!q) return;
+      window.location.hash = `13f?holding=${encodeURIComponent(q)}`;
+      switchSection('13f');
+      // Attend que la table soit rendue (load13FFunds est async)
+      setTimeout(() => {
+        const inp = document.getElementById('hedgeFundsSearch');
+        if (inp) {
+          inp.value = q;
+          filterHedgeFunds(q);
+          // Scroll input into view pour confirmer visuellement le filtre
+          inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+    window.navigateToFundsWithHolding = navigateToFundsWithHolding;
 
     // Renderer reutilisable : appele par load13FFunds (initial) et
     // sortHedgeFunds (apres toggle de tri). Lit le state, applique le
@@ -14052,7 +14124,14 @@
         const categoryTxt = f.category || '';
         const subline = [fundTxt, categoryTxt].filter(Boolean).join(' · ');
 
-        const searchableText = [labelTxt, fundTxt, categoryTxt].filter(Boolean).join(' ').toLowerCase();
+        // FEATURE (mai 2026) : search par HOLDINGS aussi. On indexe le nom de
+        // chaque position du top 30+ du fond, son ticker, son symbol. Permet
+        // de chercher "Apple" ou "AAPL" -> filtre tous les fonds qui le tiennent.
+        // Sert aussi au deep-link depuis fiche action (#13f?holding=AAPL).
+        const holdingsText = (f.topHoldings || []).map(h =>
+          [h.name, h.ticker, h.symbol].filter(Boolean).join(' ')
+        ).join(' ');
+        const searchableText = [labelTxt, fundTxt, categoryTxt, holdingsText].filter(Boolean).join(' ').toLowerCase();
         rows += `<tr class="fund-row" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
           <td style="opacity:0.6">${displayRank}</td>
           <td>
@@ -14233,7 +14312,7 @@
           // Récupérer les données du fonds depuis la dernière réponse API
           apiFetch('/api/13f-funds').then(funds => {
             if (funds && funds[idx] && funds[idx].topHoldings && funds[idx].topHoldings.length > 0) {
-              setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName, { treemapOnly: true }), 200);
+              setTimeout(() => renderChartsForHoldings(`fund-charts-${idx}`, funds[idx].topHoldings, funds[idx].label || funds[idx].fundName, { treemapOnly: true, treemapHeight: 320 }), 200);
               // Charge l'historique D1 du fond (AUM + top holdings sur N trimestres)
               loadFundHistoryFor(idx, funds[idx].cik, funds[idx].label || funds[idx].fundName);
             }
@@ -16403,6 +16482,10 @@
       const container = document.getElementById(containerId);
       if (!container || !holdings || holdings.length === 0) return;
       const treemapOnly = opts.treemapOnly === true;
+      // FIX (mai 2026, retour user) : treemap par defaut 520px sur la page
+      // ETF (plein ecran), mais 320px sur Hedge Funds depliable (la max-height
+      // de .fund-detail-inner = 1800px clipperait le tableau Top 50 sinon).
+      const treemapHeight = Number(opts.treemapHeight) > 0 ? opts.treemapHeight : 520;
 
       const top = holdings.slice(0, 10);
       const otherPct = holdings.slice(10).reduce((s, h) => s + (h.weight || h.pct || 0), 0);
@@ -16426,7 +16509,7 @@
           `}
           <div class="chart-card full-width">
             <h4>Carte des positions — ${title || ''}</h4>
-            <div class="treemap-container" id="${containerId}-treemap" style="position:relative;width:100%;height:520px;background:var(--bg-card);border-radius:8px;overflow:hidden"></div>
+            <div class="treemap-container" id="${containerId}-treemap" style="position:relative;width:100%;height:${treemapHeight}px;background:var(--bg-card);border-radius:8px;overflow:hidden"></div>
           </div>
         </div>
       `;

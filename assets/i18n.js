@@ -538,6 +538,11 @@
       'stock.hf.totalValue': 'Valeur totale :',
       'stock.hf.offensiveBadge': 'ACTIVISTE',
       'stock.hf.offensiveTooltip': 'Activiste : a déposé au moins un Schedule 13D auprès de la SEC sur les 24 derniers mois (= acquisition >5% AVEC intention d\'influencer la société). Signal activist factuel — pas seulement une auto-déclaration de catégorie.',
+      'stock.hf.viewAllFunds': 'Voir tous les fonds qui détiennent {ticker} →',
+      // Hedge Funds page — search bar (mai 2026 : search par fonds + actions detenues)
+      'hedge.search.placeholder': '🔍 Fonds OU action détenue (ex: Berkshire, Apple, AAPL, Nvidia)...',
+      'hedge.search.hint': 'Tape pour filtrer',
+      'hedge.search.subhint': '💡 Tu peux aussi chercher par <strong>action</strong> que les fonds détiennent — ex : "Apple" affiche tous les fonds qui ont des actions Apple en portefeuille.',
       // Consensus vote cards
       'stock.cons.strongBuy': 'Achat fort',
       'stock.cons.buy': 'Achat',
@@ -1700,6 +1705,11 @@
       'stock.hf.totalValue': 'Total value:',
       'stock.hf.offensiveBadge': 'ACTIVIST',
       'stock.hf.offensiveTooltip': 'Activist: filed at least one Schedule 13D with the SEC in the last 24 months (= >5% acquisition WITH intent to influence the company). Factual activist signal — not just self-declared category.',
+      'stock.hf.viewAllFunds': 'View all funds holding {ticker} →',
+      // Hedge Funds page — search bar (may 2026: search by fund + held stocks)
+      'hedge.search.placeholder': '🔍 Fund OR held stock (e.g. Berkshire, Apple, AAPL, Nvidia)...',
+      'hedge.search.hint': 'Type to filter',
+      'hedge.search.subhint': '💡 You can also search by <strong>stock</strong> the funds hold — e.g. "Apple" shows all funds with Apple shares in their portfolio.',
       'stock.cons.strongBuy': 'Strong buy',
       'stock.cons.buy': 'Buy',
       'stock.cons.hold': 'Hold',
