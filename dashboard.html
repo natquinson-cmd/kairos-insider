@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-portfolio-positions-smartmoney"></script>
+  <script src="assets/i18n.js?v=20260513-portfolio-compact-hero"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1483,150 +1483,140 @@
        broker chips, lien aide modal. Replace l'ancien Radar Portefeuille
        broker OAuth (retire suite user retour : coverage FR/EU limitee).
        ============================================================ */
+    /* ============================================================
+       IMPORT CSV — refonte compacte mai 2026
+       Pattern repris de Parqet (DE) + Sharesight (UK) : hero
+       compact, pas de panneau pleine page. Quand l'user a deja
+       des trades importes (filled state), le hero est cache et
+       remplace par un bouton ghost dans la toolbar des positions.
+       ============================================================ */
     .portfolio-import-hero {
-      margin-bottom: 32px;
+      margin-bottom: 20px;
     }
     .import-card {
-      background: linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.03));
+      background: linear-gradient(135deg, rgba(59,130,246,0.04), rgba(139,92,246,0.02));
       border: 2px dashed rgba(59,130,246,0.28);
-      border-radius: 20px;
-      padding: 48px 32px;
-      text-align: center;
+      border-radius: 14px;
+      padding: 18px 22px;
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 18px;
       position: relative;
-      overflow: hidden;
-    }
-    .import-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at 50% 0%, rgba(116, 185, 255, 0.08), transparent 60%);
-      pointer-events: none;
     }
     .import-card:hover {
       border-color: rgba(116, 185, 255, 0.55);
-      background: linear-gradient(135deg, rgba(59,130,246,0.10), rgba(139,92,246,0.06));
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(59, 130, 246, 0.12);
+      background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.04));
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.10);
     }
     .import-card.drag-over {
       border-color: #74b9ff;
       border-style: solid;
-      background: linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.10));
-      transform: scale(1.01);
-      box-shadow: 0 16px 40px rgba(116, 185, 255, 0.25);
+      background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.08));
+      transform: scale(1.005);
+      box-shadow: 0 10px 28px rgba(116, 185, 255, 0.22);
     }
     .import-card.drag-over .import-icon {
-      transform: scale(1.15);
-      filter: drop-shadow(0 0 20px rgba(116, 185, 255, 0.6));
+      transform: scale(1.12);
+      filter: drop-shadow(0 0 14px rgba(116, 185, 255, 0.55));
     }
     .import-icon {
-      font-size: 56px;
-      margin-bottom: 16px;
+      font-size: 28px;
       display: inline-block;
-      transition: all 0.25s ease;
-      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+    }
+    .import-body {
+      flex: 1;
+      min-width: 0;
     }
     .import-title {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 22px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--text-primary);
-      margin: 0 0 8px;
-      letter-spacing: -0.01em;
+      margin: 0 0 3px;
+      letter-spacing: -0.005em;
     }
     .import-sub {
-      font-size: 14px;
+      font-size: 12px;
       color: var(--text-secondary);
-      margin: 0 0 24px;
-      line-height: 1.5;
+      margin: 0;
+      line-height: 1.4;
     }
     .import-cta {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
+      gap: 6px;
+      padding: 9px 16px;
       background: linear-gradient(135deg, #3B82F6, #8B5CF6);
       color: #fff;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
       font-family: inherit;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 600;
       letter-spacing: 0.01em;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+      box-shadow: 0 3px 12px rgba(59, 130, 246, 0.30);
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     .import-cta:hover {
       transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.5);
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.45);
     }
-    .import-cta:active {
-      transform: translateY(0);
-    }
-    .import-brokers {
-      margin-top: 28px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-    }
-    .brokers-label {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 10px;
-      font-weight: 600;
-    }
-    .broker-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-    }
-    .broker-chip {
-      display: inline-block;
-      padding: 4px 10px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: 500;
-      transition: all 0.15s ease;
-    }
-    .broker-chip:hover {
-      background: rgba(116, 185, 255, 0.08);
-      border-color: rgba(116, 185, 255, 0.35);
-      color: var(--text-primary);
-    }
-    .broker-chip-more {
-      background: rgba(139, 92, 246, 0.08);
-      border-color: rgba(139, 92, 246, 0.3);
-      color: #A78BFA;
-    }
-    .import-help {
-      margin-top: 16px;
+    .import-cta:active { transform: translateY(0); }
+    /* Footer link discret en-dessous du hero (visible empty state seulement) */
+    .import-hero-footer {
+      margin-top: 10px;
+      text-align: center;
       font-size: 12px;
     }
-    .import-help a {
-      color: var(--accent-blue);
+    .import-hero-footer a {
+      color: var(--text-muted);
       text-decoration: none;
-      transition: opacity 0.15s ease;
+      transition: color 0.15s ease;
+      cursor: pointer;
     }
-    .import-help a:hover {
-      opacity: 0.75;
+    .import-hero-footer a:hover {
+      color: var(--accent-blue);
       text-decoration: underline;
     }
+
+    /* Filled state : hero compact -> bouton ghost dans la toolbar */
+    .portfolio-import-hero.filled { display: none; }
+    .positions-import-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: transparent;
+      color: var(--accent-blue);
+      border: 1px solid rgba(59,130,246,0.35);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .positions-import-btn:hover {
+      background: rgba(59,130,246,0.08);
+      border-color: rgba(59,130,246,0.55);
+      transform: translateY(-1px);
+    }
+
     @media (max-width: 640px) {
-      .import-card { padding: 32px 16px; }
-      .import-icon { font-size: 44px; }
-      .import-title { font-size: 18px; }
-      .import-sub { font-size: 13px; }
-      .broker-chips { gap: 4px; }
-      .broker-chip { font-size: 10px; padding: 3px 8px; }
+      .import-card { padding: 14px 16px; gap: 12px; flex-wrap: wrap; }
+      .import-icon { font-size: 24px; }
+      .import-title { font-size: 14px; }
+      .import-sub { font-size: 11px; }
+      .import-cta { padding: 8px 14px; font-size: 12px; }
     }
 
     /* CSV Help Modal */
@@ -5016,15 +5006,17 @@
 
       <!-- ===== SECTION: MON PORTEFEUILLE ===== -->
       <div class="section-page" id="section-portfolio">
-        <h2><span data-i18n="dash.section.portfolio.title">Mon Portefeuille</span> <span class="beta-tag">Beta</span></h2>
+        <h2><span data-i18n="dash.section.portfolio.title">Mon Portefeuille</span></h2>
         <p class="section-desc" data-i18n="dash.section.portfolio.desc">Importez votre historique de trades en CSV pour analyser votre <strong>performance</strong>, votre <strong>P&L</strong>, votre <strong>calendrier</strong>, et bientôt recevoir des <strong>alertes smart money</strong> sur vos positions.</p>
 
         <!-- ============================================================
-             HERO : zone d'import CSV moderne (refonte mai 2026)
-             User retour : 'Enlève la connexion broker, garde le CSV avec
-             une UX moderne'. Raison : OAuth broker = trop de friction
-             securite + coverage broker FR/EU limitee. CSV = couverture
-             100% (tous les brokers exportent en CSV) + zero risque.
+             HERO : zone d'import CSV compacte (refonte mai 2026 v2)
+             User retour : "l'encadre prend trop de place". Inspiration :
+             Parqet (DE) + Sharesight (UK) : drop zone fine 1 ligne,
+             pas de chips brokers dans la card -> footer link discret
+             vers le modal de detail. Quand portfolioTrades.length > 0,
+             le hero passe en .filled (hidden) et un bouton ghost
+             "+ Importer plus" apparait dans la toolbar des positions.
              ============================================================ -->
         <div class="portfolio-import-hero" id="portfolioImportHero">
           <div class="import-card" id="csvDropZone"
@@ -5033,34 +5025,19 @@
                ondrop="event.preventDefault();this.classList.remove('drag-over');handleCsvDrop(event)"
                onclick="if(event.target.tagName !== 'A' && event.target.tagName !== 'BUTTON' && !event.target.closest('a') && !event.target.closest('button')) document.getElementById('csvFileInput').click()">
             <div class="import-icon">📤</div>
-            <h3 class="import-title" data-i18n="dash.portfolio.import_title">Importez votre historique de trades</h3>
-            <p class="import-sub" data-i18n="dash.portfolio.import_sub">Glissez votre fichier CSV ici ou cliquez pour parcourir</p>
+            <div class="import-body">
+              <h3 class="import-title" data-i18n="dash.portfolio.import_title">Importez votre historique de trades</h3>
+              <p class="import-sub" data-i18n="dash.portfolio.import_sub_compact">Glissez votre CSV ici ou parcourez — Détection automatique du broker</p>
+            </div>
             <button type="button" class="import-cta" onclick="event.stopPropagation();document.getElementById('csvFileInput').click()">
-              <span>📥</span>
               <span data-i18n="dash.portfolio.import_btn">Choisir un fichier CSV</span>
             </button>
-
-            <div class="import-brokers">
-              <span class="brokers-label" data-i18n="dash.portfolio.brokers_label">Compatible avec :</span>
-              <div class="broker-chips">
-                <span class="broker-chip">IG Markets</span>
-                <span class="broker-chip">Trade Republic</span>
-                <span class="broker-chip">Degiro</span>
-                <span class="broker-chip">eToro</span>
-                <span class="broker-chip">Interactive Brokers</span>
-                <span class="broker-chip">Boursorama</span>
-                <span class="broker-chip">Revolut</span>
-                <span class="broker-chip">XTB</span>
-                <span class="broker-chip broker-chip-more" data-i18n="dash.portfolio.more_brokers">+ autres</span>
-              </div>
-            </div>
-
-            <div class="import-help">
-              <a href="#" onclick="event.preventDefault();event.stopPropagation();openCsvHelpModal()" data-i18n="dash.portfolio.help_link">📖 Comment exporter mon CSV ?</a>
-            </div>
+          </div>
+          <div class="import-hero-footer">
+            <a onclick="openCsvHelpModal()" data-i18n="dash.portfolio.compat_link">📚 Compatible avec 20+ brokers EU et US — Voir la liste</a>
           </div>
           <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvFile(this.files[0])" />
-          <p id="csvStatus" style="margin-top:14px;font-size:13px;color:var(--text-muted);display:none;text-align:center"></p>
+          <p id="csvStatus" style="margin-top:10px;font-size:12px;color:var(--text-muted);display:none;text-align:center"></p>
         </div>
 
         <!-- ============================================================
@@ -5338,12 +5315,15 @@
                score delta, ETF moves. Le badge sert de teaser vers les
                alertes Pro+ pour les users gratuits (click -> modal upsell).
                ============================================================ -->
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:32px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:32px;gap:12px;flex-wrap:wrap">
             <div>
               <h3 style="font-family:'Space Grotesk';font-size:16px;margin:0" data-i18n="dash.portfolio.positions_title">Positions en cours</h3>
               <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0" data-i18n="dash.portfolio.positions_sub">Smart money sur vos positions — 30 derniers jours</p>
             </div>
-            <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span id="portfolioPositionsCount" style="font-size:12px;color:var(--text-muted)"></span>
+              <span id="portfolioPositionsToolbar"></span>
+            </div>
           </div>
           <div id="portfolioPositionsArea">
             <div class="loading" style="padding:24px 0"><div class="spinner"></div><span data-i18n="dash.portfolio.positions_loading">Analyse des positions en cours...</span></div>
@@ -18465,18 +18445,40 @@
       return `<span class="sm-badge verdict-${verdict}${lockedClass}" ${action} title="${title}">${lbl}</span>`;
     }
 
+    // Bascule le hero entre empty (visible) et filled (cache).
+    // Appele depuis renderPortfolio (apres chargement Firebase ou apres
+    // import CSV). Decouple du nombre de positions OUVERTES : meme si l'user
+    // n'a que des trades cloturés, le hero se cache car il a fait l'effort
+    // d'importer (on l'incite a importer plus via le bouton positions toolbar).
+    function updateImportHeroState() {
+      const hero = document.getElementById('portfolioImportHero');
+      if (!hero) return;
+      const hasTrades = Array.isArray(portfolioTrades) && portfolioTrades.length > 0;
+      hero.classList.toggle('filled', hasTrades);
+    }
+
     async function renderCurrentPositions() {
       const area = document.getElementById('portfolioPositionsArea');
       const countEl = document.getElementById('portfolioPositionsCount');
       if (!area) return;
+      updateImportHeroState();
       const positions = computeCurrentPositions(portfolioTrades);
+      // Bouton "+ Importer plus de trades" injecté dans la toolbar quand
+      // l'user a deja des trades — i18n key dash.portfolio.import_more
+      const toolbarBtn = (portfolioTrades && portfolioTrades.length > 0)
+        ? `<button class="positions-import-btn" onclick="document.getElementById('csvFileInput').click()" title="Importer un autre CSV (fusion automatique)" data-i18n="dash.portfolio.import_more">+ Importer plus</button>`
+        : '';
+      // Slot pour le bouton — injecté dans le header de la section positions
+      const headerSlot = document.getElementById('portfolioPositionsToolbar');
+      if (headerSlot) headerSlot.innerHTML = toolbarBtn;
       if (positions.length === 0) {
         if (countEl) countEl.textContent = '';
         area.innerHTML = `
           <div class="positions-empty">
-            <strong>Aucune position en cours detectee</strong>
-            Votre CSV contient uniquement des trades cloturés (P&L réalisé). Importez un fichier de transactions (achats + ventes) pour voir vos positions actuelles.
+            <strong data-i18n="dash.portfolio.no_positions_title">Aucune position en cours detectee</strong>
+            <span data-i18n="dash.portfolio.no_positions_sub">Votre CSV contient uniquement des trades cloturés (P&L réalisé). Importez un fichier de transactions (achats + ventes) pour voir vos positions actuelles.</span>
           </div>`;
+        try { if (typeof applyTranslations === 'function') applyTranslations(); } catch {}
         return;
       }
       if (countEl) countEl.textContent = `${positions.length} ticker${positions.length > 1 ? 's' : ''}`;
@@ -18647,6 +18649,7 @@
           portfolioTrades = snap.val();
           if (Array.isArray(portfolioTrades) && portfolioTrades.length > 0) {
             renderPortfolio();
+            updateImportHeroState();
             const status = document.getElementById('csvStatus');
             status.style.display = 'block';
             status.style.color = 'var(--accent-blue)';
@@ -18673,6 +18676,7 @@
       document.getElementById('csvStatus').style.display = 'none';
       Object.values(portfolioCharts).forEach(c => c.destroy());
       portfolioCharts = {};
+      try { updateImportHeroState(); } catch {}
     }
 
     // ============================================================

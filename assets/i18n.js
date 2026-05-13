@@ -1205,6 +1205,12 @@
       'dash.portfolio.upsell_sub': 'Voici les mouvements smart money détectés sur cette position dans les 30 derniers jours. Activez Pro+ pour recevoir ces alertes en temps réel par email.',
       'dash.portfolio.upsell_cta': '⚡ Activer les alertes Pro+',
       'dash.portfolio.upsell_note': 'Annulation à tout moment · 14j gratuits',
+      // Phase A compactage (mai 2026) : hero compact + filled state
+      'dash.portfolio.import_sub_compact': 'Glissez votre CSV ici ou parcourez — Détection automatique du broker',
+      'dash.portfolio.compat_link': '📚 Compatible avec 20+ brokers EU et US — Voir la liste',
+      'dash.portfolio.import_more': '+ Importer plus',
+      'dash.portfolio.no_positions_title': 'Aucune position en cours détectée',
+      'dash.portfolio.no_positions_sub': 'Votre CSV contient uniquement des trades clôturés (P&L réalisé). Importez un fichier de transactions (achats + ventes) pour voir vos positions actuelles.',
 
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
@@ -2444,6 +2450,12 @@
       'dash.portfolio.upsell_sub': 'Here are the smart money movements detected on this position over the last 30 days. Activate Pro+ to receive these alerts in real time by email.',
       'dash.portfolio.upsell_cta': '⚡ Activate Pro+ alerts',
       'dash.portfolio.upsell_note': 'Cancel anytime · 14 days free',
+      // Phase A compact (May 2026): compact hero + filled state
+      'dash.portfolio.import_sub_compact': 'Drop your CSV here or browse — Auto-detects your broker',
+      'dash.portfolio.compat_link': '📚 Compatible with 20+ EU and US brokers — See the list',
+      'dash.portfolio.import_more': '+ Import more',
+      'dash.portfolio.no_positions_title': 'No current positions detected',
+      'dash.portfolio.no_positions_sub': 'Your CSV only contains closed trades (realized P&L). Import a transactions file (buys + sells) to see your current positions.',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',
