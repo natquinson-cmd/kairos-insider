@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-recent-activity-i18n"></script>
+  <script src="assets/i18n.js?v=20260513-i18n-fundamentals-consensus"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -11408,9 +11408,28 @@
         // Insider trades card
         let insiderHTML = '';
         if (hasInsider) {
-          const buys = data.insiderTrades.filter(t => t.type === 'buy').length;
-          const sells = data.insiderTrades.filter(t => t.type === 'sell').length;
-          const top = data.insiderTrades.slice(0, 4);
+          // DEDUP (mai 2026, user retour) : l'API peut renvoyer plusieurs lignes
+          // pour la meme transaction Form 4 (1 filing = N transactions au sein du
+          // meme document). On voit alors 2 fois "Sidhu Samvir S. 1K sh $73K 12 mai"
+          // ce qui pollue le top 4 (gaspille 2 slots pour la meme info).
+          // Cle de dedup : (filer, date, shares, value, type) — exact duplicate.
+          const _dedupSeen = new Set();
+          const _dedupedTrades = [];
+          for (const tx of data.insiderTrades) {
+            const key = [
+              tx.filer || '',
+              tx.date || tx.fileDate || '',
+              tx.shares || 0,
+              Math.round(tx.value || 0),
+              tx.type || '',
+            ].join('|');
+            if (_dedupSeen.has(key)) continue;
+            _dedupSeen.add(key);
+            _dedupedTrades.push(tx);
+          }
+          const buys = _dedupedTrades.filter(t => t.type === 'buy').length;
+          const sells = _dedupedTrades.filter(t => t.type === 'sell').length;
+          const top = _dedupedTrades.slice(0, 4);
           const rows = top.map(tx => {
             const isBuy = tx.type === 'buy';
             const color = isBuy ? '#10B981' : tx.type === 'sell' ? '#EF4444' : '#9CA3AF';
@@ -12267,8 +12286,11 @@
       const changeColor = changePct > 0 ? '#2ecc71' : changePct < 0 ? '#ff7675' : '#999';
       const changeSign = changePct > 0 ? '+' : '';
       const cur = price.currency || 'USD';
-      const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat('fr-FR', { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
-      const fmtBig = (n) => { if (n==null) return '—'; if (n>=1e12) return (n/1e12).toFixed(1)+'T'; if (n>=1e9) return (n/1e9).toFixed(1)+'B'; if (n>=1e6) return (n/1e6).toFixed(1)+'M'; return n.toLocaleString('fr-FR'); };
+      // FIX i18n (mai 2026) : locale dynamique (en-US / fr-FR) -> en mode EN,
+      // USD s'affiche "$169" au lieu de "169 $US" (suffixe locale FR).
+      const _numLocale = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
+      const fmtCurr = (n, c=cur) => n != null ? new Intl.NumberFormat(_numLocale, { style:'currency', currency:c, maximumFractionDigits: n < 10 ? 2 : 0 }).format(n) : '—';
+      const fmtBig = (n) => { if (n==null) return '—'; if (n>=1e12) return (n/1e12).toFixed(1)+'T'; if (n>=1e9) return (n/1e9).toFixed(1)+'B'; if (n>=1e6) return (n/1e6).toFixed(1)+'M'; return n.toLocaleString(_numLocale); };
       const pct = (n) => n != null ? (n > 0 ? '+' : '') + (n * (Math.abs(n) < 1 ? 100 : 1)).toFixed(1) + '%' : '—';
 
       // Couleur du score
@@ -12812,14 +12834,14 @@
                 <!-- BLOC 2 : Multiples de valorisation avec verdict couleur -->
                 <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.valMultiples}</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px">
-                  ${ratioCard('P/E (12 mois)', fund.peRatio, 'pe')}
+                  ${ratioCard(t('stock.fund.peTTM', 'P/E (12 mois)'), fund.peRatio, 'pe')}
                   ${ratioCard(L.forwardPE, fund.forwardPE, 'pe')}
                   ${peg != null ? ratioCard('PEG', peg, 'peg') : ''}
-                  ${ps != null ? ratioCard('P/S (cours/ventes)', ps, 'ps') : ''}
-                  ${pb != null ? ratioCard('P/B (cours/actif)', pb, 'pb') : ''}
+                  ${ps != null ? ratioCard(t('stock.fund.psRatio', 'P/S (cours/ventes)'), ps, 'ps') : ''}
+                  ${pb != null ? ratioCard(t('stock.fund.pbRatio', 'P/B (cours/actif)'), pb, 'pb') : ''}
                   ${pfcf != null ? ratioCard('P/FCF', pfcf, 'pfcf') : ''}
                   ${evEbitda != null ? ratioCard('VE/EBITDA', evEbitda, 'evEbitda') : ''}
-                  ${evSales != null ? ratioCard('VE/Ventes', evSales, 'evSales') : ''}
+                  ${evSales != null ? ratioCard(t('stock.fund.evSales', 'VE/Ventes'), evSales, 'evSales') : ''}
                   ${evFcf != null ? ratioCard('VE/FCF', evFcf, 'evFcf') : ''}
                 </div>
 
@@ -12870,10 +12892,10 @@
               <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)">
                 <div style="font-size:11px;opacity:0.55;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${L.margins}</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:12px">
-                  ${margins.gross && margins.gross.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge brute</div><strong style="color:#2ecc71;font-size:14px">${margins.gross.display}</strong></div>` : ''}
-                  ${margins.operating && margins.operating.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge op.</div><strong style="color:#2ecc71;font-size:14px">${margins.operating.display}</strong></div>` : ''}
-                  ${margins.profit && margins.profit.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge nette</div><strong style="color:#2ecc71;font-size:14px">${margins.profit.display}</strong></div>` : ''}
-                  ${margins.fcf && margins.fcf.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">Marge FCF</div><strong style="color:#2ecc71;font-size:14px">${margins.fcf.display}</strong></div>` : ''}
+                  ${margins.gross && margins.gross.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">${t('stock.fund.margin.gross', 'Marge brute')}</div><strong style="color:#2ecc71;font-size:14px">${margins.gross.display}</strong></div>` : ''}
+                  ${margins.operating && margins.operating.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">${t('stock.fund.margin.operating', 'Marge op.')}</div><strong style="color:#2ecc71;font-size:14px">${margins.operating.display}</strong></div>` : ''}
+                  ${margins.profit && margins.profit.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">${t('stock.fund.margin.profit', 'Marge nette')}</div><strong style="color:#2ecc71;font-size:14px">${margins.profit.display}</strong></div>` : ''}
+                  ${margins.fcf && margins.fcf.display ? `<div style="padding:8px 12px;background:rgba(46,204,113,0.05);border-radius:6px;border-left:3px solid #2ecc71"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">${t('stock.fund.margin.fcf', 'Marge FCF')}</div><strong style="color:#2ecc71;font-size:14px">${margins.fcf.display}</strong></div>` : ''}
                   ${returns.roe && returns.roe.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROE</div><strong style="color:#74b9ff;font-size:14px">${returns.roe.display}</strong></div>` : ''}
                   ${returns.roa && returns.roa.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROA</div><strong style="color:#74b9ff;font-size:14px">${returns.roa.display}</strong></div>` : ''}
                   ${returns.roic && returns.roic.display ? `<div style="padding:8px 12px;background:rgba(116,185,255,0.05);border-radius:6px;border-left:3px solid #74b9ff"><div style="opacity:0.6;font-size:10px;text-transform:uppercase">ROIC</div><strong style="color:#74b9ff;font-size:14px">${returns.roic.display}</strong></div>` : ''}
@@ -12938,22 +12960,23 @@
                   .replace('{tot}', tot);
               }
               if (upside != null) {
-                narrative += ` Objectif moyen ${target.toFixed(2)}${cur === 'USD' ? ' $' : cur === 'EUR' ? ' €' : ' ' + cur} ${upside > 0 ? `(<strong style="color:#2ecc71">+${upside.toFixed(1)}%</strong> vs cours actuel)` : `(<strong style="color:#e74c3c">${upside.toFixed(1)}%</strong> vs cours actuel)`}.`;
+                const _vsCurrent = t('stock.cons.vsCurrent', 'vs cours actuel');
+                narrative += ` ${t('stock.cons.target12mo', 'Objectif moyen 12 mois')} ${target.toFixed(2)}${cur === 'USD' ? ' $' : cur === 'EUR' ? ' €' : ' ' + cur} ${upside > 0 ? `(<strong style="color:#2ecc71">+${upside.toFixed(1)}%</strong> ${_vsCurrent})` : `(<strong style="color:#e74c3c">${upside.toFixed(1)}%</strong> ${_vsCurrent})`}.`;
               }
 
               return `
                 <!-- Sentiment dominant + objectif (top row) -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
                   <div style="padding:14px;background:linear-gradient(135deg,${sentColor}20,${sentColor}08);border:1px solid ${sentColor}40;border-radius:10px">
-                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">Sentiment global</div>
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">${t('stock.cons.overallSentiment', 'Sentiment global')}</div>
                     <div style="font-size:22px;font-weight:700;color:${sentColor};line-height:1.1">${bullPct.toFixed(0)}% <span style="font-size:13px;opacity:0.7">${L.consBullishLabel}</span></div>
                     <div style="font-size:11px;color:${sentColor};margin-top:4px;font-weight:600">${sentLabel}</div>
                   </div>
                   ${target ? `
                   <div style="padding:14px;background:linear-gradient(135deg,${upColor}20,${upColor}08);border:1px solid ${upColor}40;border-radius:10px">
-                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">Objectif moyen 12 mois</div>
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">${t('stock.cons.target12mo', 'Objectif moyen 12 mois')}</div>
                     <div style="font-size:22px;font-weight:700;color:${upColor};line-height:1.1">${fmtCurr(target, cur)}</div>
-                    ${upside != null ? `<div style="font-size:11px;color:${upColor};margin-top:4px;font-weight:600">${upside > 0 ? '↗ Potentiel' : '↘ Risque'} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}%</div>` : ''}
+                    ${upside != null ? `<div style="font-size:11px;color:${upColor};margin-top:4px;font-weight:600">${upside > 0 ? t('stock.cons.potentialUp', '↗ Potentiel') : t('stock.cons.potentialDown', '↘ Risque')} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}%</div>` : ''}
                   </div>
                   ` : `
                   <div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;opacity:0.55">
@@ -12972,9 +12995,9 @@
                     ${ssPct > 0 ? `<div title="${L.consStrongSell} : ${consensus.strongSell}" style="width:${ssPct}%;background:#e74c3c"></div>` : ''}
                   </div>
                   <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;opacity:0.55;text-transform:uppercase;letter-spacing:0.04em">
-                    <span style="color:#2ecc71">★ ${(sbPct + bPct).toFixed(0)}% Achat</span>
-                    <span style="color:#9CA3AF">${neutPct.toFixed(0)}% Neutre</span>
-                    <span style="color:#e74c3c">${bearPct.toFixed(0)}% Vente ★</span>
+                    <span style="color:#2ecc71">★ ${(sbPct + bPct).toFixed(0)}% ${t('stock.cons.barBuy', 'Achat')}</span>
+                    <span style="color:#9CA3AF">${neutPct.toFixed(0)}% ${t('stock.cons.barNeutral', 'Neutre')}</span>
+                    <span style="color:#e74c3c">${bearPct.toFixed(0)}% ${t('stock.cons.barSell', 'Vente')} ★</span>
                   </div>
                 </div>
 
@@ -13002,9 +13025,9 @@
                 const upColor = upside > 5 ? '#2ecc71' : upside < -5 ? '#e74c3c' : '#f39c12';
                 return `
                   <div style="padding:18px;background:linear-gradient(135deg,${upColor}15,transparent);border:1px solid ${upColor}40;border-radius:10px;text-align:center">
-                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:6px">Objectif de cours moyen</div>
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:6px">${t('stock.cons.avgPriceTarget', 'Objectif de cours moyen')}</div>
                     <div style="font-size:32px;font-weight:700;color:${upColor};line-height:1">${fmtCurr(target, cur)}</div>
-                    <div style="font-size:14px;color:${upColor};margin-top:6px;font-weight:600">${upside > 0 ? '↗ Potentiel' : '↘ Risque'} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}% vs ${fmtCurr(price.current, cur)}</div>
+                    <div style="font-size:14px;color:${upColor};margin-top:6px;font-weight:600">${upside > 0 ? t('stock.cons.potentialUp', '↗ Potentiel') : t('stock.cons.potentialDown', '↘ Risque')} ${upside > 0 ? '+' : ''}${upside.toFixed(1)}% ${t('stock.cons.vsCurrentPrice', 'vs')} ${fmtCurr(price.current, cur)}</div>
                     ${fund.numberOfAnalystOpinions ? `<div style="font-size:11px;opacity:0.6;margin-top:8px">${t('stock.helper.consensusIntro', "D'après {n} analystes").replace('{n}', fund.numberOfAnalystOpinions)}</div>` : ''}
                   </div>
                 `;
