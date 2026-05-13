@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-portfolio-gauge-small"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-primary-listing"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -19342,31 +19342,31 @@
       if (!rawSymbol) return null;
       const key = String(rawSymbol).trim().toUpperCase();
       if (_tickerResolveCache.has(key)) return _tickerResolveCache.get(key);
-      // Note (mai 2026, retour user LVMH) : pas de fast path.
-      // Avant : on skipait l'appel Yahoo pour les symbols /^[A-Z]{1,5}$/ en
-      // pensant qu'ils etaient deja canoniques US. MAIS "LVMH" passait dans
-      // ce filet alors qu'il n'existe pas en US (D1 a "LVMUY" / "LVMHF" ADR).
-      // Resultat : la ligne LVMH affichait "—" partout (cours, score, P&L
-      // latent, smart money). Maintenant on resoud TOUJOURS via Yahoo qui
-      // mappe correctement LVMH -> LVMUY, BRK.B -> BRK-B, etc.
-      // Cout : 1 fetch par ticker unique * N positions = ~14 parallel calls
-      // pour un portfolio typique, ~200-400ms total via Promise.all. Le
-      // cache local persiste -> renders suivants instantanes.
+      // Strategie (mai 2026, retour user "LVMH est plutot MC.PA car cote a
+      // Paris en priorite") : on resoud vers le PRIMARY LISTING (= 1er
+      // resultat Yahoo apres relevance ranking), pas l'ADR US.
+      //   - AAPL  -> AAPL  (US, primary)
+      //   - LVMH  -> MC.PA (Paris, primary -- pas LVMUY OTC US)
+      //   - ASML  -> ASML  (US, primary -- ASML.AS Amsterdam est aussi liste
+      //                     mais Yahoo retourne ASML en 1er)
+      //   - BRK.B -> BRK-B (canonical Yahoo)
+      //   - Apple Inc. -> AAPL (description -> primary ticker)
+      //
+      // Note : pour les stocks EU sans ADR US listed, D1 score_history sera
+      // vide -> les cellules Kairos Score/insider/etc. afficheront "—".
+      // C'est la realite : on ne traque pas le smart money sur les stocks
+      // EU domestiques (le 13F SEC ne couvre que les holdings US). User
+      // accepte cette limitation pour avoir le primary listing correct
+      // (prix Yahoo en devise locale, sparkline 1Y propre, etc.).
       try {
         const results = await searchYahooTickers(key);
         if (Array.isArray(results) && results.length > 0) {
-          // Heuristique de selection (par ordre de preference) :
-          // 1. Match exact = le user a tape le ticker canonique -> garde-le
-          // 2. Listing US plain (^[A-Z]{1,5}$) : ex AAPL, LVMUY, BRK
-          // 3. Listing US avec tiret (^[A-Z.]{1,7}$) : ex BRK-B, BRK.B
-          // 4. Premier resultat (fallback EU si rien d'US)
           const sym = (r) => String(r.ticker || r.symbol || '').toUpperCase();
-          const isPlainUs = (t) => /^[A-Z]{1,5}$/.test(t);
-          const isUsWithDash = (t) => /^[A-Z]{1,5}[-.][A-Z0-9]$/.test(t);
+          // 1. Match exact : si l'user a tape un ticker canonique
+          //    (AAPL, MC.PA, BRK-B), on le garde tel quel
           const exact = results.find(r => sym(r) === key);
-          const plain = results.find(r => isPlainUs(sym(r)));
-          const dash = results.find(r => isUsWithDash(sym(r)));
-          const pick = exact || plain || dash || results[0];
+          // 2. Sinon : premier resultat = primary listing par relevance Yahoo
+          const pick = exact || results[0];
           const canonical = sym(pick) || key;
           _tickerResolveCache.set(key, canonical);
           return canonical;
@@ -19374,8 +19374,6 @@
       } catch (e) {
         console.warn('[ticker-resolve] failed for ' + key + ':', e);
       }
-      // Fallback : retourne le symbol normalise tel quel (D1 sera probablement
-      // vide pour ce ticker, le front rendra "—" sur les cellules concernees).
       _tickerResolveCache.set(key, key);
       return key;
     }
