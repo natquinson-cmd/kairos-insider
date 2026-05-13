@@ -2834,7 +2834,7 @@ async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
   // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
-  const cacheKey = 'home:top-signals:v7';
+  const cacheKey = 'home:top-signals:v8';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -3045,6 +3045,12 @@ async function computeTopSignals(env) {
           isActivist: !!f.isActivist,
           country,
           regulator: f.regulator,
+          // Mai 2026 : retour user "ajouter les details dans les lignes
+          // (montant, motif)". montant = % du capital ou nb titres ;
+          // motif = derive cote UI depuis form + isActivist (13D = control,
+          // 13G = passif >5%, 13D/A = amendement activiste).
+          percentOfClass: (typeof f.percentOfClass === 'number') ? f.percentOfClass : null,
+          sharesOwned: (typeof f.sharesOwned === 'number') ? f.sharesOwned : null,
         };
       });
   } catch (e) { console.warn('activistsFresh failed:', e); }
@@ -9645,7 +9651,7 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 7. TOP KAIROS SCORE - score >= 80 ===
-    const topSignals = await env.CACHE.get('home:top-signals:v7', 'json').catch(() => null);
+    const topSignals = await env.CACHE.get('home:top-signals:v8', 'json').catch(() => null);
     if (topSignals?.topScores) {
       const scoreItems = topSignals.topScores
         .filter(s => s.score >= 80 && s.ticker)
