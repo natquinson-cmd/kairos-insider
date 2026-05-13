@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260513-admin-tooltip-durees"></script>
+  <script src="assets/i18n.js?v=20260513-hedge-search-ticker-resolve"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -13981,7 +13981,11 @@
     }
 
     // Filtre le tableau Hedge Funds par nom (Berkshire, Pershing, Buffett, Soros...)
-    // Utilise les data-fund-search attributes ajoutes a chaque row
+    // OU par action detenue (Apple, AAPL...). Pour les tickers, on resout via Yahoo
+    // Search car la 13F SEC stocke name+CUSIP mais PAS de ticker.
+    // Utilise les data-fund-search attributes ajoutes a chaque row.
+    let _hedgeFundsResolveTimer = null;     // debounce ticker resolution
+    let _hedgeFundsLastResolved = '';        // dedup : meme ticker = pas re-resolve
     function filterHedgeFunds(query) {
       const area = document.getElementById('thirteenFArea');
       if (!area) return;
@@ -14008,6 +14012,75 @@
         hint.textContent = q ? `${visible} fonds trouvé${visible > 1 ? 's' : ''}` : 'Tape pour filtrer';
         hint.style.color = q && visible === 0 ? '#EF4444' : 'var(--text-muted)';
       }
+
+      // FIX (mai 2026) : si 0 match ET query ressemble a un ticker, on resout
+      // via Yahoo Search pour obtenir le nom d'entreprise -> re-filter sur ce nom.
+      // Heuristique : 2-6 chars ALL caps OU ALL lowercase (pas Mixed comme "Berkshire"),
+      // alphanumeric + optionnel suffix .PA/.L/.AS/-A.
+      // Match : TXN, AAPL, MSFT, BRK-B, MC.PA, ASML.AS, txn, aapl.
+      // Exclu : Berkshire (mixed case, 9 chars), Apple (5 chars mixed),
+      //         Pershing, Soros (mixed case).
+      const trimmed = query.trim();
+      const looksLikeTicker = trimmed.length >= 2 && trimmed.length <= 7 &&
+        (/^[A-Z][A-Z0-9.\-]+$/.test(trimmed) || /^[a-z][a-z0-9.\-]+$/.test(trimmed));
+      if (visible === 0 && q && looksLikeTicker) {
+        _scheduleTickerResolveForHedgeFunds(trimmed);
+      }
+    }
+
+    // Resolution async ticker -> company name avec debounce 400ms.
+    // Quand un user tape "TXN" et que ca matche 0 fonds, on appelle Yahoo
+    // Search pour resoudre TXN -> "Texas Instruments Incorporated", puis on
+    // re-filtre avec ce nom. L'input est aussi remis a jour pour montrer
+    // la resolution (UX trust).
+    function _scheduleTickerResolveForHedgeFunds(rawTicker) {
+      if (_hedgeFundsResolveTimer) clearTimeout(_hedgeFundsResolveTimer);
+      const upper = String(rawTicker || '').trim().toUpperCase();
+      if (!upper || _hedgeFundsLastResolved === upper) return;
+      const hint = document.getElementById('hedgeFundsSearchHint');
+      // Hint loading immediate (pendant le debounce 400ms)
+      if (hint) {
+        hint.textContent = `🔍 Résolution ${upper}…`;
+        hint.style.color = 'var(--text-muted)';
+      }
+      _hedgeFundsResolveTimer = setTimeout(async () => {
+        _hedgeFundsLastResolved = upper;
+        try {
+          const results = await searchYahooTickers(upper);
+          if (!results || results.length === 0) {
+            if (hint) {
+              hint.textContent = `0 fonds trouvé (ticker inconnu)`;
+              hint.style.color = '#EF4444';
+            }
+            return;
+          }
+          const r0 = results[0];
+          const fullName = r0.name || r0.shortName || r0.longName || '';
+          if (!fullName) return;
+          // Nettoie le nom pour matcher les holdings 13F :
+          // - Strip suffixes corporates (Inc, Corp, etc.) -> souvent absents
+          //   ou differents dans les filings 13F
+          // - Prend les 2 premiers mots significatifs (ex: "Texas Instruments"
+          //   sans le "Incorporated" / "Inc") -> match plus robuste
+          const cleaned = fullName
+            .replace(/[.,]/g, ' ')
+            .replace(/\s+(Inc|Incorporated|Corp|Corporation|Co|Company|Ltd|Limited|PLC|LLC|LP|Holdings|Group|SA|SE|AG|NV)\b/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          const finalQuery = cleaned.split(/\s+/).slice(0, 2).join(' ');
+          if (!finalQuery || finalQuery.length < 2) return;
+          // Verifier que l'input n'a pas change entre-temps
+          const inp = document.getElementById('hedgeFundsSearch');
+          if (!inp || inp.value.trim().toUpperCase() !== upper) return;
+          // Update input pour montrer la resolution
+          inp.value = finalQuery;
+          // Re-filter avec le nom resolu (sync call, pas de recursion infinie
+          // car le pattern looksLikeTicker exclut les noms a espaces)
+          filterHedgeFunds(finalQuery);
+        } catch (e) {
+          console.warn('[filterHedgeFunds] Yahoo resolution failed:', e);
+        }
+      }, 400);
     }
 
     // ============================================================
