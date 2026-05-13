@@ -3471,10 +3471,11 @@ async function handleInsiderProfile(url, env, origin) {
     return jsonResponse({ error: 'Missing name or cik' }, 400, origin);
   }
 
-  // Cache key v2 (mai 2026) : invalide les caches du WHERE CIK-only qui
-  // retournaient 0 rows pour les vieux insiders sans insider_cik populated.
-  // Maintenant on cle par (cik|name) combine.
-  const cacheKey = `profile:v2:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
+  // Cache key v3 (mai 2026) : bump apres ajout phases 1-4 (Wikipedia,
+  // Yahoo officer, GDELT news, trading stats). Les caches v2 ne contiennent
+  // pas ces nouveaux champs -> doivent etre invalides pour que l'user voie
+  // les nouvelles donnees sans attendre 15 min.
+  const cacheKey = `profile:v3:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return jsonResponse(cached, 200, origin);
