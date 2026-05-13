@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-gauge-smaller-no-beta"></script>
+  <script src="assets/i18n.js?v=20260514-home-portfolio-widget"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -1759,6 +1759,179 @@
       align-self: flex-start;
     }
     .portfolio-toast-close:hover { color: var(--text-primary); }
+
+    /* ============================================================
+       HOME PORTFOLIO WIDGET (mai 2026)
+       Card aggregee sur la home avec stats portfolio + 3 signaux
+       smart money filtres sur les tickers detenus. Empty state = CTA.
+       ============================================================ */
+    .home-pf-card {
+      background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.03) 70%, transparent);
+      border: 1px solid rgba(59,130,246,0.22);
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 4px 18px rgba(59,130,246,0.06);
+    }
+    .home-pf-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .home-pf-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .home-pf-pulse {
+      color: #10B981;
+      font-size: 8px;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .home-pf-header-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .home-pf-link {
+      color: var(--accent-blue);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .home-pf-link:hover { text-decoration: underline; }
+    /* Stats grid 4 colonnes -> 2 sur mobile -> 1 si tres petit */
+    .home-pf-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 14px;
+    }
+    .home-pf-stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .home-pf-stat-val {
+      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .home-pf-pnl-pos { color: #10B981; }
+    .home-pf-pnl-neg { color: #EF4444; }
+    /* Events list : top 3 signaux smart money */
+    .home-pf-events-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .home-pf-event {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 9px 12px;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .home-pf-event:hover {
+      background: var(--surface-2);
+      border-color: rgba(59,130,246,0.35);
+      transform: translateY(-1px);
+    }
+    .home-pf-event-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      line-height: 1.2;
+    }
+    .home-pf-event-body { flex: 1; min-width: 0; }
+    .home-pf-event-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+    .home-pf-event-detail {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .home-pf-event-locked::after {
+      content: '🔒';
+      margin-left: auto;
+      font-size: 11px;
+      opacity: 0.7;
+      align-self: center;
+    }
+    .home-pf-event-empty {
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--surface-1);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      text-align: center;
+    }
+    /* Empty state : CTA portfolio import */
+    .home-pf-empty {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 22px;
+      background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.03));
+      border: 1px dashed rgba(59,130,246,0.32);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .home-pf-empty:hover {
+      transform: translateY(-1px);
+      border-color: rgba(116, 185, 255, 0.55);
+      box-shadow: 0 6px 18px rgba(59,130,246,0.10);
+    }
+    .home-pf-empty-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .home-pf-empty-body { flex: 1; min-width: 0; }
+    .home-pf-empty-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+    .home-pf-empty-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .home-pf-empty-arrow {
+      font-size: 22px;
+      color: var(--accent-blue);
+      flex-shrink: 0;
+    }
+    @media (max-width: 720px) {
+      .home-pf-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .home-pf-card { padding: 14px 16px; }
+      .home-pf-empty { padding: 14px 16px; }
+    }
 
     /* Sparkline progression du Kairos Score (legacy, plus rendered) */
     .positions-table .pos-score-progress {
@@ -4519,6 +4692,16 @@
 
         <!-- TOP SIGNAUX DU JOUR (Phase C) -->
         <div id="homeTopSignalsWrap" class="reveal-on-scroll" style="margin-bottom:32px;display:none"></div>
+
+        <!-- ============================================================
+             POSITIONS LIVE (sur la home, mai 2026)
+             Widget personnalisee qui filtre les signaux smart money sur les
+             tickers detenus par l'user. Pattern Robinhood/Trading 212 :
+             positions visibles en premier sur la home -> daily check-in
+             habit + funnel Pro+ (alertes sur signaux smart money). Empty
+             state : CTA pour importer le CSV portfolio.
+             ============================================================ -->
+        <div id="homePortfolioWidget" style="margin-bottom:32px;display:none"></div>
 
         <!-- CARTES FONCTIONNALITES -->
         <h3 style="font-size:14px;opacity:0.6;text-transform:uppercase;letter-spacing:0.8px;margin:0 0 12px" data-i18n="dash.home.explore_features">Explorez les fonctionnalités</h3>
@@ -9621,7 +9804,168 @@
 
       // Top signaux du jour (Phase C) — premium only
       loadHomeTopSignals().catch(() => {});
+
+      // Widget personnalisee "Vos positions" : signaux smart money filtres
+      // sur les tickers detenus par l'user. Non-bloquant (catch).
+      loadHomePortfolioWidget().catch(() => {});
     }
+
+    // ============================================================
+    // HOME PORTFOLIO WIDGET (mai 2026, retour user)
+    // Affiche sous les Top Signaux : positions live + 3 signaux smart
+    // money filtres sur les tickers detenus. Pattern Robinhood/T212.
+    // ============================================================
+    async function loadHomePortfolioWidget() {
+      const wrap = document.getElementById('homePortfolioWidget');
+      if (!wrap) return;
+      // Charge le portfolio depuis Firebase si pas encore fait (idempotent)
+      if ((!portfolioTrades || portfolioTrades.length === 0) && currentUser) {
+        try { await loadPortfolioFromFirebase(); } catch {}
+      }
+      // Empty state : CTA pour importer le CSV portfolio
+      if (!portfolioTrades || portfolioTrades.length === 0) {
+        wrap.style.display = 'block';
+        wrap.innerHTML = `
+          <div class="home-pf-empty" onclick="switchSection('portfolio')">
+            <div class="home-pf-empty-icon">📊</div>
+            <div class="home-pf-empty-body">
+              <div class="home-pf-empty-title" data-i18n="dash.home.pf_empty_title">Importez votre portefeuille pour personnaliser ces signaux</div>
+              <div class="home-pf-empty-sub" data-i18n="dash.home.pf_empty_sub">CSV depuis 20+ brokers EU et US — Détection automatique du broker</div>
+            </div>
+            <div class="home-pf-empty-arrow">→</div>
+          </div>`;
+        try { if (typeof applyTranslations === 'function') applyTranslations(); } catch {}
+        return;
+      }
+      // Compute positions + resolve tickers + fetch smart money summary
+      const positions = computeCurrentPositions(portfolioTrades);
+      if (positions.length === 0) { wrap.style.display = 'none'; return; }
+      wrap.style.display = 'block';
+      const rawTickers = positions.map(p => p.symbol);
+      const canonicalTickers = await Promise.all(rawTickers.map(_resolveTickerToCanonical));
+      const summaries = await fetchSmartMoneySummary(canonicalTickers);
+
+      // Calcule les totaux pour la card de stats
+      let totalCost = 0, totalMarket = 0, totalUnrealized = 0, priceCoverage = 0;
+      for (let i = 0; i < positions.length; i++) {
+        const p = positions[i];
+        totalCost += p.totalCost;
+        const sum = summaries[canonicalTickers[i]];
+        if (sum && sum.currentPrice && p.avgPrice > 0) {
+          totalMarket += sum.currentPrice * p.netQty;
+          totalUnrealized += (sum.currentPrice - p.avgPrice) * p.netQty;
+          priceCoverage++;
+        }
+      }
+      // Si certains tickers n'ont pas de cours, complete totalMarket avec leur cost
+      for (let i = 0; i < positions.length; i++) {
+        const sum = summaries[canonicalTickers[i]];
+        if (!sum || !sum.currentPrice) totalMarket += positions[i].totalCost;
+      }
+      const pctUnrealized = totalCost > 0 ? (totalUnrealized / totalCost) * 100 : 0;
+
+      // Collecte les TOP signaux smart money sur les tickers detenus.
+      // Priorise : activist > insider gros volume > score delta fort > ETF flux.
+      const events = [];
+      for (let i = 0; i < canonicalTickers.length; i++) {
+        const ticker = canonicalTickers[i];
+        const sum = summaries[ticker];
+        if (!sum) continue;
+        if (sum.activists && sum.activists.count > 0 && sum.activists.latestFiler) {
+          events.push({
+            icon: sum.activists.isActivist ? '⚔️' : '📋',
+            title: `${sum.activists.latestFiler} déclare 13D/G sur ${ticker}`,
+            detail: sum.activists.latestDate || `${sum.activists.count} filing${sum.activists.count > 1 ? 's' : ''} 30j`,
+            ticker,
+            priority: 5000000 * (sum.activists.isActivist ? 2 : 1),
+          });
+        }
+        if (sum.insider && sum.insider.topInsider) {
+          const ti = sum.insider.topInsider;
+          events.push({
+            icon: ti.type === 'sell' ? '🔴' : (ti.type === 'buy' ? '🟢' : '⚫'),
+            title: `${ti.name} a ${ti.type === 'sell' ? 'vendu' : (ti.type === 'buy' ? 'acheté' : 'tradé')} ${ticker}`,
+            detail: `${_fmtMoneyFull(ti.value || 0)} $ · ${ti.date || ''}`.trim(),
+            ticker,
+            priority: Math.abs(ti.value || 0),
+          });
+        }
+        if (sum.score && sum.score.delta30d != null && Math.abs(sum.score.delta30d) >= 3) {
+          events.push({
+            icon: sum.score.delta30d > 0 ? '⚡' : '⚠️',
+            title: `Kairos Score ${ticker} : ${sum.score.delta30d > 0 ? '+' : ''}${Number(sum.score.delta30d).toFixed(0)}pt sur 30j`,
+            detail: sum.score.now != null ? `Score actuel : ${Number(sum.score.now).toFixed(0)}/100` : '',
+            ticker,
+            priority: Math.abs(sum.score.delta30d) * 200000,
+          });
+        }
+        if (sum.etf && (sum.etf.newCount + sum.etf.exitCount) >= 2) {
+          events.push({
+            icon: '📊',
+            title: `${sum.etf.newCount}↑ / ${sum.etf.exitCount}↓ ETF sur ${ticker}`,
+            detail: '30 derniers jours',
+            ticker,
+            priority: (sum.etf.newCount + sum.etf.exitCount) * 50000,
+          });
+        }
+      }
+      events.sort((a, b) => b.priority - a.priority);
+      const top3 = events.slice(0, 3);
+      const isPro = (typeof isPremium !== 'undefined' && isPremium === true);
+
+      const unrealClass = totalUnrealized >= 0 ? 'home-pf-pnl-pos' : 'home-pf-pnl-neg';
+      const sign = totalUnrealized >= 0 ? '+' : '';
+      const eventsHtml = top3.length === 0
+        ? `<div class="home-pf-event-empty" data-i18n="dash.home.pf_events_empty">Pas de signal smart money detecte 30j sur vos positions — RAS.</div>`
+        : top3.map(e => {
+            const lockedClass = isPro ? '' : ' home-pf-event-locked';
+            const action = isPro
+              ? `onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${e.ticker}'), 150)"`
+              : `onclick="openSmartMoneyUpsellModal('${e.ticker}')"`;
+            return `<div class="home-pf-event${lockedClass}" ${action} title="Voir le détail ${e.ticker}">
+              <span class="home-pf-event-icon">${e.icon}</span>
+              <div class="home-pf-event-body">
+                <div class="home-pf-event-title">${e.title}</div>
+                <div class="home-pf-event-detail">${e.detail}</div>
+              </div>
+            </div>`;
+          }).join('');
+
+      wrap.innerHTML = `
+        <div class="home-pf-card">
+          <div class="home-pf-header">
+            <div class="home-pf-header-left">
+              <span class="home-pf-pulse">●</span>
+              <span class="home-pf-header-label" data-i18n="dash.home.pf_header">Vos positions live</span>
+            </div>
+            <a class="home-pf-link" onclick="switchSection('portfolio')" data-i18n="dash.home.pf_view_all">Voir tout le portefeuille →</a>
+          </div>
+          <div class="home-pf-stats">
+            <div class="home-pf-stat">
+              <div class="home-pf-stat-lbl" data-i18n="dash.home.pf_stat_tickers">Tickers</div>
+              <div class="home-pf-stat-val">${positions.length}</div>
+            </div>
+            <div class="home-pf-stat">
+              <div class="home-pf-stat-lbl" data-i18n="dash.home.pf_stat_invested">Investi</div>
+              <div class="home-pf-stat-val">${_fmtMoneyFull(totalCost)}</div>
+            </div>
+            <div class="home-pf-stat">
+              <div class="home-pf-stat-lbl" data-i18n="dash.home.pf_stat_market">Valeur actuelle</div>
+              <div class="home-pf-stat-val">${_fmtMoneyFull(totalMarket)}</div>
+            </div>
+            <div class="home-pf-stat">
+              <div class="home-pf-stat-lbl" data-i18n="dash.home.pf_stat_unrealized">P&L latent</div>
+              <div class="home-pf-stat-val ${unrealClass}">${sign}${_fmtMoneyFull(totalUnrealized)} <span style="font-size:11px;opacity:0.75">(${sign}${pctUnrealized.toFixed(1)}%)</span></div>
+            </div>
+          </div>
+          <div class="home-pf-events">
+            <div class="home-pf-events-header" data-i18n="dash.home.pf_events_header">🔔 Signaux smart money sur vos positions (30j)</div>
+            ${eventsHtml}
+          </div>
+        </div>`;
+      try { if (typeof applyTranslations === 'function') applyTranslations(); } catch {}
+    }
+    window.loadHomePortfolioWidget = loadHomePortfolioWidget;
 
     // ============================================================
     // Home : Top signaux du jour — placeholder Free users

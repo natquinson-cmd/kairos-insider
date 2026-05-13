@@ -907,6 +907,17 @@
       'dash.home.stat_update_title': 'Dernière mise à jour',
       'dash.home.stat_update_detail': 'Données rafraîchies quotidiennement',
       'dash.home.explore_features': 'Explorez les fonctionnalités',
+      // Widget portfolio sur la home (mai 2026)
+      'dash.home.pf_header': 'Vos positions live',
+      'dash.home.pf_view_all': 'Voir tout le portefeuille →',
+      'dash.home.pf_stat_tickers': 'Tickers',
+      'dash.home.pf_stat_invested': 'Investi',
+      'dash.home.pf_stat_market': 'Valeur actuelle',
+      'dash.home.pf_stat_unrealized': 'P&L latent',
+      'dash.home.pf_events_header': '🔔 Signaux smart money sur vos positions (30j)',
+      'dash.home.pf_events_empty': 'Pas de signal smart money détecté 30j sur vos positions — RAS.',
+      'dash.home.pf_empty_title': 'Importez votre portefeuille pour personnaliser ces signaux',
+      'dash.home.pf_empty_sub': 'CSV depuis 20+ brokers EU et US — Détection automatique du broker',
 
       // ==== Home cards (10 restantes) ====
       'dash.home.stockAnalysis_title': 'Décrypter une valeur',
@@ -2186,6 +2197,17 @@
       'dash.home.stat_update_title': 'Last update',
       'dash.home.stat_update_detail': 'Data refreshed daily',
       'dash.home.explore_features': 'Explore features',
+      // Home portfolio widget (May 2026)
+      'dash.home.pf_header': 'Your live positions',
+      'dash.home.pf_view_all': 'View full portfolio →',
+      'dash.home.pf_stat_tickers': 'Tickers',
+      'dash.home.pf_stat_invested': 'Invested',
+      'dash.home.pf_stat_market': 'Market value',
+      'dash.home.pf_stat_unrealized': 'Unrealized P&L',
+      'dash.home.pf_events_header': '🔔 Smart money signals on your positions (30d)',
+      'dash.home.pf_events_empty': 'No smart money signal detected 30d on your positions — all clear.',
+      'dash.home.pf_empty_title': 'Import your portfolio to personalize these signals',
+      'dash.home.pf_empty_sub': 'CSV from 20+ EU and US brokers — Broker auto-detection',
 
       // ==== Home cards (10 others) ====
       'dash.home.stockAnalysis_title': 'Decode a stock',
