@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-activists-details-rows"></script>
+  <script src="assets/i18n.js?v=20260514-ticker-tape-speed-shorts-fix"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -355,15 +355,23 @@
       display: flex;
       gap: 0;
       white-space: nowrap;
-      animation: tickerScroll 180s linear infinite;
-      will-change: transform;
+      /* Mai 2026 (retour user) : 180s -> 80s sur desktop. 180s = 3 min par
+         cycle, trop lent pour percevoir le scroll. 80s permet de voir defiler
+         tout le contenu en ~1m20 (assez visible mais pas frenetic). */
+      animation: tickerScroll 80s linear infinite;
+      /* translate3d (vs translateX) force le compositing GPU sur iOS Safari
+         et evite le bug "valeurs qui disparaissent" cause par le cache de
+         rendu qui purgait le contenu off-screen sur tres longues bandes. */
+      transform: translate3d(0, 0, 0);
+      backface-visibility: hidden;
+      perspective: 1000px;
     }
     .ticker-tape:hover .ticker-tape-track {
       animation-play-state: paused;
     }
     @keyframes tickerScroll {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
+      from { transform: translate3d(0, 0, 0); }
+      to   { transform: translate3d(-50%, 0, 0); }
     }
     .ticker-tape-item {
       display: inline-flex;
@@ -420,7 +428,10 @@
       .ticker-tape { height: 36px; }
       .ticker-tape-item { padding: 0 14px; font-size: 12px; gap: 8px; }
       .ticker-tape-ticker { font-size: 12.5px; }
-      .ticker-tape-track { animation-duration: 90s; }
+      /* Mobile : 50s plus engageant que 90s (le user a moins de temps).
+         translate3d + backface-visibility:hidden deja heritage du desktop
+         pour eviter le bug iOS "valeurs qui disparaissent". */
+      .ticker-tape-track { animation-duration: 50s; }
     }
 
     .nav-links { display: flex; gap: 24px; align-items: center; list-style: none; }

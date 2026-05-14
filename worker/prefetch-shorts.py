@@ -146,12 +146,19 @@ def fetch_short_interest_top():
 def load_existing_kv():
     """Lit le KV shorts-recent existant pour recuperer l'historique."""
     try:
+        # IMPORTANT (mai 2026) : shell=False obligatoire. Avec shell=True sur
+        # Linux + args=list, seul 'npx' est execute (les autres args sont
+        # passes a sh comme positional params -> ignores). Resultat : load
+        # retourne None systematiquement -> history toujours vide -> delta7d
+        # et delta30d toujours null. Meme bug fixe dans push-insiders-to-d1.py
+        # avant. Voir aussi fetch-13dg.py et autres scripts.
         result = subprocess.run(
             ['npx', 'wrangler', 'kv', 'key', 'get', '--namespace-id', NAMESPACE_ID,
              KV_KEY, '--remote'],
-            capture_output=True, timeout=60, shell=True)
+            capture_output=True, timeout=60, shell=False)
         if result.returncode != 0:
-            print('[KV] No existing data (first run or KV error)')
+            err = (result.stderr or b'').decode('utf-8', errors='replace')[:200]
+            print(f'[KV] No existing data (first run or KV error). stderr: {err}')
             return None
         raw = result.stdout.decode('utf-8', errors='replace').strip()
         if not raw or raw.startswith('Error'):
@@ -246,7 +253,7 @@ def push_to_kv(payload, dry_run=False):
         result = subprocess.run(
             ['npx', 'wrangler', 'kv', 'key', 'put', '--namespace-id', NAMESPACE_ID,
              KV_KEY, '--path', out_file, '--remote'],
-            capture_output=True, timeout=120, shell=True)
+            capture_output=True, timeout=120, shell=False)
         if result.returncode != 0:
             err = result.stderr.decode('utf-8', errors='replace')[:500]
             print(f'[KV] ERROR : {err}')
