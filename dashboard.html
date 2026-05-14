@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260514-ticker-tape-speed-shorts-fix"></script>
+  <script src="assets/i18n.js?v=20260514-portfolio-i18n-full"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -5782,7 +5782,7 @@
           <div class="hero-kpi">
             <!-- CARTE 1 : Performance globale -->
             <div class="hero-card">
-              <div class="hero-label">💰 Performance globale</div>
+              <div class="hero-label" data-i18n="dash.portfolio.kpi.global_perf">💰 Performance globale</div>
               <div class="hero-value" id="kpiPnl">—</div>
               <div class="hero-sub">
                 <span id="kpiPerfPct">—</span>
@@ -5792,7 +5792,7 @@
 
             <!-- CARTE 2 : Gain Total avec barre split -->
             <div class="hero-card pnl" id="kpiGainCard">
-              <div class="hero-label">📈 Gain Total</div>
+              <div class="hero-label" data-i18n="dash.portfolio.kpi.gain_total">📈 Gain Total</div>
               <div class="hero-value" id="kpiGainTotal">—</div>
               <div class="hero-sub">
                 <span id="kpiGainPct" style="color:var(--accent-green)">—</span>
@@ -5806,7 +5806,7 @@
 
             <!-- CARTE 3 : Trades Gagnants avec donut -->
             <div class="hero-card">
-              <div class="hero-label">🎯 Trades Gagnants</div>
+              <div class="hero-label" data-i18n="dash.portfolio.kpi.winning_trades">🎯 Trades Gagnants</div>
               <div class="donut-wrap">
                 <svg width="72" height="72" viewBox="0 0 72 72">
                   <circle cx="36" cy="36" r="30" style="stroke:var(--border)" stroke-width="8" fill="none"/>
@@ -5817,9 +5817,9 @@
                         font-family="Space Grotesk" font-size="16" font-weight="800">0%</text>
                 </svg>
                 <div class="donut-info">
-                  <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-green);font-weight:700" id="kpiWinsN">0</span> gagnants</div>
-                  <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-red);font-weight:700" id="kpiLossN">0</span> perdants</div>
-                  <div style="font-size:11px;color:var(--text-muted)"><span id="kpiTradesN">0</span> trades total</div>
+                  <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-green);font-weight:700" id="kpiWinsN">0</span> <span data-i18n="dash.portfolio.kpi.winners">gagnants</span></div>
+                  <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-red);font-weight:700" id="kpiLossN">0</span> <span data-i18n="dash.portfolio.kpi.losers">perdants</span></div>
+                  <div style="font-size:11px;color:var(--text-muted)"><span id="kpiTradesN">0</span> <span data-i18n="dash.portfolio.kpi.trades_total">trades total</span></div>
                 </div>
               </div>
             </div>
@@ -5828,27 +5828,27 @@
           <!-- KPI GRID : 5 colonnes -->
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px">
             <div class="stat-card">
-              <div class="stat-label">Profit Factor</div>
+              <div class="stat-label" data-i18n="dash.portfolio.kpi.profit_factor">Profit Factor</div>
               <div class="stat-value" id="kpiProfitFactor" style="font-size:24px">—</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Gains / Pertes totales</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="dash.portfolio.kpi.profit_factor_sub">Gains / Pertes totales</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Risk/Reward</div>
+              <div class="stat-label" data-i18n="dash.portfolio.kpi.risk_reward">Risk/Reward</div>
               <div class="stat-value" id="kpiRR" style="font-size:24px">—</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Gain moy. / Perte moy.</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="dash.portfolio.kpi.risk_reward_sub">Gain moy. / Perte moy.</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Gain moyen</div>
+              <div class="stat-label" data-i18n="dash.portfolio.kpi.avg_win">Gain moyen</div>
               <div class="stat-value green" id="kpiAvgWin" style="font-size:20px">—</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">max <span id="kpiMaxWin">—</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px"><span data-i18n="dash.portfolio.kpi.max_lbl">max</span> <span id="kpiMaxWin">—</span></div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Perte moyenne</div>
+              <div class="stat-label" data-i18n="dash.portfolio.kpi.avg_loss">Perte moyenne</div>
               <div class="stat-value red" id="kpiAvgLoss" style="font-size:20px">—</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">max <span id="kpiMaxLoss">—</span></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px"><span data-i18n="dash.portfolio.kpi.max_lbl">max</span> <span id="kpiMaxLoss">—</span></div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Drawdown Max</div>
+              <div class="stat-label" data-i18n="dash.portfolio.kpi.max_drawdown">Drawdown Max</div>
               <div class="stat-value red" id="kpiDrawdown" style="font-size:20px">—</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="kpiDDPct">—</div>
             </div>
@@ -5857,42 +5857,42 @@
           <!-- ANALYSE AVANCÉE (expandable) -->
           <div class="advanced-toggle" onclick="this.classList.toggle('open');document.getElementById('advancedSection').classList.toggle('open')">
             <span class="chev">&#9654;</span>
-            <span>📊 Analyse Avancée</span>
+            <span data-i18n="dash.portfolio.kpi.advanced_analysis">📊 Analyse Avancée</span>
           </div>
           <div class="advanced-content" id="advancedSection">
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">
               <div class="stat-card">
-                <div class="stat-label">Esperance / trade</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.expectancy">Esperance / trade</div>
                 <div class="stat-value" id="kpiExpectancy" style="font-size:20px">—</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">(WR × Gain) - (LR × Perte)</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="dash.portfolio.kpi.expectancy_sub">(WR × Gain) - (LR × Perte)</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Recovery Factor</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.recovery_factor">Recovery Factor</div>
                 <div class="stat-value" id="kpiRecovery" style="font-size:20px">—</div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:2px">P&L / Drawdown</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Serie gagnante</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.winning_streak">Serie gagnante</div>
                 <div class="stat-value green" id="kpiWinStreak" style="font-size:20px">—</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Max historique</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="dash.portfolio.kpi.max_history">Max historique</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Serie perdante</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.losing_streak">Serie perdante</div>
                 <div class="stat-value red" id="kpiLoseStreak" style="font-size:20px">—</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Max historique</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px" data-i18n="dash.portfolio.kpi.max_history">Max historique</div>
               </div>
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:14px">
               <div class="stat-card" style="border-left:3px solid var(--accent-green)">
-                <div class="stat-label">Long (Achat)</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.long_buy">Long (Achat)</div>
                 <div style="display:flex;justify-content:space-between;align-items:baseline">
                   <div class="stat-value green" id="kpiLongPnl" style="font-size:20px">—</div>
                   <span id="kpiLongDetail" style="font-size:12px;color:var(--text-muted)"></span>
                 </div>
               </div>
               <div class="stat-card" style="border-left:3px solid var(--accent-red)">
-                <div class="stat-label">Short (Vente)</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.short_sell">Short (Vente)</div>
                 <div style="display:flex;justify-content:space-between;align-items:baseline">
                   <div class="stat-value red" id="kpiShortPnl" style="font-size:20px">—</div>
                   <span id="kpiShortDetail" style="font-size:12px;color:var(--text-muted)"></span>
@@ -5902,21 +5902,21 @@
 
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">
               <div class="stat-card">
-                <div class="stat-label">Meilleur trade</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.best_trade">Meilleur trade</div>
                 <div class="stat-value green" id="kpiBestTrade" style="font-size:18px">—</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Pire trade</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.worst_trade">Pire trade</div>
                 <div class="stat-value red" id="kpiWorstTrade" style="font-size:18px">—</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Duree moyenne</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.avg_duration">Duree moyenne</div>
                 <div class="stat-value" id="kpiAvgDuration" style="font-size:18px">—</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Trades/jour</div>
+                <div class="stat-label" data-i18n="dash.portfolio.kpi.trades_per_day">Trades/jour</div>
                 <div class="stat-value" id="kpiTradesPerDay" style="font-size:18px">—</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px"><span id="kpiTradingDays">0</span> jours trades</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:2px"><span id="kpiTradingDays">0</span> <span data-i18n="dash.portfolio.kpi.trading_days">jours trades</span></div>
               </div>
             </div>
           </div>
@@ -5924,11 +5924,11 @@
           <!-- Charts -->
           <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:24px">
             <div class="stat-card" style="padding:20px">
-              <div class="stat-label" style="margin-bottom:12px">P&L Cumule</div>
+              <div class="stat-label" style="margin-bottom:12px" data-i18n="dash.portfolio.chart.pnl_cumul">P&L Cumule</div>
               <canvas id="chartPnlCumul" height="200"></canvas>
             </div>
             <div class="stat-card" style="padding:20px">
-              <div class="stat-label" style="margin-bottom:12px">Repartition par actif</div>
+              <div class="stat-label" style="margin-bottom:12px" data-i18n="dash.portfolio.chart.asset_breakdown">Repartition par actif</div>
               <canvas id="chartAssetPie" height="200"></canvas>
             </div>
           </div>
@@ -5936,7 +5936,7 @@
           <!-- CALENDRIER JOURNALIER (identique au Trading Dashboard) -->
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <div class="stat-label">📅 Calendrier journalier</div>
+              <div class="stat-label" data-i18n="dash.portfolio.chart.daily_calendar">📅 Calendrier journalier</div>
               <label class="toggle-wrap">
                 <span class="toggle-val">€</span>
                 <input type="checkbox" id="pDayPctToggle" onchange="buildPortfolioDailyCal()">
@@ -5956,7 +5956,7 @@
           <!-- HEATMAP MENSUELLE (identique au Trading Dashboard) -->
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <div class="stat-label">📊 Performance mensuelle</div>
+              <div class="stat-label" data-i18n="dash.portfolio.chart.monthly_perf">📊 Performance mensuelle</div>
               <label class="toggle-wrap">
                 <span class="toggle-val">€</span>
                 <input type="checkbox" id="pMonthPctToggle" onchange="renderMonthlyHeatmap()">
@@ -5969,12 +5969,12 @@
 
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-              <div class="stat-label">📊 P&L par période</div>
+              <div class="stat-label" data-i18n="dash.portfolio.chart.pnl_period">📊 P&L par période</div>
               <div class="chart-period-btns">
-                <button data-pnlperiod="day" class="active" onclick="setPnlPeriod('day')">Jour</button>
-                <button data-pnlperiod="week" onclick="setPnlPeriod('week')">Semaine</button>
-                <button data-pnlperiod="month" onclick="setPnlPeriod('month')">Mois</button>
-                <button data-pnlperiod="year" onclick="setPnlPeriod('year')">Annee</button>
+                <button data-pnlperiod="day" class="active" onclick="setPnlPeriod('day')" data-i18n="dash.portfolio.period.day">Jour</button>
+                <button data-pnlperiod="week" onclick="setPnlPeriod('week')" data-i18n="dash.portfolio.period.week">Semaine</button>
+                <button data-pnlperiod="month" onclick="setPnlPeriod('month')" data-i18n="dash.portfolio.period.month">Mois</button>
+                <button data-pnlperiod="year" onclick="setPnlPeriod('year')" data-i18n="dash.portfolio.period.year">Annee</button>
               </div>
             </div>
             <canvas id="chartDailyPnl" height="150"></canvas>
@@ -5982,11 +5982,11 @@
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
             <div class="stat-card" style="padding:20px">
-              <div class="stat-label" style="margin-bottom:12px">Drawdown (%)</div>
+              <div class="stat-label" style="margin-bottom:12px" data-i18n="dash.portfolio.chart.drawdown">Drawdown (%)</div>
               <canvas id="chartDrawdown" height="180"></canvas>
             </div>
             <div class="stat-card" style="padding:20px">
-              <div class="stat-label" style="margin-bottom:12px">Gains moyens</div>
+              <div class="stat-label" style="margin-bottom:12px" data-i18n="dash.portfolio.chart.avg_gains">Gains moyens</div>
               <canvas id="chartAvgGains" height="180"></canvas>
             </div>
           </div>
