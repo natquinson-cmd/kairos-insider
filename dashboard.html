@@ -16264,39 +16264,47 @@
           `;
         }).join('');
 
+        // Ligne TOTAL : placee en HAUT du tbody (juste apres les headers de
+        // colonne) pour que le total soit immediatement visible. Avant elle
+        // etait en tfoot, mais visuellement moins evident + sticky-thead
+        // pouvait la faire apparaitre au milieu du scroll.
+        const totalRowHtml = `
+          <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.06));border-bottom:2px solid var(--border-strong);font-weight:700">
+            <td style="padding:14px 12px;font-size:13px;color:#10B981;font-weight:700">Σ</td>
+            <td style="padding:14px 12px;font-size:14px;color:var(--text-primary);font-weight:700">${t('explorer.total','TOTAL')} <span style="font-weight:500;color:var(--text-muted);font-size:12px;margin-left:8px">(${totalCount} fonds)</span></td>
+            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:16px;color:#10B981;font-weight:800">${fmtUsd(totalValue)}</td>
+            <td style="padding:14px 12px;text-align:right;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
+            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-muted)'}">${fmtPct(avgDelta)}</td>
+            <td style="padding:14px 12px;text-align:right;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
+            <td style="padding:14px 12px;text-align:center;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
+          </tr>
+        `;
+
         body.innerHTML = `
-          <!-- Summary header -->
+          <!-- Summary header (texte + bilan) -->
           <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:12px;margin-bottom:14px;font-size:14px;line-height:1.6">
             ${summary}
             ${avgDelta !== 0 ? `<div style="margin-top:6px;font-size:12px;color:var(--text-muted)">Variation moyenne pondérée vs Q-1 : <strong style="color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-secondary)'}">${fmtPct(avgDelta)}</strong></div>` : ''}
           </div>
 
-          <!-- Table -->
+          <!-- Table : headers + TOTAL en haut + positions -->
           <div class="table-wrap" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
-                <tr style="background:var(--surface-2);border-bottom:2px solid var(--border)">
-                  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);width:32px">#</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.fund','Fonds')}</th>
-                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.value','Valeur position')}</th>
-                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.pct','% du portefeuille')}</th>
-                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.delta','Δ shares vs Q-1')}</th>
-                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.date','Trimestre')}</th>
-                  <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.tag','Type')}</th>
+                <tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
+                  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);width:36px;font-weight:600">#</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600">${t('explorer.col.fund','Fonds')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600">${t('explorer.col.value','Valeur position')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600">${t('explorer.col.pct','% du portefeuille')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600">${t('explorer.col.delta','Δ shares vs Q-1')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600">${t('explorer.col.date','Trimestre')}</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600">${t('explorer.col.tag','Type')}</th>
                 </tr>
               </thead>
-              <tbody>${rows}</tbody>
-              <tfoot>
-                <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(59,130,246,0.05));border-top:2px solid var(--border-strong);font-weight:700">
-                  <td style="padding:14px 12px;font-size:12px;color:var(--text-muted)">Σ</td>
-                  <td style="padding:14px 12px;font-size:14px;color:var(--text-primary)">${t('explorer.total','TOTAL')} <span style="font-weight:400;color:var(--text-muted);font-size:12px;margin-left:8px">(${totalCount} fonds)</span></td>
-                  <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px;color:#10B981">${fmtUsd(totalValue)}</td>
-                  <td style="padding:14px 12px"></td>
-                  <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-muted)'}">${fmtPct(avgDelta)}</td>
-                  <td style="padding:14px 12px"></td>
-                  <td style="padding:14px 12px"></td>
-                </tr>
-              </tfoot>
+              <tbody>
+                ${totalRowHtml}
+                ${rows}
+              </tbody>
             </table>
           </div>
 
