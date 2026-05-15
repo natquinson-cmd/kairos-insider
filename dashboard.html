@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260515-insider-list-tx-date"></script>
+  <script src="assets/i18n.js?v=20260515-ticker-tape-langchange"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -4491,7 +4491,7 @@
   <div id="tickerTape" class="ticker-tape" aria-label="Smart money live signals">
     <div class="ticker-tape-track" id="tickerTapeTrack">
       <!-- Items rendus dynamiquement par JS -->
-      <span class="ticker-tape-loading">Chargement des signaux smart money…</span>
+      <span class="ticker-tape-loading" data-i18n="ticker.loading">Chargement des signaux smart money…</span>
     </div>
   </div>
 
@@ -6859,6 +6859,54 @@
     // Click sur item -> bascule sur Decrypter une valeur avec ticker preselect.
     // L'animation CSS se fait sur la track, on duplique le contenu pour que le
     // scroll soit infini sans gap visible (marquee classique).
+    //
+    // FIX i18n (mai 2026) : on garde les items en cache local pour pouvoir
+    // re-render uniquement avec les nouveaux labels traduits quand l'utilisateur
+    // change de langue (sans refetch reseau). Le suffix "(1er dépôt)" et les
+    // textes "Aucun signal récent" passent par t().
+    let __tickerTapeItems = null;
+
+    const __tickerTapeFlagCodeByCountry = {
+      US: 'us', FR: 'fr', DE: 'de', UK: 'gb', NL: 'nl',
+      CH: 'ch', IT: 'it', ES: 'es',
+    };
+
+    function renderTickerTapeItem(it) {
+      const ticker = String(it.ticker || '').replace(/[<>"'&]/g, '');
+      const label = String(it.label || '').replace(/[<>"'&]/g, '');
+      let value = String(it.value || '').replace(/[<>"'&]/g, '');
+      // isInitial flag : suffix "(1er dépôt)" / "(1st filing)" localized.
+      // Avant : le worker envoyait "(1er dépôt)" en dur -> visible meme en EN.
+      if (it.isInitial) {
+        const initialLbl = (typeof t === 'function')
+          ? t('ticker.initial_filing', '(1er dépôt)')
+          : '(1er dépôt)';
+        value = value + ' ' + initialLbl;
+      }
+      const colorClass = ['green','red','orange','blue'].includes(it.color) ? it.color : 'orange';
+      const tickerEsc = ticker.replace(/'/g, "\\'");
+      // Drapeau : PNG si country mappe (US/FR/DE/UK/NL/CH/IT/ES), sinon
+      // emoji icone (🟢 cluster, 🚀 top score, 🔥 trending).
+      const cc = __tickerTapeFlagCodeByCountry[it.country];
+      const flagHtml = cc
+        ? `<img src="https://flagcdn.com/w20/${cc}.png" width="18" height="13" alt="${it.country}" class="ticker-tape-flag-img">`
+        : `<span class="ticker-tape-flag">${it.flag || '🌐'}</span>`;
+      return `<span class="ticker-tape-item" onclick="loadTickerFromTape('${tickerEsc}')" title="${label} · ${value}">
+        ${flagHtml}
+        <span class="ticker-tape-ticker">${ticker}</span>
+        <span class="ticker-tape-label">${label}</span>
+        <span class="ticker-tape-value ${colorClass}">${value}</span>
+      </span>`;
+    }
+
+    // Re-render depuis le cache local sans appel reseau (utilise au lang-change).
+    function renderTickerTapeFromCache() {
+      const track = document.getElementById('tickerTapeTrack');
+      if (!track || !__tickerTapeItems || !__tickerTapeItems.length) return;
+      const itemsHtml = __tickerTapeItems.map(renderTickerTapeItem).join('');
+      track.innerHTML = itemsHtml + itemsHtml;
+    }
+
     async function loadTickerTape() {
       const track = document.getElementById('tickerTapeTrack');
       if (!track) return;
@@ -6873,54 +6921,25 @@
         // reponse est vide ET qu'on a deja du contenu actif (track.children > 0).
         if (!items.length) {
           if (!track.children.length || track.querySelector('.ticker-tape-loading')) {
-            track.innerHTML = '<span class="ticker-tape-loading">Aucun signal récent · sources en cache</span>';
+            const noRecent = (typeof t === 'function')
+              ? t('ticker.no_recent', 'Aucun signal récent · sources en cache')
+              : 'Aucun signal récent · sources en cache';
+            track.innerHTML = `<span class="ticker-tape-loading" data-i18n="ticker.no_recent">${noRecent}</span>`;
           }
           // Sinon on garde le contenu valide en place, on retentera au prochain refresh.
           return;
         }
-        // Drapeaux : flagcdn.com PNG (les emoji regional indicators ne
-        // s'affichent pas sur Windows -> tombent sur 2 lettres "US"). Pour
-        // les types non-pays (cluster, score, trend), on garde l'emoji icone.
-        const flagCodeByCountry = {
-          US: 'us', FR: 'fr', DE: 'de', UK: 'gb', NL: 'nl',
-          CH: 'ch', IT: 'it', ES: 'es',
-        };
-        const renderItem = (it) => {
-          const ticker = String(it.ticker || '').replace(/[<>"'&]/g, '');
-          const label = String(it.label || '').replace(/[<>"'&]/g, '');
-          let value = String(it.value || '').replace(/[<>"'&]/g, '');
-          // isInitial flag : suffix "(1er dépôt)" / "(1st filing)" localized.
-          // Avant : le worker envoyait "(1er dépôt)" en dur -> visible meme en EN.
-          if (it.isInitial) {
-            const initialLbl = (typeof t === 'function')
-              ? t('ticker.initial_filing', '(1er dépôt)')
-              : '(1er dépôt)';
-            value = value + ' ' + initialLbl;
-          }
-          const colorClass = ['green','red','orange','blue'].includes(it.color) ? it.color : 'orange';
-          const tickerEsc = ticker.replace(/'/g, "\\'");
-          // Drapeau : PNG si country mappe (US/FR/DE/UK/NL/CH/IT/ES), sinon
-          // emoji icone (🟢 cluster, 🚀 top score, 🔥 trending).
-          const cc = flagCodeByCountry[it.country];
-          const flagHtml = cc
-            ? `<img src="https://flagcdn.com/w20/${cc}.png" width="18" height="13" alt="${it.country}" class="ticker-tape-flag-img">`
-            : `<span class="ticker-tape-flag">${it.flag || '🌐'}</span>`;
-          return `<span class="ticker-tape-item" onclick="loadTickerFromTape('${tickerEsc}')" title="${label} · ${value}">
-            ${flagHtml}
-            <span class="ticker-tape-ticker">${ticker}</span>
-            <span class="ticker-tape-label">${label}</span>
-            <span class="ticker-tape-value ${colorClass}">${value}</span>
-          </span>`;
-        };
-        // Duplique le contenu pour rendre le scroll infini sans saut visible
-        // (anim translate -50% = 1 cycle complet du contenu original).
-        const itemsHtml = items.map(renderItem).join('');
-        track.innerHTML = itemsHtml + itemsHtml;
+        // Memorise pour re-render sans refetch au langchange.
+        __tickerTapeItems = items;
+        renderTickerTapeFromCache();
       } catch (e) {
         // Best-effort : pas d'erreur visible, on retentera au prochain refresh
         console.debug('[ticker-tape] fetch failed:', e.message || e);
       }
     }
+
+    // Re-render au changement de langue (sans refetch — utilise le cache local).
+    window.addEventListener('kairos:langchange', renderTickerTapeFromCache);
 
     // Click handler : bascule sur Decrypter une valeur avec ticker preselect.
     // GARDE-FOU (mai 2026) : valide que "ticker" ressemble vraiment a un ticker
@@ -6938,7 +6957,10 @@
         console.warn('[ticker-tape] invalid ticker, click ignored:', tk);
         try {
           if (window.Toast && Toast.info) {
-            Toast.info('Cet element n\'a pas de ticker boursier — clic ignore.');
+            const msg = (typeof t === 'function')
+              ? t('ticker.no_ticker_toast', "Cet élément n'a pas de ticker boursier — clic ignoré.")
+              : "Cet élément n'a pas de ticker boursier — clic ignoré.";
+            Toast.info(msg);
           }
         } catch (e) {}
         return;

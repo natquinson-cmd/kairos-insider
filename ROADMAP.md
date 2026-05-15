@@ -45,14 +45,24 @@ disparaît proprement, seul « Prochaine publication : 07 août 2026 » reste.
 
 Maintenant chaque achat apparaît avec sa vraie date d'exécution.
 
-### ✅ Ticker tape (1er dépôt) traduit en EN
+### ✅ Ticker tape (1er dépôt) traduit en EN + re-render au lang-change
 
 **Symptôme** : sur le bandeau défilant en haut, le suffixe `(1er dépôt)` (initial
-13D/G filing sans delta) restait en français même en mode EN.
+13D/G filing sans delta) restait en français même en mode EN. Plus largement, le
+bandeau **ne réagissait pas du tout** au changement de langue jusqu'au prochain
+refresh auto (5 min) parce qu'il était rendu dynamiquement via `innerHTML` sans
+écouter `kairos:langchange`.
 
-**Fix** : séparation données / présentation. Worker envoie `isInitial: true` flag
-côté payload, le client rend `(1er dépôt)` ou `(initial filing)` via la clé i18n
-`ticker.initial_filing`. Cache key `ticker-tape:v4 → v5`.
+**Fix en 2 temps** :
+1. **Worker** (commit précédent) : séparation données / présentation. Le worker
+   envoie `isInitial: true` flag côté payload, le client rend `(1er dépôt)` ou
+   `(initial filing)` via la clé i18n `ticker.initial_filing`. Cache key
+   `ticker-tape:v4 → v5`.
+2. **Client** (dashboard.html) : refactor de `loadTickerTape` — extraction de
+   `renderTickerTapeItem` + `renderTickerTapeFromCache` (re-render sans refetch),
+   cache local `__tickerTapeItems`, listener `kairos:langchange` qui rejoue le
+   render avec les nouveaux labels. Textes statiques traduits :
+   `ticker.loading`, `ticker.no_recent`, `ticker.no_ticker_toast`.
 
 ### ✅ Anti-abuse Gmail aliases
 
