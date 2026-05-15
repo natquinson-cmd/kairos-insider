@@ -64,6 +64,33 @@ refresh auto (5 min) parce qu'il était rendu dynamiquement via `innerHTML` sans
    render avec les nouveaux labels. Textes statiques traduits :
    `ticker.loading`, `ticker.no_recent`, `ticker.no_ticker_toast`.
 
+### ✅ Hedge Funds — sous-page « Explorer » (vue position-centrique)
+
+**Retour user** : "Il faut un meilleur écran pour voir les positions des
+hedge funds d'un point de vue stock. Ici on ne voit que la liste des fonds
+et il faut cliquer sur chaque ligne pour avoir le détail."
+
+**Implementation** :
+1. Nouvelle sous-page `section-13f-explorer` (3ème onglet du hub Hedge Funds,
+   entre Portefeuilles et Consensus)
+2. Vue position-centrique : 1 ligne = 1 fund avec sa position $ sur le ticker
+3. **Ligne TOTAL** agrégeant : `Σ valeur position`, `nombre de funds`,
+   `variation moyenne pondérée vs Q-1`
+4. Le TOTAL matche pixel-perfect le smartMoney de la fiche action (même API
+   `/api/stock/{ticker}` → `smartMoney.topFunds`)
+5. Hash URL : `#13f-explorer?t=TICKER` (bookmarkable, refresh-safe)
+6. Bouton « ← Retour fiche {ticker} » pour aller-retour fluide
+
+**Redirection** : `navigateToFundsWithHolding(ticker)` (appelé par le lien
+"Voir tous les fonds qui détiennent X" depuis fiche action) pointe maintenant
+vers `#13f-explorer?t=TICKER` au lieu de `#13f?holding=` (Portefeuilles).
+
+**Colonnes** :
+- # | Fonds | Valeur position | % du portfeuille | Δ shares vs Q-1 | Trimestre | Type (Activist/Offensif)
+
+**i18n FR/EN** : ~20 nouvelles clés `dash.hub.hedgefunds.explorer`,
+`explorer.summary`, `explorer.col.*`, `explorer.total`, etc.
+
 ### ✅ prefetch-13f : SEC proxy + retry (fix 50% funds manquants)
 
 **Retour user** : "Je ne les ai pas trouvé dans la page Hedge funds pourtant"

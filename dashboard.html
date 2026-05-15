@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260515-stock-loader-i18n"></script>
+  <script src="assets/i18n.js?v=20260515-hedge-funds-explorer"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -79,8 +79,8 @@
         if (!section || section === 'home') return;
         // Whitelist : seules les sections connues sont prises en compte
         // (sinon un hash garbage pourrait masquer toutes les sections).
-        var allowed = ['stockAnalysis','insider','insiderProfile','activists','13f','etf',
-                       'eliteAlerts','eliteBacktests','portfolio','watchlist','hotStocks',
+        var allowed = ['stockAnalysis','insider','insiderProfile','activists','13f','13f-explorer','etf',
+                       'eliteAlerts','eliteBacktests','portfolio','watchlist','hotStocks','consensus13f',
                        'feargreed','shorts','admin','profile','signals-clusters','signals-netflow',
                        'signals-crossticker','signals-etf'];
         if (allowed.indexOf(section) < 0) return;
@@ -5471,9 +5471,10 @@
           Classement des plus grands fonds d'investissement par taille de portefeuille (AUM). Cliquez sur une ligne pour voir les principales positions.
         </p>
 
-        <!-- HUB HEDGE FUNDS (regroupe donnees 13F-HR : portefeuilles + consensus) -->
+        <!-- HUB HEDGE FUNDS (regroupe donnees 13F-HR : portefeuilles + explorer + consensus) -->
         <div class="hub-tabs" role="tablist">
           <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')">🔬 <span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
           <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
@@ -5504,6 +5505,43 @@
         </div>
       </div>
 
+      <!-- ===== SECTION: HEDGE FUNDS EXPLORER (vue position-centrique) =====
+           Mai 2026 : nouvelle sous-page accessible depuis fiche action.
+           Affiche TOUTES les positions hedge funds sur un ticker donne,
+           1 ligne par fund, avec une ligne TOTAL agregee. -->
+      <div class="section-page" id="section-13f-explorer">
+        <h2 data-i18n="dash.section.13f.explorer.title">Hedge Funds — Explorer 🔬</h2>
+        <p class="section-desc" data-i18n="dash.section.13f.explorer.desc">
+          Vue position-centrique : toutes les positions hedge funds sur une action donnée, agrégées avec une ligne <strong>Total</strong>. Accessible depuis la fiche action via « Voir tous les fonds qui détiennent X ».
+        </p>
+
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')">🔬 <span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
+          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
+        </div>
+
+        <!-- Input ticker + bouton retour fiche action -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0 8px">
+          <input id="explorerTickerInput" type="text"
+                 placeholder="🔍 Ticker (ex: AAPL, NVDA, MC.PA)…"
+                 data-i18n-placeholder="explorer.search.placeholder"
+                 autocomplete="off"
+                 style="flex:1;min-width:280px;max-width:480px;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;font-size:14px;font-family:inherit"
+                 onkeydown="if(event.key==='Enter'){loadHedgeFundsExplorer(this.value.trim().toUpperCase())}" />
+          <button id="explorerBackBtn" onclick="(function(){const tk=document.getElementById('explorerTickerInput')?.value?.trim()?.toUpperCase();if(tk){window.location.hash='#stockAnalysis?t='+encodeURIComponent(tk);switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis(tk),120);}})()" style="display:none;padding:10px 14px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+            <span id="explorerBackLabel">← Retour fiche action</span>
+          </button>
+        </div>
+
+        <div id="explorerBody" style="margin-top:12px">
+          <div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center">
+            <div style="font-size:42px;margin-bottom:10px">🔬</div>
+            <p style="font-size:13px;color:var(--text-muted);margin:0;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5" data-i18n="explorer.no_ticker">Tape un ticker ci-dessus ou clique sur « Voir tous les fonds qui détiennent X » depuis une fiche action.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- ===== SECTION: SMART MONEY CONSENSUS (13F) ===== -->
       <div class="section-page" id="section-consensus13f">
         <h2 data-i18n="dash.section.consensus13f.title">Hedge Funds — Consensus 🤝</h2>
@@ -5514,6 +5552,7 @@
         <!-- HUB HEDGE FUNDS (meme barre qu'ailleurs) -->
         <div class="hub-tabs" role="tablist">
           <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')">🔬 <span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
           <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
@@ -8794,6 +8833,7 @@
       screener: 'insider',
       clustering: 'insider',
       consensus13f: '13f',
+      '13f-explorer': '13f',
     };
 
     function switchSection(section, opts = {}) {
@@ -8879,6 +8919,11 @@
         }
         if (section === 'watchlist') { loadWatchlist(); loadTelegramStatus(); }
         if (section === 'activists') loadActivists();
+        if (section === '13f-explorer') {
+          // Pas de load par defaut : la page demarre vide avec un message
+          // d'instructions. L'utilisateur arrive ici soit en cliquant le tab,
+          // soit via navigateToFundsWithHolding(ticker) qui pre-fill + load.
+        }
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
         if (section === 'clustering') {
@@ -9006,6 +9051,10 @@
       // Phase A+B (mai 2026)
       if (section === 'insiderProfile' && (params.name || params.cik)) {
         setTimeout(() => loadInsiderProfile(params.name || '', params.cik || ''), 80);
+      }
+      // Cas special : Hedge Funds Explorer via #13f-explorer?t=TICKER
+      if (section === '13f-explorer' && params.t && typeof loadHedgeFundsExplorer === 'function') {
+        setTimeout(() => loadHedgeFundsExplorer(params.t), 80);
       }
       return true;
     }
@@ -16101,30 +16150,166 @@
       }
     }
 
-    // Helper pour naviguer depuis la fiche action -> Hedge Funds avec filtre
-    // pre-applique sur l'action. Utilise par le lien "Voir tous les fonds qui
-    // detiennent {ticker}" dans le bloc Smart Money de stockAnalysis.
-    // - Met le hash a jour (bookmarkable / partageable)
-    // - switchSection('13f') charge la page si pas encore chargee
-    // - setTimeout reapplique le filtre meme si la page etait deja chargee
-    //   (cas frequent : user fait des aller-retour entre fiche et hedge funds)
+    // Helper pour naviguer depuis la fiche action -> Hedge Funds Explorer
+    // (sous-page position-centrique avec ligne TOTAL agregee).
+    // Utilise par le lien "Voir tous les fonds qui detiennent {ticker}".
+    // Mai 2026 : redirige vers #13f-explorer?t=TICKER (avant : #13f?holding=)
+    //
+    // L'ancien comportement (filtre sur Portefeuilles) est conserve mais
+    // accessible seulement via la barre de recherche de la page Portefeuilles.
     function navigateToFundsWithHolding(ticker) {
-      const q = String(ticker || '').trim();
+      const q = String(ticker || '').trim().toUpperCase();
       if (!q) return;
-      window.location.hash = `13f?holding=${encodeURIComponent(q)}`;
-      switchSection('13f');
-      // Attend que la table soit rendue (load13FFunds est async)
-      setTimeout(() => {
-        const inp = document.getElementById('hedgeFundsSearch');
-        if (inp) {
-          inp.value = q;
-          filterHedgeFunds(q);
-          // Scroll input into view pour confirmer visuellement le filtre
-          inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 300);
+      window.location.hash = `13f-explorer?t=${encodeURIComponent(q)}`;
+      switchSection('13f-explorer');
+      // Charge l'explorer apres un petit delai pour laisser switchSection appliquer la classe .active
+      setTimeout(() => loadHedgeFundsExplorer(q), 80);
     }
     window.navigateToFundsWithHolding = navigateToFundsWithHolding;
+
+    // ============================================================
+    // HEDGE FUNDS EXPLORER : vue position-centrique
+    // ============================================================
+    // Pour un ticker donne, charge /api/stock/{ticker} (cache 15min) et
+    // affiche un tableau plat 1 ligne par fund + ligne TOTAL.
+    // Avantages vs page Portefeuilles :
+    // - Pas besoin de cliquer chaque fund pour voir sa position
+    // - Total agrege $ + nb funds = match exact avec fiche action
+    // - Tri par valeur position descendant par defaut
+    // ============================================================
+    async function loadHedgeFundsExplorer(ticker) {
+      const body = document.getElementById('explorerBody');
+      const input = document.getElementById('explorerTickerInput');
+      const backBtn = document.getElementById('explorerBackBtn');
+      const backLbl = document.getElementById('explorerBackLabel');
+      if (!body) return;
+      const tk = String(ticker || '').trim().toUpperCase();
+      if (!tk) {
+        body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center"><div style="font-size:42px;margin-bottom:10px">🔬</div><p style="font-size:13px;color:var(--text-muted);margin:0" data-i18n="explorer.no_ticker">${t('explorer.no_ticker','Tape un ticker ci-dessus ou clique sur « Voir tous les fonds qui détiennent X » depuis une fiche action.')}</p></div>`;
+        if (backBtn) backBtn.style.display = 'none';
+        return;
+      }
+      if (input && input.value !== tk) input.value = tk;
+      // Update URL hash sans push history
+      try { history.replaceState(null, '', `#13f-explorer?t=${encodeURIComponent(tk)}`); } catch {}
+
+      // Loading state
+      body.innerHTML = `<div class="loading" style="padding:40px 24px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;text-align:center"><div class="spinner"></div><div style="margin-top:12px;font-size:13px;color:var(--text-muted)">${t('explorer.loading','Chargement des positions…')}</div></div>`;
+
+      try {
+        const data = await apiFetch(`/api/stock/${encodeURIComponent(tk)}`);
+        const sm = (data && data.smartMoney) || {};
+        const funds = Array.isArray(sm.topFunds) ? sm.topFunds : [];
+        const company = (data.company && data.company.name) || data.ticker || tk;
+
+        if (backBtn) backBtn.style.display = '';
+        if (backLbl) backLbl.textContent = (t('explorer.back_to_stock','← Retour à la fiche {ticker}')).replace('{ticker}', tk);
+
+        if (funds.length === 0) {
+          body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center"><div style="font-size:42px;margin-bottom:10px">🔍</div><p style="font-size:13px;color:var(--text-muted);margin:0">${(t('explorer.empty','Aucune position hedge funds trouvée pour {ticker}.')).replace('{ticker}','<strong>'+tk+'</strong>')}</p></div>`;
+          return;
+        }
+
+        const locale = (typeof getLang === 'function' && getLang() === 'en') ? 'en-US' : 'fr-FR';
+        const fmtUsd = (v) => {
+          if (v == null) return '—';
+          const abs = Math.abs(v);
+          if (abs >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+          if (abs >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+          if (abs >= 1e3) return '$' + Math.round(v / 1e3) + 'K';
+          return '$' + Math.round(v);
+        };
+        const fmtPct = (p) => (p == null || !Number.isFinite(p)) ? '—' : (p > 0 ? '+' : '') + p.toFixed(2) + '%';
+        const fmtDate = (s) => {
+          if (!s) return '—';
+          try { return new Date(s).toLocaleDateString(locale, { month: 'short', year: 'numeric' }); } catch { return s; }
+        };
+        const escTk = String(tk).replace(/[<>"'&]/g, '');
+        const escCo = String(company).replace(/[<>"'&]/g, '');
+
+        // Sort par value desc
+        const sorted = funds.slice().sort((a, b) => (b.value || 0) - (a.value || 0));
+
+        // Totaux
+        const totalValue = sorted.reduce((s, f) => s + (f.value || 0), 0);
+        const totalCount = sorted.length;
+        const totalShares = sorted.reduce((s, f) => s + (f.shares || 0), 0);
+        // Delta pondere par valeur de position : sum(delta * value) / sum(value)
+        const weightedDeltaSum = sorted.reduce((s, f) => s + ((f.deltaPct || 0) * (f.value || 0)), 0);
+        const avgDelta = totalValue > 0 ? (weightedDeltaSum / totalValue) : 0;
+
+        const summary = (t('explorer.summary','<strong>{n}</strong> fonds détiennent <strong>{ticker}</strong> · Total <strong>{total}</strong>'))
+          .replace('{n}', totalCount)
+          .replace('{ticker}', escTk + ' (' + escCo + ')')
+          .replace('{total}', fmtUsd(totalValue));
+
+        const rows = sorted.map((f, i) => {
+          const isOff = f.isOffensive === true;
+          const isAct = (f.category || '').toLowerCase().includes('activist') || (f.status === 'activist');
+          const tagHtml = isAct
+            ? `<span style="padding:2px 7px;font-size:10px;font-weight:700;color:#F59E0B;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);border-radius:100px">${t('explorer.tag.activist','⚡ Activist')}</span>`
+            : (isOff ? `<span style="padding:2px 7px;font-size:10px;font-weight:700;color:#A78BFA;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.30);border-radius:100px">${t('explorer.tag.offensive','🎯 Offensif')}</span>` : '');
+          const deltaCol = (f.deltaPct || 0) > 1 ? '#10B981' : (f.deltaPct || 0) < -1 ? '#EF4444' : 'var(--text-muted)';
+          const fundEsc = String(f.fundName || '').replace(/[<>"'&]/g, '');
+          return `
+            <tr style="border-bottom:1px solid var(--divider);transition:background 0.15s" onmouseover="this.style.background='rgba(116,185,255,0.04)'" onmouseout="this.style.background=''">
+              <td style="padding:10px 12px;color:var(--text-muted);font-size:12px;width:32px">${i + 1}</td>
+              <td style="padding:10px 12px;font-weight:600;font-size:13px;color:var(--text-primary)">${fundEsc}</td>
+              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:#60A5FA;font-size:13px">${fmtUsd(f.value)}</td>
+              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-secondary);font-size:12px">${f.pctOfPortfolio != null ? f.pctOfPortfolio.toFixed(2) + '%' : '—'}</td>
+              <td style="padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums;color:${deltaCol};font-size:12px;font-weight:600">${fmtPct(f.deltaPct)}</td>
+              <td style="padding:10px 12px;text-align:right;color:var(--text-muted);font-size:11px;white-space:nowrap">${fmtDate(f.reportDate)}</td>
+              <td style="padding:10px 12px;text-align:center">${tagHtml}</td>
+            </tr>
+          `;
+        }).join('');
+
+        body.innerHTML = `
+          <!-- Summary header -->
+          <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:12px;margin-bottom:14px;font-size:14px;line-height:1.6">
+            ${summary}
+            ${avgDelta !== 0 ? `<div style="margin-top:6px;font-size:12px;color:var(--text-muted)">Variation moyenne pondérée vs Q-1 : <strong style="color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-secondary)'}">${fmtPct(avgDelta)}</strong></div>` : ''}
+          </div>
+
+          <!-- Table -->
+          <div class="table-wrap" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:var(--surface-2);border-bottom:2px solid var(--border)">
+                  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);width:32px">#</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.fund','Fonds')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.value','Valeur position')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.pct','% du portefeuille')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.delta','Δ shares vs Q-1')}</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.date','Trimestre')}</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted)">${t('explorer.col.tag','Type')}</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+              <tfoot>
+                <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(59,130,246,0.05));border-top:2px solid var(--border-strong);font-weight:700">
+                  <td style="padding:14px 12px;font-size:12px;color:var(--text-muted)">Σ</td>
+                  <td style="padding:14px 12px;font-size:14px;color:var(--text-primary)">${t('explorer.total','TOTAL')} <span style="font-weight:400;color:var(--text-muted);font-size:12px;margin-left:8px">(${totalCount} fonds)</span></td>
+                  <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px;color:#10B981">${fmtUsd(totalValue)}</td>
+                  <td style="padding:14px 12px"></td>
+                  <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-muted)'}">${fmtPct(avgDelta)}</td>
+                  <td style="padding:14px 12px"></td>
+                  <td style="padding:14px 12px"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div style="margin-top:12px;font-size:11px;color:var(--text-muted);line-height:1.5">
+            💡 Les valeurs et delta proviennent du dernier 13F-HR déposé à la SEC EDGAR. Données partagées avec la fiche action ${escTk} (Σ doit matcher).
+          </div>
+        `;
+      } catch (e) {
+        console.error('[explorer] load failed:', e);
+        body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--accent-red);border-radius:12px;text-align:center"><div style="font-size:32px;margin-bottom:10px">⚠️</div><p style="font-size:13px;color:var(--text-muted);margin:0">Erreur : ${escapeHtmlClient(e.message || e)}</p></div>`;
+      }
+    }
+    window.loadHedgeFundsExplorer = loadHedgeFundsExplorer;
 
     // Helper : ouvre la fiche action depuis un NOM d'entreprise (sans ticker).
     // Utilise depuis la liste Top 50 positions d'un fond Hedge Funds, ou les
