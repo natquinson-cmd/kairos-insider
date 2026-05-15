@@ -5731,10 +5731,12 @@ ${ogRadarSvg(breakdown, score, scoreColor, t.radar, radarCx, radarCy, radarR)}
       status: 200,
       headers: {
         'Content-Type': 'image/png',
-        // Cache CDN 1h, browser 5min : les scrapers Twitter/Linkedin re-fetchent
-        // periodiquement, on veut leur servir une version pas trop fraiche.
-        'Cache-Control': 'public, max-age=300, s-maxage=3600',
-        'CDN-Cache-Control': 'public, s-maxage=3600',
+        // Cache CDN 10min (avant 1h trop long), browser 5min : le score Kairos
+        // bouge ~daily (post-cron 13F/insiders), un TTL 1h conduit a des OG
+        // stales sur Twitter quand on tweete juste apres un refresh data.
+        // 10min = bon compromis fraicheur vs cout compute resvg-wasm.
+        'Cache-Control': 'public, max-age=300, s-maxage=600',
+        'CDN-Cache-Control': 'public, s-maxage=600',
       },
     });
   } catch (e) {
@@ -5877,6 +5879,14 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
   const ogLocale = lang === 'en' ? 'en_US' : 'fr_FR';
   const altLocale = lang === 'en' ? 'fr_FR' : 'en_US';
 
+  // Cache-buster horaire pour og:image. Twitter cache les OG par URL ~7j.
+  // En changeant l'URL chaque heure, on garantit qu'un nouveau tweet apres
+  // un refresh data (cron, manual) sert bien la version a jour.
+  // Format YYYYMMDDHH = identique pour tous les visiteurs dans la meme heure
+  // (donc page SSR cacheable normalement). Ex: 2026051514 = 15 mai 2026 14h UTC.
+  const _ogNow = new Date();
+  const ogVersion = `${_ogNow.getUTCFullYear()}${String(_ogNow.getUTCMonth()+1).padStart(2,'0')}${String(_ogNow.getUTCDate()).padStart(2,'0')}${String(_ogNow.getUTCHours()).padStart(2,'0')}`;
+
   const html = `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -5899,7 +5909,7 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta property="og:title" content="${escHtmlSsr(title)}">
 <meta property="og:description" content="${escHtmlSsr(desc)}">
 <meta property="og:url" content="${baseUrl}${lang === 'en' ? '?lang=en' : ''}">
-<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png?lang=${lang}">
+<meta property="og:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png?lang=${lang}&amp;v=${ogVersion}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/png">
@@ -5908,7 +5918,7 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escHtmlSsr(title)}">
 <meta name="twitter:description" content="${escHtmlSsr(desc)}">
-<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png?lang=${lang}">
+<meta name="twitter:image" content="https://kairosinsider.fr/og/${encodeURIComponent(ticker)}.png?lang=${lang}&amp;v=${ogVersion}">
 <meta name="twitter:image:alt" content="${escHtmlSsr(title)}">
 
 <!-- Google Analytics 4 (RGPD-friendly) -->
