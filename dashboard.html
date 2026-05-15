@@ -5521,14 +5521,17 @@
           <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
-        <!-- Input ticker + bouton retour fiche action -->
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0 8px">
-          <input id="explorerTickerInput" type="text"
-                 placeholder="🔍 Ticker (ex: AAPL, NVDA, MC.PA)…"
-                 data-i18n-placeholder="explorer.search.placeholder"
-                 autocomplete="off"
-                 style="flex:1;min-width:280px;max-width:480px;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;font-size:14px;font-family:inherit"
-                 onkeydown="if(event.key==='Enter'){loadHedgeFundsExplorer(this.value.trim().toUpperCase())}" />
+        <!-- Input ticker + autocomplete + bouton retour fiche action -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin:16px 0 8px">
+          <!-- Wrapper position:relative pour ancrer le dropdown autocomplete -->
+          <div style="position:relative;flex:1;min-width:280px;max-width:480px">
+            <input id="explorerTickerInput" type="text"
+                   placeholder="🔍 Ticker (ex: AAPL, NVDA, MC.PA)…"
+                   data-i18n-placeholder="explorer.search.placeholder"
+                   autocomplete="off"
+                   style="width:100%;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;font-size:14px;font-family:inherit;box-sizing:border-box" />
+            <div id="explorerTickerSuggest" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:12px;max-height:420px;overflow-y:auto;z-index:100;box-shadow:0 12px 32px rgba(0,0,0,0.35)"></div>
+          </div>
           <button id="explorerBackBtn" onclick="(function(){const tk=document.getElementById('explorerTickerInput')?.value?.trim()?.toUpperCase();if(tk){window.location.hash='#stockAnalysis?t='+encodeURIComponent(tk);switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis(tk),120);}})()" style="display:none;padding:10px 14px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
             <span id="explorerBackLabel">← Retour fiche action</span>
           </button>
@@ -8920,6 +8923,9 @@
         if (section === 'watchlist') { loadWatchlist(); loadTelegramStatus(); }
         if (section === 'activists') loadActivists();
         if (section === '13f-explorer') {
+          // Init autocomplete ticker (meme pattern que fiche action).
+          // L'utilisateur peut chercher par ticker (AAPL) OU par nom (Apple).
+          if (typeof initExplorerSearch === 'function') initExplorerSearch();
           // Pas de load par defaut : la page demarre vide avec un message
           // d'instructions. L'utilisateur arrive ici soit en cliquant le tab,
           // soit via navigateToFundsWithHolding(ticker) qui pre-fill + load.
@@ -16322,6 +16328,30 @@
       }
     }
     window.loadHedgeFundsExplorer = loadHedgeFundsExplorer;
+
+    // Init autocomplete sur l'input de l'Explorer (lazy, premiere fois qu'on
+    // entre dans la section). Idempotent : reuse l'input si deja wire.
+    let _explorerSearchInit = false;
+    async function initExplorerSearch() {
+      if (_explorerSearchInit) return;
+      const input = document.getElementById('explorerTickerInput');
+      const suggest = document.getElementById('explorerTickerSuggest');
+      if (!input || !suggest) return;
+      // ensureTickerList : meme chose que dans initStockAnalysis. Charge la
+      // liste des tickers du worker (autocomplete locale prio + fallback
+      // Yahoo Search pour les noms libres genre "Hermès" / "ASML").
+      if (typeof ensureTickerList === 'function') {
+        try { await ensureTickerList(); } catch (e) {}
+      }
+      if (typeof wireTickerAutocomplete === 'function') {
+        wireTickerAutocomplete(input, suggest, (ticker) => {
+          input.value = ticker;
+          loadHedgeFundsExplorer(ticker);
+        });
+        _explorerSearchInit = true;
+      }
+    }
+    window.initExplorerSearch = initExplorerSearch;
 
     // Helper : ouvre la fiche action depuis un NOM d'entreprise (sans ticker).
     // Utilise depuis la liste Top 50 positions d'un fond Hedge Funds, ou les
