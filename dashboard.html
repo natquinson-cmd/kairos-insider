@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260515-email-verify-anti-abuse"></script>
+  <script src="assets/i18n.js?v=20260515-ticker-tape-i18n"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -6888,7 +6888,15 @@
         const renderItem = (it) => {
           const ticker = String(it.ticker || '').replace(/[<>"'&]/g, '');
           const label = String(it.label || '').replace(/[<>"'&]/g, '');
-          const value = String(it.value || '').replace(/[<>"'&]/g, '');
+          let value = String(it.value || '').replace(/[<>"'&]/g, '');
+          // isInitial flag : suffix "(1er dépôt)" / "(1st filing)" localized.
+          // Avant : le worker envoyait "(1er dépôt)" en dur -> visible meme en EN.
+          if (it.isInitial) {
+            const initialLbl = (typeof t === 'function')
+              ? t('ticker.initial_filing', '(1er dépôt)')
+              : '(1er dépôt)';
+            value = value + ' ' + initialLbl;
+          }
           const colorClass = ['green','red','orange','blue'].includes(it.color) ? it.color : 'orange';
           const tickerEsc = ticker.replace(/'/g, "\\'");
           // Drapeau : PNG si country mappe (US/FR/DE/UK/NL/CH/IT/ES), sinon

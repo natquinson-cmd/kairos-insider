@@ -9581,7 +9581,7 @@ async function handleTickerTape(env, origin) {
   // item sans ticker valide, quelle que soit sa source. Defense en
   // profondeur : meme si une source ajoute un futur bug, le filtre
   // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
-  const cacheKey = 'ticker-tape:v4';
+  const cacheKey = 'ticker-tape:v5';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -9624,13 +9624,18 @@ async function handleTickerTape(env, origin) {
         .sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''))
         .slice(0, 8);
       for (const f of dgItems) {
+        // isInitial = 1er depot 13D (pas un amendement). Le front traduit le
+        // suffix via i18n.ticker.initial_filing pour eviter le bug du
+        // FR hardcoded "(1er dépôt)" visible meme en locale EN.
+        const isInitial = f.percentDelta == null;
         items.push({
           type: 'activist', flag: '🇺🇸', country: 'US',
           ticker: pickTicker(f),
           label: shortFiler(f.filerName) + ' · ⚡',
-          value: f.percentDelta != null
-            ? `${directionStr(f.percentDelta)} → ${(f.percentOfClass || 0).toFixed(1)}%`
-            : `${(f.percentOfClass || 0).toFixed(1)}% (1er dépôt)`,
+          value: isInitial
+            ? `${(f.percentOfClass || 0).toFixed(1)}%`
+            : `${directionStr(f.percentDelta)} → ${(f.percentOfClass || 0).toFixed(1)}%`,
+          isInitial,
           date: f.fileDate,
           color: f.percentDelta != null && f.percentDelta < 0 ? 'red' : 'orange',
         });
