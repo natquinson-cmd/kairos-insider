@@ -64,6 +64,35 @@ refresh auto (5 min) parce qu'il était rendu dynamiquement via `innerHTML` sans
    render avec les nouveaux labels. Textes statiques traduits :
    `ticker.loading`, `ticker.no_recent`, `ticker.no_ticker_toast`.
 
+### ✅ Watchlist : bouton ★ "Ajouter à ma watchlist" sur fiche action
+
+**Symptôme** : sur la page Analyse action, cliquer sur le bouton ★ semblait
+ajouter le ticker (le label changeait de "☆ Ajouter" → "★ Dans la watchlist"),
+mais après un refresh, le bouton revenait à ☆ et le ticker n'était nulle part.
+
+**Cause racine** : signature `apiFetch(endpoint, params, method = 'GET')`.
+`persistWatchlist` appelait :
+```js
+apiFetch('/api/watchlist/sync', { method: 'POST', body: JSON.stringify({...}) });
+```
+→ le 2ème argument était traité comme **query params d'un GET**.
+La requête devenait `GET /api/watchlist/sync?method=POST&body=...`, le worker
+ne matchait QUE `POST /api/watchlist/sync` → **404** → catch silencieux →
+Firebase OK mais worker vide → au prochain `loadWatchlist()`, `/api/watchlist/get`
+renvoyait `tickers: []` qui écrasait l'état Firebase.
+
+**Fix** (`dashboard.html`) :
+- `persistWatchlist` : appel corrigé `apiFetch(url, params, 'POST')`
+- `testWatchlistDigest` : même bug fixé sur `/api/watchlist/test-now`
+- Rollback safe ajouté dans `addToWatchlist` / `removeFromWatchlist` (si
+  persist throw → restore l'état précédent)
+- Toasts visuels ajoutés : succès, déjà présent, limite atteinte, échec sauvegarde,
+  paywall Pro requis (sans Toast avant, le user n'avait aucune confirmation
+  visible sur la fiche action)
+
+Nouvelles clés i18n : `watchlist.toast.added / .removed / .already_in /
+.limit_reached / .premium_required / .save_failed`.
+
 ### ✅ Anti-abuse Gmail aliases
 
 **Contexte** : un utilisateur s'est inscrit avec `nom+kairos@gmail.com` pour
