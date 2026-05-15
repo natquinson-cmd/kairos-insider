@@ -1,5 +1,5 @@
 """
-V2 13F : Decouvre automatiquement les top 200 hedge funds / asset managers
+V2 13F : Decouvre automatiquement les top 300 hedge funds / asset managers
 par AUM via la SEC EDGAR. Genere worker/13f_funds_list.json qui sera lu
 par prefetch-13f.py au lieu de la liste hardcodee.
 
@@ -27,7 +27,8 @@ from datetime import datetime, timedelta
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 MIN_AUM_USD = 1_000_000_000  # 1 Mrd $ minimum pour entrer dans la liste
-TARGET_TOP_N = 200            # On garde les top 200 par AUM
+TARGET_TOP_N = 300            # Top 300 par AUM (passe de 200 a 300 le 15 mai 2026 :
+                              # +100 funds, ~+50% temps cron, meilleure couverture mid-caps)
 RATE_LIMIT_SLEEP = 0.15       # 6.6 req/s (sous la limite SEC 10/s)
 
 # Override manuel : pour les CIK connus, on force le label utilisateur
@@ -287,7 +288,7 @@ def main():
 
     elapsed = int(time.time() - start)
     print(f'\n=== DONE in {elapsed}s ===')
-    print(f'Top 200 hedge funds par AUM :')
+    print(f'Top {TARGET_TOP_N} hedge funds par AUM :')
     print(f'  {"Rank":<5} {"Name":<45} {"Label":<25} {"AUM":>15}')
     for rank, f in enumerate(top[:30], 1):
         aum_str = f"${f['aum']/1e9:.1f}B" if f['aum'] >= 1e9 else f"${f['aum']/1e6:.0f}M"

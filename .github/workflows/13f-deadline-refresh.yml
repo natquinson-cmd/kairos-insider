@@ -1,0 +1,95 @@
+name: 13F Deadline Day Refresh
+
+# ============================================================================
+# Mai 2026 — refresh special les 4 deadline days 13F de l'annee.
+#
+# Les 13F SEC ont une deadline de 45 jours apres fin de quarter :
+#   Q1 (fin 31 mars) -> deadline ~14-15 mai
+#   Q2 (fin 30 juin) -> deadline ~14-15 aout
+#   Q3 (fin 30 sept) -> deadline ~14-15 nov
+#   Q4 (fin 31 dec)  -> deadline ~14-15 fev
+#
+# Probleme avec le cron daily a 1h30 UTC :
+#   - 1h30 UTC du 15 mai = 21h30 ET du 14 mai = AVANT que les funds ne filent
+#   - Les funds filent entre 9h ET et 18h ET du 15 mai (=22h UTC)
+#   - Le prochain cron daily (1h30 UTC du 16 mai) ramasse 4h apres fermeture
+#   - Resultat : 24h de delai pour voir les nouveaux 13F dans le dashboard
+#
+# Fix : ce workflow tourne le 14 ET le 15 (selon weekend, deadline peut tomber
+# sur 14 si le 15 est weekend) des mois Q-end+1 a 22h UTC (= 18h ET = post-close)
+# pour ramasser les filings du jour AVANT le cron de nuit.
+#
+# Cout : 8 runs/an (4 deadlines x 2 jours) x ~35 min = ~4h GitHub Actions/an.
+# Negligeable.
+# ============================================================================
+
+on:
+  schedule:
+    # 14 et 15 des mois de fevrier, mai, aout, novembre a 22h UTC = 18h ET
+    - cron: '0 22 14,15 2,5,8,11 *'
+  workflow_dispatch:
+
+# Concurrency : annule un run en cours si un nouveau arrive (le 14 puis le 15)
+concurrency:
+  group: 13f-deadline-refresh
+  cancel-in-progress: false  # on laisse finir, c'est court (~35 min)
+
+jobs:
+  refresh-13f:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PYTHONUNBUFFERED: '1'
+      SEC_PROXY_URL: 'https://kairos-insider-api.natquinson.workers.dev/api/admin/sec-proxy'
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      # ===== Restore les listes mises en cache par le cron daily =====
+      - name: Restore 13f_funds_list.json from KV
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-funds-list" > 13f_funds_list.json 2>/dev/null || (echo "ERROR: no 13f-funds-list in KV — run update-13f.yml first to seed"; exit 1)
+          echo "Restored 13f_funds_list.json: $(wc -c < 13f_funds_list.json) bytes"
+
+      - name: Restore 13d_filer_ciks.json from KV (used by prefetch-13f for OFFENSIF flag)
+        run: |
+          cd worker
+          wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13d-filer-ciks" > 13d_filer_ciks.json 2>/dev/null && echo "Restored 13d_filer_ciks.json: $(wc -c < 13d_filer_ciks.json) bytes" || (rm -f 13d_filer_ciks.json && echo "No 13d_filer_ciks in KV yet (degraded mode : isOffensive=false partout)")
+        continue-on-error: true
+
+      # ===== 13F prefetch : fetch les filings frais SEC EDGAR =====
+      - name: Fetch 13F data from SEC EDGAR (deadline day refresh)
+        run: cd worker && python prefetch-13f.py
+        timeout-minutes: 40   # +10 min vs daily car potentiellement plus de filings ce jour
+
+      - name: Upload 13F to KV
+        if: hashFiles('worker/funds_data.json') != ''
+        run: |
+          cd worker
+          if [ -f funds_data.json ]; then
+            wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-all-funds" --path=funds_data.json
+            echo "✓ 13F data uploaded ($(wc -c < funds_data.json) bytes)"
+          fi
+          if [ -f 13f_ticker_index.json ]; then
+            wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-ticker-index" --path=13f_ticker_index.json
+            echo "✓ 13F ticker index uploaded ($(wc -c < 13f_ticker_index.json) bytes)"
+          fi
+
+      # ===== Log lastRun pour badge "fresh" cote frontend =====
+      - name: Log lastRun timestamp
+        if: success()
+        run: |
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "{\"timestamp\":\"$NOW\",\"source\":\"13f-deadline-refresh\"}" | wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "lastRun:13f" --path=/dev/stdin
+        continue-on-error: true

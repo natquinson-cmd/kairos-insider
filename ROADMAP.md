@@ -64,6 +64,37 @@ refresh auto (5 min) parce qu'il était rendu dynamiquement via `innerHTML` sans
    render avec les nouveaux labels. Textes statiques traduits :
    `ticker.loading`, `ticker.no_recent`, `ticker.no_ticker_toast`.
 
+### ✅ 13F deadline day refresh + top-200 → top-300
+
+**Retour user** : sur ONDS, le 15 mai 2026 (= deadline 13F Q1), absence
+totale des nouvelles positions hedge funds (Marshall Wace +42%, Qube +2548%,
+National Bank of Canada, Charles Schwab IM) mentionnees sur Twitter.
+
+**Diagnostic** (worker/src/stock-api.js + 13f-ticker-index KV) :
+- Les 4 funds mentionnes sont TOUS dans la top-200 Kairos
+- Le `13f-ticker-index` a bien des entrees ONDAS HLDGS, ONDAS, ONDAS US
+- Mais SEULEMENT les early-filers Q1 sont presents (Marex, SEI, Renaissance,
+  Mariner), pas les late filers de la journee deadline
+- Cause racine : cron `'30 1 * * *'` (1h30 UTC quotidien) = 21h30 ET la veille,
+  donc rate les filings de la deadline day (9h-18h ET)
+
+**Fixes deployes** :
+
+1. **Top-200 → top-300** dans `worker/discover-13f-funds.py` :
+   - `TARGET_TOP_N = 200` -> `300`
+   - Couverture amelioree pour mid/small caps mal couverts
+   - Impact : +50% temps cron 13F (~25 min -> ~37 min), +50% KV size
+     (5MB -> 7.5MB, large marge sous 25MB)
+   - Effet immediat seulement apres prochaine discovery weekly (lundi)
+
+2. **Nouveau workflow `.github/workflows/13f-deadline-refresh.yml`** :
+   - Cron `'0 22 14,15 2,5,8,11 *'` = 22h UTC = 18h ET les 14 ET 15 fev/mai/aout/nov
+     (deadlines 13F Q1/Q2/Q3/Q4 +45j, on couvre 14 et 15 selon weekend)
+   - Steps minimum : restore funds list + 13d filer ciks + prefetch-13f + push KV
+     (~35 min, vs ~50 min pour le full daily run)
+   - Permet de ramasser les filings du jour AVANT le cron de nuit suivant
+   - 8 runs/an, ~4h GitHub Actions/an : negligeable
+
 ### ✅ Page 'Decode a stock' : Historique + Watchlist + i18n complet
 
 **Retour user** : « Sur la page Decode a stock il manque l'historique des dernières
