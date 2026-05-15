@@ -1043,12 +1043,45 @@ async function trackFirstSeenUser(env, user) {
 
     const now = new Date();
     const offerExpiresAt = new Date(now.getTime() + BETA_OFFER_DURATION_DAYS * 86400 * 1000);
+
+    // Email normalization + duplicate detection (mai 2026).
+    // Cherche si un autre UID a deja cette meme adresse normalisee :
+    // - Si oui : marque ce nouvel user comme duplicateOf={existing_uid}.
+    // - Si non : enregistre cet UID comme proprietaire canonique de l'email.
+    // L'index 'email-norm:{normalized}' -> uid sert pour les futures detections.
+    const normEmail = normalizeEmail(user.email);
+    let duplicateOf = null;
+    if (normEmail) {
+      try {
+        const existingUidForEmail = await env.CACHE.get(`email-norm:${normEmail}`);
+        if (existingUidForEmail && existingUidForEmail !== uid) {
+          duplicateOf = existingUidForEmail;
+          log.info('signup.duplicate_email_alias', {
+            uid, email: user.email, normalizedEmail: normEmail,
+            existingUid: existingUidForEmail,
+          });
+        } else if (!existingUidForEmail) {
+          // 1er compte avec cette adresse normalisee -> on l'enregistre comme canonique.
+          // expirationTtl=null = permanent (pas de TTL).
+          await env.CACHE.put(`email-norm:${normEmail}`, uid);
+        }
+      } catch (e) {
+        log.warn('normalizeEmail.lookup_failed', { detail: String(e && e.message || e) });
+      }
+    }
+
     const userRecord = {
       uid,
       email: user.email || null,
+      normalizedEmail: normEmail,   // pour audit + admin search
       emailVerified: !!user.emailVerified,
       firstSeen: now.toISOString(),
     };
+    if (duplicateOf) {
+      // Marqueur visible dans l'admin panel pour decision manuelle.
+      userRecord.duplicateOf = duplicateOf;
+      userRecord.flagged = 'gmail_alias_duplicate';
+    }
     if (betaSignup) {
       userRecord.betaSignup = true;
       userRecord.betaSignupRank = betaCount + 1;  // 1-indexed
@@ -1063,6 +1096,40 @@ async function trackFirstSeenUser(env, user) {
     // Le Set garde l'uid pour ne pas retenter tout de suite.
     log.warn('trackFirstSeenUser.failed', { uid, detail: String(e && e.message || e) });
   }
+}
+
+// ============================================================
+// EMAIL NORMALIZATION (mai 2026)
+// Bloque l'abus d'alias Gmail : zmpablito+kairos@gmail.com et
+// zmpablito@gmail.com pointent vers la MEME inbox -> meme user.
+// On normalise pour detecter les inscriptions multiples depuis 1 boite.
+//
+// Regles :
+//   1. lowercase + trim
+//   2. strip "+suffix" dans la partie locale (alias Gmail/iCloud/ProtonMail/etc.)
+//   3. strip dots dans la partie locale UNIQUEMENT pour Gmail/Googlemail
+//      (Gmail ignore les dots : a.b@gmail.com = ab@gmail.com)
+//
+// Ex :
+//   z.m.pablito+kairosinsider@gmail.com -> zmpablito@gmail.com
+//   user+test@protonmail.com           -> user@protonmail.com (pas de dot-strip)
+//   USER@gmail.com                      -> user@gmail.com
+// ============================================================
+function normalizeEmail(email) {
+  if (!email || typeof email !== 'string') return null;
+  const lower = email.trim().toLowerCase();
+  const at = lower.lastIndexOf('@');
+  if (at <= 0 || at === lower.length - 1) return lower;
+  let local = lower.slice(0, at);
+  const domain = lower.slice(at + 1);
+  // 1. Strip +alias (toutes les providers)
+  const plusIdx = local.indexOf('+');
+  if (plusIdx > 0) local = local.slice(0, plusIdx);
+  // 2. Strip dots in local part for Gmail / Googlemail
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    local = local.replace(/\./g, '');
+  }
+  return local + '@' + domain;
 }
 
 async function verifyFirebaseToken(idToken, env) {
