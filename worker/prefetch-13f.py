@@ -5,9 +5,25 @@ Compare le trimestre actuel vs le precedent pour calculer :
   - Variation de chaque position (en % de shares)
 Resultat : un fichier funds_data.json a uploader dans Cloudflare KV.
 """
-import json, re, time, urllib.request, os
+import json, re, time, urllib.request, urllib.parse, urllib.error, socket, os, sys
 
 UA = 'KairosInsider contact@kairosinsider.fr'
+
+# ============================================================
+# SEC PROXY (mai 2026) — Bypass GitHub Actions IP blacklist
+# ============================================================
+# Avant : prefetch-13f utilisait un fetch nu sans retry. Resultat : sur 219
+# funds, ~50% se prenaient un 429/timeout de SEC -> 13f-all-funds n'avait que
+# 109 funds (Qube, NBC, Schwab IM completement absents).
+# Maintenant : meme pattern que prefetch-all.py = SEC proxy via Worker CF +
+# retry exponential backoff sur 429/503/timeout.
+SEC_PROXY_URL = os.environ.get('SEC_PROXY_URL', '').strip()
+SEC_PROXY_API_KEY = os.environ.get('KAIROS_ADMIN_API_KEY', '').strip()
+USE_PROXY = bool(SEC_PROXY_URL and SEC_PROXY_API_KEY)
+if USE_PROXY:
+    print(f'[prefetch-13f] SEC proxy ENABLED via {SEC_PROXY_URL}', flush=True)
+else:
+    print(f'[prefetch-13f] SEC proxy DISABLED (direct fetch, risque rate-limit)', flush=True)
 
 # Liste fallback hardcodee (utilisee si discover-13f-funds.py n'a pas tourne)
 HARDCODED_FUNDS = [
@@ -112,14 +128,64 @@ else:
     print(f'Using hardcoded FUNDS list ({len(HARDCODED_FUNDS)} funds, no dynamic discovery)')
     FUNDS = HARDCODED_FUNDS
 
-def fetch(url):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return resp.read().decode('utf-8', errors='replace')
-    except Exception as e:
-        print(f'  ERROR fetching {url}: {e}')
-        return None
+def fetch(url, max_retries=3):
+    """Fetch SEC EDGAR avec retry exponential + proxy optionnel.
+
+    FIX (mai 2026) : avant, fetch nu sans retry -> 50% des funds skip silently
+    quand SEC rate-limit (429) ou IP GitHub temporairement blacklistee.
+    Resultat : 13f-all-funds n'avait que 109 funds sur 219 (Qube, NBC, Schwab
+    IM, etc. completement absents alors qu'ils sont dans la top-200 liste).
+
+    Maintenant : meme pattern que prefetch-all.py = retry 3x avec backoff
+    exponential sur 429/503/timeout, + routage optionnel via SEC proxy
+    (worker CF) qui re-tape SEC depuis IPs Cloudflare (jamais blacklistees).
+    """
+    if USE_PROXY:
+        fetch_url = f"{SEC_PROXY_URL}?url={urllib.parse.quote(url, safe='')}"
+        extra_headers = {'X-Admin-API-Key': SEC_PROXY_API_KEY}
+    else:
+        fetch_url = url
+        extra_headers = {}
+
+    for attempt in range(max_retries):
+        headers = {
+            'User-Agent': UA,
+            'Accept': 'application/json,text/html,*/*',
+            'Accept-Encoding': 'gzip, deflate',
+            **extra_headers,
+        }
+        req = urllib.request.Request(fetch_url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                raw = resp.read()
+                if resp.headers.get('Content-Encoding') == 'gzip':
+                    import gzip
+                    raw = gzip.decompress(raw)
+                sec_status = resp.headers.get('X-SEC-Status')
+                if sec_status and sec_status not in ('200', '304'):
+                    print(f'  [fetch proxy] SEC returned {sec_status} (proxy 200) | {url[:90]}', flush=True)
+                return raw.decode('utf-8', errors='replace')
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503, 504):
+                wait_sec = 2 ** (attempt + 1)
+                print(f'  [fetch retry {attempt+1}/{max_retries}] HTTP {e.code} | wait {wait_sec}s | {url[:90]}', flush=True)
+                time.sleep(wait_sec)
+                continue
+            if e.code in (401, 403) and USE_PROXY:
+                print(f'  [fetch FAIL] PROXY AUTH {e.code} — verifier KAIROS_ADMIN_API_KEY', flush=True)
+                return None
+            print(f'  [fetch FAIL] HTTP {e.code} {e.reason} | {url[:120]}', flush=True)
+            return None
+        except (urllib.error.URLError, socket.timeout, ConnectionResetError, TimeoutError) as e:
+            wait_sec = 2 ** (attempt + 1)
+            print(f'  [fetch retry {attempt+1}/{max_retries}] NET {type(e).__name__} | wait {wait_sec}s', flush=True)
+            time.sleep(wait_sec)
+            continue
+        except Exception as e:
+            print(f'  [fetch FAIL] {type(e).__name__}: {e} | {url[:120]}', flush=True)
+            return None
+    print(f'  [fetch GIVE UP] {max_retries} retries echoues | {url[:120]}', flush=True)
+    return None
 
 def parse_holdings(xml):
     """Parse les positions d'un fichier XML 13F (supporte les namespaces)."""

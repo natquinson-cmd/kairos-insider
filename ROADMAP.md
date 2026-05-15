@@ -64,6 +64,37 @@ refresh auto (5 min) parce qu'il était rendu dynamiquement via `innerHTML` sans
    render avec les nouveaux labels. Textes statiques traduits :
    `ticker.loading`, `ticker.no_recent`, `ticker.no_ticker_toast`.
 
+### ✅ prefetch-13f : SEC proxy + retry (fix 50% funds manquants)
+
+**Retour user** : "Je ne les ai pas trouvé dans la page Hedge funds pourtant"
+(après avoir constaté que les 4 funds du tweet étaient bien dans top-200).
+
+**Diagnostic** (KV `13f-all-funds` inspection) :
+- `13f_funds_list.json` (source de verite) : **219 funds** (Qube, NBC, Schwab IM
+  TOUS presents)
+- `13f-all-funds` (resultat prefetch) : **109 funds** -> 50% perte
+- Qube Research, National Bank of Canada, Charles Schwab Investment Mgmt :
+  completement absents (pas juste leur Q1, leur Q4 aussi !)
+
+**Cause racine** (`worker/prefetch-13f.py`) :
+- `fetch()` etait un urllib.request nu **sans retry, sans proxy**
+- SEC rate-limit (429) ou GitHub Actions IP blacklist temporaire
+- Silent return None -> fund skip silently -> n'apparait jamais dans
+  funds_data.json -> n'apparait jamais dans la page Hedge funds
+
+**Fix** : port du pattern `fetch()` de `prefetch-all.py` :
+- Detection automatique de `SEC_PROXY_URL` + `KAIROS_ADMIN_API_KEY` (env vars
+  deja injectees par le workflow update-13f.yml)
+- Routage SEC via Worker Cloudflare (IPs jamais blacklistees)
+- Retry exponential backoff (3 retries : 2s, 4s, 8s) sur 429/503/504/timeout
+- Logging explicite sur chaque echec (avant : ERROR mute -> diagnostic
+  impossible)
+
+Effet attendu apres prochaine run :
+- 13f-all-funds passera de ~109 a ~200+ funds
+- Qube, NBC (Swiss... non, juste Schwab IM), Marshall Wace Q1, Schwab Q1
+  apparaitront dans la page Hedge Funds + fiche action
+
 ### ✅ 13F deadline day refresh + top-200 → top-300
 
 **Retour user** : sur ONDS, le 15 mai 2026 (= deadline 13F Q1), absence
