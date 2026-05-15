@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260515-ticker-tape-i18n"></script>
+  <script src="assets/i18n.js?v=20260515-insider-markers-tx-date"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14890,7 +14890,18 @@
           const buyRadii = new Array(labels.length).fill(0);
           const sellRadii = new Array(labels.length).fill(0);
 
-          const txs = (insiders.transactions || []).filter(t => t.fileDate);
+          // FIX (mai 2026, retour user) : on PLACE le marker sur la TRANS_DATE
+          // (date d'achat reel), pas sur la fileDate (date de depot SEC).
+          // Sans ce fix, 3 achats du CEO sur 3 jours differents apparaissent
+          // tous le meme jour (= jour du depot) car file_date est tjs J+1
+          // a J+2 du trans_date par regle SEC. Pour BH Sardar Biglari : 3
+          // achats le 12, 13, 14 mai (deposes le 14) -> 3 markers a 3 dates
+          // distinctes au lieu d'1 marker stack.
+          // Helper pickDate : prefere t.date (= trans_date) avec fallback
+          // sur t.fileDate si la trans_date est manquante (cas EU sources
+          // ou seul fileDate est dispo).
+          const pickDate = (t) => t.date || t.fileDate;
+          const txs = (insiders.transactions || []).filter(t => pickDate(t));
           // Calculer les tailles de points proportionnelles au volume
           const values_arr = txs.map(t => Math.abs(t.value || 0)).filter(v => v > 0);
           const maxVal = values_arr.length ? Math.max(...values_arr) : 0;
@@ -14901,7 +14912,8 @@
           }
 
           txs.forEach(t => {
-            const idx = findIndexForDate(t.fileDate);
+            const tDate = pickDate(t);
+            const idx = findIndexForDate(tDate);
             if (idx < 0) return;
             const y = values[idx];
             const r = radiusFor(t.value);
@@ -14910,7 +14922,7 @@
               if (r > buyRadii[idx]) {
                 buyOverlay[idx] = y;
                 buyRadii[idx] = r;
-                buyMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: t.fileDate, count: (buyMeta[idx]?.count || 0) + 1 };
+                buyMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: tDate, count: (buyMeta[idx]?.count || 0) + 1 };
               } else if (buyMeta[idx]) {
                 buyMeta[idx].count = (buyMeta[idx].count || 1) + 1;
               }
@@ -14918,7 +14930,7 @@
               if (r > sellRadii[idx]) {
                 sellOverlay[idx] = y;
                 sellRadii[idx] = r;
-                sellMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: t.fileDate, count: (sellMeta[idx]?.count || 0) + 1 };
+                sellMeta[idx] = { insider: t.insider, title: t.title, shares: t.shares, value: t.value, currency: t.currency || cur, date: tDate, count: (sellMeta[idx]?.count || 0) + 1 };
               } else if (sellMeta[idx]) {
                 sellMeta[idx].count = (sellMeta[idx].count || 1) + 1;
               }
