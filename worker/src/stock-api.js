@@ -168,8 +168,9 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // v9 : bump pour purger d'eventuels caches "empty" (BEN, etc.) ou stockanalysis
   // a renvoye empty transient et le worker a cache 15 min un resultat vide.
   // v10 : filtre stale earnings >3 ans (BH montrait Q1 2019 via Finnhub free tier).
+  // v11 : bump pour purger les caches SPY (qui avait resolu vers SYRE par bug v3).
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v10:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v11:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -661,7 +662,10 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
 async function resolveTickerViaYahooSearch(query, env) {
   if (!query) return null;
   // v3 : bump apres priorite match exact symbol = query (evite CRBP -> CRBP2.PA)
-  const cacheKey = `yahoo-search:v3:${String(query).toUpperCase().trim()}`;
+  // v4 (mai 2026) : fix SPY -> SYRE. Le match exact symbol doit chercher dans
+  // TOUS les quotes (ETF/index/etc. inclus), pas seulement equity. Avant : SPY
+  // l'ETF etait filtre par equity-only -> fallback sur SYRE (Spyre Therapeutics).
+  const cacheKey = `yahoo-search:v4:${String(query).toUpperCase().trim()}`;
 
   // Cache 7 jours
   if (env && env.CACHE) {
@@ -713,7 +717,12 @@ async function resolveTickerViaYahooSearch(query, env) {
     // Picardie) au lieu de "CRBP" (Coherus BioSciences US) parce que la
     // priorite EU passait en premier. Un ticker exact (US ou EU) doit
     // toujours gagner sur un substring partiel.
-    pick = eligibles.find(q => (q.symbol || '').toUpperCase() === queryUp);
+    // Bug fix mai 2026 v4 : on cherche dans TOUS les quotes (pas seulement
+    // equity) pour respecter les exact-match sur ETFs/index. Avant : SPY
+    // (l'ETF SPDR S&P 500) etait filtre par equity-only -> fallback sur
+    // SYRE (Spyre Therapeutics, equity dont le nom commence par "Sp..."),
+    // qui s'affichait alors meme quand l'user voulait l'ETF.
+    pick = quotes.find(q => (q.symbol || '').toUpperCase() === queryUp);
     // 1. Requete FR (whitelist hardcoded) -> preferer .PA equity
     if (!pick && looksFrench) {
       pick = eligibles.find(q => /\.PA$/i.test(q.symbol || ''));
