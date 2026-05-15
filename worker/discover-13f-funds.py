@@ -76,10 +76,49 @@ KNOWN_LABELS = {
 }
 
 
-def http_get(url, timeout=20):
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode('utf-8', errors='replace')
+# ============================================================
+# SEC PROXY (mai 2026) — Bypass GitHub Actions IP blacklist
+# ============================================================
+# Sans proxy, discover-13f-funds.py se prend des rate-limits SEC et ne
+# discover que ~100 funds au lieu de 300 (silently). Resultat : la KV
+# 13f-funds-list est tronquee -> prefetch-13f.py ne process que ces 100.
+SEC_PROXY_URL = os.environ.get('SEC_PROXY_URL', '').strip()
+SEC_PROXY_API_KEY = os.environ.get('KAIROS_ADMIN_API_KEY', '').strip()
+USE_PROXY = bool(SEC_PROXY_URL and SEC_PROXY_API_KEY)
+if USE_PROXY:
+    print(f'[discover-13f] SEC proxy ENABLED via {SEC_PROXY_URL}', flush=True)
+else:
+    print(f'[discover-13f] SEC proxy DISABLED (risque rate-limit -> liste tronquee)', flush=True)
+
+
+def http_get(url, timeout=20, max_retries=3):
+    """Fetch SEC avec retry + proxy optionnel (port du pattern prefetch-all.py)."""
+    import urllib.parse, urllib.error, socket
+    if USE_PROXY:
+        fetch_url = f"{SEC_PROXY_URL}?url={urllib.parse.quote(url, safe='')}"
+        extra_headers = {'X-Admin-API-Key': SEC_PROXY_API_KEY}
+    else:
+        fetch_url = url
+        extra_headers = {}
+    for attempt in range(max_retries):
+        headers = {'User-Agent': UA, **extra_headers}
+        req = urllib.request.Request(fetch_url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout + 5) as resp:
+                return resp.read().decode('utf-8', errors='replace')
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503, 504):
+                wait = 2 ** (attempt + 1)
+                print(f'  [discover retry {attempt+1}] HTTP {e.code} | wait {wait}s', flush=True)
+                time.sleep(wait)
+                continue
+            raise
+        except (urllib.error.URLError, socket.timeout, ConnectionResetError, TimeoutError) as e:
+            wait = 2 ** (attempt + 1)
+            print(f'  [discover retry {attempt+1}] NET {type(e).__name__} | wait {wait}s', flush=True)
+            time.sleep(wait)
+            continue
+    raise Exception(f'Give up after {max_retries} retries: {url[:80]}')
 
 
 def fetch_json(url, timeout=20):
