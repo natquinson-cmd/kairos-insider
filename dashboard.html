@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260515-hedge-funds-explorer"></script>
+  <script src="assets/i18n.js?v=20260515-explorer-fr-complete"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -16274,10 +16274,11 @@
         // colonne) pour que le total soit immediatement visible. Avant elle
         // etait en tfoot, mais visuellement moins evident + sticky-thead
         // pouvait la faire apparaitre au milieu du scroll.
+        const fundsLbl = t('explorer.funds_label', 'fonds');
         const totalRowHtml = `
           <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.06));border-bottom:2px solid var(--border-strong);font-weight:700">
             <td style="padding:14px 12px;font-size:13px;color:#10B981;font-weight:700">Σ</td>
-            <td style="padding:14px 12px;font-size:14px;color:var(--text-primary);font-weight:700">${t('explorer.total','TOTAL')} <span style="font-weight:500;color:var(--text-muted);font-size:12px;margin-left:8px">(${totalCount} fonds)</span></td>
+            <td style="padding:14px 12px;font-size:14px;color:var(--text-primary);font-weight:700">${t('explorer.total','TOTAL')} <span style="font-weight:500;color:var(--text-muted);font-size:12px;margin-left:8px">(${totalCount} ${fundsLbl})</span></td>
             <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:16px;color:#10B981;font-weight:800">${fmtUsd(totalValue)}</td>
             <td style="padding:14px 12px;text-align:right;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
             <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-muted)'}">${fmtPct(avgDelta)}</td>
@@ -16290,7 +16291,7 @@
           <!-- Summary header (texte + bilan) -->
           <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:12px;margin-bottom:14px;font-size:14px;line-height:1.6">
             ${summary}
-            ${avgDelta !== 0 ? `<div style="margin-top:6px;font-size:12px;color:var(--text-muted)">Variation moyenne pondérée vs Q-1 : <strong style="color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-secondary)'}">${fmtPct(avgDelta)}</strong></div>` : ''}
+            ${avgDelta !== 0 ? `<div style="margin-top:6px;font-size:12px;color:var(--text-muted)">${t('explorer.avg_delta_label','Variation moyenne pondérée vs Q-1 :')} <strong style="color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-secondary)'}">${fmtPct(avgDelta)}</strong></div>` : ''}
           </div>
 
           <!-- Table : headers + TOTAL en haut + positions
@@ -16319,15 +16320,28 @@
           </div>
 
           <div style="margin-top:12px;font-size:11px;color:var(--text-muted);line-height:1.5">
-            💡 Les valeurs et delta proviennent du dernier 13F-HR déposé à la SEC EDGAR. Données partagées avec la fiche action ${escTk} (Σ doit matcher).
+            ${(t('explorer.footer_tip','💡 Les valeurs et delta proviennent du dernier 13F-HR déposé à la SEC EDGAR. Données partagées avec la fiche action {ticker} (Σ doit matcher).')).replace('{ticker}', escTk)}
           </div>
         `;
       } catch (e) {
         console.error('[explorer] load failed:', e);
-        body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--accent-red);border-radius:12px;text-align:center"><div style="font-size:32px;margin-bottom:10px">⚠️</div><p style="font-size:13px;color:var(--text-muted);margin:0">Erreur : ${escapeHtmlClient(e.message || e)}</p></div>`;
+        body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--accent-red);border-radius:12px;text-align:center"><div style="font-size:32px;margin-bottom:10px">⚠️</div><p style="font-size:13px;color:var(--text-muted);margin:0">${t('explorer.error','Erreur :')} ${escapeHtmlClient(e.message || e)}</p></div>`;
       }
     }
     window.loadHedgeFundsExplorer = loadHedgeFundsExplorer;
+
+    // Re-render au changement de langue : si on est sur la page Explorer
+    // avec un ticker actif, on re-call avec le meme ticker -> rebuild avec
+    // les nouveaux labels traduits.
+    if (typeof window !== 'undefined' && !window._kairosExplorerLangListener) {
+      window._kairosExplorerLangListener = true;
+      window.addEventListener('kairos:langchange', () => {
+        const sec = document.getElementById('section-13f-explorer');
+        if (!sec || !sec.classList.contains('active')) return;
+        const tk = document.getElementById('explorerTickerInput')?.value?.trim()?.toUpperCase();
+        if (tk) loadHedgeFundsExplorer(tk);
+      });
+    }
 
     // Init autocomplete sur l'input de l'Explorer (lazy, premiere fois qu'on
     // entre dans la section). Idempotent : reuse l'input si deja wire.
