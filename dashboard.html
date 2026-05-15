@@ -16287,9 +16287,13 @@
             ${avgDelta !== 0 ? `<div style="margin-top:6px;font-size:12px;color:var(--text-muted)">Variation moyenne pondérée vs Q-1 : <strong style="color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-secondary)'}">${fmtPct(avgDelta)}</strong></div>` : ''}
           </div>
 
-          <!-- Table : headers + TOTAL en haut + positions -->
+          <!-- Table : headers + TOTAL en haut + positions
+               FIX (mai 2026) : class="table-no-sticky" opt-out du CSS global
+               'thead th { position: sticky; top: 77px }' qui faisait que le
+               header collait en haut du viewport au scroll, donnant l'illusion
+               que la ligne TOTAL passait DESSUS le header. -->
           <div class="table-wrap" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <table class="table-no-sticky" style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
                   <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);width:36px;font-weight:600">#</th>
