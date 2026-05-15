@@ -4,7 +4,68 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 08 mai 2026 (v13 - Data quality EU + OG image dynamique + quotas anonymes + refresh 30min + activists UK/EU via SEC ADR mapping)
+**Dernière mise à jour** : 15 mai 2026 (v14 - Fix stale earnings BH + insider markers trans_date + ticker tape i18n + Gmail alias normalization)
+
+---
+
+## 🎯 v14 — Stock data quality fixes (15 mai 2026)
+
+Série de fixes data-quality remontés par les retours utilisateurs sur la page Stock Analysis :
+
+### ✅ Earnings stales (>3 ans) filtrés sur micro-caps
+
+**Symptôme** : sur la page de **BH (Biglari Holdings)**, le panneau « Résultats trimestriels »
+affichait **Q1 2019, Q4 2018, Q3 2018, Q2 2018, Q1 2018, Q4 2017** — données vieilles
+de 7 ans.
+
+**Cause racine** : pour les micro-caps US peu couvertes, `stockanalysis.com/api/.../earnings`
+renvoie un historique vide. Le fallback automatique vers Finnhub `/stock/earnings` se
+déclenche (worker line ~349). Or **Finnhub free tier n'a plus de données après Q1 2019**
+pour de nombreux small caps (BH inclus). Résultat : on affichait du Q1 2019 à côté
+d'un « Prochaine publication : 07 août 2026 » → décalage criant.
+
+**Fix** (commit à venir) : filtre `cutoffISO = today - 3 ans` appliqué à 2 endroits :
+- `fetchStockAnalysisEarnings` (défensif, ligne ~1186) — filtre `x.date >= cutoffISO`
+- `fetchFinnhubEarnings` (ligne ~1755) — filtre `e.period >= cutoffISO` + si tout
+  est stale, cache un payload `{ history: [], _stale: true }` pour ne pas retenter
+  60×/min (free tier quota)
+
+Bump cache key `stock-analysis:v9 → v10` + `finnhub-earnings:v2:` pour purger les
+caches existants. Sur BH, après le fix → la section « Historique des surprises »
+disparaît proprement, seul « Prochaine publication : 07 août 2026 » reste.
+
+### ✅ Marqueurs insiders chart : trans_date au lieu de file_date
+
+**Symptôme** : 3 achats du CEO de BH (Sardar Biglari) sur 3 jours consécutifs
+(12/13/14 mai 2026) tous regroupés sur un seul marqueur (date de dépôt du Form 4).
+
+**Fix** : `pickDate(t) = t.date || t.fileDate` dans `dashboard.html` :
+- ligne ~14893 : marqueurs sur la courbe de prix
+- ligne ~14004 : liste des transactions insiders (panneau droit)
+
+Maintenant chaque achat apparaît avec sa vraie date d'exécution.
+
+### ✅ Ticker tape (1er dépôt) traduit en EN
+
+**Symptôme** : sur le bandeau défilant en haut, le suffixe `(1er dépôt)` (initial
+13D/G filing sans delta) restait en français même en mode EN.
+
+**Fix** : séparation données / présentation. Worker envoie `isInitial: true` flag
+côté payload, le client rend `(1er dépôt)` ou `(initial filing)` via la clé i18n
+`ticker.initial_filing`. Cache key `ticker-tape:v4 → v5`.
+
+### ✅ Anti-abuse Gmail aliases
+
+**Contexte** : un utilisateur s'est inscrit avec `nom+kairos@gmail.com` pour
+contourner les quotas — Firebase voit `nom+kairos@gmail.com` ≠ `nom@gmail.com`
+comme des comptes distincts.
+
+**Fix** (commit a4f2c1b approx) :
+- Helper `normalizeEmail()` dans le worker : strip `+suffix` pour tous domains,
+  strip `.` dans le local-part pour gmail.com/googlemail.com
+- `trackFirstSeenUser` flag les doublons `normalizedEmail` (soft flag, pas auto-block)
+- Bandeau verification email obligatoire pour Free tier (`sendEmailVerification`)
+- Banner client : « Vérifie ton email » avec resend button + auto-poll
 
 ---
 

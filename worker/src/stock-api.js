@@ -167,8 +167,9 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Yahoo et la courbe ne bouge jamais.
   // v9 : bump pour purger d'eventuels caches "empty" (BEN, etc.) ou stockanalysis
   // a renvoye empty transient et le worker a cache 15 min un resultat vide.
+  // v10 : filtre stale earnings >3 ans (BH montrait Q1 2019 via Finnhub free tier).
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v9:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v10:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -1183,8 +1184,14 @@ async function fetchStockAnalysisEarnings(ticker) {
       // Trier par date croissante
       const sorted = [...arr].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-      // 4 derniers passes (eps_actual non null)
-      const past = sorted.filter(x => x.eps_actual != null && x.eps_surprise_percent != null);
+      // Filtre anti-données obsolètes : ignore les earnings >3 ans (Finnhub free tier
+      // a une couverture limitée pour les micro-caps — on évite d'afficher du Q1 2019).
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - 3);
+      const cutoffISO = cutoffDate.toISOString().slice(0, 10);
+
+      // 4 derniers passes (eps_actual non null + date récente)
+      const past = sorted.filter(x => x.eps_actual != null && x.eps_surprise_percent != null && (!x.date || x.date >= cutoffISO));
       const history = past.slice(-6).reverse().map(x => ({
         date: x.date,
         year: x.year,
@@ -1728,7 +1735,8 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
 // ============================================================
 async function fetchFinnhubEarnings(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
-  const cacheKey = `finnhub-earnings:${String(ticker).toUpperCase()}`;
+  // v2 : ajout filtre stale-data >3 ans (Finnhub free tier coupe à 2019 pour micro-caps)
+  const cacheKey = `finnhub-earnings:v2:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1755,7 +1763,21 @@ async function fetchFinnhubEarnings(ticker, apiKey, env) {
   // Format Finnhub : [{symbol, period (date), year, quarter, actual, estimate, surprisePercent}]
   // -> Notre format : history = [{period: 'Q1', year, date, epsActual, epsEst, epsSurprisePct, beat}]
   arr.sort((a, b) => (b.period || '').localeCompare(a.period || ''));  // recent first
-  const history = arr.slice(0, 12).map(e => ({
+
+  // Filtre anti-données obsolètes : Finnhub free tier ne couvre pas certaines micro-caps
+  // au-delà de 2019. On préfère ne rien afficher plutôt qu'un historique stale.
+  const cutoffDate = new Date();
+  cutoffDate.setFullYear(cutoffDate.getFullYear() - 3);
+  const cutoffISO = cutoffDate.toISOString().slice(0, 10);
+  const fresh = arr.filter(e => !e.period || e.period >= cutoffISO);
+  if (fresh.length === 0) {
+    // Cache un payload vide pour éviter de re-tenter (Finnhub limité à 60 calls/min)
+    const empty = { history: [], _source: 'finnhub', _stale: true, fetchedAt: new Date().toISOString() };
+    try { await env.CACHE?.put(cacheKey, JSON.stringify(empty), { expirationTtl: 86400 + 3600 }); } catch {}
+    return empty;
+  }
+
+  const history = fresh.slice(0, 12).map(e => ({
     period: e.quarter ? `Q${e.quarter}` : '',
     year: e.year,
     date: e.period || null,  // Finnhub utilise 'period' pour la date YYYY-MM-DD

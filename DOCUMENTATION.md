@@ -53,6 +53,11 @@ L'abonnement Premium (29 €/mois ou 290 €/an) débloque l'intégralité des f
 - **12 ans d'historique trimestriel 13F** par fond (cron mensuel)
 - **Top 50 actions US shortées** avec historique 30j (Δ7d, Δ30d, sparkline) — depuis mai 2026
 - **Finnhub fundamentals** pour CAC40 + DAX + AEX + SMI + FTSE via fallback ADR US (mai 2026)
+- **Filtre stale earnings >3 ans** : Finnhub free tier coupe l'historique à 2019 pour
+  beaucoup de micro-caps (ex: BH Biglari Holdings). On filtre `date < today-3y` à la
+  source (`fetchStockAnalysisEarnings` + `fetchFinnhubEarnings`) pour éviter d'afficher
+  un Q1 2019 à côté d'un « Prochaine publication : Q2 2026 ». Si tout est stale, la
+  section « Historique des surprises » disparaît proprement (mai 2026)
 
 ---
 
