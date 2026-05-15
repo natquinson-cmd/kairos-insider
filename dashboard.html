@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260515-pre-routing-flicker"></script>
+  <script src="assets/i18n.js?v=20260515-stock-discovery-history-watchlist"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -11842,37 +11842,78 @@
     // ============================================================
     // STOCK DISCOVERY : etat vide enrichi avec tickers populaires + apercu
     // Affiche au lieu d'une page vide quand l'utilisateur entre dans Analyse Action
+    //
+    // Mai 2026 : ajout sections "Historique" (LS) + "Watchlist" (Firebase) +
+    // i18n complet FR/EN via t(). Re-render automatique sur kairos:langchange.
     // ============================================================
+
+    // History tracking : conserve les 8 dernieres valeurs consultees en localStorage.
+    // Cle 'kairos:stock-history' = [{ticker, name, viewedAt}, ...] (max 8, MRU)
+    const STOCK_HISTORY_KEY = 'kairos:stock-history';
+    const STOCK_HISTORY_MAX = 8;
+
+    function getStockHistory() {
+      try {
+        const raw = localStorage.getItem(STOCK_HISTORY_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr.filter(x => x && x.ticker) : [];
+      } catch { return []; }
+    }
+
+    function recordStockVisit(ticker, name) {
+      if (!ticker) return;
+      try {
+        const tk = String(ticker).toUpperCase().trim();
+        const list = getStockHistory().filter(x => x.ticker !== tk);
+        list.unshift({ ticker: tk, name: name || '', viewedAt: Date.now() });
+        const trimmed = list.slice(0, STOCK_HISTORY_MAX);
+        localStorage.setItem(STOCK_HISTORY_KEY, JSON.stringify(trimmed));
+      } catch {}
+    }
+
+    function clearStockHistory() {
+      try { localStorage.removeItem(STOCK_HISTORY_KEY); } catch {}
+      const body = document.getElementById('stockAnalysisBody');
+      if (body && !body._hasAnalysis) renderStockDiscovery(body);
+    }
+    window.clearStockHistory = clearStockHistory;
+
     function renderStockDiscovery(body) {
+      // Helpers i18n locaux (capturent la langue au moment du render)
+      const _T = (k, fb) => (typeof t === 'function' ? t(k, fb) : fb);
+      // Secteur via cle (popularUS/EU stockent des cles sectoriellestechniques)
+      const _S = (k) => _T('dash.stockDiscovery.sector.' + k, k);
+
       const popularUS = [
-        ['AAPL', 'Apple', 'Tech', '#A8E6CF'],
-        ['MSFT', 'Microsoft', 'Tech', '#74b9ff'],
-        ['NVDA', 'NVIDIA', 'Semiconducteurs', '#a29bfe'],
-        ['GOOGL', 'Alphabet', 'Tech', '#fdcb6e'],
-        ['META', 'Meta Platforms', 'Tech', '#74b9ff'],
-        ['AMZN', 'Amazon', 'E-commerce', '#fab1a0'],
-        ['TSLA', 'Tesla', 'Auto / Energy', '#fd79a8'],
-        ['BRK-B', 'Berkshire Hathaway', 'Conglomérat', '#55efc4'],
+        ['AAPL', 'Apple',                  _S('tech'),       '#A8E6CF'],
+        ['MSFT', 'Microsoft',              _S('tech'),       '#74b9ff'],
+        ['NVDA', 'NVIDIA',                 _S('semis'),      '#a29bfe'],
+        ['GOOGL', 'Alphabet',              _S('tech'),       '#fdcb6e'],
+        ['META', 'Meta Platforms',         _S('tech'),       '#74b9ff'],
+        ['AMZN', 'Amazon',                 _S('ecom'),       '#fab1a0'],
+        ['TSLA', 'Tesla',                  _S('autoEnergy'), '#fd79a8'],
+        ['BRK-B', 'Berkshire Hathaway',    _S('conglo'),     '#55efc4'],
       ];
       const popularEU = [
-        ['MC.PA', 'LVMH', 'Luxe FR', '#a29bfe'],
-        ['RMS.PA', 'Hermès', 'Luxe FR', '#fdcb6e'],
-        ['OR.PA', "L'Oréal", 'Cosmétique FR', '#fd79a8'],
-        ['ASML.AS', 'ASML', 'Semis NL', '#74b9ff'],
-        ['NESN.SW', 'Nestlé', 'Conso CH', '#A8E6CF'],
-        ['SAP.DE', 'SAP', 'Tech DE', '#a29bfe'],
-        ['SAN.PA', 'Sanofi', 'Pharma FR', '#74b9ff'],
-        ['SHEL.L', 'Shell', 'Énergie UK', '#fdcb6e'],
+        ['MC.PA',   'LVMH',     _S('luxeFr'),    '#a29bfe'],
+        ['RMS.PA',  'Hermès',   _S('luxeFr'),    '#fdcb6e'],
+        ['OR.PA',   "L'Oréal",  _S('cosmeFr'),   '#fd79a8'],
+        ['ASML.AS', 'ASML',     _S('semisNl'),   '#74b9ff'],
+        ['NESN.SW', 'Nestlé',   _S('consoCh'),   '#A8E6CF'],
+        ['SAP.DE',  'SAP',      _S('techDe'),    '#a29bfe'],
+        ['SAN.PA',  'Sanofi',   _S('pharmaFr'),  '#74b9ff'],
+        ['SHEL.L',  'Shell',    _S('energieUk'), '#fdcb6e'],
       ];
       const dimensions = [
-        ['🕴️', 'Insiders', 'SEC + AMF + BaFin'],
-        ['🏦', 'Hedge funds', '13F filings (47 fonds)'],
-        ['🏛️', 'Politiques', 'NANC + GOP + Pelosi'],
-        ['📈', 'Prix & timeline', '5 ans cours + variations'],
-        ['💰', 'Fondamentaux', 'MarketCap, P/E, ROE…'],
-        ['🎯', 'Consensus', 'Analystes US + EU'],
-        ['🛡️', 'Santé financière', 'Altman Z + Piotroski F'],
-        ['📰', 'News récentes', 'Yahoo + Google Trends'],
+        ['🕴️',  _T('dash.stockDiscovery.dim.insiders', 'Insiders'),                _T('dash.stockDiscovery.dim.insiders_sub', 'SEC + AMF + BaFin')],
+        ['🏦',  _T('dash.stockDiscovery.dim.hedgeFunds', 'Hedge funds'),            _T('dash.stockDiscovery.dim.hedgeFunds_sub', '13F filings (47 fonds)')],
+        ['🏛️',  _T('dash.stockDiscovery.dim.politicians', 'Politiques'),            _T('dash.stockDiscovery.dim.politicians_sub', 'NANC + GOP + Pelosi')],
+        ['📈',  _T('dash.stockDiscovery.dim.priceTimeline', 'Prix & timeline'),    _T('dash.stockDiscovery.dim.priceTimeline_sub', '5 ans cours + variations')],
+        ['💰',  _T('dash.stockDiscovery.dim.fundamentals', 'Fondamentaux'),         _T('dash.stockDiscovery.dim.fundamentals_sub', 'MarketCap, P/E, ROE…')],
+        ['🎯',  _T('dash.stockDiscovery.dim.consensus', 'Consensus'),               _T('dash.stockDiscovery.dim.consensus_sub', 'Analystes US + EU')],
+        ['🛡️',  _T('dash.stockDiscovery.dim.financialHealth', 'Santé financière'), _T('dash.stockDiscovery.dim.financialHealth_sub', 'Altman Z + Piotroski F')],
+        ['📰',  _T('dash.stockDiscovery.dim.news', 'News récentes'),                _T('dash.stockDiscovery.dim.news_sub', 'Yahoo + Google Trends')],
       ];
 
       const renderCard = ([t, n, s, c]) => `
@@ -11891,19 +11932,70 @@
         </div>
       `;
 
+      // Card compacte pour Historique + Watchlist (couleur violette uniforme)
+      const renderCompactCard = (tk, label, color) => {
+        const safeTk = String(tk).toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+        const lbl = String(label || '').replace(/[<>"'&]/g, '');
+        return `
+          <button onclick="loadStockAnalysis('${safeTk.replace(/'/g, "\\'")}'); document.getElementById('stockSearchInput').value='${safeTk}'" style="text-align:left;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;gap:2px;font-family:inherit;color:var(--text-primary)" onmouseover="this.style.borderColor='${color}';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+            <div style="font-family:monospace;font-weight:800;font-size:13px;color:${color}">${safeTk}</div>
+            ${lbl ? `<div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}</div>` : ''}
+          </button>
+        `;
+      };
+
+      // Section Historique (n'affiche rien si vide)
+      const history = getStockHistory();
+      const historyHtml = history.length === 0 ? '' : `
+        <div style="margin-top:24px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <span style="font-size:18px">🕘</span>
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">${_T('dash.stockDiscovery.history_title', 'Vos dernières valeurs consultées')}</h3>
+            <span style="flex:1;height:1px;background:var(--border)"></span>
+            <button onclick="clearStockHistory()" style="background:transparent;border:none;font-size:11px;color:var(--text-muted);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" onmouseover="this.style.color='var(--accent-red)';this.style.background='rgba(239,68,68,0.08)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">✕ ${_T('dash.stockDiscovery.history_clear', 'Effacer')}</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+            ${history.map(h => renderCompactCard(h.ticker, h.name, '#a29bfe')).join('')}
+          </div>
+        </div>
+      `;
+
+      // Section Watchlist (depuis watchlistState charge au mount du dashboard)
+      const wlTickers = (typeof watchlistState !== 'undefined' && Array.isArray(watchlistState.tickers))
+        ? watchlistState.tickers : [];
+      const watchlistHtml = wlTickers.length === 0 ? '' : `
+        <div style="margin-top:24px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <span style="font-size:18px">⭐</span>
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--text-primary)">${_T('dash.stockDiscovery.watchlist_title', 'Votre watchlist')}</h3>
+            <span style="flex:1;height:1px;background:var(--border)"></span>
+            <a href="#" onclick="switchSection('watchlist'); return false" style="font-size:11px;color:var(--accent-blue);text-decoration:none">${_T('dash.stockDiscovery.watchlist_view_all', 'Voir tout →')}</a>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+            ${wlTickers.slice(0, STOCK_HISTORY_MAX).map(tk => {
+              const name = (typeof findTickerName === 'function' ? findTickerName(tk) : '') || '';
+              return renderCompactCard(tk, name, '#FBBF24');
+            }).join('')}
+          </div>
+        </div>
+      `;
+
       body.innerHTML = `
         <!-- Hero mini : value props -->
         <div style="text-align:center;padding:8px 16px 4px">
           <div style="display:inline-flex;align-items:center;gap:10px;padding:8px 18px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(162,155,254,0.08));border:1px solid rgba(116,185,255,0.25);border-radius:30px;font-size:13px;color:#74b9ff;font-weight:600">
-            ⚡ Analyse complète en 30 secondes
+            ${_T('dash.stockDiscovery.analysis_30s', '⚡ Analyse complète en 30 secondes')}
           </div>
         </div>
+
+        ${historyHtml}
+        ${watchlistHtml}
 
         <!-- TICKERS POPULAIRES US -->
         <div style="margin-top:24px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
             <span style="font-size:20px">🇺🇸</span>
-            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Tickers populaires US</h3>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">${_T('dash.stockDiscovery.popular_us', 'Tickers populaires US')}</h3>
             <span style="flex:1;height:1px;background:var(--border)"></span>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
@@ -11915,7 +12007,7 @@
         <div style="margin-top:28px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
             <span style="font-size:20px">🇪🇺</span>
-            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Tickers populaires Europe</h3>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">${_T('dash.stockDiscovery.popular_eu', 'Tickers populaires Europe')}</h3>
             <span style="flex:1;height:1px;background:var(--border)"></span>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
@@ -11926,8 +12018,8 @@
         <!-- APERCU DES 8 DIMENSIONS -->
         <div style="margin-top:32px;padding:22px;background:linear-gradient(135deg,rgba(116,185,255,0.04),rgba(162,155,254,0.03));border:1px solid var(--border);border-radius:14px">
           <div style="text-align:center;margin-bottom:18px">
-            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">Ce que tu obtiens à chaque analyse</h3>
-            <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary)">8 dimensions synthétisées en un Kairos Score 0-100</p>
+            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary)">${_T('dash.stockDiscovery.what_you_get', 'Ce que tu obtiens à chaque analyse')}</h3>
+            <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary)">${_T('dash.stockDiscovery.dimensions_subtitle', '8 dimensions synthétisées en un Kairos Score 0-100')}</p>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
             ${dimensions.map(renderDim).join('')}
@@ -11936,9 +12028,21 @@
 
         <!-- TIPS -->
         <div style="margin-top:18px;text-align:center;font-size:12px;color:var(--text-muted)">
-          💡 Tu peux aussi rechercher par <strong>nom</strong> (ex: "Hermès", "Nestlé") ou <strong>ISIN</strong> (ex: FR0000121014).
+          ${_T('dash.stockDiscovery.tip_html', '💡 Tu peux aussi rechercher par <strong>nom</strong> (ex: "Hermès", "Nestlé") ou <strong>ISIN</strong> (ex: FR0000121014).')}
         </div>
       `;
+    }
+
+    // Re-render discovery au switch de langue (uniquement si on est sur la page
+    // stockAnalysis ET qu'aucune analyse n'est en cours d'affichage).
+    if (typeof window !== 'undefined' && !window._kairosDiscoveryLangListener) {
+      window._kairosDiscoveryLangListener = true;
+      window.addEventListener('kairos:langchange', () => {
+        const body = document.getElementById('stockAnalysisBody');
+        if (body && !body._hasAnalysis && document.getElementById('section-stockAnalysis')?.classList.contains('active')) {
+          renderStockDiscovery(body);
+        }
+      });
     }
 
     async function initInsiderSearch() {
@@ -12381,6 +12485,10 @@
         const elapsed = Date.now() - startedAt;
         if (elapsed < 400) await new Promise(r => setTimeout(r, 400 - elapsed));
         currentStockData = data;  // cache pour re-render sur kairos:langchange
+        // Enregistre la visite dans l'historique local (max 8, MRU)
+        try {
+          recordStockVisit(ticker, (data.company && data.company.name) || data.ticker || ticker);
+        } catch {}
         renderStockAnalysis(data);
         // Charge l'historique D1 en parallele (non-bloquant pour le rendu principal)
         loadEtfHistoryFor(ticker).catch(() => {});

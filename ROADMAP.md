@@ -64,6 +64,36 @@ refresh auto (5 min) parce qu'il était rendu dynamiquement via `innerHTML` sans
    render avec les nouveaux labels. Textes statiques traduits :
    `ticker.loading`, `ticker.no_recent`, `ticker.no_ticker_toast`.
 
+### ✅ Page 'Decode a stock' : Historique + Watchlist + i18n complet
+
+**Retour user** : « Sur la page Decode a stock il manque l'historique des dernières
+valeurs consultées et un raccourci watchlist. Et cette page n'est pas traduite en EN. »
+
+**Fix dashboard.html (renderStockDiscovery)** :
+
+1. **Section « 🕘 Historique »** : 8 dernières valeurs consultées (MRU) stockées
+   en `localStorage['kairos:stock-history']`. Tracking via `recordStockVisit()`
+   appelé dans `loadStockAnalysis`. Bouton « Effacer » + click sur card =
+   re-analyse + monte la carte en top.
+
+2. **Section « ⭐ Watchlist »** : top 8 tickers de `watchlistState.tickers`
+   (déjà chargés au mount du dashboard). Lien « Voir tout → » vers la page
+   Watchlist. Section masquée si vide. Affiche le nom de l'entreprise via
+   `findTickerName()` (lookup dans stockTickerList).
+
+3. **i18n complet** : ~50 nouvelles clés `dash.stockDiscovery.*` (FR + EN) :
+   - Titres : popular_us/eu, history_title, watchlist_title, what_you_get
+   - Dimensions : insiders, hedgeFunds, politicians, priceTimeline,
+     fundamentals, consensus, financialHealth, news (label + sub)
+   - Secteurs : tech, semis, ecom, autoEnergy, conglo, luxeFr, cosmeFr,
+     semisNl, consoCh, techDe, pharmaFr, energieUk
+   - CTA : history_clear, watchlist_view_all, watchlist_empty, tip_html
+
+4. **Re-render au lang-change** : listener `kairos:langchange` dédié qui
+   re-render discovery si `!body._hasAnalysis` (= pas encore d'analyse loaded).
+
+Cache-bust i18n.js : 20260515-pre-routing-flicker → 20260515-stock-discovery-history-watchlist
+
 ### ✅ Watchlist : bouton ★ "Ajouter à ma watchlist" sur fiche action
 
 **Symptôme** : sur la page Analyse action, cliquer sur le bouton ★ semblait
