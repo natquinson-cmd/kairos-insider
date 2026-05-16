@@ -169,8 +169,9 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // a renvoye empty transient et le worker a cache 15 min un resultat vide.
   // v10 : filtre stale earnings >3 ans (BH montrait Q1 2019 via Finnhub free tier).
   // v11 : bump pour purger les caches SPY (qui avait resolu vers SYRE par bug v3).
+  // v12 : bump publicView topFunds slice 2 -> 5 + SSR i18n fix score_intro.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v11:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v12:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -449,7 +450,10 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     }
     if (result.smartMoney && result.smartMoney.topFunds) {
       result.smartMoney._totalFunds = result.smartMoney.topFunds.length;
-      result.smartMoney.topFunds = result.smartMoney.topFunds.slice(0, 2);
+      // Bump 2 -> 5 (mai 2026) : le teaser SEO 2-funds etait trop faible
+      // visuellement. 5 donne une vraie photo des gros holders sans devoiler
+      // la valeur en $ (qui n'est pas dans cette liste, juste les noms).
+      result.smartMoney.topFunds = result.smartMoney.topFunds.slice(0, 5);
     }
     if (result.news && Array.isArray(result.news)) {
       result._totalNews = result.news.length;
