@@ -34,13 +34,38 @@ TARGET_TOP_N = 300            # Top 300 par AUM (passe de 200 a 300 le 15 mai 20
 # SEC full-text search les rate (limite ~10000 hits, Vanguard etc. files >300 pages
 # qui peuvent ne pas etre indexees). Sans ce fallback, on perd des positions
 # critiques sur les tickers (Vanguard #1 sur ONDS avec 18.7M shares = ~$200M).
-# Validation : 16 mai 2026 (https://fintel.io/so/us/onds top 15 vs notre top 5).
+#
+# Source de verite : top 30 asset managers mondiaux par AUM (Wikipedia / Forbes).
+# Audit 16 mai 2026 : 12/30 manquants apres ajout initial Vanguard/JPMorgan/Geode/etc.
+# (cf validate-funds-coverage.py qui automatise cette check).
 GUARANTEED_CIKS = [
+    # ===== Tier 1 : Mega passifs/index ($1T+) =====
     ('0000102909', 'VANGUARD GROUP INC',                'Mega Asset Manager',  10_500_000_000_000),
     ('0002100119', 'VANGUARD CAPITAL MANAGEMENT LLC',   'Mega Asset Manager',     200_000_000_000),
-    ('0000019617', 'JPMORGAN CHASE & CO',               'Bank Asset Manager',   3_200_000_000_000),
     ('0001214717', 'GEODE CAPITAL MANAGEMENT, LLC',     'Mega Asset Manager',   1_300_000_000_000),
+    # ===== Tier 1 : Mega banks AM ($1T+) =====
+    ('0000019617', 'JPMORGAN CHASE & CO',               'Bank Asset Manager',   3_200_000_000_000),
+    ('0001390777', 'BANK OF NEW YORK MELLON CORP',      'Bank Asset Manager',   2_000_000_000_000),
+    # ===== Tier 1 : Mega actives ($1T+) =====
+    # Note : PIMCO ne file pas de 13F-HR (fixed income > $100M equity threshold).
+    # Columbia Threadneedle est sous AMERIPRISE FINANCIAL (parent, deja dans la liste).
+    # Eaton Vance est integre dans MORGAN STANLEY (acquisition 2021, deja dans la liste).
+    ('0000080255', 'PRICE T ROWE ASSOCIATES INC',       'Active Mega',          1_700_000_000_000),  # T. Rowe Price
+    ('0000038777', 'FRANKLIN RESOURCES INC',            'Active Mega',          1_700_000_000_000),  # Franklin Templeton
+    # Capital Group (American Funds) : 2 entites 13F distinctes, chacune $1T+
+    ('0001422849', 'CAPITAL WORLD INVESTORS',           'Active Mega',          1_500_000_000_000),  # American Funds
+    ('0001422848', 'CAPITAL RESEARCH GLOBAL INVESTORS', 'Active Mega',          1_000_000_000_000),  # American Funds
+    # ===== Tier 2 : European megas =====
+    ('0000764068', 'LEGAL & GENERAL GROUP PLC',         'European Mega',        1_500_000_000_000),  # LGIM
+    ('0001826635', 'AXA INVESTMENT MANAGERS S.A.',      'European',               900_000_000_000),
+    ('0001535323', 'ALLIANZ ASSET MANAGEMENT AG',       'European Mega',          800_000_000_000),
+    # ===== Tier 2 : US active/specialty ($500B+) =====
+    ('0000912938', 'MASSACHUSETTS FINANCIAL SERVICES CO /MA/', 'Active',         600_000_000_000),  # MFS
+    ('0001126328', 'PRINCIPAL FINANCIAL GROUP INC',     'Bank Asset Manager',     700_000_000_000),
+    ('0000887793', 'TIAA CREF INVESTMENT MANAGEMENT LLC', 'Active',               300_000_000_000),
+    # ===== Tier 3 : ETF specialists + Active mid ($50B+) =====
     ('0000869178', 'VAN ECK ASSOCIATES CORP',           'ETF Specialist',         110_000_000_000),
+    ('0001732541', 'DEFIANCE ETFS, LLC',                'ETF Specialist',           5_000_000_000),  # Small but top holder sometimes
     ('0001578177', 'Hood River Capital Management LLC', 'Small-Mid Cap Active',     3_500_000_000),
     ('0001997464', 'Marex Group plc',                   'Broker-Dealer',            5_000_000_000),
 ]
