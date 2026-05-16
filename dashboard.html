@@ -13414,8 +13414,17 @@
     async function shareStockAnalysis(ticker) {
       if (!ticker) return;
       const lang = (window.KairosI18n && window.KairosI18n.getLang()) || 'fr';
-      const langSuffix = lang === 'en' ? '?lang=en' : '';
-      const url = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}${langSuffix}`;
+      // Cache-buster URL (mai 2026) : Twitter/LinkedIn caching la card OG par
+      // URL de tweet ~7j, indifferents au cache-buster sur og:image. En ajoutant
+      // ?d=YYYYMMDDHH a l'URL partagee, on garantit qu'un re-tweet apres une
+      // nouvelle heure declenche un re-fetch SSR -> nouvelle card OG fraiche.
+      // Canonical link dans le SSR ignore ces params (SEO OK).
+      const _now = new Date();
+      const dateBust = `${_now.getUTCFullYear()}${String(_now.getUTCMonth()+1).padStart(2,'0')}${String(_now.getUTCDate()).padStart(2,'0')}${String(_now.getUTCHours()).padStart(2,'0')}`;
+      const params = new URLSearchParams();
+      if (lang === 'en') params.set('lang', 'en');
+      params.set('d', dateBust);
+      const url = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}?${params.toString()}`;
       const label = document.getElementById(`shareBtnLabel-${ticker}`);
       const reset = (txt) => { if (label) setTimeout(() => { label.textContent = txt; }, 2000); };
       try {
