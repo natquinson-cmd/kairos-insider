@@ -170,8 +170,10 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // v10 : filtre stale earnings >3 ans (BH montrait Q1 2019 via Finnhub free tier).
   // v11 : bump pour purger les caches SPY (qui avait resolu vers SYRE par bug v3).
   // v12 : bump publicView topFunds slice 2 -> 5 + SSR i18n fix score_intro.
+  // v13 : ticker-index entries now include shares (`s` field) -> bump pour purger
+  // les caches qui retournaient shares=0 silently.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v12:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v13:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {

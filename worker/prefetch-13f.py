@@ -520,13 +520,14 @@ for fund in all_funds:
             continue
         if key not in ticker_index:
             ticker_index[key] = []
-        # Payload ultra-compact (6 champs) :
-        # n=fundName, v=value, p=pct, c=sharesChange, d=reportDate, o=is_offensive
-        # 'o' : 1 byte qui evite de re-deviner cote worker (le category n'est plus
-        # dans le payload pour fit KV 25 MB). Utilise par le tri prioritaire.
+        # Payload ultra-compact (7 champs) :
+        # n=fundName, v=value, s=shares, p=pct, c=sharesChange, d=reportDate, o=is_offensive
+        # 's' ajoute mai 2026 : permet d'afficher la qty shares dans Explorer
+        # (match Fintel/Whalewisdom). Cout ~10 bytes/entry, negligeable sur 25MB KV.
         ticker_index[key].append({
             'n': fund_name,
             'v': h.get('value'),
+            's': h.get('shares'),
             'p': h.get('pct'),
             'c': h.get('sharesChange'),
             'd': fund_report,
