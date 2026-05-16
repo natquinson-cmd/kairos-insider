@@ -172,8 +172,10 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // v12 : bump publicView topFunds slice 2 -> 5 + SSR i18n fix score_intro.
   // v13 : ticker-index entries now include shares (`s` field) -> bump pour purger
   // les caches qui retournaient shares=0 silently.
+  // v14 : fix aggregate13F merge multi-keys -> Vanguard Group manquait pour ONDS
+  // car sous cle ONDAS HLDGS (vs ONDAS exact match qui stoppait l'exploration).
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v13:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v14:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -2069,39 +2071,51 @@ async function aggregate13F(ticker, env, companyName) {
 
     if (index && typeof index === 'object') {
       indexUsed = true;
-      // Match exact d'abord
-      let entries = index[normalizedTarget] || null;
-      // Fallback : match par prefixe (ex. "APPLE" cherche "APPLE" dans les cles).
-      // IMPORTANT EU FIX (mai 2026) : la SEC tronque les noms 13F a ~30 chars,
-      // donc 'LVMH MOET HENNESSY LOUIS VUITTON' devient 'LVMH MOET HENNESSY LOUIS VUITT'
-      // dans le KV. On accepte donc un match TRONQUE si :
-      //   - normalizedTarget commence par les N premiers chars de k (sans exiger
-      //     d'espace apres k, car k peut couper au milieu d'un mot)
-      //   - ET k.length >= 20 (eviter les false positives sur des prefixes courts
-      //     type 'AMAZON' qui matcherait Amazon Inc + Amazon Holdings + etc.)
-      if (!entries) {
-        const candidateKeys = Object.keys(index).filter(k => {
-          if (k === normalizedTarget) return true;
-          if (k.startsWith(normalizedTarget + ' ')) return true;
-          if (normalizedTarget.startsWith(k + ' ')) return true;
-          // EU fix : accepte k tronque par SEC 30-chars limit
-          if (k.length >= 20 && normalizedTarget.startsWith(k)) return true;
-          return false;
+      // Match exact d'abord + TOUJOURS scanner les fuzzy keys (mai 2026 fix).
+      // BUG ANTERIEUR : on stoppait sur exact match, ignorant les autres cles
+      // proches. Cas ONDS : 'ONDAS' (15 entries Q1) trouve exact, mais Vanguard
+      // Group Inc etait sous 'ONDAS HLDGS' (Q4 2025), donc rate.
+      // Maintenant : on merge TOUJOURS exact + tous les fuzzy matches, dedup,
+      // sort par value desc.
+      const candidateKeys = Object.keys(index).filter(k => {
+        if (k === normalizedTarget) return true;
+        if (k.startsWith(normalizedTarget + ' ')) return true;
+        if (normalizedTarget.startsWith(k + ' ')) return true;
+        // EU fix : accepte k tronque par SEC 30-chars limit
+        if (k.length >= 20 && normalizedTarget.startsWith(k)) return true;
+        return false;
+      });
+      let entries = [];
+      for (const k of candidateKeys) {
+        entries = entries.concat(index[k] || []);
+      }
+      if (entries.length) {
+        // Dedup par fundName + date (eviter Q4+Q1 du meme fund de doubler)
+        const seen = new Set();
+        entries = entries.filter(h => {
+          const key = (h.n || h.fundName || '') + '|' + (h.d || h.reportDate || '');
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
         });
-        if (candidateKeys.length) {
-          entries = [];
-          for (const k of candidateKeys) {
-            entries = entries.concat(index[k] || []);
+        // Si un fund a 2 entries (Q4 + Q1), on garde la plus recente (= la plus
+        // grosse value generalement, mais on trie par date pour etre sur).
+        // On regroupe par nom et garde la plus recente reportDate.
+        const latestPerFund = new Map();
+        for (const h of entries) {
+          const name = (h.n || h.fundName || '').trim();
+          if (!name) continue;
+          const existing = latestPerFund.get(name);
+          if (!existing) {
+            latestPerFund.set(name, h);
+          } else {
+            const newer = (h.d || '') > (existing.d || '');
+            if (newer) latestPerFund.set(name, h);
           }
-          // Dedup par fundName (plusieurs cles peuvent matcher LVMH = LVMH MOET... + LVMH MOET HENNESSY LOUIS = meme funds)
-          const seen = new Set();
-          entries = entries.filter(h => {
-            const key = (h.n || h.fundName || '') + '|' + (h.d || h.reportDate || '');
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
         }
+        entries = Array.from(latestPerFund.values());
+        // Sort par value desc
+        entries.sort((a, b) => (Number(b.v ?? b.value ?? 0)) - (Number(a.v ?? a.value ?? 0)));
       }
       if (entries && entries.length) {
         // Index inverse ultra-compact (5 champs n/v/p/c/d) pour fit KV 25MB.
