@@ -29,6 +29,21 @@ UA = 'KairosInsider contact@kairosinsider.fr'
 MIN_AUM_USD = 1_000_000_000  # 1 Mrd $ minimum pour entrer dans la liste
 TARGET_TOP_N = 300            # Top 300 par AUM (passe de 200 a 300 le 15 mai 2026 :
                               # +100 funds, ~+50% temps cron, meilleure couverture mid-caps)
+
+# CIK GARANTIS : mega-funds qu'on inclut systematiquement, meme si la discovery
+# SEC full-text search les rate (limite ~10000 hits, Vanguard etc. files >300 pages
+# qui peuvent ne pas etre indexees). Sans ce fallback, on perd des positions
+# critiques sur les tickers (Vanguard #1 sur ONDS avec 18.7M shares = ~$200M).
+# Validation : 16 mai 2026 (https://fintel.io/so/us/onds top 15 vs notre top 5).
+GUARANTEED_CIKS = [
+    ('0000102909', 'VANGUARD GROUP INC',                'Mega Asset Manager',  10_500_000_000_000),
+    ('0002100119', 'VANGUARD CAPITAL MANAGEMENT LLC',   'Mega Asset Manager',     200_000_000_000),
+    ('0000019617', 'JPMORGAN CHASE & CO',               'Bank Asset Manager',   3_200_000_000_000),
+    ('0001214717', 'GEODE CAPITAL MANAGEMENT, LLC',     'Mega Asset Manager',   1_300_000_000_000),
+    ('0000869178', 'VAN ECK ASSOCIATES CORP',           'ETF Specialist',         110_000_000_000),
+    ('0001578177', 'Hood River Capital Management LLC', 'Small-Mid Cap Active',     3_500_000_000),
+    ('0001997464', 'Marex Group plc',                   'Broker-Dealer',            5_000_000_000),
+]
 RATE_LIMIT_SLEEP = 0.15       # 6.6 req/s (sous la limite SEC 10/s)
 
 # Override manuel : pour les CIK connus, on force le label utilisateur
@@ -320,6 +335,28 @@ def main():
 
     print(f'\n  Total avec AUM > ${MIN_AUM_USD/1e9:.0f}B : {len(funds)}')
     print(f'  Echecs (CIK invalide / pas de 13F-HR) : {fail_count}')
+
+    # ETAPE 2.5 : injecter les GUARANTEED_CIKS si pas deja decouverts.
+    # Necessaire car SEC full-text search a une limite (~10000 hits) qui
+    # exclut parfois les mega-funds dont les filings sont volumineux
+    # (Vanguard, JPMorgan, Geode...). Sans ca, on rate des positions critiques.
+    existing_ciks = {f.get('cik','').lstrip('0') for f in funds}
+    injected = 0
+    for cik, name, category, aum in GUARANTEED_CIKS:
+        if cik.lstrip('0') in existing_ciks:
+            continue
+        funds.append({
+            'cik': cik,
+            'name': name,
+            'label': KNOWN_LABELS.get(cik, (humanize_name(name),))[0] if cik in KNOWN_LABELS else humanize_name(name),
+            'category': category,
+            'aum': aum,
+            'last_filing': '',
+            '_injected': True,
+        })
+        injected += 1
+    if injected:
+        print(f'  Injected {injected} guaranteed CIKs (discovery missed them)')
 
     # ETAPE 3 : tri par AUM desc, top N
     funds.sort(key=lambda f: -f['aum'])
