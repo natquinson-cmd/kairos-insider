@@ -1511,13 +1511,23 @@
       overflow: hidden;
       position: relative;
     }
+    /* FIX (mai 2026) : un CSS reset global du site fait .swiper-wrapper{display:block}
+       au lieu du flex attendu par Swiper. On force le layout horizontal explicitement. */
+    .kairos-carousel .swiper-wrapper {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: stretch;
+      box-sizing: content-box;
+    }
     .kairos-carousel .swiper-slide {
       background: var(--surface-1, #0F1729);
       border: 1px solid var(--border, #1F2937);
       border-radius: 18px;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      display: flex !important;
+      flex-direction: column !important;
+      flex-shrink: 0 !important;  /* CRITICAL : Swiper requirement, ne pas laisser un CSS reset le mettre a 1 */
+      height: auto !important;
       transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .kairos-carousel .swiper-slide:hover {
