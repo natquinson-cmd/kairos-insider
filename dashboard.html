@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260518-insider-period-i18n"></script>
+  <script src="assets/i18n.js?v=20260518-insider-total-row"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -11590,10 +11590,97 @@
       // i18n des en-tetes + compteur (FR par defaut, EN si lang switch)
       const _locale = (window.KairosI18n && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
       const _foundTxt = t('insider.table.foundCount', '{n} transactions trouvées').replace('{n}', filtered.length.toLocaleString(_locale));
+
+      // ============================================================
+      // Ligne TOTAL en haut du tbody (mai 2026, demande user pour
+      // consistance avec la ligne TOTAL du Hedge Funds Explorer).
+      // Agrege sur TOUT le filtered set (pas seulement pageTx visible)
+      // pour donner un bilan complet meme si l'utilisateur n'a pas
+      // cliqué "Voir plus".
+      //
+      // Convention de signe :
+      //   - buy  -> compte positif (ajoute au net)
+      //   - sell -> compte negatif (soustrait du net)
+      //   - other -> ignore pour le net (tax-withhold, RSU vest, gift, etc.)
+      //
+      // Multi-devise : on agrege separement USD / EUR / GBP / autres
+      // puis on les concatene dans la cellule Valeur (ex: "$2.5 M + 320 k €").
+      // Pour les Shares, on additionne tout en absolu (les actions sont
+      // des actions, peu importe la devise du prix).
+      // ============================================================
+      const totalStats = {
+        buyCount: 0,
+        sellCount: 0,
+        otherCount: 0,
+        netShares: 0,
+        netByCurrency: {},       // { USD: net, EUR: net, ... }
+        tickers: new Set(),
+        filers: new Set(),
+      };
+      for (const tx of filtered) {
+        const cur = tx.currency || 'USD';
+        const val = +tx.value || 0;
+        const sh = +tx.shares || 0;
+        if (tx.type === 'buy') {
+          totalStats.buyCount++;
+          totalStats.netByCurrency[cur] = (totalStats.netByCurrency[cur] || 0) + val;
+          totalStats.netShares += sh;
+        } else if (tx.type === 'sell') {
+          totalStats.sellCount++;
+          totalStats.netByCurrency[cur] = (totalStats.netByCurrency[cur] || 0) - val;
+          totalStats.netShares -= sh;
+        } else {
+          totalStats.otherCount++;
+        }
+        const tk = (tx.ticker || tx.isin || '').toUpperCase();
+        if (tk) totalStats.tickers.add(tk);
+        const fl = (tx.insiderCik ? String(tx.insiderCik) : (tx.insider || '')).toUpperCase();
+        if (fl) totalStats.filers.add(fl);
+      }
+
+      // Format multi-devise pour la cellule Valeur : "$X k + Y k €"
+      const _curEntries = Object.entries(totalStats.netByCurrency).filter(([, v]) => v !== 0);
+      const _netValueStr = _curEntries.length === 0
+        ? '—'
+        : _curEntries.map(([cur, v]) => fmtCurShort(v, cur)).join(' + ');
+      // Couleur du flux net : positif vert, negatif rouge. Sur multi-devise,
+      // on prend le signe du USD si dispo, sinon de la premiere devise.
+      const _netSign = totalStats.netByCurrency.USD != null
+        ? totalStats.netByCurrency.USD
+        : (_curEntries[0] ? _curEntries[0][1] : 0);
+      const _netColor = _netSign > 0 ? '#10B981' : _netSign < 0 ? '#EF4444' : 'var(--text-muted)';
+      const _sharesColor = totalStats.netShares > 0 ? '#10B981' : totalStats.netShares < 0 ? '#EF4444' : 'var(--text-muted)';
+
+      // Pluralisation tickers / filers
+      const _nTk = totalStats.tickers.size;
+      const _nFl = totalStats.filers.size;
+      const _tickersLbl = t(_nTk > 1 ? 'insider.total.tickers_many' : 'insider.total.tickers_one', '{n} tickers').replace('{n}', _nTk);
+      const _filersLbl = t(_nFl > 1 ? 'insider.total.filers_many' : 'insider.total.filers_one', '{n} dirigeants').replace('{n}', _nFl);
+
+      const _totalLabel = t('insider.total.label', 'TOTAL');
+      const _txLbl = t('insider.total.tx', 'tx');
+      const _buysLbl = t('insider.total.buys_label', 'achats');
+      const _sellsLbl = t('insider.total.sells_label', 'ventes');
+      const _netTip = t('insider.total.netFlowTooltip', 'Flux net = Σ achats − Σ ventes (les autres types n\'entrent pas dans le calcul).').replace(/"/g, '&quot;');
+
+      const totalRowHtml = filtered.length === 0 ? '' : `
+        <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.06));border-bottom:2px solid var(--border-strong);font-weight:700">
+          <td style="white-space:nowrap;font-size:14px;color:#10B981;font-weight:800">Σ</td>
+          <td style="text-align:center;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
+          <td style="font-size:11px;color:var(--text-secondary);font-weight:600">${_tickersLbl}</td>
+          <td style="font-size:13px;color:var(--text-primary);font-weight:700">${_totalLabel} <span style="font-weight:500;color:var(--text-muted);font-size:11px;margin-left:6px">(${filtered.length.toLocaleString(_locale)} ${_txLbl})</span></td>
+          <td style="text-align:center;font-size:10.5px;white-space:nowrap"><span style="color:#10B981;font-weight:700">${totalStats.buyCount} ${_buysLbl}</span> <span style="color:var(--text-muted);margin:0 3px">·</span> <span style="color:#EF4444;font-weight:700">${totalStats.sellCount} ${_sellsLbl}</span></td>
+          <td style="text-align:right;font-weight:700;color:${_sharesColor};font-variant-numeric:tabular-nums" title="${_netTip}">${totalStats.netShares > 0 ? '+' : ''}${fmtNum(totalStats.netShares)}</td>
+          <td style="text-align:right;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
+          <td style="text-align:right;font-weight:800;font-size:14px;color:${_netColor};font-variant-numeric:tabular-nums" title="${_netTip}">${_netValueStr}</td>
+          <td style="font-size:11px;color:var(--text-secondary);font-weight:600">${_filersLbl}</td>
+          <td style="color:var(--text-muted);font-size:11px;font-style:italic">—</td>
+        </tr>`;
+
       area.innerHTML = `
         <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${_foundTxt}</p>
         <div class="table-wrap">
-          <table style="min-width:1100px">
+          <table class="table-no-sticky" style="min-width:1100px">
             <thead><tr>
               <th>${t('insider.table.col.date', 'Date')}</th>
               <th>${t('insider.table.col.market', 'Marché')}</th>
@@ -11606,7 +11693,7 @@
               <th>${t('insider.table.col.declarant', 'Déclarant')}</th>
               <th>${t('insider.table.col.title', 'Poste')}</th>
             </tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${totalRowHtml}${rows}</tbody>
           </table>
         </div>
         ${footerHtml}`;
