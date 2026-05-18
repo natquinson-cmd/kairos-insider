@@ -589,6 +589,16 @@
       'stock.insider.sells_label': 'ventes',
       'stock.insider.netFlow': 'Flux net :',
       'stock.insider.distinctInsidersTpl': '{n} distinct insiders',
+      // Stock page insider card — compact period dropdown (mai 2026 : version abrégée
+      // pour preserve le design tight du dropdown, vs insider.advfilter.period.* qui
+      // utilise le full text "30 jours" pour la page Inities Explorer)
+      'stock.insider.period.30d': '30j',
+      'stock.insider.period.90d': '90j',
+      'stock.insider.period.6m': '6m',
+      'stock.insider.period.1y': '1 an',
+      'stock.insider.period.3y': '3 ans',
+      'stock.insider.period.5y': '5 ans',
+      'stock.insider.viewAllFilters': 'Voir tout avec filtres (historique 5 ans)',
       // Hedge funds card stats
       'stock.hf.fundsLabel': 'fonds',
       'stock.hf.deltaLabel': 'Δ positions',
@@ -2094,6 +2104,14 @@
       'stock.insider.sells_label': 'sells',
       'stock.insider.netFlow': 'Net flow:',
       'stock.insider.distinctInsidersTpl': '{n} distinct insiders',
+      // Stock page insider card — compact period dropdown
+      'stock.insider.period.30d': '30d',
+      'stock.insider.period.90d': '90d',
+      'stock.insider.period.6m': '6m',
+      'stock.insider.period.1y': '1y',
+      'stock.insider.period.3y': '3y',
+      'stock.insider.period.5y': '5y',
+      'stock.insider.viewAllFilters': 'View all with filters (5-year history)',
       'stock.hf.fundsLabel': 'funds',
       'stock.hf.deltaLabel': 'Δ positions',
       'stock.hf.totalValue': 'Total value:',
