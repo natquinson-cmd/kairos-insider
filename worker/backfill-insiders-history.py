@@ -115,8 +115,12 @@ def parse_form4(xml, now_str):
         if trans_date and trans_date > now_str:
             continue
 
-        is_buy = code == 'P' or (ad == 'A' and price > 0)
-        is_sell = code == 'S' or (ad == 'D' and price > 0)
+        # FIX (mai 2026) : STRICT P/S uniquement. Voir prefetch-transactions.py
+        # meme commentaire : la regle "ad=='D' && price>0" capturait code='F'
+        # (Tax Withholding) et gonflait les sells. Maintenant strict :
+        # seul P=open-market buy, seul S=open-market sell, le reste = 'other'.
+        is_buy = code == 'P'
+        is_sell = code == 'S'
 
         transactions.append({
             'date': trans_date,

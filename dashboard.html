@@ -11473,9 +11473,27 @@
         txs = txs.filter(t => (t.date || t.fileDate) >= cutoff);
       }
 
-      // Filtre type (achat/vente)
+      // Filtre type (achat/vente) - code-aware
+      // FIX (mai 2026) : avant on faisait `t.type === currentType` -> capturait
+      // les rows mal classees (code='F' Tax Withholding etait stocke en 'sell'
+      // a tort par l'ancienne logique prefetch "ad=='D' && price>0"). Maintenant
+      // on est STRICT sur le code SEC : seuls P=buy et S=sell. Pour les rows EU
+      // (AMF/BaFin, sans trans_code 1-letter), fallback sur t.type qui est
+      // correctement assigne par fetch-amf.py / fetch-bafin.py.
       if (currentType !== 'all') {
-        txs = txs.filter(t => t.type === currentType);
+        txs = txs.filter(t => {
+          const code = (t.transCode || t.code || '').toString().toUpperCase();
+          if (code) {
+            // SEC strict : P=achat marche ouvert, S=vente marche ouvert.
+            // Tout le reste (F=TaxWithhold, A=Grant, M=Exercise, G=Gift, etc.)
+            // est "other" peu importe le t.type stale.
+            if (currentType === 'buy') return code === 'P';
+            if (currentType === 'sell') return code === 'S';
+            return false;
+          }
+          // EU fallback : pas de code SEC, on garde t.type
+          return t.type === currentType;
+        });
       }
 
       // Filtre region (US / Europe / ...). Les anciennes tx sans 'region' sont considerees US.
@@ -11617,15 +11635,27 @@
         tickers: new Set(),
         filers: new Set(),
       };
+      // Helper local : true effective type code-aware (meme regle que le filtre,
+      // SEC strict P/S sinon other ; EU pas de code -> fallback t.type).
+      const effectiveType = (tx) => {
+        const code = (tx.transCode || tx.code || '').toString().toUpperCase();
+        if (code) {
+          if (code === 'P') return 'buy';
+          if (code === 'S') return 'sell';
+          return 'other';
+        }
+        return tx.type === 'buy' || tx.type === 'sell' ? tx.type : 'other';
+      };
       for (const tx of filtered) {
         const cur = tx.currency || 'USD';
         const val = +tx.value || 0;
         const sh = +tx.shares || 0;
-        if (tx.type === 'buy') {
+        const eff = effectiveType(tx);
+        if (eff === 'buy') {
           totalStats.buyCount++;
           totalStats.netByCurrency[cur] = (totalStats.netByCurrency[cur] || 0) + val;
           totalStats.netShares += sh;
-        } else if (tx.type === 'sell') {
+        } else if (eff === 'sell') {
           totalStats.sellCount++;
           totalStats.netByCurrency[cur] = (totalStats.netByCurrency[cur] || 0) - val;
           totalStats.netShares -= sh;

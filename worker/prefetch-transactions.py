@@ -66,8 +66,16 @@ def parse_form4(xml):
         if date and date > today_str:
             continue
 
-        is_buy = code == 'P' or (ad == 'A' and price > 0)
-        is_sell = code == 'S' or (ad == 'D' and price > 0)
+        # FIX (mai 2026) : STRICT P/S uniquement. Avant on avait :
+        #   is_sell = code == 'S' or (ad == 'D' and price > 0)
+        # qui capturait a tort code='F' (Tax Withholding : ad='D' + price>0
+        # car valeur des shares retenues pour impot lors d'un vesting).
+        # Resultat : TAX WITHHOLD apparaissait comme 'sell' dans Explore
+        # et gonflait les sellCount / netFlow du per-stock card.
+        # Maintenant strict : seul P=open-market buy, seul S=open-market sell.
+        # Tout le reste (A=Grant, F=TaxWithhold, M=Exercise, G=Gift...) = 'other'.
+        is_buy = code == 'P'
+        is_sell = code == 'S'
 
         transactions.append({
             'date': date,

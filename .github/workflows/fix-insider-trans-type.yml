@@ -1,0 +1,58 @@
+name: Fix Insider Trans Type (one-shot)
+
+# ============================================================================
+# Workflow manuel one-shot pour reclassifier les rows D1 insider_transactions_
+# history mal assignees en buy/sell alors qu'elles devraient etre 'other'.
+#
+# CAUSE racine : ancienne logique prefetch
+#   is_sell = code == 'S' or (ad == 'D' and price > 0)
+# capturait code='F' (Tax Withholding : disposed + price>0) et le classait
+# en 'sell'. Resultat : TAX WITHHOLD apparaissait dans le filtre Sells de
+# la page Explore + gonflait les sellCount du per-stock card.
+#
+# FIX FORWARD :
+#   - prefetch-transactions.py / prefetch-all.py / backfill-insiders-history.py
+#     utilisent maintenant strict is_buy=code=='P' / is_sell=code=='S'
+#   - push-insiders-to-d1.py override trans_type='other' si trans_code != P/S
+#     (defense en profondeur pour re-ingest de vieux JSONs)
+#
+# A LANCER UNE FOIS via le bouton "Lancer" du dashboard admin, OU via :
+#   gh workflow run "Fix Insider Trans Type (one-shot)"
+#
+# Le workflow execute worker/fix-insider-trans-type.sql qui :
+#   1. Compte les rows mal classees (code != P/S mais type = buy/sell)
+#   2. Affiche le breakdown par code SEC (F, M, A, G, ...)
+#   3. UPDATE -> trans_type = 'other' sur ces rows
+#   4. Verifie qu'il en reste 0
+#   5. Distribution finale par (trans_code, trans_type)
+#
+# Apres fix, la fiche Insider et la page Explore reflechiront les vrais buys/
+# sells. Pas besoin de cache-bust : les routes worker re-lisent D1 a chaque
+# requete (pas de cache long sur ces stats).
+# ============================================================================
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Run fix SQL on D1 (kairos-history)
+        run: |
+          cd worker
+          npx wrangler d1 execute kairos-history --remote --file fix-insider-trans-type.sql
+        timeout-minutes: 8
+
+      # Note : workflow ONE-SHOT (workflow_dispatch only), pas de tracking KV
+      # `lastRun:` pour eviter les false-positive du health-check daily
+      # (cf cleanup-insider-duplicates.yml meme pattern).

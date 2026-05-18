@@ -145,6 +145,17 @@ def collect_inserts():
             # Code SEC brut (P/S/A/D/F/M/G/...) - NULL pour BaFin/AMF qui n'ont pas
             # de lettre code. Permet le label friendly cote UI (Don/Vesting/etc.)
             trans_code = normalize_code(tx.get('code') or tx.get('trans_code'))
+
+            # DEFENSE EN PROFONDEUR (mai 2026) : si on a un code SEC 1-letter et
+            # qu'il n'est PAS P (buy) ou S (sell), on force trans_type a 'other'
+            # meme si l'input dit 'buy' / 'sell'. Catch les anciens JSON ingestes
+            # avec la regle bugguee "is_sell = code=='S' or (ad=='D' && price>0)"
+            # qui classait F (Tax Withholding), M (Exercise), A (Grant), etc. en
+            # sell/buy a tort. Le frontend filtre maintenant strict sur code, ce
+            # garde-fou backend assure que les agregations D1 (per-stock card,
+            # heatmap, signals) soient ALSO strict, meme avant re-prefetch complet.
+            if trans_code and trans_code not in ('P', 'S') and trans_type in ('buy', 'sell'):
+                trans_type = 'other'
             shares = tx.get('shares')
             price = tx.get('price')
             value = tx.get('value')
