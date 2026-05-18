@@ -174,8 +174,10 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // les caches qui retournaient shares=0 silently.
   // v14 : fix aggregate13F merge multi-keys -> Vanguard Group manquait pour ONDS
   // car sous cle ONDAS HLDGS (vs ONDAS exact match qui stoppait l'exploration).
+  // v15 : normalize THE prefix/suffix + re-normalize keys au query-time -> NYT
+  // renvoyait 1 fund (AGF) au lieu de 30+ (Berkshire, BlackRock, AQR, etc.).
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v14:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v15:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -2042,7 +2044,16 @@ export function normalizeCompanyName(name) {
     .normalize('NFD')                  // Decompose accents : "MOËT" -> "MO" + "Ë" decomposed
     .replace(/[̀-ͯ]/g, '')   // Strip diacritics : "Ë" -> "E", "É" -> "E"
     .toUpperCase()
-    .replace(/[.,\-]/g, ' ')           // Strip dots, commas AND DASHES
+    .replace(/[.,\-\/]/g, ' ')         // Strip dots, commas, dashes ET slashes
+    // FIX (mai 2026) : strip "THE" article au debut ou a la fin. Les 13F
+    // peuvent stocker "The New York Times Company" comme "THE NEW YORK TIMES"
+    // OU "NEW YORK TIMES/THE" (style SEC). On normalise sur "NEW YORK TIMES"
+    // pour que toutes les variantes soient regroupees dans la meme cle.
+    // Sans ce fix : NYT avait 9 cles eparpillees ("THE NEW YORK TIMES",
+    // "NEW YORK TIMES MTN BE", "NEW YORK TIMES CL A", "NEW YORK TIMES/THE",
+    // etc.) et l'utilisateur ne voyait qu'1 fund au lieu de 30+.
+    .replace(/^THE\s+/, '')
+    .replace(/\s+THE\b/g, ' ')         // 'NEW YORK TIMES /THE' apres slash->space
     // Retire les suffixes corporates en fin (les EU 'SOCIETE EUROPEENNE',
     // 'SOCIETE ANONYME' aussi). Repete pour gerer les double-suffixes type
     // "SE SA" qu'on voit parfois dans les filings.
@@ -2077,11 +2088,18 @@ async function aggregate13F(ticker, env, companyName) {
       // Group Inc etait sous 'ONDAS HLDGS' (Q4 2025), donc rate.
       // Maintenant : on merge TOUJOURS exact + tous les fuzzy matches, dedup,
       // sort par value desc.
+      //
+      // FIX (mai 2026 bis) : on RE-NORMALIZE chaque cle au query-time pour gerer
+      // les KV legacy ou le prefetch a stocke avec une ancienne normalization
+      // (ex: "THE NEW YORK TIMES" avant le fix THE-prefix). Sans ca, NYT renvoyait
+      // 1 fund (AGF) au lieu de 30+ (Berkshire $1.27B, BlackRock $1.27B, etc.).
       const candidateKeys = Object.keys(index).filter(k => {
-        if (k === normalizedTarget) return true;
-        if (k.startsWith(normalizedTarget + ' ')) return true;
-        if (normalizedTarget.startsWith(k + ' ')) return true;
-        // EU fix : accepte k tronque par SEC 30-chars limit
+        // Normalisation cle au vol (au cas ou prefetch n'a pas encore tourne avec le nouveau code)
+        const kNorm = normalizeCompanyName(k);
+        if (kNorm === normalizedTarget) return true;
+        if (kNorm.startsWith(normalizedTarget + ' ')) return true;
+        if (normalizedTarget.startsWith(kNorm + ' ')) return true;
+        // EU fix : accepte k tronque par SEC 30-chars limit (sans renormalize, k brut)
         if (k.length >= 20 && normalizedTarget.startsWith(k)) return true;
         return false;
       });

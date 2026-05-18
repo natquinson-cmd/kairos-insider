@@ -451,7 +451,12 @@ def normalize_company_name_py(name):
     s = unicodedata.normalize('NFD', str(name))
     s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
     s = s.upper()
-    s = re.sub(r'[.,\-]', ' ', s)  # strip dots, commas, dashes
+    s = re.sub(r'[.,\-\/]', ' ', s)  # strip dots, commas, dashes, slashes
+    # FIX (mai 2026) : strip "THE" prefix/suffix. 13F utilise "NEW YORK TIMES/THE",
+    # Yahoo dit "The New York Times Company". Sans ce fix, 9 cles distinctes pour
+    # NYT (cf retour user qui voyait 1 fund au lieu de 30+).
+    s = re.sub(r'^THE\s+', '', s)
+    s = re.sub(r'\s+THE\b', ' ', s)  # "/THE" devient " THE" apres slash->space
     # Suffixes EU specifiques d'abord
     s = re.sub(r'\s+(SOCIETE EUROPEENNE|SOCIETE ANONYME|SOCIETE PAR ACTIONS SIMPLIFIEE)\b', '', s)
     s = re.sub(r'\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|LLC|LP|HOLDINGS|GROUP|SA|SE|AG|NV|N V|AB|OYJ|SPA|S A|KGAA|GMBH)\b', '', s)
