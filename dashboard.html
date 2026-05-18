@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260516-explorer-shares-column"></script>
+  <script src="assets/i18n.js?v=20260518-radar-pct-labels"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -13651,18 +13651,25 @@
         // Ajuster le X si anchor est middle (top/bottom)
         let xAdj = x;
         if (Math.abs(Math.cos(p.angle)) < 0.15) xAdj = CX;
+        // Affichage en pourcentage (mai 2026) : uniformise avec la breakdown
+        // column de droite (Insider signal 15%, Hedge funds 100%, etc.).
+        // Le X/Y absolu (3/20, 10/10) reste dispo en tooltip pour debug.
+        const pctLabel = Math.round((p.pctFill || 0) * 100) + '%';
         return `
           <text x="${xAdj}" y="${y + 3}" text-anchor="${anchor}" font-size="10.5" font-weight="700" fill="${palette.label}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.04em">${p.axis.short}</text>
-          <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${p.score}/${p.max}</text>
+          <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${pctLabel}</text>
         `;
       }).join('');
 
-      // Points sur le polygon
-      const dots = points.map(p => `
+      // Points sur le polygon (tooltip = pct + detail explicatif)
+      const dots = points.map(p => {
+        const pctTip = Math.round((p.pctFill || 0) * 100) + '%';
+        return `
         <circle cx="${p.x}" cy="${p.y}" r="4" fill="${palette.main}" stroke="var(--bg-primary)" stroke-width="2">
-          <title>${p.label}: ${p.score}/${p.max}${p.detail ? ' — ' + p.detail : ''}</title>
+          <title>${p.label}: ${pctTip} (${p.score}/${p.max})${p.detail ? ' — ' + p.detail : ''}</title>
         </circle>
-      `).join('');
+      `;
+      }).join('');
 
       // ID unique pour le gradient (eviter les conflits entre rendus)
       const gradId = 'kairosGrad_' + Math.random().toString(36).slice(2, 8);

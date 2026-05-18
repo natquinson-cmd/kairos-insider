@@ -5438,10 +5438,11 @@ function ogRadarSvg(breakdown, total, color, labels, cx, cy, R) {
     const angle = (-Math.PI / 2) + (i * 2 * Math.PI / N);
     const b = breakdown[axis.key];
     const pctFill = (b && b.max > 0) ? Math.max(0.05, Math.min(1, b.score / b.max)) : 0.05;
+    const rawPct = (b && b.max > 0) ? (b.score / b.max) : 0;  // sans flooring (pour affichage)
     const r = R * pctFill;
     points.push({
       x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle),
-      angle, score: b?.score ?? 0, max: b?.max ?? 0, label: labels[axis.key] || axis.key.toUpperCase(),
+      angle, score: b?.score ?? 0, max: b?.max ?? 0, pct: rawPct, label: labels[axis.key] || axis.key.toUpperCase(),
     });
     grid.push({ angle });
   });
@@ -5464,8 +5465,12 @@ function ogRadarSvg(breakdown, total, color, labels, cx, cy, R) {
     let anchor = 'middle';
     if (Math.cos(p.angle) > 0.3) anchor = 'start';
     else if (Math.cos(p.angle) < -0.3) anchor = 'end';
+    // Affichage en pourcentage (mai 2026) : uniformise avec la breakdown
+    // column du dashboard. Avant : "3/20" → ambigu pour non-initie.
+    // Maintenant : "15%" → uniforme avec le UI principal.
+    const pctLabel = Math.round((p.pct || 0) * 100) + '%';
     return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" font-size="13" font-weight="700" fill="${color}" letter-spacing="0.5">${svgEscape(p.label)}</text>`
-         + `<text x="${lx.toFixed(1)}" y="${(ly + 16).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="500" fill="#9CA3AF">${p.score}/${p.max}</text>`;
+         + `<text x="${lx.toFixed(1)}" y="${(ly + 16).toFixed(1)}" text-anchor="${anchor}" font-size="11" font-weight="500" fill="#9CA3AF">${pctLabel}</text>`;
   }).join('');
   return rings + axesLines
        + `<polygon points="${polyPath}" fill="${color}" fill-opacity="0.22" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`
