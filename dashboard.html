@@ -13000,8 +13000,24 @@
     async function loadTickerActivity(ticker, days = 7, liveScoreTotal = null, liveBreakdown = null) {
       if (!ticker) return;
       try {
-        const data = await apiFetch(`/api/history/ticker-activity?ticker=${encodeURIComponent(ticker)}&days=${days}`);
+        // Fetch parallele : ticker-activity (resume 7j) + etf history (serie
+        // 60j) pour enrichir la card ETF avec un mini-sparkline.
+        // demande user (mai 2026) : 'l'affichage de l'evolution recente serait
+        // top dans cette card'.
+        const [data, etfHistRes] = await Promise.all([
+          apiFetch(`/api/history/ticker-activity?ticker=${encodeURIComponent(ticker)}&days=${days}`),
+          apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=60`).catch(() => null),
+        ]);
         if (!data || data.error) return;
+        // Map etf_symbol -> series pour merge facile dans le render
+        const etfSeriesByEtf = {};
+        if (etfHistRes && Array.isArray(etfHistRes.etfs)) {
+          for (const e of etfHistRes.etfs) {
+            if (e.etf && Array.isArray(e.series) && e.series.length > 0) {
+              etfSeriesByEtf[e.etf] = e.series;
+            }
+          }
+        }
 
         // FIX coherence (mai 2026) : si on a recu le score LIVE depuis le radar,
         // on l'utilise comme valeur 'now' au lieu du snapshot D1 d'hier soir.
@@ -13244,6 +13260,28 @@
             try { return new Date(iso).toLocaleDateString(_locale, { day: 'numeric', month: 'short' }); }
             catch { return iso; }
           };
+          // Helper sparkline : genere un mini-SVG 60x16px qui trace la courbe
+          // du poids de l'ETF dans le ticker sur les ~60 derniers jours.
+          // Couleur basee sur la pente globale (vert si hausse, rouge si baisse).
+          // Retourne '' si serie indisponible (fallback gracieux).
+          const renderEtfSparkline = (etfSymbol) => {
+            const series = etfSeriesByEtf[etfSymbol];
+            if (!series || series.length < 2) return '';
+            const W = 60, H = 16;
+            const weights = series.map(p => p.weight || 0);
+            const minW = Math.min(...weights);
+            const maxW = Math.max(...weights);
+            const range = maxW - minW || 1;
+            const step = W / (series.length - 1);
+            const pts = series.map((p, i) => {
+              const x = i * step;
+              const y = H - ((p.weight - minW) / range) * (H - 2) - 1;
+              return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(' ');
+            const trend = weights[weights.length - 1] - weights[0];
+            const col = trend > 0.001 ? '#10B981' : trend < -0.001 ? '#EF4444' : '#9CA3AF';
+            return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:inline-block;vertical-align:middle;margin-right:6px" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+          };
           const rows = top.map(e => {
             const statusIcon = e.status === 'new' ? '🆕' : e.status === 'exit' ? '❌' : e.status === 'increased' ? '📈' : '📉';
             const statusColor = e.status === 'new' || e.status === 'increased' ? '#10B981' : '#EF4444';
@@ -13259,10 +13297,15 @@
             const dateChip = dateLabel
               ? `<span title="${dateTooltip}" style="font-size:10px;color:var(--text-muted);margin-left:8px;padding:1px 6px;border:1px solid var(--border);border-radius:6px;white-space:nowrap">${dateLabel}</span>`
               : '';
+            // Sparkline (60 jours) en TOOLTIP-style entre ETF et delta pour
+            // visualiser la trajectoire au-dela du seul mouvement recent.
+            const sparkSvg = renderEtfSparkline(e.etf);
+            const sparkTip = sparkSvg ? ` title="${t('stock.recent.etfSparkTooltip', 'Poids dans l\\'ETF sur les 60 derniers jours')}"` : '';
             return `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
-                <div><span style="margin-right:6px">${statusIcon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient(e.etf)}</strong></div>
-                <div style="display:flex;align-items:center;justify-content:flex-end">
+                <div style="display:flex;align-items:center"><span style="margin-right:6px">${statusIcon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient(e.etf)}</strong></div>
+                <div style="display:flex;align-items:center;justify-content:flex-end"${sparkTip}>
+                  ${sparkSvg}
                   <span style="color:${statusColor};font-weight:600">${deltaText}</span>
                   ${dateChip}
                 </div>
