@@ -684,6 +684,13 @@
       'stock.activists.empty_subtitle': 'Pas de filing 13D ou 13G &gt;5% du capital sur {ticker} dans les 24 derniers mois (sources : SEC EDGAR, AMF, BaFin).',
       'stock.recent.empty_title': 'Aucune activité notable sur 7 jours',
       'stock.recent.empty_subtitle': 'Pas de mouvement sur le Kairos Score, ni de changement ETF, ni d\'achats/ventes insiders sur {ticker} depuis 7 jours.',
+      // Empty states par card (mai 2026, demande user) : meme card visible
+      // avec un message explicatif au lieu de masquer si pas de donnees.
+      'stock.recent.empty_score': 'Pas de variation de score sur 7 jours.',
+      'stock.recent.empty_etf': 'Pas de mouvements ETF notables sur 7 jours.',
+      'stock.recent.empty_insiders': 'Pas de transactions insider sur 7 jours.',
+      'stock.recent.etfTitleEmpty': 'ETF',
+      'stock.recent.insidersTitleEmpty': 'Insiders',
       // ==== Footer dashboard ====
       'footer.copy': '© 2026 Kairos Insider — Données SEC publiques, usage informatif uniquement.',
       'footer.notAdvice': "Pas un conseil en investissement.",
@@ -2229,6 +2236,12 @@
       'stock.activists.empty_subtitle': 'No 13D or 13G &gt;5% capital filing on {ticker} in the last 24 months (sources: SEC EDGAR, AMF, BaFin).',
       'stock.recent.empty_title': 'No notable activity over 7 days',
       'stock.recent.empty_subtitle': 'No Kairos Score change, no ETF flow, no insider buys/sells on {ticker} in the last 7 days.',
+      // Per-card empty states (may 2026)
+      'stock.recent.empty_score': 'No score change over 7 days.',
+      'stock.recent.empty_etf': 'No notable ETF moves over 7 days.',
+      'stock.recent.empty_insiders': 'No insider transactions over 7 days.',
+      'stock.recent.etfTitleEmpty': 'ETF',
+      'stock.recent.insidersTitleEmpty': 'Insiders',
       // ==== Footer dashboard ====
       'footer.copy': '© 2026 Kairos Insider — Public SEC data, for informational purposes only.',
       'footer.notAdvice': 'Not investment advice.',

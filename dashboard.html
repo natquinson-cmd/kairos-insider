@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260519-stock-cards-coherence"></script>
+  <script src="assets/i18n.js?v=20260519-recent-activity-empty-states"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -13056,16 +13056,10 @@
           }
         }
 
-        // Empty state si rien a afficher (au lieu de return early)
-        if (!hasScore && !hasEtf && !hasInsider) {
-          slot.innerHTML = `
-            <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0.65">
-              <div style="font-size:28px;margin-bottom:6px;opacity:0.5">📊</div>
-              <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;font-weight:600">${t('stock.recent.empty_title', 'Aucune activité notable sur 7 jours')}</div>
-              <div style="font-size:11px;color:var(--text-muted);line-height:1.5;max-width:520px">${(t('stock.recent.empty_subtitle', 'Pas de mouvement sur le Kairos Score, ni de changement ETF, ni d\'achats/ventes insiders sur {ticker} depuis 7 jours.')).replace('{ticker}', escapeHtmlClient(ticker))}</div>
-            </div>`;
-          return;
-        }
+        // Suppression de l'ancien early-return 'aucune activite' (mai 2026,
+        // demande user) : maintenant on rend TOUJOURS les 3 cards
+        // (KAIROS Score / ETF / Insiders) avec un empty state explicatif
+        // par card si la donnee manque. Coherence layout 3-cards uniforme.
 
         // Helpers
         const fmtShares = (n) => {
@@ -13206,6 +13200,17 @@
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${t('stock.recent.vsDate', 'vs {date} ({prev}/100)').replace('{date}', fmtD(data.score.datePrevious)).replace('{prev}', data.score.previous)}</div>
               ${breakdownHTML}
             </div>`;
+        } else {
+          // Empty state (mai 2026, demande user) : meme card avec texte
+          // explicatif au lieu de masquer -> coherence layout 3 cards.
+          scoreHTML = `
+            <div class="activity-card">
+              <div class="activity-card-label">📊 ${t('stock.recent.kairosScore', 'Kairos Score')}</div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0.5;padding:12px">
+                <div style="font-size:22px;margin-bottom:6px;opacity:0.6">📊</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.45">${t('stock.recent.empty_score', 'Pas de variation de score sur 7 jours.')}</div>
+              </div>
+            </div>`;
         }
 
         // ETF changes card
@@ -13248,6 +13253,16 @@
             <div class="activity-card">
               <div class="activity-card-label">💼 ${_etfTitle}</div>
               <div style="margin-top:6px">${rows}</div>
+            </div>`;
+        } else {
+          // Empty state ETF (mai 2026)
+          etfHTML = `
+            <div class="activity-card">
+              <div class="activity-card-label">💼 ${t('stock.recent.etfTitleEmpty', 'ETF')}</div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0.5;padding:12px">
+                <div style="font-size:22px;margin-bottom:6px;opacity:0.6">💼</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.45">${t('stock.recent.empty_etf', 'Pas de mouvements ETF notables sur 7 jours.')}</div>
+              </div>
             </div>`;
         }
 
@@ -13304,6 +13319,16 @@
             <div class="activity-card">
               <div class="activity-card-label">🕴️ ${t('stock.recent.insidersTitle', 'Insiders')} (${buys ? buys + ' 🟢' : ''}${buys && sells ? ' / ' : ''}${sells ? sells + ' 🔴' : ''}${!buys && !sells ? data.insiderTrades.length : ''})</div>
               <div style="margin-top:6px">${rows}</div>
+            </div>`;
+        } else {
+          // Empty state Insiders (mai 2026)
+          insiderHTML = `
+            <div class="activity-card">
+              <div class="activity-card-label">🕴️ ${t('stock.recent.insidersTitleEmpty', 'Insiders')}</div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0.5;padding:12px">
+                <div style="font-size:22px;margin-bottom:6px;opacity:0.6">🕴️</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.45">${t('stock.recent.empty_insiders', 'Pas de transactions insider sur 7 jours.')}</div>
+              </div>
             </div>`;
         }
 
