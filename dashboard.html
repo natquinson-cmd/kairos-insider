@@ -13380,20 +13380,25 @@
             }
             .activity-cards {
               display:grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
+              grid-template-columns: repeat(3, minmax(0, 1fr));
               gap:12px;
               align-items: stretch;
             }
-            @media (max-width: 760px) {
+            @media (max-width: 1080px) {
+              .activity-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            }
+            @media (max-width: 720px) {
               .activity-cards { grid-template-columns: 1fr; }
             }
-            /* COHERENCE LAYOUT v3 (mai 2026, retour user 'cette partie est
-               trop compressée. Il faut 2 cards par lignes max') :
-               - Bascule de flex-wrap a grid 2 cols pour FORCER max 2
-                 cards par ligne (le 3eme wrap auto sur ligne suivante).
-               - height: 260px fixe (au lieu de max-height) -> cards de
-                 meme hauteur peu importe contenu.
-               - overflow-y: auto sur le contenu de la card si trop long. */
+            /* COHERENCE LAYOUT v4 (mai 2026, retour user 'la card activite
+               recente peut etre sur 3 colonnes par contre') :
+               - Le widget Recent activity contient 3 cards semantiquement
+                 equivalentes (Score, ETF, Insiders). 3 cols est le bon
+                 nombre pour visualiser tout d'un coup d'oeil.
+               - 3 cols sur desktop large (>1080px), 2 cols sur medium,
+                 1 col sur mobile etroit (<720px).
+               - height: 260px fixe -> cards de meme hauteur peu importe
+                 contenu. overflow-y: auto sur le contenu trop long. */
             .activity-card {
               background: var(--surface-1);
               border: 1px solid var(--border);
