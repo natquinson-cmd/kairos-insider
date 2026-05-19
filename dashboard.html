@@ -7814,7 +7814,11 @@
     async function sendWelcomeEmailFor(user) {
       if (!user || !user.email || !user.uid) return;
       try {
-        const lang = (window.KairosI18n && window.KairosI18n.getLang && window.KairosI18n.getLang() === 'en') ? 'en' : 'fr';
+        // POLICY (mai 2026 v2) : default EN si pas de toggle UI explicite.
+        // Avant : default FR. User feedback : "en cas de doute mieux vaut EN"
+        // car audience smart money internationale. FR seulement si l'user a
+        // explicitement toggle FR (= KairosI18n.getLang() === 'fr').
+        const lang = (window.KairosI18n && window.KairosI18n.getLang && window.KairosI18n.getLang() === 'fr') ? 'fr' : 'en';
         await fetch(`${API_BASE}/send-welcome`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

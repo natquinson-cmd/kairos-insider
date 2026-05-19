@@ -7290,7 +7290,11 @@ async function handleSendWelcome(request, env, origin) {
   try {
     const body = await request.json();
     const email = (body.email || '').trim().toLowerCase();
-    const lang = (body.lang === 'en' ? 'en' : 'fr');  // strict whitelist
+    // POLICY (mai 2026 v2) : default EN si pas de lang explicite. Avant le
+    // default etait FR (Kairos = produit FR-first). User feedback : "en cas
+    // de doute mieux vaut EN" car audience smart money internationale. FR
+    // seulement si le client envoie body.lang='fr' explicitement.
+    const lang = (body.lang === 'fr' ? 'fr' : 'en');  // strict whitelist, default EN
     // Optionnel : Firebase Auth UID pour idempotence KV. Quand le dashboard
     // declenche /send-welcome automatiquement au signup, le meme uid peut
     // re-arriver si le user clear ses cookies + recree compte avec meme
@@ -7516,11 +7520,11 @@ function buildFounderLetter(lang) {
     hookBody: '<strong style="color:' + C.text + ';font-size:18px">Smart money.</strong> These two words changed how I see markets a few years ago. Before you dive deeper into Kairos, let me tell you why I built it.',
     h1Why: 'Why I built Kairos',
     whyP1: 'For years, I watched retail investors get crushed. Not from lack of discipline. Not from lack of analysis. But because they were playing a game where ' + em('the pros see the cards 6 months in advance') + '.',
-    whyExamplesIntro: 'A few concrete examples — every one of these is real, public, and was in front of you, but buried :',
+    whyExamplesIntro: 'Three concrete examples — every one is documented, public, and was in front of you but buried :',
     whyExamples: [
-      'When a CEO buys ' + $('$13M') + ' of his own company\'s shares over 3 days (Biglari Holdings, May 2026), it\'s filed on SEC EDGAR within ' + t('24 hours') + '. Retail reads it in a Bloomberg analysis ' + t('3 months later') + '.',
-      'When Elliott Management crosses 5% of a company\'s capital (Saham, May 2026), it\'s filed at the AMF within ' + t('48 hours') + '. Retail reads it in the 13F ' + t('45 days later') + '.',
-      'When Nancy Pelosi bought NVDA before a major government AI contract (2024), it was disclosed within ' + t('45 days') + '. Her reported portfolio returned ' + $('+70%') + ' that year, vs S&amp;P 500 ' + $('+24%') + '.',
+      em('CEO open-market buy.') + ' When a CEO buys his own stock with cash (SEC code <strong style="color:' + C.text + '">P</strong>, the strongest statistical signal), academic research (Lakonishok-Lee 2001, replicated since) shows an excess return of ' + $('+6 to +8%/year') + ' vs S&amp;P 500 over the following 12 months. Filing is public on SEC EDGAR within ' + t('24 hours') + '. Most retail discovers it ' + t('~3 months later') + ' via news — when 60% of the move is already gone.',
+      em('Activist 13D filing.') + ' When Elliott Management, Carl Icahn or Cevian crosses 5% of a company\'s capital, the target stock pops on average ' + $('+5–8% in 5 days') + ' post-announcement and ' + $('+15% over 12 months') + ' (Klein-Zur 2009, replicated). Filing is public within ' + t('48 hours') + '. Most retail reads it in Bloomberg ' + t('~2 weeks later') + ', after the initial pop.',
+      em('Congressional disclosures.') + ' Nancy Pelosi\'s reported portfolio returned ' + $('+70% in 2024') + ' vs S&amp;P 500 ' + $('+24%') + ' (source: Quiver Quantitative aggregating Congressional filings). Her NVDA buy right before a major government AI contract is the textbook example. Trades are public within ' + t('45 days') + ' at the Congressional registry — but no one reads them in real-time.',
     ],
     whyConclude: 'The realization that hit me : ' + em('none of this is secret') + '. It\'s all public, free, filed every day with 11 regulators (SEC, AMF, BaFin, FCA, AFM, SIX, CONSOB, CNMV, SEDI…). But scattered across dozens of sites, buried in unreadable PDFs, no normalized tickers. No one had built the tool to make it readable in 30 seconds.',
     pullQuote: 'Smart money is the only legal &quot;cheat code&quot; left in markets. I decided to step up.',
@@ -7561,11 +7565,11 @@ function buildFounderLetter(lang) {
     hookBody: '<strong style="color:' + C.text + ';font-size:18px">Smart money.</strong> Ces deux mots ont changé ma vision des marchés il y a quelques années. Avant que tu plonges plus loin dans Kairos, laisse-moi te raconter pourquoi je l\'ai construit.',
     h1Why: "Pourquoi j'ai créé Kairos",
     whyP1: 'Pendant des années, j\'ai regardé des retail investors se faire laminer. Pas par manque de discipline. Pas par manque d\'analyse. Mais parce qu\'ils jouaient à un jeu où ' + em('les pros voient les cartes 6 mois avant tout le monde') + '.',
-    whyExamplesIntro: 'Quelques exemples concrets — chacun est réel, public, et était sous ton nez, mais enterré :',
+    whyExamplesIntro: 'Trois exemples concrets — chacun est documenté, public, et était sous ton nez mais enterré :',
     whyExamples: [
-      'Quand un CEO achète ' + $('13 M$') + ' de ses propres actions sur 3 jours (Biglari Holdings, mai 2026), c\'est public sur SEC EDGAR à ' + t('J+1') + '. Le retail le lit dans une analyse Bloomberg ' + t('3 mois plus tard') + '.',
-      'Quand Elliott franchit 5% d\'une société (Saham, mai 2026), c\'est déposé sous ' + t('48 h') + ' à l\'AMF. Le retail le lit dans le 13F ' + t('45 jours plus tard') + '.',
-      'Quand Nancy Pelosi a acheté NVDA avant un mega contrat IA gouvernemental (2024), c\'est publié sous ' + t('45 jours') + ' au registre du Congrès. Son portfolio en 2024 : ' + $('+70%') + ', vs S&amp;P 500 ' + $('+24%') + '.',
+      em('CEO open-market buy.') + ' Quand un CEO achète ses propres actions en cash (code SEC <strong style="color:' + C.text + '">P</strong>, le signal le plus fort statistiquement), les études académiques (Lakonishok-Lee 2001, répliquées depuis) montrent un excès de rendement de ' + $('+6 à +8%/an') + ' vs S&amp;P 500 sur les 12 mois suivants. Le filing est public sur SEC EDGAR sous ' + t('24 h') + '. Le retail le découvre ' + t('~3 mois plus tard') + ' via les news — quand 60% du move est déjà parti.',
+      em('Filing activiste 13D.') + ' Quand Elliott Management, Carl Icahn ou Cevian franchit 5% du capital d\'une société, le stock cible pop en moyenne ' + $('+5 à +8% dans les 5 jours') + ' post-annonce et ' + $('+15% sur 12 mois') + ' (Klein-Zur 2009, étude répliquée). Le filing est public sous ' + t('48 h') + '. Le retail le lit dans Bloomberg ' + t('~2 semaines plus tard') + ', après le pop initial.',
+      em('Déclarations Congrès US.') + ' Le portefeuille reporté de Nancy Pelosi a fait ' + $('+70% en 2024') + ' vs S&amp;P 500 ' + $('+24%') + ' (source : Quiver Quantitative qui agrège les disclosures Congress). Son NVDA achetée juste avant un mega contrat IA gouvernemental est l\'exemple type. Trades publics sous ' + t('45 jours') + ' au registre du Congrès — mais personne ne les lit en temps réel.',
     ],
     whyConclude: 'Le constat qui m\'a frappé : ' + em('rien de tout ça n\'est secret') + '. Tout est public, gratuit, déposé chaque jour auprès de 11 régulateurs (SEC, AMF, BaFin, FCA, AFM, SIX, CONSOB, CNMV, SEDI…). Mais dispersé sur des dizaines de sites, enterré dans des PDF imbuvables, sans tickers normalisés. Personne n\'avait construit l\'outil pour rendre ça lisible en 30 secondes.',
     pullQuote: 'Smart money = le seul &quot;cheat code&quot; légal qu\'il reste sur les marchés. J\'ai décidé de m\'y mettre.',
@@ -7869,7 +7873,8 @@ async function handleAdminSyncBrevoContacts(request, env, origin) {
 // Retourne {subject, html} sans envoyer — utile pour preview dans le browser
 // avant de declencher le batch send.
 async function handleAdminFounderLetterPreview(url, origin) {
-  const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'fr';
+  // Default EN si lang non fournie ou autre (policy mai 2026)
+  const lang = url.searchParams.get('lang') === 'fr' ? 'fr' : 'en';
   const { subject, html } = buildFounderLetter(lang);
   return jsonResponse({ lang, subject, html }, 200, origin);
 }
@@ -7892,7 +7897,7 @@ async function handleAdminSendFounderLetter(request, env, origin) {
     const results = [];
     for (const r of recipients) {
       const email = (r.email || '').trim().toLowerCase();
-      const lang = r.lang === 'en' ? 'en' : 'fr';
+      const lang = r.lang === 'fr' ? 'fr' : 'en';  // default EN (policy mai 2026)
       if (!email || !emailRegex.test(email)) {
         results.push({ email, lang, ok: false, error: 'invalid email' });
         continue;
