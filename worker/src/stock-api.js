@@ -2275,8 +2275,44 @@ async function aggregate13F(ticker, env, companyName) {
     result.fundCount = matches.length;
     result.totalShares = matches.reduce((s, m) => s + (m.shares || 0), 0);
     result.totalValue = matches.reduce((s, m) => s + (m.value || 0), 0);
-    const deltas = matches.map(m => m.deltaPct).filter(d => Number.isFinite(d) && d !== 0);
-    result.avgDeltaPct = deltas.length > 0 ? (deltas.reduce((s, d) => s + d, 0) / deltas.length) : 0;
+
+    // FIX (mai 2026, user feedback FICO Δ +212571%) : avgDeltaPct = moyenne
+    // arithmetique simple des deltaPct par fonds. Bug : un fonds avec une
+    // nouvelle position (deltaPct=+99999% car shares prev = ~0) suffit a
+    // gonfler la moyenne a +50000% sur 20 fonds.
+    //
+    // Nouveau calcul : NET SHARES CHANGE % = (Σ sharesNow − Σ sharesPrev) / Σ sharesPrev × 100.
+    // Reconstitue sharesPrev par fonds via shares / (1 + deltaPct/100) puis
+    // somme. Si fonds nouveau (delta enorme), sharesPrev ≈ 0 -> contribue
+    // pas au denominateur (bon comportement : on mesure le mouvement net
+    // sur les positions deja existantes + l'ajout des nouvelles).
+    //
+    // Mathematiquement sound : mesure 'combien d'actions de plus les HF
+    // tiennent agreges, en % de ce qu'ils tenaient au Q-1'. Repond a la
+    // vraie question 'agregation ou allegement au global ?'.
+    //
+    // Edge cases :
+    //   - deltaPct null -> assume no change (sharesPrev = shares)
+    //   - deltaPct <= -100% -> fonds a tout vendu (skip, n'est plus dans
+    //     la liste de toute facon)
+    //   - totalSharesPrev = 0 -> all-new portfolio, on retourne null
+    let totalSharesPrev = 0;
+    for (const m of matches) {
+      const shares = Number(m.shares) || 0;
+      const dp = Number(m.deltaPct);
+      if (!Number.isFinite(dp)) { totalSharesPrev += shares; continue; }
+      if (dp <= -100) continue;  // exit total, skip
+      totalSharesPrev += shares / (1 + dp / 100);
+    }
+    if (totalSharesPrev > 0 && result.totalShares > 0) {
+      const netChangePct = ((result.totalShares - totalSharesPrev) / totalSharesPrev) * 100;
+      // Clamp defensif (theoriquement entre -100 et +1000% sur cas extremes
+      // type all-new portfolio, mais on borne pour pas exploser le narratif
+      // du score detail). +500% c'est deja absurde, on cap la.
+      result.avgDeltaPct = Math.max(-100, Math.min(500, netChangePct));
+    } else {
+      result.avgDeltaPct = 0;
+    }
     result._source = indexUsed ? 'ticker-index' : 'top-holdings-scan';
   } catch (e) {
     console.error('aggregate13F error:', e.message || e);
