@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!--
+  Founder Letter EN — Kairos Insider
+  ====================================
+  Email sent D+5 after signup (manually to the 4 current users, then
+  automated via Brevo workflow for future signups).
+
+  Voice: personal, founder (first person), not marketing.
+  Format: minimalist typography, no cards / KPIs / buttons.
+
+  Brevo template variables to use in composer:
+    {{ contact.FIRSTNAME | default: "" }}  -> first name if available
+    {{ unsubscribe }}                       -> mandatory unsubscribe link
+
+  Suggested subject:
+    "Why I built Kairos (and what you can expect)"
+
+  Pre-header:
+    "A short letter from Nathanaël, founder — not an automated email."
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>A letter from Nathanaël</title>
+</head>
+<body style="margin:0;padding:0;background:#0A0E1A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#F1F5F9;line-height:1.6">
+
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#0A0E1A">
+    <tr>
+      <td align="center" style="padding:32px 16px">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%">
+
+          <!-- Logo header -->
+          <tr>
+            <td style="padding:0 0 28px 0">
+              <img src="https://kairosinsider.fr/assets/logo-256.png" alt="Kairos Insider" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:8px">
+            </td>
+          </tr>
+
+          <!-- Hook -->
+          <tr>
+            <td style="padding:0 0 24px 0;font-size:16px;color:#F1F5F9;line-height:1.65">
+              <p style="margin:0 0 16px 0">Hi,</p>
+              <p style="margin:0">You're one of the <strong style="color:#F1F5F9">first 5 people</strong> who signed up for Kairos Insider. Not 50,000. Five. So rather than an automated welcome email, I'd rather write to you personally.</p>
+            </td>
+          </tr>
+
+          <!-- Section: Why -->
+          <tr>
+            <td style="padding:24px 0 16px 0">
+              <h2 style="margin:0;font-size:18px;font-weight:700;color:#F1F5F9;letter-spacing:-0.01em">Why I built Kairos</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 24px 0;font-size:15px;color:#CBD5E1;line-height:1.7">
+              <p style="margin:0 0 14px 0">I spent years watching how pros make decisions in markets. What struck me: the real signals aren't in TradingView analysis or Twitter feeds — they're in <strong style="color:#F1F5F9">SEC, AMF, BaFin filings</strong>. What insiders are buying. What activist hedge funds are accumulating. What politicians disclose.</p>
+              <p style="margin:0">It's all public. But in Europe, no one had built the tool to make it readable. I decided to step up.</p>
+            </td>
+          </tr>
+
+          <!-- Section: What you already have -->
+          <tr>
+            <td style="padding:24px 0 16px 0">
+              <h2 style="margin:0;font-size:18px;font-weight:700;color:#F1F5F9;letter-spacing:-0.01em">What you already have access to</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 24px 0;font-size:15px;color:#CBD5E1;line-height:1.7">
+              <ul style="margin:0;padding-left:20px;list-style-type:disc">
+                <li style="margin-bottom:10px"><strong style="color:#F1F5F9">Kairos Score 8D</strong> — a 0–100 score on every stock, broken down across 8 dimensions (insiders, smart money, momentum, valuation, health, analysts, gurus, earnings). No black box — you see exactly what drives the score.</li>
+                <li style="margin-bottom:10px"><strong style="color:#F1F5F9">300+ hedge funds tracked</strong> — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel... Every quarter we parse their 13F-HR filings. You see who holds what and how it changed since last quarter.</li>
+                <li style="margin-bottom:10px"><strong style="color:#F1F5F9">Near real-time insider activity</strong> — SEC Form 4 (US), AMF (France), BaFin (Germany). Filters up to 5 years of history, CSV export.</li>
+                <li style="margin-bottom:10px"><strong style="color:#F1F5F9">Politicians &amp; gurus</strong> — Pelosi, Cruz, Wyden... + Berkshire, Soros, Druckenmiller. When they buy, you know.</li>
+                <li style="margin-bottom:0"><strong style="color:#F1F5F9">ETF flows</strong> — ARK, BUZZ, NANC, GOP. Who's flowing in, who's flowing out, every day.</li>
+              </ul>
+              <p style="margin:16px 0 0 0;font-size:14px;color:#94A3B8">All on the free tier. No paywall on what matters — I want you to form an honest opinion on the value before considering Premium.</p>
+            </td>
+          </tr>
+
+          <!-- Section: What's coming -->
+          <tr>
+            <td style="padding:24px 0 16px 0">
+              <h2 style="margin:0;font-size:18px;font-weight:700;color:#F1F5F9;letter-spacing:-0.01em">What's coming next</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 24px 0;font-size:15px;color:#CBD5E1;line-height:1.7">
+              <ul style="margin:0;padding-left:20px;list-style-type:disc">
+                <li style="margin-bottom:10px">Auto Wikipedia photos on insider profiles — to put a face on Elon Musk, Jamie Dimon, Lina Mehnert.</li>
+                <li style="margin-bottom:10px">Weekly newsletter Sunday evenings — 3 smart money signals + 1 deep dive + week-ahead calendar.</li>
+                <li style="margin-bottom:0">Historical backtests: "if you had bought every time a CEO buys more than $X million, what's your 5-year P&amp;L?"</li>
+              </ul>
+            </td>
+          </tr>
+
+          <!-- Section: The question -->
+          <tr>
+            <td style="padding:24px 0 16px 0">
+              <h2 style="margin:0;font-size:18px;font-weight:700;color:#F1F5F9;letter-spacing:-0.01em">One question, that's all</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 32px 0;font-size:15px;color:#CBD5E1;line-height:1.7">
+              <p style="margin:0 0 14px 0">I'd really love your answer to this one: <strong style="color:#F1F5F9">what's THE feature that would make you upgrade to Premium?</strong></p>
+              <p style="margin:0 0 14px 0">Just reply directly to this email — I read every word.</p>
+              <p style="margin:0">If Kairos disappoints you or you find a bug, tell me too. That's more useful than compliments at this stage.</p>
+            </td>
+          </tr>
+
+          <!-- Signature -->
+          <tr>
+            <td style="padding:24px 0 0 0;border-top:1px solid rgba(255,255,255,0.07);font-size:15px;color:#CBD5E1;line-height:1.6">
+              <p style="margin:0 0 4px 0">Have a good week,</p>
+              <p style="margin:14px 0 0 0;color:#F1F5F9"><strong>Nathanaël</strong></p>
+              <p style="margin:2px 0 0 0;font-size:13px;color:#94A3B8">Founder, Kairos Insider</p>
+              <p style="margin:2px 0 0 0;font-size:13px;color:#94A3B8"><a href="mailto:nathanael@kairosinsider.fr" style="color:#94A3B8;text-decoration:underline">nathanael@kairosinsider.fr</a></p>
+            </td>
+          </tr>
+
+          <!-- Footer legal + unsubscribe -->
+          <tr>
+            <td style="padding:32px 0 0 0;font-size:12px;color:#64748B;line-height:1.5;text-align:center">
+              <p style="margin:0 0 8px 0">You're receiving this because you signed up at <a href="https://kairosinsider.fr" style="color:#94A3B8;text-decoration:underline">kairosinsider.fr</a>.</p>
+              <p style="margin:0">
+                <a href="{{ unsubscribe }}" style="color:#64748B;text-decoration:underline">Unsubscribe</a>
+                &nbsp;·&nbsp;
+                <a href="https://kairosinsider.fr/privacy.html" style="color:#64748B;text-decoration:underline">Privacy</a>
+              </p>
+              <p style="margin:12px 0 0 0;color:#475569">Kairos Insider — Smart Money tracking platform. Not investment advice.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

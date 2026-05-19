@@ -876,6 +876,20 @@ async function handleRequest(request, env, ctx) {
         if (path === '/api/admin/jobs') {
           return handleAdminJobs(env, origin);
         }
+        // Founder Letter (mai 2026) : envoie l'email "lettre du fondateur"
+        // a un user precis ou en batch. Bilingue FR/EN base sur le `lang` du
+        // body (defaut FR). Pas d'idempotence cote KV : volontaire pour
+        // permettre re-envoi manuel si besoin. Recipient list dans le body
+        // (pas de fetch auto Firebase pour rester explicite).
+        //
+        // GET (preview) : ?lang=fr|en -> retourne {subject, html} sans envoi
+        // POST (envoi) : body { recipients: [{email, lang}] } -> envoie via Brevo
+        if (request.method === 'GET' && path === '/api/admin/founder-letter-preview') {
+          return handleAdminFounderLetterPreview(url, origin);
+        }
+        if (request.method === 'POST' && path === '/api/admin/send-founder-letter') {
+          return handleAdminSendFounderLetter(request, env, origin);
+        }
         return jsonResponse({ error: 'Unknown admin route' }, 404, origin);
       }
 
@@ -7332,10 +7346,321 @@ async function handleSendWelcome(request, env, origin) {
     }
 
     const data = await brevoResponse.json();
+
+    // ENRICHISSEMENT POUR AUTOMATION (mai 2026) : on pousse l'attribut
+    // LANG sur le contact Brevo apres l'envoi du welcome. Permet aux
+    // workflows Brevo (Founder Letter J+5, Weekly Newsletter dimanche)
+    // de brancher le bon template via la condition "if contact.LANG = FR".
+    // Fire-and-forget : si l'API Brevo contact echoue, on log mais on
+    // n'echoue pas le send-welcome (le mail est deja parti, c'est ok).
+    pushBrevoContactLang(env, email, lang).catch(e =>
+      console.warn('[brevo-contact-lang] push failed:', e?.message || e)
+    );
+
+    // Stocke aussi `lang` dans le user:{uid} KV pour audit + futur targeting
+    // (admin panel "users by lang", segmentation cron weekly digest, etc.).
+    // Best-effort : si le user:{uid} n'existe pas encore (race-condition au
+    // tout 1er signup), on skip silencieusement -- le prochain login le
+    // creera et trackFirstSeenUser pourra eventuellement re-update via une
+    // future patche.
+    if (uid) {
+      try {
+        const userRecord = await env.CACHE.get(`user:${uid}`, 'json');
+        if (userRecord && userRecord.lang !== lang) {
+          userRecord.lang = lang;
+          userRecord.langUpdatedAt = new Date().toISOString();
+          await env.CACHE.put(`user:${uid}`, JSON.stringify(userRecord));
+        }
+      } catch (e) {
+        console.warn('[send-welcome] user.lang update failed:', e?.message || e);
+      }
+    }
+
     return jsonResponse({ ok: true, messageId: data.messageId, lang }, 200, origin);
   } catch (err) {
     console.error('handleSendWelcome error:', err);
     return jsonResponse({ error: 'Internal error' }, 500, origin);
+  }
+}
+
+// ============================================================
+// BREVO CONTACT ATTRIBUTES (mai 2026)
+// ============================================================
+// Push l'attribut LANG sur le contact Brevo. Idempotent (Brevo PUT
+// avec updateEnabled:true cree ou met a jour). Utilise par les workflows
+// d'automation pour conditionner le template envoye (FR vs EN).
+//
+// Note : l'attribut LANG doit avoir ete cree dans Brevo settings au
+// prealable (Contacts > Attributs et CRM > Add attribute, type Text).
+// Si pas cree, Brevo retourne 400 "Invalid attribute" mais on ignore.
+async function pushBrevoContactLang(env, email, lang) {
+  if (!env.BREVO_API_KEY || !email || !lang) return;
+  const langUpper = lang === 'en' ? 'EN' : 'FR';
+  try {
+    const resp = await fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(email)}`, {
+      method: 'PUT',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        attributes: { LANG: langUpper },
+        // Si le contact n'existe pas (pas cree par /v3/smtp/email), on le
+        // cree via cette meme requete. updateEnabled = pas d'erreur 400
+        // si contact deja present.
+      }),
+    });
+    if (!resp.ok && resp.status !== 404) {
+      const text = await resp.text().catch(() => '');
+      console.warn('[brevo-contact-lang]', resp.status, text.slice(0, 200));
+    }
+  } catch (e) {
+    console.warn('[brevo-contact-lang] fetch failed:', e?.message || e);
+  }
+}
+
+// ============================================================
+// BREVO : Founder Letter (mai 2026)
+// ============================================================
+// Email "lettre du fondateur" envoye J+5 apres signup. Voice : personnel,
+// 1ere personne, minimaliste (pas de cards/KPIs comme le welcome). Ton
+// fondateur authentique pour les premiers inscrits.
+//
+// Bilingue FR/EN strict (whitelist). Pas d'idempotence cote KV : volontaire
+// pour permettre re-envoi manuel si besoin (vs welcome qui doit etre 1
+// shot car declenche auto au signup).
+//
+// Source HTML : assets/email/founder-letter-{fr,en}.html (templates
+// inlined ci-dessous pour eviter un fetch reseau a chaque send).
+function buildFounderLetter(lang) {
+  const isEn = lang === 'en';
+  const subject = isEn
+    ? "Why I built Kairos (and what you can expect)"
+    : "Pourquoi j'ai créé Kairos (et ce que tu peux en attendre)";
+
+  // Palette match welcome email pour consistance brand
+  const C = {
+    bg: '#0A0E1A',
+    border: 'rgba(255,255,255,0.07)',
+    text: '#F1F5F9',
+    textDim: '#CBD5E1',
+    muted: '#94A3B8',
+    mutedDeep: '#64748B',
+    mutedDeeper: '#475569',
+  };
+
+  // Copie localisee — voice fondateur, pas marketing
+  const T = isEn ? {
+    title: 'A letter from Nathanaël',
+    hookHello: 'Hi,',
+    hookBody: 'You\'re one of the <strong style="color:' + C.text + '">first 5 people</strong> who signed up for Kairos Insider. Not 50,000. Five. So rather than an automated welcome email, I\'d rather write to you personally.',
+    h1Why: 'Why I built Kairos',
+    whyP1: 'I spent years watching how pros make decisions in markets. What struck me: the real signals aren\'t in TradingView analysis or Twitter feeds — they\'re in <strong style="color:' + C.text + '">SEC, AMF, BaFin filings</strong>. What insiders are buying. What activist hedge funds are accumulating. What politicians disclose.',
+    whyP2: 'It\'s all public. But in Europe, no one had built the tool to make it readable. I decided to step up.',
+    h2Have: 'What you already have access to',
+    haveItems: [
+      '<strong style="color:' + C.text + '">Kairos Score 8D</strong> — a 0–100 score on every stock, broken down across 8 dimensions (insiders, smart money, momentum, valuation, health, analysts, gurus, earnings). No black box — you see exactly what drives the score.',
+      '<strong style="color:' + C.text + '">300+ hedge funds tracked</strong> — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel... Every quarter we parse their 13F-HR filings. You see who holds what and how it changed since last quarter.',
+      '<strong style="color:' + C.text + '">Near real-time insider activity</strong> — SEC Form 4 (US), AMF (France), BaFin (Germany). Filters up to 5 years of history, CSV export.',
+      '<strong style="color:' + C.text + '">Politicians &amp; gurus</strong> — Pelosi, Cruz, Wyden... + Berkshire, Soros, Druckenmiller. When they buy, you know.',
+      '<strong style="color:' + C.text + '">ETF flows</strong> — ARK, BUZZ, NANC, GOP. Who\'s flowing in, who\'s flowing out, every day.',
+    ],
+    haveFooter: 'All on the free tier. No paywall on what matters — I want you to form an honest opinion on the value before considering Premium.',
+    h3Coming: "What's coming next",
+    comingItems: [
+      'Auto Wikipedia photos on insider profiles — to put a face on Elon Musk, Jamie Dimon, Lina Mehnert.',
+      'Weekly newsletter Sunday evenings — 3 smart money signals + 1 deep dive + week-ahead calendar.',
+      'Historical backtests: "if you had bought every time a CEO buys more than $X million, what\'s your 5-year P&amp;L?"',
+    ],
+    h4Ask: 'One question, that\'s all',
+    askP1: 'I\'d really love your answer to this one: <strong style="color:' + C.text + '">what\'s THE feature that would make you upgrade to Premium?</strong>',
+    askP2: 'Just reply directly to this email — I read every word.',
+    askP3: 'If Kairos disappoints you or you find a bug, tell me too. That\'s more useful than compliments at this stage.',
+    sigClose: 'Have a good week,',
+    sigName: 'Nathanaël',
+    sigTitle: 'Founder, Kairos Insider',
+    footerNote: 'You\'re receiving this because you signed up at',
+    footerUnsub: 'Unsubscribe',
+    footerPrivacy: 'Privacy',
+    footerLegal: 'Kairos Insider — Smart Money tracking platform. Not investment advice.',
+  } : {
+    title: 'Une lettre de Nathanaël',
+    hookHello: 'Bonjour,',
+    hookBody: 'Tu fais partie des <strong style="color:' + C.text + '">5 premiers inscrits</strong> sur Kairos Insider. Pas 50 000. Cinq. Alors plutôt qu\'un email automatique de bienvenue, je préfère t\'écrire personnellement.',
+    h1Why: "Pourquoi j'ai créé Kairos",
+    whyP1: 'J\'ai passé des années à observer comment les pros décident sur les marchés. Ce qui m\'a frappé : les vrais signaux ne sont pas dans les analyses TradingView ou les feeds Twitter — ils sont dans les <strong style="color:' + C.text + '">filings SEC, AMF, BaFin</strong>. Ce que les insiders achètent. Ce que les hedge funds activistes accumulent. Ce que les politiciens déclarent.',
+    whyP2: 'Tout est public. Mais en France, personne n\'a construit l\'outil pour le rendre lisible. J\'ai décidé de m\'y mettre.',
+    h2Have: 'Ce que tu as déjà à disposition',
+    haveItems: [
+      '<strong style="color:' + C.text + '">Kairos Score 8D</strong> — un score 0–100 sur chaque action, décomposé en 8 dimensions (insiders, smart money, momentum, valorisation, santé, analystes, gourous, earnings). Pas de boîte noire — tu vois exactement ce qui le compose.',
+      '<strong style="color:' + C.text + '">300+ hedge funds suivis</strong> — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel... Chaque trimestre on parse leurs 13F-HR. Tu vois qui détient quoi et l\'évolution depuis le dernier trimestre.',
+      '<strong style="color:' + C.text + '">Activité insiders temps quasi-réel</strong> — SEC Form 4 (US), AMF (France), BaFin (Allemagne). Filtres jusqu\'à 5 ans d\'historique, export CSV.',
+      '<strong style="color:' + C.text + '">Politiciens &amp; gourous</strong> — Pelosi, Cruz, Wyden... + Berkshire, Soros, Druckenmiller. Quand ils achètent, tu le sais.',
+      '<strong style="color:' + C.text + '">Flux ETF</strong> — ARK, BUZZ, NANC, GOP. Qui rentre, qui sort, chaque jour.',
+    ],
+    haveFooter: 'Tout ça en accès gratuit. Pas de paywall sur l\'essentiel — je veux que tu puisses te faire un avis honnête sur la valeur avant de penser Premium.',
+    h3Coming: 'Ce qui arrive bientôt',
+    comingItems: [
+      'Photos Wikipedia automatiques sur les fiches dirigeants — pour mettre un visage sur Elon Musk, Jamie Dimon, Lina Mehnert.',
+      'Newsletter hebdo dimanche soir — 3 signaux smart money + 1 deep dive + calendrier de la semaine.',
+      'Backtests historiques : "si tu avais acheté chaque fois qu\'un CEO achète plus de X millions, ton P&amp;L sur 5 ans ?"',
+    ],
+    h4Ask: 'Une question, et c\'est tout',
+    askP1: 'J\'aimerais beaucoup ta réponse à celle-ci : <strong style="color:' + C.text + '">quelle est LA feature qui te ferait passer Premium ?</strong>',
+    askP2: 'Réponds directement à cet email — je lis chaque mot.',
+    askP3: 'Si Kairos te déçoit ou si tu trouves un bug, dis-le moi aussi. C\'est plus utile que les compliments à ce stade.',
+    sigClose: 'Bon week-end de marché,',
+    sigName: 'Nathanaël',
+    sigTitle: 'Fondateur, Kairos Insider',
+    footerNote: 'Tu reçois cet email car tu t\'es inscrit sur',
+    footerUnsub: 'Se désabonner',
+    footerPrivacy: 'Confidentialité',
+    footerLegal: 'Kairos Insider — Plateforme de tracking smart money. Pas un conseil en investissement.',
+  };
+
+  const liStyle = 'margin-bottom:10px';
+  const liStyleLast = 'margin-bottom:0';
+  const haveLis = T.haveItems.map((it, i) => `<li style="${i === T.haveItems.length - 1 ? liStyleLast : liStyle}">${it}</li>`).join('');
+  const comingLis = T.comingItems.map((it, i) => `<li style="${i === T.comingItems.length - 1 ? liStyleLast : liStyle}">${it}</li>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="${isEn ? 'en' : 'fr'}">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light dark"><title>${T.title}</title></head>
+<body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:${C.text};line-height:1.6">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${C.bg}">
+<tr><td align="center" style="padding:32px 16px">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%">
+
+<tr><td style="padding:0 0 28px 0"><img src="https://kairosinsider.fr/assets/logo-256.png" alt="Kairos Insider" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:8px"></td></tr>
+
+<tr><td style="padding:0 0 24px 0;font-size:16px;color:${C.text};line-height:1.65">
+<p style="margin:0 0 16px 0">${T.hookHello}</p>
+<p style="margin:0">${T.hookBody}</p>
+</td></tr>
+
+<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h1Why}</h2></td></tr>
+<tr><td style="padding:0 0 24px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<p style="margin:0 0 14px 0">${T.whyP1}</p>
+<p style="margin:0">${T.whyP2}</p>
+</td></tr>
+
+<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h2Have}</h2></td></tr>
+<tr><td style="padding:0 0 24px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<ul style="margin:0;padding-left:20px;list-style-type:disc">${haveLis}</ul>
+<p style="margin:16px 0 0 0;font-size:14px;color:${C.muted}">${T.haveFooter}</p>
+</td></tr>
+
+<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h3Coming}</h2></td></tr>
+<tr><td style="padding:0 0 24px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<ul style="margin:0;padding-left:20px;list-style-type:disc">${comingLis}</ul>
+</td></tr>
+
+<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h4Ask}</h2></td></tr>
+<tr><td style="padding:0 0 32px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<p style="margin:0 0 14px 0">${T.askP1}</p>
+<p style="margin:0 0 14px 0">${T.askP2}</p>
+<p style="margin:0">${T.askP3}</p>
+</td></tr>
+
+<tr><td style="padding:24px 0 0 0;border-top:1px solid ${C.border};font-size:15px;color:${C.textDim};line-height:1.6">
+<p style="margin:0 0 4px 0">${T.sigClose}</p>
+<p style="margin:14px 0 0 0;color:${C.text}"><strong>${T.sigName}</strong></p>
+<p style="margin:2px 0 0 0;font-size:13px;color:${C.muted}">${T.sigTitle}</p>
+<p style="margin:2px 0 0 0;font-size:13px;color:${C.muted}"><a href="mailto:nathanael@kairosinsider.fr" style="color:${C.muted};text-decoration:underline">nathanael@kairosinsider.fr</a></p>
+</td></tr>
+
+<tr><td style="padding:32px 0 0 0;font-size:12px;color:${C.mutedDeep};line-height:1.5;text-align:center">
+<p style="margin:0 0 8px 0">${T.footerNote} <a href="https://kairosinsider.fr" style="color:${C.muted};text-decoration:underline">kairosinsider.fr</a>.</p>
+<p style="margin:0"><a href="{{ unsubscribe }}" style="color:${C.mutedDeep};text-decoration:underline">${T.footerUnsub}</a> &nbsp;·&nbsp; <a href="https://kairosinsider.fr/privacy.html" style="color:${C.mutedDeep};text-decoration:underline">${T.footerPrivacy}</a></p>
+<p style="margin:12px 0 0 0;color:${C.mutedDeeper}">${T.footerLegal}</p>
+</td></tr>
+
+</table></td></tr></table></body></html>`;
+
+  return { subject, html };
+}
+
+// GET /api/admin/founder-letter-preview?lang=fr|en
+// Retourne {subject, html} sans envoyer — utile pour preview dans le browser
+// avant de declencher le batch send.
+async function handleAdminFounderLetterPreview(url, origin) {
+  const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'fr';
+  const { subject, html } = buildFounderLetter(lang);
+  return jsonResponse({ lang, subject, html }, 200, origin);
+}
+
+// POST /api/admin/send-founder-letter
+// Body : { recipients: [{ email, lang }] }
+// Envoie le Founder Letter a chaque recipient via Brevo. Pas d'idempotence
+// KV (volontaire : permet re-envoi manuel). Retourne le detail par destinataire.
+async function handleAdminSendFounderLetter(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const recipients = Array.isArray(body.recipients) ? body.recipients : [];
+    if (!recipients.length) {
+      return jsonResponse({ error: 'recipients array required' }, 400, origin);
+    }
+    if (recipients.length > 50) {
+      return jsonResponse({ error: 'max 50 recipients per call' }, 400, origin);
+    }
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    const results = [];
+    for (const r of recipients) {
+      const email = (r.email || '').trim().toLowerCase();
+      const lang = r.lang === 'en' ? 'en' : 'fr';
+      if (!email || !emailRegex.test(email)) {
+        results.push({ email, lang, ok: false, error: 'invalid email' });
+        continue;
+      }
+      const { subject, html } = buildFounderLetter(lang);
+      try {
+        const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: {
+              name: env.BREVO_SENDER_NAME || 'Nathanaël (Kairos)',
+              email: env.BREVO_SENDER_EMAIL || 'nathanael@kairosinsider.fr',
+            },
+            replyTo: {
+              name: 'Nathanaël',
+              email: 'nathanael@kairosinsider.fr',
+            },
+            to: [{ email }],
+            subject,
+            htmlContent: html,
+            tags: ['founder-letter', `founder-letter-${lang}`],
+          }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => '');
+          results.push({ email, lang, ok: false, error: `Brevo ${resp.status}: ${errText.slice(0, 120)}` });
+          continue;
+        }
+        const data = await resp.json().catch(() => ({}));
+        results.push({ email, lang, ok: true, messageId: data.messageId });
+        // Pousse aussi l'attribut LANG au passage (defense en profondeur
+        // pour les futurs workflows Brevo)
+        pushBrevoContactLang(env, email, lang).catch(() => {});
+      } catch (e) {
+        results.push({ email, lang, ok: false, error: e?.message || String(e) });
+      }
+    }
+    const okCount = results.filter(r => r.ok).length;
+    return jsonResponse({
+      ok: true,
+      sent: okCount,
+      failed: results.length - okCount,
+      results,
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminSendFounderLetter error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
   }
 }
 
