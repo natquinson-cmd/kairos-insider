@@ -896,6 +896,15 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'PUT' && path === '/api/admin/user-lang') {
           return handleAdminSetUserLang(request, env, origin);
         }
+        // POST /api/admin/sync-brevo-contacts : ajoute (ou met a jour) tous
+        // les users KV dans Brevo Contacts. Necessaire si on a accumule des
+        // inscrits avant le fix du push contact (les welcomes transactionnels
+        // ne creent PAS de contact CRM). Body optionnel :
+        //   { listIds: [N] }  -> ajoute aussi a une liste marketing (ex: 2 = Newsletter)
+        //   { dryRun: true }  -> retourne ce qu'on aurait fait, sans push
+        if (request.method === 'POST' && path === '/api/admin/sync-brevo-contacts') {
+          return handleAdminSyncBrevoContacts(request, env, origin);
+        }
         return jsonResponse({ error: 'Unknown admin route' }, 404, origin);
       }
 
@@ -7353,14 +7362,16 @@ async function handleSendWelcome(request, env, origin) {
 
     const data = await brevoResponse.json();
 
-    // ENRICHISSEMENT POUR AUTOMATION (mai 2026) : on pousse l'attribut
-    // LANG sur le contact Brevo apres l'envoi du welcome. Permet aux
-    // workflows Brevo (Founder Letter J+5, Weekly Newsletter dimanche)
-    // de brancher le bon template via la condition "if contact.LANG = FR".
-    // Fire-and-forget : si l'API Brevo contact echoue, on log mais on
-    // n'echoue pas le send-welcome (le mail est deja parti, c'est ok).
-    pushBrevoContactLang(env, email, lang).catch(e =>
-      console.warn('[brevo-contact-lang] push failed:', e?.message || e)
+    // CREATION CONTACT BREVO (mai 2026) : essentiel sinon le user
+    // n'apparait PAS dans Brevo Contacts (l'envoi transactionnel ne
+    // cree pas de contact CRM). Sans cette ligne :
+    //   - newsletter impossible (campagnes Brevo == listes contacts)
+    //   - workflow automation impossible (founder letter J+5)
+    //   - tracking opens/clicks per contact impossible
+    // pushBrevoContact utilise updateEnabled:true = idempotent.
+    // Fire-and-forget : si Brevo down, le welcome est deja parti.
+    pushBrevoContact(env, email, { lang }).catch(e =>
+      console.warn('[brevo-contact] welcome create failed:', e?.message || e)
     );
 
     // Stocke aussi `lang` dans le user:{uid} KV pour audit + futur targeting
@@ -7390,40 +7401,68 @@ async function handleSendWelcome(request, env, origin) {
 }
 
 // ============================================================
-// BREVO CONTACT ATTRIBUTES (mai 2026)
+// BREVO CONTACT MANAGEMENT (mai 2026)
 // ============================================================
-// Push l'attribut LANG sur le contact Brevo. Idempotent (Brevo PUT
-// avec updateEnabled:true cree ou met a jour). Utilise par les workflows
-// d'automation pour conditionner le template envoye (FR vs EN).
+// Cree ou met a jour un contact Brevo (Contacts > Tous les contacts).
 //
-// Note : l'attribut LANG doit avoir ete cree dans Brevo settings au
-// prealable (Contacts > Attributs et CRM > Add attribute, type Text).
-// Si pas cree, Brevo retourne 400 "Invalid attribute" mais on ignore.
-async function pushBrevoContactLang(env, email, lang) {
-  if (!env.BREVO_API_KEY || !email || !lang) return;
-  const langUpper = lang === 'en' ? 'EN' : 'FR';
+// IMPORTANT : Brevo distingue 2 APIs :
+//   - /v3/smtp/email (transactionnel) : envoie mail mais N'AJOUTE PAS aux Contacts
+//   - /v3/contacts (marketing)        : cree/MAJ un contact CRM
+// Sans appel a /v3/contacts, les users qui recoivent un welcome
+// transactionnel n'apparaissent pas dans Brevo Contacts -> impossible
+// de leur envoyer newsletter / workflow automation.
+//
+// FIX (mai 2026) : on bascule de PUT /v3/contacts/{email} (qui retournait
+// 404 si le contact n'existait pas) vers POST /v3/contacts avec
+// updateEnabled:true (cree ou met a jour de facon atomique).
+//
+// Note attribut LANG : doit avoir ete cree dans Brevo settings au prealable
+// (Contacts > Attributs et CRM > Add attribute, type Text). Sinon Brevo
+// stocke l'attribut quand meme mais il n'apparait pas comme colonne dans l'UI.
+async function pushBrevoContact(env, email, opts = {}) {
+  if (!env.BREVO_API_KEY || !email) return { ok: false, reason: 'no-api-key-or-email' };
+  const langUpper = opts.lang === 'en' ? 'EN' : opts.lang === 'fr' ? 'FR' : null;
+  const attributes = {};
+  if (langUpper) attributes.LANG = langUpper;
+  if (opts.firstName) attributes.FIRSTNAME = String(opts.firstName).slice(0, 100);
+  // Optionnel : ajout a une liste marketing (Newsletter, Free Users, etc.)
+  // L'ID de liste se recupere dans Brevo > Contacts > Listes.
+  const listIds = Array.isArray(opts.listIds) ? opts.listIds : [];
+
   try {
-    const resp = await fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(email)}`, {
-      method: 'PUT',
+    const body = {
+      email,
+      updateEnabled: true,  // cree si absent, met a jour sinon (idempotent)
+      attributes,
+    };
+    if (listIds.length) body.listIds = listIds;
+
+    const resp = await fetch('https://api.brevo.com/v3/contacts', {
+      method: 'POST',
       headers: {
         'api-key': env.BREVO_API_KEY,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        attributes: { LANG: langUpper },
-        // Si le contact n'existe pas (pas cree par /v3/smtp/email), on le
-        // cree via cette meme requete. updateEnabled = pas d'erreur 400
-        // si contact deja present.
-      }),
+      body: JSON.stringify(body),
     });
-    if (!resp.ok && resp.status !== 404) {
+    if (!resp.ok) {
       const text = await resp.text().catch(() => '');
-      console.warn('[brevo-contact-lang]', resp.status, text.slice(0, 200));
+      console.warn('[brevo-contact]', resp.status, text.slice(0, 300));
+      return { ok: false, status: resp.status, error: text.slice(0, 300) };
     }
+    const data = await resp.json().catch(() => ({}));
+    return { ok: true, contactId: data.id || null };
   } catch (e) {
-    console.warn('[brevo-contact-lang] fetch failed:', e?.message || e);
+    console.warn('[brevo-contact] fetch failed:', e?.message || e);
+    return { ok: false, error: e?.message || String(e) };
   }
+}
+
+// Alias retro-compat : ancien nom utilise depuis handleSendWelcome.
+// Garde la signature simple (email, lang) pour minimiser le diff.
+async function pushBrevoContactLang(env, email, lang) {
+  return pushBrevoContact(env, email, { lang });
 }
 
 // ============================================================
@@ -7653,6 +7692,68 @@ async function handleAdminSetUserLang(request, env, origin) {
     }, 200, origin);
   } catch (err) {
     console.error('handleAdminSetUserLang error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// POST /api/admin/sync-brevo-contacts
+// Backfill Brevo Contacts pour les inscrits qui n'y figurent pas encore
+// (cas typique : welcomes transactionnels envoyes avant le fix
+// pushBrevoContact, donc users dans KV mais pas dans Brevo Contacts).
+//
+// Body optionnel :
+//   - listIds : [number]  -> aussi ajouter a cette liste marketing
+//   - dryRun  : boolean   -> juste retourner la liste, sans push
+//
+// Parcourt user:* KV, extrait email + lang, appelle pushBrevoContact.
+async function handleAdminSyncBrevoContacts(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const listIds = Array.isArray(body.listIds) ? body.listIds.map(Number).filter(n => Number.isInteger(n) && n > 0) : [];
+    const dryRun = !!body.dryRun;
+
+    const userKeys = await listAllKvKeys(env, 'user:', 5000);
+    const candidates = [];
+    for (const k of userKeys) {
+      const u = await env.CACHE.get(k, 'json').catch(() => null);
+      if (!u || !u.email) continue;
+      candidates.push({
+        uid: k.slice(5),
+        email: (u.email || '').toLowerCase().trim(),
+        lang: u.lang || null,
+        firstName: u.firstName || null,
+      });
+    }
+
+    if (dryRun) {
+      return jsonResponse({
+        ok: true,
+        dryRun: true,
+        wouldSync: candidates.length,
+        candidates,
+        listIds,
+      }, 200, origin);
+    }
+
+    const results = [];
+    for (const c of candidates) {
+      const res = await pushBrevoContact(env, c.email, {
+        lang: c.lang,  // peut etre null -> pas d'attribut LANG mis
+        firstName: c.firstName,
+        listIds,
+      });
+      results.push({ uid: c.uid, email: c.email, lang: c.lang, ...res });
+    }
+    const okCount = results.filter(r => r.ok).length;
+    return jsonResponse({
+      ok: true,
+      synced: okCount,
+      failed: results.length - okCount,
+      listIds,
+      results,
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminSyncBrevoContacts error:', err);
     return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
   }
 }
