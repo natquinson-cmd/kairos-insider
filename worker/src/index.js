@@ -905,6 +905,18 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'POST' && path === '/api/admin/sync-brevo-contacts') {
           return handleAdminSyncBrevoContacts(request, env, origin);
         }
+        // GET /api/admin/brevo-contact?email=... : retourne le contact Brevo
+        // exactement comme Brevo le voit (incluant attributes, listIds, etc.).
+        // Diagnostic : permet de checker si LANG est bien set sur un contact.
+        if (request.method === 'GET' && path === '/api/admin/brevo-contact') {
+          return handleAdminBrevoContactGet(url, env, origin);
+        }
+        // POST /api/admin/brevo-setup-attributes : cree les attributs custom
+        // Brevo (LANG = Text) si pas deja la. One-shot idempotent : Brevo
+        // retourne 400 "already exists" si attribut deja cree, on l'ignore.
+        if (request.method === 'POST' && path === '/api/admin/brevo-setup-attributes') {
+          return handleAdminBrevoSetupAttributes(env, origin);
+        }
         return jsonResponse({ error: 'Unknown admin route' }, 404, origin);
       }
 
@@ -7807,6 +7819,100 @@ async function handleAdminSetUserLang(request, env, origin) {
     console.error('handleAdminSetUserLang error:', err);
     return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
   }
+}
+
+// GET /api/admin/brevo-contact?email=...
+// Diagnostic : retourne le contact Brevo (attributes, listIds, statistics).
+// Permet de checker si l'attribut LANG est bien set apres un push, ou si
+// le contact existe seulement comme transactional recipient.
+async function handleAdminBrevoContactGet(url, env, origin) {
+  const email = (url.searchParams.get('email') || '').trim().toLowerCase();
+  if (!email) return jsonResponse({ error: 'email param required' }, 400, origin);
+  if (!env.BREVO_API_KEY) return jsonResponse({ error: 'BREVO_API_KEY not configured' }, 500, origin);
+  try {
+    const resp = await fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Accept': 'application/json',
+      },
+    });
+    const body = await resp.text();
+    let parsed = null;
+    try { parsed = JSON.parse(body); } catch {}
+    return jsonResponse({
+      ok: resp.ok,
+      status: resp.status,
+      contact: parsed,
+      rawBody: parsed ? null : body.slice(0, 500),
+    }, resp.ok ? 200 : 200, origin);  // 200 meme si Brevo 404, c'est un diagnostic
+  } catch (err) {
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// POST /api/admin/brevo-setup-attributes
+// Cree les attributs custom Brevo necessaires aux workflows :
+//   - LANG (text)        : FR / EN — segmentation des emails par langue
+//   - PLAN (text)        : free / pro / elite — segmentation par tier
+//   - LAST_LOGIN (date)  : dernier login dashboard — pour reactivation
+// One-shot idempotent : Brevo retourne 400 'already exists' si l'attribut
+// est deja cree, on log + on continue. Resultat final liste tous les
+// attributs custom presents dans le compte.
+async function handleAdminBrevoSetupAttributes(env, origin) {
+  if (!env.BREVO_API_KEY) return jsonResponse({ error: 'BREVO_API_KEY not configured' }, 500, origin);
+  const wanted = [
+    { name: 'LANG',       type: 'text' },
+    { name: 'PLAN',       type: 'text' },
+    { name: 'LAST_LOGIN', type: 'date' },
+  ];
+  const results = [];
+  for (const attr of wanted) {
+    try {
+      // POST https://api.brevo.com/v3/contacts/attributes/{category}/{name}
+      // category = "normal" pour les attributs custom standards (vs "calculated"
+      // ou "global" qui sont des features Brevo specifiques).
+      const resp = await fetch(`https://api.brevo.com/v3/contacts/attributes/normal/${encodeURIComponent(attr.name)}`, {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ type: attr.type }),
+      });
+      const text = await resp.text();
+      // 204 No Content = success. 400 + message contenant "already exists" = idempotent OK.
+      if (resp.ok || resp.status === 204) {
+        results.push({ name: attr.name, status: 'created', httpStatus: resp.status });
+      } else if (resp.status === 400 && /exist/i.test(text)) {
+        results.push({ name: attr.name, status: 'already_exists', httpStatus: resp.status });
+      } else {
+        results.push({ name: attr.name, status: 'error', httpStatus: resp.status, detail: text.slice(0, 200) });
+      }
+    } catch (e) {
+      results.push({ name: attr.name, status: 'fetch_error', detail: e?.message });
+    }
+  }
+
+  // Liste l'etat final des attributs custom dans Brevo
+  let attributesList = null;
+  try {
+    const listResp = await fetch('https://api.brevo.com/v3/contacts/attributes', {
+      method: 'GET',
+      headers: { 'api-key': env.BREVO_API_KEY, 'Accept': 'application/json' },
+    });
+    if (listResp.ok) {
+      const listData = await listResp.json();
+      attributesList = listData.attributes || [];
+    }
+  } catch {}
+
+  return jsonResponse({
+    ok: true,
+    setupResults: results,
+    currentAttributes: attributesList,
+  }, 200, origin);
 }
 
 // POST /api/admin/sync-brevo-contacts
