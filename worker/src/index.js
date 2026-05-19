@@ -890,6 +890,12 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'POST' && path === '/api/admin/send-founder-letter') {
           return handleAdminSendFounderLetter(request, env, origin);
         }
+        // PUT /api/admin/user-lang : backfill manuel de la langue d'un user
+        // (utile pour les inscrits pre-fix mai 2026 dont user:{uid}.lang est
+        // null). Body : { uid, lang } ou { email, lang }.
+        if (request.method === 'PUT' && path === '/api/admin/user-lang') {
+          return handleAdminSetUserLang(request, env, origin);
+        }
         return jsonResponse({ error: 'Unknown admin route' }, 404, origin);
       }
 
@@ -7581,6 +7587,76 @@ function buildFounderLetter(lang) {
   return { subject, html };
 }
 
+// PUT /api/admin/user-lang
+// Backfill manuel de la langue d'un utilisateur. Necessaire pour les inscrits
+// pre-fix mai 2026 dont `user:{uid}.lang` est null (la langue n'etait pas
+// stockee au signup avant). Cherche par uid OU par email (resout vers uid via
+// scan user:* — 100x lent que par uid donc preferer uid quand on l'a).
+//
+// Body : { uid, lang } ou { email, lang }
+// Lang : 'fr' ou 'en' (strict)
+//
+// Effets de bord :
+//   - Met a jour user:{uid}.lang + langUpdatedAt
+//   - Push aussi l'attribut LANG sur le contact Brevo (best-effort)
+async function handleAdminSetUserLang(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const lang = body.lang === 'en' ? 'en' : body.lang === 'fr' ? 'fr' : null;
+    if (!lang) {
+      return jsonResponse({ error: 'lang must be "fr" or "en"' }, 400, origin);
+    }
+    let uid = body.uid ? String(body.uid).trim() : null;
+    let email = body.email ? String(body.email).trim().toLowerCase() : null;
+
+    // Resolution email -> uid si pas d'uid fourni
+    if (!uid && email) {
+      const userKeys = await listAllKvKeys(env, 'user:', 5000);
+      for (const k of userKeys) {
+        const u = await env.CACHE.get(k, 'json').catch(() => null);
+        if (u && (u.email || '').toLowerCase() === email) {
+          uid = k.slice(5);
+          break;
+        }
+      }
+      if (!uid) {
+        return jsonResponse({ error: 'user not found for email', email }, 404, origin);
+      }
+    }
+    if (!uid) {
+      return jsonResponse({ error: 'uid or email required' }, 400, origin);
+    }
+
+    const userRecord = await env.CACHE.get(`user:${uid}`, 'json');
+    if (!userRecord) {
+      return jsonResponse({ error: 'user record not found', uid }, 404, origin);
+    }
+    userRecord.lang = lang;
+    userRecord.langUpdatedAt = new Date().toISOString();
+    userRecord.langBackfilledBy = 'admin';  // audit trail
+    await env.CACHE.put(`user:${uid}`, JSON.stringify(userRecord));
+
+    // Push aussi l'attribut Brevo (best-effort)
+    const userEmail = userRecord.email || email;
+    if (userEmail) {
+      pushBrevoContactLang(env, userEmail, lang).catch(e =>
+        console.warn('[set-user-lang] brevo push failed:', e?.message || e)
+      );
+    }
+
+    return jsonResponse({
+      ok: true,
+      uid,
+      email: userEmail,
+      lang,
+      langUpdatedAt: userRecord.langUpdatedAt,
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminSetUserLang error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
 // GET /api/admin/founder-letter-preview?lang=fr|en
 // Retourne {subject, html} sans envoyer — utile pour preview dans le browser
 // avant de declencher le batch send.
@@ -9309,6 +9385,10 @@ async function handleAdminUsers(env, origin) {
           watchlistOptIn: !!wlData?.optin,
           lastWatchlistUpdate: wlData?.updatedAt || null,
           firstSeen: userData?.firstSeen || null, // date premiere connexion
+          // Langue de l'user, stockee au moment du send-welcome (mai 2026).
+          // NULL pour les inscrits pre-fix : on les inferrera via Brevo.
+          lang: userData?.lang || null,
+          langUpdatedAt: userData?.langUpdatedAt || null,
         };
       }));
       users.push(...results);

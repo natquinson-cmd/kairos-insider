@@ -21,33 +21,51 @@ Templates HTML pour les emails transactionnels. 2 sources de vérité :
 
 ### Méthode 1 — Via l'API worker (recommandée, rapide)
 
+Auth via `X-Admin-API-Key` (secret long-lived `env.ADMIN_API_KEY` du worker,
+pas besoin de re-renouveler un token Firebase chaque heure).
+
 ```bash
+export KEY="<ADMIN_API_KEY>"  # secret worker, cf wrangler secret list
+export API="https://kairos-insider-api.natquinson.workers.dev"
+
 # Preview FR (browser-visible)
-curl "https://kairos-insider-api.natquinson.workers.dev/api/admin/founder-letter-preview?lang=fr" \
-  -H "Authorization: Bearer $(firebase auth:print-access-token)" \
+curl -s "$API/api/admin/founder-letter-preview?lang=fr" \
+  -H "X-Admin-API-Key: $KEY" \
   | jq -r '.html' > /tmp/founder-fr-preview.html
-open /tmp/founder-fr-preview.html  # macOS
-start /tmp/founder-fr-preview.html # Windows
+start /tmp/founder-fr-preview.html  # Windows
+# OR : open /tmp/founder-fr-preview.html (macOS)
 
 # Preview EN
-curl "https://kairos-insider-api.natquinson.workers.dev/api/admin/founder-letter-preview?lang=en" \
-  -H "Authorization: Bearer $(firebase auth:print-access-token)" \
+curl -s "$API/api/admin/founder-letter-preview?lang=en" \
+  -H "X-Admin-API-Key: $KEY" \
   | jq -r '.html' > /tmp/founder-en-preview.html
 
 # Envoi batch (4 inscrits actuels)
-curl -X POST "https://kairos-insider-api.natquinson.workers.dev/api/admin/send-founder-letter" \
-  -H "Authorization: Bearer $(firebase auth:print-access-token)" \
+curl -X POST "$API/api/admin/send-founder-letter" \
+  -H "X-Admin-API-Key: $KEY" \
   -H "Content-Type: application/json" \
-  -d @- <<'EOF'
+  -d '{
+    "recipients": [
+      {"email": "jorgentheboss@gmail.com",          "lang": "en"},
+      {"email": "harryhollingworth@yahoo.co.uk",    "lang": "en"},
+      {"email": "zmpablito+kairosinsider@gmail.com", "lang": "fr"},
+      {"email": "olksmr@gmail.com",                  "lang": "fr"}
+    ]
+  }'
+```
+
+Response shape :
+
+```json
 {
-  "recipients": [
-    {"email": "jorgentheboss@gmail.com",          "lang": "en"},
-    {"email": "harryhollingworth@yahoo.co.uk",    "lang": "en"},
-    {"email": "zmpablito+kairosinsider@gmail.com", "lang": "fr"},
-    {"email": "olksmr@gmail.com",                  "lang": "fr"}
+  "ok": true,
+  "sent": 4,
+  "failed": 0,
+  "results": [
+    {"email": "...", "lang": "en", "ok": true, "messageId": "<msgId>"},
+    ...
   ]
 }
-EOF
 ```
 
 > ⚠️ **Avant d'envoyer** : check les stats Brevo `welcome-fr` vs `welcome-en`
