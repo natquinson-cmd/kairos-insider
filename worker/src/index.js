@@ -7532,13 +7532,18 @@ function buildFounderLetter(lang) {
       em('Politicians &amp; gurus') + ' — Pelosi, Cruz, Wyden… + Berkshire, Soros, Druckenmiller. When they buy, you know.',
       em('ETF flows') + ' — ARK, BUZZ, NANC, GOP. Who\'s flowing in, who\'s flowing out, every day.',
     ],
-    haveFooter: 'All on the free tier. No paywall on what matters — I want you to form an honest opinion on the value before considering Premium.',
-    h3Coming: "What's coming next",
-    comingItems: [
-      'Auto Wikipedia photos on insider profiles — to put a face on Elon Musk, Jamie Dimon, Lina Mehnert.',
-      'Weekly newsletter Sunday evenings — 3 smart money signals + 1 deep dive + week-ahead calendar.',
-      'Historical backtests : "if you had bought every time a CEO buys more than $X million, what\'s your 5-year P&amp;L?"',
+    haveFooter: 'All on the free tier. No paywall on what matters — I want you to form an honest opinion before considering Premium.',
+    h3Premium: 'Why upgrade to Premium?',
+    premiumIntro: 'The Free tier gives you access to the signals. Premium ' + em('pushes them to you in real-time') + ' — on the stocks you actually care about.',
+    premiumItems: [
+      em('Real-time alerts on your watchlist') + ' — You track 10 tickers? The moment a CEO buys ' + $('$1M+') + ', an activist crosses 5%, or a politician discloses a position on one of them, you get a notification. Reactive, not retroactive. You act in the ' + t('48-hour window') + ' before the market digests it.',
+      em('Daily brief 7am Paris') + ' — Every morning, an email with the 10 most relevant signals for ' + em('YOUR') + ' tickers. Not the general SEC EDGAR noise. Filtered signal, curated to your portfolio.',
+      em('Advanced screener') + ' — Filter ' + t('5 years of history') + ' across 50+ combined criteria. Real examples : <em>"CEO buys &gt;' + $('$500k') + ' AND hedge fund increases position &gt;20% AND analyst upgrade within 30d"</em>, or <em>"Cluster ≥3 distinct insiders over 60d with net buys &gt;' + $('$2M') + '"</em>. The setups that precede rallies.',
+      em('Telegram alerts (Elite)') + ' — Instant push to your mobile. When Elliott opens a new file or Pelosi places a new trade, you know in ' + t('90 seconds') + ' — wherever you are.',
+      em('Unlimited backtests + CSV export') + ' — "If I had bought every insider cluster ≥3 over 5 years, what\'s my Sharpe ratio?". Built-in. Plus full CSV export for your own analysis.',
     ],
+    premiumCta: 'Pro ' + $('€19/mo') + ' · Elite ' + $('€49/mo') + ' · cancel anytime, no questions.',
+    premiumCtaLink: 'See plans →',
     h4Ask: 'One question, that\'s all',
     askP1: 'I\'d really love your answer to this one : ' + em('what\'s THE feature that would make you upgrade to Premium?'),
     askP2: 'Just reply directly to this email — I read every word.',
@@ -7572,13 +7577,18 @@ function buildFounderLetter(lang) {
       em('Politiciens &amp; gourous') + ' — Pelosi, Cruz, Wyden… + Berkshire, Soros, Druckenmiller. Quand ils achètent, tu le sais.',
       em('Flux ETF') + ' — ARK, BUZZ, NANC, GOP. Qui rentre, qui sort, chaque jour.',
     ],
-    haveFooter: 'Tout ça en accès gratuit. Pas de paywall sur l\'essentiel — je veux que tu puisses te faire un avis honnête sur la valeur avant de penser Premium.',
-    h3Coming: 'Ce qui arrive bientôt',
-    comingItems: [
-      'Photos Wikipedia automatiques sur les fiches dirigeants — pour mettre un visage sur Elon Musk, Jamie Dimon, Lina Mehnert.',
-      'Newsletter hebdo dimanche soir — 3 signaux smart money + 1 deep dive + calendrier de la semaine.',
-      'Backtests historiques : "si tu avais acheté chaque fois qu\'un CEO achète plus de X millions, ton P&amp;L sur 5 ans ?"',
+    haveFooter: 'Tout ça en accès gratuit. Pas de paywall sur l\'essentiel — je veux que tu puisses te faire un avis honnête avant de penser Premium.',
+    h3Premium: 'Pourquoi passer Premium ?',
+    premiumIntro: 'Le Free te donne accès aux signaux. Le Premium ' + em('te les pousse en temps réel') + ' — sur les actions qui t\'intéressent vraiment.',
+    premiumItems: [
+      em('Alertes temps réel sur ta watchlist') + ' — Tu suis 10 tickers ? Dès qu\'un CEO achète ' + $('1 M$+') + ', qu\'un activiste franchit 5%, ou qu\'un politicien déclare une position sur l\'un d\'eux, tu reçois une notif. Réactive, pas rétroactive. Tu agis dans la ' + t('fenêtre de 48 h') + ' avant que le marché digère le signal.',
+      em('Brief quotidien 7 h Paris') + ' — Tous les matins, un email avec les 10 signaux les plus pertinents pour ' + em('TES') + ' tickers. Pas le bruit général de SEC EDGAR. Du signal filtré, curé selon ton portefeuille.',
+      em('Screener avancé') + ' — Filtre ' + t('5 ans d\'historique') + ' sur 50+ critères combinés. Exemples réels : <em>"CEO achète &gt;' + $('500 k$') + ' ET hedge fund augmente position &gt;20% ET analyste upgrade dans les 30j"</em>, ou <em>"Cluster ≥3 insiders distincts sur 60j avec achats nets &gt;' + $('2 M$') + '"</em>. Les set-ups qui précèdent les rallies.',
+      em('Alertes Telegram (Elite)') + ' — Push instantané sur ton mobile. Quand Elliott ouvre un nouveau dossier ou que Pelosi fait un nouveau trade, tu le sais en ' + t('90 secondes') + ' — où que tu sois.',
+      em('Backtests illimités + export CSV') + ' — "Si j\'avais acheté à chaque cluster insider ≥3 sur 5 ans, mon Sharpe ?". Intégré. Plus l\'export CSV complet pour tes propres analyses.',
     ],
+    premiumCta: 'Pro ' + $('19 €/mois') + ' · Elite ' + $('49 €/mois') + ' · annulable à tout moment, pas de question.',
+    premiumCtaLink: 'Voir les plans →',
     h4Ask: 'Une question, et c\'est tout',
     askP1: 'J\'aimerais beaucoup ta réponse à celle-ci : ' + em('quelle est LA feature qui te ferait passer Premium ?'),
     askP2: 'Réponds directement à cet email — je lis chaque mot.',
@@ -7596,7 +7606,6 @@ function buildFounderLetter(lang) {
   const liStyle = 'margin-bottom:12px';
   const liStyleLast = 'margin-bottom:0';
   const haveLis = T.haveItems.map((it, i) => `<li style="${i === T.haveItems.length - 1 ? liStyleLast : liStyle}">${it}</li>`).join('');
-  const comingLis = T.comingItems.map((it, i) => `<li style="${i === T.comingItems.length - 1 ? liStyleLast : liStyle}">${it}</li>`).join('');
   // Examples "why" : bullets numerotes avec icon
   const exampleLis = T.whyExamples.map((it, i) => `
     <tr>
@@ -7604,6 +7613,16 @@ function buildFounderLetter(lang) {
         <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${C.primary},${C.primary2});color:white;font-size:11px;font-weight:800;text-align:center;line-height:24px">${i + 1}</div>
       </td>
       <td valign="top" style="padding:0 0 14px 0;font-size:15px;color:${C.textDim};line-height:1.65">${it}</td>
+    </tr>`).join('');
+  // Premium items : meme format numerote que les examples Why pour
+  // visual consistency. Bullets en gradient bleu->pink, padding+ pour
+  // les items plus longs.
+  const premiumLis = T.premiumItems.map((it, i) => `
+    <tr>
+      <td valign="top" style="padding:0 12px 16px 0;width:28px">
+        <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${C.primary},${C.primary2});color:white;font-size:11px;font-weight:800;text-align:center;line-height:24px">${i + 1}</div>
+      </td>
+      <td valign="top" style="padding:0 0 16px 0;font-size:15px;color:${C.textDim};line-height:1.65">${it}</td>
     </tr>`).join('');
 
   // Section divider gradient (subtle)
@@ -7669,10 +7688,21 @@ ${h2(T.h2Have)}
 <p style="margin:18px 0 0 0;font-size:14px;color:${C.muted};font-style:italic">${T.haveFooter}</p>
 </td></tr>
 
-<!-- Section : Ce qui arrive -->
-${h2(T.h3Coming)}
-<tr><td style="padding:0 0 18px 0;font-size:15px;color:${C.textDim};line-height:1.7">
-<ul style="margin:0;padding-left:22px;list-style-type:disc">${comingLis}</ul>
+<!-- Section : Pourquoi passer Premium (replace 'Ce qui arrive' v3 mai 2026,
+     demande user pour pousser conversion Premium) -->
+${h2(T.h3Premium)}
+<tr><td style="padding:0 0 14px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<p style="margin:0">${T.premiumIntro}</p>
+</td></tr>
+<tr><td style="padding:0 0 8px 0">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">${premiumLis}</table>
+</td></tr>
+<!-- CTA Premium : box avec gradient brand + pricing + lien -->
+<tr><td style="padding:8px 0 18px 0">
+  <div style="background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(236,72,153,0.08));border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:18px 22px;text-align:center">
+    <p style="margin:0 0 10px 0;font-size:14px;color:${C.textDim};line-height:1.5">${T.premiumCta}</p>
+    <p style="margin:0"><a href="https://kairosinsider.fr/dashboard.html#pricing" style="display:inline-block;padding:10px 22px;background:linear-gradient(135deg,${C.primary},${C.primary2});color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">${T.premiumCtaLink}</a></p>
+  </div>
 </td></tr>
 
 <!-- Section : Une question -->
