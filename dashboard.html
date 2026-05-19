@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260519-explorer-pct-float"></script>
+  <script src="assets/i18n.js?v=20260519-hf-pct-float-evolution"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -14456,19 +14456,61 @@
                vs alternative "card immense" ou "scroll hijacking lent". -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
             <h3 style="margin:0 0 12px;font-size:16px">💰 Hedge Funds</h3>
-            <div style="display:flex;gap:12px;margin-bottom:12px">
-              <div style="flex:1;padding:10px;background:rgba(116,185,255,0.08);border-radius:8px;text-align:center">
-                <div style="font-size:20px;font-weight:600;color:#74b9ff">${sm.fundCount || 0}</div>
-                <div style="font-size:11px;opacity:0.7">${t('stock.hf.fundsLabel', 'fonds')}</div>
-              </div>
-              <div style="flex:1;padding:10px;background:var(--surface-2);border-radius:8px;text-align:center">
-                <div style="font-size:20px;font-weight:600;color:${sm.avgDeltaPct>0?'#2ecc71':sm.avgDeltaPct<0?'#ff7675':'#fff'}">${sm.avgDeltaPct > 0 ? '+' : ''}${(sm.avgDeltaPct||0).toFixed(1)}%</div>
-                <div style="font-size:11px;opacity:0.7">${t('stock.hf.deltaLabel', 'Δ positions')}</div>
-              </div>
-            </div>
-            <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
-              ${t('stock.hf.totalValue', 'Valeur totale :')} <strong>$${fmtBig(sm.totalValue)}</strong>
-            </div>
+            ${(() => {
+              // HEADLINE (mai 2026, demande user) : remplace 'nb fonds' + 'Δ
+              // positions' (mean simple bugguee par les new positions a
+              // delta=+99999%) par '% du float' + 'evolution Q-vs-Q en pts'.
+              // Le % du float = totalShares HF / sharesOut, repond a 'a quel
+              // point les HF sont positionnes sur cette action'. L'evolution
+              // = pctNow - pctPrev (pts), repond a 'agreggent-ils ou allegent-ils'.
+              const allFunds = sm.topFunds || [];
+              const sharesOut = (d.fundamentals && Number(d.fundamentals.sharesOut)) || null;
+              const totalSharesNow = allFunds.reduce((s, f) => s + (Number(f.shares) || 0), 0);
+              // Reconstruct shares prev via f.shares / (1 + deltaPct/100).
+              // Fonds sans deltaPct -> assume no change. Delta <=-100 -> ignore (vente totale, ne sera pas dans la liste de toute facon).
+              const totalSharesPrev = allFunds.reduce((s, f) => {
+                const shares = Number(f.shares) || 0;
+                const dp = Number(f.deltaPct);
+                if (!Number.isFinite(dp)) return s + shares;  // pas de donnee : assume identique
+                if (dp <= -100) return s;
+                return s + shares / (1 + dp / 100);
+              }, 0);
+              const pctNow = (sharesOut && totalSharesNow > 0) ? (totalSharesNow / sharesOut * 100) : null;
+              const pctPrev = (sharesOut && totalSharesPrev > 0) ? (totalSharesPrev / sharesOut * 100) : null;
+              const pctChange = (pctNow != null && pctPrev != null) ? (pctNow - pctPrev) : null;
+              const changeColor = pctChange == null ? 'var(--text-muted)' : pctChange > 0.05 ? '#2ecc71' : pctChange < -0.05 ? '#ff7675' : 'var(--text-muted)';
+              const changeStr = pctChange == null ? '—' : `${pctChange > 0 ? '+' : ''}${pctChange.toFixed(2)} pts`;
+              const pctNowStr = pctNow == null ? '—' : `${pctNow.toFixed(2)}%`;
+              const _hfPctFloatLabel = t('stock.hf.pctFloat', '% du float');
+              const _hfEvoLabel = t('stock.hf.evolution', 'Évolution vs Q-1');
+              const _hfPctFloatTip = (t('stock.hf.pctFloat_tooltip', 'Part du capital total de la société détenue par l\'ensemble des hedge funds suivis. Calcul : actions détenues totales / actions en circulation.')).replace(/"/g, '&quot;');
+              const _hfEvoTip = (t('stock.hf.evolution_tooltip', 'Différence en points entre le % du float actuel et celui du trimestre précédent. Positif = agrégation, négatif = allègement.')).replace(/"/g, '&quot;');
+              const _hfNoFloat = t('stock.hf.no_float_data', 'Shares outstanding indisponibles pour ce ticker — métriques masquées.');
+              if (pctNow == null) {
+                // Fallback si pas de sharesOut : on affiche juste fund count + total value
+                return `
+                  <div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-bottom:10px">${_hfNoFloat}</div>
+                  <div style="font-size:13px;opacity:0.8;margin-bottom:10px">
+                    <strong>${sm.fundCount || 0}</strong> ${t('stock.hf.fundsLabel','fonds')} · ${t('stock.hf.totalValue','Valeur totale :')} <strong>$${fmtBig(sm.totalValue)}</strong>
+                  </div>`;
+              }
+              return `
+                <div style="display:flex;gap:12px;margin-bottom:10px">
+                  <div title="${_hfPctFloatTip}" style="flex:1;padding:10px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.20);border-radius:8px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:#10B981;font-variant-numeric:tabular-nums">${pctNowStr}</div>
+                    <div style="font-size:10.5px;opacity:0.75;letter-spacing:0.02em">${_hfPctFloatLabel}</div>
+                  </div>
+                  <div title="${_hfEvoTip}" style="flex:1;padding:10px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18);border-radius:8px;text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:${changeColor};font-variant-numeric:tabular-nums">${changeStr}</div>
+                    <div style="font-size:10.5px;opacity:0.75;letter-spacing:0.02em">${_hfEvoLabel}</div>
+                  </div>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+                  <strong style="color:var(--text-secondary)">${sm.fundCount || 0}</strong> ${t('stock.hf.fundsLabel','fonds')}
+                  <span style="opacity:0.5;margin:0 6px">·</span>
+                  ${t('stock.hf.totalValue','Valeur totale :')} <strong style="color:var(--text-secondary)">$${fmtBig(sm.totalValue)}</strong>
+                </div>`;
+            })()}
             <div class="scroll-y-hover" style="max-height:240px;font-size:12px;padding-right:4px">
               ${(() => {
                 const allFunds = sm.topFunds || [];
@@ -16395,18 +16437,31 @@
         const totalCount = sorted.length;
         const totalShares = sorted.reduce((s, f) => s + (f.shares || 0), 0);
 
-        // % du float total detenu par les fonds (mai 2026, user feedback) :
-        // "Variation moyenne ponderee vs Q-1" etait bugguee (somme de % au
-        // lieu d'une vraie moyenne, gonflee par les nouvelles positions a
-        // delta=+99999%). La metrique vraiment utile c'est la part du
-        // capital total detenu par les HF aggreges = totalShares / sharesOut.
+        // % du float + son evolution Q-vs-Q (mai 2026 v3, user feedback) :
+        // - Avant : "Variation moyenne ponderee vs Q-1" (bugguee par les new
+        //   positions a delta=+99999%, gonflee a +31207% sur FICO).
+        // - v2 : remplace par % du float (= totalShares / sharesOut)
+        // - v3 (now) : ajoute l'EVOLUTION en pts vs Q-1. La part detenue
+        //   ET son evolution sont les 2 metriques mises en avant en hero,
+        //   le total $ passe en subtext.
         const sharesOut = (data.fundamentals && Number(data.fundamentals.sharesOut)) || null;
         const pctOfFloat = (sharesOut && sharesOut > 0 && totalShares > 0)
           ? (totalShares / sharesOut) * 100
           : null;
+        // Reconstruct totalShares prev via shares / (1 + deltaPct/100).
+        // Cf stock card meme commentaire.
+        const totalSharesPrev = sorted.reduce((s, f) => {
+          const shares = Number(f.shares) || 0;
+          const dp = Number(f.deltaPct);
+          if (!Number.isFinite(dp)) return s + shares;
+          if (dp <= -100) return s;
+          return s + shares / (1 + dp / 100);
+        }, 0);
+        const pctOfFloatPrev = (sharesOut && totalSharesPrev > 0) ? (totalSharesPrev / sharesOut * 100) : null;
+        const pctOfFloatChange = (pctOfFloat != null && pctOfFloatPrev != null) ? (pctOfFloat - pctOfFloatPrev) : null;
 
-        // Summary : ajout d'une 2eme ligne avec la metrique "% du float" si on
-        // a sharesOut, sinon ligne masquee (NaN fallback).
+        // Summary : on garde le total $ + count, mais on les rend
+        // SECONDARY. Le hero (en gros) sera le % du float + evolution.
         const summary = (t('explorer.summary','<strong>{n}</strong> fonds détiennent <strong>{ticker}</strong> · Total <strong>{total}</strong>'))
           .replace('{n}', totalCount)
           .replace('{ticker}', escTk + ' (' + escCo + ')')
@@ -16440,22 +16495,25 @@
         // pouvait la faire apparaitre au milieu du scroll.
         const fundsLbl = t('explorer.funds_label', 'fonds');
 
-        // Cellule "Δ SHARES VS Q-1" du TOTAL row : v2 mai 2026.
-        // - Avant : weighted avg deltaPct = somme bugguee (skewee par les
-        //   nouvelles positions a delta=+99999%) qui donnait +31207% sur FICO.
-        // - Apres : on remplace par "% du float" si sharesOut dispo, qui
-        //   repond a la vraie question "quelle part du capital est detenue
-        //   par les HF agreges ?". Sinon '—' avec tooltip explicatif.
-        const floatCellLabel = t('explorer.col.pctFloat', '% du float');
-        const floatTooltip = (t('explorer.pctFloat_tooltip',
-          'Part du capital total de la societe détenue par l\'ensemble des fonds listés. Calcul : actions détenues totales / actions en circulation. Une variation moyenne pondérée n\'est pas représentative ici à cause des nouvelles positions (delta = +∞).')
+        // Cellule "Δ SHARES VS Q-1" du TOTAL row : v3 mai 2026.
+        // - v1 : weighted avg deltaPct = somme bugguee (FICO +31207%).
+        // - v2 : remplace par '% du float' (= part actuelle detenue).
+        // - v3 (now) : montre l'EVOLUTION en pts vs Q-1, coherent avec le
+        //   hero summary qui featur la 2eme metrique = pctChange. La col
+        //   "Δ shares vs Q-1" garde donc son sens (un delta), juste exprime
+        //   en points de % de float pour le TOTAL row (vs % de position
+        //   par-fonds pour les rows individuelles).
+        const evoTooltip = (t('explorer.evolution_tooltip',
+          'Différence en points entre le % du float actuel et celui du trimestre précédent (estimé à partir des deltas par fonds). Positif = agrégation, négatif = allègement.')
         ).replace(/"/g, '&quot;');
-        // Affiche "51.4% du float" pour eviter la confusion avec un Δ (la
-        // colonne 'Δ shares vs Q-1' garde son sens pour les rows par fonds,
-        // mais le TOTAL row montre le % de capital - semantique differente).
-        const floatCellContent = pctOfFloat != null
-          ? `<span style="color:#34D399" title="${floatTooltip}">${pctOfFloat.toFixed(2)}%<span style="opacity:0.65;font-size:10px;font-weight:500;margin-left:4px">${t('explorer.float_suffix','du float')}</span></span>`
-          : `<span style="color:var(--text-muted);font-style:italic" title="${t('explorer.no_float_data','Données shares outstanding indisponibles pour ce ticker.')}">—</span>`;
+        let floatCellContent;
+        if (pctOfFloatChange != null) {
+          const evoColor = pctOfFloatChange > 0.05 ? '#34D399' : pctOfFloatChange < -0.05 ? '#F87171' : 'var(--text-muted)';
+          const evoStr = `${pctOfFloatChange > 0 ? '+' : ''}${pctOfFloatChange.toFixed(2)} pts`;
+          floatCellContent = `<span style="color:${evoColor}" title="${evoTooltip}">${evoStr}</span>`;
+        } else {
+          floatCellContent = `<span style="color:var(--text-muted);font-style:italic" title="${t('explorer.no_float_data','Données shares outstanding indisponibles pour ce ticker.')}">—</span>`;
+        }
 
         const totalRowHtml = `
           <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.06));border-bottom:2px solid var(--border-strong);font-weight:700">
@@ -16470,22 +16528,53 @@
           </tr>
         `;
 
-        // Summary header v2 : on remplace la ligne 'Variation moyenne ponderee'
-        // bugguee par 2 metriques pertinentes :
-        //   - Capital total detenu : pctOfFloat (avec totalShares + sharesOut absolus pour contexte)
-        //   - (Si sharesOut absent : on cache cette ligne, summary reste minimal)
-        const capitalLine = pctOfFloat != null ? `
-          <div style="margin-top:6px;font-size:13px;color:var(--text-secondary);line-height:1.5">
-            ${t('explorer.capital_owned','Capital total détenu par ces fonds :')}
-            <strong style="color:#10B981">${pctOfFloat.toFixed(2)}%</strong>
-            <span style="color:var(--text-muted);font-size:12px;margin-left:6px">(${fmtShares(totalShares)} / ${fmtShares(sharesOut)} ${t('explorer.shares_outstanding','actions en circulation')})</span>
-          </div>` : '';
+        // Summary header v3 (mai 2026) : on FEATURE 2 hero stats (% du float
+        // + evolution Q-vs-Q en pts), avec le total $ + nb fonds en subtext.
+        // Si sharesOut absent : fallback ancien layout (summary line + total $).
+        let summaryHeroHtml;
+        if (pctOfFloat != null) {
+          const changeColor = pctOfFloatChange == null ? 'var(--text-muted)'
+            : pctOfFloatChange > 0.05 ? '#10B981'
+            : pctOfFloatChange < -0.05 ? '#EF4444'
+            : 'var(--text-muted)';
+          const changeStr = pctOfFloatChange == null ? '—'
+            : `${pctOfFloatChange > 0 ? '+' : ''}${pctOfFloatChange.toFixed(2)} pts`;
+          const ptsTip = (t('explorer.evolution_tooltip', 'Différence en points entre le % du float actuel et celui du trimestre précédent (estimé à partir des deltas par fonds). Positif = agrégation, négatif = allègement.')).replace(/"/g, '&quot;');
+          const pctTip = (t('explorer.pctFloat_tooltip', 'Part du capital total de la société détenue par l\'ensemble des fonds listés. Calcul : actions détenues totales / actions en circulation.')).replace(/"/g, '&quot;');
+          summaryHeroHtml = `
+            <!-- Hero stats : % du float + Evolution (mises en avant) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div title="${pctTip}" style="padding:14px 16px;background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.30);border-radius:10px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:#10B981;font-variant-numeric:tabular-nums;line-height:1.1">${pctOfFloat.toFixed(2)}%</div>
+                <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em;margin-top:4px">${t('explorer.hero.pctFloat','% du capital détenu')}</div>
+              </div>
+              <div title="${ptsTip}" style="padding:14px 16px;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(139,92,246,0.05));border:1px solid rgba(59,130,246,0.25);border-radius:10px;text-align:center">
+                <div style="font-size:28px;font-weight:800;color:${changeColor};font-variant-numeric:tabular-nums;line-height:1.1">${changeStr}</div>
+                <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.04em;margin-top:4px">${t('explorer.hero.evolution','Évolution vs Q-1')}</div>
+              </div>
+            </div>
+            <!-- Subtext : nb fonds + total $ + shares outstanding (demoted) -->
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.55">
+              <strong style="color:var(--text-secondary)">${totalCount}</strong> ${t('explorer.funds_label','fonds')} ·
+              ${t('explorer.subtext_totalValue','Valeur totale :')} <strong style="color:var(--text-secondary)">${fmtUsd(totalValue)}</strong> ·
+              <strong style="color:var(--text-secondary)">${fmtShares(totalShares)}</strong> / ${fmtShares(sharesOut)} ${t('explorer.shares_outstanding','actions en circulation')}
+            </div>
+            <div style="margin-top:8px;font-size:13px;color:var(--text-primary);line-height:1.5">
+              ${summary}
+            </div>
+          `;
+        } else {
+          // Fallback si sharesOut indispo : layout ancien (summary line + note)
+          summaryHeroHtml = `
+            ${summary}
+            <div style="margin-top:6px;font-size:11px;color:var(--text-muted);font-style:italic">${t('explorer.no_float_data','Données shares outstanding indisponibles pour ce ticker.')}</div>
+          `;
+        }
 
         body.innerHTML = `
-          <!-- Summary header (texte + bilan) -->
-          <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:12px;margin-bottom:14px;font-size:14px;line-height:1.6">
-            ${summary}
-            ${capitalLine}
+          <!-- Summary header (hero stats + subtext) -->
+          <div style="padding:16px 18px;background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.03));border:1px solid rgba(59,130,246,0.20);border-radius:12px;margin-bottom:14px;font-size:14px;line-height:1.6">
+            ${summaryHeroHtml}
           </div>
 
           <!-- Table : headers + TOTAL en haut + positions
