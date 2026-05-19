@@ -14521,7 +14521,16 @@
               // point les HF sont positionnes sur cette action'. L'evolution
               // = pctNow - pctPrev (pts), repond a 'agreggent-ils ou allegent-ils'.
               const allFunds = sm.topFunds || [];
-              const sharesOut = (d.fundamentals && Number(d.fundamentals.sharesOut)) || null;
+              // FALLBACK sharesOut (mai 2026, FICO bug) : Finnhub ne renvoie
+              // pas toujours sharesOutstanding pour certains tickers (mid/
+              // small caps souvent). Si null/0, on derive depuis marketCap /
+              // price.current = shares en circulation par definition.
+              let sharesOut = (d.fundamentals && Number(d.fundamentals.sharesOut)) || null;
+              if (!sharesOut || sharesOut <= 0) {
+                const mc = d.fundamentals && Number(d.fundamentals.marketCap);
+                const px = d.price && Number(d.price.current);
+                if (mc > 0 && px > 0) sharesOut = mc / px;
+              }
               const totalSharesNow = allFunds.reduce((s, f) => s + (Number(f.shares) || 0), 0);
               // Reconstruct shares prev via f.shares / (1 + deltaPct/100).
               // Fonds sans deltaPct -> assume no change. Delta <=-100 -> ignore (vente totale, ne sera pas dans la liste de toute facon).
@@ -16512,7 +16521,15 @@
         // - v3 (now) : ajoute l'EVOLUTION en pts vs Q-1. La part detenue
         //   ET son evolution sont les 2 metriques mises en avant en hero,
         //   le total $ passe en subtext.
-        const sharesOut = (data.fundamentals && Number(data.fundamentals.sharesOut)) || null;
+        // - FALLBACK sharesOut : si Finnhub renvoie null (cf FICO et autres
+        //   mid-caps), on derive depuis marketCap / price.current = shares
+        //   en circulation par definition mathematique du marketCap.
+        let sharesOut = (data.fundamentals && Number(data.fundamentals.sharesOut)) || null;
+        if (!sharesOut || sharesOut <= 0) {
+          const mc = data.fundamentals && Number(data.fundamentals.marketCap);
+          const px = data.price && Number(data.price.current);
+          if (mc > 0 && px > 0) sharesOut = mc / px;
+        }
         const pctOfFloat = (sharesOut && sharesOut > 0 && totalShares > 0)
           ? (totalShares / sharesOut) * 100
           : null;
