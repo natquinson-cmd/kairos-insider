@@ -12756,15 +12756,15 @@
       const body = document.getElementById('stockAnalysisBody');
       if (!body) return;
 
-      // Cree le slot DES MAINTENANT (avant le fetch) pour reserver la place
-      // dans le layout. Si on attend la reponse, le slot apparait apres
-      // 200-800ms = "saut" visuel chez l'user. Mieux : skeleton apparait
-      // immediatement, contenu remplace au fetch.
+      // Layout v2 (mai 2026) : le slot #activistBannerSlot est pre-rendu
+      // dans la grid Row 2 (Politicians + Activists) par renderStockAnalysis.
+      // Si trouve, on l'utilise. Sinon (cas fallback, ne devrait pas arriver
+      // post-refactor) on cree dynamiquement comme avant.
       let slot = document.getElementById('activistBannerSlot');
       if (!slot) {
         slot = document.createElement('div');
         slot.id = 'activistBannerSlot';
-        slot.style.cssText = 'margin:0 0 24px';
+        slot.style.cssText = 'min-height:480px;display:flex;flex-direction:column';
         const chartCard = body.querySelector('#stockChartCard');
         const scoreCard = body.querySelector('.kairos-score-card');
         const anchor = chartCard || scoreCard || body.firstElementChild;
@@ -12772,18 +12772,18 @@
         else if (anchor) anchor.parentNode.appendChild(slot);
         else body.appendChild(slot);
       }
-      // Skeleton initial pour reserver la hauteur
-      slot.innerHTML = `<div style="padding:14px 16px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;min-height:140px;display:flex;align-items:center;justify-content:center;opacity:0.4;font-size:12px;color:var(--text-muted)">${t('stock.activists.loading', 'Chargement des filings 13D/G…')}</div>`;
+      // Skeleton initial — meme dimensions que les autres cards du grid (480px)
+      slot.innerHTML = `<div style="flex:1;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;opacity:0.4;font-size:12px;color:var(--text-muted)">${t('stock.activists.loading', 'Chargement des filings 13D/G…')}</div>`;
 
       try {
         const res = await apiFetch(`/api/13dg/ticker?ticker=${encodeURIComponent(ticker)}`);
         // Empty state si pas de filings (au lieu de return early)
         if (!res || !res.total || res.total === 0) {
           slot.innerHTML = `
-            <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0.65">
-              <div style="font-size:28px;margin-bottom:6px;opacity:0.5">⚔</div>
-              <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;font-weight:600">${t('stock.activists.empty_title', 'Aucun activiste détecté sur 24 mois')}</div>
-              <div style="font-size:11px;color:var(--text-muted);line-height:1.5;max-width:520px">${(t('stock.activists.empty_subtitle', 'Pas de filing 13D ou 13G &gt;5% du capital sur {ticker} dans les 24 derniers mois (sources : SEC EDGAR, AMF, BaFin).')).replace('{ticker}', escapeHtmlClient(ticker))}</div>
+            <div style="flex:1;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;opacity:0.65">
+              <div style="font-size:42px;margin-bottom:10px;opacity:0.45">⚔</div>
+              <div style="font-size:14px;color:var(--text-secondary);margin-bottom:6px;font-weight:600">${t('stock.activists.empty_title', 'Aucun activiste détecté sur 24 mois')}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);line-height:1.55;max-width:380px">${(t('stock.activists.empty_subtitle', 'Pas de filing 13D ou 13G &gt;5% du capital sur {ticker} dans les 24 derniers mois (sources : SEC EDGAR, AMF, BaFin).')).replace('{ticker}', escapeHtmlClient(ticker))}</div>
             </div>`;
           return;
         }
@@ -12956,18 +12956,18 @@
           `;
         }).join('');
 
-        // COHERENCE LAYOUT : la card a une hauteur fixe (~240px) via la
-        // combo padding + 3 filings max (top3). Si plus de 3 filings, le
-        // lien "Voir les N declarations →" pointe vers la page Activistes
-        // dediee. Pas de scroll interne necessaire (top3 cap natif).
+        // Layout v2 (mai 2026) : card occupe le grid cell complet (min-height
+        // 480px via le slot + flex:1 sur le wrapper interne). Le top3 cap
+        // limite naturellement le contenu, espace flexible en bas vide ou rempli
+        // par la list si plus de filings.
         slot.innerHTML = `
-          <div style="padding:14px 16px;background:${bgGrad};border:1px solid ${borderColor};border-radius:12px;min-height:140px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <div style="flex:1;padding:14px 16px;background:${bgGrad};border:1px solid ${borderColor};border-radius:12px;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
               <strong style="color:${color};font-size:14px">${title}</strong>
-              <span style="font-size:11px;color:var(--text-muted)">${subtitle}</span>
               ${res.total > 3 ? `<a href="#" onclick="switchSection('activists'); setTimeout(()=>{ const tkInput=document.getElementById('actTicker'); if(tkInput) tkInput.value='${escapeHtmlClient(ticker)}'; const flt=document.getElementById('actFilter'); if(flt) flt.value='all'; loadActivists(); }, 150); return false" style="color:${color};font-size:11px;font-weight:600;text-decoration:none;margin-left:auto">${_activistsT('stock.activists.view_all', `Voir les ${res.total} déclarations →`).replace('{n}', res.total)}</a>` : ''}
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">${subtitle}</div>
+            <div class="scroll-y-hover" style="flex:1;display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:0;padding-right:4px">
               ${top3}
             </div>
           </div>
@@ -14397,17 +14397,19 @@
           <div style="position:relative;z-index:1;height:300px"><canvas id="stockPriceChart"></canvas></div>
         </div>
 
-        <!-- 3 COLONNES : Insiders / Smart Money / Politiciens
-             COHERENCE LAYOUT (mai 2026, demande user) :
-             - min-height: 480px sur chaque card -> les 3 ont la meme
-               taille meme si une card est vide (grid stretch align-items
-               par defaut synchronise sur la card la plus haute, le
-               min-height assure le floor)
-             - Padding + border-radius uniformises a padding:16px /
-               border-radius:12px (avant : 20+12 / 14+10 / 14+10 incoherent)
-             - Display flex column -> headers stay top, contenu rempli le
-               vertical space, scrollable lists au milieu avec max-height -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:24px;align-items:stretch">
+        <!-- 2 COLONNES : Insiders / Smart Money (Hedge Funds)
+             LAYOUT v2 (mai 2026, retour user 'Inities et Hedge Funds devraient
+             se partager la largeur a 2 seulement pour espacer les informations
+             assez compact... la 3eme card peut garder la mm largeur mais
+             partager avec la card Activist qui a trop d'espace') :
+             - Row 1 : Insiders + Hedge Funds en 2 cols 50/50 (au lieu de
+               33/33/33 qui ecrasait l'info)
+             - Row 2 : Politicians & Gurus + Activists en 2 cols 50/50
+               (au lieu d'Activists en banner full-width qui prenait trop
+               d'espace pour ce qu'il porte comme info)
+             - Wrap a 1 col sous 760px (mobile)
+             - min-height: 480px sur chaque card pour coherence -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;margin-bottom:20px;align-items:stretch">
           <!-- INSIDERS -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column" data-saInsiderCard data-ticker="${(d.ticker||'').toUpperCase()}">
             <h3 style="margin:0 0 12px;font-size:16px">${L.secInsiders} ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
@@ -14651,10 +14653,17 @@
               </div>
             ` : ''}
           </div>
+        </div>
 
-          <!-- POLITICIENS / GURUS (cohesion layout : meme dimensions que les
-               2 autres cards, empty state visible si pas d'ETFs au lieu d'une
-               simple ligne grise) -->
+        <!-- Row 2 : POLITICIANS & GURUS + ACTIVISTS (layout v2 mai 2026,
+             demande user 'la 3eme card peut garder la mm largeur mais
+             partager avec la card Activist qui a trop d'espace').
+             Activists slot pre-rendered ici (au lieu d'etre injecte
+             full-width entre chart et grid via loadActivistsForTicker).
+             loadActivistsForTicker trouve maintenant ce slot existant
+             et y injecte son contenu. -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;margin-bottom:24px;align-items:stretch">
+          <!-- POLITICIENS / GURUS -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column">
             <h3 style="margin:0 0 12px;font-size:16px">${t('stock.section.politicians', '🏛️ Politiciens & Gurus')}</h3>
             ${gov.inEtfs && gov.inEtfs.length > 0 ? `
@@ -14689,6 +14698,17 @@
               </div>
             `}
           </div>
+
+          <!-- ACTIVISTS slot : container nu. loadActivistsForTicker(ticker)
+               cherche '#activistBannerSlot' et y injecte sa propre card
+               complete (background + border + padding + min-height + flex).
+               On garde le slot vide ici (sans styling propre) pour eviter le
+               nesting de cards (deux wrappers div avec background+border).
+               L'injection JS arrive ~50-200ms apres le render initial, donc
+               flash invisible negligeable.
+               min-height:480px direct sur le slot pour reserver la place dans
+               le grid (sinon align-items:stretch ne marche qu'avec content). -->
+          <div id="activistBannerSlot" style="min-height:480px;display:flex;flex-direction:column"></div>
         </div>
 
         <!-- 2 COLONNES : Fondamentaux / Consensus -->
