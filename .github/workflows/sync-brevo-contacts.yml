@@ -1,0 +1,83 @@
+name: Sync Brevo Contacts (one-shot)
+
+# ============================================================================
+# One-shot manuel pour backfill les Contacts Brevo a partir des users KV.
+#
+# CAUSE : avant le fix du 19 mai 2026 (commit e772144), /send-welcome
+# envoyait l'email transactionnel mais ne creait PAS le contact CRM. Les
+# inscrits avant ce fix existent dans user:* KV mais pas dans Brevo Contacts.
+#
+# Ce workflow appelle POST /api/admin/sync-brevo-contacts qui :
+#   1. Parcourt user:* KV (~5000 max)
+#   2. Pour chaque user avec email -> POST /v3/contacts Brevo (idempotent)
+#   3. Push aussi l'attribut LANG si dispo dans user:{uid}.lang
+#   4. Optionnellement ajoute a une liste marketing (listIds)
+#
+# A LANCER manuellement via :
+#   gh workflow run "Sync Brevo Contacts (one-shot)"
+#
+# Inputs optionnels :
+#   - dry_run : true = preview, ne push pas Brevo (defaut false)
+#   - list_ids : "2,3" = ajouter aux listes 2 et 3 (defaut vide)
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry-run (preview sans push Brevo)'
+        type: boolean
+        default: false
+      list_ids:
+        description: 'IDs de listes Brevo (CSV, ex: "2,3") — vide pour pas de liste'
+        type: string
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+    steps:
+      - name: Build payload
+        id: payload
+        run: |
+          DRY_RUN="${{ inputs.dry_run }}"
+          LIST_IDS="${{ inputs.list_ids }}"
+
+          # Build JSON payload
+          PAYLOAD='{'
+          if [ "$DRY_RUN" = "true" ]; then
+            PAYLOAD="$PAYLOAD\"dryRun\":true"
+          fi
+          if [ -n "$LIST_IDS" ]; then
+            # Convert "2,3" -> [2,3]
+            IDS_JSON=$(echo "$LIST_IDS" | sed 's/,/, /g' | sed 's/^/[/; s/$/]/')
+            if [ "$DRY_RUN" = "true" ]; then PAYLOAD="$PAYLOAD,"; fi
+            PAYLOAD="$PAYLOAD\"listIds\":$IDS_JSON"
+          fi
+          PAYLOAD="$PAYLOAD}"
+          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+          echo "Payload: $PAYLOAD"
+
+      - name: Call sync-brevo-contacts endpoint
+        run: |
+          PAYLOAD='${{ steps.payload.outputs.payload }}'
+          echo "POST $API_BASE/api/admin/sync-brevo-contacts"
+          echo "Payload: $PAYLOAD"
+          echo "---"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "$API_BASE/api/admin/sync-brevo-contacts" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::Sync failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
