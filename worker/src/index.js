@@ -7480,46 +7480,67 @@ async function pushBrevoContactLang(env, email, lang) {
 // inlined ci-dessous pour eviter un fetch reseau a chaque send).
 function buildFounderLetter(lang) {
   const isEn = lang === 'en';
+  // Subject (v2 mai 2026) : plus punchy, pas date-dependent (utilise pour
+  // l'automation Brevo J+5 a vie). "Smart money" en hook prend le lecteur
+  // direct au coeur du pitch.
   const subject = isEn
-    ? "Why I built Kairos (and what you can expect)"
-    : "Pourquoi j'ai créé Kairos (et ce que tu peux en attendre)";
+    ? "Smart money: the only legal cheat code left in markets"
+    : "Smart money : le seul \"cheat code\" légal qu'il reste sur les marchés";
 
-  // Palette match welcome email pour consistance brand
+  // Palette match welcome email + couleurs d'accent pour le storytelling.
+  // accent (vert) = montants/gains, primary (bleu) = delais/urgence, primary2
+  // (pink) = brand accent pour la pull-quote punchline.
   const C = {
     bg: '#0A0E1A',
+    surface: '#11162A',
     border: 'rgba(255,255,255,0.07)',
     text: '#F1F5F9',
     textDim: '#CBD5E1',
     muted: '#94A3B8',
     mutedDeep: '#64748B',
     mutedDeeper: '#475569',
+    primary: '#3B82F6',     // bleu — delais, time-sensitive
+    primary2: '#EC4899',    // magenta — brand accent
+    accent: '#10B981',      // vert — $$ amounts
+    yellow: '#FACC15',      // jaune — emphase
   };
+  // Helpers couleur inline pour les amounts et delais
+  const $ = (txt) => `<strong style="color:${C.accent}">${txt}</strong>`;
+  const t = (txt) => `<strong style="color:${C.primary}">${txt}</strong>`;
+  const em = (txt) => `<strong style="color:${C.text}">${txt}</strong>`;
 
-  // Copie localisee — voice fondateur, pas marketing
+  // Copie localisee — voice fondateur + argumentation developpee
   const T = isEn ? {
     title: 'A letter from Nathanaël',
     hookHello: 'Hi,',
-    hookBody: 'You\'re one of the <strong style="color:' + C.text + '">first 5 people</strong> who signed up for Kairos Insider. Not 50,000. Five. So rather than an automated welcome email, I\'d rather write to you personally.',
+    hookBody: '<strong style="color:' + C.text + ';font-size:18px">Smart money.</strong> These two words changed how I see markets a few years ago. Before you dive deeper into Kairos, let me tell you why I built it.',
     h1Why: 'Why I built Kairos',
-    whyP1: 'I spent years watching how pros make decisions in markets. What struck me: the real signals aren\'t in TradingView analysis or Twitter feeds — they\'re in <strong style="color:' + C.text + '">SEC, AMF, BaFin filings</strong>. What insiders are buying. What activist hedge funds are accumulating. What politicians disclose.',
-    whyP2: 'It\'s all public. But in Europe, no one had built the tool to make it readable. I decided to step up.',
+    whyP1: 'For years, I watched retail investors get crushed. Not from lack of discipline. Not from lack of analysis. But because they were playing a game where ' + em('the pros see the cards 6 months in advance') + '.',
+    whyExamplesIntro: 'A few concrete examples — every one of these is real, public, and was in front of you, but buried :',
+    whyExamples: [
+      'When a CEO buys ' + $('$13M') + ' of his own company\'s shares over 3 days (Biglari Holdings, May 2026), it\'s filed on SEC EDGAR within ' + t('24 hours') + '. Retail reads it in a Bloomberg analysis ' + t('3 months later') + '.',
+      'When Elliott Management crosses 5% of a company\'s capital (Saham, May 2026), it\'s filed at the AMF within ' + t('48 hours') + '. Retail reads it in the 13F ' + t('45 days later') + '.',
+      'When Nancy Pelosi bought NVDA before a major government AI contract (2024), it was disclosed within ' + t('45 days') + '. Her reported portfolio returned ' + $('+70%') + ' that year, vs S&amp;P 500 ' + $('+24%') + '.',
+    ],
+    whyConclude: 'The realization that hit me : ' + em('none of this is secret') + '. It\'s all public, free, filed every day with 11 regulators (SEC, AMF, BaFin, FCA, AFM, SIX, CONSOB, CNMV, SEDI…). But scattered across dozens of sites, buried in unreadable PDFs, no normalized tickers. No one had built the tool to make it readable in 30 seconds.',
+    pullQuote: 'Smart money is the only legal &quot;cheat code&quot; left in markets. I decided to step up.',
     h2Have: 'What you already have access to',
     haveItems: [
-      '<strong style="color:' + C.text + '">Kairos Score 8D</strong> — a 0–100 score on every stock, broken down across 8 dimensions (insiders, smart money, momentum, valuation, health, analysts, gurus, earnings). No black box — you see exactly what drives the score.',
-      '<strong style="color:' + C.text + '">300+ hedge funds tracked</strong> — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel... Every quarter we parse their 13F-HR filings. You see who holds what and how it changed since last quarter.',
-      '<strong style="color:' + C.text + '">Near real-time insider activity</strong> — SEC Form 4 (US), AMF (France), BaFin (Germany). Filters up to 5 years of history, CSV export.',
-      '<strong style="color:' + C.text + '">Politicians &amp; gurus</strong> — Pelosi, Cruz, Wyden... + Berkshire, Soros, Druckenmiller. When they buy, you know.',
-      '<strong style="color:' + C.text + '">ETF flows</strong> — ARK, BUZZ, NANC, GOP. Who\'s flowing in, who\'s flowing out, every day.',
+      em('Kairos Score 8D') + ' — a 0–100 score on every stock, broken down across 8 dimensions (insiders, smart money, momentum, valuation, health, analysts, gurus, earnings). No black box.',
+      em('300+ hedge funds tracked') + ' — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel… Every quarter we parse their 13F-HR filings.',
+      em('Near real-time insider activity') + ' — SEC Form 4 (US), AMF (France), BaFin (Germany). Filters up to 5 years of history, CSV export.',
+      em('Politicians &amp; gurus') + ' — Pelosi, Cruz, Wyden… + Berkshire, Soros, Druckenmiller. When they buy, you know.',
+      em('ETF flows') + ' — ARK, BUZZ, NANC, GOP. Who\'s flowing in, who\'s flowing out, every day.',
     ],
     haveFooter: 'All on the free tier. No paywall on what matters — I want you to form an honest opinion on the value before considering Premium.',
     h3Coming: "What's coming next",
     comingItems: [
       'Auto Wikipedia photos on insider profiles — to put a face on Elon Musk, Jamie Dimon, Lina Mehnert.',
       'Weekly newsletter Sunday evenings — 3 smart money signals + 1 deep dive + week-ahead calendar.',
-      'Historical backtests: "if you had bought every time a CEO buys more than $X million, what\'s your 5-year P&amp;L?"',
+      'Historical backtests : "if you had bought every time a CEO buys more than $X million, what\'s your 5-year P&amp;L?"',
     ],
     h4Ask: 'One question, that\'s all',
-    askP1: 'I\'d really love your answer to this one: <strong style="color:' + C.text + '">what\'s THE feature that would make you upgrade to Premium?</strong>',
+    askP1: 'I\'d really love your answer to this one : ' + em('what\'s THE feature that would make you upgrade to Premium?'),
     askP2: 'Just reply directly to this email — I read every word.',
     askP3: 'If Kairos disappoints you or you find a bug, tell me too. That\'s more useful than compliments at this stage.',
     sigClose: 'Have a good week,',
@@ -7532,17 +7553,24 @@ function buildFounderLetter(lang) {
   } : {
     title: 'Une lettre de Nathanaël',
     hookHello: 'Bonjour,',
-    hookBody: 'Tu fais partie des <strong style="color:' + C.text + '">5 premiers inscrits</strong> sur Kairos Insider. Pas 50 000. Cinq. Alors plutôt qu\'un email automatique de bienvenue, je préfère t\'écrire personnellement.',
+    hookBody: '<strong style="color:' + C.text + ';font-size:18px">Smart money.</strong> Ces deux mots ont changé ma vision des marchés il y a quelques années. Avant que tu plonges plus loin dans Kairos, laisse-moi te raconter pourquoi je l\'ai construit.',
     h1Why: "Pourquoi j'ai créé Kairos",
-    whyP1: 'J\'ai passé des années à observer comment les pros décident sur les marchés. Ce qui m\'a frappé : les vrais signaux ne sont pas dans les analyses TradingView ou les feeds Twitter — ils sont dans les <strong style="color:' + C.text + '">filings SEC, AMF, BaFin</strong>. Ce que les insiders achètent. Ce que les hedge funds activistes accumulent. Ce que les politiciens déclarent.',
-    whyP2: 'Tout est public. Mais en France, personne n\'a construit l\'outil pour le rendre lisible. J\'ai décidé de m\'y mettre.',
+    whyP1: 'Pendant des années, j\'ai regardé des retail investors se faire laminer. Pas par manque de discipline. Pas par manque d\'analyse. Mais parce qu\'ils jouaient à un jeu où ' + em('les pros voient les cartes 6 mois avant tout le monde') + '.',
+    whyExamplesIntro: 'Quelques exemples concrets — chacun est réel, public, et était sous ton nez, mais enterré :',
+    whyExamples: [
+      'Quand un CEO achète ' + $('13 M$') + ' de ses propres actions sur 3 jours (Biglari Holdings, mai 2026), c\'est public sur SEC EDGAR à ' + t('J+1') + '. Le retail le lit dans une analyse Bloomberg ' + t('3 mois plus tard') + '.',
+      'Quand Elliott franchit 5% d\'une société (Saham, mai 2026), c\'est déposé sous ' + t('48 h') + ' à l\'AMF. Le retail le lit dans le 13F ' + t('45 jours plus tard') + '.',
+      'Quand Nancy Pelosi a acheté NVDA avant un mega contrat IA gouvernemental (2024), c\'est publié sous ' + t('45 jours') + ' au registre du Congrès. Son portfolio en 2024 : ' + $('+70%') + ', vs S&amp;P 500 ' + $('+24%') + '.',
+    ],
+    whyConclude: 'Le constat qui m\'a frappé : ' + em('rien de tout ça n\'est secret') + '. Tout est public, gratuit, déposé chaque jour auprès de 11 régulateurs (SEC, AMF, BaFin, FCA, AFM, SIX, CONSOB, CNMV, SEDI…). Mais dispersé sur des dizaines de sites, enterré dans des PDF imbuvables, sans tickers normalisés. Personne n\'avait construit l\'outil pour rendre ça lisible en 30 secondes.',
+    pullQuote: 'Smart money = le seul &quot;cheat code&quot; légal qu\'il reste sur les marchés. J\'ai décidé de m\'y mettre.',
     h2Have: 'Ce que tu as déjà à disposition',
     haveItems: [
-      '<strong style="color:' + C.text + '">Kairos Score 8D</strong> — un score 0–100 sur chaque action, décomposé en 8 dimensions (insiders, smart money, momentum, valorisation, santé, analystes, gourous, earnings). Pas de boîte noire — tu vois exactement ce qui le compose.',
-      '<strong style="color:' + C.text + '">300+ hedge funds suivis</strong> — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel... Chaque trimestre on parse leurs 13F-HR. Tu vois qui détient quoi et l\'évolution depuis le dernier trimestre.',
-      '<strong style="color:' + C.text + '">Activité insiders temps quasi-réel</strong> — SEC Form 4 (US), AMF (France), BaFin (Allemagne). Filtres jusqu\'à 5 ans d\'historique, export CSV.',
-      '<strong style="color:' + C.text + '">Politiciens &amp; gourous</strong> — Pelosi, Cruz, Wyden... + Berkshire, Soros, Druckenmiller. Quand ils achètent, tu le sais.',
-      '<strong style="color:' + C.text + '">Flux ETF</strong> — ARK, BUZZ, NANC, GOP. Qui rentre, qui sort, chaque jour.',
+      em('Kairos Score 8D') + ' — un score 0–100 sur chaque action, décomposé en 8 dimensions (insiders, smart money, momentum, valorisation, santé, analystes, gourous, earnings). Pas de boîte noire.',
+      em('300+ hedge funds suivis') + ' — BlackRock, Susquehanna, Millennium, Goldman Sachs, Citadel… Chaque trimestre on parse leurs 13F-HR.',
+      em('Activité insiders temps quasi-réel') + ' — SEC Form 4 (US), AMF (France), BaFin (Allemagne). Filtres jusqu\'à 5 ans d\'historique, export CSV.',
+      em('Politiciens &amp; gourous') + ' — Pelosi, Cruz, Wyden… + Berkshire, Soros, Druckenmiller. Quand ils achètent, tu le sais.',
+      em('Flux ETF') + ' — ARK, BUZZ, NANC, GOP. Qui rentre, qui sort, chaque jour.',
     ],
     haveFooter: 'Tout ça en accès gratuit. Pas de paywall sur l\'essentiel — je veux que tu puisses te faire un avis honnête sur la valeur avant de penser Premium.',
     h3Coming: 'Ce qui arrive bientôt',
@@ -7552,10 +7580,10 @@ function buildFounderLetter(lang) {
       'Backtests historiques : "si tu avais acheté chaque fois qu\'un CEO achète plus de X millions, ton P&amp;L sur 5 ans ?"',
     ],
     h4Ask: 'Une question, et c\'est tout',
-    askP1: 'J\'aimerais beaucoup ta réponse à celle-ci : <strong style="color:' + C.text + '">quelle est LA feature qui te ferait passer Premium ?</strong>',
+    askP1: 'J\'aimerais beaucoup ta réponse à celle-ci : ' + em('quelle est LA feature qui te ferait passer Premium ?'),
     askP2: 'Réponds directement à cet email — je lis chaque mot.',
     askP3: 'Si Kairos te déçoit ou si tu trouves un bug, dis-le moi aussi. C\'est plus utile que les compliments à ce stade.',
-    sigClose: 'Bon week-end de marché,',
+    sigClose: 'Bonne semaine sur les marchés,',
     sigName: 'Nathanaël',
     sigTitle: 'Fondateur, Kairos Insider',
     footerNote: 'Tu reçois cet email car tu t\'es inscrit sur',
@@ -7564,10 +7592,33 @@ function buildFounderLetter(lang) {
     footerLegal: 'Kairos Insider — Plateforme de tracking smart money. Pas un conseil en investissement.',
   };
 
-  const liStyle = 'margin-bottom:10px';
+  // Markers et helpers pour les listes
+  const liStyle = 'margin-bottom:12px';
   const liStyleLast = 'margin-bottom:0';
   const haveLis = T.haveItems.map((it, i) => `<li style="${i === T.haveItems.length - 1 ? liStyleLast : liStyle}">${it}</li>`).join('');
   const comingLis = T.comingItems.map((it, i) => `<li style="${i === T.comingItems.length - 1 ? liStyleLast : liStyle}">${it}</li>`).join('');
+  // Examples "why" : bullets numerotes avec icon
+  const exampleLis = T.whyExamples.map((it, i) => `
+    <tr>
+      <td valign="top" style="padding:0 12px 14px 0;width:28px">
+        <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${C.primary},${C.primary2});color:white;font-size:11px;font-weight:800;text-align:center;line-height:24px">${i + 1}</div>
+      </td>
+      <td valign="top" style="padding:0 0 14px 0;font-size:15px;color:${C.textDim};line-height:1.65">${it}</td>
+    </tr>`).join('');
+
+  // Section divider gradient (subtle)
+  const divider = `<tr><td style="padding:8px 0"><div style="height:1px;background:linear-gradient(90deg,transparent,${C.border},transparent)"></div></td></tr>`;
+
+  // Heading helper : titre + petit bar gradient a gauche
+  const h2 = (title) => `
+    <tr><td style="padding:28px 0 14px 0">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+          <td valign="middle" style="padding-right:10px"><div style="width:4px;height:20px;background:linear-gradient(180deg,${C.primary},${C.primary2});border-radius:2px"></div></td>
+          <td valign="middle"><h2 style="margin:0;font-size:20px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${title}</h2></td>
+        </tr>
+      </table>
+    </td></tr>`;
 
   const html = `<!DOCTYPE html>
 <html lang="${isEn ? 'en' : 'fr'}">
@@ -7577,44 +7628,70 @@ function buildFounderLetter(lang) {
 <tr><td align="center" style="padding:32px 16px">
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%">
 
-<tr><td style="padding:0 0 28px 0"><img src="https://kairosinsider.fr/assets/logo-256.png" alt="Kairos Insider" width="40" height="40" style="display:block;width:40px;height:40px;border-radius:8px"></td></tr>
-
-<tr><td style="padding:0 0 24px 0;font-size:16px;color:${C.text};line-height:1.65">
-<p style="margin:0 0 16px 0">${T.hookHello}</p>
-<p style="margin:0">${T.hookBody}</p>
+<!-- Logo header + brand strip -->
+<tr><td style="padding:0 0 24px 0">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+    <tr>
+      <td valign="middle"><img src="https://kairosinsider.fr/assets/logo-256.png" alt="Kairos Insider" width="44" height="44" style="display:block;width:44px;height:44px;border-radius:9px"></td>
+      <td valign="middle" align="right" style="font-size:11px;color:${C.muted};letter-spacing:0.1em;text-transform:uppercase;font-weight:600">Kairos Insider</td>
+    </tr>
+  </table>
 </td></tr>
 
-<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h1Why}</h2></td></tr>
+<!-- Hero hook : Smart money. + intro -->
+<tr><td style="padding:8px 0 0 0">
+  <div style="background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(236,72,153,0.06));border:1px solid rgba(59,130,246,0.20);border-radius:14px;padding:22px 24px">
+    <p style="margin:0 0 12px 0;font-size:16px;color:${C.text};line-height:1.6">${T.hookHello}</p>
+    <p style="margin:0;font-size:16px;color:${C.text};line-height:1.7">${T.hookBody}</p>
+  </div>
+</td></tr>
+
+<!-- Section : Pourquoi j'ai créé Kairos -->
+${h2(T.h1Why)}
+<tr><td style="padding:0 0 18px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<p style="margin:0 0 16px 0">${T.whyP1}</p>
+<p style="margin:0 0 14px 0;color:${C.text};font-weight:600">${T.whyExamplesIntro}</p>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:6px">${exampleLis}</table>
+<p style="margin:14px 0 0 0">${T.whyConclude}</p>
+</td></tr>
+
+<!-- Pull-quote : punchline brand -->
+<tr><td style="padding:6px 0 8px 0">
+  <div style="background:linear-gradient(135deg,rgba(236,72,153,0.10),rgba(59,130,246,0.05));border-left:3px solid ${C.primary2};border-radius:8px;padding:18px 22px">
+    <p style="margin:0;font-size:17px;line-height:1.5;color:${C.text};font-weight:600;font-style:italic">"${T.pullQuote}"</p>
+  </div>
+</td></tr>
+
+<!-- Section : Ce que tu as -->
+${h2(T.h2Have)}
+<tr><td style="padding:0 0 18px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<ul style="margin:0;padding-left:22px;list-style-type:disc">${haveLis}</ul>
+<p style="margin:18px 0 0 0;font-size:14px;color:${C.muted};font-style:italic">${T.haveFooter}</p>
+</td></tr>
+
+<!-- Section : Ce qui arrive -->
+${h2(T.h3Coming)}
+<tr><td style="padding:0 0 18px 0;font-size:15px;color:${C.textDim};line-height:1.7">
+<ul style="margin:0;padding-left:22px;list-style-type:disc">${comingLis}</ul>
+</td></tr>
+
+<!-- Section : Une question -->
+${h2(T.h4Ask)}
 <tr><td style="padding:0 0 24px 0;font-size:15px;color:${C.textDim};line-height:1.7">
-<p style="margin:0 0 14px 0">${T.whyP1}</p>
-<p style="margin:0">${T.whyP2}</p>
-</td></tr>
-
-<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h2Have}</h2></td></tr>
-<tr><td style="padding:0 0 24px 0;font-size:15px;color:${C.textDim};line-height:1.7">
-<ul style="margin:0;padding-left:20px;list-style-type:disc">${haveLis}</ul>
-<p style="margin:16px 0 0 0;font-size:14px;color:${C.muted}">${T.haveFooter}</p>
-</td></tr>
-
-<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h3Coming}</h2></td></tr>
-<tr><td style="padding:0 0 24px 0;font-size:15px;color:${C.textDim};line-height:1.7">
-<ul style="margin:0;padding-left:20px;list-style-type:disc">${comingLis}</ul>
-</td></tr>
-
-<tr><td style="padding:24px 0 16px 0"><h2 style="margin:0;font-size:18px;font-weight:700;color:${C.text};letter-spacing:-0.01em">${T.h4Ask}</h2></td></tr>
-<tr><td style="padding:0 0 32px 0;font-size:15px;color:${C.textDim};line-height:1.7">
 <p style="margin:0 0 14px 0">${T.askP1}</p>
 <p style="margin:0 0 14px 0">${T.askP2}</p>
 <p style="margin:0">${T.askP3}</p>
 </td></tr>
 
-<tr><td style="padding:24px 0 0 0;border-top:1px solid ${C.border};font-size:15px;color:${C.textDim};line-height:1.6">
+<!-- Signature -->
+<tr><td style="padding:20px 0 0 0;border-top:1px solid ${C.border};font-size:15px;color:${C.textDim};line-height:1.6">
 <p style="margin:0 0 4px 0">${T.sigClose}</p>
-<p style="margin:14px 0 0 0;color:${C.text}"><strong>${T.sigName}</strong></p>
+<p style="margin:14px 0 0 0;color:${C.text};font-size:17px"><strong>${T.sigName}</strong></p>
 <p style="margin:2px 0 0 0;font-size:13px;color:${C.muted}">${T.sigTitle}</p>
-<p style="margin:2px 0 0 0;font-size:13px;color:${C.muted}"><a href="mailto:nathanael@kairosinsider.fr" style="color:${C.muted};text-decoration:underline">nathanael@kairosinsider.fr</a></p>
+<p style="margin:2px 0 0 0;font-size:13px"><a href="mailto:nathanael@kairosinsider.fr" style="color:${C.primary};text-decoration:none">nathanael@kairosinsider.fr</a></p>
 </td></tr>
 
+<!-- Footer -->
 <tr><td style="padding:32px 0 0 0;font-size:12px;color:${C.mutedDeep};line-height:1.5;text-align:center">
 <p style="margin:0 0 8px 0">${T.footerNote} <a href="https://kairosinsider.fr" style="color:${C.muted};text-decoration:underline">kairosinsider.fr</a>.</p>
 <p style="margin:0"><a href="{{ unsubscribe }}" style="color:${C.mutedDeep};text-decoration:underline">${T.footerUnsub}</a> &nbsp;·&nbsp; <a href="https://kairosinsider.fr/privacy.html" style="color:${C.mutedDeep};text-decoration:underline">${T.footerPrivacy}</a></p>
