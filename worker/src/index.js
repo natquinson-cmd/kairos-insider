@@ -12365,11 +12365,31 @@ function generateLinkCode() {
   return `KAIROS-${code}`;
 }
 
+// PREMIUM GATING (mai 2026) : helper qui retourne true si l'user a un
+// abonnement actif (pro, elite, ou legacy grandfathered). Utilise pour gater
+// les features Premium-only — Telegram alerts en l'occurrence.
+//
+// Status acceptes : 'active' (paiement OK) + 'past_due' (echec retry mais
+// acces conserve pendant la grace period Stripe ~3 semaines, sinon canceled).
+// Tous les plans payants (pro/elite/legacy) donnent acces — la differenciation
+// fine (Elite-only = API + CSV) se fait endpoint par endpoint.
+async function isPremiumUser(env, uid) {
+  if (!uid) return false;
+  const subData = await env.CACHE.get(`sub:${uid}`, 'json');
+  if (!subData) return false;
+  if (subData.status !== 'active' && subData.status !== 'past_due') return false;
+  const resolved = resolveStripePlan(subData.priceId, { plan: subData.plan, billing: subData.billing }, env);
+  return resolved.plan === 'pro' || resolved.plan === 'elite' || resolved.plan === 'legacy';
+}
+
 async function handleTelegramInitLink(env, user, origin) {
   if (!user || !user.uid) {
     return jsonResponse({ error: 'Auth required' }, 401, origin);
   }
-  // Si deja lie, retourne directement le status (pas de code regenere)
+  // Si deja lie, retourne directement le status (pas de code regenere).
+  // Pas de gate Premium ici : un user qui avait link avant le paywall (ou
+  // qui downgrade) garde l'acces lecture jusqu'au prochain cron. Le cron
+  // filtrera de toute facon (cf listTelegramSubscribers ci-dessous).
   const existing = await env.CACHE.get(`tg:${user.uid}`, 'json');
   if (existing && existing.chatId) {
     return jsonResponse({
@@ -12377,6 +12397,16 @@ async function handleTelegramInitLink(env, user, origin) {
       chatId: existing.chatId,
       linkedAt: existing.linkedAt,
     }, 200, origin);
+  }
+  // PREMIUM GATE (mai 2026) : Telegram alerts = feature Pro (apres bascule
+  // depuis Elite-only). Free users voient le paywall.
+  if (!await isPremiumUser(env, user.uid)) {
+    return jsonResponse({
+      error: 'Telegram alerts are a Pro feature. Upgrade to receive real-time signals on your watchlist.',
+      code: 'PREMIUM_REQUIRED',
+      requiredPlan: 'pro',
+      upgradeUrl: 'https://kairosinsider.fr/dashboard.html#pricing',
+    }, 402, origin);  // 402 Payment Required
   }
   const botUsername = env.TELEGRAM_BOT_USERNAME || 'KairosInsiderBot';
   const code = generateLinkCode();
@@ -12433,6 +12463,17 @@ async function handleTelegramUnlink(env, user, origin) {
 async function handleTelegramTestMessage(env, user, origin) {
   if (!user || !user.uid) {
     return jsonResponse({ error: 'Auth required' }, 401, origin);
+  }
+  // PREMIUM GATE : meme regle que init-link. Un user qui a downgrade peut
+  // encore avoir tg:{uid} en KV mais ne peut plus envoyer de test (= visuel
+  // dashboard "feature locked" si Free).
+  if (!await isPremiumUser(env, user.uid)) {
+    return jsonResponse({
+      error: 'Telegram alerts are a Pro feature.',
+      code: 'PREMIUM_REQUIRED',
+      requiredPlan: 'pro',
+      upgradeUrl: 'https://kairosinsider.fr/dashboard.html#pricing',
+    }, 402, origin);
   }
   const data = await env.CACHE.get(`tg:${user.uid}`, 'json');
   if (!data || !data.chatId) {
@@ -12640,6 +12681,7 @@ async function sendTelegramMessage(env, chatId, text, options = {}) {
 async function listTelegramSubscribers(env) {
   const subs = [];
   let cursor;
+  let skippedFree = 0;
   do {
     const list = await env.CACHE.list({ prefix: 'tg:', cursor, limit: 1000 });
     for (const k of list.keys) {
@@ -12653,6 +12695,14 @@ async function listTelegramSubscribers(env) {
       if (!uid || uid.includes(':')) continue;
       const data = await env.CACHE.get(k.name, 'json');
       if (!data || !data.chatId) continue;
+      // PREMIUM GATE (mai 2026) : skip les users qui ont downgrade en Free
+      // (ou tg:* legacy avant le paywall). L'entree KV reste mais on
+      // n'envoie plus d'alerte. Si l'user re-upgrade plus tard, l'entree
+      // est toujours la -> reactivation auto.
+      if (!await isPremiumUser(env, uid)) {
+        skippedFree++;
+        continue;
+      }
       // Recuperer la watchlist du user
       const wl = await env.CACHE.get(`wl:${uid}`, 'json');
       const tickers = (wl && Array.isArray(wl.tickers)) ? wl.tickers.map(t => String(t).toUpperCase()) : [];
@@ -12666,6 +12716,7 @@ async function listTelegramSubscribers(env) {
     }
     cursor = list.list_complete ? null : list.cursor;
   } while (cursor);
+  if (skippedFree > 0) log.info('telegram.cron.skipped-free', { count: skippedFree });
   return subs;
 }
 
