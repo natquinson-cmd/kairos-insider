@@ -1,0 +1,62 @@
+name: Backfill User Langs (one-shot)
+
+# ============================================================================
+# Backfill du champ `lang` dans user:{uid} KV pour les inscrits pre-fix
+# mai 2026 (dont la lang n'avait pas ete stockee au signup).
+#
+# Boucle sur un JSON array et appelle PUT /api/admin/user-lang pour chaque
+# entree. Permet aussi de remettre la colonne Langue du dashboard admin a
+# jour apres un send-founder-letter qui n'update pas user:{uid}.lang.
+#
+# Inputs :
+#   recipients : JSON array, ex :
+#     [{"email":"a@x.com","lang":"fr"},{"email":"b@y.com","lang":"en"}]
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      recipients:
+        description: 'JSON array : [{"email":"...","lang":"fr|en"}, ...]'
+        required: true
+        type: string
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+      RECIPIENTS_JSON: ${{ inputs.recipients }}
+    steps:
+      - name: Validate input
+        run: |
+          echo "$RECIPIENTS_JSON" | jq -e 'type == "array" and length > 0 and length <= 50' >/dev/null || {
+            echo "::error::recipients must be a JSON array of 1-50 {email, lang} objects"
+            exit 1
+          }
+
+      - name: Loop PUT /api/admin/user-lang for each
+        run: |
+          OK=0
+          FAIL=0
+          echo "$RECIPIENTS_JSON" | jq -c '.[]' | while read -r row; do
+            EMAIL=$(echo "$row" | jq -r '.email')
+            LANG=$(echo "$row" | jq -r '.lang')
+            echo "-> PUT user-lang email=$EMAIL lang=$LANG"
+            HTTP_CODE=$(curl -s -o /tmp/last_response.json -w "%{http_code}" -X PUT \
+              "$API_BASE/api/admin/user-lang" \
+              -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{\"email\":\"$EMAIL\",\"lang\":\"$LANG\"}")
+            if [ "$HTTP_CODE" -ge 400 ]; then
+              echo "::warning::FAIL HTTP $HTTP_CODE for $EMAIL"
+              cat /tmp/last_response.json
+              echo ""
+            else
+              echo "   OK HTTP $HTTP_CODE"
+              jq -c . /tmp/last_response.json 2>/dev/null
+            fi
+          done
+          echo "Done."
