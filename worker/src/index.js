@@ -7651,12 +7651,14 @@ function buildFounderLetter(lang) {
 <tr><td align="center" style="padding:32px 16px">
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%">
 
-<!-- Logo header + brand strip -->
-<tr><td style="padding:0 0 24px 0">
+<!-- Logo header + brand wordmark (v4 mai 2026 : bumped 44->64px logo et
+     11->17px text, color text au lieu de muted, pour plus de presence
+     visuelle. User feedback : "logo et mark trop petits"). -->
+<tr><td style="padding:0 0 28px 0">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
     <tr>
-      <td valign="middle"><img src="https://kairosinsider.fr/assets/logo-256.png" alt="Kairos Insider" width="44" height="44" style="display:block;width:44px;height:44px;border-radius:9px"></td>
-      <td valign="middle" align="right" style="font-size:11px;color:${C.muted};letter-spacing:0.1em;text-transform:uppercase;font-weight:600">Kairos Insider</td>
+      <td valign="middle" style="width:68px"><img src="https://kairosinsider.fr/assets/logo-256.png" alt="Kairos Insider" width="64" height="64" style="display:block;width:64px;height:64px;border-radius:12px"></td>
+      <td valign="middle" align="right" style="font-size:17px;color:${C.text};letter-spacing:0.08em;text-transform:uppercase;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">Kairos Insider</td>
     </tr>
   </table>
 </td></tr>
