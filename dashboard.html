@@ -13057,31 +13057,24 @@
           slot = document.createElement('div');
           slot.id = 'recentActivitySlot';
           slot.style.cssText = 'margin:0 0 24px';
-          // FIX (mai 2026 v2) : avant on anchorait sur activistBannerSlot,
-          // mais depuis le refactor Row 2 grid, activistBannerSlot est
-          // INSIDE le grid -> recentActivitySlot s'inserait comme 3e enfant
-          // du grid (3 cards en ligne au lieu de 2). Maintenant on remonte
-          // au GRID PARENT (closest div) et on insere APRES, comme sibling.
-          const activistSlot = document.getElementById('activistBannerSlot');
-          const scoreCard = body.querySelector('.kairos-score-card');
-          // Si activistSlot dans un grid, son parent est le grid div ; on
-          // insere apres CE parent (sibling du grid, pas du slot).
-          let anchor = null;
-          if (activistSlot) {
-            const gridParent = activistSlot.parentElement;
-            // Detect : si le parent est un grid container (.stock-grid-2col),
-            // on l'utilise comme anchor pour inserer apres lui.
-            anchor = (gridParent && gridParent.classList && gridParent.classList.contains('stock-grid-2col'))
-              ? gridParent
-              : activistSlot;
-          } else if (scoreCard) {
-            anchor = scoreCard;
-          }
-          if (anchor) {
-            if (anchor.nextSibling) anchor.parentNode.insertBefore(slot, anchor.nextSibling);
-            else anchor.parentNode.appendChild(slot);
+          // POSITION (mai 2026 v3, demande user 'la card activites recentes
+          // doit etre avant initie et Hedge funds') : on insere APRES le
+          // chart card et AVANT la premiere grid stock-grid-2col (Row 1
+          // Insiders/HF). Ordre final : Score -> Chart -> Recent activity
+          // -> Row 1 (Insiders|HF) -> Row 2 (Politicians|Activists).
+          const chartCard = body.querySelector('#stockChartCard');
+          if (chartCard && chartCard.nextSibling) {
+            chartCard.parentNode.insertBefore(slot, chartCard.nextSibling);
+          } else if (chartCard) {
+            chartCard.parentNode.appendChild(slot);
           } else {
-            body.appendChild(slot);
+            // Fallback : insert before the first grid found, or as last child
+            const firstGrid = body.querySelector('.stock-grid-2col');
+            if (firstGrid) {
+              firstGrid.parentNode.insertBefore(slot, firstGrid);
+            } else {
+              body.appendChild(slot);
+            }
           }
         }
 
