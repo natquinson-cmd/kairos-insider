@@ -16869,11 +16869,14 @@
             const barWidth = Math.min(Math.max(h.pct * 2, 2), 100);
             let changeHtml = '';
             if (h.status === 'new') {
-              changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
+              changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU<span style="opacity:0.6;font-weight:500;font-size:10px;margin-left:3px">vs Q-1</span></span>';
             } else if (h.sharesChange !== null && h.sharesChange !== undefined) {
               const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
               const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
-              changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
+              // FIX (mai 2026, retour user) : suffix 'vs Q-1' explicite pour
+              // distinguer de la section 'Évolution sur N trimestres' au-dessus
+              // qui mesure 9T (= 2 ans) au lieu d'un seul trimestre.
+              changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%<span style="opacity:0.6;font-weight:500;font-size:10px;margin-left:3px">vs Q-1</span></span>`;
             } else {
               changeHtml = '<span style="color:var(--text-muted)">—</span>';
             }
@@ -17157,6 +17160,12 @@
               const first = firstByName.get(h.name);
               const sharesNow = h.shares || 0;
               const sharesBefore = first ? (first.shares || 0) : 0;
+              // FIX (mai 2026, retour user) : suffixe explicit du nombre de
+              // trimestres mesures dans chaque badge. Avant : '+81%' ambigu —
+              // le user voit 9.9% dans le tableau Top 10 (Q-vs-Q) et +81%
+              // ici (9 trimestres) et croit que c'est incoherent. Maintenant :
+              // '+81% sur 9T' vs '+9.9% vs Q-1' = sans ambiguite.
+              const periodSuffix = `<span style="opacity:0.7;font-weight:500;font-size:11px;margin-left:3px">sur ${quarters.length}T</span>`;
               let trendTxt, trendCol;
               if (!first) {
                 trendTxt = '🆕 Nouvelle';
@@ -17167,8 +17176,8 @@
               } else {
                 const pct = ((sharesNow - sharesBefore) / sharesBefore) * 100;
                 if (Math.abs(pct) < 1) { trendTxt = '➖ Inchangée'; trendCol = '#9CA3AF'; }
-                else if (pct > 0) { trendTxt = `📈 +${pct.toFixed(0)}%`; trendCol = '#10B981'; }
-                else { trendTxt = `📉 ${pct.toFixed(0)}%`; trendCol = '#EF4444'; }
+                else if (pct > 0) { trendTxt = `📈 +${pct.toFixed(0)}%${periodSuffix}`; trendCol = '#10B981'; }
+                else { trendTxt = `📉 ${pct.toFixed(0)}%${periodSuffix}`; trendCol = '#EF4444'; }
               }
               return `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface-2);border-radius:6px;font-size:12px">
