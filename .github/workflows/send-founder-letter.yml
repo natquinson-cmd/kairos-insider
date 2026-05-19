@@ -1,0 +1,67 @@
+name: Send Founder Letter
+
+# ============================================================================
+# One-shot manuel pour envoyer le Founder Letter a des destinataires precis.
+# Reutilise pour : preview admin, envoi aux inscrits, re-send manuel.
+#
+# Inputs :
+#   recipients : JSON array, ex :
+#     [{"email":"a@x.com","lang":"fr"},{"email":"b@y.com","lang":"en"}]
+#   Max 50 recipients par run (limite de l'endpoint).
+#
+# Auth : utilise KAIROS_ADMIN_API_KEY (GitHub secret) -> X-Admin-API-Key header.
+# Pas d'idempotence cote KV : on peut re-envoyer si besoin (vs welcome qui
+# a une idempotence 1 an).
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      recipients:
+        description: 'JSON array : [{"email":"...","lang":"fr|en"}, ...]'
+        required: true
+        type: string
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+      RECIPIENTS_JSON: ${{ inputs.recipients }}
+    steps:
+      - name: Validate input is JSON array
+        run: |
+          echo "Recipients: $RECIPIENTS_JSON"
+          echo "$RECIPIENTS_JSON" | jq -e 'type == "array" and length > 0 and length <= 50' >/dev/null || {
+            echo "::error::recipients must be a JSON array of 1-50 objects with {email, lang}"
+            exit 1
+          }
+
+      - name: Call send-founder-letter endpoint
+        run: |
+          PAYLOAD=$(jq -nc --argjson r "$RECIPIENTS_JSON" '{recipients: $r}')
+          echo "POST $API_BASE/api/admin/send-founder-letter"
+          echo "Recipients count: $(echo "$RECIPIENTS_JSON" | jq 'length')"
+          echo "---"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "$API_BASE/api/admin/send-founder-letter" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::Send failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          # Si l'API retourne sent < recipients.length, on flag warning
+          SENT=$(echo "$BODY" | jq -r '.sent // 0')
+          FAILED=$(echo "$BODY" | jq -r '.failed // 0')
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::warning::$FAILED recipient(s) failed (voir results ci-dessus)"
+          fi
+          echo "::notice::Sent: $SENT · Failed: $FAILED"
