@@ -1,0 +1,71 @@
+name: Brevo Setup + Resync (one-shot)
+
+# ============================================================================
+# Workflow one-shot pour :
+#   1. Diagnostic : GET contact Brevo de natquinson@gmail.com pour voir
+#      les attributs actuels.
+#   2. Setup : cree les attributs custom LANG / PLAN / LAST_LOGIN au niveau
+#      du schema Brevo (POST /v3/contacts/attributes/normal/{name}).
+#      Idempotent : si attribut existe deja, Brevo 400 'exists' -> ignored.
+#   3. Resync : POST /api/admin/sync-brevo-contacts pour re-pusher tous les
+#      users avec leurs attributs (maintenant que LANG existe dans le schema).
+#   4. Diagnostic final : re-GET le contact pour confirmer LANG present.
+#
+# A LANCER UNE FOIS apres deploy. Apres ca, le push pushBrevoContact() au
+# signup ou via send-founder-letter ecrira correctement LANG.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+    steps:
+      - name: 1/4 — Diagnostic AVANT (un contact)
+        run: |
+          echo "GET /api/admin/brevo-contact?email=jorgentheboss@gmail.com"
+          RESPONSE=$(curl -s -X GET \
+            "$API_BASE/api/admin/brevo-contact?email=jorgentheboss%40gmail.com" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY")
+          echo "$RESPONSE" | jq '.contact.attributes // {}' 2>/dev/null || echo "$RESPONSE"
+
+      - name: 2/4 — Setup attributs custom (LANG, PLAN, LAST_LOGIN)
+        run: |
+          echo "POST /api/admin/brevo-setup-attributes"
+          RESPONSE=$(curl -s -X POST \
+            "$API_BASE/api/admin/brevo-setup-attributes" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY")
+          echo "$RESPONSE" | jq '.setupResults' 2>/dev/null
+          echo "--- Tous les attributs custom Brevo apres setup ---"
+          echo "$RESPONSE" | jq '.currentAttributes[] | select(.category == "normal") | {name, type}' 2>/dev/null
+
+      - name: 3/4 — Resync contacts (push LANG sur les 8 users)
+        run: |
+          echo "POST /api/admin/sync-brevo-contacts"
+          RESPONSE=$(curl -s -X POST \
+            "$API_BASE/api/admin/sync-brevo-contacts" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "$RESPONSE" | jq '{ok, synced, failed}' 2>/dev/null
+
+      - name: 4/4 — Diagnostic APRES (mm contact, doit montrer LANG=EN)
+        run: |
+          sleep 2  # laisse le temps a Brevo de propager
+          echo "GET /api/admin/brevo-contact?email=jorgentheboss@gmail.com"
+          RESPONSE=$(curl -s -X GET \
+            "$API_BASE/api/admin/brevo-contact?email=jorgentheboss%40gmail.com" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY")
+          echo "$RESPONSE" | jq '.contact.attributes // {}' 2>/dev/null || echo "$RESPONSE"
+          # Verifier la presence de LANG specifiquement
+          HAS_LANG=$(echo "$RESPONSE" | jq -r '.contact.attributes.LANG // "MISSING"')
+          if [ "$HAS_LANG" = "MISSING" ]; then
+            echo "::error::LANG attribute toujours MISSING apres resync"
+            exit 1
+          fi
+          echo "::notice::LANG attribute confirme = $HAS_LANG"
