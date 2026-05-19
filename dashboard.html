@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260518-insider-total-row"></script>
+  <script src="assets/i18n.js?v=20260519-explorer-pct-float"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -16394,10 +16394,19 @@
         const totalValue = sorted.reduce((s, f) => s + (f.value || 0), 0);
         const totalCount = sorted.length;
         const totalShares = sorted.reduce((s, f) => s + (f.shares || 0), 0);
-        // Delta pondere par valeur de position : sum(delta * value) / sum(value)
-        const weightedDeltaSum = sorted.reduce((s, f) => s + ((f.deltaPct || 0) * (f.value || 0)), 0);
-        const avgDelta = totalValue > 0 ? (weightedDeltaSum / totalValue) : 0;
 
+        // % du float total detenu par les fonds (mai 2026, user feedback) :
+        // "Variation moyenne ponderee vs Q-1" etait bugguee (somme de % au
+        // lieu d'une vraie moyenne, gonflee par les nouvelles positions a
+        // delta=+99999%). La metrique vraiment utile c'est la part du
+        // capital total detenu par les HF aggreges = totalShares / sharesOut.
+        const sharesOut = (data.fundamentals && Number(data.fundamentals.sharesOut)) || null;
+        const pctOfFloat = (sharesOut && sharesOut > 0 && totalShares > 0)
+          ? (totalShares / sharesOut) * 100
+          : null;
+
+        // Summary : ajout d'une 2eme ligne avec la metrique "% du float" si on
+        // a sharesOut, sinon ligne masquee (NaN fallback).
         const summary = (t('explorer.summary','<strong>{n}</strong> fonds détiennent <strong>{ticker}</strong> · Total <strong>{total}</strong>'))
           .replace('{n}', totalCount)
           .replace('{ticker}', escTk + ' (' + escCo + ')')
@@ -16430,24 +16439,53 @@
         // etait en tfoot, mais visuellement moins evident + sticky-thead
         // pouvait la faire apparaitre au milieu du scroll.
         const fundsLbl = t('explorer.funds_label', 'fonds');
+
+        // Cellule "Δ SHARES VS Q-1" du TOTAL row : v2 mai 2026.
+        // - Avant : weighted avg deltaPct = somme bugguee (skewee par les
+        //   nouvelles positions a delta=+99999%) qui donnait +31207% sur FICO.
+        // - Apres : on remplace par "% du float" si sharesOut dispo, qui
+        //   repond a la vraie question "quelle part du capital est detenue
+        //   par les HF agreges ?". Sinon '—' avec tooltip explicatif.
+        const floatCellLabel = t('explorer.col.pctFloat', '% du float');
+        const floatTooltip = (t('explorer.pctFloat_tooltip',
+          'Part du capital total de la societe détenue par l\'ensemble des fonds listés. Calcul : actions détenues totales / actions en circulation. Une variation moyenne pondérée n\'est pas représentative ici à cause des nouvelles positions (delta = +∞).')
+        ).replace(/"/g, '&quot;');
+        // Affiche "51.4% du float" pour eviter la confusion avec un Δ (la
+        // colonne 'Δ shares vs Q-1' garde son sens pour les rows par fonds,
+        // mais le TOTAL row montre le % de capital - semantique differente).
+        const floatCellContent = pctOfFloat != null
+          ? `<span style="color:#34D399" title="${floatTooltip}">${pctOfFloat.toFixed(2)}%<span style="opacity:0.65;font-size:10px;font-weight:500;margin-left:4px">${t('explorer.float_suffix','du float')}</span></span>`
+          : `<span style="color:var(--text-muted);font-style:italic" title="${t('explorer.no_float_data','Données shares outstanding indisponibles pour ce ticker.')}">—</span>`;
+
         const totalRowHtml = `
           <tr style="background:linear-gradient(135deg,rgba(16,185,129,0.14),rgba(59,130,246,0.06));border-bottom:2px solid var(--border-strong);font-weight:700">
             <td style="padding:14px 12px;font-size:13px;color:#10B981;font-weight:700">Σ</td>
             <td style="padding:14px 12px;font-size:14px;color:var(--text-primary);font-weight:700">${t('explorer.total','TOTAL')} <span style="font-weight:500;color:var(--text-muted);font-size:12px;margin-left:8px">(${totalCount} ${fundsLbl})</span></td>
             <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:16px;color:#10B981;font-weight:800">${fmtUsd(totalValue)}</td>
-            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:#34D399" title="${fmtSharesExact(totalShares)}">${fmtShares(totalShares)}</td>
+            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:#34D399" title="${fmtSharesExact(totalShares)} ${t('explorer.shares_held_tooltip','actions détenues au total')}">${fmtShares(totalShares)}</td>
             <td style="padding:14px 12px;text-align:right;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
-            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-muted)'}">${fmtPct(avgDelta)}</td>
+            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700">${floatCellContent}</td>
             <td style="padding:14px 12px;text-align:right;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
             <td style="padding:14px 12px;text-align:center;color:var(--text-muted);font-size:11px;font-style:italic">—</td>
           </tr>
         `;
 
+        // Summary header v2 : on remplace la ligne 'Variation moyenne ponderee'
+        // bugguee par 2 metriques pertinentes :
+        //   - Capital total detenu : pctOfFloat (avec totalShares + sharesOut absolus pour contexte)
+        //   - (Si sharesOut absent : on cache cette ligne, summary reste minimal)
+        const capitalLine = pctOfFloat != null ? `
+          <div style="margin-top:6px;font-size:13px;color:var(--text-secondary);line-height:1.5">
+            ${t('explorer.capital_owned','Capital total détenu par ces fonds :')}
+            <strong style="color:#10B981">${pctOfFloat.toFixed(2)}%</strong>
+            <span style="color:var(--text-muted);font-size:12px;margin-left:6px">(${fmtShares(totalShares)} / ${fmtShares(sharesOut)} ${t('explorer.shares_outstanding','actions en circulation')})</span>
+          </div>` : '';
+
         body.innerHTML = `
           <!-- Summary header (texte + bilan) -->
           <div style="padding:14px 16px;background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:12px;margin-bottom:14px;font-size:14px;line-height:1.6">
             ${summary}
-            ${avgDelta !== 0 ? `<div style="margin-top:6px;font-size:12px;color:var(--text-muted)">${t('explorer.avg_delta_label','Variation moyenne pondérée vs Q-1 :')} <strong style="color:${avgDelta>1?'#10B981':avgDelta<-1?'#EF4444':'var(--text-secondary)'}">${fmtPct(avgDelta)}</strong></div>` : ''}
+            ${capitalLine}
           </div>
 
           <!-- Table : headers + TOTAL en haut + positions

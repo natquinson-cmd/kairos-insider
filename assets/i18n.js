@@ -1449,6 +1449,17 @@
       'explorer.back_to_stock': '← Retour à la fiche {ticker}',
       'explorer.avg_delta_label': 'Variation moyenne pondérée vs Q-1 :',
       'explorer.funds_label': 'fonds',
+      // Hedge Funds Explorer — TOTAL row : "% du float" remplace l'ancien
+      // weighted avg delta % qui etait mathematiquement faux (sommait les %
+      // au lieu de moyenne ponderee correcte, gonfle par les nouvelles
+      // positions a delta=+99999%). Cf user feedback FICO +31207%.
+      'explorer.capital_owned': 'Capital total détenu par ces fonds :',
+      'explorer.shares_outstanding': 'actions en circulation',
+      'explorer.shares_held_tooltip': 'actions détenues au total',
+      'explorer.col.pctFloat': '% du float',
+      'explorer.float_suffix': 'du float',
+      'explorer.pctFloat_tooltip': 'Part du capital total de la société détenue par l\'ensemble des fonds listés. Calcul : actions détenues totales / actions en circulation. Une variation moyenne pondérée n\'est pas représentative ici à cause des nouvelles positions (delta = +∞).',
+      'explorer.no_float_data': 'Données shares outstanding indisponibles pour ce ticker.',
       'explorer.footer_tip': "💡 Les valeurs et delta proviennent du dernier 13F-HR déposé à la SEC EDGAR. Données partagées avec la fiche action {ticker} (Σ doit matcher).",
       'explorer.error': 'Erreur :',
       // ===== Landing carousel (showcase 5 features clés) =====
@@ -2958,6 +2969,14 @@
       'explorer.back_to_stock': '← Back to {ticker}',
       'explorer.avg_delta_label': 'Weighted avg change vs Q-1:',
       'explorer.funds_label': 'funds',
+      // Hedge Funds Explorer — TOTAL row : "% of float"
+      'explorer.capital_owned': 'Total capital owned by these funds:',
+      'explorer.shares_outstanding': 'shares outstanding',
+      'explorer.shares_held_tooltip': 'total shares held',
+      'explorer.col.pctFloat': '% of float',
+      'explorer.float_suffix': 'of float',
+      'explorer.pctFloat_tooltip': 'Share of the company\'s total capital held by all funds listed. Formula: total shares held / shares outstanding. A weighted average % change is not representative here because new positions show delta = +∞.',
+      'explorer.no_float_data': 'Shares outstanding data unavailable for this ticker.',
       'explorer.footer_tip': '💡 Values and deltas come from the latest 13F-HR filed with SEC EDGAR. Shared with the {ticker} stock page (Σ must match).',
       'explorer.error': 'Error:',
       // ===== Landing carousel (5 key features showcase) =====
