@@ -12400,13 +12400,16 @@ async function handleTelegramInitLink(env, user, origin) {
   }
   // PREMIUM GATE (mai 2026) : Telegram alerts = feature Pro (apres bascule
   // depuis Elite-only). Free users voient le paywall.
+  // Note : HTTP 403 + code 'PREMIUM_REQUIRED' (pas 402) pour matcher la
+  // convention apiFetch cote dashboard qui trigger le paywallOverlay sur
+  // 403+PREMIUM_REQUIRED uniquement.
   if (!await isPremiumUser(env, user.uid)) {
     return jsonResponse({
       error: 'Telegram alerts are a Pro feature. Upgrade to receive real-time signals on your watchlist.',
       code: 'PREMIUM_REQUIRED',
       requiredPlan: 'pro',
       upgradeUrl: 'https://kairosinsider.fr/dashboard.html#pricing',
-    }, 402, origin);  // 402 Payment Required
+    }, 403, origin);
   }
   const botUsername = env.TELEGRAM_BOT_USERNAME || 'KairosInsiderBot';
   const code = generateLinkCode();
@@ -12464,16 +12467,16 @@ async function handleTelegramTestMessage(env, user, origin) {
   if (!user || !user.uid) {
     return jsonResponse({ error: 'Auth required' }, 401, origin);
   }
-  // PREMIUM GATE : meme regle que init-link. Un user qui a downgrade peut
-  // encore avoir tg:{uid} en KV mais ne peut plus envoyer de test (= visuel
-  // dashboard "feature locked" si Free).
+  // PREMIUM GATE : meme regle que init-link (403 + PREMIUM_REQUIRED). Un user
+  // qui a downgrade peut encore avoir tg:{uid} en KV mais ne peut plus envoyer
+  // de test (= visuel dashboard "feature locked" si Free).
   if (!await isPremiumUser(env, user.uid)) {
     return jsonResponse({
       error: 'Telegram alerts are a Pro feature.',
       code: 'PREMIUM_REQUIRED',
       requiredPlan: 'pro',
       upgradeUrl: 'https://kairosinsider.fr/dashboard.html#pricing',
-    }, 402, origin);
+    }, 403, origin);
   }
   const data = await env.CACHE.get(`tg:${user.uid}`, 'json');
   if (!data || !data.chatId) {
