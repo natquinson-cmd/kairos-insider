@@ -13245,7 +13245,7 @@
             ? t('stock.recent.etfTitleMulti', 'ETF ({n} mouvements)').replace('{n}', data.etfChanges.length)
             : t('stock.recent.etfTitleSingle', 'ETF ({n} mouvement)').replace('{n}', data.etfChanges.length);
           etfHTML = `
-            <div class="activity-card" style="flex:1.4">
+            <div class="activity-card">
               <div class="activity-card-label">💼 ${_etfTitle}</div>
               <div style="margin-top:6px">${rows}</div>
             </div>`;
@@ -13301,7 +13301,7 @@
               </div>`;
           }).join('');
           insiderHTML = `
-            <div class="activity-card" style="flex:1.4">
+            <div class="activity-card">
               <div class="activity-card-label">🕴️ ${t('stock.recent.insidersTitle', 'Insiders')} (${buys ? buys + ' 🟢' : ''}${buys && sells ? ' / ' : ''}${sells ? sells + ' 🔴' : ''}${!buys && !sells ? data.insiderTrades.length : ''})</div>
               <div style="margin-top:6px">${rows}</div>
             </div>`;
@@ -13324,17 +13324,25 @@
               font-size:10px; padding:2px 8px; border-radius:10px;
               background: rgba(139,92,246,0.18); color: #A78BFA; font-weight:600;
             }
-            .activity-cards { display:flex; gap:12px; flex-wrap:wrap; }
-            /* COHERENCE LAYOUT (mai 2026) : cap chaque carte interne a 260px
-               de hauteur avec scroll-y. Avant : les cartes inserts/ETF
-               pouvaient prendre 600+px chacune si le ticker avait 20+
-               filings, pushant la fiche action a une longueur enorme. */
+            .activity-cards {
+              display:flex; gap:12px; flex-wrap:wrap;
+              align-items: stretch; /* meme hauteur explicite pour les cards sur la mm ligne */
+            }
+            /* COHERENCE LAYOUT v2 (mai 2026, retour user 'les 2 cards
+               devraient etre de meme taille') :
+               - flex: 1 1 0 (au lieu de 'flex:1') + identique sur TOUTES les
+                 cards (avant : ETF/Insider avaient inline 'flex:1.4' >
+                 KAIROS-card 'flex:1', d'ou largeurs differentes).
+               - height: 260px fixe (au lieu de max-height) -> les cards a
+                 contenu court (ex: ETF 1 changement) gardent 260px avec espace
+                 vide en bas plutot que de retrecir.
+               - overflow-y: auto sur le contenu de la card si trop long. */
             .activity-card {
-              flex: 1; min-width: 220px;
+              flex: 1 1 0; min-width: 220px;
               background: var(--surface-1);
               border: 1px solid var(--border);
               border-radius: 10px; padding: 12px 14px;
-              max-height: 260px; overflow-y: auto;
+              height: 260px; overflow-y: auto;
               /* Scrollbar fine cf scroll-y-hover */
               scrollbar-width: thin;
               scrollbar-color: rgba(255,255,255,0.18) transparent;
