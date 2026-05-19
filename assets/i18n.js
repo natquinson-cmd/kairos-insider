@@ -676,6 +676,14 @@
       'stock.etfLabel.BUZZ': 'Sentiment retail Twitter/Reddit',
       'stock.etfLabel.shares': 'titres',
       'stock.gov.absent': 'Absent des ETF suivis (NANC, GOP, GURU)',
+      // Empty states v3 mai 2026 — cards always-rendered (demande coherence layout)
+      'stock.gov.absent_title': 'Aucun politicien ou guru détecté',
+      'stock.gov.absent_subtitle': 'Cette action n\'est pas dans NANC, GOP, GURU ni les portefeuilles politiciens US suivis.',
+      'stock.activists.loading': 'Chargement des filings 13D/G…',
+      'stock.activists.empty_title': 'Aucun activiste détecté sur 24 mois',
+      'stock.activists.empty_subtitle': 'Pas de filing 13D ou 13G &gt;5% du capital sur {ticker} dans les 24 derniers mois (sources : SEC EDGAR, AMF, BaFin).',
+      'stock.recent.empty_title': 'Aucune activité notable sur 7 jours',
+      'stock.recent.empty_subtitle': 'Pas de mouvement sur le Kairos Score, ni de changement ETF, ni d\'achats/ventes insiders sur {ticker} depuis 7 jours.',
       // ==== Footer dashboard ====
       'footer.copy': '© 2026 Kairos Insider — Données SEC publiques, usage informatif uniquement.',
       'footer.notAdvice': "Pas un conseil en investissement.",
@@ -2213,6 +2221,14 @@
       'stock.etfLabel.BUZZ': 'Retail sentiment Twitter/Reddit',
       'stock.etfLabel.shares': 'shares',
       'stock.gov.absent': 'Not in tracked ETFs (NANC, GOP, GURU)',
+      // Empty states v3 may 2026 — cards always rendered (layout consistency)
+      'stock.gov.absent_title': 'No politician or guru detected',
+      'stock.gov.absent_subtitle': 'This stock is not in NANC, GOP, GURU, nor tracked US politician portfolios.',
+      'stock.activists.loading': 'Loading 13D/G filings…',
+      'stock.activists.empty_title': 'No activist detected over 24 months',
+      'stock.activists.empty_subtitle': 'No 13D or 13G &gt;5% capital filing on {ticker} in the last 24 months (sources: SEC EDGAR, AMF, BaFin).',
+      'stock.recent.empty_title': 'No notable activity over 7 days',
+      'stock.recent.empty_subtitle': 'No Kairos Score change, no ETF flow, no insider buys/sells on {ticker} in the last 7 days.',
       // ==== Footer dashboard ====
       'footer.copy': '© 2026 Kairos Insider — Public SEC data, for informational purposes only.',
       'footer.notAdvice': 'Not investment advice.',
