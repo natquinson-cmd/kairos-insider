@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260520-testimonials-v2-photos-4slides"></script>
+  <script src="assets/i18n.js?v=20260520-testimonials-v3-stars"></script>
 
   <style>
     :root {
@@ -2601,6 +2601,7 @@
         <div class="testimonial-slide active" data-slide="0">
           <div class="testimonial-card">
             <img class="testimonial-photo" src="assets/testimonials/jean.jpg" alt="Jean M." loading="lazy" width="80" height="80">
+            <div class="testimonial-stars" aria-label="5 stars rating">★★★★★</div>
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t1.quote">Game changer absolu. Avant Kairos, je passais 2h par jour à scroller SEC EDGAR et 13F filings. Maintenant en 30 secondes je vois si Buffett a bougé sur ma watchlist. <strong>Mon ROI s'est amélioré de 18% sur 6 mois.</strong></span>
@@ -2617,6 +2618,7 @@
         <div class="testimonial-slide" data-slide="1">
           <div class="testimonial-card">
             <img class="testimonial-photo" src="assets/testimonials/sophie.jpg" alt="Sophie R." loading="lazy" width="80" height="80">
+            <div class="testimonial-stars" aria-label="5 stars rating">★★★★★</div>
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t2.quote">Les alertes temps réel sur les <strong>insiders + activistes 13D</strong> m'ont fait économiser des semaines de retard sur les news. J'ai chopé 3 trades gagnants juste sur les signaux Kairos en Q1. La data est plus fraîche que Bloomberg pour 10x moins cher.</span>
@@ -2633,6 +2635,7 @@
         <div class="testimonial-slide" data-slide="2">
           <div class="testimonial-card">
             <img class="testimonial-photo" src="assets/testimonials/thomas.jpg" alt="Thomas K." loading="lazy" width="80" height="80">
+            <div class="testimonial-stars" aria-label="5 stars rating">★★★★★</div>
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t3.quote">Le Kairos Score 8 dimensions est devenu mon premier réflexe avant d'ouvrir une position. Pas de boîte noire, je vois EXACTEMENT pourquoi un ticker score 72 vs 38. <strong>Les politiciens et hedge funds suivis sont un avantage compétitif énorme.</strong></span>
@@ -2649,6 +2652,7 @@
         <div class="testimonial-slide" data-slide="3">
           <div class="testimonial-card">
             <img class="testimonial-photo" src="assets/testimonials/marie.jpg" alt="Marie L." loading="lazy" width="80" height="80">
+            <div class="testimonial-stars" aria-label="5 stars rating">★★★★★</div>
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t4.quote">Je gère un portefeuille de 80k€. Avant je suivais 5 newsletters payantes pour ne rien rater. Kairos remplace tout : <strong>insiders en push Telegram</strong>, hedge funds 13F décodés, ETF politiciens trackés. <strong>250€ d'économies/mois</strong> et je sors moins de trades douteux.</span>
@@ -2704,11 +2708,20 @@
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        margin: 0 auto 16px;
+        margin: 0 auto 12px;
         display: block;
         object-fit: cover;
         border: 3px solid rgba(245,158,11,0.45);
         box-shadow: 0 4px 18px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
+      }
+      .testimonial-stars {
+        text-align: center;
+        font-size: 18px;
+        letter-spacing: 2px;
+        color: #FBBF24;
+        margin-bottom: 14px;
+        text-shadow: 0 0 8px rgba(251,191,36,0.35);
+        line-height: 1;
       }
       .testimonial-quote {
         font-size: 16px;
