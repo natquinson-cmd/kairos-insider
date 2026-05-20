@@ -279,7 +279,7 @@
     <div class="hero">
       <span class="free-badge">100 % GRATUIT — Pas de compte requis</span>
       <h1>Combien auriez-vous gagné en suivant <span class="gradient">les fonds activistes</span> ?</h1>
-      <p>Combien valait <strong style="color:var(--text-primary)">5 000 €</strong> investis dans <strong style="color:var(--text-primary)">Berkshire Hathaway</strong> il y a 10 ans ? Sélectionnez un fonds, ajustez votre patrimoine de départ, et découvrez la performance réelle vs S&P 500.</p>
+      <p>Combien valait <strong style="color:var(--text-primary)">5 000 €</strong> investis dans <strong style="color:var(--text-primary)">Berkshire Hathaway</strong> il y a 10 ans ? Sélectionnez un fonds, ajustez votre patrimoine de départ, et découvrez la performance réelle vs une <strong style="color:var(--text-primary)">assurance vie classique</strong> (~2.5%/an).</p>
     </div>
 
     <!-- Widget backtest interactif (mount via /assets/backtest-widget.js) -->
@@ -287,7 +287,7 @@
   </div>
 
   <!-- Widget reutilisable : sera aussi monte sur la landing -->
-  <script src="/assets/backtest-widget.js"></script>
+  <script src="/assets/backtest-widget.js?v=20260520-assurance-vie"></script>
   <script>
     KairosBacktest.mount(document.getElementById('backtest-widget'), {
       defaultPeriod: '3y',

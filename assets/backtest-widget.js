@@ -37,6 +37,27 @@
 
   const PERIOD_LABELS = { '1y': '1 an', '3y': '3 ans', '5y': '5 ans', '10y': '10 ans', '20y': '20 ans' };
 
+  // Benchmark : Assurance vie fonds euros (mai 2026, retour user).
+  // Rendement net moyen ~2.5%/an apres frais (source : France Assureurs,
+  // moyenne ponderee 2010-2024). C'est le placement de reference des
+  // epargnants francais -> comparaison plus parlante que S&P 500 (que
+  // 95% des gerants ne battent jamais).
+  const ASSURANCE_VIE_RATE = 0.025;
+  const ASSURANCE_VIE_LABEL = 'Assurance vie';
+
+  // Calcule le rendement cumule en % depuis curve[0].date pour chaque point
+  // selon un compound rate ASSURANCE_VIE_RATE. Sert de benchmark client-side
+  // au lieu du S&P 500 retourne par le worker (qu'on ignore desormais).
+  function assuranceVieReturnPct(startDateStr, currentDateStr) {
+    try {
+      const start = new Date(startDateStr);
+      const current = new Date(currentDateStr);
+      const years = (current - start) / (1000 * 60 * 60 * 24 * 365.25);
+      if (years <= 0) return 0;
+      return ((1 + ASSURANCE_VIE_RATE) ** years - 1) * 100;
+    } catch { return 0; }
+  }
+
   // Inject styles once
   function injectStyles() {
     if (document.getElementById('kairos-backtest-styles')) return;
@@ -129,15 +150,22 @@
     return Math.round(n).toLocaleString('fr-FR') + ' €';
   }
 
-  // SVG equity curve: fund + S&P 500 with pills
+  // SVG equity curve: fund + Assurance vie benchmark with pills
   function renderEquityCurveDual(curve, fundLabel) {
     if (!curve || curve.length < 2) return '';
     const W = 900, H = 320, padL = 60, padR = 100, padT = 30, padB = 50;
     const innerW = W - padL - padR;
     const innerH = H - padT - padB;
+
+    // Compute benchmark assurance vie (2.5%/an compound) pour chaque point.
+    // Override les benchmarkReturnPct du worker (qui etaient S&P 500) -> on
+    // n'utilise plus du tout les valeurs benchmark du back, on les remplace
+    // par notre courbe assurance vie deterministe.
+    const startDate = curve[0].date;
+    const benchVals = curve.map(p => assuranceVieReturnPct(startDate, p.date));
+
     const valsFund = curve.map(p => p.totalReturnPct);
-    const valsBench = curve.map(p => p.benchmarkReturnPct).filter(v => v != null);
-    const allVals = [...valsFund, ...valsBench];
+    const allVals = [...valsFund, ...benchVals];
     const minVal = Math.min(0, ...allVals);
     const maxVal = Math.max(0, ...allVals);
     const range = (maxVal - minVal) || 1;
@@ -146,12 +174,11 @@
 
     const fundPath = curve.map((p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)} ${scaleY(p.totalReturnPct).toFixed(1)}`).join(' ');
     const fundArea = fundPath + ` L${scaleX(curve.length-1).toFixed(1)} ${scaleY(0).toFixed(1)} L${scaleX(0).toFixed(1)} ${scaleY(0).toFixed(1)} Z`;
-    const benchPath = curve.filter(p => p.benchmarkReturnPct != null)
-      .map((p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(curve.indexOf(p)).toFixed(1)} ${scaleY(p.benchmarkReturnPct).toFixed(1)}`).join(' ');
+    const benchPath = benchVals.map((v, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)} ${scaleY(v).toFixed(1)}`).join(' ');
 
     const zeroY = scaleY(0).toFixed(1);
     const finalFund = valsFund[valsFund.length - 1];
-    const finalBench = valsBench.length ? valsBench[valsBench.length - 1] : null;
+    const finalBench = benchVals[benchVals.length - 1];
     const fundColor = finalFund > 0 ? '#10B981' : '#EF4444';
     const benchColor = '#94A3B8';
 
@@ -173,10 +200,10 @@
     return `
       <div style="background:var(--surface,#131829);border:1px solid var(--border,#2A3149);border-radius:14px;padding:24px;margin-bottom:24px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:14px">
-          <h3 style="margin:0;font-size:18px">📈 ${fundLabel} vs S&P 500</h3>
+          <h3 style="margin:0;font-size:18px">📈 ${fundLabel} vs ${ASSURANCE_VIE_LABEL}</h3>
           <div style="display:flex;gap:18px;font-size:13px">
             <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:3px;background:${fundColor};border-radius:2px"></span>${fundLabel}</span>
-            <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:3px;background:${benchColor};border-radius:2px"></span>S&P 500</span>
+            <span style="display:inline-flex;align-items:center;gap:6px" title="Rendement moyen 2.5%/an net après frais (source : France Assureurs, moyenne fonds euros 2010-2024)"><span style="display:inline-block;width:14px;height:3px;background:${benchColor};border-radius:2px"></span>${ASSURANCE_VIE_LABEL} (2.5%/an)</span>
           </div>
         </div>
         <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
@@ -302,7 +329,12 @@
     const capital = parseInt(capitalEl.value, 10) || 5000;
     const finalCapital = capital * (1 + (s.avgReturn || 0) / 100);
     const gainAbsolu = finalCapital - capital;
-    const benchFinal = capital * (1 + (c.benchmarkReturn || 0) / 100);
+    // Benchmark : assurance vie 2.5%/an au lieu de S&P 500 (mai 2026,
+    // retour user). Calcul compound sur la duree de la periode pour
+    // matcher exactement la courbe SVG affichee.
+    const periodYears = { '1y': 1, '3y': 3, '5y': 5, '10y': 10, '20y': 20 }[data.period] || 1;
+    const benchmarkReturnPct = ((1 + ASSURANCE_VIE_RATE) ** periodYears - 1) * 100;
+    const benchFinal = capital * (1 + benchmarkReturnPct / 100);
     const alphaEur = finalCapital - benchFinal;
     const fundColor = gainAbsolu >= 0 ? '#10B981' : '#EF4444';
     const periodLabel = PERIOD_LABELS[data.period] || data.period;
@@ -316,10 +348,9 @@
           ${gainAbsolu >= 0 ? '+' : ''}${fmtEur(gainAbsolu)} de gain
           <span style="font-size:14px;color:var(--text-secondary,#94A3B8);font-weight:500;margin-left:8px">(${fmtPct(s.avgReturn)} sur ${periodLabel})</span>
         </div>
-        ${c.benchmarkReturn != null ? `
-          <div style="margin-top:6px;font-size:13px;color:${alphaEur >= 0 ? '#10B981' : '#EF4444'}">
-            Soit ${alphaEur >= 0 ? '+' : ''}${fmtEur(alphaEur)} de plus que le S&P 500
-          </div>` : ''}
+        <div style="margin-top:6px;font-size:13px;color:${alphaEur >= 0 ? '#10B981' : '#EF4444'}">
+          Soit ${alphaEur >= 0 ? '+' : ''}${fmtEur(alphaEur)} de plus qu'une ${ASSURANCE_VIE_LABEL.toLowerCase()} classique (${fmtPct(benchmarkReturnPct)} sur ${periodLabel})
+        </div>
       </div>
       ${renderEquityCurveDual(data.equityCurve || [], filerLabel)}
       ${opts.showBestCalls !== false ? renderBestCalls(data.bestCalls, filerLabel) : ''}

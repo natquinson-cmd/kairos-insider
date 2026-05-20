@@ -317,6 +317,7 @@
       // Backtest h2
       'home.backtest.h2_part1': 'Combien auriez-vous gagné',
       'home.backtest.h2_part2': 'en suivant ces fonds légendaires ?',
+      'home.backtest.subtitle_html': 'Choisis un fonds, un horizon, ton patrimoine de départ — et découvre <strong style="color:var(--text-primary)">la performance réelle</strong> vs une <strong style="color:var(--text-primary)">assurance vie classique</strong> (~2.5%/an). 8 véhicules smart money <strong style="color:var(--text-primary)">qui ont écrasé l\'épargne traditionnelle</strong> sur leur horizon optimal : Berkshire (+275 pts sur 20 ans), Fairfax (+247 pts sur 5 ans), Magnificent 7, Semiconducteurs, ETFs trackers de smart money…',
       // ==== BETA banner (urgence) ====
       'beta.banner.title': '🔥 Offre de lancement',
       'beta.banner.offer': '-50% sur le 1er mois',
@@ -2065,6 +2066,7 @@
       'score.consensus.very_weak_html': 'Smart money signals are <strong style="color:{color}">very unfavorable</strong> on {tk}. Most score dimensions are in the red zone.',
       'home.backtest.h2_part1': 'How much would you have earned',
       'home.backtest.h2_part2': 'following these legendary funds?',
+      'home.backtest.subtitle_html': 'Pick a fund, a horizon, your starting capital — and discover <strong style="color:var(--text-primary)">real performance</strong> vs a <strong style="color:var(--text-primary)">classic life insurance fund</strong> (~2.5%/yr). 8 smart money vehicles <strong style="color:var(--text-primary)">that crushed traditional savings</strong> over their optimal horizon: Berkshire (+275 pts over 20y), Fairfax (+247 pts over 5y), Magnificent 7, Semiconductors, smart money ETF trackers…',
       // Photo placeholder
       'landing.photo_placeholder': 'Replace photo',
       // Footer
