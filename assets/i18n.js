@@ -459,6 +459,7 @@
       // ==== Erreurs Firebase auth ====
       'auth.error.too_many_requests': 'Trop de tentatives. Réessayez plus tard.',
       'auth.error.email_in_use': 'Cet email est déjà utilisé.',
+      'auth.error.email_in_use_login_cta': 'Se connecter →',
       'auth.error.invalid_email': 'Email invalide.',
       'auth.error.user_not_found': 'Aucun compte avec cet email.',
       'auth.error.wrong_password': 'Mot de passe incorrect.',
@@ -2066,6 +2067,7 @@
       // ==== Firebase auth errors ====
       'auth.error.too_many_requests': 'Too many attempts. Try again later.',
       'auth.error.email_in_use': 'This email is already used.',
+      'auth.error.email_in_use_login_cta': 'Sign in →',
       'auth.error.invalid_email': 'Invalid email.',
       'auth.error.user_not_found': 'No account with this email.',
       'auth.error.wrong_password': 'Wrong password.',

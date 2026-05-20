@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260520-grant-premium"></script>
+  <script src="assets/i18n.js?v=20260520-auth-toggle-fix"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -4281,7 +4281,12 @@
       <!-- MODE CONNEXION -->
       <div id="authLogin">
         <h2 style="font-size:22px;margin-bottom:6px" data-i18n="auth.login.title">Bon retour 👋</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:18px" data-i18n="auth.login.subtitle">Reprends tes analyses smart money là où tu les avais laissées.</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px" data-i18n="auth.login.subtitle">Reprends tes analyses smart money là où tu les avais laissées.</p>
+        <!-- Toggle prominent vers signup (haut du form, avant Google) -->
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:18px;text-align:center;padding:8px 12px;background:var(--surface-2);border-radius:8px">
+          <span data-i18n="auth.login.no_account">Pas encore de compte ?</span>
+          <a href="#" onclick="event.preventDefault();showSignup()" style="color:var(--accent-blue);font-weight:700;text-decoration:none" data-i18n="auth.login.create_link">Crée un compte gratuit →</a>
+        </p>
 
         <button onclick="handleGoogleLogin()" class="btn btn-google" id="googleBtn" type="button">
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -4309,7 +4314,13 @@
       <!-- MODE INSCRIPTION -->
       <div id="authSignup" style="display:none">
         <h2 style="font-size:22px;margin-bottom:4px;background:linear-gradient(135deg,#3B82F6,#8B5CF6 55%,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800" data-i18n="auth.signup.title">Crée ton compte gratuit</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px" data-i18n="auth.signup.subtitle">Sans carte bancaire. Sans engagement. 30 secondes.</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px" data-i18n="auth.signup.subtitle">Sans carte bancaire. Sans engagement. 30 secondes.</p>
+        <!-- Toggle prominent vers login (haut du form, evite que l'user scroll
+             jusqu'en bas pour trouver le lien si elle/il a deja un compte) -->
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;text-align:center;padding:8px 12px;background:var(--surface-2);border-radius:8px">
+          <span data-i18n="auth.signup.has_account">Déjà un compte ?</span>
+          <a href="#" onclick="event.preventDefault();showLogin()" style="color:var(--accent-blue);font-weight:700;text-decoration:none" data-i18n="auth.signup.login_link">Se connecter →</a>
+        </p>
 
         <!-- Bénéfices reels du tier Free (vs anonyme) -->
         <div style="background:linear-gradient(135deg,rgba(59,130,246,0.07),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.20);border-radius:12px;padding:14px 16px;margin-bottom:16px">
@@ -7944,18 +7955,43 @@
           } catch (e) { console.warn('[signup] sendEmailVerification throw:', e); }
         }
       } catch (err) {
-        const messages = {
-          'auth/email-already-in-use': t('auth.error.email_in_use', 'Cet email est déjà utilisé.'),
-          'auth/weak-password': t('auth.error.weak_password', 'Mot de passe trop faible (6 caractères minimum).'),
-          'auth/invalid-email': t('auth.error.invalid_email', 'Email invalide.'),
-        };
-        errEl.textContent = messages[err.code] || err.message;
-        errEl.style.display = 'block';
+        // Cas special : email deja utilise. On affiche un CTA cliquable pour
+        // basculer sur le formulaire login avec l'email pre-rempli, plutot
+        // qu'un message d'erreur cul-de-sac (UX feedback mai 2026).
+        if (err.code === 'auth/email-already-in-use') {
+          const safeEmail = email.replace(/'/g, "\\'");
+          errEl.innerHTML = `${t('auth.error.email_in_use', 'Cet email est déjà utilisé.')} <a href="#" onclick="event.preventDefault();switchToLoginWithEmail('${safeEmail}')" style="color:var(--accent-blue);font-weight:700;text-decoration:underline;margin-left:4px">${t('auth.error.email_in_use_login_cta', 'Se connecter →')}</a>`;
+          errEl.style.display = 'block';
+        } else {
+          const messages = {
+            'auth/weak-password': t('auth.error.weak_password', 'Mot de passe trop faible (6 caractères minimum).'),
+            'auth/invalid-email': t('auth.error.invalid_email', 'Email invalide.'),
+          };
+          errEl.textContent = messages[err.code] || err.message;
+          errEl.style.display = 'block';
+        }
       } finally {
         btn.textContent = t('auth.signup.submit', 'Créer mon compte');
         btn.disabled = false;
       }
       return false;
+    }
+
+    // Bascule du formulaire signup vers login en pre-remplissant l'email.
+    // Appele depuis le CTA "Cet email est deja utilise -> Se connecter".
+    // Pre-fill l'email + focus sur le champ password pour reprendre la
+    // saisie naturellement, et clear l'erreur signup pour eviter qu'elle
+    // reste affichee a l'ouverture suivante du signup form.
+    function switchToLoginWithEmail(email) {
+      showLogin();
+      try {
+        const loginEmailEl = document.getElementById('loginEmail');
+        const loginPwdEl = document.getElementById('loginPassword');
+        const signupErrEl = document.getElementById('signupError');
+        if (loginEmailEl && email) loginEmailEl.value = email;
+        if (signupErrEl) { signupErrEl.style.display = 'none'; signupErrEl.innerHTML = ''; }
+        if (loginPwdEl) setTimeout(() => loginPwdEl.focus(), 50);
+      } catch (e) { console.debug('[switchToLoginWithEmail]', e); }
     }
 
     async function handleForgotPassword() {
