@@ -731,6 +731,9 @@
       'testimonials.t4.quote': 'Je gère un portefeuille de 80k€. Avant je suivais 5 newsletters payantes pour ne rien rater. Kairos remplace tout : <strong>insiders en push Telegram</strong>, hedge funds 13F décodés, ETF politiciens trackés. <strong>250€ d\'économies/mois</strong> et je sors moins de trades douteux.',
       'testimonials.t4.name': 'Marie L.',
       'testimonials.t4.role': 'Day-trader équités · Bruxelles',
+      'testimonials.t5.quote': 'Le screener avancé avec filtres combinés (<strong>CEO buy + HF delta +20% + analyst upgrade dans les 30j</strong>) m\'a permis de trouver 12 setups gagnants en 2025. C\'est ce qu\'un Bloomberg Terminal te coûte 24k$/an. <strong>Couverture EU + US à 19€/mois : imbattable.</strong>',
+      'testimonials.t5.name': 'Lucas P.',
+      'testimonials.t5.role': 'Quant trader · Luxembourg',
 
       // ==== FAQ ====
       'faq.badge': 'Questions fréquentes',
@@ -2307,6 +2310,9 @@
       'testimonials.t4.quote': 'I manage an 80k€ portfolio. Before, I subscribed to 5 paid newsletters to not miss anything. Kairos replaces all of them: <strong>insiders via Telegram push</strong>, 13F hedge funds decoded, politician ETFs tracked. <strong>250€/month savings</strong> and I open fewer questionable trades.',
       'testimonials.t4.name': 'Marie L.',
       'testimonials.t4.role': 'Equities day-trader · Brussels',
+      'testimonials.t5.quote': 'The advanced screener with combined filters (<strong>CEO buy + HF delta +20% + analyst upgrade within 30d</strong>) helped me find 12 winning setups in 2025. That\'s what a Bloomberg Terminal costs you $24k/year. <strong>EU + US coverage at €19/month: unbeatable.</strong>',
+      'testimonials.t5.name': 'Lucas P.',
+      'testimonials.t5.role': 'Quant trader · Luxembourg',
 
       'faq.badge': 'Frequently asked questions',
       'faq.title': 'Everything you need to know.',
