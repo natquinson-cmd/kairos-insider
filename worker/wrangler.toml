@@ -49,12 +49,16 @@ zone_name = "kairosinsider.fr"
 # ?lang=en (X/Twitter/LinkedIn lisent les meta tags HTML, pas le JS).
 # Sans ce route, kairosinsider.fr/index.html?lang=en renvoie le static
 # FR de GH Pages -> card FR sur X meme avec lang=en dans l'URL.
+# Pattern '/index.html*' avec wildcard est requis pour que CF routes
+# intercepte correctement les URLs avec query strings (un pattern exact
+# sans wildcard ne propage pas dans certains POPs CF — bug observe en
+# prod le 20 mai).
 [[routes]]
 pattern = "kairosinsider.fr/"
 zone_name = "kairosinsider.fr"
 
 [[routes]]
-pattern = "kairosinsider.fr/index.html"
+pattern = "kairosinsider.fr/index.html*"
 zone_name = "kairosinsider.fr"
 
 [[routes]]
