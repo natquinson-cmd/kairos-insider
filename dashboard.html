@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260520-politicians-evolution"></script>
+  <script src="assets/i18n.js?v=20260520-grant-premium"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -6133,6 +6133,67 @@
             </div>
           </div>
         </div>
+        <!-- ============================================================
+             MODAL ADMIN : Offrir Premium (mai 2026)
+             Trigger : admin clique sur "🎁 Offrir Premium" dans la table users.
+             Pre-rempli avec uid + email du user clique. Envoie POST a
+             /api/admin/grant-premium qui ecrit comp:{uid} en KV + sync Brevo.
+             ============================================================ -->
+        <div class="modal-overlay" id="adminGrantPremiumModal" onclick="if(event.target===this)closeAdminGrantModal()" style="display:none">
+          <div class="modal-inner" style="max-width:520px">
+            <div class="modal-header">
+              <h3 data-i18n="dash.admin.grant_title">🎁 Offrir Premium</h3>
+              <button class="modal-close" onclick="closeAdminGrantModal()">✕</button>
+            </div>
+            <p class="modal-sub" style="margin-top:0" data-i18n="dash.admin.grant_sub">Octroie un acces Premium gratuit (influenceur, beta, gift). Stocke separement de Stripe — peut etre revoque sans impact sur les abonnements payants.</p>
+
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin:12px 0;font-size:12px">
+              <div style="color:var(--text-muted);margin-bottom:4px" data-i18n="dash.admin.grant_recipient">Beneficiaire</div>
+              <div id="adminGrantTargetEmail" style="font-weight:600;color:var(--text-primary)">—</div>
+              <div id="adminGrantTargetUid" style="font-family:monospace;font-size:11px;color:var(--text-muted);margin-top:2px">—</div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;font-weight:600" data-i18n="dash.admin.grant_plan">Plan</label>
+                <select id="adminGrantPlan" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px">
+                  <option value="pro">⭐ Pro (19€/mois)</option>
+                  <option value="elite">⚡ Elite (49€/mois)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;font-weight:600" data-i18n="dash.admin.grant_duration">Duree</label>
+                <select id="adminGrantDuration" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px">
+                  <option value="6">6 mois</option>
+                  <option value="12" selected>12 mois (recommande)</option>
+                  <option value="24">24 mois</option>
+                  <option value="0">A vie</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-bottom:12px">
+              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;font-weight:600" data-i18n="dash.admin.grant_source">Source</label>
+              <select id="adminGrantSource" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px">
+                <option value="influencer">🎙 Influencer (partenariat affiliate)</option>
+                <option value="beta">🧪 Beta tester</option>
+                <option value="gift" selected>🎁 Gift (cadeau / early supporter)</option>
+                <option value="team">👥 Team (interne)</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;font-weight:600" data-i18n="dash.admin.grant_note">Note (audit trail)</label>
+              <textarea id="adminGrantNote" rows="2" placeholder="Ex: Partenariat Snowball - DM accepte le 22/05/2026" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px;resize:vertical"></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+              <button onclick="closeAdminGrantModal()" style="padding:10px 18px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-size:13px" data-i18n="dash.admin.grant_cancel">Annuler</button>
+              <button id="adminGrantConfirmBtn" onclick="submitAdminGrantPremium()" style="padding:10px 18px;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600" data-i18n="dash.admin.grant_confirm">Offrir Premium</button>
+            </div>
+          </div>
+        </div>
+
         <!-- ============================================================
              TOAST : feedback import CSV (ajoutés / doublons ignorés) -->
         <div id="portfolioToast" class="portfolio-toast" style="display:none">
@@ -23479,6 +23540,22 @@
         return (b.firstSeen || '').localeCompare(a.firstSeen || '');
       });
 
+      // Badge Comp Premium (mai 2026) : grant offert (influenceur/beta/gift/team)
+      const badgeComp = (u) => {
+        const c = u.compStatus;
+        if (!c) return '';
+        const srcEmoji = { influencer: '🎙', beta: '🧪', gift: '🎁', team: '👥' }[c.source] || '🎁';
+        const planLab = c.plan === 'elite' ? 'ELITE' : 'PRO';
+        const expLabel = !c.expiresAt
+          ? 'a vie'
+          : new Date(c.expiresAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+        const tooltip = `${c.source || 'gift'} · offert le ${c.grantedAt ? new Date(c.grantedAt).toLocaleDateString('fr-FR') : '—'} par ${c.grantedBy || '—'}${c.note ? '\n\n' + c.note : ''}`;
+        if (c.active) {
+          return `<span title="${tooltip.replace(/"/g, '&quot;')}" style="padding:2px 7px;background:linear-gradient(135deg,rgba(16,185,129,0.18),rgba(16,185,129,0.08));color:#10B981;border:1px solid rgba(16,185,129,0.35);border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.04em;white-space:nowrap">${srcEmoji} ${planLab} OFFERT · ${expLabel}</span>`;
+        }
+        return `<span title="${tooltip.replace(/"/g, '&quot;')}" style="padding:2px 7px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);border-radius:10px;font-size:10px;font-weight:600;text-decoration:line-through">${srcEmoji} ${planLab} expire</span>`;
+      };
+
       // Badge langue (FR/EN) ou '—' si inconnu (inscrit pre-fix mai 2026)
       const badgeLang = (u) => {
         const lang = (u.lang || '').toLowerCase();
@@ -23501,45 +23578,148 @@
         const mrrCell = u.monthlyEur != null && u.subStatus === 'active'
           ? `<span style="font-weight:600;color:var(--text-primary);font-variant-numeric:tabular-nums">${fmtEur2(u.monthlyEur)}</span>`
           : '<span style="color:var(--text-muted)">—</span>';
+        // Encode email/uid pour passer dans les onclick handlers (escape les apostrophes)
+        const emailAttr = (u.email || u.watchlistEmail || '').replace(/'/g, "\\'");
+        const uidAttr = (u.uid || '').replace(/'/g, "\\'");
+        // Boutons actions : Offrir Premium (toujours visible) + Revoquer (si comp grant existe)
+        const hasActiveComp = !!u.compStatus?.active;
+        const actionsCell = `
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+            <button onclick="openAdminGrantModal('${uidAttr}','${emailAttr}')" title="Offrir un Premium gratuit a ce user (influenceur, beta, gift, team)" style="padding:4px 8px;background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(16,185,129,0.08));border:1px solid rgba(16,185,129,0.3);color:#10B981;border-radius:6px;cursor:pointer;font-family:inherit;font-size:10px;font-weight:600;white-space:nowrap" data-i18n="dash.admin.btn_grant">🎁 Offrir</button>
+            ${hasActiveComp ? `<button onclick="adminRevokePremium('${uidAttr}','${emailAttr}')" title="Revoquer le grant Premium offert (Stripe pas affecte)" style="padding:4px 8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#EF4444;border-radius:6px;cursor:pointer;font-family:inherit;font-size:10px;font-weight:600;white-space:nowrap" data-i18n="dash.admin.btn_revoke">✕ Revoquer</button>` : ''}
+          </div>`;
+        // Plan cell : Stripe badge OU Comp badge (priorite : Stripe si actif, sinon Comp, sinon FREE)
+        const planCellContent = u.subStatus === 'active'
+          ? badgePlan(u)
+          : (hasActiveComp ? badgeComp(u) : badgePlan(u));
         return `
         <tr style="border-bottom:1px solid var(--divider)">
           <td style="padding:8px 10px;font-family:monospace;font-size:11px;color:var(--text-muted)" title="${esc(u.uid)}">${esc(u.uid.slice(0, 10))}...</td>
           <td style="padding:8px 10px;font-size:12px" title="${u.emailSource ? 'Source: ' + u.emailSource : ''}">${esc(u.email || u.watchlistEmail || '—')}${u.emailSource === 'stripe' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">stripe</span>' : u.emailSource === 'firebase' ? ' <span style="font-size:9px;color:var(--text-muted);padding:1px 5px;border:1px solid var(--border);border-radius:4px;margin-left:4px">firebase</span>' : ''}</td>
           <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgeLang(u)}</td>
           <td style="padding:8px 10px;text-align:right;font-size:11px;color:var(--text-muted);white-space:nowrap" title="Date du premier login authentifié (création de la clé user:{uid} en KV)">${fmtDT(u.firstSeen)}</td>
-          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgePlan(u)}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${planCellContent}</td>
           <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgeStatus(u.subStatus)}</td>
           <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap">${amountCell}</td>
           <td style="padding:8px 10px;text-align:right;font-size:12px;white-space:nowrap" title="Revenu mensuel normalisé (plans annuels divisés par 12)">${mrrCell}</td>
           <td style="padding:8px 10px;text-align:right;font-size:11px;color:${u.subStatus === 'active' ? 'var(--text-primary)' : 'var(--text-muted)'};white-space:nowrap" title="${u.subStatus === 'active' ? 'Prochaine facturation Stripe (currentPeriodEnd)' : 'Pas d\'abonnement actif'}">${nextPayment}</td>
           <td style="padding:8px 10px;text-align:center;font-size:12px">${u.hasWatchlist ? `⭐ ${u.watchlistCount || 0}` : '—'}</td>
           <td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--text-muted)">${u.watchlistOptIn ? '✅' : u.hasWatchlist ? '⏳' : '—'}</td>
+          <td style="padding:8px 10px;text-align:center;white-space:nowrap">${actionsCell}</td>
         </tr>`;
       }).join('');
 
       body.innerHTML = revenueBar + statusBar + `
         <div class="table-scroll">
-          <table class="table-no-sticky" style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
+          <table class="table-no-sticky" style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px">
             <thead>
               <tr style="border-bottom:2px solid var(--border)">
                 <th class="tip" data-tip="Firebase UID tronqué. Identifiant unique de l'utilisateur. Le title au hover montre l'UID complet." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">UID</th>
                 <th class="tip" data-tip="Email de l'utilisateur. Source préférée : Stripe customer (badge 'stripe'), sinon email Firebase (badge 'firebase'), sinon watchlistEmail." style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:500">Email</th>
                 <th class="tip" data-tip="Langue de l'utilisateur (FR/EN) détectée au signup via KairosI18n.getLang(), stockée dans user:{uid}.lang lors du /send-welcome. — = inscrit avant le tracking (mai 2026). Utilisée pour cibler les emails (founder letter, weekly newsletter) dans la bonne langue." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Langue</th>
                 <th class="tip" data-tip="Date et heure du premier login authentifié au dashboard (= création de la clé user:{uid} en KV). Précision à la minute." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Inscrit le</th>
-                <th class="tip" data-tip="Plan souscrit : Elite (49€/mois ou 490€/an), Pro (19€/mois ou 190€/an), Legacy (ancien plan 29€/mois), ou FREE (pas d'abonnement)." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Plan</th>
+                <th class="tip" data-tip="Plan souscrit : Elite (49€/mois ou 490€/an), Pro (19€/mois ou 190€/an), Legacy (ancien plan 29€/mois), ou FREE (pas d'abonnement). Si pas de Stripe actif mais grant offert (comp:{uid}), badge OFFERT s'affiche ici." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Plan</th>
                 <th class="tip" data-tip="Statut Stripe : ACTIVE (OK, facturation à jour), PAST DUE (échec de paiement en retry), CANCELED (terminé), TRIAL." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Statut</th>
                 <th class="tip" data-tip="Montant facturé par période (mensuel ou annuel). Correspond au plan Stripe souscrit." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Montant</th>
                 <th class="tip" data-tip="MRR individuel : revenu mensuel normalisé. Pour les plans annuels = prix annuel / 12. Utilisé pour le total MRR en haut." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">MRR €/mois</th>
                 <th class="tip" data-tip="Date du prochain prélèvement Stripe (fin de la période en cours). Si l'abonnement reste ACTIVE, il sera renouvelé à cette date." style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:500">Prochain paiement</th>
                 <th class="tip" data-tip="Watchlist de l'utilisateur : ⭐N si N tickers suivis, — sinon." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">WL</th>
                 <th class="tip" data-tip="Double opt-in RGPD pour les emails Brief. ✅ = confirmé. ⏳ = mail envoyé pas encore cliqué. — = pas de watchlist." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Opt-in</th>
+                <th class="tip" data-tip="Actions admin : Offrir Premium (grant gratuit influenceur/beta/gift/team) ou Revoquer si grant actif. N'affecte pas Stripe — gere une cle KV comp:{uid} separee." style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:500">Actions</th>
               </tr>
             </thead>
-            <tbody>${rows || '<tr><td colspan="11" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="12" style="padding:30px;text-align:center;color:var(--text-muted)">Aucun utilisateur en KV.</td></tr>'}</tbody>
           </table>
         </div>
         ${sortedUsers.length > 100 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:11px">Affichage 100 premiers sur ${sortedUsers.length} · triés par premium actif d'abord puis date d'inscription récente</div>` : ''}
       `;
+    }
+
+    // ============================================================
+    // COMP PREMIUM : grant / revoke (mai 2026)
+    // ============================================================
+    // Ouvre le modal "Offrir Premium" pre-rempli avec l'uid + email cibles.
+    // Stocke uid/email dans des attributs data sur le modal pour le submit.
+    function openAdminGrantModal(uid, email) {
+      const modal = document.getElementById('adminGrantPremiumModal');
+      if (!modal) return;
+      modal.dataset.uid = uid || '';
+      modal.dataset.email = email || '';
+      const emailEl = document.getElementById('adminGrantTargetEmail');
+      const uidEl = document.getElementById('adminGrantTargetUid');
+      if (emailEl) emailEl.textContent = email || '(pas d\'email)';
+      if (uidEl) uidEl.textContent = uid ? `UID: ${uid}` : '';
+      // Reset les champs au cas ou
+      document.getElementById('adminGrantPlan').value = 'pro';
+      document.getElementById('adminGrantDuration').value = '12';
+      document.getElementById('adminGrantSource').value = 'gift';
+      document.getElementById('adminGrantNote').value = '';
+      modal.style.display = 'flex';
+    }
+
+    function closeAdminGrantModal() {
+      const modal = document.getElementById('adminGrantPremiumModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function submitAdminGrantPremium() {
+      const modal = document.getElementById('adminGrantPremiumModal');
+      if (!modal) return;
+      const uid = modal.dataset.uid || '';
+      const email = modal.dataset.email || '';
+      const plan = document.getElementById('adminGrantPlan').value;
+      const durationMonths = parseInt(document.getElementById('adminGrantDuration').value, 10);
+      const source = document.getElementById('adminGrantSource').value;
+      const note = document.getElementById('adminGrantNote').value.trim();
+      const btn = document.getElementById('adminGrantConfirmBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Envoi...'; }
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/grant-premium`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, email, plan, durationMonths, source, note }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data.error || `HTTP ${resp.status}`);
+        }
+        Toast.success(`Premium ${plan.toUpperCase()} offert a ${email || uid} (${durationMonths === 0 ? 'a vie' : durationMonths + ' mois'})`);
+        closeAdminGrantModal();
+        // Refresh la table users pour montrer le nouveau statut
+        loadAdminDashboard(true).catch(() => {});
+      } catch (e) {
+        Toast.error('Erreur grant Premium : ' + (e.message || e));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Offrir Premium'; }
+      }
+    }
+
+    async function adminRevokePremium(uid, email) {
+      const target = email || uid || 'cet utilisateur';
+      if (!confirm(`Revoquer le grant Premium offert a ${target} ?\n\nLe Stripe actif n'est pas affecte. L'user perd l'acces Premium si pas de sub payante en parallele.`)) {
+        return;
+      }
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/revoke-premium`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid, email }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data.error || `HTTP ${resp.status}`);
+        }
+        if (data.hadGrant) {
+          Toast.success(`Grant Premium revoque pour ${target}`);
+        } else {
+          Toast.info(`Aucun grant a revoquer pour ${target}`);
+        }
+        loadAdminDashboard(true).catch(() => {});
+      } catch (e) {
+        Toast.error('Erreur revoke Premium : ' + (e.message || e));
+      }
     }
 
     let adminTrafficChart = null;

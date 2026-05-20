@@ -1549,6 +1549,19 @@
       'dash.portfolio.realized_badge': 'Trades clôturés',
       'dash.portfolio.total_realized': 'P&L réalisé',
 
+      // ==== ADMIN : grant Premium (mai 2026) ====
+      'dash.admin.grant_title': '🎁 Offrir Premium',
+      'dash.admin.grant_sub': "Octroie un accès Premium gratuit (influenceur, beta tester, gift, team). Stocké séparément de Stripe — peut être révoqué sans impact sur les abonnements payants.",
+      'dash.admin.grant_recipient': 'Bénéficiaire',
+      'dash.admin.grant_plan': 'Plan',
+      'dash.admin.grant_duration': 'Durée',
+      'dash.admin.grant_source': 'Source',
+      'dash.admin.grant_note': 'Note (audit trail)',
+      'dash.admin.grant_cancel': 'Annuler',
+      'dash.admin.grant_confirm': 'Offrir Premium',
+      'dash.admin.btn_grant': '🎁 Offrir',
+      'dash.admin.btn_revoke': '✕ Révoquer',
+
       // ==== RADAR PORTEFEUILLE (sync auto broker, Pro+) ====
       'dash.radar.title': 'Radar Portefeuille',
       'dash.radar.sub': 'Branchez votre broker pour un suivi automatique · Kairos Score par position · Alertes smart money',
@@ -3120,6 +3133,19 @@
       'dash.portfolio.realized_title': 'Realized performance',
       'dash.portfolio.realized_badge': 'Closed trades',
       'dash.portfolio.total_realized': 'Realized P&L',
+
+      // ==== ADMIN: grant Premium (May 2026) ====
+      'dash.admin.grant_title': '🎁 Grant Premium',
+      'dash.admin.grant_sub': 'Grants free Premium access (influencer, beta tester, gift, team). Stored separately from Stripe — can be revoked without affecting paid subscriptions.',
+      'dash.admin.grant_recipient': 'Recipient',
+      'dash.admin.grant_plan': 'Plan',
+      'dash.admin.grant_duration': 'Duration',
+      'dash.admin.grant_source': 'Source',
+      'dash.admin.grant_note': 'Note (audit trail)',
+      'dash.admin.grant_cancel': 'Cancel',
+      'dash.admin.grant_confirm': 'Grant Premium',
+      'dash.admin.btn_grant': '🎁 Grant',
+      'dash.admin.btn_revoke': '✕ Revoke',
 
       // ==== PORTFOLIO RADAR (broker auto-sync, Pro+) ====
       'dash.radar.title': 'Portfolio Radar',

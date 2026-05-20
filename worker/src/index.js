@@ -679,9 +679,9 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'GET' && path === '/api/portfolio/smart-money-summary') {
           return handlePortfolioSmartMoneySummary(url, env, origin);
         }
-        // Autres routes : Pro+ uniquement (le sync API est une feature premium)
-        const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
-        const isPremium = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
+        // Autres routes : Pro+ uniquement (le sync API est une feature premium).
+        // isPremiumUser couvre Stripe ET comp:{uid} (grants offerts admin).
+        const isPremium = await isPremiumUser(env, user.uid);
         if (!isPremium) {
           return jsonResponse({ error: 'Radar Portefeuille réservé aux abonnés Pro et Elite', code: 'PREMIUM_REQUIRED' }, 403, origin);
         }
@@ -715,8 +715,8 @@ async function handleRequest(request, env, ctx) {
 
       // --- Routes Watchlist (auth requise, check premium integre dans la route) ---
       if (path.startsWith('/api/watchlist/')) {
-        const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
-        const isPremium = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
+        // isPremiumUser couvre Stripe ET comp:{uid} (grants offerts admin).
+        const isPremium = await isPremiumUser(env, user.uid);
 
         if (request.method === 'POST' && path === '/api/watchlist/sync') {
           return handleWatchlistSync(request, env, user, isPremium, origin);
@@ -904,6 +904,22 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'PUT' && path === '/api/admin/user-lang') {
           return handleAdminSetUserLang(request, env, origin);
         }
+        // POST /api/admin/grant-premium (mai 2026) : grant Premium offert
+        // (influenceurs / beta / team / gift). Stocke dans comp:{uid}.
+        // Body : { email|uid, plan='pro', durationMonths=12, source='gift', note }
+        if (request.method === 'POST' && path === '/api/admin/grant-premium') {
+          return handleAdminGrantPremium(request, env, user, origin);
+        }
+        // POST /api/admin/revoke-premium : revoque un grant comp.
+        // Body : { email } ou { uid }
+        if (request.method === 'POST' && path === '/api/admin/revoke-premium') {
+          return handleAdminRevokePremium(request, env, user, origin);
+        }
+        // POST /api/admin/create-test-user : cree un user via Firebase Auth REST API.
+        // Body : { email, password, displayName? }
+        if (request.method === 'POST' && path === '/api/admin/create-test-user') {
+          return handleAdminCreateTestUser(request, env, origin);
+        }
         // POST /api/admin/sync-brevo-contacts : ajoute (ou met a jour) tous
         // les users KV dans Brevo Contacts. Necessaire si on a accumule des
         // inscrits avant le fix du push contact (les welcomes transactionnels
@@ -935,12 +951,10 @@ async function handleRequest(request, env, ctx) {
           || FREE_PREFIXES.some(prefix => path.startsWith(prefix));
 
         if (!isFree) {
-          // Vérifier l'abonnement premium
-          const subData = await env.CACHE.get(`sub:${user.uid}`, 'json');
-          const isActive = subData && subData.status === 'active';
-          const isPastDue = subData && subData.status === 'past_due';
+          // Vérifier l'abonnement premium (Stripe OU comp:{uid} = grants admin).
+          const isPremium = await isPremiumUser(env, user.uid);
 
-          if (!isActive && !isPastDue) {
+          if (!isPremium) {
             // Cas special : les users Free ont droit a FREE_STOCK_QUOTA
             // analyses action /api/stock/:ticker par jour. Au-dela ils
             // doivent passer Pro. Re-consulter un ticker deja analyse
@@ -7534,6 +7548,10 @@ async function pushBrevoContact(env, email, opts = {}) {
   const attributes = {};
   if (langUpper) attributes.LANG = langUpper;
   if (opts.firstName) attributes.FIRSTNAME = String(opts.firstName).slice(0, 100);
+  // PLAN attribute (mai 2026) : pour segmenter Brevo par tier.
+  // Valeurs : 'free' | 'pro' | 'elite' | 'pro_comp' | 'elite_comp'.
+  // Les _comp sont les grants offerts (influenceurs, beta, team).
+  if (opts.plan) attributes.PLAN = String(opts.plan).toUpperCase().slice(0, 32);
   // Optionnel : ajout a une liste marketing (Newsletter, Free Users, etc.)
   // L'ID de liste se recupere dans Brevo > Contacts > Listes.
   const listIds = Array.isArray(opts.listIds) ? opts.listIds : [];
@@ -7910,6 +7928,240 @@ async function handleAdminSetUserLang(request, env, origin) {
     }, 200, origin);
   } catch (err) {
     console.error('handleAdminSetUserLang error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// ============================================================
+// COMP PREMIUM : grant / revoke / find user (mai 2026)
+// ============================================================
+// Grants Premium offerts par l'admin a un user (influenceur, beta, gift, team).
+// Stocke dans `comp:{uid}` separe de `sub:{uid}` (Stripe) pour eviter ecrasement
+// par le prochain webhook Stripe.
+//
+// Helper interne : resout email -> uid en parcourant user:* KV.
+// Retourne {uid, email, userRecord} ou null si introuvable.
+async function findUserByEmailOrUid(env, { email, uid }) {
+  if (uid) {
+    const userRecord = await env.CACHE.get(`user:${uid}`, 'json').catch(() => null);
+    return userRecord ? { uid, email: userRecord.email || null, userRecord } : { uid, email: null, userRecord: null };
+  }
+  if (!email) return null;
+  const emailLower = String(email).trim().toLowerCase();
+  const userKeys = await listAllKvKeys(env, 'user:', 10000);
+  for (const k of userKeys) {
+    const u = await env.CACHE.get(k, 'json').catch(() => null);
+    if (u && String(u.email || '').toLowerCase() === emailLower) {
+      return { uid: k.slice(5), email: u.email, userRecord: u };
+    }
+  }
+  return null;
+}
+
+// POST /api/admin/grant-premium
+// Body : {
+//   email?: string,         // OU uid (un des deux requis)
+//   uid?: string,
+//   plan: 'pro' | 'elite',  // defaut 'pro'
+//   durationMonths?: number,// defaut 12, 0 = a vie
+//   source?: string,        // 'influencer' | 'beta' | 'gift' | 'team' (defaut 'gift')
+//   note?: string,          // texte libre pour audit (ex: "Snowball partnership")
+// }
+// Effets :
+//   1. Ecrit comp:{uid} dans KV
+//   2. Push attribut PLAN = pro_comp ou elite_comp dans Brevo (best-effort)
+//   3. Retourne le grant cree
+async function handleAdminGrantPremium(request, env, user, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const plan = body.plan === 'elite' ? 'elite' : 'pro';
+    const durationMonths = Number.isFinite(body.durationMonths) ? Math.max(0, Math.floor(body.durationMonths)) : 12;
+    const source = ['influencer', 'beta', 'gift', 'team'].includes(body.source) ? body.source : 'gift';
+    const note = body.note ? String(body.note).slice(0, 500) : '';
+
+    const found = await findUserByEmailOrUid(env, { email: body.email, uid: body.uid });
+    if (!found || !found.uid) {
+      return jsonResponse({ error: 'user not found', email: body.email, uid: body.uid }, 404, origin);
+    }
+    const { uid, email, userRecord } = found;
+
+    // Calcule expiresAt : 0 mois = a vie (null), sinon now + N mois
+    let expiresAt = null;
+    if (durationMonths > 0) {
+      const exp = new Date();
+      exp.setMonth(exp.getMonth() + durationMonths);
+      expiresAt = exp.toISOString();
+    }
+
+    const grant = {
+      plan,
+      grantedBy: user?.email || 'admin-api-key',
+      grantedAt: new Date().toISOString(),
+      expiresAt,
+      durationMonths,
+      source,
+      note,
+    };
+    await env.CACHE.put(`comp:${uid}`, JSON.stringify(grant));
+
+    // Sync Brevo PLAN attribute (best-effort, non-bloquant)
+    if (email && env.BREVO_API_KEY) {
+      const brevoPlan = `${plan}_comp`;  // 'pro_comp' ou 'elite_comp'
+      pushBrevoContact(env, email, { plan: brevoPlan }).catch(e =>
+        console.warn('[grant-premium] brevo push failed:', e?.message || e)
+      );
+    }
+
+    log.info('admin.grant-premium', { uid, email, plan, durationMonths, source, grantedBy: user?.email });
+
+    return jsonResponse({
+      ok: true,
+      uid,
+      email,
+      grant,
+      brevoSyncQueued: !!(email && env.BREVO_API_KEY),
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminGrantPremium error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// POST /api/admin/revoke-premium
+// Body : { uid: string } OU { email: string }
+// Effets :
+//   1. Supprime comp:{uid}
+//   2. Si pas de sub Stripe active, push PLAN=free dans Brevo
+//   3. Retourne {ok, uid, hadGrant}
+async function handleAdminRevokePremium(request, env, user, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const found = await findUserByEmailOrUid(env, { email: body.email, uid: body.uid });
+    if (!found || !found.uid) {
+      return jsonResponse({ error: 'user not found', email: body.email, uid: body.uid }, 404, origin);
+    }
+    const { uid, email } = found;
+
+    const existing = await env.CACHE.get(`comp:${uid}`, 'json').catch(() => null);
+    if (!existing) {
+      return jsonResponse({ ok: true, uid, email, hadGrant: false, message: 'no comp grant found' }, 200, origin);
+    }
+
+    await env.CACHE.delete(`comp:${uid}`);
+
+    // Sync Brevo : si pas de sub Stripe active, retombe a free
+    let brevoSyncQueued = false;
+    if (email && env.BREVO_API_KEY) {
+      const subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
+      const hasActiveStripe = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
+      if (!hasActiveStripe) {
+        pushBrevoContact(env, email, { plan: 'free' }).catch(e =>
+          console.warn('[revoke-premium] brevo push failed:', e?.message || e)
+        );
+        brevoSyncQueued = true;
+      }
+    }
+
+    log.info('admin.revoke-premium', { uid, email, revokedBy: user?.email, revokedGrant: existing });
+
+    return jsonResponse({
+      ok: true,
+      uid,
+      email,
+      hadGrant: true,
+      revokedGrant: existing,
+      brevoSyncQueued,
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminRevokePremium error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// POST /api/admin/create-test-user
+// Body : { email: string, password: string, displayName?: string }
+// Cree un user dans Firebase Auth via l'Admin REST API (Identity Toolkit).
+// Utile pour creer des comptes test (premium offert, debug, demo).
+// Necessite FIREBASE_API_KEY (web API key, deja secret cote worker).
+async function handleAdminCreateTestUser(request, env, origin) {
+  try {
+    if (!env.FIREBASE_API_KEY) {
+      return jsonResponse({ error: 'FIREBASE_API_KEY not configured' }, 500, origin);
+    }
+    const body = await request.json().catch(() => ({}));
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    const displayName = body.displayName ? String(body.displayName).slice(0, 100) : null;
+    if (!email || !password) {
+      return jsonResponse({ error: 'email and password required' }, 400, origin);
+    }
+    if (password.length < 8) {
+      return jsonResponse({ error: 'password must be >= 8 chars' }, 400, origin);
+    }
+
+    // Identity Toolkit signUp endpoint (creates a new user)
+    const signUpResp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${env.FIREBASE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      }
+    );
+    const signUpData = await signUpResp.json().catch(() => ({}));
+    if (!signUpResp.ok) {
+      return jsonResponse({
+        error: 'Firebase signUp failed',
+        detail: signUpData.error?.message || JSON.stringify(signUpData).slice(0, 300),
+      }, signUpResp.status, origin);
+    }
+    const uid = signUpData.localId;
+    const idToken = signUpData.idToken;
+
+    // Update profile : displayName + emailVerified (via update endpoint).
+    // Mark email as verified so the user can immediately login w/o the verif flow.
+    if (displayName || true) {
+      const updateResp = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${env.FIREBASE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken,
+            displayName: displayName || undefined,
+            emailVerified: true,
+            returnSecureToken: false,
+          }),
+        }
+      );
+      if (!updateResp.ok) {
+        const errData = await updateResp.json().catch(() => ({}));
+        console.warn('[create-test-user] update failed:', errData?.error?.message);
+        // Ne pas faire echouer l'endpoint : le user est cree, c'est suffisant
+      }
+    }
+
+    // Cree aussi le record user:{uid} en KV pour qu'il apparaisse dans /api/admin/users
+    const userRecord = {
+      email,
+      displayName: displayName || null,
+      firstSeen: new Date().toISOString(),
+      createdViaAdminApi: true,
+      lang: 'fr',  // defaut FR
+    };
+    await env.CACHE.put(`user:${uid}`, JSON.stringify(userRecord));
+
+    log.info('admin.create-test-user', { uid, email });
+
+    return jsonResponse({
+      ok: true,
+      uid,
+      email,
+      displayName,
+      note: 'User created in Firebase Auth + tracked in user:{uid} KV. Email pre-verified.',
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminCreateTestUser error:', err);
     return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
   }
 }
@@ -9708,15 +9960,17 @@ async function handleTypefullyPush(request, env, origin) {
 // Retourne : { total, users: [{ uid, hasSubscription, subStatus, email, ... }] }
 async function handleAdminUsers(env, origin) {
   try {
-    const [subKeys, wlKeys, userKeys] = await Promise.all([
+    const [subKeys, wlKeys, userKeys, compKeys] = await Promise.all([
       listAllKvKeys(env, 'sub:', 5000),
       listAllKvKeys(env, 'wl:', 5000),
       listAllKvKeys(env, 'user:', 10000),
+      listAllKvKeys(env, 'comp:', 5000),  // grants Premium offerts (mai 2026)
     ]);
-    const subUids = new Set(subKeys.map(k => k.slice(4)));   // "sub:XXX" -> "XXX"
-    const wlUids = new Set(wlKeys.map(k => k.slice(3)));     // "wl:XXX"  -> "XXX"
-    const userUids = new Set(userKeys.map(k => k.slice(5))); // "user:XXX" -> "XXX"
-    const allUids = new Set([...subUids, ...wlUids, ...userUids]);
+    const subUids = new Set(subKeys.map(k => k.slice(4)));    // "sub:XXX"  -> "XXX"
+    const wlUids = new Set(wlKeys.map(k => k.slice(3)));      // "wl:XXX"   -> "XXX"
+    const userUids = new Set(userKeys.map(k => k.slice(5)));  // "user:XXX" -> "XXX"
+    const compUids = new Set(compKeys.map(k => k.slice(5)));  // "comp:XXX" -> "XXX"
+    const allUids = new Set([...subUids, ...wlUids, ...userUids, ...compUids]);
 
     // Fetch les donnees en parallele (batch 40 pour eviter de saturer)
     const users = [];
@@ -9728,12 +9982,34 @@ async function handleAdminUsers(env, origin) {
         const hasSub = subUids.has(uid);
         const hasWl = wlUids.has(uid);
         const hasUser = userUids.has(uid);
+        const hasComp = compUids.has(uid);
         let subData = null;
         let wlData = null;
         let userData = null;
+        let compData = null;
         if (hasSub) subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
         if (hasWl) wlData = await env.CACHE.get(`wl:${uid}`, 'json').catch(() => null);
         if (hasUser) userData = await env.CACHE.get(`user:${uid}`, 'json').catch(() => null);
+        if (hasComp) compData = await env.CACHE.get(`comp:${uid}`, 'json').catch(() => null);
+        // Comp status : derive l'etat d'expiration. expiresAt=null = a vie.
+        let compStatus = null;
+        if (compData) {
+          let active = true;
+          if (compData.expiresAt) {
+            const exp = Date.parse(compData.expiresAt);
+            if (Number.isFinite(exp) && exp < Date.now()) active = false;
+          }
+          compStatus = {
+            active,
+            plan: compData.plan || null,
+            source: compData.source || null,
+            grantedBy: compData.grantedBy || null,
+            grantedAt: compData.grantedAt || null,
+            expiresAt: compData.expiresAt || null,
+            durationMonths: compData.durationMonths || null,
+            note: compData.note || '',
+          };
+        }
         // Email : Stripe prioritaire (payants) > user.email (Firebase) > watchlist (fallback)
         const customerId = subData?.customerId || null;
         const stripeEmail = customerId ? await fetchStripeCustomerEmail(customerId, env) : null;
@@ -9803,15 +10079,24 @@ async function handleAdminUsers(env, origin) {
           // NULL pour les inscrits pre-fix : on les inferrera via Brevo.
           lang: userData?.lang || null,
           langUpdatedAt: userData?.langUpdatedAt || null,
+          // Comp Premium (mai 2026) : grant offert par l'admin (influencer / beta / gift).
+          // null si pas de grant, sinon {active, plan, source, ...}.
+          compStatus,
         };
       }));
       users.push(...results);
     }
 
-    // Tri : premium active → sub → wl → user inscrit seul
+    // Tri : premium active (Stripe ou comp) → sub past_due → comp expire → wl → user inscrit seul
     users.sort((a, b) => {
-      const ap = a.subStatus === 'active' ? 0 : (a.hasSubscription ? 1 : (a.hasWatchlist ? 2 : 3));
-      const bp = b.subStatus === 'active' ? 0 : (b.hasSubscription ? 1 : (b.hasWatchlist ? 2 : 3));
+      const rank = (u) => {
+        if (u.subStatus === 'active' || u.compStatus?.active) return 0;
+        if (u.hasSubscription) return 1;
+        if (u.compStatus) return 2;  // comp expire
+        if (u.hasWatchlist) return 3;
+        return 4;
+      };
+      const ap = rank(a), bp = rank(b);
       if (ap !== bp) return ap - bp;
       return (b.lastWatchlistUpdate || b.firstSeen || '').localeCompare(a.lastWatchlistUpdate || a.firstSeen || '');
     });
@@ -9830,11 +10115,17 @@ async function handleAdminUsers(env, origin) {
     // Round les mrrEur par bucket
     Object.values(revenueByPlan).forEach(b => { b.mrrEur = Math.round(b.mrrEur * 100) / 100; });
 
+    // Comp Premium counts (mai 2026)
+    const activeCompCount = users.filter(u => u.compStatus?.active).length;
+    const expiredCompCount = users.filter(u => u.compStatus && !u.compStatus.active).length;
+
     return jsonResponse({
       total: users.length,
       withSubscription: subKeys.length,
       withWatchlist: wlKeys.length,
       withFirebaseTracking: userKeys.length,
+      withCompPremium: activeCompCount,        // grants offerts encore actifs
+      withExpiredComp: expiredCompCount,       // grants offerts expires
       revenue: {
         mrrEur,                                     // Monthly Recurring Revenue total
         arrEur,                                     // Annualised Run Rate (MRR x 12)
@@ -12572,13 +12863,46 @@ function generateLinkCode() {
 // acces conserve pendant la grace period Stripe ~3 semaines, sinon canceled).
 // Tous les plans payants (pro/elite/legacy) donnent acces — la differenciation
 // fine (Elite-only = API + CSV) se fait endpoint par endpoint.
+// ============================================================
+// COMPLIMENTARY PREMIUM (mai 2026)
+// ============================================================
+// "Comp" = grants Premium offerts manuellement par l'admin (influenceurs,
+// beta testers, team, gifts). Stocke a part de Stripe pour ne pas etre
+// ecrase par le prochain webhook Stripe quand le user paye reellement.
+// Schema KV `comp:{uid}` :
+//   { plan: 'pro'|'elite', grantedBy, grantedAt, expiresAt: ISO|null,
+//     source: 'influencer'|'beta'|'gift'|'team', note: string }
+// expiresAt=null = a vie. Sinon timestamp ISO compare a Date.now().
+async function getCompPremium(env, uid) {
+  if (!uid) return null;
+  const comp = await env.CACHE.get(`comp:${uid}`, 'json').catch(() => null);
+  if (!comp || !comp.plan) return null;
+  // Verifie expiration : null = a vie, sinon compare ISO timestamp
+  if (comp.expiresAt) {
+    const exp = Date.parse(comp.expiresAt);
+    if (Number.isFinite(exp) && exp < Date.now()) {
+      return null;  // expire, traite comme inexistant
+    }
+  }
+  return comp;
+}
+
 async function isPremiumUser(env, uid) {
   if (!uid) return false;
+  // 1) Sub Stripe active
   const subData = await env.CACHE.get(`sub:${uid}`, 'json');
-  if (!subData) return false;
-  if (subData.status !== 'active' && subData.status !== 'past_due') return false;
-  const resolved = resolveStripePlan(subData.priceId, { plan: subData.plan, billing: subData.billing }, env);
-  return resolved.plan === 'pro' || resolved.plan === 'elite' || resolved.plan === 'legacy';
+  if (subData && (subData.status === 'active' || subData.status === 'past_due')) {
+    const resolved = resolveStripePlan(subData.priceId, { plan: subData.plan, billing: subData.billing }, env);
+    if (resolved.plan === 'pro' || resolved.plan === 'elite' || resolved.plan === 'legacy') {
+      return true;
+    }
+  }
+  // 2) Comp Premium offert (mai 2026) — affilies / beta / team / gifts
+  const comp = await getCompPremium(env, uid);
+  if (comp && (comp.plan === 'pro' || comp.plan === 'elite')) {
+    return true;
+  }
+  return false;
 }
 
 async function handleTelegramInitLink(env, user, origin) {
