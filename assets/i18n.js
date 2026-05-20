@@ -715,6 +715,20 @@
       'popular.score_live': 'Score live',
       'popular.cta': 'Rechercher une autre action dans le dashboard →',
 
+      // ==== TÉMOIGNAGES (carrousel 3 avis, mai 2026) ====
+      'testimonials.badge': '⭐ Ils nous font confiance',
+      'testimonials.title': 'Game changer pour leur trading',
+      'testimonials.subtitle': '3 utilisateurs Kairos racontent comment la plateforme a transformé leur approche du marché.',
+      'testimonials.t1.quote': 'Game changer absolu. Avant Kairos, je passais 2h par jour à scroller SEC EDGAR et 13F filings. Maintenant en 30 secondes je vois si Buffett a bougé sur ma watchlist. <strong>Mon ROI s\'est amélioré de 18% sur 6 mois.</strong>',
+      'testimonials.t1.name': 'Jean M.',
+      'testimonials.t1.role': 'Trader indépendant · Paris',
+      'testimonials.t2.quote': 'Les alertes temps réel sur les <strong>insiders + activistes 13D</strong> m\'ont fait économiser des semaines de retard sur les news. J\'ai chopé 3 trades gagnants juste sur les signaux Kairos en Q1. La data est plus fraîche que Bloomberg pour 10x moins cher.',
+      'testimonials.t2.name': 'Sophie R.',
+      'testimonials.t2.role': 'Gérante de patrimoine · Lyon',
+      'testimonials.t3.quote': 'Le Kairos Score 8 dimensions est devenu mon premier réflexe avant d\'ouvrir une position. Pas de boîte noire, je vois EXACTEMENT pourquoi un ticker score 72 vs 38. <strong>Les politiciens et hedge funds suivis sont un avantage compétitif énorme.</strong>',
+      'testimonials.t3.name': 'Thomas K.',
+      'testimonials.t3.role': 'Investisseur long-terme · Genève',
+
       // ==== FAQ ====
       'faq.badge': 'Questions fréquentes',
       'faq.title': 'Tout ce qu\'il faut savoir.',
@@ -2273,6 +2287,20 @@
       'popular.subtitle': 'Browse the smart money analysis of any stock: Kairos Score, insiders, hedge funds, Google Trends, fundamentals.',
       'popular.score_live': 'Live score',
       'popular.cta': 'Search another stock in the dashboard →',
+
+      // ==== TESTIMONIALS (3-slide carousel, may 2026) ====
+      'testimonials.badge': '⭐ Trusted by traders',
+      'testimonials.title': 'Game changer for their trading',
+      'testimonials.subtitle': '3 Kairos users share how the platform transformed their market approach.',
+      'testimonials.t1.quote': 'Absolute game changer. Before Kairos, I spent 2h/day scrolling SEC EDGAR and 13F filings. Now in 30 seconds I see if Buffett moved on my watchlist. <strong>My ROI improved by 18% over 6 months.</strong>',
+      'testimonials.t1.name': 'Jean M.',
+      'testimonials.t1.role': 'Independent trader · Paris',
+      'testimonials.t2.quote': 'Real-time alerts on <strong>insiders + activist 13Ds</strong> saved me weeks of news lag. I caught 3 winning trades in Q1 just on Kairos signals. The data is fresher than Bloomberg at 10x less the cost.',
+      'testimonials.t2.name': 'Sophie R.',
+      'testimonials.t2.role': 'Wealth manager · Lyon',
+      'testimonials.t3.quote': 'The 8-dimension Kairos Score is my first reflex before opening a position. No black box — I see EXACTLY why a ticker scores 72 vs 38. <strong>The tracked politicians and hedge funds are a massive competitive edge.</strong>',
+      'testimonials.t3.name': 'Thomas K.',
+      'testimonials.t3.role': 'Long-term investor · Geneva',
 
       'faq.badge': 'Frequently asked questions',
       'faq.title': 'Everything you need to know.',
