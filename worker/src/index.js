@@ -1053,7 +1053,11 @@ const _seenUids = new Set();
 
 // Beta offer config : N premiers inscrits beneficient d'une reduction
 // sur leur 1er mois (Pro ou Elite) pendant un fenetre limitee.
-const BETA_MAX_SIGNUPS = 100;
+// PROMO TERMINEE LE 20 MAI 2026 : BETA_MAX_SIGNUPS=0 = aucun nouveau flag
+// betaSignup attribue. Les users deja flagged conservent leur 30j window
+// pour utiliser le coupon Stripe (soft stop, pas de revocation). Une fois
+// les 30j de chacun expires, plus aucun checkout n'aura le coupon attache.
+const BETA_MAX_SIGNUPS = 0;
 const BETA_OFFER_DURATION_DAYS = 30;  // l'utilisateur a 30j pour subscribe avec la promo
 
 async function handleBetaStatus(env, origin) {

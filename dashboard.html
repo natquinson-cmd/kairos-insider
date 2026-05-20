@@ -8309,26 +8309,24 @@
     }
 
     // Affiche/cache le bandeau urgence beta (sticky top, anonymes uniquement,
-    // dismissible). Appele depuis renderFreeQuotaBanner pour rester sync avec
-    // les changements d'etat auth.
+    // dismissible). PROMO TERMINEE LE 20 MAI 2026 : force hide en permanence.
+    // Logique conditionnelle conservee en commentaire pour reactivation future.
     function updateBetaUrgencyBanner() {
       const el = document.getElementById('betaUrgencyBanner');
       if (!el) return;
-      // Cache si user inscrit OU si dismissed
-      const dismissed = (() => { try { return localStorage.getItem('kairos_beta_banner_dismissed') === '1'; } catch { return false; } })();
-      const shouldShow = !currentUser && !dismissed;
-      el.style.display = shouldShow ? 'block' : 'none';
-      // Toggle has-beta-banner sur body pour decaler la nav fixed (CSS)
-      if (shouldShow) {
-        document.body.classList.add('has-beta-banner');
-        // Compute "Plus que X jours" jusqu'a la fin du mois (urgence reelle).
-        // On n'expose plus le compteur d'inscription (UX : ne pas reveler que
-        // le site est jeune). Le coupon BETA50 reste attache backend-side aux
-        // 100 premiers inscrits dans une fenetre 30j.
-        updateBetaDaysCountdown();
-      } else {
-        document.body.classList.remove('has-beta-banner');
-      }
+      // Promo terminee : toujours cache, pas de decalage nav.
+      el.style.display = 'none';
+      document.body.classList.remove('has-beta-banner');
+      // --- Ancienne logique (a reactiver si nouvelle promo) ---
+      // const dismissed = (() => { try { return localStorage.getItem('kairos_beta_banner_dismissed') === '1'; } catch { return false; } })();
+      // const shouldShow = !currentUser && !dismissed;
+      // el.style.display = shouldShow ? 'block' : 'none';
+      // if (shouldShow) {
+      //   document.body.classList.add('has-beta-banner');
+      //   updateBetaDaysCountdown();
+      // } else {
+      //   document.body.classList.remove('has-beta-banner');
+      // }
     }
 
     function updateBetaDaysCountdown() {

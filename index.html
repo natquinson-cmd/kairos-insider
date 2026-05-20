@@ -1529,7 +1529,9 @@
       body.has-beta-banner main { margin-top: 88px; }
     }
   </style>
-  <div id="betaUrgencyBanner">
+  <!-- Banner promo desactive le 20 mai 2026 (fin de la promo de lancement -50%).
+       Markup conserve pour reactivation future si besoin. -->
+  <div id="betaUrgencyBanner" style="display:none !important">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
       <span style="display:inline-flex;align-items:center;gap:6px"><strong data-i18n="beta.banner.title">🔥 Offre de lancement</strong> · <span id="betaBannerOffer" data-i18n="beta.banner.offer">-50% sur le 1er mois</span> · <strong id="betaBannerRemaining" style="color:#FFE4F1" data-i18n="beta.banner.remaining_loading">Plus que … jours</strong></span>
       <a href="dashboard.html?action=signup" style="padding:5px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-decoration:none;backdrop-filter:blur(4px)" data-i18n="beta.banner.cta">Réserver ma place →</a>
@@ -1572,17 +1574,14 @@
     })();
   </script>
   <script>
-    // Init : ajoute has-beta-banner sur body si pas dismissed (decale nav vers le bas).
-    // Synchrone avant le rendu pour eviter le flash (banner overlap avec nav).
+    // Promo de lancement terminee le 20 mai 2026 — banner desactive,
+    // body.has-beta-banner pas ajoute (sinon nav decalee pour rien).
+    // Markup conserve dans le DOM pour reactivation eventuelle.
     (function () {
-      try {
-        if (localStorage.getItem('kairos_beta_banner_dismissed') === '1') {
-          var __b = document.getElementById('betaUrgencyBanner');
-          if (__b) __b.style.display = 'none';
-        } else {
-          document.body.classList.add('has-beta-banner');
-        }
-      } catch (e) { document.body.classList.add('has-beta-banner'); }
+      var __b = document.getElementById('betaUrgencyBanner');
+      if (__b) __b.style.display = 'none';
+      // Pas de document.body.classList.add('has-beta-banner') : laisse la nav
+      // a sa position normale (top:0) sans decalage de 56px ou 88px.
     })();
   </script>
 
