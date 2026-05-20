@@ -582,6 +582,10 @@
       'stock.section.peers': '🎯 Concurrents sectoriels',
       'stock.section.consensus_full': '🎯 Consensus analystes',
       'stock.section.politicians': '🏛️ Politiciens & Gurus',
+      // Smart Money wrapper (mai 2026, demande user 'Ces 4 cards devraient
+      // faire partie d'un card qui les englobe nomme Smart Money')
+      'stock.section.smartMoney': 'Smart Money',
+      'stock.section.smartMoney_sub': '— Initiés · Hedge funds · Politiciens · Activistes',
       // Insiders panel filters + stats
       'stock.insider.allTypes': 'Tous types',
       'stock.insider.allRoles': 'Tous roles',
@@ -2147,6 +2151,9 @@
       'stock.section.peers': '🎯 Sector peers',
       'stock.section.consensus_full': '🎯 Analyst consensus',
       'stock.section.politicians': '🏛️ Politicians & Gurus',
+      // Smart Money wrapper (may 2026)
+      'stock.section.smartMoney': 'Smart Money',
+      'stock.section.smartMoney_sub': '— Insiders · Hedge funds · Politicians · Activists',
       'stock.insider.allTypes': 'All types',
       'stock.insider.allRoles': 'All roles',
       'stock.insider.buys_label': 'buys',
