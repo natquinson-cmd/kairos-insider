@@ -13024,9 +13024,13 @@
         // Map etf_symbol -> series pour merge facile dans le render
         const etfSeriesByEtf = {};
         if (etfHistRes && Array.isArray(etfHistRes.etfs)) {
+          // FIX (mai 2026) : le worker renvoie { symbol, series, ... } pas
+          // { etf, series, ... }. Lecture des 2 noms par defense en profondeur
+          // au cas ou le worker change le contrat.
           for (const e of etfHistRes.etfs) {
-            if (e.etf && Array.isArray(e.series) && e.series.length > 0) {
-              etfSeriesByEtf[e.etf] = e.series;
+            const sym = e.symbol || e.etf;
+            if (sym && Array.isArray(e.series) && e.series.length > 0) {
+              etfSeriesByEtf[sym] = e.series;
             }
           }
         }
@@ -13629,9 +13633,12 @@
         const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=60`);
         if (!res || !Array.isArray(res.etfs) || res.etfs.length === 0) return;
         const seriesByEtf = {};
+        // FIX (mai 2026) : worker renvoie { symbol, series } pas { etf, series }.
+        // On lit les 2 par defense en profondeur.
         for (const e of res.etfs) {
-          if (e.etf && Array.isArray(e.series) && e.series.length > 0) {
-            seriesByEtf[e.etf] = e.series;
+          const sym = e.symbol || e.etf;
+          if (sym && Array.isArray(e.series) && e.series.length > 0) {
+            seriesByEtf[sym] = e.series;
           }
         }
         // Cible les rows pre-rendus par renderStockAnalysis (data-pol-etf-row="ETF").
