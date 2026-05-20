@@ -13300,7 +13300,7 @@
             // Sparkline (60 jours) en TOOLTIP-style entre ETF et delta pour
             // visualiser la trajectoire au-dela du seul mouvement recent.
             const sparkSvg = renderEtfSparkline(e.etf);
-            const sparkTip = sparkSvg ? ` title="${t('stock.recent.etfSparkTooltip', 'Poids dans l\\'ETF sur les 60 derniers jours')}"` : '';
+            const sparkTip = sparkSvg ? ` title="${t('stock.recent.etfSparkTooltip', 'Poids dans l\'ETF sur les 60 derniers jours')}"` : '';
             return `
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider);font-size:12px;gap:8px">
                 <div style="display:flex;align-items:center"><span style="margin-right:6px">${statusIcon}</span><strong style="color:var(--text-primary)">${escapeHtmlClient(e.etf)}</strong></div>
