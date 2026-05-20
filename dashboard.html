@@ -6902,6 +6902,39 @@
           </div>
         </div>
 
+        <!-- PANEL CANDIDATURES PARTENAIRES (mai 2026, /partenaires affiliate program) -->
+        <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <div>
+              <h3 style="margin:0;font-size:16px">🤝 Candidatures partenaires</h3>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Formulaires reçus depuis la page <a href="/partenaires" target="_blank" style="color:var(--accent-blue)">/partenaires</a>. KV TTL 90j.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="adPartnersFilter" onchange="renderAdminPartnersPanel()" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">
+                <option value="all">Tous statuts</option>
+                <option value="pending" selected>⏳ Pending</option>
+                <option value="accepted">✅ Accepted</option>
+                <option value="rejected">❌ Rejected</option>
+              </select>
+              <button onclick="loadAdminPartners()" class="tip" data-tip="Recharger les candidatures" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+            </div>
+          </div>
+          <div id="adPartnersBody" style="min-height:160px">
+            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>
+          </div>
+        </div>
+
+        <!-- MODAL : detail d'une candidature partenaire + actions Accept/Reject/Note -->
+        <div class="modal-overlay" id="adminPartnerDetailModal" onclick="if(event.target===this)closeAdminPartnerModal()" style="display:none">
+          <div class="modal-inner" style="max-width:640px">
+            <div class="modal-header">
+              <h3 id="adminPartnerDetailTitle">🤝 Candidature partenaire</h3>
+              <button class="modal-close" onclick="closeAdminPartnerModal()">✕</button>
+            </div>
+            <div id="adminPartnerDetailBody" style="font-size:13px;line-height:1.6"></div>
+          </div>
+        </div>
+
         <!-- PANEL TRAFFIC (pleine largeur aussi) -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -23471,11 +23504,12 @@
         renderAdminUsersPanel(usersRes, subsRes);
         renderAdminTrafficPanel(trafficRes);
         renderAdminDbPanel(dbRes);
-        // Load error tracking + score weights + jobs timeline + chat sessions (non-blocking)
+        // Load error tracking + score weights + jobs timeline + chat sessions + partners (non-blocking)
         loadAdminErrors().catch(() => {});
         loadAdminScoreWeights().catch(() => {});
         loadJobsTimeline().catch(() => {});
         loadChatSessions().catch(() => {});
+        loadAdminPartners().catch(() => {});
 
         // Status : timestamp persiste + updater live pour "il y a Xs / Xmin"
         window._adminLastRefreshTs = Date.now();
@@ -23806,6 +23840,186 @@
         loadAdminDashboard(true).catch(() => {});
       } catch (e) {
         Toast.error('Erreur revoke Premium : ' + (e.message || e));
+      }
+    }
+
+    // ============================================================
+    // ADMIN : Candidatures programme partenaires (mai 2026)
+    // ============================================================
+    // Cache local de la derniere reponse /api/admin/partnership-applications
+    // pour permettre le filtre client-side sans re-fetcher.
+    let _adminPartnersCache = null;
+
+    async function loadAdminPartners() {
+      const body = document.getElementById('adPartnersBody');
+      if (!body) return;
+      body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>';
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/partnership-applications`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        _adminPartnersCache = data;
+        renderAdminPartnersPanel();
+      } catch (e) {
+        body.innerHTML = `<div style="padding:30px;text-align:center;color:#FCA5A5;font-size:13px">Erreur : ${(e.message || e)}</div>`;
+      }
+    }
+
+    function renderAdminPartnersPanel() {
+      const body = document.getElementById('adPartnersBody');
+      if (!body || !_adminPartnersCache) return;
+      const filter = document.getElementById('adPartnersFilter')?.value || 'pending';
+      const all = _adminPartnersCache.applications || [];
+      const filtered = filter === 'all' ? all : all.filter(a => (a.status || 'pending') === filter);
+      const stats = _adminPartnersCache.byStatus || { pending: 0, accepted: 0, rejected: 0 };
+
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      const fmtD = (iso) => { try { return new Date(iso).toLocaleString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }); } catch { return iso || '—'; } };
+
+      // Stats bar (counts par status)
+      const statsBar = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
+          <div style="padding:8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:#F59E0B">${stats.pending || 0}</div>
+            <div style="color:var(--text-muted)">⏳ Pending</div>
+          </div>
+          <div style="padding:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:#10B981">${stats.accepted || 0}</div>
+            <div style="color:var(--text-muted)">✅ Accepted</div>
+          </div>
+          <div style="padding:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:#EF4444">${stats.rejected || 0}</div>
+            <div style="color:var(--text-muted)">❌ Rejected</div>
+          </div>
+          <div style="padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:var(--text-primary)">${_adminPartnersCache.total || 0}</div>
+            <div style="color:var(--text-muted)">Total</div>
+          </div>
+        </div>`;
+
+      if (filtered.length === 0) {
+        body.innerHTML = statsBar + `<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">Aucune candidature ${filter !== 'all' ? '`' + filter + '`' : ''}.</div>`;
+        return;
+      }
+
+      const badgeStatus = (s) => {
+        if (s === 'accepted') return '<span style="padding:2px 8px;background:rgba(16,185,129,0.15);color:#10B981;border-radius:10px;font-size:10px;font-weight:700">ACCEPTED</span>';
+        if (s === 'rejected') return '<span style="padding:2px 8px;background:rgba(239,68,68,0.15);color:#EF4444;border-radius:10px;font-size:10px;font-weight:700">REJECTED</span>';
+        return '<span style="padding:2px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border-radius:10px;font-size:10px;font-weight:700">PENDING</span>';
+      };
+      const typeEmoji = (t) => ({ newsletter:'📧', youtube:'🎥', twitter:'🐦', podcast:'🎙', blog:'📰', linkedin:'💼' }[t] || '🔗');
+
+      const rows = filtered.map(app => {
+        const id = (app.id || app._kvKey || '').replace(/'/g, "\\'");
+        return `
+          <tr style="border-bottom:1px solid var(--divider);cursor:pointer" onclick="openAdminPartnerModal('${id}')">
+            <td style="padding:8px 10px;font-size:11px;color:var(--text-muted);white-space:nowrap">${esc(fmtD(app.submittedAt))}</td>
+            <td style="padding:8px 10px;font-size:12px;font-weight:600">${esc(app.name || '—')}</td>
+            <td style="padding:8px 10px;font-size:11px">${esc(app.email || '—')}</td>
+            <td style="padding:8px 10px;font-size:11px"><a href="${esc(app.platformUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent-blue);text-decoration:none">${esc((app.platformUrl || '').replace(/^https?:\/\//, '').slice(0, 32))}${(app.platformUrl||'').length > 38 ? '…' : ''}</a></td>
+            <td style="padding:8px 10px;font-size:12px;text-align:center;white-space:nowrap">${typeEmoji(app.audienceType)} ${esc(app.audienceType || '?')}</td>
+            <td style="padding:8px 10px;font-size:11px;text-align:center;font-variant-numeric:tabular-nums">${esc(app.audienceSize || '?')}</td>
+            <td style="padding:8px 10px;text-align:center;white-space:nowrap">${esc(app.country || '?')}</td>
+            <td style="padding:8px 10px;text-align:center;white-space:nowrap">${badgeStatus(app.status)}</td>
+          </tr>`;
+      }).join('');
+
+      body.innerHTML = statsBar + `
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-1)">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border);background:var(--surface-2)">
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Soumis</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Nom</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Email</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Plateforme</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Type</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Audience</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Pays</th>
+                <th style="padding:8px 10px;text-align:center;color:var(--text-muted);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em">Statut</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:right">Clique sur une ligne pour voir le détail + actions</div>
+      `;
+    }
+
+    // Modal detail : motivation complete + boutons accept/reject/note
+    function openAdminPartnerModal(id) {
+      if (!_adminPartnersCache) return;
+      const app = (_adminPartnersCache.applications || []).find(a => (a.id || a._kvKey) === id);
+      if (!app) { Toast.error('Candidature introuvable'); return; }
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+      const fmtD = (iso) => { try { return new Date(iso).toLocaleString('fr-FR'); } catch { return iso || '—'; } };
+      const status = app.status || 'pending';
+
+      const body = document.getElementById('adminPartnerDetailBody');
+      body.innerHTML = `
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;line-height:1.6">
+            <strong style="color:var(--text-muted)">Nom</strong><span>${esc(app.name)}</span>
+            <strong style="color:var(--text-muted)">Email</strong><span><a href="mailto:${esc(app.email)}" style="color:var(--accent-blue)">${esc(app.email)}</a></span>
+            <strong style="color:var(--text-muted)">Plateforme</strong><span><a href="${esc(app.platformUrl)}" target="_blank" rel="noopener" style="color:var(--accent-blue)">${esc(app.platformUrl)}</a></span>
+            <strong style="color:var(--text-muted)">Type</strong><span>${esc(app.audienceType)}</span>
+            <strong style="color:var(--text-muted)">Audience</strong><span>${esc(app.audienceSize)}</span>
+            <strong style="color:var(--text-muted)">Pays</strong><span>${esc(app.country || '?')}</span>
+            <strong style="color:var(--text-muted)">Soumis le</strong><span>${esc(fmtD(app.submittedAt))}</span>
+            <strong style="color:var(--text-muted)">Status actuel</strong><span style="font-weight:600;color:${status==='accepted'?'#10B981':status==='rejected'?'#EF4444':'#F59E0B'}">${status.toUpperCase()}</span>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;margin-bottom:6px">Motivation</div>
+          <div style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font-size:13px;white-space:pre-wrap">${esc(app.motivation || '(aucune motivation fournie)')}</div>
+        </div>
+        ${app.adminNote ? `
+          <div style="margin-bottom:14px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;margin-bottom:6px">Note admin (${esc(app.reviewedBy || '?')} · ${esc(fmtD(app.reviewedAt))})</div>
+            <div style="padding:12px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:13px;white-space:pre-wrap">${esc(app.adminNote)}</div>
+          </div>` : ''}
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;margin-bottom:6px">Ajouter / modifier note (optionnel)</label>
+          <textarea id="adminPartnerNoteInput" rows="2" placeholder="Ex: J'ai répondu par mail le 22/05, accord verbal sur 50%/-10%" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px;resize:vertical">${esc(app.adminNote || '')}</textarea>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+          <button onclick="closeAdminPartnerModal()" style="padding:9px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-size:13px">Fermer</button>
+          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','pending')" style="padding:9px 16px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#F59E0B;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">⏳ Mettre en pending</button>
+          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','rejected')" style="padding:9px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#EF4444;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">❌ Rejeter</button>
+          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','accepted')" style="padding:9px 16px;background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">✅ Accepter</button>
+        </div>
+      `;
+      const title = document.getElementById('adminPartnerDetailTitle');
+      if (title) title.textContent = `🤝 ${app.name} — ${app.audienceType} (${app.audienceSize})`;
+      document.getElementById('adminPartnerDetailModal').style.display = 'flex';
+    }
+
+    function closeAdminPartnerModal() {
+      const m = document.getElementById('adminPartnerDetailModal');
+      if (m) m.style.display = 'none';
+    }
+
+    async function updateAdminPartnerStatus(id, newStatus) {
+      try {
+        const noteEl = document.getElementById('adminPartnerNoteInput');
+        const adminNote = noteEl ? noteEl.value.trim() : '';
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/api/admin/partnership-applications`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status: newStatus, adminNote }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        Toast.success(`Candidature passée en ${newStatus.toUpperCase()}`);
+        closeAdminPartnerModal();
+        // Re-fetch pour rafraichir la liste + counts
+        loadAdminPartners();
+      } catch (e) {
+        Toast.error('Erreur update : ' + (e.message || e));
       }
     }
 
