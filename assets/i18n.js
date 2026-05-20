@@ -718,7 +718,7 @@
       // ==== TÉMOIGNAGES (carrousel 3 avis, mai 2026) ====
       'testimonials.badge': '⭐ Ils nous font confiance',
       'testimonials.title': 'Game changer pour leur trading',
-      'testimonials.subtitle': '3 utilisateurs Kairos racontent comment la plateforme a transformé leur approche du marché.',
+      'testimonials.subtitle': 'Les utilisateurs Kairos racontent comment la plateforme a transformé leur approche du marché.',
       'testimonials.t1.quote': 'Game changer absolu. Avant Kairos, je passais 2h par jour à scroller SEC EDGAR et 13F filings. Maintenant en 30 secondes je vois si Buffett a bougé sur ma watchlist. <strong>Mon ROI s\'est amélioré de 18% sur 6 mois.</strong>',
       'testimonials.t1.name': 'Jean M.',
       'testimonials.t1.role': 'Trader indépendant · Paris',
@@ -2294,7 +2294,7 @@
       // ==== TESTIMONIALS (3-slide carousel, may 2026) ====
       'testimonials.badge': '⭐ Trusted by traders',
       'testimonials.title': 'Game changer for their trading',
-      'testimonials.subtitle': '3 Kairos users share how the platform transformed their market approach.',
+      'testimonials.subtitle': 'Kairos users share how the platform transformed their market approach.',
       'testimonials.t1.quote': 'Absolute game changer. Before Kairos, I spent 2h/day scrolling SEC EDGAR and 13F filings. Now in 30 seconds I see if Buffett moved on my watchlist. <strong>My ROI improved by 18% over 6 months.</strong>',
       'testimonials.t1.name': 'Jean M.',
       'testimonials.t1.role': 'Independent trader · Paris',
