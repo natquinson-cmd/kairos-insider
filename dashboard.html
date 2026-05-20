@@ -12977,11 +12977,19 @@
         // 480px via le slot + flex:1 sur le wrapper interne). Le top3 cap
         // limite naturellement le contenu, espace flexible en bas vide ou rempli
         // par la list si plus de filings.
+        // Lien "Voir les N declarations" : TOUJOURS visible (mai 2026,
+        // retour user 'la card activist a perdu le lien vers la page de detail
+        // de la liste des transactions'). Avant : condition res.total > 3
+        // -> disparait quand exactement 3 filings (cas frequent vu que top3
+        // est notre cap). Maintenant : on l'affiche meme avec 1 filing,
+        // pour permettre la navigation vers la page Activists dediee.
+        const viewAllLink = `<a href="#" onclick="switchSection('activists'); setTimeout(()=>{ const tkInput=document.getElementById('actTicker'); if(tkInput) tkInput.value='${escapeHtmlClient(ticker)}'; const flt=document.getElementById('actFilter'); if(flt) flt.value='all'; loadActivists(); }, 150); return false" style="color:${color};font-size:11px;font-weight:600;text-decoration:none;margin-left:auto">${_activistsT('stock.activists.view_all', `Voir les ${res.total} déclarations →`).replace('{n}', res.total)}</a>`;
+
         slot.innerHTML = `
           <div style="flex:1;padding:14px 16px;background:${bgGrad};border:1px solid ${borderColor};border-radius:12px;display:flex;flex-direction:column">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
               <strong style="color:${color};font-size:14px">${title}</strong>
-              ${res.total > 3 ? `<a href="#" onclick="switchSection('activists'); setTimeout(()=>{ const tkInput=document.getElementById('actTicker'); if(tkInput) tkInput.value='${escapeHtmlClient(ticker)}'; const flt=document.getElementById('actFilter'); if(flt) flt.value='all'; loadActivists(); }, 150); return false" style="color:${color};font-size:11px;font-weight:600;text-decoration:none;margin-left:auto">${_activistsT('stock.activists.view_all', `Voir les ${res.total} déclarations →`).replace('{n}', res.total)}</a>` : ''}
+              ${viewAllLink}
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">${subtitle}</div>
             <div class="scroll-y-hover" style="flex:1;display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:0;padding-right:4px">
