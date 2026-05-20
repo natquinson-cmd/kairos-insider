@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260520-auth-toggle-fix"></script>
+  <script src="assets/i18n.js?v=20260520-nav-login-btn"></script>
 
   <style>
     :root {
@@ -1605,6 +1605,9 @@
             <span id="navLangFlag" style="display:inline-flex;align-items:center"></span><span data-i18n="nav.lang_switch">EN</span>
           </button>
         </li>
+        <!-- Bouton login : pour utilisateurs existants. Lien direct vers
+             dashboard.html qui affiche l'authOverlay si pas auth. -->
+        <li><a href="dashboard.html?action=login" style="color:var(--text-secondary);text-decoration:none;font-weight:600;padding:8px 14px;border:1px solid var(--border-strong);border-radius:8px;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'" onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'" data-i18n="nav.login">Se connecter</a></li>
         <li><a href="dashboard.html" class="btn btn-primary" data-i18n="nav.try_free">Essayer gratuitement</a></li>
       </ul>
     </div>
