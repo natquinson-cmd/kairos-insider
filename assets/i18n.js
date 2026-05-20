@@ -586,6 +586,13 @@
       // faire partie d'un card qui les englobe nomme Smart Money')
       'stock.section.smartMoney': 'Smart Money',
       'stock.section.smartMoney_sub': '— Initiés · Hedge funds · Politiciens · Activistes',
+      // Enrichissement Politicians & Gurus card (sparkline + status par ETF)
+      'stock.gov.spark_tooltip': 'Évolution du poids dans l\'ETF sur 60 jours',
+      'stock.gov.status_new': 'Nouvelle entrée',
+      'stock.gov.status_exit': 'Sortie',
+      'stock.gov.status_flat': 'Stable sur 60j',
+      // status_up / status_down sont generes dynamiquement avec le delta exact
+      // (e.g., '+0.23pt vs 60j' / '-0.05pt vs 60j')
       // Insiders panel filters + stats
       'stock.insider.allTypes': 'Tous types',
       'stock.insider.allRoles': 'Tous roles',
@@ -2154,6 +2161,11 @@
       // Smart Money wrapper (may 2026)
       'stock.section.smartMoney': 'Smart Money',
       'stock.section.smartMoney_sub': '— Insiders · Hedge funds · Politicians · Activists',
+      // Politicians & Gurus card enrichment (sparkline + status badge per ETF)
+      'stock.gov.spark_tooltip': 'Weight change in the ETF over 60 days',
+      'stock.gov.status_new': 'New entry',
+      'stock.gov.status_exit': 'Exited',
+      'stock.gov.status_flat': 'Flat over 60d',
       'stock.insider.allTypes': 'All types',
       'stock.insider.allRoles': 'All roles',
       'stock.insider.buys_label': 'buys',

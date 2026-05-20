@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260520-smart-money-wrapper"></script>
+  <script src="assets/i18n.js?v=20260520-politicians-evolution"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -12690,6 +12690,10 @@
         loadEtfHistoryFor(ticker).catch(() => {});
         // Charge les filings 13D/G recents sur ce ticker (banner + markers chart)
         loadActivistsForTicker(ticker).catch(() => {});
+        // Enrichit la card Politicians & Gurus avec sparkline + status par ETF
+        // (mai 2026, demande user 'la card Politicians & Gurus est trop austere
+        // et on ne voit pas l'evolution recente'). Fire-and-forget, non bloquant.
+        enrichPoliticiansEvolution(ticker).catch(() => {});
         // Widget "Activité récente 7j" : agrège ETF modifs + insiders + delta score.
         // FIX (mai 2026) : on passe le score LIVE (data.score.total) pour aligner
         // l'affichage du widget avec le radar/score affiche en haut de page.
@@ -13600,6 +13604,79 @@
     // Historique ETF : "ce ticker apparait dans X ETF depuis Y jours"
     // Affiche en bas de l'analyse action si data D1 dispo.
     // ============================================================
+    // ============================================================
+    // ENRICH POLITICIANS & GURUS CARD : sparkline + status badge par ETF
+    // ============================================================
+    // mai 2026, retour user 'la card Politicians & Gurus est trop austere et
+    // on ne voit pas l'evolution recente (card ETF les presentes donc il y
+    // en a)'. Cette card listait les ETFs en statique (poids actuel + shares).
+    // Maintenant on enrichit chaque row avec :
+    //   - Sparkline SVG 60j (evolution du poids dans l'ETF)
+    //   - Badge status (entree / sortie / renforcement / allegement) base
+    //     sur le delta entre 1er et dernier point de la serie
+    // Fetch async non-bloquant (~200ms apres le render initial).
+    async function enrichPoliticiansEvolution(ticker) {
+      if (!ticker) return;
+      try {
+        const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=60`);
+        if (!res || !Array.isArray(res.etfs) || res.etfs.length === 0) return;
+        const seriesByEtf = {};
+        for (const e of res.etfs) {
+          if (e.etf && Array.isArray(e.series) && e.series.length > 0) {
+            seriesByEtf[e.etf] = e.series;
+          }
+        }
+        // Cible les rows pre-rendus par renderStockAnalysis (data-pol-etf-row="ETF").
+        const rows = document.querySelectorAll('[data-pol-etf-row]');
+        for (const row of rows) {
+          const etf = row.getAttribute('data-pol-etf-row');
+          const series = seriesByEtf[etf];
+          if (!series || series.length < 2) continue;
+          // Sparkline SVG 60x16
+          const W = 60, H = 16;
+          const weights = series.map(p => p.weight || 0);
+          const minW = Math.min(...weights);
+          const maxW = Math.max(...weights);
+          const range = maxW - minW || 1;
+          const step = W / (series.length - 1);
+          const pts = series.map((p, i) => {
+            const x = i * step;
+            const y = H - ((p.weight - minW) / range) * (H - 2) - 1;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          }).join(' ');
+          const first = weights[0];
+          const last = weights[weights.length - 1];
+          const trend = last - first;
+          const col = trend > 0.001 ? '#10B981' : trend < -0.001 ? '#EF4444' : '#9CA3AF';
+          const sparkSlot = row.querySelector('[data-pol-spark]');
+          if (sparkSlot) {
+            sparkSlot.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            sparkSlot.title = t('stock.gov.spark_tooltip', 'Évolution du poids dans l\'ETF sur 60 jours');
+          }
+          // Status badge
+          const statusSlot = row.querySelector('[data-pol-status]');
+          if (statusSlot) {
+            let icon = '', label = '', color = '#9CA3AF';
+            if (first === 0 && last > 0) {
+              icon = '🆕'; label = t('stock.gov.status_new', 'Nouvelle entrée'); color = '#10B981';
+            } else if (first > 0 && last === 0) {
+              icon = '❌'; label = t('stock.gov.status_exit', 'Sortie'); color = '#EF4444';
+            } else if (trend > 0.05) {
+              icon = '📈'; label = t('stock.gov.status_up', `+${(trend).toFixed(2)}pt vs 60j`); color = '#10B981';
+            } else if (trend < -0.05) {
+              icon = '📉'; label = t('stock.gov.status_down', `${(trend).toFixed(2)}pt vs 60j`); color = '#EF4444';
+            } else {
+              icon = '➖'; label = t('stock.gov.status_flat', 'Stable sur 60j'); color = '#9CA3AF';
+            }
+            statusSlot.innerHTML = `<span style="color:${color}">${icon} ${label}</span>`;
+          }
+        }
+      } catch (e) {
+        // Silent : enrichissement non-bloquant, l'absence de sparkline n'empeche
+        // pas l'affichage des donnees statiques de la card.
+      }
+    }
+
     async function loadEtfHistoryFor(ticker) {
       try {
         const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(ticker)}&days=180`);
@@ -14779,16 +14856,25 @@
                 // Override le fullName API (FR-only) par une trad i18n keyed sur le symbol ETF
                 const _etfKey = `stock.etfLabel.${e.etf}`;
                 const _etfName = t(_etfKey, e.fullName) === _etfKey ? e.fullName : t(_etfKey, e.fullName);
+                // data-pol-etf-row : permet a enrichPoliticiansEvolution() de
+                // cibler chaque row pour y injecter sparkline + status badge
+                // apres fetch /api/history/etf (mai 2026, retour user).
                 return `
-                <div style="padding:10px;background:var(--surface-2);border-radius:8px;margin-bottom:8px">
-                  <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div>
+                <div data-pol-etf-row="${e.etf}" style="padding:10px;background:var(--surface-2);border-radius:8px;margin-bottom:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                    <div style="min-width:0;flex:1">
                       <strong style="font-size:14px">${e.etf}</strong>
                       <span style="font-size:11px;opacity:0.6;margin-left:6px">${_etfName}</span>
                     </div>
-                    <strong style="color:#74b9ff">${e.weight.toFixed(2)}%</strong>
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                      <span data-pol-spark style="display:inline-block;width:60px;height:16px"></span>
+                      <strong style="color:#74b9ff;font-variant-numeric:tabular-nums">${e.weight.toFixed(2)}%</strong>
+                    </div>
                   </div>
-                  ${e.shares ? `<div style="font-size:11px;opacity:0.55;margin-top:3px">${e.shares.toLocaleString('fr-FR')} ${t('stock.etfLabel.shares', 'titres')}</div>` : ''}
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;font-size:11px;opacity:0.7">
+                    <span>${e.shares ? `${e.shares.toLocaleString('fr-FR')} ${t('stock.etfLabel.shares', 'titres')}` : ''}</span>
+                    <span data-pol-status style="font-weight:600"></span>
+                  </div>
                 </div>
               `;}).join('')}
               </div>
