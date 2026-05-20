@@ -9969,8 +9969,8 @@ async function handleAdminUsers(env, origin) {
     const subUids = new Set(subKeys.map(k => k.slice(4)));    // "sub:XXX"  -> "XXX"
     const wlUids = new Set(wlKeys.map(k => k.slice(3)));      // "wl:XXX"   -> "XXX"
     const userUids = new Set(userKeys.map(k => k.slice(5)));  // "user:XXX" -> "XXX"
-    const compUids = new Set(compKeys.map(k => k.slice(5)));  // "comp:XXX" -> "XXX"
-    const allUids = new Set([...subUids, ...wlUids, ...userUids, ...compUids]);
+    const compUidsListed = new Set(compKeys.map(k => k.slice(5))); // "comp:XXX" -> "XXX"
+    const allUids = new Set([...subUids, ...wlUids, ...userUids, ...compUidsListed]);
 
     // Fetch les donnees en parallele (batch 40 pour eviter de saturer)
     const users = [];
@@ -9982,15 +9982,17 @@ async function handleAdminUsers(env, origin) {
         const hasSub = subUids.has(uid);
         const hasWl = wlUids.has(uid);
         const hasUser = userUids.has(uid);
-        const hasComp = compUids.has(uid);
         let subData = null;
         let wlData = null;
         let userData = null;
-        let compData = null;
+        // Comp Premium : on fait TOUJOURS un get direct par uid (pas conditionne
+        // sur le listAllKvKeys ci-dessus) car KV list a une consistency eventually
+        // (~60s lag), alors que les gets sont quasi-immediats sur le meme POP.
+        // Cout : 1 KV get supplementaire par user. Negligeable.
+        const compData = await env.CACHE.get(`comp:${uid}`, 'json').catch(() => null);
         if (hasSub) subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
         if (hasWl) wlData = await env.CACHE.get(`wl:${uid}`, 'json').catch(() => null);
         if (hasUser) userData = await env.CACHE.get(`user:${uid}`, 'json').catch(() => null);
-        if (hasComp) compData = await env.CACHE.get(`comp:${uid}`, 'json').catch(() => null);
         // Comp status : derive l'etat d'expiration. expiresAt=null = a vie.
         let compStatus = null;
         if (compData) {
