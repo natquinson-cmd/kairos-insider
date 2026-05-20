@@ -1,0 +1,144 @@
+name: Test Grant Premium E2E
+
+# Test end-to-end de la feature comp Premium (mai 2026) :
+#   1. Cree un user test via /api/admin/create-test-user (Firebase Auth REST API)
+#   2. Grant Premium 12 mois via /api/admin/grant-premium
+#   3. Liste /api/admin/users + grep le user pour verifier compStatus
+#   4. (Optionnel) Revoque via /api/admin/revoke-premium
+#
+# Run uniquement on demand (workflow_dispatch). Pas de schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Email du compte test (defaut: test-premium@kairosinsider.fr)'
+        required: false
+        default: 'test-premium@kairosinsider.fr'
+      password:
+        description: 'Mot de passe du compte test (>=8 chars)'
+        required: false
+        default: 'KairosTest2026!'
+      revoke_after:
+        description: 'Revoquer le grant a la fin du test ? (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+      EMAIL: ${{ github.event.inputs.email }}
+      PASSWORD: ${{ github.event.inputs.password }}
+      REVOKE: ${{ github.event.inputs.revoke_after }}
+    steps:
+      - name: 1. Create test user (Firebase Auth)
+        id: create
+        run: |
+          set -e
+          echo "::group::POST /api/admin/create-test-user"
+          RESP=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$API_BASE/api/admin/create-test-user" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"displayName\":\"Kairos Test Premium\"}")
+          BODY=$(echo "$RESP" | sed -n '1,/HTTP_STATUS:/p' | sed '$d')
+          STATUS=$(echo "$RESP" | grep HTTP_STATUS: | cut -d: -f2)
+          echo "Status: $STATUS"
+          echo "Body: $BODY"
+          echo "::endgroup::"
+
+          UID=$(echo "$BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('uid', ''))" 2>/dev/null || echo "")
+          if [ "$STATUS" = "200" ] && [ -n "$UID" ]; then
+            echo "✅ User cree, uid=$UID"
+            echo "uid=$UID" >> $GITHUB_OUTPUT
+            echo "is_new=true" >> $GITHUB_OUTPUT
+          elif echo "$BODY" | grep -q "EMAIL_EXISTS"; then
+            echo "⚠️ Email deja existant, on continue avec l'UID existant via /api/admin/users"
+            # Lookup uid by email
+            USERS=$(curl -sS -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" "$API_BASE/api/admin/users")
+            UID=$(echo "$USERS" | python3 -c "import sys, json; d=json.load(sys.stdin); m=[u['uid'] for u in d['users'] if (u.get('email') or '').lower() == '$EMAIL'.lower()]; print(m[0] if m else '')")
+            echo "uid=$UID" >> $GITHUB_OUTPUT
+            echo "is_new=false" >> $GITHUB_OUTPUT
+            if [ -z "$UID" ]; then
+              echo "::error::EMAIL_EXISTS mais UID introuvable dans /api/admin/users"
+              exit 1
+            fi
+          else
+            echo "::error::create-test-user failed (status=$STATUS)"
+            exit 1
+          fi
+
+      - name: 2. Grant Premium 12 mois (Pro)
+        run: |
+          set -e
+          echo "::group::POST /api/admin/grant-premium"
+          RESP=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$API_BASE/api/admin/grant-premium" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$EMAIL\",\"plan\":\"pro\",\"durationMonths\":12,\"source\":\"beta\",\"note\":\"Test E2E grant Premium via workflow ${{ github.run_id }}\"}")
+          echo "$RESP"
+          echo "::endgroup::"
+          STATUS=$(echo "$RESP" | grep HTTP_STATUS: | cut -d: -f2)
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::grant-premium failed (status=$STATUS)"
+            exit 1
+          fi
+          echo "✅ Grant ok"
+
+      - name: 3. Verify via /api/admin/users
+        run: |
+          set -e
+          echo "::group::GET /api/admin/users (lookup $EMAIL)"
+          USERS=$(curl -sS -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" "$API_BASE/api/admin/users")
+          MATCH=$(echo "$USERS" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          email_lower = '$EMAIL'.lower()
+          for u in d.get('users', []):
+            if (u.get('email') or '').lower() == email_lower:
+              print(json.dumps(u, indent=2, ensure_ascii=False))
+              break
+          else:
+            print('NOT FOUND')
+          ")
+          echo "$MATCH"
+          echo "::endgroup::"
+
+          if echo "$MATCH" | grep -q '"compStatus"' && echo "$MATCH" | grep -q '"active": true'; then
+            echo "✅ compStatus.active=true confirme"
+          else
+            echo "::error::compStatus pas trouve ou pas actif"
+            exit 1
+          fi
+
+      - name: 4. (Optionnel) Revoke
+        if: github.event.inputs.revoke_after == 'true'
+        run: |
+          set -e
+          echo "::group::POST /api/admin/revoke-premium"
+          RESP=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$API_BASE/api/admin/revoke-premium" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$EMAIL\"}")
+          echo "$RESP"
+          echo "::endgroup::"
+          echo "✅ Revoke ok"
+
+      - name: Summary
+        run: |
+          echo "## Test Grant Premium E2E — Resultats" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Email: \`$EMAIL\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Mot de passe: \`$PASSWORD\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Plan: Pro" >> $GITHUB_STEP_SUMMARY
+          echo "- Duree: 12 mois" >> $GITHUB_STEP_SUMMARY
+          echo "- Source: beta" >> $GITHUB_STEP_SUMMARY
+          echo "- Revoke apres test: $REVOKE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tu peux te connecter avec cet email sur https://kairosinsider.fr/dashboard pour valider l'acces Premium." >> $GITHUB_STEP_SUMMARY
