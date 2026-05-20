@@ -45,6 +45,18 @@ zone_name = "kairosinsider.fr"
 pattern = "kairosinsider.fr/og/*"
 zone_name = "kairosinsider.fr"
 
+# Root index.html SSR : intercepte pour reecrire les OG meta tags selon
+# ?lang=en (X/Twitter/LinkedIn lisent les meta tags HTML, pas le JS).
+# Sans ce route, kairosinsider.fr/index.html?lang=en renvoie le static
+# FR de GH Pages -> card FR sur X meme avec lang=en dans l'URL.
+[[routes]]
+pattern = "kairosinsider.fr/"
+zone_name = "kairosinsider.fr"
+
+[[routes]]
+pattern = "kairosinsider.fr/index.html"
+zone_name = "kairosinsider.fr"
+
 [[routes]]
 pattern = "kairosinsider.fr/blog"
 zone_name = "kairosinsider.fr"

@@ -386,6 +386,14 @@ async function handleRequest(request, env, ctx) {
       return handleRobotsTxt(env);
     }
 
+    // SSR root index.html : reecrit les OG meta tags si ?lang=en (Twitter/X
+    // ne lit pas le JS donc le toggle UI client-side ne suffit pas pour les
+    // cartes OG). Sans ca, kairosinsider.fr/index.html?lang=en partageait
+    // un card en FR sur X.
+    if (request.method === 'GET' && (path === '/' || path === '/index.html')) {
+      return handleRootIndexSSR(url, env);
+    }
+
     // SSR HTML pour bots sociaux + Googlebot (Facebook, Twitter, LinkedIn, ChatGPT...)
     // Format : GET /a/:ticker[?lang=fr|en] -> HTML complet pre-rendu (meta tags + contenu indexable)
     if (request.method === 'GET' && path.startsWith('/a/')) {
@@ -5797,6 +5805,91 @@ ${ogRadarSvg(breakdown, score, scoreColor, t.radar, radarCx, radarCy, radarR)}
       },
     });
   }
+}
+
+// ============================================================
+// SSR ROOT INDEX.HTML : reecrit les OG meta tags selon ?lang=en (mai 2026)
+// ============================================================
+// X/Twitter/LinkedIn/Discord scrapent le HTML pour les Open Graph cards
+// SANS executer le JS. Donc le toggle UI client-side ne suffit pas. Pour
+// que ?lang=en affiche un card OG en anglais, on doit servir un HTML
+// avec les meta tags traduits cote serveur.
+//
+// On fetch le HTML statique depuis raw.githubusercontent.com (bypass CNAME
+// loop kairosinsider.fr -> GH Pages -> worker -> infinite recursion).
+// Si lang=en, on rewrit les meta FR -> EN. Sinon pass-through.
+async function handleRootIndexSSR(url, env) {
+  const lang = (url.searchParams.get('lang') || '').toLowerCase() === 'en' ? 'en' : 'fr';
+  // Cache CDN 5min via headers (CF respecte s-maxage sur sa edge cache)
+  const cacheHeaders = {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'public, max-age=300, s-maxage=300',
+    'X-Lang-Override': lang,
+  };
+  try {
+    // raw.githubusercontent.com : sert le fichier direct depuis le repo, pas
+    // de CNAME loop. Branche main pour rester au courant.
+    const rawUrl = 'https://raw.githubusercontent.com/natquinson-cmd/kairos-insider/main/index.html';
+    const resp = await fetch(rawUrl, {
+      cf: { cacheTtl: 60, cacheEverything: true },  // CF intermediate cache 1min
+    });
+    if (!resp.ok) {
+      // Fallback : si raw indispo, on tente la prod et on retourne sans modif
+      // (mieux qu'un 500 — l'user voit au moins la page FR).
+      console.warn('[root-ssr] raw.githubusercontent fetch failed:', resp.status);
+      return new Response('Origin temporarily unavailable', { status: 502 });
+    }
+    let html = await resp.text();
+    if (lang === 'en') {
+      html = rewriteRootHtmlForEn(html);
+    }
+    return new Response(html, { headers: cacheHeaders });
+  } catch (e) {
+    console.error('[root-ssr] error:', e?.message || e);
+    return new Response('Origin error', { status: 502 });
+  }
+}
+
+// Rewrite des meta tags FR -> EN pour le static index.html.
+// On cible les chaines specifiques connues du index.html plutot que des
+// regex generiques pour eviter les false-positives.
+function rewriteRootHtmlForEn(html) {
+  const replacements = [
+    // <html lang="fr"> -> "en"
+    [/<html\s+lang="fr"/i, '<html lang="en"'],
+    // Title
+    [/<title>Kairos Insider - Voyez ce que les pros voient<\/title>/g,
+      '<title>Kairos Insider - See what the pros see</title>'],
+    // Meta description (longue, on remplace le contenu complet)
+    [/<meta name="description" content="La plateforme francophone du smart money\.[^"]*"/g,
+      '<meta name="description" content="The smart money tracking platform. Kairos Score 0-100, 200+ hedge funds tracked, 11 thematic ETFs (US politicians, retail sentiment, ARK, income), 1000+ stocks analyzed. SEC/AMF/BaFin insiders, Google Trends hot stocks, 2-year history."'],
+    // OG title
+    [/<meta property="og:title" content="Kairos Insider - Voyez ce que les pros voient"/g,
+      '<meta property="og:title" content="Kairos Insider - See what the pros see"'],
+    // OG description
+    [/<meta property="og:description" content="Kairos Score, 200\+ hedge funds[^"]*"/g,
+      '<meta property="og:description" content="Kairos Score, 200+ hedge funds, 11 thematic ETFs, 1000+ stocks analyzed. The smart money tracking platform."'],
+    // OG image alt
+    [/<meta property="og:image:alt" content="Kairos Insider - Smart Money Intelligence FR"/g,
+      '<meta property="og:image:alt" content="Kairos Insider - Smart Money Intelligence"'],
+    // OG locale swap : fr_FR <-> en_US
+    [/<meta property="og:locale" content="fr_FR"/g,
+      '<meta property="og:locale" content="en_US"'],
+    [/<meta property="og:locale:alternate" content="en_US"/g,
+      '<meta property="og:locale:alternate" content="fr_FR"'],
+    // Twitter card
+    [/<meta name="twitter:title" content="Kairos Insider - Voyez ce que les pros voient"/g,
+      '<meta name="twitter:title" content="Kairos Insider - See what the pros see"'],
+    [/<meta name="twitter:description" content="Kairos Score, 200\+ hedge funds[^"]*"/g,
+      '<meta name="twitter:description" content="Kairos Score, 200+ hedge funds, 11 thematic ETFs. The smart money tracking platform."'],
+    [/<meta name="twitter:image:alt" content="Kairos Insider - Smart Money Intelligence FR"/g,
+      '<meta name="twitter:image:alt" content="Kairos Insider - Smart Money Intelligence"'],
+  ];
+  let result = html;
+  for (const [pattern, replacement] of replacements) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
 }
 
 async function handleActionSSR(rawTicker, env, lang = 'fr') {
