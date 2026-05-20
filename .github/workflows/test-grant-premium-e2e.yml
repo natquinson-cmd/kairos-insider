@@ -51,20 +51,20 @@ jobs:
           echo "Body: $BODY"
           echo "::endgroup::"
 
-          UID=$(echo "$BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('uid', ''))" 2>/dev/null || echo "")
-          if [ "$STATUS" = "200" ] && [ -n "$UID" ]; then
-            echo "✅ User cree, uid=$UID"
-            echo "uid=$UID" >> $GITHUB_OUTPUT
+          USER_UID=$(echo "$BODY" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('uid', ''))" 2>/dev/null || echo "")
+          if [ "$STATUS" = "200" ] && [ -n "$USER_UID" ]; then
+            echo "✅ User cree, uid=$USER_UID"
+            echo "uid=$USER_UID" >> $GITHUB_OUTPUT
             echo "is_new=true" >> $GITHUB_OUTPUT
           elif echo "$BODY" | grep -q "EMAIL_EXISTS"; then
-            echo "⚠️ Email deja existant, on continue avec l'UID existant via /api/admin/users"
+            echo "⚠️ Email deja existant, on continue avec l'USER_UID existant via /api/admin/users"
             # Lookup uid by email
             USERS=$(curl -sS -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" "$API_BASE/api/admin/users")
-            UID=$(echo "$USERS" | python3 -c "import sys, json; d=json.load(sys.stdin); m=[u['uid'] for u in d['users'] if (u.get('email') or '').lower() == '$EMAIL'.lower()]; print(m[0] if m else '')")
-            echo "uid=$UID" >> $GITHUB_OUTPUT
+            USER_UID=$(echo "$USERS" | python3 -c "import sys, json; d=json.load(sys.stdin); m=[u['uid'] for u in d['users'] if (u.get('email') or '').lower() == '$EMAIL'.lower()]; print(m[0] if m else '')")
+            echo "uid=$USER_UID" >> $GITHUB_OUTPUT
             echo "is_new=false" >> $GITHUB_OUTPUT
-            if [ -z "$UID" ]; then
-              echo "::error::EMAIL_EXISTS mais UID introuvable dans /api/admin/users"
+            if [ -z "$USER_UID" ]; then
+              echo "::error::EMAIL_EXISTS mais USER_UID introuvable dans /api/admin/users"
               exit 1
             fi
           else
