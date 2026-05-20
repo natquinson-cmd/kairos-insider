@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Programme partenaires — Kairos Insider</title>
+  <meta name="description" content="Rejoignez le programme partenaires Kairos Insider. Premium offert + 50% recurring à vie sur chaque abonné amené. Pour newsletters, YouTubers, podcasts et créateurs finance FR/EN." />
+  <link rel="canonical" href="https://kairosinsider.fr/partenaires" />
+  <meta property="og:title" content="Programme partenaires Kairos Insider — 50% recurring à vie" />
+  <meta property="og:description" content="Premium offert + 50% recurring à vie sur chaque abonné. Pour newsletters, YouTubers, podcasts et créateurs finance FR/EN." />
+  <meta property="og:image" content="https://kairosinsider.fr/assets/og-partenaires.png" />
+  <meta property="og:url" content="https://kairosinsider.fr/partenaires" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script src="assets/i18n.js?v=20260520-partenaires"></script>
+  <style>
+    :root {
+      --bg: #0B0F1A;
+      --surface: #131829;
+      --surface-2: #1A2138;
+      --border: #2A3149;
+      --border-strong: #3A4366;
+      --text-primary: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --accent: #3B82F6;
+      --accent-hover: #2563EB;
+      --green: #10B981;
+      --gold: #FBBF24;
+      --purple: #8B5CF6;
+      --pink: #EC4899;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+
+    /* === NAV === */
+    header.topnav {
+      padding: 18px 32px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    header.topnav .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    header.topnav .logo-mark { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+    header.topnav .logo-mark img { width: 100%; height: 100%; object-fit: contain; }
+    header.topnav .logo-text {
+      background: linear-gradient(135deg, #F9FAFB 0%, #9CA3AF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header.topnav nav a {
+      margin-left: 24px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    header.topnav nav a:hover { color: var(--text-primary); }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+    /* === HERO === */
+    .hero { text-align: center; padding: 64px 24px 48px; }
+    .hero .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background: rgba(139, 92, 246, 0.12);
+      color: var(--purple);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 52px;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin: 0 0 18px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 55%, #EC4899 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p.sub {
+      font-size: 19px;
+      color: var(--text-secondary);
+      max-width: 720px;
+      margin: 0 auto 32px;
+    }
+    .hero .cta-row { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 55%, #EC4899 100%);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(139, 92, 246, 0.4);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.55); filter: brightness(1.05); color: #fff; }
+    .btn-secondary { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--border-strong); }
+    .btn-secondary:hover { border-color: var(--accent); }
+
+    /* === SECTIONS === */
+    section { padding: 56px 24px; }
+    section.dark { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 36px;
+      letter-spacing: -0.5px;
+      text-align: center;
+      margin: 0 0 12px;
+    }
+    section .section-sub {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 16px;
+      max-width: 640px;
+      margin: 0 auto 40px;
+    }
+
+    /* === 3 PILIERS === */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    @media (max-width: 820px) { .pillars { grid-template-columns: 1fr; } }
+    .pillar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .pillar:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+    .pillar::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+    }
+    .pillar .icon { font-size: 36px; margin-bottom: 14px; line-height: 1; }
+    .pillar h3 { font-size: 19px; margin: 0 0 8px; font-family: 'Space Grotesk', sans-serif; }
+    .pillar p { font-size: 14px; color: var(--text-secondary); margin: 0; }
+    .pillar .highlight {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--green);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* === AUDIENCE === */
+    .audience-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    @media (max-width: 820px) { .audience-grid { grid-template-columns: repeat(2, 1fr); } }
+    .audience-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 14px;
+      text-align: center;
+    }
+    .audience-card .emoji { font-size: 32px; line-height: 1; margin-bottom: 10px; }
+    .audience-card .label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .audience-card .sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    /* === TABLEAU REVENUS === */
+    .revenue-table-wrapper {
+      max-width: 880px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    table.revenue {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    table.revenue th, table.revenue td { padding: 14px 18px; text-align: left; }
+    table.revenue thead {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+    table.revenue tbody tr { border-top: 1px solid var(--border); }
+    table.revenue tbody tr:hover { background: rgba(59, 130, 246, 0.04); }
+    table.revenue .audience { font-weight: 600; }
+    table.revenue .commission { color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 16px; }
+    table.revenue .disclaimer { color: var(--text-muted); font-size: 12px; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--surface-2); }
+
+    /* === STEPS === */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    @media (max-width: 820px) { .steps-grid { grid-template-columns: 1fr; } }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 24px;
+      position: relative;
+    }
+    .step .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: #fff;
+      border-radius: 50%;
+      font-weight: 800;
+      font-family: 'Space Grotesk', sans-serif;
+      margin-bottom: 14px;
+    }
+    .step h3 { font-size: 19px; margin: 0 0 6px; font-family: 'Space Grotesk', sans-serif; }
+    .step p { color: var(--text-secondary); font-size: 14px; margin: 0; }
+
+    /* === FAQ === */
+    .faq-list { max-width: 760px; margin: 0 auto; }
+    details {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      padding: 16px 20px;
+    }
+    details[open] { border-color: var(--border-strong); }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 15px;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '+';
+      font-size: 22px;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+    details[open] summary::after { transform: rotate(45deg); }
+    details p {
+      margin: 12px 0 0;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* === FORM === */
+    .form-card {
+      max-width: 640px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+    }
+    .form-card label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-card .row { margin-bottom: 16px; }
+    .form-card .row.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 560px) { .form-card .row.cols { grid-template-columns: 1fr; } }
+    .form-card input, .form-card select, .form-card textarea {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-card input:focus, .form-card select:focus, .form-card textarea:focus {
+      border-color: var(--accent);
+    }
+    .form-card textarea { resize: vertical; min-height: 90px; }
+    .form-card .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .form-card .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(59, 130, 246, 0.5); }
+    .form-card .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .form-card .privacy-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 14px;
+    }
+    .form-success {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 10px;
+      padding: 18px;
+      color: var(--green);
+      text-align: center;
+      font-weight: 600;
+    }
+    .form-error {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 10px;
+      padding: 14px;
+      color: #FCA5A5;
+      text-align: center;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+
+    /* === FOOTER === */
+    footer { padding: 32px 24px; text-align: center; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+    footer a { color: var(--text-secondary); margin: 0 10px; }
+  </style>
+</head>
+<body>
+  <header class="topnav">
+    <a class="logo" href="/">
+      <span class="logo-mark"><img src="assets/logo.svg" alt="Kairos Insider" /></span>
+      <span class="logo-text">Kairos Insider</span>
+    </a>
+    <nav>
+      <a href="/" data-i18n="nav.home">Accueil</a>
+      <a href="/backtest">Backtest</a>
+      <a href="/dashboard" data-i18n="nav.dashboard">Dashboard</a>
+    </nav>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <span class="badge" data-i18n="partner.hero.badge">🤝 PROGRAMME PARTENAIRES</span>
+    <h1>
+      <span data-i18n="partner.hero.title_part1">Devenez partenaire</span>
+      <span class="gradient" data-i18n="partner.hero.title_brand">Kairos Insider</span>
+    </h1>
+    <p class="sub" data-i18n="partner.hero.sub">Recommandez la plateforme FR de Smart Money à votre audience. Premium offert + <strong style="color:#10B981">50% recurring à vie</strong> sur chaque abonné. Aucun engagement, aucun contrat.</p>
+    <div class="cta-row">
+      <a href="#apply" class="btn btn-primary"><span data-i18n="partner.hero.cta_apply">Candidater maintenant</span> ↓</a>
+      <a href="#how" class="btn btn-secondary" data-i18n="partner.hero.cta_how">Comment ça marche</a>
+    </div>
+  </section>
+
+  <!-- ===== 3 PILIERS ===== -->
+  <section class="dark">
+    <h2 data-i18n="partner.pillars.title">Ce que vous gagnez</h2>
+    <p class="section-sub" data-i18n="partner.pillars.sub">Notre programme est conçu pour aligner nos intérêts : plus vos abonnés convertissent, plus vous gagnez. À vie.</p>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="icon">🎁</div>
+        <h3 data-i18n="partner.pillars.p1_title">Premium gratuit à vie</h3>
+        <p data-i18n="partner.pillars.p1_desc">Accès complet au plan Pro pour vous (Form 4 SEC, 13F hedge funds, ETF activistes, Telegram alerts, watchlist). Valeur 228€/an.</p>
+        <span class="highlight" data-i18n="partner.pillars.p1_value">Valeur 228€/an</span>
+      </div>
+      <div class="pillar">
+        <div class="icon">💰</div>
+        <h3 data-i18n="partner.pillars.p2_title">50% recurring à vie</h3>
+        <p data-i18n="partner.pillars.p2_desc">9,50€/mois par abonné Pro amené (ou 24,50€/mois Elite). Tant qu'ils restent abonnés, vous gagnez. Cookie 90 jours.</p>
+        <span class="highlight" data-i18n="partner.pillars.p2_value">9,50€/mois/user</span>
+      </div>
+      <div class="pillar">
+        <div class="icon">🎟</div>
+        <h3 data-i18n="partner.pillars.p3_title">Code promo dédié</h3>
+        <p data-i18n="partner.pillars.p3_desc">Votre audience signe à -10% via votre code personnalisé (ex: SNOWBALL10). Tracking double UTM + code = attribution garantie.</p>
+        <span class="highlight" data-i18n="partner.pillars.p3_value">-10% pour ton audience</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== AUDIENCE TYPES ===== -->
+  <section>
+    <h2 data-i18n="partner.audience.title">Pour qui ?</h2>
+    <p class="section-sub" data-i18n="partner.audience.sub">Si votre audience s'intéresse à la finance, l'investissement, ou la stratégie, Kairos correspond. Petite ou grande, peu importe.</p>
+    <div class="audience-grid">
+      <div class="audience-card">
+        <div class="emoji">📧</div>
+        <div class="label" data-i18n="partner.audience.newsletter">Newsletters</div>
+        <div class="sub" data-i18n="partner.audience.newsletter_sub">Snowball, Café de la Bourse, etc.</div>
+      </div>
+      <div class="audience-card">
+        <div class="emoji">🎥</div>
+        <div class="label" data-i18n="partner.audience.youtube">YouTubers</div>
+        <div class="sub" data-i18n="partner.audience.youtube_sub">Finance, trading, macro</div>
+      </div>
+      <div class="audience-card">
+        <div class="emoji">🐦</div>
+        <div class="label" data-i18n="partner.audience.twitter">Twitter / X</div>
+        <div class="sub" data-i18n="partner.audience.twitter_sub">Analystes, traders, fintwit</div>
+      </div>
+      <div class="audience-card">
+        <div class="emoji">🎙</div>
+        <div class="label" data-i18n="partner.audience.podcast">Podcasters</div>
+        <div class="sub" data-i18n="partner.audience.podcast_sub">Économie, investissement</div>
+      </div>
+      <div class="audience-card">
+        <div class="emoji">📰</div>
+        <div class="label" data-i18n="partner.audience.media">Blogs / médias</div>
+        <div class="sub" data-i18n="partner.audience.media_sub">Spécialisés finance</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== REVENU EXAMPLES ===== -->
+  <section class="dark">
+    <h2 data-i18n="partner.examples.title">Combien vous pouvez gagner</h2>
+    <p class="section-sub" data-i18n="partner.examples.sub">Estimations basées sur des taux de conversion réalistes (0,3% à 1%) du marché SaaS finance B2C.</p>
+    <div class="revenue-table-wrapper">
+      <table class="revenue">
+        <thead>
+          <tr>
+            <th data-i18n="partner.examples.col_audience">Votre audience</th>
+            <th data-i18n="partner.examples.col_conv">Conversion</th>
+            <th data-i18n="partner.examples.col_users">Abonnés Pro/mois</th>
+            <th data-i18n="partner.examples.col_commission">Commission/mois</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="audience">10 000 lecteurs</td>
+            <td>1%</td>
+            <td>100</td>
+            <td class="commission">950€</td>
+          </tr>
+          <tr>
+            <td class="audience">50 000 lecteurs</td>
+            <td>0,5%</td>
+            <td>250</td>
+            <td class="commission">2 375€</td>
+          </tr>
+          <tr>
+            <td class="audience">50 000 lecteurs</td>
+            <td>1%</td>
+            <td>500</td>
+            <td class="commission">4 750€</td>
+          </tr>
+          <tr>
+            <td class="audience">100 000 abonnés YouTube</td>
+            <td>0,3%</td>
+            <td>300</td>
+            <td class="commission">2 850€</td>
+          </tr>
+          <tr>
+            <td class="audience">200 000 newsletter</td>
+            <td>0,3%</td>
+            <td>600</td>
+            <td class="commission">5 700€</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr><td colspan="4" class="disclaimer" data-i18n="partner.examples.disclaimer">Ces chiffres sont des estimations basées sur des moyennes du secteur. Le revenu réel dépend de votre audience, format de promotion, et fit produit/audience. Plan Pro Kairos = 19€/mois (régulier) — 50% commission = 9,50€/mois par utilisateur, à vie.</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section id="how">
+    <h2 data-i18n="partner.how.title">Comment ça marche</h2>
+    <p class="section-sub" data-i18n="partner.how.sub">3 étapes, 48h max entre la candidature et le premier euro gagné.</p>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="num">1</div>
+        <h3 data-i18n="partner.how.s1_title">Candidature</h3>
+        <p data-i18n="partner.how.s1_desc">Formulaire ci-dessous : 30 secondes. Vous nous parlez de votre audience et de votre format. Réponse manuelle sous 48h ouvrées.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3 data-i18n="partner.how.s2_title">Setup</h3>
+        <p data-i18n="partner.how.s2_desc">Si validé : votre Premium activé immédiatement + code promo dédié (ex: TONNOM10) + lien tracké UTM. Tableau de bord affiliate à venir.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3 data-i18n="partner.how.s3_title">Vous partagez, vous gagnez</h3>
+        <p data-i18n="partner.how.s3_desc">Aucune obligation de fréquence ni de format. Paiement mensuel par virement le 5 du mois suivant. Minimum 50€ accumulé (sinon report).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="dark">
+    <h2 data-i18n="partner.faq.title">Questions fréquentes</h2>
+    <div class="faq-list">
+      <details>
+        <summary data-i18n="partner.faq.q1">Combien de temps prend la validation de ma candidature ?</summary>
+        <p data-i18n="partner.faq.a1">48h ouvrées maximum. Nous validons manuellement chaque candidature pour s'assurer du fit (audience finance/investissement, qualité du contenu). On vous répond toujours, qu'on accepte ou non.</p>
+      </details>
+      <details>
+        <summary data-i18n="partner.faq.q2">Comment suis-je payé ?</summary>
+        <p data-i18n="partner.faq.a2">Virement SEPA mensuel le 5 du mois suivant (ex : commissions de mai → virement le 5 juin). Minimum 50€ accumulé pour déclencher le paiement, sinon le solde se reporte. Vous recevez un récap par email avant chaque versement.</p>
+      </details>
+      <details>
+        <summary data-i18n="partner.faq.q3">Code promo vs lien tracké : c'est quoi la différence ?</summary>
+        <p data-i18n="partner.faq.a3">Le lien UTM (kairosinsider.fr?ref=TONNOM) trace les clics, mais peut être perdu si l'utilisateur ferme l'onglet. Le code promo (TONNOM10 = -10%) est saisi au checkout : attribution garantie, même si l'utilisateur revient des semaines plus tard. On vous fournit les deux, vous gagnez sur les deux.</p>
+      </details>
+      <details>
+        <summary data-i18n="partner.faq.q4">Que se passe-t-il si mon abonné se désabonne ?</summary>
+        <p data-i18n="partner.faq.a4">Tant qu'il est abonné, vous touchez 50% chaque mois. S'il annule, votre commission s'arrête sur ce mois-ci. Si il se réabonne dans les 90j suivants, l'attribution vous revient automatiquement (cookie + code).</p>
+      </details>
+      <details>
+        <summary data-i18n="partner.faq.q5">Y a-t-il un engagement de durée ?</summary>
+        <p data-i18n="partner.faq.a5">Non, aucun contrat ni minimum. Vous pouvez arrêter à tout moment. Si on doit cesser le partenariat (rare), on vous prévient 30 jours à l'avance et on continue à vous payer pour les abonnés actifs.</p>
+      </details>
+      <details>
+        <summary data-i18n="partner.faq.q6">Mon audience est petite (&lt; 5 000), est-ce viable ?</summary>
+        <p data-i18n="partner.faq.a6">Oui. Le programme est ouvert à toutes les tailles d'audience. À 1% de conversion sur 1 000 lecteurs vous gagnez ~95€/mois recurring, ce qui s'accumule rapidement. On cherche des audiences qualifiées plus que des audiences massives.</p>
+      </details>
+      <details>
+        <summary data-i18n="partner.faq.q7">Puis-je promouvoir Kairos avec d'autres outils concurrents ?</summary>
+        <p data-i18n="partner.faq.a7">Oui, aucune exclusivité demandée. Vous pouvez recommander Kairos en parallèle d'autres outils. La seule règle : pas de bait-and-switch ni de pratiques trompeuses (sinon résiliation immédiate).</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ===== APPLY FORM ===== -->
+  <section id="apply">
+    <h2 data-i18n="partner.apply.title">Candidater au programme</h2>
+    <p class="section-sub" data-i18n="partner.apply.sub">30 secondes. Réponse sous 48h. Aucun engagement de votre côté.</p>
+    <form class="form-card" id="partnerForm" onsubmit="return submitPartnerApplication(event)">
+      <div id="formError" class="form-error" style="display:none"></div>
+      <div class="row cols">
+        <div>
+          <label for="pName" data-i18n="partner.apply.name">Votre nom / pseudo</label>
+          <input type="text" id="pName" name="name" required maxlength="100" placeholder="Yoann Lopez / @lopezzy" />
+        </div>
+        <div>
+          <label for="pEmail" data-i18n="partner.apply.email">Email de contact</label>
+          <input type="email" id="pEmail" name="email" required placeholder="vous@exemple.com" />
+        </div>
+      </div>
+      <div class="row">
+        <label for="pPlatform" data-i18n="partner.apply.platform">Lien vers votre plateforme (newsletter / chaîne / Twitter / etc.)</label>
+        <input type="url" id="pPlatform" name="platform_url" required placeholder="https://snowball.xyz" />
+      </div>
+      <div class="row cols">
+        <div>
+          <label for="pType" data-i18n="partner.apply.type">Format principal</label>
+          <select id="pType" name="audience_type" required>
+            <option value="" data-i18n="partner.apply.type_choose">Choisir…</option>
+            <option value="newsletter">📧 Newsletter</option>
+            <option value="youtube">🎥 YouTube</option>
+            <option value="twitter">🐦 Twitter / X</option>
+            <option value="podcast">🎙 Podcast</option>
+            <option value="blog">📰 Blog / média</option>
+            <option value="linkedin">💼 LinkedIn</option>
+            <option value="other" data-i18n="partner.apply.type_other">Autre</option>
+          </select>
+        </div>
+        <div>
+          <label for="pSize" data-i18n="partner.apply.size">Taille d'audience (approx.)</label>
+          <select id="pSize" name="audience_size" required>
+            <option value="" data-i18n="partner.apply.type_choose">Choisir…</option>
+            <option value="<1k">&lt; 1 000</option>
+            <option value="1k-5k">1 000 — 5 000</option>
+            <option value="5k-20k">5 000 — 20 000</option>
+            <option value="20k-50k">20 000 — 50 000</option>
+            <option value="50k-100k">50 000 — 100 000</option>
+            <option value="100k-500k">100 000 — 500 000</option>
+            <option value=">500k">&gt; 500 000</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <label for="pMotivation" data-i18n="partner.apply.motivation">Pourquoi Kairos vous intéresse ? (1-2 phrases)</label>
+        <textarea id="pMotivation" name="motivation" maxlength="500" placeholder="Mon audience cherche des signaux smart money en français. J'aime votre approche backtest. Etc."></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <span data-i18n="partner.apply.submit">Envoyer ma candidature →</span>
+      </button>
+      <p class="privacy-note" data-i18n="partner.apply.privacy">Vos infos restent confidentielles. Aucun partage, aucun spam, aucune revente. Réponse personnelle de Nathanaël (fondateur) sous 48h.</p>
+    </form>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <div>
+      © 2026 Kairos Insider —
+      <a href="/cgv.html">CGV</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a>
+    </div>
+  </footer>
+
+  <script>
+    // Submit candidature -> /api/partnership-apply (worker stocke en KV + email admin)
+    async function submitPartnerApplication(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const errEl = document.getElementById('formError');
+      const form = document.getElementById('partnerForm');
+      errEl.style.display = 'none';
+
+      const data = {
+        name: document.getElementById('pName').value.trim(),
+        email: document.getElementById('pEmail').value.trim(),
+        platform_url: document.getElementById('pPlatform').value.trim(),
+        audience_type: document.getElementById('pType').value,
+        audience_size: document.getElementById('pSize').value,
+        motivation: document.getElementById('pMotivation').value.trim(),
+        source_page: 'partenaires',
+        user_agent: navigator.userAgent.slice(0, 200),
+      };
+
+      btn.disabled = true;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span>Envoi…</span>';
+
+      try {
+        const resp = await fetch('https://kairos-insider-api.natquinson.workers.dev/api/partnership-apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(result.error || `HTTP ${resp.status}`);
+        }
+
+        // Success : remplace tout le formulaire par un message de remerciement
+        const successHtml = `
+          <div class="form-success">
+            <div style="font-size:38px;margin-bottom:8px">🎉</div>
+            <div style="font-size:18px;margin-bottom:6px" data-i18n="partner.apply.success_title">Candidature reçue !</div>
+            <div style="font-size:14px;color:var(--text-secondary);font-weight:400" data-i18n="partner.apply.success_sub">Nathanaël (fondateur) va l'étudier personnellement et vous répondre par mail sous 48h ouvrées.</div>
+          </div>`;
+        form.innerHTML = successHtml;
+        // Re-trigger i18n sur le nouveau contenu
+        try { window.KairosI18n?.applyI18nToDom?.(); } catch (_) {}
+      } catch (err) {
+        errEl.textContent = '⚠️ ' + (err.message || 'Erreur réseau. Réessayez ou écrivez à contact@kairosinsider.fr');
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+
+      return false;
+    }
+  </script>
+</body>
+</html>

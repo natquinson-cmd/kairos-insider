@@ -301,6 +301,12 @@ async function handleRequest(request, env, ctx) {
       return handleSendWelcome(request, env, origin);
     }
 
+    // Candidature programme partenaires (form public sur /partenaires).
+    // Stocke en KV + email admin via Brevo. Pas d'auth requise.
+    if (request.method === 'POST' && path === '/api/partnership-apply') {
+      return handlePartnershipApply(request, env, origin);
+    }
+
     // Watchlist : confirmation double opt-in (via lien email, pas de Firebase token)
     // Format : GET /watchlist/confirm?uid=...&token=...
     if (request.method === 'GET' && path === '/watchlist/confirm') {
@@ -919,6 +925,17 @@ async function handleRequest(request, env, ctx) {
         // Body : { email, password, displayName? }
         if (request.method === 'POST' && path === '/api/admin/create-test-user') {
           return handleAdminCreateTestUser(request, env, origin);
+        }
+        // GET /api/admin/partnership-applications : liste toutes les candidatures
+        // au programme partenaires recues via /api/partnership-apply.
+        // Retourne {total, byStatus, applications: [...]} trie par date DESC.
+        if (request.method === 'GET' && path === '/api/admin/partnership-applications') {
+          return handleAdminPartnershipApplications(env, origin);
+        }
+        // PUT /api/admin/partnership-applications : met a jour le status d'une
+        // candidature. Body : {id, status: 'accepted'|'rejected'|'pending', adminNote?}
+        if (request.method === 'PUT' && path === '/api/admin/partnership-applications') {
+          return handleAdminUpdatePartnershipApplication(request, env, user, origin);
         }
         // POST /api/admin/sync-brevo-contacts : ajoute (ou met a jour) tous
         // les users KV dans Brevo Contacts. Necessaire si on a accumule des
@@ -7932,6 +7949,202 @@ async function handleAdminSetUserLang(request, env, origin) {
     }, 200, origin);
   } catch (err) {
     console.error('handleAdminSetUserLang error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// ============================================================
+// PARTNERSHIP APPLICATIONS (mai 2026)
+// ============================================================
+// Recoit les candidatures du programme partenaires/affiliate via
+// POST /api/partnership-apply (depuis kairosinsider.fr/partenaires).
+// Pas d'auth requise (form public). Rate limit IP standard applique.
+//
+// Stockage : KV `partnership-app:{timestamp}-{emailHash}` (TTL 90j pour purge auto)
+// Notification : email admin via Brevo (best-effort, non-bloquant pour la reponse)
+//
+// PAS de bot/spam protection avancee (CAPTCHA pas en place). On compte sur :
+//   - Rate limit IP global (deja en place)
+//   - Validation cote serveur (email, platform_url required + minimal length)
+//   - Reception manuelle puis tri par l'admin
+async function handlePartnershipApply(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+
+    // Validation basique (les vrais checks UX sont cote front)
+    const name = String(body.name || '').trim().slice(0, 100);
+    const email = String(body.email || '').trim().toLowerCase().slice(0, 200);
+    const platformUrl = String(body.platform_url || '').trim().slice(0, 500);
+    const audienceType = String(body.audience_type || '').trim().slice(0, 50);
+    const audienceSize = String(body.audience_size || '').trim().slice(0, 50);
+    const motivation = String(body.motivation || '').trim().slice(0, 1000);
+    const sourcePage = String(body.source_page || 'unknown').slice(0, 50);
+    const userAgent = String(body.user_agent || '').slice(0, 200);
+
+    if (!name || !email || !platformUrl) {
+      return jsonResponse({ error: 'Name, email, and platform URL are required' }, 400, origin);
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return jsonResponse({ error: 'Invalid email format' }, 400, origin);
+    }
+    if (!/^https?:\/\//i.test(platformUrl)) {
+      return jsonResponse({ error: 'Platform URL must start with http:// or https://' }, 400, origin);
+    }
+
+    const now = new Date();
+    const ts = now.getTime();
+    const isoDate = now.toISOString();
+
+    // KV key : sortable by timestamp DESC + email hash pour dedup approximative
+    // Format : partnership-app:{ts}-{first10charsEmailHash}
+    const emailHash = await hashSubtle(email);
+    const kvKey = `partnership-app:${ts}-${emailHash.slice(0, 10)}`;
+
+    const application = {
+      id: kvKey,
+      name,
+      email,
+      platformUrl,
+      audienceType,
+      audienceSize,
+      motivation,
+      sourcePage,
+      userAgent,
+      ip: request.headers.get('CF-Connecting-IP') || null,
+      country: request.headers.get('CF-IPCountry') || null,
+      submittedAt: isoDate,
+      status: 'pending',  // 'pending' | 'accepted' | 'rejected'
+    };
+    await env.CACHE.put(kvKey, JSON.stringify(application), {
+      expirationTtl: 90 * 86400,  // 90 jours, le temps de traiter
+    });
+
+    log.info('partnership.application.received', {
+      name, email, audienceType, audienceSize, sourcePage,
+    });
+
+    // Notification admin via Brevo (transactional). Best-effort, non-bloquant.
+    if (env.BREVO_API_KEY) {
+      const adminEmail = (ADMIN_EMAILS && ADMIN_EMAILS[0]) || 'nathanael@kairosinsider.fr';
+      const subject = `🤝 Nouvelle candidature partenaire : ${name} (${audienceType}, ${audienceSize})`;
+      const htmlBody = `
+        <h2 style="font-family:Arial,sans-serif;color:#1e293b">Nouvelle candidature au programme partenaires</h2>
+        <table style="font-family:Arial,sans-serif;border-collapse:collapse;width:100%;max-width:600px">
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600">Nom</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(name)}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600">Email</td><td style="padding:8px;border-bottom:1px solid #e5e7eb"><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600">Plateforme</td><td style="padding:8px;border-bottom:1px solid #e5e7eb"><a href="${escapeHtml(platformUrl)}" target="_blank">${escapeHtml(platformUrl)}</a></td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600">Type</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(audienceType)}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600">Audience</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(audienceSize)}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600;vertical-align:top">Motivation</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;white-space:pre-wrap">${escapeHtml(motivation || '(vide)')}</td></tr>
+          <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;color:#64748b;font-weight:600">Pays</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(application.country || '?')}</td></tr>
+          <tr><td style="padding:8px;color:#64748b;font-weight:600">Soumis le</td><td style="padding:8px">${escapeHtml(isoDate)}</td></tr>
+        </table>
+        <p style="font-family:Arial,sans-serif;color:#64748b;font-size:13px;margin-top:20px">
+          KV key: <code>${escapeHtml(kvKey)}</code><br>
+          Pour repondre : <a href="mailto:${escapeHtml(email)}?subject=Re%3A%20Votre%20candidature%20partenaire%20Kairos%20Insider">repondre directement</a> ou via dashboard admin.
+        </p>
+      `;
+      // Fire-and-forget, on ne fait pas attendre le user
+      fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
+            name: 'Kairos Insider (Partenariats)',
+          },
+          to: [{ email: adminEmail }],
+          replyTo: { email, name },
+          subject,
+          htmlContent: htmlBody,
+        }),
+      }).catch(e => console.warn('[partnership] brevo admin notif failed:', e?.message || e));
+    }
+
+    return jsonResponse({
+      ok: true,
+      id: kvKey,
+      message: 'Candidature reçue. Réponse personnelle sous 48h ouvrées.',
+    }, 200, origin);
+  } catch (err) {
+    console.error('handlePartnershipApply error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// Helper : SHA-256 -> hex pour KV key (utilise dans partnership-apply)
+async function hashSubtle(str) {
+  const buf = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+// Note : escapeHtml(s) est defini plus bas (helper general reutilise par
+// plusieurs handlers). Pas de redeclaration ici.
+
+// GET /api/admin/partnership-applications
+// Liste toutes les candidatures + agregats par status. Trie par date DESC.
+async function handleAdminPartnershipApplications(env, origin) {
+  try {
+    const keys = await listAllKvKeys(env, 'partnership-app:', 1000);
+    const apps = await Promise.all(keys.map(async (k) => {
+      const data = await env.CACHE.get(k, 'json').catch(() => null);
+      return data ? { ...data, _kvKey: k } : null;
+    }));
+    const valid = apps.filter(Boolean).sort((a, b) =>
+      (b.submittedAt || '').localeCompare(a.submittedAt || '')
+    );
+    // Aggregats par status
+    const byStatus = { pending: 0, accepted: 0, rejected: 0 };
+    for (const a of valid) {
+      const s = a.status || 'pending';
+      if (byStatus[s] != null) byStatus[s]++;
+    }
+    return jsonResponse({
+      total: valid.length,
+      byStatus,
+      applications: valid,
+    }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminPartnershipApplications error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// PUT /api/admin/partnership-applications
+// Body : { id, status: 'accepted'|'rejected'|'pending', adminNote? }
+// Met a jour le status d'une candidature + audit trail (reviewedBy/At/Note).
+async function handleAdminUpdatePartnershipApplication(request, env, user, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const id = String(body.id || '').trim();
+    const status = ['accepted', 'rejected', 'pending'].includes(body.status) ? body.status : null;
+    const adminNote = body.adminNote ? String(body.adminNote).slice(0, 500) : '';
+    if (!id || !status) {
+      return jsonResponse({ error: 'id and valid status required' }, 400, origin);
+    }
+    const existing = await env.CACHE.get(id, 'json').catch(() => null);
+    if (!existing) {
+      return jsonResponse({ error: 'Application not found', id }, 404, origin);
+    }
+    const updated = {
+      ...existing,
+      status,
+      reviewedBy: user?.email || 'admin-api-key',
+      reviewedAt: new Date().toISOString(),
+      adminNote: adminNote || existing.adminNote || '',
+    };
+    // Garde le TTL 90j inchange (TTL absolu, pas relative)
+    await env.CACHE.put(id, JSON.stringify(updated), { expirationTtl: 90 * 86400 });
+    log.info('partnership.application.updated', {
+      id, status, reviewedBy: user?.email,
+    });
+    return jsonResponse({ ok: true, application: updated }, 200, origin);
+  } catch (err) {
+    console.error('handleAdminUpdatePartnershipApplication error:', err);
     return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
   }
 }
