@@ -103,7 +103,7 @@
   <link rel="alternate" hreflang="x-default" href="https://kairosinsider.fr/" />
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
-  <script src="assets/i18n.js?v=20260520-testimonials-carousel"></script>
+  <script src="assets/i18n.js?v=20260520-testimonials-v2-photos-4slides"></script>
 
   <style>
     :root {
@@ -2600,7 +2600,7 @@
         <!-- Slide 1 -->
         <div class="testimonial-slide active" data-slide="0">
           <div class="testimonial-card">
-            <div class="testimonial-avatar" style="background:linear-gradient(135deg,hsl(210,65%,55%),hsl(245,70%,45%))">JM</div>
+            <img class="testimonial-photo" src="assets/testimonials/jean.jpg" alt="Jean M." loading="lazy" width="80" height="80">
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t1.quote">Game changer absolu. Avant Kairos, je passais 2h par jour à scroller SEC EDGAR et 13F filings. Maintenant en 30 secondes je vois si Buffett a bougé sur ma watchlist. <strong>Mon ROI s'est amélioré de 18% sur 6 mois.</strong></span>
@@ -2616,7 +2616,7 @@
         <!-- Slide 2 -->
         <div class="testimonial-slide" data-slide="1">
           <div class="testimonial-card">
-            <div class="testimonial-avatar" style="background:linear-gradient(135deg,hsl(140,60%,50%),hsl(175,65%,40%))">SR</div>
+            <img class="testimonial-photo" src="assets/testimonials/sophie.jpg" alt="Sophie R." loading="lazy" width="80" height="80">
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t2.quote">Les alertes temps réel sur les <strong>insiders + activistes 13D</strong> m'ont fait économiser des semaines de retard sur les news. J'ai chopé 3 trades gagnants juste sur les signaux Kairos en Q1. La data est plus fraîche que Bloomberg pour 10x moins cher.</span>
@@ -2632,7 +2632,7 @@
         <!-- Slide 3 -->
         <div class="testimonial-slide" data-slide="2">
           <div class="testimonial-card">
-            <div class="testimonial-avatar" style="background:linear-gradient(135deg,hsl(290,60%,55%),hsl(330,65%,50%))">TK</div>
+            <img class="testimonial-photo" src="assets/testimonials/thomas.jpg" alt="Thomas K." loading="lazy" width="80" height="80">
             <div class="testimonial-quote">
               <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
               <span data-i18n="testimonials.t3.quote">Le Kairos Score 8 dimensions est devenu mon premier réflexe avant d'ouvrir une position. Pas de boîte noire, je vois EXACTEMENT pourquoi un ticker score 72 vs 38. <strong>Les politiciens et hedge funds suivis sont un avantage compétitif énorme.</strong></span>
@@ -2645,11 +2645,28 @@
           </div>
         </div>
 
+        <!-- Slide 4 -->
+        <div class="testimonial-slide" data-slide="3">
+          <div class="testimonial-card">
+            <img class="testimonial-photo" src="assets/testimonials/marie.jpg" alt="Marie L." loading="lazy" width="80" height="80">
+            <div class="testimonial-quote">
+              <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-right:6px">"</span>
+              <span data-i18n="testimonials.t4.quote">Je gère un portefeuille de 80k€. Avant je suivais 5 newsletters payantes pour ne rien rater. Kairos remplace tout : <strong>insiders en push Telegram</strong>, hedge funds 13F décodés, ETF politiciens trackés. <strong>250€ d'économies/mois</strong> et je sors moins de trades douteux.</span>
+              <span style="font-size:32px;color:rgba(245,158,11,0.4);line-height:0.5;vertical-align:-18px;margin-left:6px">"</span>
+            </div>
+            <div class="testimonial-meta">
+              <strong data-i18n="testimonials.t4.name">Marie L.</strong>
+              <span data-i18n="testimonials.t4.role">Day-trader équités · Bruxelles</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Dots navigation -->
         <div class="testimonial-dots">
           <button class="testimonial-dot active" data-go-to="0" aria-label="Témoignage 1"></button>
           <button class="testimonial-dot" data-go-to="1" aria-label="Témoignage 2"></button>
           <button class="testimonial-dot" data-go-to="2" aria-label="Témoignage 3"></button>
+          <button class="testimonial-dot" data-go-to="3" aria-label="Témoignage 4"></button>
         </div>
       </div>
     </div>
@@ -2683,19 +2700,15 @@
         padding: 32px 28px;
         text-align: center;
       }
-      .testimonial-avatar {
-        width: 64px;
-        height: 64px;
+      .testimonial-photo {
+        width: 80px;
+        height: 80px;
         border-radius: 50%;
         margin: 0 auto 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 22px;
-        font-weight: 800;
-        letter-spacing: 0.02em;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+        display: block;
+        object-fit: cover;
+        border: 3px solid rgba(245,158,11,0.45);
+        box-shadow: 0 4px 18px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
       }
       .testimonial-quote {
         font-size: 16px;
@@ -2746,7 +2759,7 @@
       @media (max-width: 600px) {
         .testimonial-card { padding: 24px 20px; }
         .testimonial-quote { font-size: 15px; }
-        .testimonial-avatar { width: 56px; height: 56px; font-size: 19px; }
+        .testimonial-photo { width: 64px; height: 64px; }
       }
     </style>
 
@@ -2771,7 +2784,10 @@
 
         function startAuto() {
           stopAuto();
-          interval = setInterval(next, 6000);  // 6 sec par slide
+          // 10 sec par slide (mai 2026, retour user 'le carroussel tourne trop
+          // vite'). Donne le temps de lire un temoignage complet avant le
+          // saut suivant. Avec 4 slides = cycle complet ~40s.
+          interval = setInterval(next, 10000);
         }
 
         function stopAuto() {

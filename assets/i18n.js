@@ -728,6 +728,9 @@
       'testimonials.t3.quote': 'Le Kairos Score 8 dimensions est devenu mon premier réflexe avant d\'ouvrir une position. Pas de boîte noire, je vois EXACTEMENT pourquoi un ticker score 72 vs 38. <strong>Les politiciens et hedge funds suivis sont un avantage compétitif énorme.</strong>',
       'testimonials.t3.name': 'Thomas K.',
       'testimonials.t3.role': 'Investisseur long-terme · Genève',
+      'testimonials.t4.quote': 'Je gère un portefeuille de 80k€. Avant je suivais 5 newsletters payantes pour ne rien rater. Kairos remplace tout : <strong>insiders en push Telegram</strong>, hedge funds 13F décodés, ETF politiciens trackés. <strong>250€ d\'économies/mois</strong> et je sors moins de trades douteux.',
+      'testimonials.t4.name': 'Marie L.',
+      'testimonials.t4.role': 'Day-trader équités · Bruxelles',
 
       // ==== FAQ ====
       'faq.badge': 'Questions fréquentes',
@@ -2301,6 +2304,9 @@
       'testimonials.t3.quote': 'The 8-dimension Kairos Score is my first reflex before opening a position. No black box — I see EXACTLY why a ticker scores 72 vs 38. <strong>The tracked politicians and hedge funds are a massive competitive edge.</strong>',
       'testimonials.t3.name': 'Thomas K.',
       'testimonials.t3.role': 'Long-term investor · Geneva',
+      'testimonials.t4.quote': 'I manage an 80k€ portfolio. Before, I subscribed to 5 paid newsletters to not miss anything. Kairos replaces all of them: <strong>insiders via Telegram push</strong>, 13F hedge funds decoded, politician ETFs tracked. <strong>250€/month savings</strong> and I open fewer questionable trades.',
+      'testimonials.t4.name': 'Marie L.',
+      'testimonials.t4.role': 'Equities day-trader · Brussels',
 
       'faq.badge': 'Frequently asked questions',
       'faq.title': 'Everything you need to know.',
