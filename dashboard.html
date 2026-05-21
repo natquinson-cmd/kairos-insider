@@ -39,7 +39,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260520-partenaires"></script>
+  <script src="assets/i18n.js?v=20260521-verify-logout"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -4217,6 +4217,21 @@
       body.has-beta-banner nav { top: 76px !important; }
       body.has-beta-banner .ticker-tape { top: 121px !important; }
     }
+
+    /* ============================================================
+       FIX (mai 2026) : email verify banner recouvrait la nav fixed
+       car position:relative + z-index:101 + nav z-index:100. La nav
+       est invisible derriere le banner -> user ne peut plus acceder
+       au menu profil (Deconnexion). Solution : meme pattern que beta
+       banner — body.has-email-verify-banner pousse nav + ticker tape.
+       Banner email verify mesure ~42px desktop / ~66px mobile (multi-line).
+       ============================================================ */
+    body.has-email-verify-banner nav { top: 42px !important; }
+    body.has-email-verify-banner .ticker-tape { top: 87px !important; }
+    @media (max-width: 640px) {
+      body.has-email-verify-banner nav { top: 66px !important; }
+      body.has-email-verify-banner .ticker-tape { top: 111px !important; }
+    }
   </style>
   <div id="betaUrgencyBanner" style="display:none">
     <div style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap">
@@ -4237,6 +4252,8 @@
       <span style="display:inline-flex;align-items:center;gap:6px">📧 <strong data-i18n="auth.verify.title">Vérifiez votre email</strong> · <span data-i18n="auth.verify.sub">Cliquez sur le lien envoyé pour débloquer toutes les fonctionnalités</span></span>
       <button type="button" id="emailVerifyResend" style="padding:5px 12px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700" data-i18n="auth.verify.resend" onclick="resendVerificationEmail()">Renvoyer le mail</button>
       <button type="button" id="emailVerifyDone" style="padding:5px 12px;background:rgba(255,255,255,0.10);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600" data-i18n="auth.verify.done" onclick="checkEmailVerified()">Déjà fait — rafraîchir</button>
+      <!-- Fallback logout : si l'user veut sortir au lieu de verifier (eg. mauvaise adresse). -->
+      <button type="button" id="emailVerifyLogout" style="padding:5px 12px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.35);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;opacity:0.85" data-i18n="auth.verify.logout" onclick="logout()" title="Se déconnecter de ce compte">🚪 Se déconnecter</button>
     </div>
   </div>
 
@@ -7813,6 +7830,13 @@
           // valeur AVANT de demander l'inscription.
           window.isAnonymous = true;
           hidePendingCheckoutOverlay();
+          // Cache le banner email verify + retire la body class qui decalait
+          // la nav (sinon nav reste decalee meme apres logout).
+          try {
+            const banner = document.getElementById('emailVerifyBanner');
+            if (banner) banner.style.display = 'none';
+            document.body.classList.remove('has-email-verify-banner');
+          } catch (e) {}
           // Affiche les boutons 'Se connecter' + 'Inscription' dans la navbar
           // (visible only quand pas connecte). Mai 2026 feedback user.
           try { updateNavAuthButtons(); } catch (e) {}
@@ -8079,9 +8103,14 @@
       const isGoogle = (user.providerData || []).some(p => p.providerId === 'google.com');
       if (!user || user.emailVerified || isGoogle) {
         banner.style.display = 'none';
+        // Retire la body class qui decalait la nav (cf CSS body.has-email-verify-banner)
+        document.body.classList.remove('has-email-verify-banner');
         return;
       }
       banner.style.display = 'block';
+      // Ajoute body class pour decaler nav + ticker-tape (sinon banner recouvre
+      // la nav fixed -> bouton profil inaccessible -> impossible de se deloguer).
+      document.body.classList.add('has-email-verify-banner');
     }
     async function resendVerificationEmail() {
       if (!currentUser) { Toast.warning('Vous devez être connecté.'); return; }
