@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logo Consob custom (mai 2026) : remplace le favicon 16x16 pixelise.
+  Style coherent avec les autres badges regulateurs (AMF / BaFin / CNMV) :
+  carre arrondi avec wordmark sur fond couleur de marque.
+  Consob brand : navy blue (#1B365D) inspire de la palette institutionnelle
+  + accent rouge en haut a gauche (clin d'oeil au drapeau italien).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Fond navy avec coins arrondis -->
+  <rect width="128" height="128" rx="20" ry="20" fill="#1B365D"/>
+  <!-- Accent rouge italien (coin haut gauche) -->
+  <rect x="0" y="0" width="38" height="8" fill="#CE2B37" rx="0" ry="0"/>
+  <!-- Wordmark CONSOB centre -->
+  <text x="64" y="78"
+        text-anchor="middle"
+        font-family="'Space Grotesk', 'Inter', Arial, sans-serif"
+        font-size="26"
+        font-weight="800"
+        fill="#FFFFFF"
+        letter-spacing="0.5">CONSOB</text>
+  <!-- Petite ligne accent verte sous le wordmark (drapeau italien complet) -->
+  <rect x="44" y="90" width="40" height="3" fill="#009246" rx="1.5"/>
+</svg>
