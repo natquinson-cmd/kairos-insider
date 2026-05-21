@@ -23944,53 +23944,53 @@
       };
       const typeEmoji = (t) => ({ newsletter:'📧', youtube:'🎥', twitter:'🐦', podcast:'🎙', blog:'📰', linkedin:'💼' }[t] || '🔗');
 
-      // Couleur de texte par defaut pour les cellules sans color explicite
-      // (fix bug : rows invisibles si --text-primary inherite mal).
-      const cellBase = 'padding:10px;font-size:12px;color:#F1F5F9;line-height:1.4';
-      const cellMuted = 'padding:10px;font-size:11px;color:#94A3B8;line-height:1.4';
-
-      const rows = filtered.map(app => {
+      // Layout en CARDS (mai 2026, remplace la table qui avait un bug
+      // d'ordre thead/tbody renverse rapporte par l'user). Plus simple,
+      // plus lisible pour des candidatures partenaires (verbeuses).
+      const cards = filtered.map(app => {
         const id = (app.id || app._kvKey || '').replace(/'/g, "\\'");
-        const platHost = (app.platformUrl || '').replace(/^https?:\/\//, '').slice(0, 32);
-        const platTrunc = (app.platformUrl || '').length > 38 ? '…' : '';
+        const platDisplay = (app.platformUrl || '').replace(/^https?:\/\//, '');
+        const platShort = platDisplay.length > 40 ? platDisplay.slice(0, 38) + '…' : platDisplay;
+        const dateStr = esc(fmtD(app.submittedAt));
+        const motivPreview = app.motivation
+          ? esc(app.motivation.length > 120 ? app.motivation.slice(0, 117) + '…' : app.motivation)
+          : '<em style="color:#64748B">Aucune motivation fournie</em>';
         return `
-          <tr style="border-bottom:1px solid #2A3149;cursor:pointer;background:transparent" onclick="openAdminPartnerModal('${id}')"
-              onmouseover="this.style.background='rgba(59,130,246,0.06)'"
-              onmouseout="this.style.background='transparent'">
-            <td style="${cellMuted};white-space:nowrap">${esc(fmtD(app.submittedAt))}</td>
-            <td style="${cellBase};font-weight:600">${esc(app.name || '—')}</td>
-            <td style="${cellBase}">${esc(app.email || '—')}</td>
-            <td style="${cellBase}"><a href="${esc(app.platformUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#74b9ff;text-decoration:none">${esc(platHost)}${platTrunc}</a></td>
-            <td style="${cellBase};text-align:center;white-space:nowrap">${typeEmoji(app.audienceType)} ${esc(app.audienceType || '?')}</td>
-            <td style="${cellBase};text-align:center;font-variant-numeric:tabular-nums">${esc(app.audienceSize || '?')}</td>
-            <td style="${cellBase};text-align:center;white-space:nowrap">${esc(app.country || '?')}</td>
-            <td style="padding:10px;text-align:center;white-space:nowrap">${badgeStatus(app.status)}</td>
-          </tr>`;
+          <div style="background:#131829;border:1px solid #2A3149;border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.15s" onclick="openAdminPartnerModal('${id}')"
+               onmouseover="this.style.borderColor='#3B82F6';this.style.transform='translateY(-1px)'"
+               onmouseout="this.style.borderColor='#2A3149';this.style.transform=''">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+              <div style="min-width:0;flex:1">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+                  <strong style="font-size:15px;color:#F1F5F9">${esc(app.name || '—')}</strong>
+                  <span style="font-size:11px;color:#64748B">${dateStr}</span>
+                  <span style="font-size:11px;color:#64748B">·</span>
+                  <span style="font-size:11px;color:#94A3B8">${esc(app.country || '?')}</span>
+                </div>
+                <div style="font-size:12px;color:#94A3B8">
+                  <a href="mailto:${esc(app.email)}" onclick="event.stopPropagation()" style="color:#94A3B8;text-decoration:none">${esc(app.email || '—')}</a>
+                  ·
+                  <a href="${esc(app.platformUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#74b9ff;text-decoration:none">${esc(platShort)} ↗</a>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0">
+                ${badgeStatus(app.status)}
+                <div style="font-size:11px;color:#94A3B8;display:flex;gap:8px;align-items:center">
+                  <span>${typeEmoji(app.audienceType)} ${esc(app.audienceType || '?')}</span>
+                  <span style="color:#64748B">·</span>
+                  <span style="font-variant-numeric:tabular-nums">${esc(app.audienceSize || '?')}</span>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.5;margin-top:6px;padding-top:8px;border-top:1px solid #1A2138">
+              ${motivPreview}
+            </div>
+          </div>`;
       }).join('');
 
-      // Header cell style (inline, evite tout pb d'heritage CSS)
-      const thBase = 'padding:10px;text-align:left;color:#94A3B8;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;background:#1A2138';
-      const thCenter = thBase + ';text-align:center';
-
       body.innerHTML = statsBar + `
-        <div style="overflow-x:auto;border:1px solid #2A3149;border-radius:8px">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;background:#131829">
-            <thead>
-              <tr>
-                <th style="${thBase}">Soumis</th>
-                <th style="${thBase}">Nom</th>
-                <th style="${thBase}">Email</th>
-                <th style="${thBase}">Plateforme</th>
-                <th style="${thCenter}">Type</th>
-                <th style="${thCenter}">Audience</th>
-                <th style="${thCenter}">Pays</th>
-                <th style="${thCenter}">Statut</th>
-              </tr>
-            </thead>
-            <tbody style="background:#131829">${rows}</tbody>
-          </table>
-        </div>
-        <div style="margin-top:8px;font-size:11px;color:#64748B;text-align:right">Clique sur une ligne pour voir le détail + actions · <strong style="color:#F1F5F9">${filtered.length}</strong> resultat${filtered.length > 1 ? 's' : ''}</div>
+        <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+        <div style="margin-top:10px;font-size:11px;color:#64748B;text-align:right">Clique sur une card pour voir le détail + actions · <strong style="color:#F1F5F9">${filtered.length}</strong> resultat${filtered.length > 1 ? 's' : ''}</div>
       `;
     }
 
