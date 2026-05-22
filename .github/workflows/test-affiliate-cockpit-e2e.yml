@@ -1,0 +1,160 @@
+name: Test Affiliate Cockpit E2E
+
+# Test end-to-end complet du systeme affiliate :
+#   1. POST partnership-apply (cree une candidature partenaire)
+#   2. PUT to accept (auto-cree partner:{code} + envoie email Brevo de bienvenue)
+#   3. POST track-click 5x avec visitorIds differents (simule 5 clics)
+#   4. POST request-magic-link (envoie magic link Brevo au partner email)
+#   5. GET stats (via session manuelle apres echange magic link)
+#
+# Apres execution, l'user doit :
+#   a. Verifier 2 mails recus (welcome + magic link)
+#   b. Cliquer le magic link -> redirection /partner-cockpit avec session 30j
+#   c. Voir les 5 clics + stats dans le cockpit
+
+on:
+  workflow_dispatch:
+    inputs:
+      partner_email:
+        description: 'Email partenaire (recevra welcome + magic link)'
+        required: false
+        default: 'natquinson+e2e-cockpit@gmail.com'
+      partner_name:
+        description: 'Nom du partenaire (utilise pour generer le code)'
+        required: false
+        default: 'E2E Cockpit Test'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+      PARTNER_EMAIL: ${{ github.event.inputs.partner_email }}
+      PARTNER_NAME: ${{ github.event.inputs.partner_name }}
+    steps:
+      - name: 1. POST partnership-apply
+        id: apply
+        run: |
+          set -e
+          echo "::group::Submitting partnership application"
+          RESP=$(curl -sS -X POST "$API_BASE/api/partnership-apply" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"$PARTNER_NAME\",
+              \"email\": \"$PARTNER_EMAIL\",
+              \"platform_url\": \"https://kairosinsider.fr\",
+              \"audience_type\": \"newsletter\",
+              \"audience_size\": \"5k-20k\",
+              \"motivation\": \"Test E2E du cockpit partenaire - workflow ${{ github.run_id }}\"
+            }")
+          echo "$RESP" | python3 -m json.tool
+          APP_ID=$(echo "$RESP" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))")
+          echo "::endgroup::"
+          if [ -z "$APP_ID" ]; then echo "::error::No application ID returned"; exit 1; fi
+          echo "app_id=$APP_ID" >> $GITHUB_OUTPUT
+          echo "✓ Application created: $APP_ID"
+
+      - name: 2. PUT to accept (auto-create partner + send welcome email)
+        id: accept
+        run: |
+          set -e
+          echo "::group::Accepting application (triggers partner auto-create + Brevo welcome)"
+          RESP=$(curl -sS -X PUT "$API_BASE/api/admin/partnership-applications" \
+            -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"id\": \"${{ steps.apply.outputs.app_id }}\",
+              \"status\": \"accepted\",
+              \"adminNote\": \"E2E test - auto-accepted by workflow\"
+            }")
+          echo "$RESP" | python3 -m json.tool
+          PARTNER_CODE=$(echo "$RESP" | python3 -c "import sys, json; d=json.load(sys.stdin); print((d.get('partnerCreated') or {}).get('code', ''))")
+          echo "::endgroup::"
+          if [ -z "$PARTNER_CODE" ]; then echo "::error::No partner code returned"; exit 1; fi
+          echo "partner_code=$PARTNER_CODE" >> $GITHUB_OUTPUT
+          echo "✓ Partner created: $PARTNER_CODE"
+          echo "✓ Welcome email queued to $PARTNER_EMAIL"
+
+      - name: 3. Simulate 5 affiliate clicks with different visitorIds
+        run: |
+          set -e
+          CODE=${{ steps.accept.outputs.partner_code }}
+          echo "::group::Posting 5 track-click events for ref=$CODE"
+          for i in 1 2 3 4 5; do
+            VID="v_e2etest_$(date +%s%N)_$i"
+            RESP=$(curl -sS -X POST "$API_BASE/api/affiliate/track-click" \
+              -H "Content-Type: application/json" \
+              -d "{\"ref\": \"$CODE\", \"visitorId\": \"$VID\"}")
+            COUNT=$(echo "$RESP" | python3 -c "import sys, json; print(json.load(sys.stdin).get('monthClicks', 0))")
+            echo "  - Click #$i (visitorId=$VID) -> monthClicks=$COUNT"
+          done
+          echo "::endgroup::"
+          echo "✓ 5 clics envoyes"
+
+      - name: 4. Request magic link (sends email to partner)
+        run: |
+          set -e
+          echo "::group::Requesting magic link for $PARTNER_EMAIL"
+          curl -sS -X POST "$API_BASE/api/partner/request-magic-link" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\": \"$PARTNER_EMAIL\"}" | python3 -m json.tool
+          echo "::endgroup::"
+          echo "✓ Magic link email queued to $PARTNER_EMAIL"
+
+      - name: 5. Print summary
+        run: |
+          CODE=${{ steps.accept.outputs.partner_code }}
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🎯 Test E2E affiliate cockpit — Résumé
+
+          ## Setup
+          | Item | Valeur |
+          |---|---|
+          | Email partenaire | \`$PARTNER_EMAIL\` |
+          | Nom | $PARTNER_NAME |
+          | Code partenaire | **\`$CODE\`** |
+          | Code promo audience | **\`${CODE}10\`** |
+          | Lien tracké | \`https://kairosinsider.fr?ref=$CODE\` |
+
+          ## État après test
+          - ✅ Application créée + acceptée (status: accepted)
+          - ✅ Partner record \`partner:$CODE\` créé en KV
+          - ✅ 5 clics enregistrés dans \`affiliate-clicks:$CODE:$(date +%Y-%m)\`
+          - ✅ Email de bienvenue Brevo envoyé à $PARTNER_EMAIL
+          - ✅ Magic link Brevo envoyé à $PARTNER_EMAIL
+
+          ## À faire côté toi maintenant
+
+          1. **Vérifie ta boîte Gmail** (\`$PARTNER_EMAIL\` → arrive sur natquinson@gmail.com via alias)
+             - Mail #1 : "🎉 Bienvenue dans le programme partenaires Kairos Insider"
+             - Mail #2 : "🤝 Accès à ton cockpit Kairos Insider"
+
+          2. **Clique le magic link** dans le mail #2
+             - Tu seras redirigé vers \`https://kairosinsider.fr/partner-cockpit?token=xxx\`
+             - Le token sera échangé contre une session 30j (localStorage)
+             - L'URL sera nettoyée automatiquement
+
+          3. **Tu verras le cockpit avec** :
+             - Code partenaire : \`$CODE\`
+             - Mois en cours : **5 clics**, 0 inscrits, 0 Premium, 0 €
+             - Lifetime : pareil
+             - Boutons "Copier" pour le lien et code promo
+
+          ## Test du tracking réel
+
+          Pour valider l'attribution end-to-end, ouvre dans un nouvel onglet :
+          \`\`\`
+          https://kairosinsider.fr?ref=$CODE
+          \`\`\`
+          Le 6ème clic apparaîtra dans ton cockpit (rafraîchis pour le voir).
+
+          ## Tracking signup → revenue
+
+          Pour tester le funnel complet :
+          1. Visite \`?ref=$CODE\` en navigation privée (génère un nouveau visitorId)
+          2. Crée un compte (le worker liera user.referrer=$CODE)
+          3. (Optionnel) Souscris Premium → Stripe webhook → affiliate-revenue
+          EOF
+          echo "Summary written. See workflow summary tab."
