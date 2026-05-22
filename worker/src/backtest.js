@@ -208,144 +208,264 @@ export const KNOWN_FILERS = [
 // Format : { ticker, name, entryDate (YYYY), entryNote, returnPct, story }
 // returnPct = total return brut (pas annualisé)
 // story = phrase d'accroche marketing (max 120 chars)
+// BEST_CALLS i18n (mai 2026) : champs traduisibles sont des objets {fr, en}
+// resolvés par localizeBestCalls(bc, lang) au moment de la reponse API.
+// Si en est absent, le fr est utilise en fallback (degradation gracieuse).
 export const BEST_CALLS = {
   'BERKSHIRE': {
-    quote: '"Notre période de détention favorite est : pour toujours." — Warren Buffett',
+    quote: {
+      fr: '"Notre période de détention favorite est : pour toujours." — Warren Buffett',
+      en: '"Our favorite holding period is forever." — Warren Buffett',
+    },
     aum: '$390B+ portfolio',
-    callsLabel: 'Coups légendaires de Buffett',
+    callsLabel: { fr: 'Coups légendaires de Buffett', en: "Buffett's legendary calls" },
     calls: [
-      { ticker: 'AAPL', name: 'Apple', entryDate: '2016', returnPct: 800,
-        story: 'Buffett achète $36B d\'Apple en 2016. Devenu sa plus grosse position : +$120B de gains non réalisés.' },
-      { ticker: 'KO', name: 'Coca-Cola', entryDate: '1988', returnPct: 2100,
-        story: '$1.3B investi en 1988. Aujourd\'hui $25B+, sans compter $700M/an de dividendes.' },
-      { ticker: 'AXP', name: 'American Express', entryDate: '1991', returnPct: 3500,
-        story: 'Acheté pendant la crise du salad oil. Position gardée 33 ans, devenue $40B+.' },
-      { ticker: 'BAC', name: 'Bank of America', entryDate: '2011', returnPct: 450,
-        story: 'Warrants achetés en pleine crise post-2008 pour $5B. Convertis en 2017, valent maintenant $35B.' },
-      { ticker: 'OXY', name: 'Occidental Petroleum', entryDate: '2022', returnPct: 35,
-        story: 'Position 28% de la société. Buffett mise sur le pétrole quand tout le monde fuyait l\'énergie.' },
+      { ticker: 'AAPL', name: 'Apple', entryDate: '2016', returnPct: 800, story: {
+        fr: 'Buffett achète $36B d\'Apple en 2016. Devenu sa plus grosse position : +$120B de gains non réalisés.',
+        en: 'Buffett buys $36B of Apple in 2016. Became his largest position: +$120B unrealized gains.',
+      }},
+      { ticker: 'KO', name: 'Coca-Cola', entryDate: '1988', returnPct: 2100, story: {
+        fr: '$1.3B investi en 1988. Aujourd\'hui $25B+, sans compter $700M/an de dividendes.',
+        en: '$1.3B invested in 1988. Today $25B+, not counting $700M/year in dividends.',
+      }},
+      { ticker: 'AXP', name: 'American Express', entryDate: '1991', returnPct: 3500, story: {
+        fr: 'Acheté pendant la crise du salad oil. Position gardée 33 ans, devenue $40B+.',
+        en: 'Bought during the salad oil crisis. Position held 33 years, now $40B+.',
+      }},
+      { ticker: 'BAC', name: 'Bank of America', entryDate: '2011', returnPct: 450, story: {
+        fr: 'Warrants achetés en pleine crise post-2008 pour $5B. Convertis en 2017, valent maintenant $35B.',
+        en: 'Warrants bought during the post-2008 crisis for $5B. Converted in 2017, now worth $35B.',
+      }},
+      { ticker: 'OXY', name: 'Occidental Petroleum', entryDate: '2022', returnPct: 35, story: {
+        fr: 'Position 28% de la société. Buffett mise sur le pétrole quand tout le monde fuyait l\'énergie.',
+        en: '28% stake in the company. Buffett bet on oil when everyone was fleeing energy.',
+      }},
     ],
   },
   'PERSHING SQUARE': {
-    quote: '"Investissez dans des entreprises simples, prévisibles et de haute qualité." — Bill Ackman',
+    quote: {
+      fr: '"Investissez dans des entreprises simples, prévisibles et de haute qualité." — Bill Ackman',
+      en: '"Invest in simple, predictable, high-quality businesses." — Bill Ackman',
+    },
     aum: '$18B AUM',
-    callsLabel: 'Trades qui ont fait Pershing Square',
+    callsLabel: { fr: 'Trades qui ont fait Pershing Square', en: 'Trades that built Pershing Square' },
     calls: [
-      { ticker: 'CMG', name: 'Chipotle', entryDate: '2016', returnPct: 1100,
-        story: 'Ackman achète après la crise E. Coli à $400. Aujourd\'hui $4400+. Multi-bagger sur 7 ans.' },
-      { ticker: 'HLT', name: 'Hilton Hotels', entryDate: '2018', returnPct: 180,
-        story: 'Position long terme sur Hilton : business model asset-light, croissance fee-based.' },
-      { ticker: 'QSR', name: 'Restaurant Brands', entryDate: '2014', returnPct: 95,
-        story: 'Co-investisseur 3G Capital sur Burger King/Tim Hortons/Popeyes. Yield + croissance.' },
-      { ticker: 'COVID-HEDGE', name: 'CDS Mars 2020', entryDate: '2020-03', returnPct: 10000,
-        story: 'Le trade du siècle : $27M de CDS transformés en $2.6B en 30 jours pendant le krach Covid.' },
-      { ticker: 'GOOGL', name: 'Alphabet', entryDate: '2023', returnPct: 75,
-        story: 'Position 14% du portfolio en 2023. Conviction sur l\'IA + Google Search dominance.' },
+      { ticker: 'CMG', name: 'Chipotle', entryDate: '2016', returnPct: 1100, story: {
+        fr: 'Ackman achète après la crise E. Coli à $400. Aujourd\'hui $4400+. Multi-bagger sur 7 ans.',
+        en: 'Ackman buys after the E. Coli crisis at $400. Today $4400+. Multi-bagger over 7 years.',
+      }},
+      { ticker: 'HLT', name: 'Hilton Hotels', entryDate: '2018', returnPct: 180, story: {
+        fr: 'Position long terme sur Hilton : business model asset-light, croissance fee-based.',
+        en: 'Long-term position on Hilton: asset-light business model, fee-based growth.',
+      }},
+      { ticker: 'QSR', name: 'Restaurant Brands', entryDate: '2014', returnPct: 95, story: {
+        fr: 'Co-investisseur 3G Capital sur Burger King/Tim Hortons/Popeyes. Yield + croissance.',
+        en: 'Co-investor with 3G Capital on Burger King/Tim Hortons/Popeyes. Yield + growth.',
+      }},
+      { ticker: 'COVID-HEDGE', name: 'CDS Mars 2020', entryDate: '2020-03', returnPct: 10000, story: {
+        fr: 'Le trade du siècle : $27M de CDS transformés en $2.6B en 30 jours pendant le krach Covid.',
+        en: 'The trade of the century: $27M in CDS turned into $2.6B in 30 days during the Covid crash.',
+      }},
+      { ticker: 'GOOGL', name: 'Alphabet', entryDate: '2023', returnPct: 75, story: {
+        fr: 'Position 14% du portfolio en 2023. Conviction sur l\'IA + Google Search dominance.',
+        en: '14% portfolio position in 2023. Conviction on AI + Google Search dominance.',
+      }},
     ],
   },
   'ARKK': {
-    quote: '"Nous investissons dans le futur, pas dans le passé." — Cathie Wood',
+    quote: {
+      fr: '"Nous investissons dans le futur, pas dans le passé." — Cathie Wood',
+      en: '"We invest in the future, not the past." — Cathie Wood',
+    },
     aum: '$5.6B AUM',
-    callsLabel: 'Convictions ARK Invest',
+    callsLabel: { fr: 'Convictions ARK Invest', en: 'ARK Invest convictions' },
     calls: [
-      { ticker: 'TSLA', name: 'Tesla', entryDate: '2014', returnPct: 1500,
-        story: 'Achetée à $14 (split-adjusted). Cathie Wood prédisait $4000 avant tout le monde. Position #1 ARKK.' },
-      { ticker: 'COIN', name: 'Coinbase', entryDate: '2021', returnPct: 50,
-        story: 'IPO direct listing. ARK accumule pendant le bear crypto, gros gain post-2024.' },
-      { ticker: 'ROKU', name: 'Roku', entryDate: '2018', returnPct: 250,
-        story: 'Pari sur le streaming TV. Multi-bagger malgré la volatilité.' },
-      { ticker: 'PLTR', name: 'Palantir', entryDate: '2020', returnPct: 800,
-        story: 'Achetée à $10 post-IPO. AI-defense play : x10 en 4 ans.' },
-      { ticker: 'CRSP', name: 'CRISPR Therapeutics', entryDate: '2018', returnPct: 180,
-        story: 'Pionnier de l\'édition génomique. Premier traitement CRISPR approuvé FDA en 2023.' },
+      { ticker: 'TSLA', name: 'Tesla', entryDate: '2014', returnPct: 1500, story: {
+        fr: 'Achetée à $14 (split-adjusted). Cathie Wood prédisait $4000 avant tout le monde. Position #1 ARKK.',
+        en: 'Bought at $14 (split-adjusted). Cathie Wood predicted $4000 before anyone else. ARKK\'s #1 position.',
+      }},
+      { ticker: 'COIN', name: 'Coinbase', entryDate: '2021', returnPct: 50, story: {
+        fr: 'IPO direct listing. ARK accumule pendant le bear crypto, gros gain post-2024.',
+        en: 'IPO direct listing. ARK accumulates during the crypto bear, big gain post-2024.',
+      }},
+      { ticker: 'ROKU', name: 'Roku', entryDate: '2018', returnPct: 250, story: {
+        fr: 'Pari sur le streaming TV. Multi-bagger malgré la volatilité.',
+        en: 'Bet on TV streaming. Multi-bagger despite the volatility.',
+      }},
+      { ticker: 'PLTR', name: 'Palantir', entryDate: '2020', returnPct: 800, story: {
+        fr: 'Achetée à $10 post-IPO. AI-defense play : x10 en 4 ans.',
+        en: 'Bought at $10 post-IPO. AI-defense play: 10x in 4 years.',
+      }},
+      { ticker: 'CRSP', name: 'CRISPR Therapeutics', entryDate: '2018', returnPct: 180, story: {
+        fr: 'Pionnier de l\'édition génomique. Premier traitement CRISPR approuvé FDA en 2023.',
+        en: 'Genome editing pioneer. First CRISPR treatment approved by FDA in 2023.',
+      }},
     ],
   },
   'FAIRFAX': {
-    quote: '"Patience, prudence et opportunisme — la trinité de l\'investissement de long terme." — Prem Watsa',
+    quote: {
+      fr: '"Patience, prudence et opportunisme — la trinité de l\'investissement de long terme." — Prem Watsa',
+      en: '"Patience, prudence, and opportunism — the trinity of long-term investing." — Prem Watsa',
+    },
     aum: '$50B+ assets',
-    callsLabel: 'Coups visionnaires de Prem Watsa',
+    callsLabel: { fr: 'Coups visionnaires de Prem Watsa', en: "Prem Watsa's visionary calls" },
     calls: [
-      { ticker: 'CDS-2008', name: 'Big Short subprime', entryDate: '2003', returnPct: 1500,
-        story: '$341M en CDS subprime 2003-2007. Profit : $2.1B en 2007-2008. Le trade qui a sauvé Fairfax.' },
-      { ticker: 'BB', name: 'BlackBerry', entryDate: '2013', returnPct: 30,
-        story: 'Watsa entre à $9 en 2013, prend la présidence. Pivot enterprise software réussi.' },
-      { ticker: 'EUROB', name: 'Eurobank Greek banks', entryDate: '2013', returnPct: 250,
-        story: 'Achat banques grecques pendant la crise euro à $0.30. Multi-bagger sur la résurrection.' },
-      { ticker: 'IIFL', name: 'IIFL Finance India', entryDate: '2014', returnPct: 350,
-        story: 'Pari sur l\'Inde via Fairfax India Holdings. Position massive sur le décollage indien.' },
-      { ticker: 'STLC.TO', name: 'Stelco Holdings', entryDate: '2017', returnPct: 200,
-        story: 'Acier canadien. Restructuration menée par Fairfax, IPO 2017 à $17, multi-bagger.' },
+      { ticker: 'CDS-2008', name: 'Big Short subprime', entryDate: '2003', returnPct: 1500, story: {
+        fr: '$341M en CDS subprime 2003-2007. Profit : $2.1B en 2007-2008. Le trade qui a sauvé Fairfax.',
+        en: '$341M in subprime CDS 2003-2007. Profit: $2.1B in 2007-2008. The trade that saved Fairfax.',
+      }},
+      { ticker: 'BB', name: 'BlackBerry', entryDate: '2013', returnPct: 30, story: {
+        fr: 'Watsa entre à $9 en 2013, prend la présidence. Pivot enterprise software réussi.',
+        en: 'Watsa enters at $9 in 2013, takes chairmanship. Successful enterprise software pivot.',
+      }},
+      { ticker: 'EUROB', name: 'Eurobank Greek banks', entryDate: '2013', returnPct: 250, story: {
+        fr: 'Achat banques grecques pendant la crise euro à $0.30. Multi-bagger sur la résurrection.',
+        en: 'Bought Greek banks during the euro crisis at $0.30. Multi-bagger on the resurrection.',
+      }},
+      { ticker: 'IIFL', name: 'IIFL Finance India', entryDate: '2014', returnPct: 350, story: {
+        fr: 'Pari sur l\'Inde via Fairfax India Holdings. Position massive sur le décollage indien.',
+        en: 'Bet on India via Fairfax India Holdings. Massive position on India\'s takeoff.',
+      }},
+      { ticker: 'STLC.TO', name: 'Stelco Holdings', entryDate: '2017', returnPct: 200, story: {
+        fr: 'Acier canadien. Restructuration menée par Fairfax, IPO 2017 à $17, multi-bagger.',
+        en: 'Canadian steel. Restructuring led by Fairfax, IPO 2017 at $17, multi-bagger.',
+      }},
     ],
   },
   'GURU': {
-    quote: 'Replique les meilleurs paris des hedge funds activistes via leurs 13F SEC',
+    quote: {
+      fr: 'Replique les meilleurs paris des hedge funds activistes via leurs 13F SEC',
+      en: 'Replicates the best bets of activist hedge funds via their SEC 13F filings',
+    },
     aum: '$370M AUM',
-    callsLabel: 'Top picks des hedge funds (2024)',
+    callsLabel: { fr: 'Top picks des hedge funds (2024)', en: 'Top hedge fund picks (2024)' },
     calls: [
-      { ticker: 'META', name: 'Meta Platforms', entryDate: '2023', returnPct: 250,
-        story: 'Top conviction de plusieurs hedge funds après le crash de 2022. Multi-bagger sur 18 mois.' },
-      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2022', returnPct: 800,
-        story: 'Position massive de Coatue, Tiger Global, Baillie Gifford. Tendance AI hardware.' },
-      { ticker: 'GOOGL', name: 'Alphabet', entryDate: '2023', returnPct: 60,
-        story: 'Hedge funds value (Pershing, Greenlight) entrent à 18x P/E sous-évalué.' },
-      { ticker: 'AMZN', name: 'Amazon', entryDate: '2023', returnPct: 75,
-        story: 'Top 3 holding chez Coatue/Tiger après la débâcle 2022.' },
-      { ticker: 'MSFT', name: 'Microsoft', entryDate: '2022', returnPct: 95,
-        story: 'Pari OpenAI/Copilot porté par Brookfield, Capital Group, Wellington.' },
+      { ticker: 'META', name: 'Meta Platforms', entryDate: '2023', returnPct: 250, story: {
+        fr: 'Top conviction de plusieurs hedge funds après le crash de 2022. Multi-bagger sur 18 mois.',
+        en: 'Top conviction of multiple hedge funds after the 2022 crash. Multi-bagger over 18 months.',
+      }},
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2022', returnPct: 800, story: {
+        fr: 'Position massive de Coatue, Tiger Global, Baillie Gifford. Tendance AI hardware.',
+        en: 'Massive position from Coatue, Tiger Global, Baillie Gifford. AI hardware trend.',
+      }},
+      { ticker: 'GOOGL', name: 'Alphabet', entryDate: '2023', returnPct: 60, story: {
+        fr: 'Hedge funds value (Pershing, Greenlight) entrent à 18x P/E sous-évalué.',
+        en: 'Value hedge funds (Pershing, Greenlight) enter at 18x undervalued P/E.',
+      }},
+      { ticker: 'AMZN', name: 'Amazon', entryDate: '2023', returnPct: 75, story: {
+        fr: 'Top 3 holding chez Coatue/Tiger après la débâcle 2022.',
+        en: 'Top 3 holding at Coatue/Tiger after the 2022 debacle.',
+      }},
+      { ticker: 'MSFT', name: 'Microsoft', entryDate: '2022', returnPct: 95, story: {
+        fr: 'Pari OpenAI/Copilot porté par Brookfield, Capital Group, Wellington.',
+        en: 'OpenAI/Copilot bet driven by Brookfield, Capital Group, Wellington.',
+      }},
     ],
   },
   'MAGS': {
-    quote: 'Les 7 stars du S&P 500 qui pèsent 30% de l\'indice et concentrent les paris des hedge funds',
+    quote: {
+      fr: 'Les 7 stars du S&P 500 qui pèsent 30% de l\'indice et concentrent les paris des hedge funds',
+      en: 'The S&P 500\'s 7 stars that weigh 30% of the index and concentrate hedge fund bets',
+    },
     aum: '$2.1B AUM',
-    callsLabel: 'Composition du Magnificent 7',
+    callsLabel: { fr: 'Composition du Magnificent 7', en: 'Magnificent 7 composition' },
     calls: [
-      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2023', returnPct: 800,
-        story: 'Le moteur de la révolution IA. Position #1 chez Coatue, Tiger Global, Citadel et 80%+ des hedge funds en 2024.' },
-      { ticker: 'META', name: 'Meta Platforms', entryDate: '2023', returnPct: 400,
-        story: 'Le rebond le plus impressionnant de la tech. De $90 (2022) à $600+ : top conviction Greenlight, Pershing.' },
-      { ticker: 'AAPL', name: 'Apple', entryDate: '2016', returnPct: 800,
-        story: 'Plus grosse position de Berkshire ($165B). 80%+ des hedge funds long. Le retour cash machine ultime.' },
-      { ticker: 'MSFT', name: 'Microsoft', entryDate: '2022', returnPct: 95,
-        story: 'Pari OpenAI/Copilot. Top 5 holding chez Brookfield, Capital Group, Wellington, Norges Bank.' },
-      { ticker: 'TSLA', name: 'Tesla', entryDate: '2014', returnPct: 1500,
-        story: 'Position #1 d\'ARKK depuis 2014. Robotaxi + énergie + Starlink-Dojo : 4 paris en un.' },
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2023', returnPct: 800, story: {
+        fr: 'Le moteur de la révolution IA. Position #1 chez Coatue, Tiger Global, Citadel et 80%+ des hedge funds en 2024.',
+        en: 'The engine of the AI revolution. #1 position at Coatue, Tiger Global, Citadel and 80%+ of hedge funds in 2024.',
+      }},
+      { ticker: 'META', name: 'Meta Platforms', entryDate: '2023', returnPct: 400, story: {
+        fr: 'Le rebond le plus impressionnant de la tech. De $90 (2022) à $600+ : top conviction Greenlight, Pershing.',
+        en: 'The most impressive tech rebound. From $90 (2022) to $600+: top conviction at Greenlight, Pershing.',
+      }},
+      { ticker: 'AAPL', name: 'Apple', entryDate: '2016', returnPct: 800, story: {
+        fr: 'Plus grosse position de Berkshire ($165B). 80%+ des hedge funds long. Le retour cash machine ultime.',
+        en: 'Berkshire\'s largest position ($165B). 80%+ of hedge funds long. The ultimate cash-flow machine.',
+      }},
+      { ticker: 'MSFT', name: 'Microsoft', entryDate: '2022', returnPct: 95, story: {
+        fr: 'Pari OpenAI/Copilot. Top 5 holding chez Brookfield, Capital Group, Wellington, Norges Bank.',
+        en: 'OpenAI/Copilot bet. Top 5 holding at Brookfield, Capital Group, Wellington, Norges Bank.',
+      }},
+      { ticker: 'TSLA', name: 'Tesla', entryDate: '2014', returnPct: 1500, story: {
+        fr: 'Position #1 d\'ARKK depuis 2014. Robotaxi + énergie + Starlink-Dojo : 4 paris en un.',
+        en: 'ARKK\'s #1 position since 2014. Robotaxi + energy + Starlink-Dojo: 4 bets in one.',
+      }},
     ],
   },
   'SMH': {
-    quote: 'Le secteur le plus stratégique du XXIe siècle. Là où la "smart money" a parié massivement.',
+    quote: {
+      fr: 'Le secteur le plus stratégique du XXIe siècle. Là où la "smart money" a parié massivement.',
+      en: 'The most strategic sector of the 21st century. Where smart money bet massively.',
+    },
     aum: '$28B AUM',
-    callsLabel: 'Les semis qui ont enrichi les hedge funds',
+    callsLabel: { fr: 'Les semis qui ont enrichi les hedge funds', en: 'The semis that enriched hedge funds' },
     calls: [
-      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2022', returnPct: 1200,
-        story: 'De $14 (split-adjusted) en 2022 à $180+ en 2024. Multi-100-bagger pour ceux entrés tôt.' },
-      { ticker: 'TSM', name: 'Taiwan Semiconductor', entryDate: '2020', returnPct: 200,
-        story: 'Le seul fondeur capable de produire les puces NVIDIA et Apple. Buffett a pris position en 2022.' },
-      { ticker: 'AVGO', name: 'Broadcom', entryDate: '2020', returnPct: 350,
-        story: 'AI custom silicon (Google TPU). Discrète mais position massive de Coatue et Tiger Global.' },
-      { ticker: 'AMD', name: 'Advanced Micro Devices', entryDate: '2020', returnPct: 250,
-        story: 'L\'alternative à NVIDIA. Lisa Su a transformé AMD en concurrent crédible. WSB favorite.' },
-      { ticker: 'ASML', name: 'ASML Holding', entryDate: '2020', returnPct: 150,
-        story: 'Monopole mondial sur les machines EUV. Sans ASML, pas de NVIDIA. Le maillon le plus stratégique.' },
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2022', returnPct: 1200, story: {
+        fr: 'De $14 (split-adjusted) en 2022 à $180+ en 2024. Multi-100-bagger pour ceux entrés tôt.',
+        en: 'From $14 (split-adjusted) in 2022 to $180+ in 2024. Multi-100-bagger for early entrants.',
+      }},
+      { ticker: 'TSM', name: 'Taiwan Semiconductor', entryDate: '2020', returnPct: 200, story: {
+        fr: 'Le seul fondeur capable de produire les puces NVIDIA et Apple. Buffett a pris position en 2022.',
+        en: 'The only foundry capable of producing NVIDIA and Apple chips. Buffett took a position in 2022.',
+      }},
+      { ticker: 'AVGO', name: 'Broadcom', entryDate: '2020', returnPct: 350, story: {
+        fr: 'AI custom silicon (Google TPU). Discrète mais position massive de Coatue et Tiger Global.',
+        en: 'AI custom silicon (Google TPU). Quiet but massive position from Coatue and Tiger Global.',
+      }},
+      { ticker: 'AMD', name: 'Advanced Micro Devices', entryDate: '2020', returnPct: 250, story: {
+        fr: 'L\'alternative à NVIDIA. Lisa Su a transformé AMD en concurrent crédible. WSB favorite.',
+        en: 'The NVIDIA alternative. Lisa Su turned AMD into a credible competitor. WSB favorite.',
+      }},
+      { ticker: 'ASML', name: 'ASML Holding', entryDate: '2020', returnPct: 150, story: {
+        fr: 'Monopole mondial sur les machines EUV. Sans ASML, pas de NVIDIA. Le maillon le plus stratégique.',
+        en: 'Global monopoly on EUV machines. Without ASML, no NVIDIA. The most strategic link in the chain.',
+      }},
     ],
   },
   'BUZZ': {
-    quote: 'Mesure le sentiment social et retail sur 75 grandes caps US',
+    quote: {
+      fr: 'Mesure le sentiment social et retail sur 75 grandes caps US',
+      en: 'Measures social and retail sentiment on 75 US large-cap stocks',
+    },
     aum: '$45M AUM',
-    callsLabel: 'Top buzz / momentum stocks',
+    callsLabel: { fr: 'Top buzz / momentum stocks', en: 'Top buzz / momentum stocks' },
     calls: [
-      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2023', returnPct: 250,
-        story: 'Le titre #1 du buzz retail en 2023-2024. Combine fundamentaux + hype.' },
-      { ticker: 'AMD', name: 'Advanced Micro Devices', entryDate: '2023', returnPct: 130,
-        story: 'Concurrent NVIDIA, gros buzz Reddit/Twitter. Ride the AI wave.' },
-      { ticker: 'TSLA', name: 'Tesla', entryDate: '2023', returnPct: 60,
-        story: 'Toujours le titre le plus discuté sur les réseaux sociaux. Volatil mais incontournable.' },
-      { ticker: 'PLTR', name: 'Palantir', entryDate: '2023', returnPct: 350,
-        story: 'WallStreetBets favorite. Multi-bagger 2023-2024 grâce au narratif AI.' },
-      { ticker: 'DJT', name: 'Trump Media', entryDate: '2024', returnPct: -50,
-        story: 'Méta-buzz politique. Volatilité extrême : illustre les risques du sentiment retail.' },
+      { ticker: 'NVDA', name: 'NVIDIA', entryDate: '2023', returnPct: 250, story: {
+        fr: 'Le titre #1 du buzz retail en 2023-2024. Combine fundamentaux + hype.',
+        en: 'The #1 retail buzz stock in 2023-2024. Combines fundamentals + hype.',
+      }},
+      { ticker: 'AMD', name: 'Advanced Micro Devices', entryDate: '2023', returnPct: 130, story: {
+        fr: 'Concurrent NVIDIA, gros buzz Reddit/Twitter. Ride the AI wave.',
+        en: 'NVIDIA competitor, big Reddit/Twitter buzz. Ride the AI wave.',
+      }},
+      { ticker: 'TSLA', name: 'Tesla', entryDate: '2023', returnPct: 60, story: {
+        fr: 'Toujours le titre le plus discuté sur les réseaux sociaux. Volatil mais incontournable.',
+        en: 'Still the most discussed stock on social media. Volatile but unavoidable.',
+      }},
+      { ticker: 'PLTR', name: 'Palantir', entryDate: '2023', returnPct: 350, story: {
+        fr: 'WallStreetBets favorite. Multi-bagger 2023-2024 grâce au narratif AI.',
+        en: 'WallStreetBets favorite. Multi-bagger 2023-2024 thanks to the AI narrative.',
+      }},
+      { ticker: 'DJT', name: 'Trump Media', entryDate: '2024', returnPct: -50, story: {
+        fr: 'Méta-buzz politique. Volatilité extrême : illustre les risques du sentiment retail.',
+        en: 'Political meta-buzz. Extreme volatility: illustrates the risks of retail sentiment.',
+      }},
     ],
   },
 };
+
+// Resolveur i18n : applique le bon language aux champs {fr, en} de BEST_CALLS.
+// Fallback gracieux : si en absent (futur fonds non traduit), reste sur fr.
+function localizeBestCalls(bc, lang) {
+  if (!bc) return bc;
+  const pick = (v) => (v && typeof v === 'object' && (v.fr || v.en)) ? (v[lang] || v.fr || v.en) : v;
+  return {
+    ...bc,
+    quote: pick(bc.quote),
+    callsLabel: pick(bc.callsLabel),
+    calls: (bc.calls || []).map(c => ({ ...c, story: pick(c.story) })),
+  };
+}
 
 
 /**
@@ -697,7 +817,7 @@ export async function handleBacktestFeatured(env, opts = {}) {
  *
  * Bien plus crédible que d'agreger des 13F avec rate limit Yahoo qui coupe a 30 pos.
  */
-async function backtestViaPublicTicker(filerKey, periodKey, env) {
+async function backtestViaPublicTicker(filerKey, periodKey, env, lang = 'fr') {
   const periodDays = PERIOD_TO_DAYS[periodKey] || PERIOD_TO_DAYS['3y'];
   const ticker = FUND_PUBLIC_TICKER[filerKey.toUpperCase()];
   if (!ticker) return null;  // pas de ticker public, fallback sur calcul 13F
@@ -775,7 +895,9 @@ async function backtestViaPublicTicker(filerKey, periodKey, env) {
   }
 
   // Best calls iconiques (curé manuellement) - argument marketing
-  const bestCallsData = BEST_CALLS[filerKey.toUpperCase()] || null;
+  // i18n (mai 2026) : localizeBestCalls applique fr/en selon le lang param.
+  const bestCallsRaw = BEST_CALLS[filerKey.toUpperCase()] || null;
+  const bestCallsData = localizeBestCalls(bestCallsRaw, lang);
 
   return {
     filer: filerKey,
@@ -802,7 +924,7 @@ async function backtestViaPublicTicker(filerKey, periodKey, env) {
       alpha: benchReturn != null ? Math.round((totalReturn - benchReturn) * 100) / 100 : null,
     },
     equityCurve,
-    bestCalls: bestCallsData,  // top 5 trades iconiques + quote + AUM
+    bestCalls: bestCallsData,  // top 5 trades iconiques + quote + AUM (localized)
     metadata: {
       computedAt: new Date().toISOString(),
       filerLabel: filerInfo.label || filerKey,
@@ -818,10 +940,10 @@ async function backtestViaPublicTicker(filerKey, periodKey, env) {
  * Main backtest endpoint handler.
  * GET /api/backtest/:filer?period=1y|3y|5y|10y|20y
  */
-export async function handleBacktest(filerKey, periodKey, env) {
+export async function handleBacktest(filerKey, periodKey, env, lang = 'fr') {
   // STRATEGIE 1 : si le fonds est COTE EN BOURSE, fetch sa perf directe.
   // Plus credible que d'agreger 4 positions 13F au hasard.
-  const direct = await backtestViaPublicTicker(filerKey, periodKey, env);
+  const direct = await backtestViaPublicTicker(filerKey, periodKey, env, lang);
   if (direct) return direct;
 
   // STRATEGIE 2 : sinon, calcul via 13F + filings recents (existant)

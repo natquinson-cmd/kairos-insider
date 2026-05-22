@@ -29,6 +29,65 @@
 
   const API = 'https://kairos-insider-api.natquinson.workers.dev/api';
 
+  // ============================================================
+  // i18n local au widget (mai 2026, fix user feedback "section non traduite")
+  // ============================================================
+  // Detection langue : window.KairosI18n.getLang() si dispo, sinon 'fr'.
+  // Re-evalue a chaque render (pour gerer le changement de langue live).
+  function getLang() {
+    try { return window.KairosI18n?.getLang?.() === 'en' ? 'en' : 'fr'; }
+    catch { return 'fr'; }
+  }
+  const T_FR = {
+    philosophy_label: "Philosophie d'investissement",
+    calls_default_label: "Trades qui ont marqué l'histoire",
+    calls_subtitle: (filer) => `Détectés <strong style="color:var(--text-primary,#F1F5F9)">avant la masse</strong> par ${filer}. Sources : 13F SEC, lettres aux actionnaires, presse financière.`,
+    calls_entered: 'entrée',
+    btn_calc_running: '⏳ Calcul en cours...',
+    loading_msg: '📊 Récupération des positions et des cours historiques (10-30 sec)…',
+    error_prefix: '❌ Erreur',
+    no_data: (filer, period) => `Aucune donnée disponible pour ${filer} sur la période ${period}.`,
+    with_invested: (eur, filer, periodLabel) => `Avec ${eur} investis dans ${filer} il y a ${periodLabel}`,
+    you_would_have: "Vous auriez aujourd'hui",
+    of_gain: 'de gain',
+    over_period: (pct, period) => `(${pct} sur ${period})`,
+    alpha_more: (eur, benchLabel, pct, period) => `Soit ${eur} de plus qu'une ${benchLabel.toLowerCase()} classique (${pct} sur ${period})`,
+    alpha_less: (eur, benchLabel, pct, period) => `Soit ${eur} de moins qu'une ${benchLabel.toLowerCase()} classique (${pct} sur ${period})`,
+    trust_eyebrow: 'Vous voulez les prochains coups ?',
+    trust_title: (filer) => `Suivez ${filer} en temps réel`,
+    trust_body_html: `Kairos Insider trace <strong style="color:var(--text-primary,#F1F5F9)">tous les filings SEC, AMF, FCA, BaFin, AFM, SIX</strong> dès leur publication. Reçoit une alerte email <strong style="color:var(--text-primary,#F1F5F9)">avant que la presse ne couvre la news</strong>.`,
+    trust_cta_signup: 'Créer mon compte gratuit',
+    trust_cta_more: 'En savoir plus',
+    trust_check_1: '✓ Aucune CB requise',
+    trust_check_2: '✓ Données régulateurs officiels',
+    trust_check_3: '✓ 12 marchés couverts',
+  };
+  const T_EN = {
+    philosophy_label: 'Investment philosophy',
+    calls_default_label: 'Trades that shaped history',
+    calls_subtitle: (filer) => `Detected <strong style="color:var(--text-primary,#F1F5F9)">before the crowd</strong> by ${filer}. Sources: SEC 13F, shareholder letters, financial press.`,
+    calls_entered: 'entered',
+    btn_calc_running: '⏳ Computing...',
+    loading_msg: '📊 Fetching positions and historical prices (10-30 sec)…',
+    error_prefix: '❌ Error',
+    no_data: (filer, period) => `No data available for ${filer} over the ${period} period.`,
+    with_invested: (eur, filer, periodLabel) => `With ${eur} invested in ${filer} ${periodLabel} ago`,
+    you_would_have: 'You would have today',
+    of_gain: 'gain',
+    over_period: (pct, period) => `(${pct} over ${period})`,
+    alpha_more: (eur, benchLabel, pct, period) => `That's ${eur} more than a classic ${benchLabel.toLowerCase()} (${pct} over ${period})`,
+    alpha_less: (eur, benchLabel, pct, period) => `That's ${eur} less than a classic ${benchLabel.toLowerCase()} (${pct} over ${period})`,
+    trust_eyebrow: 'Want the next big calls?',
+    trust_title: (filer) => `Follow ${filer} in real time`,
+    trust_body_html: `Kairos Insider tracks <strong style="color:var(--text-primary,#F1F5F9)">every SEC, AMF, FCA, BaFin, AFM, SIX filing</strong> the moment it's published. Get an email alert <strong style="color:var(--text-primary,#F1F5F9)">before the press covers the news</strong>.`,
+    trust_cta_signup: 'Create my free account',
+    trust_cta_more: 'Learn more',
+    trust_check_1: '✓ No credit card required',
+    trust_check_2: '✓ Official regulator data',
+    trust_check_3: '✓ 12 markets covered',
+  };
+  function T() { return getLang() === 'en' ? T_EN : T_FR; }
+
   // Tag emoji selon categorie (legend, activist, institutional, hedgefund, family, state)
   const TAG_EMOJI = {
     legend: '⭐', activist: '⚡', institutional: '🏦',
@@ -262,7 +321,7 @@
               <div style="font-size:18px">${rankBadge}</div>
               <div>
                 <div style="font-weight:800;font-size:15px;color:var(--text-primary,#F1F5F9)">${call.name}</div>
-                <div style="font-size:11px;color:var(--text-muted,#64748B);font-family:monospace;letter-spacing:0.4px">${call.ticker} · entrée ${call.entryDate}</div>
+                <div style="font-size:11px;color:var(--text-muted,#64748B);font-family:monospace;letter-spacing:0.4px">${call.ticker} · ${T().calls_entered} ${call.entryDate}</div>
               </div>
             </div>
             <div style="font-size:22px;font-weight:900;color:${color};letter-spacing:-0.5px">${sign}${call.returnPct}%</div>
@@ -274,39 +333,39 @@
     return `
       <div style="margin-top:32px">
         <div style="background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(59,130,246,0.06));border:1px solid rgba(251,191,36,0.25);border-radius:18px;padding:24px 28px;margin-bottom:20px;text-align:center">
-          <div style="font-size:11px;color:#FBBF24;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px">Philosophie d'investissement</div>
+          <div style="font-size:11px;color:#FBBF24;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px">${T().philosophy_label}</div>
           <div style="font-size:18px;font-style:italic;color:var(--text-primary,#F1F5F9);line-height:1.5;max-width:720px;margin:0 auto">${bc.quote}</div>
           ${bc.aum ? `<div style="margin-top:10px;display:inline-block;padding:4px 12px;background:rgba(59,130,246,0.15);color:#3B82F6;border:1px solid rgba(59,130,246,0.3);border-radius:12px;font-size:11px;font-weight:700;letter-spacing:0.5px">${bc.aum}</div>` : ''}
         </div>
         <div style="margin-bottom:14px">
-          <h3 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.3px">${bc.callsLabel || "Trades qui ont marqué l'histoire"}</h3>
-          <p style="margin:6px 0 0;color:var(--text-secondary,#94A3B8);font-size:14px">Détectés <strong style="color:var(--text-primary,#F1F5F9)">avant la masse</strong> par ${filerLabel}. Sources : 13F SEC, lettres aux actionnaires, presse financière.</p>
+          <h3 style="margin:0;font-size:22px;font-weight:800;letter-spacing:-0.3px">${bc.callsLabel || T().calls_default_label}</h3>
+          <p style="margin:6px 0 0;color:var(--text-secondary,#94A3B8);font-size:14px">${T().calls_subtitle(filerLabel)}</p>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">${cards}</div>
       </div>`;
   }
 
   function renderTrustFooter(filerLabel) {
+    const t = T();
     return `
       <div style="margin-top:48px;background:linear-gradient(135deg,rgba(59,130,246,0.12),rgba(139,92,246,0.10));border:1px solid rgba(139,92,246,0.3);border-radius:20px;padding:32px;text-align:center">
-        <div style="font-size:11px;color:#3B82F6;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">Vous voulez les prochains coups ?</div>
-        <h3 style="margin:0 0 8px;font-size:26px;font-weight:800;letter-spacing:-0.3px">Suivez ${filerLabel} en temps réel</h3>
+        <div style="font-size:11px;color:#3B82F6;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">${t.trust_eyebrow}</div>
+        <h3 style="margin:0 0 8px;font-size:26px;font-weight:800;letter-spacing:-0.3px">${t.trust_title(filerLabel)}</h3>
         <p style="margin:0 auto 24px;color:var(--text-secondary,#94A3B8);max-width:560px;line-height:1.6">
-          Kairos Insider trace <strong style="color:var(--text-primary,#F1F5F9)">tous les filings SEC, AMF, FCA, BaFin, AFM, SIX</strong> dès leur publication.
-          Reçoit une alerte email <strong style="color:var(--text-primary,#F1F5F9)">avant que la presse ne couvre la news</strong>.
+          ${t.trust_body_html}
         </p>
         <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
           <a href="/dashboard.html?action=signup" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(59,130,246,0.4),0 0 0 1px rgba(255,255,255,0.1) inset;transition:transform 0.15s,filter 0.15s" onmouseover="this.style.transform='translateY(-1px)';this.style.filter='brightness(1.08)'" onmouseout="this.style.transform='';this.style.filter=''">
-            Créer mon compte gratuit
+            ${t.trust_cta_signup}
           </a>
           <a href="/" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:transparent;color:var(--text-primary,#F1F5F9);text-decoration:none;border-radius:12px;font-weight:600;font-size:15px;border:1px solid var(--border-strong,#3A4366)">
-            En savoir plus
+            ${t.trust_cta_more}
           </a>
         </div>
         <div style="margin-top:18px;font-size:12px;color:var(--text-muted,#64748B);display:flex;gap:18px;justify-content:center;flex-wrap:wrap">
-          <span>✓ Aucune CB requise</span>
-          <span>✓ Données régulateurs officiels</span>
-          <span>✓ 12 marchés couverts</span>
+          <span>${t.trust_check_1}</span>
+          <span>${t.trust_check_2}</span>
+          <span>${t.trust_check_3}</span>
         </div>
       </div>`;
   }
@@ -321,7 +380,7 @@
       resultsEl.innerHTML = `
         <div class="kbt-empty">
           <h3 style="color:#94A3B8">${filerLabel}</h3>
-          <p>Aucune donnée disponible pour ce fonds sur la période ${data.period}.</p>
+          <p>${T().no_data(filerLabel, data.period)}</p>
         </div>`;
       return;
     }
@@ -341,15 +400,15 @@
 
     const html = `
       <div style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.12));border:1px solid rgba(139,92,246,0.3);border-radius:18px;padding:32px;margin-bottom:24px;text-align:center">
-        <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary,#94A3B8);margin-bottom:6px">Avec ${fmtEur(capital)} investis dans ${filerLabel} il y a ${periodLabel}</div>
-        <div style="font-size:14px;color:var(--text-muted,#64748B);margin-bottom:18px">Vous auriez aujourd'hui</div>
+        <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary,#94A3B8);margin-bottom:6px">${T().with_invested(fmtEur(capital), filerLabel, periodLabel)}</div>
+        <div style="font-size:14px;color:var(--text-muted,#64748B);margin-bottom:18px">${T().you_would_have}</div>
         <div style="font-size:64px;font-weight:900;color:${fundColor};line-height:1;letter-spacing:-1.5px">${fmtEur(finalCapital)}</div>
         <div style="margin-top:14px;font-size:18px;font-weight:700;color:${fundColor}">
-          ${gainAbsolu >= 0 ? '+' : ''}${fmtEur(gainAbsolu)} de gain
-          <span style="font-size:14px;color:var(--text-secondary,#94A3B8);font-weight:500;margin-left:8px">(${fmtPct(s.avgReturn)} sur ${periodLabel})</span>
+          ${gainAbsolu >= 0 ? '+' : ''}${fmtEur(gainAbsolu)} ${T().of_gain}
+          <span style="font-size:14px;color:var(--text-secondary,#94A3B8);font-weight:500;margin-left:8px">${T().over_period(fmtPct(s.avgReturn), periodLabel)}</span>
         </div>
         <div style="margin-top:6px;font-size:13px;color:${alphaEur >= 0 ? '#10B981' : '#EF4444'}">
-          Soit ${alphaEur >= 0 ? '+' : ''}${fmtEur(alphaEur)} de plus qu'une ${ASSURANCE_VIE_LABEL.toLowerCase()} classique (${fmtPct(benchmarkReturnPct)} sur ${periodLabel})
+          ${(alphaEur >= 0 ? T().alpha_more : T().alpha_less)((alphaEur >= 0 ? '+' : '') + fmtEur(alphaEur), ASSURANCE_VIE_LABEL, fmtPct(benchmarkReturnPct), periodLabel)}
         </div>
       </div>
       ${renderEquityCurveDual(data.equityCurve || [], filerLabel)}
@@ -405,19 +464,21 @@
     const period = periodEl.value;
     btnEl.disabled = true;
     const originalText = btnEl.textContent;
-    btnEl.textContent = '⏳ Calcul en cours...';
-    resultsEl.innerHTML = '<div class="kbt-loading">📊 Récupération des positions et des cours historiques (10-30 sec)…</div>';
+    btnEl.textContent = T().btn_calc_running;
+    resultsEl.innerHTML = `<div class="kbt-loading">${T().loading_msg}</div>`;
     try {
-      const r = await fetch(`${API}/backtest/${encodeURIComponent(filer)}?period=${period}`);
+      // i18n (mai 2026) : envoie ?lang=fr|en pour que le worker localize bestCalls
+      const lang = getLang();
+      const r = await fetch(`${API}/backtest/${encodeURIComponent(filer)}?period=${period}&lang=${lang}`);
       const data = await r.json();
       if (data.error) {
-        resultsEl.innerHTML = `<div class="kbt-empty">❌ Erreur : ${data.error}</div>`;
+        resultsEl.innerHTML = `<div class="kbt-empty">${T().error_prefix} : ${data.error}</div>`;
         return;
       }
       state.data = data;
       renderResults(state);
     } catch (e) {
-      resultsEl.innerHTML = `<div class="kbt-empty">❌ Erreur : ${e.message}</div>`;
+      resultsEl.innerHTML = `<div class="kbt-empty">${T().error_prefix} : ${e.message}</div>`;
     } finally {
       btnEl.disabled = false;
       btnEl.textContent = originalText;

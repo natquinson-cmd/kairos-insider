@@ -539,8 +539,10 @@ async function handleRequest(request, env, ctx) {
       try {
         const filerKey = decodeURIComponent(path.slice('/api/backtest/'.length));
         const periodKey = url.searchParams.get('period') || '1y';
+        // i18n (mai 2026) : propage lang vers handleBacktest pour localizeBestCalls
+        const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'fr';
         const { handleBacktest } = await import('./backtest.js');
-        const data = await handleBacktest(filerKey, periodKey, env);
+        const data = await handleBacktest(filerKey, periodKey, env, lang);
         return jsonResponse(data, 200, origin);
       } catch (e) {
         return jsonResponse({ error: 'Backtest failed', detail: String(e) }, 500, origin);
