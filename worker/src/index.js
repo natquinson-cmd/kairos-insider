@@ -8198,23 +8198,63 @@ async function handlePartnerRequestMagicLink(request, env, origin) {
       email,
       expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
     }), { expirationTtl: 24 * 3600 }).catch(() => {});
-    // Envoie le mail via Brevo (best-effort, non-bloquant pour la reponse)
+    // Envoie le mail via Brevo (UTF-8 accents corrects, design coherent
+    // avec l'email d'acceptation partenaire — header gradient + CTA prominent).
     const cockpitUrl = `https://kairosinsider.fr/partner-cockpit?token=${token}`;
-    const subject = `🤝 Acces a ton cockpit Kairos Insider`;
-    const htmlBody = `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1e293b">
-        <h2 style="color:#1e293b">Bonjour ${escapeHtml(partner.name || '')},</h2>
-        <p>Voici votre lien d'acces au cockpit partenaire Kairos Insider :</p>
-        <p style="margin:24px 0">
-          <a href="${escapeHtml(cockpitUrl)}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Acceder a mon cockpit</a>
-        </p>
-        <p style="color:#64748b;font-size:13px">Ce lien est valable 24h. Une session sera ensuite cree pour 30 jours.</p>
-        <p style="color:#64748b;font-size:13px;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px">
-          Si vous n'avez pas demande ce lien, ignorez ce message.<br>
-          Code partenaire : <code>${escapeHtml(partner.code)}</code> (a partager avec votre audience pour -10%).
-        </p>
-      </div>
-    `;
+    const subject = `🤝 Accès à ton cockpit Kairos Insider`;
+    const firstName = (partner.name || '').split(' ')[0] || '';
+    const htmlBody = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accès cockpit</title></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0F172A;line-height:1.55">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F1F5F9;padding:24px 12px">
+  <tr><td align="center">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06)">
+      <!-- HEADER GRADIENT -->
+      <tr><td style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);padding:32px 32px;text-align:center;color:#FFFFFF">
+        <div style="font-size:40px;line-height:1;margin-bottom:8px">🤝</div>
+        <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.4px">Ton accès cockpit</div>
+        <div style="font-size:13px;opacity:0.92;margin-top:4px">Kairos Insider · Programme partenaires</div>
+      </td></tr>
+
+      <!-- BODY -->
+      <tr><td style="padding:28px 32px 8px">
+        <p style="margin:0 0 12px;font-size:16px">Bonjour <strong>${escapeHtml(firstName || partner.name || '')}</strong>,</p>
+        <p style="margin:0;font-size:15px;color:#334155">Voici ton lien personnel pour accéder à ton cockpit partenaire — tu y trouveras tes clics, conversions et revenus en temps réel.</p>
+      </td></tr>
+
+      <!-- CTA -->
+      <tr><td align="center" style="padding:24px 32px 12px">
+        <a href="${escapeHtml(cockpitUrl)}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);color:#FFFFFF !important;text-decoration:none;border-radius:12px;font-weight:800;font-size:16px;letter-spacing:0.2px;box-shadow:0 6px 20px rgba(139,92,246,0.35)">Accéder à mon cockpit&nbsp;→</a>
+      </td></tr>
+
+      <!-- INFO BLOCK -->
+      <tr><td style="padding:8px 32px 16px">
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;font-size:13px;color:#475569;line-height:1.65">
+          <strong style="color:#0F172A">À savoir&nbsp;:</strong><br>
+          • Ce lien est valable <strong>24 heures</strong><br>
+          • Une fois cliqué, une session est créée pour <strong>30 jours</strong> (tu n'auras pas à redemander un lien tant qu'elle est valide)<br>
+          • Si tu n'as pas demandé ce lien, ignore simplement ce message
+        </div>
+      </td></tr>
+
+      <!-- CODE RAPPEL -->
+      <tr><td style="padding:8px 32px 24px">
+        <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px">
+          <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:6px">Rappel de ton code partenaire</div>
+          <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:18px;font-weight:800;color:#0F172A;letter-spacing:0.5px">${escapeHtml(partner.code)}</div>
+          <div style="font-size:12px;color:#64748B;margin-top:6px">Lien tracké&nbsp;: <a href="https://kairosinsider.fr?ref=${escapeHtml(partner.code)}" style="color:#3B82F6;text-decoration:none">kairosinsider.fr?ref=${escapeHtml(partner.code)}</a></div>
+        </div>
+      </td></tr>
+
+      <!-- FOOTER -->
+      <tr><td style="background:#0B0F1A;color:#94A3B8;padding:18px 32px;text-align:center;font-size:11px">
+        <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:14px;font-weight:700;color:#F9FAFB;margin-bottom:4px">Kairos Insider</div>
+        <div><a href="https://kairosinsider.fr" style="color:#94A3B8;text-decoration:none">kairosinsider.fr</a> · <a href="mailto:contact@kairosinsider.fr" style="color:#94A3B8;text-decoration:none">contact@kairosinsider.fr</a></div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
     let mailSent = false;
     if (env.BREVO_API_KEY) {
       // FIX (mai 2026 v3) : AWAIT obligatoire (sinon CF Workers cancelle).
@@ -8606,24 +8646,127 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
         const cockpitUrl = `https://kairosinsider.fr/partner-cockpit`;
         const refLink = `https://kairosinsider.fr?ref=${code}`;
         const subject = `🎉 Bienvenue dans le programme partenaires Kairos Insider`;
-        const htmlBody = `
-          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1e293b">
-            <h2 style="color:#1e293b">Bonjour ${escapeHtml(existing.name || '')},</h2>
-            <p>Bonne nouvelle : ta candidature au programme partenaires Kairos Insider est <strong>acceptee</strong>.</p>
-            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:20px 0">
-              <p style="margin:0 0 8px"><strong>Ton code partenaire :</strong> <code style="background:#fff;padding:4px 8px;border-radius:4px;border:1px solid #e5e7eb">${escapeHtml(code)}</code></p>
-              <p style="margin:0 0 8px"><strong>Lien d'affiliation :</strong> <a href="${escapeHtml(refLink)}">${escapeHtml(refLink)}</a></p>
-              <p style="margin:0"><strong>Code promo pour ton audience :</strong> <code style="background:#fff;padding:4px 8px;border-radius:4px;border:1px solid #e5e7eb">${escapeHtml(code)}10</code> (-10%)</p>
-            </div>
-            <p>Commission : <strong>50% recurring a vie</strong> sur chaque abonne amene (Pro = 9,50EUR/mois/user, Elite = 24,50EUR/mois/user).</p>
-            <p style="margin:24px 0">
-              <a href="${escapeHtml(cockpitUrl)}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Acceder a mon cockpit</a>
-            </p>
-            <p style="font-size:13px;color:#64748b">Ton cockpit te permettra de suivre en temps reel les clics, signups et revenus generes par ton lien d'affiliation. Acces via magic link envoye a ton email.</p>
-            ${adminNote ? `<p style="font-size:13px;color:#64748b;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:24px"><strong>Note :</strong> ${escapeHtml(adminNote)}</p>` : ''}
-            <p style="font-size:13px;color:#64748b;margin-top:24px">Une question ? Reponds simplement a cet email.<br>— Nathanael, fondateur de Kairos Insider</p>
-          </div>
-        `;
+        const firstName = (existing.name || '').split(' ')[0] || '';
+        // Email redesigné (mai 2026) : header gradient + stats banner + card kit
+        // + tableau commission + CTA prominent. Inline CSS partout (Gmail strip
+        // <style>). Tables pour layout (compat Outlook). UTF-8 accents corrects.
+        const htmlBody = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bienvenue partenaire</title></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#0F172A;line-height:1.55">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F1F5F9;padding:24px 12px">
+  <tr><td align="center">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06)">
+      <!-- HEADER GRADIENT -->
+      <tr><td style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);padding:36px 32px;text-align:center;color:#FFFFFF">
+        <div style="font-size:48px;line-height:1;margin-bottom:8px">🎉</div>
+        <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.4px;margin-bottom:4px">Bienvenue partenaire&nbsp;!</div>
+        <div style="font-size:14px;opacity:0.95">Ta candidature Kairos Insider est <strong style="background:rgba(255,255,255,0.18);padding:2px 8px;border-radius:6px">acceptée</strong></div>
+      </td></tr>
+
+      <!-- INTRO -->
+      <tr><td style="padding:28px 32px 12px;color:#0F172A">
+        <p style="margin:0 0 12px;font-size:16px">Bonjour <strong>${escapeHtml(firstName || existing.name || '')}</strong>,</p>
+        <p style="margin:0;font-size:15px;color:#334155">Bonne nouvelle&nbsp;! On a étudié ta candidature et elle correspond exactement à ce qu'on cherche. Tu as désormais accès au programme partenaires Kairos Insider, avec une <strong style="color:#0F172A">commission de 50&nbsp;% à vie</strong> sur chaque abonné que tu nous amènes.</p>
+      </td></tr>
+
+      <!-- STATS BANNER -->
+      <tr><td style="padding:8px 24px 20px">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:linear-gradient(135deg,rgba(59,130,246,0.06),rgba(139,92,246,0.04));border:1px solid rgba(139,92,246,0.18);border-radius:12px">
+          <tr>
+            <td width="33%" align="center" style="padding:18px 6px;border-right:1px solid rgba(139,92,246,0.12)">
+              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#10B981,#059669);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#10B981;line-height:1">50&nbsp;%</div>
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Commission</div>
+            </td>
+            <td width="33%" align="center" style="padding:18px 6px;border-right:1px solid rgba(139,92,246,0.12)">
+              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#3B82F6;line-height:1">90&nbsp;j</div>
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Cookie tracking</div>
+            </td>
+            <td width="33%" align="center" style="padding:18px 6px">
+              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#EC4899,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#EC4899;line-height:1">À&nbsp;vie</div>
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Recurring</div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- KIT PARTENAIRE -->
+      <tr><td style="padding:8px 32px">
+        <div style="font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:12px">🎁 Ton kit partenaire</div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #E2E8F0;border-radius:12px;background:#F8FAFC">
+          <tr><td style="padding:14px 16px;border-bottom:1px solid #E2E8F0">
+            <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;margin-bottom:4px">Code partenaire</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:18px;font-weight:800;color:#0F172A;letter-spacing:0.5px">${escapeHtml(code)}</div>
+          </td></tr>
+          <tr><td style="padding:14px 16px;border-bottom:1px solid #E2E8F0">
+            <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;margin-bottom:4px">🔗 Lien d'affiliation</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:13px;word-break:break-all"><a href="${escapeHtml(refLink)}" style="color:#3B82F6;text-decoration:none;font-weight:600">${escapeHtml(refLink)}</a></div>
+          </td></tr>
+          <tr><td style="padding:14px 16px">
+            <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;margin-bottom:4px">🎟 Code promo (-10&nbsp;%) à partager avec ton audience</div>
+            <div style="font-family:'SF Mono','Menlo',Consolas,monospace;font-size:18px;font-weight:800;color:#10B981;letter-spacing:0.5px">${escapeHtml(code)}10</div>
+          </td></tr>
+        </table>
+      </td></tr>
+
+      <!-- COMBIEN TU GAGNES -->
+      <tr><td style="padding:20px 32px 4px">
+        <div style="font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:12px">💰 Combien tu gagnes par abonné</div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-collapse:separate;border-spacing:8px 0">
+          <tr>
+            <td width="50%" valign="top" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
+              <div style="font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">⭐ Pro · 19&nbsp;€/mois</div>
+              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;font-weight:800;color:#10B981;margin-top:4px">9,50&nbsp;€/mois</div>
+              <div style="font-size:11px;color:#64748B;margin-top:2px">par abonné, à vie</div>
+            </td>
+            <td width="50%" valign="top" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
+              <div style="font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">⚡ Elite · 49&nbsp;€/mois</div>
+              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;font-weight:800;color:#10B981;margin-top:4px">24,50&nbsp;€/mois</div>
+              <div style="font-size:11px;color:#64748B;margin-top:2px">par abonné, à vie</div>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- CTA -->
+      <tr><td align="center" style="padding:28px 32px 16px">
+        <a href="${escapeHtml(cockpitUrl)}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);color:#FFFFFF !important;text-decoration:none;border-radius:12px;font-weight:800;font-size:16px;letter-spacing:0.2px;box-shadow:0 6px 20px rgba(139,92,246,0.35)">Accéder à mon cockpit&nbsp;→</a>
+        <div style="font-size:13px;color:#64748B;margin-top:14px;line-height:1.5">Suis en temps réel tes clics, conversions et revenus.<br>Authentification par <strong>magic&nbsp;link</strong> envoyé à <strong>${escapeHtml(existing.email)}</strong>.</div>
+      </td></tr>
+
+      ${adminNote ? `
+      <!-- NOTE ADMIN -->
+      <tr><td style="padding:12px 32px">
+        <div style="background:#FEF3C7;border-left:3px solid #F59E0B;padding:12px 14px;border-radius:6px;font-size:13px;color:#78350F"><strong>Note du fondateur&nbsp;:</strong> ${escapeHtml(adminNote)}</div>
+      </td></tr>` : ''}
+
+      <!-- INFO RECAP -->
+      <tr><td style="padding:20px 32px 8px">
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;font-size:13px;color:#475569;line-height:1.65">
+          <strong style="color:#0F172A">À retenir&nbsp;:</strong><br>
+          ✓ Aucun engagement de durée — tu peux arrêter quand tu veux<br>
+          ✓ Paiement mensuel par virement SEPA le 5 du mois suivant<br>
+          ✓ Minimum 50&nbsp;€ accumulé pour déclencher le versement<br>
+          ✓ Lien tracké <strong>+ code promo</strong> = double attribution (UTM + Stripe)
+        </div>
+      </td></tr>
+
+      <!-- SIGNATURE -->
+      <tr><td style="padding:20px 32px 28px;border-top:1px solid #E2E8F0;margin-top:16px">
+        <p style="margin:0 0 8px;font-size:14px;color:#0F172A">Une question&nbsp;? Tu peux <strong>répondre directement à cet email</strong> — c'est moi qui te lis.</p>
+        <p style="margin:0;font-size:14px;color:#0F172A"><strong>Nathanaël Quinson</strong><br>
+        <span style="color:#64748B">Fondateur — Kairos Insider</span></p>
+      </td></tr>
+
+      <!-- FOOTER -->
+      <tr><td style="background:#0B0F1A;color:#94A3B8;padding:20px 32px;text-align:center;font-size:11px">
+        <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:14px;font-weight:700;background:linear-gradient(135deg,#F9FAFB,#9CA3AF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#F9FAFB;margin-bottom:6px">Kairos Insider</div>
+        <div>La plateforme francophone du smart money</div>
+        <div style="margin-top:8px"><a href="https://kairosinsider.fr" style="color:#94A3B8;text-decoration:none">kairosinsider.fr</a> · <a href="mailto:contact@kairosinsider.fr" style="color:#94A3B8;text-decoration:none">contact@kairosinsider.fr</a></div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
         // FIX (mai 2026 v3) : AWAIT obligatoire sur CF Workers
         try {
           await fetch('https://api.brevo.com/v3/smtp/email', {
