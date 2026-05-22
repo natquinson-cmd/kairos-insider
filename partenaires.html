@@ -75,14 +75,33 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+    header.topnav nav { display: inline-flex; align-items: center; gap: 24px; }
     header.topnav nav a {
-      margin-left: 24px;
       color: var(--text-secondary);
       text-decoration: none;
       font-size: 14px;
       font-weight: 500;
     }
     header.topnav nav a:hover { color: var(--text-primary); }
+    /* Bouton toggle langue FR/EN — cohérent avec landing/dashboard. */
+    .lang-toggle {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .lang-toggle:hover { border-color: var(--accent); color: var(--text-primary); }
+    .lang-toggle img { width: 18px; height: 12px; object-fit: cover; border-radius: 2px; }
 
     .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
 
@@ -413,8 +432,37 @@
       <a href="/" data-i18n="nav.home">Accueil</a>
       <a href="/backtest">Backtest</a>
       <a href="/dashboard" data-i18n="nav.dashboard">Dashboard</a>
+      <!-- Toggle FR/EN : KairosI18n.setLang bascule + persiste + recharge les data-i18n.
+           Drapeau affiche = drapeau de la langue CIBLE (qui sera active au clic). -->
+      <button type="button" class="lang-toggle" id="partnerLangToggle"
+              onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === 'fr' ? 'en' : 'fr')"
+              title="Switch language / Changer de langue"
+              aria-label="Switch language">
+        <img id="partnerLangFlag" src="assets/flags/gb.png" alt="" />
+        <span id="partnerLangCode">EN</span>
+      </button>
     </nav>
   </header>
+  <script>
+    // Met a jour le bouton avec la langue CIBLE (au clic on bascule vers).
+    // Lance au load + a chaque kairos:langchange (event dispatch par i18n.js).
+    (function syncPartnerLangToggle() {
+      function update() {
+        if (!window.KairosI18n) return setTimeout(update, 50);
+        var current = window.KairosI18n.getLang();
+        var nextCode = current === 'fr' ? 'EN' : 'FR';
+        var nextFlag = current === 'fr' ? 'gb' : 'fr';
+        var flagEl = document.getElementById('partnerLangFlag');
+        var codeEl = document.getElementById('partnerLangCode');
+        if (flagEl) flagEl.src = 'assets/flags/' + nextFlag + '.png';
+        if (codeEl) codeEl.textContent = nextCode;
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', update);
+      } else { update(); }
+      window.addEventListener('kairos:langchange', update);
+    })();
+  </script>
 
   <!-- ===== HERO ===== -->
   <section class="hero">
@@ -712,8 +760,8 @@
             <div style="font-size:14px;color:var(--text-secondary);font-weight:400" data-i18n="partner.apply.success_sub">Nathanaël (fondateur) va l'étudier personnellement et vous répondre par mail sous 48h ouvrées.</div>
           </div>`;
         form.innerHTML = successHtml;
-        // Re-trigger i18n sur le nouveau contenu
-        try { window.KairosI18n?.applyI18nToDom?.(); } catch (_) {}
+        // Re-trigger i18n sur le nouveau contenu (data-i18n dans successHtml)
+        try { window.KairosI18n?.applyTranslations?.(form); } catch (_) {}
       } catch (err) {
         errEl.textContent = '⚠️ ' + (err.message || 'Erreur réseau. Réessayez ou écrivez à contact@kairosinsider.fr');
         errEl.style.display = 'block';
