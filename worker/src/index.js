@@ -8678,12 +8678,12 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
               <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Commission</div>
             </td>
             <td width="33%" align="center" style="padding:18px 6px;border-right:1px solid rgba(139,92,246,0.12)">
-              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#3B82F6;line-height:1">90&nbsp;j</div>
-              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Cookie tracking</div>
-            </td>
-            <td width="33%" align="center" style="padding:18px 6px">
               <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#EC4899,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#EC4899;line-height:1">À&nbsp;vie</div>
               <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Recurring</div>
+            </td>
+            <td width="33%" align="center" style="padding:18px 6px">
+              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#3B82F6;line-height:1">Mensuel</div>
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Paiement SEPA</div>
             </td>
           </tr>
         </table>
@@ -8743,10 +8743,10 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
       <tr><td style="padding:20px 32px 8px">
         <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;font-size:13px;color:#475569;line-height:1.65">
           <strong style="color:#0F172A">À retenir&nbsp;:</strong><br>
+          ✓ <strong>Commission à vie</strong> tant que l'abonné reste Premium<br>
           ✓ Aucun engagement de durée — tu peux arrêter quand tu veux<br>
           ✓ Paiement mensuel par virement SEPA le 5 du mois suivant<br>
-          ✓ Minimum 50&nbsp;€ accumulé pour déclencher le versement<br>
-          ✓ Lien tracké <strong>+ code promo</strong> = double attribution (UTM + Stripe)
+          ✓ Minimum 50&nbsp;€ accumulé pour déclencher le versement
         </div>
       </td></tr>
 
