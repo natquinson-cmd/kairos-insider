@@ -7556,10 +7556,15 @@ async function handleSendWelcome(request, env, origin) {
     //   - workflow automation impossible (founder letter J+5)
     //   - tracking opens/clicks per contact impossible
     // pushBrevoContact utilise updateEnabled:true = idempotent.
-    // Fire-and-forget : si Brevo down, le welcome est deja parti.
-    pushBrevoContact(env, email, { lang }).catch(e =>
-      console.warn('[brevo-contact] welcome create failed:', e?.message || e)
-    );
+    // FIX (mai 2026 v3) : AWAIT obligatoire sur Cloudflare Workers car le
+    // fire-and-forget .catch() seul fait que la requete Brevo est cancellee
+    // quand le response est renvoye (kpshmail bug). Si Brevo timeout, on
+    // catch ici sans faire echouer le welcome.
+    try {
+      await pushBrevoContact(env, email, { lang });
+    } catch (e) {
+      console.warn('[brevo-contact] welcome create failed:', e?.message || e);
+    }
 
     // Stocke aussi `lang` dans le user:{uid} KV pour audit + futur targeting
     // (admin panel "users by lang", segmentation cron weekly digest, etc.).
@@ -7981,12 +7986,19 @@ async function handleAdminSetUserLang(request, env, origin) {
     userRecord.langBackfilledBy = 'admin';  // audit trail
     await env.CACHE.put(`user:${uid}`, JSON.stringify(userRecord));
 
-    // Push aussi l'attribut Brevo (best-effort)
+    // Push aussi l'attribut Brevo. FIX (mai 2026, kpshmail bug) :
+    // AWAIT obligatoire sinon Cloudflare Workers cancelle la requete Brevo
+    // en cours quand le response est renvoye -> contact jamais cree.
+    // Le pattern .catch() fire-and-forget seul ne suffit pas sur Workers.
     const userEmail = userRecord.email || email;
+    let brevoSyncResult = null;
     if (userEmail) {
-      pushBrevoContactLang(env, userEmail, lang).catch(e =>
-        console.warn('[set-user-lang] brevo push failed:', e?.message || e)
-      );
+      try {
+        brevoSyncResult = await pushBrevoContactLang(env, userEmail, lang);
+      } catch (e) {
+        console.warn('[set-user-lang] brevo push failed:', e?.message || e);
+        brevoSyncResult = { ok: false, error: e?.message };
+      }
     }
 
     return jsonResponse({
@@ -7995,6 +8007,7 @@ async function handleAdminSetUserLang(request, env, origin) {
       email: userEmail,
       lang,
       langUpdatedAt: userRecord.langUpdatedAt,
+      brevoSync: brevoSyncResult,
     }, 200, origin);
   } catch (err) {
     console.error('handleAdminSetUserLang error:', err);
@@ -8202,25 +8215,33 @@ async function handlePartnerRequestMagicLink(request, env, origin) {
         </p>
       </div>
     `;
+    let mailSent = false;
     if (env.BREVO_API_KEY) {
-      fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'api-key': env.BREVO_API_KEY,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
-          to: [{ email, name: partner.name || '' }],
-          subject,
-          htmlContent: htmlBody,
-          tags: ['partner-magic-link'],
-        }),
-      }).catch(e => console.warn('[partner-magic-link] brevo send failed:', e?.message || e));
+      // FIX (mai 2026 v3) : AWAIT obligatoire (sinon CF Workers cancelle).
+      try {
+        const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+            to: [{ email, name: partner.name || '' }],
+            subject,
+            htmlContent: htmlBody,
+            tags: ['partner-magic-link'],
+          }),
+        });
+        mailSent = r.ok;
+        if (!r.ok) console.warn('[partner-magic-link] Brevo status:', r.status);
+      } catch (e) {
+        console.warn('[partner-magic-link] brevo send failed:', e?.message || e);
+      }
     }
-    log.info('partner.magic-link.sent', { email, code: partner.code });
-    return jsonResponse({ ok: true, sent: true, message: 'Lien envoye. Verifiez votre boite mail (et les spams).' }, 200, origin);
+    log.info('partner.magic-link.sent', { email, code: partner.code, mailSent });
+    return jsonResponse({ ok: true, sent: mailSent, message: 'Lien envoye. Verifiez votre boite mail (et les spams).' }, 200, origin);
   } catch (err) {
     console.error('handlePartnerRequestMagicLink error:', err);
     return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
@@ -8441,25 +8462,30 @@ async function handlePartnershipApply(request, env, origin) {
           Pour repondre : <a href="mailto:${escapeHtml(email)}?subject=Re%3A%20Votre%20candidature%20partenaire%20Kairos%20Insider">repondre directement</a> ou via dashboard admin.
         </p>
       `;
-      // Fire-and-forget, on ne fait pas attendre le user
-      fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'api-key': env.BREVO_API_KEY,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: {
-            email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
-            name: 'Kairos Insider (Partenariats)',
+      // FIX (mai 2026 v3) : AWAIT obligatoire sur CF Workers (sinon
+      // fire-and-forget est cancelle quand le response est renvoye).
+      try {
+        await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
-          to: [{ email: adminEmail }],
-          replyTo: { email, name },
-          subject,
-          htmlContent: htmlBody,
-        }),
-      }).catch(e => console.warn('[partnership] brevo admin notif failed:', e?.message || e));
+          body: JSON.stringify({
+            sender: {
+              email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
+              name: 'Kairos Insider (Partenariats)',
+            },
+            to: [{ email: adminEmail }],
+            replyTo: { email, name },
+            subject,
+            htmlContent: htmlBody,
+          }),
+        });
+      } catch (e) {
+        console.warn('[partnership] brevo admin notif failed:', e?.message || e);
+      }
     }
 
     return jsonResponse({
@@ -8598,21 +8624,38 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
             <p style="font-size:13px;color:#64748b;margin-top:24px">Une question ? Reponds simplement a cet email.<br>— Nathanael, fondateur de Kairos Insider</p>
           </div>
         `;
-        fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'api-key': env.BREVO_API_KEY,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({
-            sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
-            to: [{ email: existing.email, name: existing.name || '' }],
-            subject,
-            htmlContent: htmlBody,
-            tags: ['partner-acceptance'],
-          }),
-        }).catch(e => console.warn('[partner-acceptance] brevo send failed:', e?.message || e));
+        // FIX (mai 2026 v3) : AWAIT obligatoire sur CF Workers
+        try {
+          await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'api-key': env.BREVO_API_KEY,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+              to: [{ email: existing.email, name: existing.name || '' }],
+              subject,
+              htmlContent: htmlBody,
+              tags: ['partner-acceptance'],
+            }),
+          });
+        } catch (e) {
+          console.warn('[partner-acceptance] brevo send failed:', e?.message || e);
+        }
+        // CRITIQUE (mai 2026 kpshmail bug) : POST /v3/smtp/email NE CREE PAS
+        // de contact dans Brevo Contacts. Il faut explicitement pushBrevoContact
+        // pour que le partner apparaisse dans le CRM (workflow automation,
+        // segmentation par PLAN, etc.).
+        try {
+          await pushBrevoContact(env, existing.email, {
+            lang: existing.lang || 'fr',
+            firstName: existing.name,
+          });
+        } catch (e) {
+          console.warn('[partner-acceptance] brevo contact create failed:', e?.message || e);
+        }
       }
     }
 
@@ -8703,12 +8746,15 @@ async function handleAdminGrantPremium(request, env, user, origin) {
     };
     await env.CACHE.put(`comp:${uid}`, JSON.stringify(grant));
 
-    // Sync Brevo PLAN attribute (best-effort, non-bloquant)
+    // Sync Brevo PLAN attribute. AWAIT obligatoire sur CF Workers (fire-and-forget
+    // cancelle la requete au response). Si Brevo down, on catch sans echec.
     if (email && env.BREVO_API_KEY) {
       const brevoPlan = `${plan}_comp`;  // 'pro_comp' ou 'elite_comp'
-      pushBrevoContact(env, email, { plan: brevoPlan }).catch(e =>
-        console.warn('[grant-premium] brevo push failed:', e?.message || e)
-      );
+      try {
+        await pushBrevoContact(env, email, { plan: brevoPlan });
+      } catch (e) {
+        console.warn('[grant-premium] brevo push failed:', e?.message || e);
+      }
     }
 
     log.info('admin.grant-premium', { uid, email, plan, durationMonths, source, grantedBy: user?.email });
@@ -8754,9 +8800,11 @@ async function handleAdminRevokePremium(request, env, user, origin) {
       const subData = await env.CACHE.get(`sub:${uid}`, 'json').catch(() => null);
       const hasActiveStripe = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
       if (!hasActiveStripe) {
-        pushBrevoContact(env, email, { plan: 'free' }).catch(e =>
-          console.warn('[revoke-premium] brevo push failed:', e?.message || e)
-        );
+        try {
+          await pushBrevoContact(env, email, { plan: 'free' });
+        } catch (e) {
+          console.warn('[revoke-premium] brevo push failed:', e?.message || e);
+        }
         brevoSyncQueued = true;
       }
     }
@@ -9085,9 +9133,11 @@ async function handleAdminSendFounderLetter(request, env, origin) {
         }
         const data = await resp.json().catch(() => ({}));
         results.push({ email, lang, ok: true, messageId: data.messageId });
-        // Pousse aussi l'attribut LANG au passage (defense en profondeur
-        // pour les futurs workflows Brevo)
-        pushBrevoContactLang(env, email, lang).catch(() => {});
+        // Pousse aussi l'attribut LANG au passage. AWAIT obligatoire sur
+        // CF Workers (fire-and-forget cancelle la requete au response).
+        try { await pushBrevoContactLang(env, email, lang); } catch (e) {
+          console.warn('[founder-letter] brevo lang push failed:', e?.message || e);
+        }
       } catch (e) {
         results.push({ email, lang, ok: false, error: e?.message || String(e) });
       }
