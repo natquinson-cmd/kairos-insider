@@ -4,7 +4,142 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 15 mai 2026 (v14 - Fix stale earnings BH + insider markers trans_date + ticker tape i18n + Gmail alias normalization)
+**Dernière mise à jour** : 22 mai 2026 (v15 - Programme partenaires complet + Comp Premium + AMF BDIF officiel + fixes critiques CORS/Brevo)
+
+---
+
+## 🎯 v15 — Programme partenaires + Comp Premium + AMF source officielle (20-22 mai 2026)
+
+Session intensive de 3 jours autour de la monétisation (affiliate cockpit complet) et de la qualité des données (migration AMF vers source officielle BDIF + fixes Brevo).
+
+### ✅ Programme partenaires complet (affiliate cockpit)
+
+Infrastructure complète pour signer et gérer des partenaires affiliés sans intervention manuelle.
+
+**Backend (worker) :**
+- `POST /api/partnership-apply` : formulaire public de candidature (KV `partnership-app:{ts}-{hash}` TTL 90j + email admin Brevo)
+- `GET /api/admin/partnership-applications` : liste les candidatures avec agrégats par status
+- `PUT /api/admin/partnership-applications` : accepter/rejeter une candidature → **auto-crée `partner:{code}`** + envoie email Brevo welcome avec code + lien tracké + cockpit URL
+- `POST /api/affiliate/track-click` : capte `?ref=CODE` en KV (compteur mensuel + cookie 90j `affiliate-click:{visitorId}`)
+- Attribution signup : `trackFirstSeenUser` lit le header `X-Kairos-Visitor`, lookup le mapping click → set `user:{uid}.referrer = code` + increment `affiliate-signups:{code}:{YYYY-MM}`
+- Attribution Stripe : webhook `checkout.session.completed` → `recordAffiliateSale` calcule commission 50 % du plan (Pro 19€ → 9,50€/mois ; Elite 49€ → 24,50€/mois) → increment `affiliate-revenue:{code}:{YYYY-MM}`
+- Magic link auth : `POST /api/partner/request-magic-link` (email → Brevo, token TTL 24h) + `GET /api/partner/verify-token` (échange contre session TTL 30j)
+- `GET /api/partner/stats` : agrégats mois en cours + lifetime (clics, inscrits, premium, revenu) + historique mensuel
+
+**Frontend :**
+- Page publique `partenaires.html` : hero + 3 piliers + audience cible + tableau revenu + FAQ + formulaire
+- Page cockpit `partner-cockpit.html` : 2 modes (login magic link / dashboard stats) avec 4 KPI mois + 4 KPI lifetime + historique mensuel + boutons copier code/lien
+- Script global `assets/affiliate-tracker.js` (~1 KB) : génère visitorId persistant + capte `?ref=` + POST track-click au worker
+- `dashboard.html` `apiFetch` envoie header `X-Kairos-Visitor` automatiquement à chaque call auth (attribution au signup)
+- Dashboard admin : nouveau panel **Candidatures partenaires** (cards par candidature, accept/reject/note)
+- i18n FR + EN intégral (toutes clés `partner.*`)
+
+**Workflows GH Actions :**
+- `test-affiliate-cockpit-e2e.yml` : test end-to-end automatique (apply → accept → 5 clics → magic link)
+
+### ✅ Comp Premium — grants gratuits manuels
+
+Système pour offrir Premium à un user sans Stripe (influenceurs, beta, gifts, team).
+
+- KV `comp:{uid}` séparé de `sub:{uid}` (pas écrasé par webhook Stripe)
+- Format `{plan, grantedBy, grantedAt, expiresAt, source, note}` (expiresAt=null = à vie)
+- `isPremiumUser` modifié pour vérifier Stripe **OU** comp (Pro/Elite/legacy)
+- `POST /api/admin/grant-premium` + `POST /api/admin/revoke-premium` (sync Brevo PLAN attribute)
+- Dashboard admin : modal "Offrir Premium" (plan, durée 6/12/24mois/à vie, source influencer/beta/gift/team, note audit) + bouton "Révoquer" par ligne
+- 3 inline `subData.status==='active'` checks dans le worker (portfolio, watchlist, API gate général) **remplacés par `isPremiumUser`** pour cohérence
+
+### ✅ Migration AMF → source officielle BDIF
+
+Avant : `fetch-amf.py` scrapait `abcbourse.com` (miroir tiers, retard d'indexation).
+Après : `fetch-amf-dd.py` utilise **l'API officielle BDIF de l'AMF** (`bdif.amf-france.org/back/api/v1`).
+
+- `TypesInformation=DD` = Déclarations Dirigeants (MAR art. 19) — 26 000 docs historiques disponibles
+- Liste JSON via API + téléchargement des PDFs officiels (`/back/api/v1/documents/{path}`)
+- Parser regex sur le formulaire AMF standardisé : nom/fonction dirigeant, émetteur, ISIN, LEI, date/nature/lieu, prix + volume agrégés
+- Output `transactions_amf.json` au même format que l'ancien fetch-amf.py (compat `merge-sources.py`)
+- Workflow `update-13f.yml` : `pip install pypdf` + replace `fetch-amf.py` → `fetch-amf-dd.py --days 90 --limit 1500`
+- Test local validé : date max = J-1 (vs ~4j stale avec abcbourse)
+
+### ✅ Bugs critiques fixés
+
+**🐛 Bug CORS `X-Kairos-Visitor` (22 mai)** — bloquait tous les API calls auth depuis kairosinsider.fr :
+- Symptôme : checkSubscription échouait silencieusement → users Premium vus comme Free dans l'UI
+- Cause : ajout du header `X-Kairos-Visitor` dans apiFetch sans l'autoriser dans `Access-Control-Allow-Headers`
+- Fix : ajout de `X-Kairos-Visitor` + `X-Admin-API-Key` dans CORS preflight + `PUT` dans Allow-Methods
+
+**🐛 Bug Brevo fire-and-forget cancellé (22 mai)** — 30 % des users sans contact Brevo :
+- Symptôme : `kpshmail@gmail.com` (vrai user) avait `lang=null` + Brevo Contact 404 malgré un backfill
+- Cause : sur Cloudflare Workers, `fetch(...).catch(...)` sans `await` ni `ctx.waitUntil()` est cancellé quand la response client est renvoyée
+- Fix : **8 endroits** passés en `await + try/catch` (handleSendWelcome, handleAdminSetUserLang, grant/revoke Premium, partnership notif, magic link, partner acceptance)
+
+**🐛 Bug `/send-welcome` early return (22 mai)** — lang/Brevo non synchronisés pour les re-logins :
+- Cause : `welcome-sent:{uid}` early-return skip-pait la maj lang + push Brevo Contact
+- Fix : refactor pour séparer idempotence ENVOI MAIL vs maj METADATA
+
+**🐛 Bug nav cachée par banner email-verify (21 mai)** — bouton Déconnexion inaccessible :
+- Cause : banner `position:relative z-index:101` vs nav `position:fixed z-index:100` → banner recouvre la nav
+- Fix : body class `has-email-verify-banner` qui décale la nav de 42px + bouton "🚪 Se déconnecter" en fallback dans le banner
+
+**🐛 Bug auth UX cul-de-sac (21 mai)** — signup avec email existant → pas de chemin vers login :
+- Fix : lien "Déjà un compte ? Se connecter" prominent en HAUT du form signup + erreur "email déjà utilisé" devient cliquable (pré-remplit l'email dans le login form)
+
+**🐛 Bug Google SSO welcome flow** — lang non tracké pour les re-logins :
+- Fix : `sendWelcomeEmailFor` appelé inconditionnellement à chaque login Google (l'idempotence côté worker empêche le double mail)
+
+### ✅ Refonte des emails partenaires
+
+User feedback : "aucun accent" + "trop austère".
+
+- Header gradient + logo Kairos dans cercle blanc + nom de marque small caps + emoji thème
+- Stats banner 3 colonnes (50 % / À vie / Mensuel)
+- Card "Kit partenaire" : code + lien tracké + code promo
+- 2 cards revenu par plan (Pro 9,50€ · Elite 24,50€)
+- CTA bouton gradient + shadow + texte "Accéder à mon cockpit →"
+- Box "À retenir" : 3 puces (commission à vie, 0 engagement, paiement SEPA mensuel)
+- Footer dark Kairos brand
+- **Tous les accents UTF-8 corrects** (acceptée, à vie, créée, etc.)
+- Logo : `https://kairosinsider.fr/assets/logo-128.png` (8 KB, accessible HTTP 200)
+
+### ✅ i18n FR — chasse aux anglicismes
+
+- "Cookie 90 jours" retiré des mails et du cockpit (ambigu, suggérait fin de commission)
+- "Recurring" → "Récurrente" ou "À vie" (FR) — gardé en EN
+- "Free signups" → "Comptes gratuits attribués" dans le cockpit
+- "Minimum 50€" retiré des mails et de la FAQ
+
+### ✅ Workflows debug
+
+- `debug-user-lookup.yml` : inspecte un user (KV + Brevo) via email
+- `debug-lang-null-users.yml` : liste les users sans lang détectée + génère JSON pour batch backfill
+- `debug-insider-freshness.yml` : dates min/max par source (sec/amf/bafin) + activité 7j/30j
+- `test-affiliate-cockpit-e2e.yml` : E2E test complet du système partner
+
+### ✅ Drapeaux pays sur logos régulateurs (landing)
+
+User feedback : "il faudrait ajouter aussi les drapeaux en petit pour chaque pays".
+
+- Logos régulateurs (SEC, AMF, BaFin, FCA, AFM, SIX, CNMV, Consob) avec drapeaux PNG
+- **Pas d'emoji drapeau** (Windows les rend en codes texte "US" "FR" — bug confirmé par user)
+- 8 PNG flagcdn.com téléchargés localement (`assets/flags/{cc}.png`, total < 2 KB)
+- Logo Consob custom SVG vectoriel (l'ancien favicon 16x16 était pixellisé à 40x40)
+
+### Commits clés v15
+
+```
+0c72cd7 feat(amf): migration source officielle BDIF + parsing PDF
+f16fd0f fix(cors): autorise X-Kairos-Visitor + X-Admin-API-Key
+19f9edd fix(brevo): await tous les calls fire-and-forget
+175987f feat(affiliate): cockpit partenaire complet
+ac3486d fix(i18n): retire l'anglicisme 'recurring' du contenu FR
+8f36131 fix(i18n): retire 'Free signups' du cockpit partenaire
+a11bd16 feat(emails): ajoute le logo Kairos Insider dans les emails
+53eb69e fix(emails): refonte design partner-acceptance + magic-link
+c12dc5d fix(auth): nav cachée derrière banner Verify email
+04abeb3 fix(auth): UX cul-de-sac sur signup form quand email déjà utilisé
+41d0af3 fix(welcome): met à jour lang+Brevo à chaque login Google
+2d858c2 feat(partners): page /partenaires + worker endpoint /api/partnership-apply
+a15ba2f feat(admin): grant/revoke complimentary Premium (influencers, beta, gifts)
+```
 
 ---
 

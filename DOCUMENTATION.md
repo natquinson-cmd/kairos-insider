@@ -1,7 +1,7 @@
 # 📚 Documentation technique — Kairos Insider
 
 > Documentation complète de la plateforme Kairos Insider.
-> Dernière mise à jour : 06 mai 2026 (§6 Calcul du Kairos Score ajouté)
+> Dernière mise à jour : 22 mai 2026 (§8 Comp Premium + §8bis Programme partenaires + AMF BDIF migration)
 
 ---
 
@@ -14,7 +14,8 @@
 5. [Structure des données](#5-structure-des-donn%C3%A9es)
 6. [Calcul du Kairos Score (8 piliers)](#6-calcul-du-kairos-score-8-piliers)
 7. [Endpoints API](#7-endpoints-api)
-8. [Authentification & abonnements](#8-authentification--abonnements)
+8. [Authentification & abonnements](#8-authentification--abonnements) (incl. Comp Premium)
+8bis. [Programme partenaires & affiliate](#8bis-programme-partenaires--affiliate-mai-2026)
 9. [Sécurité](#9-s%C3%A9curit%C3%A9)
 10. [Observabilité](#10-observabilit%C3%A9)
 11. [Déploiement](#11-d%C3%A9ploiement)
@@ -222,7 +223,7 @@ Le pipeline tourne **quotidiennement à 1h30 UTC** (3h30 Paris heure d'été) vi
 | `prefetch-13f.py` | Fetch les positions trimestrielles de tous les fonds | ~30 min |
 | `prefetch-all.py` | Fetch SEC Form 4 + clusters d'insiders en 1 pass | ~20 min |
 | `fetch-bafin.py` | Scrape BaFin Directors' Dealings | ~5 min |
-| `fetch-amf.py` | Scrape AMF declarations dirigeants | ~10 min |
+| `fetch-amf-dd.py` | **Source officielle BDIF AMF** (API + parsing PDFs) — déclarations dirigeants (mai 2026, remplace `fetch-amf.py` qui scrapait abcbourse miroir) | ~10-15 min |
 | `fetch-13dg.py` | Fetch Schedule 13D/G filings + enrichissement XML | ~15 min |
 | `enrich-tickers.py` | Résout ISIN → ticker via OpenFIGI | ~10 min |
 | `merge-sources.py` | Merge SEC + BaFin + AMF en 1 fichier unifié | ~2 min |
@@ -335,7 +336,7 @@ En plus de `update-13f.yml` (pipeline data principal 1h30 UTC), trois workflows 
 - Refresh les sources haute volatilité (filings qui peuvent tomber à tout moment)
 - 4 jobs en parallèle pour minimiser la latence totale (~10 min max) :
   1. **`sec-13dg`** : `fetch-13dg.py --days 1 --merge-with` (incremental SEC 13D/A) puis `build-13d-filer-set.py` + `build-eu-13d-index.py` pour rafraîchir les indexes activist EU/UK
-  2. **`amf-fr`** : `fetch-amf.py` (déclarations dirigeants Euronext Paris)
+  2. **`amf-fr`** : `fetch-amf-dd.py` (déclarations dirigeants — **source officielle BDIF AMF** depuis mai 2026, parse les PDFs MAR art. 19)
   3. **`bafin-de`** : `fetch-bafin.py` (Directors' Dealings Allemagne)
   4. **`eu-thresholds`** : `fetch-amf-thresholds.py` + `fetch-bafin-thresholds.py` + `fetch-afm-thresholds.py` (seuils >5% EU)
 - Job `summary` final : update `lastRun:13dg-realtime`, `lastRun:amf-realtime`, etc. en KV pour permettre l'affichage d'un badge UI "Frais < 30 min"
@@ -886,6 +887,103 @@ Depuis "Mon Profil" → carte Abonnement → "Gérer mon abonnement" :
 5. Redirige vers `index.html`
 
 Pour conformité comptable, les factures émises restent conservées 10 ans chez Stripe.
+
+### Comp Premium — grants gratuits offerts par l'admin (mai 2026)
+
+Système parallèle à Stripe pour offrir Premium à un user sans paiement (influenceurs partenaires, beta testers, team interne, gifts early supporters).
+
+**KV séparé** `comp:{uid}` pour ne pas être écrasé par les webhooks Stripe :
+
+```json
+{
+  "plan": "pro",
+  "grantedBy": "natquinson@gmail.com",
+  "grantedAt": "2026-05-22T14:30:00Z",
+  "expiresAt": "2027-05-22T14:30:00Z",
+  "durationMonths": 12,
+  "source": "influencer",
+  "note": "Snowball partnership"
+}
+```
+
+`expiresAt: null` = à vie. `source` peut être `influencer | beta | gift | team`.
+
+**`isPremiumUser(env, uid)`** retourne true si **soit** `sub:{uid}` Stripe actif/past_due **soit** `comp:{uid}` non-expiré (plan Pro ou Elite).
+
+**Endpoints admin** :
+- `POST /api/admin/grant-premium` — body `{email|uid, plan, durationMonths, source, note}` → écrit `comp:{uid}` + push Brevo `PLAN=pro_comp` ou `elite_comp`
+- `POST /api/admin/revoke-premium` — body `{uid|email}` → supprime `comp:{uid}` + push Brevo `PLAN=free` (sauf si Stripe actif en parallèle)
+
+**UI** : modal "🎁 Offrir Premium" dans le panel admin users (plan / durée 6-12-24mois ou à vie / source / note audit). Bouton "Révoquer" par ligne si grant actif.
+
+---
+
+## 8bis. Programme partenaires & affiliate (mai 2026)
+
+Système complet pour signer des partenaires affiliés sans intervention manuelle. Source d'acquisition prévue pour le scaling 2026.
+
+### Vue d'ensemble
+
+Pipeline en 6 étapes automatisées :
+
+1. **Candidature** : public POST `/api/partnership-apply` depuis `/partenaires`
+2. **Notification admin** : email Brevo + visible dans le panel admin
+3. **Acceptation** : 1 clic admin → auto-crée `partner:{code}` + envoie welcome email Brevo
+4. **Tracking** : visitor arrive via `?ref=CODE` → POST `/api/affiliate/track-click`
+5. **Attribution signup** : `trackFirstSeenUser` lit le header `X-Kairos-Visitor` → set `user:{uid}.referrer = code`
+6. **Attribution Stripe** : webhook `checkout.session.completed` → `recordAffiliateSale` calcule la commission 50 %
+
+### Schéma KV
+
+| Clé | Type | TTL | Contenu |
+|---|---|---|---|
+| `partnership-app:{ts}-{hash}` | json | 90j | Candidature reçue (status pending/accepted/rejected) |
+| `partner:{code}` | json | ∞ | Record partenaire actif (code, name, email, commissionPct, promoCode) |
+| `affiliate-click:{visitorId}` | json | 90j | Mapping visitor → ref pour attribution signup |
+| `affiliate-clicks:{code}:{YYYY-MM}` | json | ∞ | Compteur mensuel clics |
+| `affiliate-signups:{code}:{YYYY-MM}` | json | ∞ | Compteur mensuel signups attribués |
+| `affiliate-revenue:{code}:{YYYY-MM}` | json | ∞ | `{count, eurCents}` revenu mensuel cumulé |
+| `affiliate-sale:{code}:{ts}-{uid}` | json | 2 ans | Log audit individuel d'une vente |
+| `partner-magic-link:{token}` | json | 24h | Token magic link 1-shot pour auth |
+| `partner-session:{token}` | json | 30j | Session partner après échange magic link |
+| `user:{uid}.referrer` | string | ∞ | Code partner attribué au signup |
+
+### Endpoints partenaire (auth via magic link)
+
+- `POST /api/affiliate/track-click` (public) : `{ref, visitorId}` → increment counter
+- `POST /api/partner/request-magic-link` (public) : `{email}` → envoie un lien signé via Brevo
+- `GET /api/partner/verify-token?token=` : échange magic link contre session 30j
+- `GET /api/partner/stats?sessionToken=` : agrégats mois en cours + lifetime + historique mensuel
+
+### Endpoints admin partenaires
+
+- `GET /api/admin/partnership-applications` : liste + agrégats par status
+- `PUT /api/admin/partnership-applications` : `{id, status, adminNote}` → si `accepted`, auto-crée `partner:{code}` (code = uppercase du nom sans espaces, suffixe numérique si collision) + envoie email Brevo welcome + crée contact Brevo
+
+### Frontend
+
+- `partenaires.html` : page publique de candidature (hero + 3 piliers + tableau revenu + FAQ + formulaire)
+- `partner-cockpit.html` : cockpit affilié (login state magic link / dashboard state avec 4 KPI mois + 4 KPI lifetime + table historique mensuel)
+- `assets/affiliate-tracker.js` (~1 KB) : script global inclus sur toutes les pages publiques. Génère un `visitorId` persistant en localStorage, capte `?ref=` et POST track-click au worker. Expose `window.KairosVisitor.id`.
+- `dashboard.html` `apiFetch` : envoie automatiquement le header `X-Kairos-Visitor` (autorisé dans CORS) à chaque call auth, permettant `trackFirstSeenUser` de faire l'attribution au signup.
+
+### Commission
+
+Par défaut **50 %** du tarif Pro/Elite, à vie tant que l'abonné reste Premium. Configurable par partenaire via `partner.commissionPct`. Code promo dédié `{CODE}10` (-10 % audience) en parallèle du lien tracké.
+
+Exemples :
+- Pro 19 €/mois × 50 % = **9,50 €/mois/user** récurrents
+- Elite 49 €/mois × 50 % = **24,50 €/mois/user** récurrents
+
+### Magic link auth (anti-password)
+
+- Public : demande de lien par email → si email correspond à un `partner:{code}` actif, token TTL 24h envoyé via Brevo (sinon réponse identique pour éviter l'énumération)
+- Échange : `/api/partner/verify-token?token=xxx` consomme le magic link (one-shot) et retourne une session TTL 30j
+- Le client stocke en localStorage `kairos-partner-session-token`
+
+### Note technique : header `X-Kairos-Visitor` et CORS
+
+Le tracker client envoie un `visitorId` UUID-like persistant via le header `X-Kairos-Visitor`. Sur le worker, `Access-Control-Allow-Headers` autorise explicitement ce header + `X-Admin-API-Key`. Un bug de **22 mai 2026** (CORS preflight rejetant ce header) a temporairement cassé toutes les requêtes authentifiées → fix : ajout de `X-Kairos-Visitor` dans `corsHeaders()`.
 
 ---
 

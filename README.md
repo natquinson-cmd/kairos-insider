@@ -48,13 +48,24 @@ Mise à jour automatique via GitHub Actions :
 
 ## Stack technique
 
-- **Frontend** : HTML / CSS / JS vanilla — `index.html`, `dashboard.html`, `backtest.html`
+- **Frontend** : HTML / CSS / JS vanilla — `index.html`, `dashboard.html`, `backtest.html`, `partenaires.html`, `partner-cockpit.html`
 - **Backend** : Cloudflare Worker (serverless edge) — `worker/src/index.js`
 - **Storage** : Cloudflare KV (cache + data pipeline) + D1 SQLite (historique) + R2 (backups)
 - **Auth** : Firebase Auth + Realtime Database (profils, watchlists)
 - **Pipeline data** : GitHub Actions + Python — `worker/*.py`
 - **Email** : Brevo (transactional + digests)
-- **Paiement** : Stripe (29€/mois ou 290€/an)
+- **Paiement** : Stripe — **Pro 19€/mois ou 190€/an · Elite 49€/mois ou 490€/an** (legacy 29€/mois grandfathered)
+
+## Programme partenaires (mai 2026)
+
+Page publique de candidature : [`/partenaires`](https://kairosinsider.fr/partenaires)
+Cockpit affilié temps-réel : [`/partner-cockpit`](https://kairosinsider.fr/partner-cockpit) (magic link auth)
+
+- 50 % commission à vie sur chaque abonné Pro/Elite amené
+- Premium offert à vie pour le partenaire
+- Code promo dédié -10 % + lien tracké UTM
+- Stats live : clics, inscriptions, conversions Premium, revenu mensuel cumulé
+- Tracking UTM + attribution Stripe automatique côté worker
 
 ## Statut
 
