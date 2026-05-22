@@ -8177,16 +8177,21 @@
       try {
         const provider = new window.__fbAuth.GoogleAuthProvider();
         const cred = await window.__fbAuth.signInWithPopup(firebaseAuth, provider);
-        // Enregistre le consentement uniquement pour les nouveaux comptes (premier Google sign-in)
         const isNewUser = cred?._tokenResponse?.isNewUser === true;
         if (isNewUser && cred?.user?.uid) {
+          // Enregistre le consentement pour les nouveaux comptes
           recordConsent(cred.user.uid, 'google');
-          // Welcome email (fire-and-forget, idempotent via KV). Voir
-          // commentaire sur sendWelcomeEmailFor() pour le rationale.
-          // Note : on n'envoie QUE si isNewUser=true, pour eviter de
-          // re-bombarder les users existants qui se reconnectent.
-          sendWelcomeEmailFor(cred.user);
         }
+        // FIX (mai 2026) : on appelait sendWelcomeEmailFor uniquement si
+        // isNewUser=true, mais ca laissait les users existants pre-fix
+        // sans `user:{uid}.lang` ni contact Brevo (cf bug observe sur
+        // kpshmail@gmail.com inscrit le 21 mai sans lang ni Brevo).
+        // Maintenant : on l'appelle a CHAQUE login Google. L'idempotence
+        // KV welcome-sent:{uid} (TTL 1 an) empeche le double-envoi du
+        // mail, mais le worker met quand meme a jour user.lang +
+        // pousse le contact Brevo a chaque hit -> ces 2 metadata se
+        // remplissent meme pour les anciens users qui se reconnectent.
+        if (cred?.user?.uid) sendWelcomeEmailFor(cred.user);
       } catch (err) {
         if (err.code !== 'auth/popup-closed-by-user') {
           Toast.error('Erreur Google : ' + err.message);

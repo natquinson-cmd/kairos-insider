@@ -7446,65 +7446,63 @@ async function handleSendWelcome(request, env, origin) {
       return jsonResponse({ error: 'Invalid email' }, 400, origin);
     }
 
-    // Idempotence : si on a deja envoye le welcome pour cet uid, skip.
-    // TTL 1 an = un user qui re-signin/relogin 100x ne re-recoit pas le
-    // mail. Si on doit relancer manuellement, le curl sans uid bypasse.
+    // Idempotence (mai 2026 v2) : refactor pour SEPARER l'idempotence
+    // de l'envoi mail vs la maj des metadata (lang KV + push Brevo Contact).
+    // Avant : early-return si welcome-sent existe -> les users qui re-loginnent
+    // restaient avec lang=null et Brevo Contact absent (cf kpshmail bug
+    // observe le 21 mai). Maintenant : on skip l'envoi du mail mais on
+    // continue jusqu'aux maj metadata (idempotent par construction).
     const idemKey = uid ? `welcome-sent:${uid}` : null;
+    let alreadySent = false;
+    let alreadySentAt = null;
     if (idemKey) {
-      const already = await env.CACHE.get(idemKey).catch(() => null);
-      if (already) {
-        return jsonResponse({
-          ok: true, skipped: true, reason: 'already-sent',
-          sentAt: already,
-        }, 200, origin);
+      alreadySentAt = await env.CACHE.get(idemKey).catch(() => null);
+      alreadySent = !!alreadySentAt;
+    }
+
+    if (!alreadySent) {
+      const { subject, html } = buildWelcomeEmail(lang);
+
+      // Envoi via Brevo en mode htmlContent direct (vs templateId).
+      const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: env.BREVO_SENDER_NAME || 'Kairos Insider',
+            email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
+          },
+          replyTo: {
+            name: 'Kairos Insider',
+            email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
+          },
+          to: [{ email }],
+          subject,
+          htmlContent: html,
+          tags: ['welcome', `welcome-${lang}`],
+        }),
+      });
+
+      if (!brevoResponse.ok) {
+        const errText = await brevoResponse.text().catch(() => '');
+        console.error('Brevo error:', brevoResponse.status, errText);
+        return jsonResponse({ error: 'Email service error' }, 500, origin);
       }
+
+      // Marque l'envoi en KV pour idempotence (uniquement si uid fourni).
+      if (idemKey) {
+        const sentAt = new Date().toISOString();
+        await env.CACHE.put(idemKey, sentAt, {
+          expirationTtl: 365 * 24 * 3600,
+        }).catch(() => {});
+      }
+    } else {
+      log.info('welcome.email.skip-already-sent', { email, sentAt: alreadySentAt });
     }
-
-    const { subject, html } = buildWelcomeEmail(lang);
-
-    // Envoi via Brevo en mode htmlContent direct (vs templateId).
-    // Cf refonte mai 2026 : le template Brevo etait caduc, on bascule sur
-    // une generation cote code (i18n FR/EN, evolution = push git).
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': env.BREVO_API_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: {
-          name: env.BREVO_SENDER_NAME || 'Kairos Insider',
-          email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
-        },
-        replyTo: {
-          name: 'Kairos Insider',
-          email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr',
-        },
-        to: [{ email }],
-        subject,
-        htmlContent: html,
-        // tags pour stats Brevo (filtrer "welcome FR" vs "welcome EN")
-        tags: ['welcome', `welcome-${lang}`],
-      }),
-    });
-
-    if (!brevoResponse.ok) {
-      const errText = await brevoResponse.text().catch(() => '');
-      console.error('Brevo error:', brevoResponse.status, errText);
-      return jsonResponse({ error: 'Email service error' }, 500, origin);
-    }
-
-    // Marque l'envoi en KV pour idempotence (uniquement si uid fourni).
-    // 1 an = couvre largement les cas reels de re-login multiples.
-    if (idemKey) {
-      const sentAt = new Date().toISOString();
-      await env.CACHE.put(idemKey, sentAt, {
-        expirationTtl: 365 * 24 * 3600,
-      }).catch(() => {});
-    }
-
-    const data = await brevoResponse.json();
 
     // CREATION CONTACT BREVO (mai 2026) : essentiel sinon le user
     // n'apparait PAS dans Brevo Contacts (l'envoi transactionnel ne
@@ -7537,7 +7535,13 @@ async function handleSendWelcome(request, env, origin) {
       }
     }
 
-    return jsonResponse({ ok: true, messageId: data.messageId, lang }, 200, origin);
+    return jsonResponse({
+      ok: true,
+      lang,
+      emailSent: !alreadySent,
+      skipped: alreadySent,
+      sentAt: alreadySentAt,
+    }, 200, origin);
   } catch (err) {
     console.error('handleSendWelcome error:', err);
     return jsonResponse({ error: 'Internal error' }, 500, origin);
