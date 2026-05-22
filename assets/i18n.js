@@ -570,6 +570,9 @@
       // ===== Wave 7 - chart, panels, consensus votes, health labels =====
       'stock.chart.title': 'Cours & signaux smart money',
       'stock.chart.activistMarker': 'activistes (13D/G)',
+      'stock.chart.activistInitial': 'initial',
+      'stock.chart.activistIncrease': 'augm.',
+      'stock.chart.activistDecrease': 'dimin.',
       'stock.activists.title_template': 'Activistes financiers sur {ticker}',
       'stock.activists.filings_singular': '{n} déclaration',
       'stock.activists.filings_plural': '{n} déclarations',
@@ -2261,6 +2264,9 @@
       // ===== Wave 7 =====
       'stock.chart.title': 'Price & smart money signals',
       'stock.chart.activistMarker': 'activists (13D/G)',
+      'stock.chart.activistInitial': 'initial',
+      'stock.chart.activistIncrease': 'incr.',
+      'stock.chart.activistDecrease': 'decr.',
       'stock.activists.title_template': 'Activist investors on {ticker}',
       'stock.activists.filings_singular': '{n} filing',
       'stock.activists.filings_plural': '{n} filings',
