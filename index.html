@@ -289,104 +289,7 @@
     }
     .hero-meta .check { color: var(--accent-green); margin-right: 4px; }
 
-    /* ============================================================
-       HERO CAROUSEL (mai 2026, remplace mockup CSS par vrais screens)
-       ============================================================ */
-    .hero-carousel {
-      position: relative;
-      width: 100%;
-      max-width: 640px;
-      margin: 0 auto;
-      aspect-ratio: 5 / 3;
-      perspective: 1400px;
-    }
-    .hero-slide {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      transform: translateX(40px) scale(0.97);
-      transition: opacity 0.55s ease, transform 0.55s ease;
-      pointer-events: none;
-      border-radius: 14px;
-      overflow: visible;  /* stickers depassent volontairement */
-      filter: drop-shadow(0 24px 60px rgba(59, 130, 246, 0.18));
-    }
-    .hero-slide.active {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-      pointer-events: auto;
-    }
-    .hero-slide img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: top left;
-      border-radius: 14px;
-      border: 1px solid var(--border-strong);
-      background: var(--bg-secondary);
-      display: block;
-    }
-    /* Stickers flottants : badges colorés positionnés en absolute */
-    .hero-sticker {
-      position: absolute;
-      padding: 8px 14px;
-      color: #fff;
-      font-family: 'Space Grotesk', 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      border-radius: 999px;
-      box-shadow: 0 8px 22px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.12) inset;
-      z-index: 5;
-      white-space: nowrap;
-      animation: stickerFloat 4s ease-in-out infinite;
-    }
-    .hero-sticker.s-top-left      { top: -14px;    left: -12px;  animation-delay: 0s; transform: rotate(-3deg); }
-    .hero-sticker.s-top-right     { top: -14px;    right: -12px; animation-delay: 0.8s; transform: rotate(3deg); }
-    .hero-sticker.s-bottom-left   { bottom: -14px; left: -12px;  animation-delay: 1.6s; transform: rotate(-2deg); }
-    .hero-sticker.s-bottom-right  { bottom: -14px; right: -12px; animation-delay: 2.4s; transform: rotate(2deg); }
-    @keyframes stickerFloat {
-      0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
-      50%      { transform: translateY(-4px) rotate(var(--r, 0deg)); }
-    }
-    .hero-sticker.s-top-left     { --r: -3deg; }
-    .hero-sticker.s-top-right    { --r:  3deg; }
-    .hero-sticker.s-bottom-left  { --r: -2deg; }
-    .hero-sticker.s-bottom-right { --r:  2deg; }
-    /* DOTS navigation */
-    .hero-carousel-dots {
-      position: absolute;
-      bottom: -32px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 8px;
-      z-index: 6;
-    }
-    .hero-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(148, 163, 184, 0.35);
-      cursor: pointer;
-      transition: all 0.2s;
-      padding: 0;
-    }
-    .hero-dot.active {
-      width: 24px;
-      border-radius: 4px;
-      background: linear-gradient(90deg, #3B82F6, #8B5CF6);
-    }
-    .hero-dot:hover { background: rgba(148, 163, 184, 0.6); }
-    .hero-dot.active:hover { filter: brightness(1.1); }
-
-    @media (max-width: 720px) {
-      .hero-carousel { aspect-ratio: 4 / 3; max-width: 100%; }
-      .hero-sticker { font-size: 10px; padding: 6px 10px; }
-    }
-
-    /* ===== MOCKUP DASHBOARD (visuel CSS) — conservé pour fallback ===== */
+    /* ===== MOCKUP DASHBOARD (visuel CSS) ===== */
     .mockup {
       position: relative;
       perspective: 1400px;
@@ -1780,46 +1683,11 @@
           </div>
         </div>
 
-        <!-- ============================================================
-             HERO CAROUSEL : 3 vrais screenshots du dashboard avec stickers
-             flottants qui mettent en valeur les features clés.
-             Auto-rotate 6s + dots de navigation. Mockup CSS conservé en
-             dessous comme fallback decoratif (commenté).
-             ============================================================ -->
-        <div class="hero-carousel" aria-label="Aperçu du dashboard Kairos Insider">
-          <!-- SLIDE 1 : Détail Hedge Funds (NVDA) -->
-          <div class="hero-slide active" data-slide="0">
-            <img src="assets/screenshots/hero-1-hedge-funds.png" alt="Détail hedge funds NVDA — 19 fonds, $1819B" loading="eager" />
-            <span class="hero-sticker s-top-left" style="background:linear-gradient(135deg,#10B981,#059669)">🐳 19 hedge funds suivis</span>
-            <span class="hero-sticker s-bottom-right" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊 Source 13F SEC officielle</span>
-          </div>
-
-          <!-- SLIDE 2 : Kairos Score (AAPL) -->
-          <div class="hero-slide" data-slide="1">
-            <img src="assets/screenshots/hero-2-kairos-score.png" alt="Kairos Score AAPL — 73/100, 8 axes d'analyse" loading="lazy" />
-            <span class="hero-sticker s-top-right" style="background:linear-gradient(135deg,#F59E0B,#EC4899)">⭐ Score propriétaire 0-100</span>
-            <span class="hero-sticker s-bottom-left" style="background:linear-gradient(135deg,#8B5CF6,#EC4899)">📈 8 axes d'analyse</span>
-          </div>
-
-          <!-- SLIDE 3 : Portfolio Radar (Pro) -->
-          <div class="hero-slide" data-slide="2">
-            <img src="assets/screenshots/hero-3-portfolio-radar.png" alt="Portfolio Radar — positions live, P&L, alertes Smart Money" loading="lazy" />
-            <span class="hero-sticker s-top-left" style="background:linear-gradient(135deg,#10B981,#059669)">💼 Portefeuille connecté</span>
-            <span class="hero-sticker s-bottom-right" style="background:linear-gradient(135deg,#EF4444,#F59E0B)">🔔 Alertes Smart Money</span>
-          </div>
-
-          <!-- DOTS NAV -->
-          <div class="hero-carousel-dots" role="tablist">
-            <button class="hero-dot active" data-dot="0" aria-label="Slide 1 — Hedge funds"></button>
-            <button class="hero-dot" data-dot="1" aria-label="Slide 2 — Kairos Score"></button>
-            <button class="hero-dot" data-dot="2" aria-label="Slide 3 — Portfolio"></button>
-          </div>
-        </div>
-
-        <!-- Mockup dashboard original conservé en commentaire pour fallback
-             si on veut revenir au visuel CSS. À supprimer définitivement
-             après validation du carrousel en prod. -->
-        <div class="mockup" style="display:none" hidden>
+        <!-- Mockup dashboard (visuel CSS, pas de screenshot) — restauré le
+             22 mai 2026 après essai d'un carrousel screenshots qui ne rendait
+             pas terrible visuellement. Les fichiers assets/screenshots/ sont
+             conservés au cas où on veut re-tenter une autre approche. -->
+        <div class="mockup">
           <div class="mockup-card">
             <div class="mockup-header">
               <div>
@@ -3352,44 +3220,6 @@
   </script>
   <script src="assets/toast.js?v=20260420" defer></script>
   <script src="assets/cookie-consent.js?v=20260420" defer></script>
-
-  <!-- Hero Carousel : auto-rotate 6s + dots de navigation cliquables -->
-  <script>
-    (function() {
-      const carousel = document.querySelector('.hero-carousel');
-      if (!carousel) return;
-      const slides = carousel.querySelectorAll('.hero-slide');
-      const dots = carousel.querySelectorAll('.hero-dot');
-      if (slides.length < 2) return;
-
-      let current = 0;
-      let timer = null;
-      const INTERVAL = 6000;
-
-      function go(idx) {
-        idx = ((idx % slides.length) + slides.length) % slides.length;
-        slides.forEach((s, i) => s.classList.toggle('active', i === idx));
-        dots.forEach((d, i) => d.classList.toggle('active', i === idx));
-        current = idx;
-      }
-      function next() { go(current + 1); }
-      function start() { stop(); timer = setInterval(next, INTERVAL); }
-      function stop() { if (timer) clearInterval(timer); timer = null; }
-
-      dots.forEach((d, i) => {
-        d.addEventListener('click', () => { go(i); stop(); start(); });
-      });
-      // Pause au hover (UX desktop), resume au leave
-      carousel.addEventListener('mouseenter', stop);
-      carousel.addEventListener('mouseleave', start);
-      // Pause si onglet pas visible (économie batterie mobile)
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) stop();
-        else start();
-      });
-      start();
-    })();
-  </script>
 
   <!-- Backtest LIVE widget : monte le widget interactif (lazy-loaded au scroll) -->
   <script src="/assets/backtest-widget.js?v=20260522-i18n-en" defer></script>
