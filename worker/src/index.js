@@ -9238,8 +9238,13 @@ function isAllowedOrigin(origin, allowed) {
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-Key',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    // FIX (mai 2026) : X-Admin-API-Key + X-Kairos-Visitor ajoutes.
+    // Sans X-Kairos-Visitor, le browser bloquait TOUS les /api/* + /stripe/*
+    // calls authentifies depuis le dashboard apres mon ajout du header
+    // (apiFetch.headers['X-Kairos-Visitor']) - bug observe : '/stripe/status'
+    // bloque -> checkSubscription failed -> user vu comme Free meme Premium.
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Dashboard-Key, X-Admin-API-Key, X-Kairos-Visitor',
     'Access-Control-Max-Age': '86400',
   };
 }
