@@ -8679,7 +8679,7 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
             </td>
             <td width="33%" align="center" style="padding:18px 6px;border-right:1px solid rgba(139,92,246,0.12)">
               <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#EC4899,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#EC4899;line-height:1">À&nbsp;vie</div>
-              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Recurring</div>
+              <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:6px">Récurrente</div>
             </td>
             <td width="33%" align="center" style="padding:18px 6px">
               <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:24px;font-weight:800;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#3B82F6;line-height:1">Mensuel</div>
