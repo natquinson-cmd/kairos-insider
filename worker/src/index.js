@@ -8210,10 +8210,13 @@ async function handlePartnerRequestMagicLink(request, env, origin) {
   <tr><td align="center">
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06)">
       <!-- HEADER GRADIENT -->
-      <tr><td style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);padding:32px 32px;text-align:center;color:#FFFFFF">
-        <div style="font-size:40px;line-height:1;margin-bottom:8px">🤝</div>
-        <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.4px">Ton accès cockpit</div>
-        <div style="font-size:13px;opacity:0.92;margin-top:4px">Kairos Insider · Programme partenaires</div>
+      <tr><td style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);padding:28px 32px;text-align:center;color:#FFFFFF">
+        <!-- Logo Kairos dans cercle blanc pour visibilite sur gradient -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 12px"><tr><td style="background:#FFFFFF;border-radius:50%;padding:10px;line-height:0;box-shadow:0 4px 14px rgba(0,0,0,0.18)"><img src="https://kairosinsider.fr/assets/logo-128.png" alt="Kairos Insider" width="48" height="48" style="display:block;width:48px;height:48px"></td></tr></table>
+        <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;margin-bottom:14px">Kairos Insider</div>
+        <div style="font-size:34px;line-height:1;margin-bottom:6px">🤝</div>
+        <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.3px">Ton accès cockpit</div>
+        <div style="font-size:13px;opacity:0.92;margin-top:4px">Programme partenaires</div>
       </td></tr>
 
       <!-- BODY -->
@@ -8657,10 +8660,13 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
   <tr><td align="center">
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06)">
       <!-- HEADER GRADIENT -->
-      <tr><td style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);padding:36px 32px;text-align:center;color:#FFFFFF">
-        <div style="font-size:48px;line-height:1;margin-bottom:8px">🎉</div>
+      <tr><td style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 55%,#EC4899 100%);padding:32px 32px;text-align:center;color:#FFFFFF">
+        <!-- Logo Kairos dans cercle blanc pour visibilite sur gradient -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 14px"><tr><td style="background:#FFFFFF;border-radius:50%;padding:10px;line-height:0;box-shadow:0 4px 14px rgba(0,0,0,0.18)"><img src="https://kairosinsider.fr/assets/logo-128.png" alt="Kairos Insider" width="48" height="48" style="display:block;width:48px;height:48px"></td></tr></table>
+        <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85;margin-bottom:14px">Kairos Insider</div>
+        <div style="font-size:40px;line-height:1;margin-bottom:8px">🎉</div>
         <div style="font-family:'Space Grotesk','Helvetica Neue',Arial,sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.4px;margin-bottom:4px">Bienvenue partenaire&nbsp;!</div>
-        <div style="font-size:14px;opacity:0.95">Ta candidature Kairos Insider est <strong style="background:rgba(255,255,255,0.18);padding:2px 8px;border-radius:6px">acceptée</strong></div>
+        <div style="font-size:14px;opacity:0.95">Ta candidature est <strong style="background:rgba(255,255,255,0.18);padding:2px 8px;border-radius:6px">acceptée</strong></div>
       </td></tr>
 
       <!-- INTRO -->
