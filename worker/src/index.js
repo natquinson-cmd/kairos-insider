@@ -8751,8 +8751,7 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
           <strong style="color:#0F172A">À retenir&nbsp;:</strong><br>
           ✓ <strong>Commission à vie</strong> tant que l'abonné reste Premium<br>
           ✓ Aucun engagement de durée — tu peux arrêter quand tu veux<br>
-          ✓ Paiement mensuel par virement SEPA le 5 du mois suivant<br>
-          ✓ Minimum 50&nbsp;€ accumulé pour déclencher le versement
+          ✓ Paiement mensuel par virement SEPA le 5 du mois suivant
         </div>
       </td></tr>
 
