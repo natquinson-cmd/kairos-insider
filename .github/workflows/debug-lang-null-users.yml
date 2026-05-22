@@ -1,0 +1,47 @@
+name: Debug Lang Null Users
+
+# One-shot pour lister les users dont la langue n'a pas ete detectee.
+# Permet de decider entre fix individuel et backfill batch.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+      API_BASE: 'https://kairos-insider-api.natquinson.workers.dev'
+    steps:
+      - name: Count + list users with lang=null
+        run: |
+          curl -sS -H "X-Admin-API-Key: $KAIROS_ADMIN_API_KEY" "$API_BASE/api/admin/users" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          total = d.get('total', 0)
+          users = d.get('users', [])
+          lang_null = [u for u in users if not u.get('lang')]
+          lang_fr = [u for u in users if u.get('lang') == 'fr']
+          lang_en = [u for u in users if u.get('lang') == 'en']
+          print('==== STATS LANG ====')
+          print(f'Total users        : {total}')
+          print(f'  - FR              : {len(lang_fr)} ({len(lang_fr)*100//max(total,1)}%)')
+          print(f'  - EN              : {len(lang_en)} ({len(lang_en)*100//max(total,1)}%)')
+          print(f'  - NULL (a backfill): {len(lang_null)} ({len(lang_null)*100//max(total,1)}%)')
+          print()
+          print('==== USERS AVEC lang=null ====')
+          for u in lang_null:
+            print(f\"  - {u.get('email', '-'):40} uid={u.get('uid', '-')[:12]}... inscrit={u.get('firstSeen', '-')[:10]} sub={u.get('hasSubscription', False)} stripe={bool(u.get('customerId'))}\")
+          print()
+          print('Tip : pour backfill, exporte ces emails au format JSON ci-dessous puis trigger backfill-user-langs.yml')
+          print('Suggestion (defaut FR = gmail/free FR, EN = autres) :')
+          backfill = []
+          for u in lang_null:
+            email = (u.get('email') or '').lower()
+            # Heuristique : gmail.com + autres providers FR commune = probable FR
+            # Pour l'exemple on tag tous en FR (l'admin peut ajuster avant trigger)
+            backfill.append({'email': email, 'lang': 'fr'})
+          if backfill:
+            print(json.dumps(backfill, ensure_ascii=False))
+          "
