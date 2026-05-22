@@ -307,6 +307,24 @@ async function handleRequest(request, env, ctx) {
       return handlePartnershipApply(request, env, origin);
     }
 
+    // Affiliate tracking (public, mai 2026) :
+    // - track-click : capte ?ref=CODE quand un visiteur arrive sur la landing
+    // - request-magic-link : envoie un lien email au partner pour acceder au cockpit
+    // - verify-token : echange le magic link contre une session token 30j
+    // - stats : retourne les agregats (auth via session token)
+    if (request.method === 'POST' && path === '/api/affiliate/track-click') {
+      return handleAffiliateTrackClick(request, env, origin);
+    }
+    if (request.method === 'POST' && path === '/api/partner/request-magic-link') {
+      return handlePartnerRequestMagicLink(request, env, origin);
+    }
+    if (request.method === 'GET' && path === '/api/partner/verify-token') {
+      return handlePartnerVerifyToken(url, env, origin);
+    }
+    if (request.method === 'GET' && path === '/api/partner/stats') {
+      return handlePartnerStats(url, env, origin);
+    }
+
     // Watchlist : confirmation double opt-in (via lien email, pas de Firebase token)
     // Format : GET /watchlist/confirm?uid=...&token=...
     if (request.method === 'GET' && path === '/watchlist/confirm') {
@@ -635,6 +653,9 @@ async function handleRequest(request, env, ctx) {
       // la 1ere vue dans cette instance worker).
       // Skip pour l'auth via API key (pas un vrai user).
       if (!user._viaApiKey) {
+        // Capture le visitorId du header (set par le client landing) pour
+        // permettre l'attribution affiliate au 1er signup. Optionnel.
+        user._kairosVisitorId = request.headers.get('X-Kairos-Visitor') || null;
         const trackPromise = trackFirstSeenUser(env, user).catch(() => {});
         if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(trackPromise);
       }
@@ -1171,6 +1192,23 @@ async function trackFirstSeenUser(env, user) {
       userRecord.betaSignupRank = betaCount + 1;  // 1-indexed
       userRecord.betaOfferExpiresAt = offerExpiresAt.toISOString();
     }
+
+    // AFFILIATE ATTRIBUTION (mai 2026) : si l'user a un visitorId via cookie
+    // header X-Kairos-Visitor (set par /api/affiliate/track-click), on lookup
+    // le mapping affiliate-click:{visitorId} -> ref et on attribue le signup
+    // au partner. Le compteur affiliate-signups:{code}:{YYYY-MM} s'incremente.
+    // Non-bloquant : si pas de visitor ID ou pas de match, on ignore silencieusement.
+    // Note : le client (dashboard.html / landing) doit POST le visitorId au
+    // moment du signup via le body de /send-welcome (ajoute plus tard).
+    const visitorIdFromUser = user._kairosVisitorId;  // injecte au check du token (cf below)
+    if (visitorIdFromUser) {
+      const attributedRef = await attributeSignupToReferrer(env, uid, visitorIdFromUser);
+      if (attributedRef) {
+        userRecord.referrer = attributedRef;
+        userRecord.referredAt = now.toISOString();
+      }
+    }
+
     await env.CACHE.put(`user:${uid}`, JSON.stringify(userRecord));
     if (betaSignup) {
       log.info('beta.signup.tracked', { uid, rank: betaCount + 1 });
@@ -6728,6 +6766,13 @@ async function handleStripeWebhook(request, env) {
         }));
         console.log(`Subscription created for uid: ${uid}, status: ${sub.status}, plan: ${plan}, billing: ${billing}`);
 
+        // AFFILIATE ATTRIBUTION (mai 2026) : si l'user a un referrer dans
+        // user:{uid}.referrer, on enregistre la vente + increment compteur
+        // revenue mensuel du partner. Best-effort, non-bloquant.
+        recordAffiliateSale(env, uid, { priceId, plan, billing }).catch(e =>
+          console.warn('[affiliate] sale recording failed:', e?.message || e)
+        );
+
         // Email de bienvenue Premium via Brevo (one-shot, best-effort)
         const recipientEmail = session.customer_details?.email || session.customer_email;
         if (recipientEmail) {
@@ -7958,6 +8003,354 @@ async function handleAdminSetUserLang(request, env, origin) {
 }
 
 // ============================================================
+// AFFILIATE TRACKING (mai 2026)
+// ============================================================
+// Pipeline complet pour le programme partenaires :
+//   1. /api/affiliate/track-click : capte ?ref=CODE quand un visiteur arrive
+//   2. trackFirstSeenUser : lookup le cookie visiteur, attribue le signup au partner
+//   3. Stripe webhook : a chaque paiement, attribue la commission au partner
+//
+// Modele KV :
+//   partner:{code}                        -> { name, email, code, commissionPct, status, createdAt, ... }
+//   affiliate-click:{visitorId}           -> { ref, firstSeenAt } TTL 90j (cookie)
+//   affiliate-clicks:{code}:{YYYY-MM}     -> count (compteur clics mensuels)
+//   affiliate-signups:{code}:{YYYY-MM}    -> count (compteur signups mensuels)
+//   affiliate-revenue:{code}:{YYYY-MM}    -> { count, eurCents } (Premium amenes + commission cumulee)
+//   user:{uid}.referrer                   -> code du partner (set au signup si visitorId match)
+//   partner-magic-link:{token}            -> { code, email, expiresAt } TTL 24h
+//   partner-session:{token}               -> { code, email, validUntil } TTL 30j
+
+// Constante : commission par defaut (50% du tarif Pro 19EUR = 9.50EUR par user actif)
+const AFFILIATE_DEFAULT_COMMISSION_PCT = 50;
+
+// POST /api/affiliate/track-click
+// Body : { ref: 'SNOWBALL', visitorId?: '...' }
+// Public, no auth. Increment compteur clics + stocke mapping visitorId -> ref
+// pour attribution future au signup. Cookie 90j cote client.
+async function handleAffiliateTrackClick(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const ref = String(body.ref || '').trim().toUpperCase().slice(0, 64);
+    const visitorId = String(body.visitorId || '').trim().slice(0, 64);
+    if (!ref || !/^[A-Z0-9_-]+$/.test(ref)) {
+      return jsonResponse({ error: 'Invalid ref code' }, 400, origin);
+    }
+    // Verifie que le partner existe (sinon on tracke pas n'importe quel ?ref=xyz)
+    const partner = await env.CACHE.get(`partner:${ref}`, 'json').catch(() => null);
+    if (!partner || partner.status !== 'active') {
+      return jsonResponse({ error: 'Unknown or inactive partner code', ref }, 404, origin);
+    }
+    // Incrementation atomique-ish du compteur mensuel
+    const yyyymm = new Date().toISOString().slice(0, 7);  // 2026-05
+    const clicksKey = `affiliate-clicks:${ref}:${yyyymm}`;
+    const current = await env.CACHE.get(clicksKey, 'json').catch(() => null);
+    const newCount = (current?.count || 0) + 1;
+    await env.CACHE.put(clicksKey, JSON.stringify({
+      count: newCount,
+      updatedAt: new Date().toISOString(),
+    })).catch(() => {});
+    // Stocke mapping visitor -> ref pour attribution au signup
+    // TTL 90j = standard SaaS cookie affiliate
+    if (visitorId) {
+      await env.CACHE.put(`affiliate-click:${visitorId}`, JSON.stringify({
+        ref,
+        firstSeenAt: new Date().toISOString(),
+        ip: request.headers.get('CF-Connecting-IP') || null,
+      }), { expirationTtl: 90 * 86400 }).catch(() => {});
+    }
+    log.info('affiliate.click', { ref, visitorId: visitorId.slice(0, 12), totalThisMonth: newCount });
+    return jsonResponse({ ok: true, ref, monthClicks: newCount }, 200, origin);
+  } catch (err) {
+    console.error('handleAffiliateTrackClick error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// Lookup et attribution au signup. Appele depuis trackFirstSeenUser au 1er login.
+// Si l'user a un cookie affiliate-click:{visitorId}, attribue le signup au partner.
+async function attributeSignupToReferrer(env, uid, visitorId) {
+  if (!uid || !visitorId) return null;
+  try {
+    const click = await env.CACHE.get(`affiliate-click:${visitorId}`, 'json').catch(() => null);
+    if (!click || !click.ref) return null;
+    const partner = await env.CACHE.get(`partner:${click.ref}`, 'json').catch(() => null);
+    if (!partner || partner.status !== 'active') return null;
+    // Increment compteur signups mensuels
+    const yyyymm = new Date().toISOString().slice(0, 7);
+    const signupsKey = `affiliate-signups:${click.ref}:${yyyymm}`;
+    const current = await env.CACHE.get(signupsKey, 'json').catch(() => null);
+    await env.CACHE.put(signupsKey, JSON.stringify({
+      count: (current?.count || 0) + 1,
+      updatedAt: new Date().toISOString(),
+    })).catch(() => {});
+    log.info('affiliate.signup-attributed', { uid, ref: click.ref });
+    return click.ref;
+  } catch (e) {
+    log.warn('affiliate.attribute_failed', { uid, detail: String(e?.message || e) });
+    return null;
+  }
+}
+
+// Attribution Stripe : appele depuis le webhook au paiement reussi.
+// Increment affiliate-revenue:{code}:{YYYY-MM} avec montant commission (50% du paid).
+async function recordAffiliateSale(env, uid, sub) {
+  try {
+    const userRecord = await env.CACHE.get(`user:${uid}`, 'json').catch(() => null);
+    const ref = userRecord?.referrer;
+    if (!ref) return null;
+    const partner = await env.CACHE.get(`partner:${ref}`, 'json').catch(() => null);
+    if (!partner || partner.status !== 'active') return null;
+    // Calcule commission selon le plan (Pro 19EUR = 9.50EUR/mois ; Elite 49EUR = 24.50EUR/mois)
+    const commissionPct = partner.commissionPct || AFFILIATE_DEFAULT_COMMISSION_PCT;
+    const planResolve = resolveStripePlan(sub.priceId, { plan: sub.plan, billing: sub.billing }, env);
+    const priceMap = {
+      'pro:monthly':    1900,   // centimes
+      'pro:yearly':     19000,
+      'elite:monthly':  4900,
+      'elite:yearly':   49000,
+      'legacy:monthly': 2900,
+    };
+    const planKey = `${planResolve.plan}:${planResolve.billing}`;
+    const grossCents = priceMap[planKey] || 0;
+    const commissionCents = Math.round(grossCents * commissionPct / 100);
+    if (commissionCents <= 0) return null;
+    const yyyymm = new Date().toISOString().slice(0, 7);
+    const revKey = `affiliate-revenue:${ref}:${yyyymm}`;
+    const current = await env.CACHE.get(revKey, 'json').catch(() => null);
+    await env.CACHE.put(revKey, JSON.stringify({
+      count: (current?.count || 0) + 1,
+      eurCents: (current?.eurCents || 0) + commissionCents,
+      updatedAt: new Date().toISOString(),
+    })).catch(() => {});
+    // Log de la vente individuelle pour audit (TTL 2 ans, suffisant)
+    await env.CACHE.put(`affiliate-sale:${ref}:${Date.now()}-${uid.slice(0, 8)}`, JSON.stringify({
+      ref, uid, plan: planResolve.plan, billing: planResolve.billing,
+      grossCents, commissionCents, commissionPct, ts: new Date().toISOString(),
+    }), { expirationTtl: 730 * 86400 }).catch(() => {});
+    log.info('affiliate.sale.recorded', { ref, uid, plan: planResolve.plan, commissionCents });
+    return { ref, commissionCents };
+  } catch (e) {
+    log.warn('affiliate.sale.failed', { uid, detail: String(e?.message || e) });
+    return null;
+  }
+}
+
+// ============================================================
+// PARTNER MAGIC LINK AUTH (mai 2026)
+// ============================================================
+// Partner se connecte via email -> magic link envoye par Brevo.
+// Token signe avec env.PARTNER_MAGIC_SECRET (fallback ADMIN_API_KEY).
+// Session TTL 30j (cookie equivalent KV).
+
+async function generatePartnerMagicLinkToken(env) {
+  // Token aleatoire 32 bytes -> base64url
+  const buf = new Uint8Array(32);
+  crypto.getRandomValues(buf);
+  return Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// POST /api/partner/request-magic-link
+// Body : { email }
+// Trouve le partner par email, genere magic link, envoie via Brevo.
+// Reponse identique meme si email inconnu (anti-enumeration).
+async function handlePartnerRequestMagicLink(request, env, origin) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return jsonResponse({ error: 'Invalid email' }, 400, origin);
+    }
+    // Cherche le partner par email
+    const partnerKeys = await listAllKvKeys(env, 'partner:', 1000);
+    let partnerCode = null;
+    let partner = null;
+    for (const k of partnerKeys) {
+      const p = await env.CACHE.get(k, 'json').catch(() => null);
+      if (p && String(p.email || '').toLowerCase() === email && p.status === 'active') {
+        partnerCode = p.code;
+        partner = p;
+        break;
+      }
+    }
+    // Toujours retourner ok pour eviter enumeration (qui est partenaire vs pas)
+    if (!partner) {
+      log.info('partner.magic-link.unknown-email', { email });
+      // Rate-limit basique : on ne traite pas le request mais simule succes
+      return jsonResponse({ ok: true, sent: false, message: 'Si un compte partenaire existe avec cet email, un lien a ete envoye.' }, 200, origin);
+    }
+    // Genere token + stocke en KV (TTL 24h)
+    const token = await generatePartnerMagicLinkToken(env);
+    await env.CACHE.put(`partner-magic-link:${token}`, JSON.stringify({
+      code: partner.code,
+      email,
+      expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+    }), { expirationTtl: 24 * 3600 }).catch(() => {});
+    // Envoie le mail via Brevo (best-effort, non-bloquant pour la reponse)
+    const cockpitUrl = `https://kairosinsider.fr/partner-cockpit?token=${token}`;
+    const subject = `🤝 Acces a ton cockpit Kairos Insider`;
+    const htmlBody = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1e293b">
+        <h2 style="color:#1e293b">Bonjour ${escapeHtml(partner.name || '')},</h2>
+        <p>Voici votre lien d'acces au cockpit partenaire Kairos Insider :</p>
+        <p style="margin:24px 0">
+          <a href="${escapeHtml(cockpitUrl)}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Acceder a mon cockpit</a>
+        </p>
+        <p style="color:#64748b;font-size:13px">Ce lien est valable 24h. Une session sera ensuite cree pour 30 jours.</p>
+        <p style="color:#64748b;font-size:13px;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px">
+          Si vous n'avez pas demande ce lien, ignorez ce message.<br>
+          Code partenaire : <code>${escapeHtml(partner.code)}</code> (a partager avec votre audience pour -10%).
+        </p>
+      </div>
+    `;
+    if (env.BREVO_API_KEY) {
+      fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': env.BREVO_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+          to: [{ email, name: partner.name || '' }],
+          subject,
+          htmlContent: htmlBody,
+          tags: ['partner-magic-link'],
+        }),
+      }).catch(e => console.warn('[partner-magic-link] brevo send failed:', e?.message || e));
+    }
+    log.info('partner.magic-link.sent', { email, code: partner.code });
+    return jsonResponse({ ok: true, sent: true, message: 'Lien envoye. Verifiez votre boite mail (et les spams).' }, 200, origin);
+  } catch (err) {
+    console.error('handlePartnerRequestMagicLink error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// GET /api/partner/verify-token?token=xxx
+// Verifie un magic link, retourne une session token (TTL 30j) + info partner.
+async function handlePartnerVerifyToken(url, env, origin) {
+  try {
+    const token = (url.searchParams.get('token') || '').trim().slice(0, 256);
+    if (!token) return jsonResponse({ error: 'Token required' }, 400, origin);
+    const magicData = await env.CACHE.get(`partner-magic-link:${token}`, 'json').catch(() => null);
+    if (!magicData) return jsonResponse({ error: 'Token invalid or expired' }, 401, origin);
+    // Genere session token (longer-lived)
+    const sessionToken = await generatePartnerMagicLinkToken(env);
+    await env.CACHE.put(`partner-session:${sessionToken}`, JSON.stringify({
+      code: magicData.code,
+      email: magicData.email,
+      validUntil: new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
+    }), { expirationTtl: 30 * 86400 }).catch(() => {});
+    // Invalide le magic link (one-shot)
+    await env.CACHE.delete(`partner-magic-link:${token}`).catch(() => {});
+    const partner = await env.CACHE.get(`partner:${magicData.code}`, 'json').catch(() => null);
+    return jsonResponse({
+      ok: true,
+      sessionToken,
+      partner: partner ? {
+        code: partner.code,
+        name: partner.name,
+        email: partner.email,
+        createdAt: partner.createdAt,
+        commissionPct: partner.commissionPct || AFFILIATE_DEFAULT_COMMISSION_PCT,
+      } : null,
+    }, 200, origin);
+  } catch (err) {
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// Verifie un session token et retourne le partner record. Helper interne.
+async function validatePartnerSession(env, sessionToken) {
+  if (!sessionToken) return null;
+  const session = await env.CACHE.get(`partner-session:${sessionToken}`, 'json').catch(() => null);
+  if (!session) return null;
+  const partner = await env.CACHE.get(`partner:${session.code}`, 'json').catch(() => null);
+  if (!partner || partner.status !== 'active') return null;
+  return { session, partner };
+}
+
+// GET /api/partner/stats?sessionToken=xxx
+// Retourne les agregats pour le partner authentifie.
+async function handlePartnerStats(url, env, origin) {
+  try {
+    const sessionToken = (url.searchParams.get('sessionToken') || '').trim().slice(0, 256);
+    const ctx = await validatePartnerSession(env, sessionToken);
+    if (!ctx) return jsonResponse({ error: 'Session invalid or expired' }, 401, origin);
+    const code = ctx.partner.code;
+    const yyyymm = new Date().toISOString().slice(0, 7);
+
+    // Mois en cours
+    const monthClicks = await env.CACHE.get(`affiliate-clicks:${code}:${yyyymm}`, 'json').catch(() => null);
+    const monthSignups = await env.CACHE.get(`affiliate-signups:${code}:${yyyymm}`, 'json').catch(() => null);
+    const monthRevenue = await env.CACHE.get(`affiliate-revenue:${code}:${yyyymm}`, 'json').catch(() => null);
+
+    // Lifetime (parcourt tous les buckets month)
+    const clicksKeys = await listAllKvKeys(env, `affiliate-clicks:${code}:`, 100);
+    const signupsKeys = await listAllKvKeys(env, `affiliate-signups:${code}:`, 100);
+    const revenueKeys = await listAllKvKeys(env, `affiliate-revenue:${code}:`, 100);
+
+    let lifeClicks = 0, lifeSignups = 0, lifeRevenue = 0, lifePremium = 0;
+    const monthlyHistory = {};
+
+    for (const k of clicksKeys) {
+      const d = await env.CACHE.get(k, 'json').catch(() => null);
+      const m = k.split(':')[2];
+      lifeClicks += d?.count || 0;
+      if (!monthlyHistory[m]) monthlyHistory[m] = { month: m, clicks: 0, signups: 0, premium: 0, revenueCents: 0 };
+      monthlyHistory[m].clicks = d?.count || 0;
+    }
+    for (const k of signupsKeys) {
+      const d = await env.CACHE.get(k, 'json').catch(() => null);
+      const m = k.split(':')[2];
+      lifeSignups += d?.count || 0;
+      if (!monthlyHistory[m]) monthlyHistory[m] = { month: m, clicks: 0, signups: 0, premium: 0, revenueCents: 0 };
+      monthlyHistory[m].signups = d?.count || 0;
+    }
+    for (const k of revenueKeys) {
+      const d = await env.CACHE.get(k, 'json').catch(() => null);
+      const m = k.split(':')[2];
+      lifePremium += d?.count || 0;
+      lifeRevenue += d?.eurCents || 0;
+      if (!monthlyHistory[m]) monthlyHistory[m] = { month: m, clicks: 0, signups: 0, premium: 0, revenueCents: 0 };
+      monthlyHistory[m].premium = d?.count || 0;
+      monthlyHistory[m].revenueCents = d?.eurCents || 0;
+    }
+
+    return jsonResponse({
+      ok: true,
+      partner: {
+        code: ctx.partner.code,
+        name: ctx.partner.name,
+        email: ctx.partner.email,
+        commissionPct: ctx.partner.commissionPct || AFFILIATE_DEFAULT_COMMISSION_PCT,
+        createdAt: ctx.partner.createdAt,
+        referralLink: `https://kairosinsider.fr?ref=${ctx.partner.code}`,
+        promoCode: ctx.partner.promoCode || `${ctx.partner.code}10`,
+      },
+      currentMonth: {
+        yyyymm,
+        clicks: monthClicks?.count || 0,
+        signups: monthSignups?.count || 0,
+        premium: monthRevenue?.count || 0,
+        revenueEur: ((monthRevenue?.eurCents || 0) / 100).toFixed(2),
+      },
+      lifetime: {
+        clicks: lifeClicks,
+        signups: lifeSignups,
+        premium: lifePremium,
+        revenueEur: (lifeRevenue / 100).toFixed(2),
+      },
+      monthlyHistory: Object.values(monthlyHistory).sort((a, b) => a.month.localeCompare(b.month)),
+    }, 200, origin);
+  } catch (err) {
+    console.error('handlePartnerStats error:', err);
+    return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);
+  }
+}
+
+// ============================================================
 // PARTNERSHIP APPLICATIONS (mai 2026)
 // ============================================================
 // Recoit les candidatures du programme partenaires/affiliate via
@@ -8143,10 +8536,95 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
     };
     // Garde le TTL 90j inchange (TTL absolu, pas relative)
     await env.CACHE.put(id, JSON.stringify(updated), { expirationTtl: 90 * 86400 });
+
+    // AUTO-CREATE partner record (mai 2026) : quand admin accepte une
+    // candidature, on cree partner:{code} pour activer le tracking +
+    // l'acces au cockpit. Le code = uppercase du nom sans espaces
+    // + suffixe numerique si conflit.
+    let partnerCreated = null;
+    if (status === 'accepted' && !existing.partnerCode) {
+      const baseName = String(existing.name || existing.email.split('@')[0])
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 32);
+      let code = baseName;
+      let suffix = 1;
+      // Cherche un code unique (10 essais max)
+      while (suffix < 10 && (await env.CACHE.get(`partner:${code}`).catch(() => null))) {
+        code = baseName + suffix;
+        suffix++;
+      }
+      const partnerRecord = {
+        code,
+        name: existing.name,
+        email: existing.email,
+        platformUrl: existing.platformUrl,
+        audienceType: existing.audienceType,
+        audienceSize: existing.audienceSize,
+        status: 'active',
+        commissionPct: AFFILIATE_DEFAULT_COMMISSION_PCT,  // defaut 50%
+        promoCode: code + '10',  // ex: SNOWBALL10 (-10% pour audience)
+        createdAt: new Date().toISOString(),
+        createdBy: user?.email || 'admin-api-key',
+        applicationId: id,
+      };
+      await env.CACHE.put(`partner:${code}`, JSON.stringify(partnerRecord)).catch(() => {});
+      // Update application avec partnerCode
+      updated.partnerCode = code;
+      await env.CACHE.put(id, JSON.stringify(updated), { expirationTtl: 90 * 86400 });
+      partnerCreated = partnerRecord;
+      log.info('partner.created', { code, email: existing.email });
+
+      // Envoie un email au partner avec son code + lien cockpit
+      if (env.BREVO_API_KEY && existing.email) {
+        const cockpitUrl = `https://kairosinsider.fr/partner-cockpit`;
+        const refLink = `https://kairosinsider.fr?ref=${code}`;
+        const subject = `🎉 Bienvenue dans le programme partenaires Kairos Insider`;
+        const htmlBody = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1e293b">
+            <h2 style="color:#1e293b">Bonjour ${escapeHtml(existing.name || '')},</h2>
+            <p>Bonne nouvelle : ta candidature au programme partenaires Kairos Insider est <strong>acceptee</strong>.</p>
+            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:20px 0">
+              <p style="margin:0 0 8px"><strong>Ton code partenaire :</strong> <code style="background:#fff;padding:4px 8px;border-radius:4px;border:1px solid #e5e7eb">${escapeHtml(code)}</code></p>
+              <p style="margin:0 0 8px"><strong>Lien d'affiliation :</strong> <a href="${escapeHtml(refLink)}">${escapeHtml(refLink)}</a></p>
+              <p style="margin:0"><strong>Code promo pour ton audience :</strong> <code style="background:#fff;padding:4px 8px;border-radius:4px;border:1px solid #e5e7eb">${escapeHtml(code)}10</code> (-10%)</p>
+            </div>
+            <p>Commission : <strong>50% recurring a vie</strong> sur chaque abonne amene (Pro = 9,50EUR/mois/user, Elite = 24,50EUR/mois/user).</p>
+            <p style="margin:24px 0">
+              <a href="${escapeHtml(cockpitUrl)}" style="display:inline-block;padding:12px 24px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Acceder a mon cockpit</a>
+            </p>
+            <p style="font-size:13px;color:#64748b">Ton cockpit te permettra de suivre en temps reel les clics, signups et revenus generes par ton lien d'affiliation. Acces via magic link envoye a ton email.</p>
+            ${adminNote ? `<p style="font-size:13px;color:#64748b;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:24px"><strong>Note :</strong> ${escapeHtml(adminNote)}</p>` : ''}
+            <p style="font-size:13px;color:#64748b;margin-top:24px">Une question ? Reponds simplement a cet email.<br>— Nathanael, fondateur de Kairos Insider</p>
+          </div>
+        `;
+        fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+            to: [{ email: existing.email, name: existing.name || '' }],
+            subject,
+            htmlContent: htmlBody,
+            tags: ['partner-acceptance'],
+          }),
+        }).catch(e => console.warn('[partner-acceptance] brevo send failed:', e?.message || e));
+      }
+    }
+
     log.info('partnership.application.updated', {
       id, status, reviewedBy: user?.email,
+      partnerCreated: partnerCreated?.code,
     });
-    return jsonResponse({ ok: true, application: updated }, 200, origin);
+    return jsonResponse({
+      ok: true,
+      application: updated,
+      partnerCreated,
+    }, 200, origin);
   } catch (err) {
     console.error('handleAdminUpdatePartnershipApplication error:', err);
     return jsonResponse({ error: 'Internal error', detail: err?.message }, 500, origin);

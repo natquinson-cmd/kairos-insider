@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cockpit partenaire — Kairos Insider</title>
+  <meta name="description" content="Accédez à votre cockpit partenaire Kairos Insider : clics, conversions, revenu en temps réel." />
+  <link rel="canonical" href="https://kairosinsider.fr/partner-cockpit" />
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0B0F1A;
+      --surface: #131829;
+      --surface-2: #1A2138;
+      --border: #2A3149;
+      --border-strong: #3A4366;
+      --text-primary: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --accent: #3B82F6;
+      --accent-hover: #2563EB;
+      --green: #10B981;
+      --gold: #FBBF24;
+      --purple: #8B5CF6;
+      --pink: #EC4899;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+
+    header.topnav {
+      padding: 18px 32px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header.topnav .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    header.topnav .logo-mark { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+    header.topnav .logo-mark img { width: 100%; height: 100%; object-fit: contain; }
+    header.topnav .logo-text {
+      background: linear-gradient(135deg, #F9FAFB 0%, #9CA3AF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header.topnav nav a {
+      margin-left: 24px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+    .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background: rgba(139, 92, 246, 0.12);
+      color: var(--purple);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    h1 { font-family: 'Space Grotesk', sans-serif; font-size: 36px; margin: 0 0 8px; letter-spacing: -0.5px; }
+    .subtitle { color: var(--text-secondary); font-size: 16px; margin: 0 0 32px; }
+
+    /* === LOGIN BLOCK (avant magic link) === */
+    .login-card {
+      max-width: 480px;
+      margin: 24px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      text-align: center;
+    }
+    .login-card h2 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; margin: 0 0 8px; }
+    .login-card p { color: var(--text-secondary); font-size: 14px; margin: 0 0 24px; }
+    .login-card input[type="email"] {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 14px;
+    }
+    .login-card input[type="email"]:focus { border-color: var(--accent); }
+    .login-card button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .login-card button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .feedback {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .feedback.success { background: rgba(16, 185, 129, 0.1); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .feedback.error { background: rgba(239, 68, 68, 0.1); color: #FCA5A5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .help-link { display: block; margin-top: 16px; font-size: 12px; color: var(--text-muted); }
+
+    /* === COCKPIT (apres auth) === */
+    .partner-info {
+      background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04));
+      border: 1px solid rgba(139,92,246,0.2);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .partner-info .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .partner-info h2 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; margin: 0 0 4px; }
+    .partner-info .sub { color: var(--text-secondary); font-size: 13px; }
+    .partner-info .links { display: flex; flex-direction: column; gap: 8px; min-width: 280px; }
+    .partner-info .link-row {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .partner-info .link-row strong { color: var(--text-muted); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .partner-info .link-row code { color: var(--text-primary); flex: 1; word-break: break-all; }
+    .partner-info .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .partner-info .copy-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+
+    .section-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 28px 0 12px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 720px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      position: relative;
+    }
+    .kpi .icon { font-size: 20px; line-height: 1; margin-bottom: 8px; }
+    .kpi .value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .kpi .value.revenue { color: var(--green); }
+    .kpi .label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .kpi .delta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .history-table-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    table.history { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.history th, table.history td { padding: 12px 16px; text-align: left; }
+    table.history thead {
+      background: var(--surface-2);
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+    }
+    table.history tbody tr { border-top: 1px solid var(--border); }
+    table.history td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    table.history td.revenue { color: var(--green); font-weight: 700; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .logout-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+
+    footer { padding: 32px 24px; text-align: center; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header class="topnav">
+    <a class="logo" href="/">
+      <span class="logo-mark"><img src="assets/logo.svg" alt="Kairos Insider" /></span>
+      <span class="logo-text">Kairos Insider</span>
+    </a>
+    <nav>
+      <a href="/">Accueil</a>
+      <a href="/partenaires">Programme partenaires</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <!-- ===== LOGIN STATE : show login form ===== -->
+    <div id="loginState" style="display:none">
+      <div style="text-align:center;margin-top:40px">
+        <span class="badge">🤝 COCKPIT PARTENAIRE</span>
+        <h1>Accédez à votre cockpit</h1>
+        <p class="subtitle">Suivez en temps réel les clics, signups et revenus générés par votre lien d'affiliation.</p>
+      </div>
+
+      <div class="login-card">
+        <h2>Connexion par lien email</h2>
+        <p>Tapez votre email partenaire, on vous envoie un lien d'accès valide 24h.</p>
+        <form onsubmit="return requestMagicLink(event)" id="loginForm">
+          <input type="email" id="loginEmail" placeholder="vous@exemple.com" required autocomplete="email" />
+          <button type="submit" id="submitBtn">Recevoir le lien d'accès →</button>
+          <div id="loginFeedback" class="feedback" style="display:none"></div>
+        </form>
+        <a class="help-link" href="/partenaires">Pas encore partenaire ? Candidatez ici →</a>
+      </div>
+    </div>
+
+    <!-- ===== COCKPIT STATE : show stats ===== -->
+    <div id="cockpitState" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <span class="badge">🤝 COCKPIT PARTENAIRE</span>
+          <h1 id="welcomeMsg">Bonjour</h1>
+          <p class="subtitle" id="memberSince">Membre depuis le ...</p>
+        </div>
+        <button class="logout-btn" onclick="logout()">Déconnexion</button>
+      </div>
+
+      <div class="partner-info">
+        <div class="row">
+          <div style="min-width:240px">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:4px">Votre code partenaire</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:800;background:linear-gradient(135deg,#3B82F6,#8B5CF6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:0.04em" id="partnerCode">—</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Commission : <strong style="color:var(--text-primary)" id="partnerCommission">50%</strong> à vie · Cookie 90 jours</div>
+          </div>
+          <div class="links">
+            <div class="link-row">
+              <strong>Lien tracké</strong>
+              <code id="referralLink">—</code>
+              <button class="copy-btn" onclick="copyToClipboard('referralLink', this)">Copier</button>
+            </div>
+            <div class="link-row">
+              <strong>Code promo audience</strong>
+              <code id="promoCode">—</code>
+              <button class="copy-btn" onclick="copyToClipboard('promoCode', this)">Copier</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">📅 Ce mois-ci (<span id="currentMonthLabel">—</span>)</div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="icon">👀</div>
+          <div class="value" id="kpiMonthClicks">0</div>
+          <div class="label">Clics</div>
+          <div class="delta">Visiteurs uniques venus via ton lien</div>
+        </div>
+        <div class="kpi">
+          <div class="icon">📝</div>
+          <div class="value" id="kpiMonthSignups">0</div>
+          <div class="label">Inscriptions</div>
+          <div class="delta">Free signups attribués</div>
+        </div>
+        <div class="kpi">
+          <div class="icon">💎</div>
+          <div class="value" id="kpiMonthPremium">0</div>
+          <div class="label">Conversions Premium</div>
+          <div class="delta">Pro ou Elite</div>
+        </div>
+        <div class="kpi">
+          <div class="icon">💰</div>
+          <div class="value revenue" id="kpiMonthRevenue">0 €</div>
+          <div class="label">Commission</div>
+          <div class="delta">À recevoir le 5 du mois prochain</div>
+        </div>
+      </div>
+
+      <div class="section-title">🚀 À vie</div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="icon">👀</div>
+          <div class="value" id="kpiLifeClicks">0</div>
+          <div class="label">Clics total</div>
+        </div>
+        <div class="kpi">
+          <div class="icon">📝</div>
+          <div class="value" id="kpiLifeSignups">0</div>
+          <div class="label">Inscriptions total</div>
+        </div>
+        <div class="kpi">
+          <div class="icon">💎</div>
+          <div class="value" id="kpiLifePremium">0</div>
+          <div class="label">Conversions Premium</div>
+        </div>
+        <div class="kpi">
+          <div class="icon">💰</div>
+          <div class="value revenue" id="kpiLifeRevenue">0 €</div>
+          <div class="label">Revenu cumulé</div>
+        </div>
+      </div>
+
+      <div class="section-title">📊 Historique mensuel</div>
+      <div class="history-table-wrapper">
+        <table class="history">
+          <thead>
+            <tr>
+              <th>Mois</th>
+              <th class="num">Clics</th>
+              <th class="num">Inscriptions</th>
+              <th class="num">Premium</th>
+              <th class="num">Commission</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="5" class="empty-state">Aucun historique. Les données apparaîtront après les premiers clics sur ton lien.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    © 2026 Kairos Insider · <a href="mailto:contact@kairosinsider.fr">contact@kairosinsider.fr</a> · <a href="/partenaires">Programme partenaires</a>
+  </footer>
+
+  <script src="assets/affiliate-tracker.js"></script>
+  <script>
+    const API_BASE = 'https://kairos-insider-api.natquinson.workers.dev';
+    const SESSION_KEY = 'kairos-partner-session-token';
+
+    // Lit le token magic link depuis ?token=xxx (single-use) ou le sessionToken
+    // long-lived depuis localStorage.
+    async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const magicToken = params.get('token');
+
+      if (magicToken) {
+        // 1er passage : echange le magic link contre un sessionToken
+        await exchangeMagicForSession(magicToken);
+      }
+
+      const sessionToken = localStorage.getItem(SESSION_KEY);
+      if (sessionToken) {
+        await loadCockpit(sessionToken);
+      } else {
+        showLogin();
+      }
+    }
+
+    async function exchangeMagicForSession(magicToken) {
+      try {
+        const resp = await fetch(`${API_BASE}/api/partner/verify-token?token=${encodeURIComponent(magicToken)}`);
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.sessionToken) {
+          showFeedback('error', data.error || 'Lien expiré ou invalide. Demande un nouveau lien.');
+          showLogin();
+          return;
+        }
+        localStorage.setItem(SESSION_KEY, data.sessionToken);
+        // Nettoie l'URL pour cacher le token
+        history.replaceState(null, '', window.location.pathname);
+      } catch (e) {
+        showFeedback('error', 'Erreur réseau. Réessaye dans quelques secondes.');
+        showLogin();
+      }
+    }
+
+    async function loadCockpit(sessionToken) {
+      try {
+        const resp = await fetch(`${API_BASE}/api/partner/stats?sessionToken=${encodeURIComponent(sessionToken)}`);
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          // Session expired or invalid : clear and redirect to login
+          localStorage.removeItem(SESSION_KEY);
+          showLogin();
+          if (data.error) showFeedback('error', 'Session expirée. Demande un nouveau lien.');
+          return;
+        }
+        renderCockpit(data);
+      } catch (e) {
+        showFeedback('error', 'Erreur lors du chargement des stats.');
+        showLogin();
+      }
+    }
+
+    function renderCockpit(data) {
+      document.getElementById('loginState').style.display = 'none';
+      document.getElementById('cockpitState').style.display = 'block';
+
+      const p = data.partner || {};
+      document.getElementById('welcomeMsg').textContent = `Bonjour ${p.name || ''}`;
+      const since = p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+      document.getElementById('memberSince').textContent = `Partenaire depuis le ${since}`;
+      document.getElementById('partnerCode').textContent = p.code || '—';
+      document.getElementById('partnerCommission').textContent = (p.commissionPct || 50) + '%';
+      document.getElementById('referralLink').textContent = p.referralLink || '';
+      document.getElementById('promoCode').textContent = p.promoCode || '';
+
+      const cm = data.currentMonth || {};
+      const monthLabel = cm.yyyymm ? new Date(cm.yyyymm + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : '—';
+      document.getElementById('currentMonthLabel').textContent = monthLabel;
+      document.getElementById('kpiMonthClicks').textContent = (cm.clicks || 0).toLocaleString('fr-FR');
+      document.getElementById('kpiMonthSignups').textContent = (cm.signups || 0).toLocaleString('fr-FR');
+      document.getElementById('kpiMonthPremium').textContent = (cm.premium || 0).toLocaleString('fr-FR');
+      document.getElementById('kpiMonthRevenue').textContent = formatEur(cm.revenueEur);
+
+      const lt = data.lifetime || {};
+      document.getElementById('kpiLifeClicks').textContent = (lt.clicks || 0).toLocaleString('fr-FR');
+      document.getElementById('kpiLifeSignups').textContent = (lt.signups || 0).toLocaleString('fr-FR');
+      document.getElementById('kpiLifePremium').textContent = (lt.premium || 0).toLocaleString('fr-FR');
+      document.getElementById('kpiLifeRevenue').textContent = formatEur(lt.revenueEur);
+
+      const tbody = document.getElementById('historyBody');
+      const history = (data.monthlyHistory || []).slice().reverse();
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucun historique. Les données apparaîtront après les premiers clics sur ton lien.</td></tr>';
+      } else {
+        tbody.innerHTML = history.map(m => {
+          const monthLabel = new Date(m.month + '-01').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+          const revEur = ((m.revenueCents || 0) / 100).toFixed(2);
+          return `
+            <tr>
+              <td>${monthLabel}</td>
+              <td class="num">${(m.clicks || 0).toLocaleString('fr-FR')}</td>
+              <td class="num">${(m.signups || 0).toLocaleString('fr-FR')}</td>
+              <td class="num">${(m.premium || 0).toLocaleString('fr-FR')}</td>
+              <td class="num revenue">${formatEur(revEur)}</td>
+            </tr>`;
+        }).join('');
+      }
+    }
+
+    function formatEur(amount) {
+      const n = parseFloat(amount || 0);
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
+    }
+
+    async function requestMagicLink(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Envoi…';
+      try {
+        const resp = await fetch(`${API_BASE}/api/partner/request-magic-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (data.ok) {
+          showFeedback('success', data.message || 'Lien envoyé. Vérifie ta boîte mail.');
+        } else {
+          showFeedback('error', data.error || 'Erreur. Réessaye.');
+        }
+      } catch (err) {
+        showFeedback('error', 'Erreur réseau. Réessaye.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Recevoir le lien d\'accès →';
+      }
+      return false;
+    }
+
+    function showLogin() {
+      document.getElementById('loginState').style.display = 'block';
+      document.getElementById('cockpitState').style.display = 'none';
+    }
+
+    function showFeedback(type, msg) {
+      const el = document.getElementById('loginFeedback');
+      if (!el) return;
+      el.className = 'feedback ' + type;
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function logout() {
+      localStorage.removeItem(SESSION_KEY);
+      window.location.reload();
+    }
+
+    function copyToClipboard(elId, btn) {
+      const text = document.getElementById(elId)?.textContent || '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copié';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
