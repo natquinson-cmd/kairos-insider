@@ -1,0 +1,99 @@
+name: Debug Insider Freshness
+
+# Pour diagnostiquer la fraicheur des donnees insiders par source (SEC US,
+# BaFin DE, AMF FR). Telecharge la KV insider-transactions et calcule les
+# dates min/max par source + nombre de transactions sur les 30 derniers
+# jours par source.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install wrangler
+        run: npm install -g wrangler
+
+      - name: Pull insider-transactions from KV
+        run: wrangler kv key get --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "insider-transactions" > /tmp/tx.json
+
+      - name: Analyze by source + date
+        run: |
+          python3 << 'EOF'
+          import json
+          from datetime import datetime, timezone, timedelta
+          from collections import Counter, defaultdict
+
+          with open('/tmp/tx.json') as f:
+            data = json.load(f)
+
+          # data structure : peut etre une liste ou un dict {ticker: [...]}
+          transactions = []
+          if isinstance(data, list):
+            transactions = data
+          elif isinstance(data, dict):
+            for k, v in data.items():
+              if isinstance(v, list):
+                for tx in v:
+                  if isinstance(tx, dict):
+                    tx['_ticker'] = k
+                    transactions.append(tx)
+              elif isinstance(v, dict):
+                transactions.append(v)
+
+          print(f"Total transactions chargées : {len(transactions)}")
+          if not transactions:
+            print("Vide ! Structure JSON :", json.dumps(data, indent=2)[:500])
+            exit()
+
+          # Echantillon de fields
+          print("\nFields disponibles (sur 1ère tx) :", list(transactions[0].keys())[:30])
+          print("Echantillon tx[0] :", json.dumps(transactions[0], default=str, ensure_ascii=False)[:500])
+
+          # Compteurs par source
+          by_source = Counter()
+          for tx in transactions:
+            src = tx.get('source') or tx.get('country') or tx.get('regulator') or tx.get('filing_source') or '?'
+            by_source[src] += 1
+          print(f"\n== Par source ==")
+          for src, cnt in by_source.most_common(20):
+            print(f"  {src:30s} : {cnt}")
+
+          # Dates min/max par source
+          by_src_dates = defaultdict(list)
+          for tx in transactions:
+            src = tx.get('source') or tx.get('country') or tx.get('regulator') or '?'
+            d = tx.get('date') or tx.get('transactionDate') or tx.get('filing_date') or tx.get('publication_date')
+            if d:
+              by_src_dates[src].append(d)
+          print(f"\n== Dates min / max par source ==")
+          for src, dates in by_src_dates.items():
+            dates.sort()
+            if dates:
+              print(f"  {src:30s} : min={dates[0][:10]}  max={dates[-1][:10]}  total={len(dates)}")
+
+          # Comptes dernier 30 jours par source
+          now = datetime.now(timezone.utc)
+          last_30 = (now - timedelta(days=30)).strftime('%Y-%m-%d')
+          last_7 = (now - timedelta(days=7)).strftime('%Y-%m-%d')
+          by_src_recent = defaultdict(lambda: {'7d': 0, '30d': 0})
+          for tx in transactions:
+            src = tx.get('source') or tx.get('country') or tx.get('regulator') or '?'
+            d = tx.get('date') or tx.get('transactionDate') or tx.get('filing_date') or tx.get('publication_date')
+            if d and d >= last_30:
+              by_src_recent[src]['30d'] += 1
+              if d >= last_7:
+                by_src_recent[src]['7d'] += 1
+          print(f"\n== Activité récente (dernières 30j / 7j) ==")
+          for src in sorted(by_src_recent.keys()):
+            r = by_src_recent[src]
+            print(f"  {src:30s} : derniers 30j = {r['30d']:5d}  | derniers 7j = {r['7d']:5d}")
+          EOF
