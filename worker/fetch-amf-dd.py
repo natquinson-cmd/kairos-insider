@@ -54,8 +54,11 @@ except ImportError:
 API_BASE = 'https://bdif.amf-france.org/back/api/v1'
 USER_AGENT = 'KairosInsider contact@kairosinsider.fr'
 PERIOD_DAYS = 90
-PAGE_SIZE = 100  # max par page API
-MAX_DOCS = 1000  # garde-fou
+PAGE_SIZE = 500  # max par page API (param 'Size', verifie OK jusqu'a 1000)
+# IMPORTANT : le param BDIF s'appelle 'Size' (pas 'Limit'). Bug observe le
+# 25 mai 2026 : avec 'Limit' l'API ignorait silencieusement et capait a 25
+# docs par defaut -> seulement 22 transactions parsees vs 800+ attendues.
+MAX_DOCS = 1500  # garde-fou
 PDF_FETCH_SLEEP = 0.3  # rate-limit poli (3 req/s max)
 
 # Mois FR -> numero pour parsing dates
@@ -133,9 +136,10 @@ def list_dd_declarations(days=90, max_docs=1000):
     all_docs = []
     skip = 0
     while len(all_docs) < max_docs:
-        # API params : Limit, Skip, TypesInformation, DatePublicationDebut
+        # API params : Size, Skip, TypesInformation, DatePublicationDebut
+        # Note : 'Limit' ne marche PAS (cap silencieux 25). C'est 'Size'.
         params = {
-            'Limit': PAGE_SIZE,
+            'Size': PAGE_SIZE,
             'Skip': skip,
             'TypesInformation': 'DD',
             'DatePublicationDebut': cutoff_iso,
