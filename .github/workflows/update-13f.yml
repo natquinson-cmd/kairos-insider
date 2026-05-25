@@ -253,6 +253,16 @@ jobs:
         timeout-minutes: 15
         continue-on-error: true
 
+      - name: Fetch AFM PDMR transactions (Pays-Bas, MAR art. 19) — SOURCE OFFICIELLE AFM
+        # Registre public AFM (Autoriteit Financiele Markten) des transactions
+        # "leidinggevenden" (PDMR = Persons Discharging Managerial Responsibilities)
+        # publiees au titre de MAR art. 19. Export XML quotidien, no auth.
+        # Limitation : metadata only (pas de qty/price/direction dans l'export public).
+        # On capture quand meme : 'tel CEO de Shell/ASML/Aegon a transige' = signal utile.
+        run: cd worker && python fetch-afm-pdmr.py --days 90
+        timeout-minutes: 5
+        continue-on-error: true
+
       - name: Restore ISIN->ticker cache
         uses: actions/cache@v4
         with:
@@ -264,7 +274,7 @@ jobs:
         timeout-minutes: 10
         continue-on-error: true
 
-      - name: Merge sources (SEC + BaFin + AMF) into unified transactions_data.json
+      - name: Merge sources (SEC + BaFin + AMF + AFM) into unified transactions_data.json
         run: cd worker && python merge-sources.py
         timeout-minutes: 2
 

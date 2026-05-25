@@ -3,9 +3,10 @@ Merge insider transactions from multiple sources into a single transactions_data
 that the Worker serves as KV key 'insider-transactions'.
 
 Sources:
-- transactions_data.json  : SEC Form 4 (US) produced by prefetch-all.py
-- transactions_bafin.json : BaFin Directors' Dealings (DE + Europe) produced by fetch-bafin.py
-- transactions_amf.json   : AMF Declarations dirigeants (FR + Euronext) produced by fetch-amf.py
+- transactions_data.json      : SEC Form 4 (US) produced by prefetch-all.py
+- transactions_bafin.json     : BaFin Directors' Dealings (DE + Europe) produced by fetch-bafin.py
+- transactions_amf.json       : AMF Declarations dirigeants (FR + Euronext) produced by fetch-amf-dd.py
+- transactions_afm_pdmr.json  : AFM Transacties leidinggevenden (NL + Euronext Amsterdam) by fetch-afm-pdmr.py
 
 Idempotent: any row missing 'market'/'currency' is tagged (defaults to US/USD for SEC-origin rows).
 
@@ -47,10 +48,10 @@ def main():
     # --- Load SEC (primary) ---
     sec = load_json('transactions_data.json', {'transactions': []})
     sec_txs_raw = sec.get('transactions', [])
-    # IMPORTANT : transactions_data.json peut contenir d'anciennes lignes BaFin/AMF (heritees du KV
+    # IMPORTANT : transactions_data.json peut contenir d'anciennes lignes BaFin/AMF/AFM (heritees du KV
     # lors du download initial). On les exclut pour eviter les doublons lors du merge avec le
     # nouveau fetch ci-dessous.
-    NON_SEC_SOURCES = {'bafin', 'amf'}
+    NON_SEC_SOURCES = {'bafin', 'amf', 'afm'}
     sec_txs = [t for t in sec_txs_raw if t.get('source', 'sec') not in NON_SEC_SOURCES]
     dropped = len(sec_txs_raw) - len(sec_txs)
     if dropped:
@@ -72,8 +73,16 @@ def main():
     amf_txs = amf.get('transactions', [])
     print(f'Loaded AMF: {len(amf_txs)} transactions')
 
+    # --- Load AFM PDMR (Pays-Bas, MAR art. 19) ---
+    # Source : https://www.afm.nl/export.aspx?type=0ee836dc-...&format=xml
+    # Limitation : metadata only (pas de qty/price/direction dans l'export public).
+    # On les charge quand meme : 'tel CEO de Shell a fait une transaction' = signal utile.
+    afm = load_json('transactions_afm_pdmr.json', {'transactions': []})
+    afm_txs = afm.get('transactions', [])
+    print(f'Loaded AFM PDMR: {len(afm_txs)} transactions')
+
     # --- Merge ---
-    combined = list(sec_txs) + list(bafin_txs) + list(amf_txs)
+    combined = list(sec_txs) + list(bafin_txs) + list(amf_txs) + list(afm_txs)
     # Sort by fileDate desc (most recent first), tiebreak by date
     combined.sort(key=lambda t: (t.get('fileDate', ''), t.get('date', '')), reverse=True)
 
@@ -110,7 +119,7 @@ def main():
     # --- Write out ---
     output = {
         'updatedAt': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'sources': ['sec-form4', 'bafin-directors-dealings', 'amf-declarations-dirigeants'],
+        'sources': ['sec-form4', 'bafin-directors-dealings', 'amf-declarations-dirigeants', 'afm-pdmr-mar19'],
         'periodDays': sec.get('periodDays', 90),
         'transactions': combined,
     }
@@ -122,7 +131,7 @@ def main():
     # Log last-run vers KV pour le tableau de bord admin (best-effort)
     try:
         from kv_lastrun import log_last_run
-        log_last_run('merge-sources', summary=f'{len(combined)} tx merged (SEC {len(sec_txs)}, BaFin {len(bafin_txs)}, AMF {len(amf_txs)})')
+        log_last_run('merge-sources', summary=f'{len(combined)} tx merged (SEC {len(sec_txs)}, BaFin {len(bafin_txs)}, AMF {len(amf_txs)}, AFM {len(afm_txs)})')
     except Exception as e:
         print(f'[lastRun] {e}')
 

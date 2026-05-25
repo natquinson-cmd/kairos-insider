@@ -58,6 +58,7 @@ wrangler.jsonc
 worker/transactions_data.json
 worker/transactions_bafin.json
 worker/transactions_amf.json
+worker/transactions_afm_pdmr.json
 worker/clusters_data.json
 worker/funds_data.json
 worker/etf_*.json
