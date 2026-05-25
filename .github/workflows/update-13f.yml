@@ -249,8 +249,14 @@ jobs:
         # Remplace l'ancien fetch-amf.py qui scrapait abcbourse.com (miroir tiers).
         # fetch-amf-dd.py utilise l'API officielle BDIF de l'AMF + parse les
         # PDFs officiels MAR art. 19. Plus fiable, donnees temps reel (J-1).
-        run: cd worker && python fetch-amf-dd.py --days 90 --limit 1500
-        timeout-minutes: 15
+        #
+        # FIX (mai 2026) : --limit 1500 timeoutait a 15min (run 26400533989 :
+        # parse jusqu'a 1375/1500, 407 txs retenus, file jamais ecrit). Constat :
+        # ~100% des transactions valides sont dans les 500 premiers docs (newest
+        # first), les 1000 plus anciens ont des PDFs au format obsolete que pypdf
+        # n'arrive pas a parser. --limit 600 + timeout 20min = securite.
+        run: cd worker && python fetch-amf-dd.py --days 90 --limit 600
+        timeout-minutes: 20
         continue-on-error: true
 
       - name: Fetch AFM PDMR transactions (Pays-Bas, MAR art. 19) — SOURCE OFFICIELLE AFM
