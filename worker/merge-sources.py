@@ -77,6 +77,20 @@ def main():
     # Sort by fileDate desc (most recent first), tiebreak by date
     combined.sort(key=lambda t: (t.get('fileDate', ''), t.get('date', '')), reverse=True)
 
+    # FIX (mai 2026, user feedback 'pas de donnees FR/Allemagne') :
+    # truncate a 60 jours pour rester sous le cap KV Cloudflare 25 MiB.
+    # Sans cap : transactions_data.json ~28 MB, upload wrangler kv put
+    # silently truncate ou fail -> ~75% des BaFin perdus.
+    # 60j = ~19 MB = securite + couvre largement les besoins UI
+    # (la plupart des dashboards montrent 30-60j max).
+    from datetime import datetime as _dt, timedelta as _td
+    cutoff_60d = (_dt.utcnow() - _td(days=60)).strftime('%Y-%m-%d')
+    before_truncate = len(combined)
+    combined = [t for t in combined if (t.get('fileDate') or t.get('date') or '') >= cutoff_60d]
+    truncated = before_truncate - len(combined)
+    if truncated:
+        print(f'\n  TRUNCATE 60j (>= {cutoff_60d}) : {before_truncate} -> {len(combined)} (retire {truncated} entrees anciennes pour rester sous cap KV 25 MiB)')
+
     # --- Stats by region / market ---
     by_region = {}
     by_market = {}
