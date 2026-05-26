@@ -259,15 +259,23 @@ jobs:
         timeout-minutes: 20
         continue-on-error: true
 
-      - name: Fetch AFM PDMR transactions (Pays-Bas, MAR art. 19) — SOURCE OFFICIELLE AFM
-        # Registre public AFM (Autoriteit Financiele Markten) des transactions
-        # "leidinggevenden" (PDMR = Persons Discharging Managerial Responsibilities)
-        # publiees au titre de MAR art. 19. Export XML quotidien, no auth.
-        # Limitation : metadata only (pas de qty/price/direction dans l'export public).
-        # On capture quand meme : 'tel CEO de Shell/ASML/Aegon a transige' = signal utile.
-        run: cd worker && python fetch-afm-pdmr.py --days 90
-        timeout-minutes: 5
-        continue-on-error: true
+      # DESACTIVE (mai 2026) : l'export public AFM ne contient que les metadonnees
+      # (date, emetteur, declarant, fonction, LEI) — pas de qty/price/direction.
+      # Sans chiffres, l'info "tel CEO d'ASML a transige" est trop pauvre pour
+      # l'UI (impossible d'afficher montant, cluster, top movers, etc.). Les
+      # chiffres existent mais sont dans des PDFs separes accessibles uniquement
+      # via les sites IR de chaque emetteur (Shell, ASML, Aegon...). Trop frag-
+      # mente pour ~50 tx/mois — ROI faible vs ~400 AMF FR. A reactiver si on
+      # ajoute un scraping PDF par emetteur.
+      #
+      # Le script worker/fetch-afm-pdmr.py reste en place dans le repo. Pour
+      # reactiver : decommenter ce step + ajouter le step "load afm" dans
+      # merge-sources.py.
+      #
+      # - name: Fetch AFM PDMR transactions (Pays-Bas, MAR art. 19)
+      #   run: cd worker && python fetch-afm-pdmr.py --days 90
+      #   timeout-minutes: 5
+      #   continue-on-error: true
 
       - name: Restore ISIN->ticker cache
         uses: actions/cache@v4
@@ -280,7 +288,7 @@ jobs:
         timeout-minutes: 10
         continue-on-error: true
 
-      - name: Merge sources (SEC + BaFin + AMF + AFM) into unified transactions_data.json
+      - name: Merge sources (SEC + BaFin + AMF) into unified transactions_data.json
         run: cd worker && python merge-sources.py
         timeout-minutes: 2
 
