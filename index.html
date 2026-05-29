@@ -1492,6 +1492,32 @@
       }
     }
 
+    /* ===== ACCESSIBILITÉ (mai 2026) ===== */
+    /* Focus clavier visible : ring net sur tous les éléments interactifs.
+       Avant : aucun :focus-visible sur la landing -> navigation clavier invisible.
+       :focus-visible n'apparaît qu'au clavier (pas au clic souris) -> 0 impact visuel souris. */
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+
+    /* Respect de prefers-reduced-motion : coupe animations + transitions + scroll
+       fluide pour les utilisateurs sensibles au mouvement (troubles vestibulaires).
+       Le dashboard le faisait déjà ; la landing non. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
   </style>
 </head>
 <body>
