@@ -4,7 +4,26 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 22 mai 2026 (v15 - Programme partenaires complet + Comp Premium + AMF BDIF officiel + fixes critiques CORS/Brevo)
+**Dernière mise à jour** : 26 mai 2026 (v16 - Fraîcheur données EU + typo Clash Display)
+
+---
+
+## 🎯 v16 — Fraîcheur données EU + identité typographique (25-26 mai 2026)
+
+### ✅ Fraîcheur données initiés EU (fixes critiques)
+- **AMF** : param API BDIF corrigé (`Size` au lieu de `Limit`, qui plafonnait silencieusement à 25 docs) → AMF passe de **1 à 63 transactions/7j**. Step CI : `--limit 600` + timeout 20 min (avant : 1500/15 min timeoutait sans écrire le fichier → 0 AMF).
+- **BaFin** : truncate `transactions_data.json` à 60 jours dans `merge-sources.py` (reste sous le cap KV Cloudflare 25 MiB) → débloque l'upload, BaFin passe de **0 à 17 transactions/7j**, fraîcheur +5j.
+- Nettoyage : 6 811 lignes orphelines (`source='?'`) éliminées du KV.
+
+### ✅ Pays-Bas (AFM PDMR) — évalué puis désactivé
+- Script `fetch-afm-pdmr.py` créé (export XML officiel AFM, registre MAR art. 19).
+- **Désactivé** : l'export public ne fournit que les métadonnées (date/émetteur/déclarant/fonction/LEI), **pas de quantité/prix/direction** → trop pauvre pour l'UI. Les chiffres sont dans des PDFs par émetteur (Shell, ASML…), trop fragmenté pour le ROI. Script conservé pour réactivation si scraping PDF ajouté.
+
+### ✅ Identité typographique — Clash Display
+- Titres : **Space Grotesk → Clash Display** (Fontshare) sur les 4 pages + logo CONSOB. Corps : **Inter conservé** (lisibilité data).
+- Motivation : Inter + Space Grotesk = combo SaaS le plus générique. Clash Display = plus caractériel, sort du look template sans toucher couleurs/layout/thèmes clair-sombre.
+- CSP mise à jour (index + dashboard) : `api.fontshare.com` (style-src) + `cdn.fontshare.com` (font-src).
+- Audit design complet réalisé (P0 typo traité ; P1 conversion landing / ergonomie dashboard + P2 accessibilité documentés pour plus tard).
 
 ---
 
