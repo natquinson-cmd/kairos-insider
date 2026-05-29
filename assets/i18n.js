@@ -58,10 +58,10 @@
       'nav.lang_switch_title': 'Switch to English',
 
       // ==== HERO (landing) ====
-      'hero.badge': '🔴 LIVE · Refresh toutes les heures · Alertes Telegram en moins de 8 min',
+      'hero.badge': 'LIVE · Refresh toutes les heures · Alertes Telegram en moins de 8 min',
       'hero.title_part1': 'Voyez ce que',
       'hero.title_part2': 'les pros voient.',
-      'hero.subtitle_html': 'Suivez chaque jour les mouvements des <strong>200 plus grands hedge funds</strong>, des <strong>dirigeants d\'entreprise</strong>, des <strong>fonds offensifs sur 12 marchés (🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 🇸🇪 🇳🇴 🇩🇰 🇫🇮)</strong> et des <strong>ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.',
+      'hero.subtitle_html': 'Suivez chaque jour les mouvements des <strong>200 plus grands hedge funds</strong>, des <strong>dirigeants d\'entreprise</strong>, des <strong>fonds offensifs sur 8 marchés (US, FR, DE, GB, NL, CH, ES, IT)</strong> et des <strong>ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.',
       'hero.cta_try': 'Essayer gratuitement →',
       'hero.cta_example': 'Voir un exemple d\'analyse',
       'hero.meta_legal': '100% légal',
@@ -352,7 +352,7 @@
       'speed.source_fca_desc': 'TR-1 holdings',
       'speed.source_others_desc': 'seuils 5% via RSS',
       // ==== LIVE proof strip (hero) ====
-      'live.proof_static': 'Données refreshées il y a quelques minutes · 9 marchés monitorés en continu',
+      'live.proof_static': 'Données refreshées il y a quelques minutes · 8 marchés monitorés en continu',
       'live.proof_dynamic_prefix': 'Dernier 13D détecté',
       'live.proof_dynamic_by': 'par',
       // ==== INSIDER PROFILE (Phase A+B 2026-05) ====
@@ -759,7 +759,7 @@
       'faq.q_cancel': 'Puis-je annuler à tout moment ?',
       'faq.a_cancel': 'Oui, aucun engagement. Votre abonnement Premium est résiliable en 1 clic dans votre espace personnel. Vous gardez l\'accès jusqu\'à la fin du cycle de facturation payé. Le paiement est géré par Stripe (sécurisé, conforme PCI-DSS).',
       'faq.q_markets': 'Sur quels marchés Kairos Insider fonctionne-t-il ?',
-      'faq.a_markets': 'Nous couvrons actuellement : 🇺🇸 États-Unis (NYSE, NASDAQ — via SEC), 🇫🇷 France (Euronext Paris — via AMF), 🇩🇪 Allemagne & zone euro (Xetra, Euronext — via BaFin). Cela représente 1000+ actions analysables. D\'autres marchés seront ajoutés progressivement (UK FCA, Suisse SIX).',
+      'faq.a_markets': 'Nous couvrons 8 marchés : États-Unis (SEC), France (AMF), Allemagne (BaFin), Royaume-Uni (FCA), Pays-Bas (AFM), Suisse (SIX), Espagne (CNMV) et Italie (Consob) — soit 1000+ actions analysables. La couverture des initiés est la plus profonde sur les États-Unis, la France et l\'Allemagne ; les autres marchés sont suivis via les déclarations d\'activistes et de franchissements de seuils.',
       'faq.q_funds': 'Comment sont sélectionnés les 200+ hedge funds suivis ?',
       'faq.a_funds': 'Nous suivons les <strong>200 plus grands hedge funds et asset managers par AUM</strong>, découverts <strong>automatiquement chaque semaine</strong> via SEC EDGAR (script qui scanne tous les filings 13F-HR récents et trie par taille). Inclut les légendes (Buffett, Burry, Klarman, Ackman, Einhorn…), multi-strategy mega (Citadel, Point72, Millennium), quants (Renaissance, Two Sigma, D.E. Shaw, AQR), Tiger Cubs (Tiger Global, Coatue, Viking, Lone Pine), activistes (Elliott, Trian, Icahn, Starboard), macro (Bridgewater, Tudor, Druckenmiller) et mega managers (Vanguard $5.9T, BlackRock $4.4T, State Street, Fidelity, Morgan Stanley…).',
       'faq.q_etf': 'Quels ETF thématiques sont suivis ?',
@@ -1759,10 +1759,10 @@
       'nav.lang_switch': 'FR',
       'nav.lang_switch_title': 'Passer en français',
 
-      'hero.badge': '🔴 LIVE · Refreshed hourly · Telegram alerts in under 8 min',
+      'hero.badge': 'LIVE · Refreshed hourly · Telegram alerts in under 8 min',
       'hero.title_part1': 'See what',
       'hero.title_part2': 'the pros see.',
-      'hero.subtitle_html': 'Track every day the moves of the <strong>200 largest hedge funds</strong>, <strong>company executives</strong>, <strong>activist funds across 12 markets (🇺🇸 🇫🇷 🇩🇪 🇬🇧 🇳🇱 🇨🇭 🇮🇹 🇪🇸 🇸🇪 🇳🇴 🇩🇰 🇫🇮)</strong> and <strong>thematic ETFs</strong>. A composite Kairos Score 0-100 synthesizes 8 smart-money dimensions for every stock.',
+      'hero.subtitle_html': 'Track every day the moves of the <strong>200 largest hedge funds</strong>, <strong>company executives</strong>, <strong>activist funds across 8 markets (US, FR, DE, GB, NL, CH, ES, IT)</strong> and <strong>thematic ETFs</strong>. A composite Kairos Score 0-100 synthesizes 8 smart-money dimensions for every stock.',
       'hero.cta_try': 'Try for free →',
       'hero.cta_example': 'See an analysis example',
       'hero.meta_legal': '100% legal',
@@ -2043,7 +2043,7 @@
       'speed.source_fca_desc': 'TR-1 holdings',
       'speed.source_others_desc': '5% thresholds via RSS',
       // ==== LIVE proof strip (hero) ====
-      'live.proof_static': 'Data refreshed a few minutes ago · 9 markets monitored continuously',
+      'live.proof_static': 'Data refreshed a few minutes ago · 8 markets monitored continuously',
       'live.proof_dynamic_prefix': 'Last 13D detected',
       'live.proof_dynamic_by': 'by',
       // ==== INSIDER PROFILE (Phase A+B 2026-05) ====
@@ -2435,7 +2435,7 @@
       'faq.q_cancel': 'Can I cancel anytime?',
       'faq.a_cancel': 'Yes, no commitment. Your Premium subscription is cancellable in 1 click from your personal area. You keep access until the end of the paid billing cycle. Payment is handled by Stripe (secure, PCI-DSS compliant).',
       'faq.q_markets': 'Which markets does Kairos Insider cover?',
-      'faq.a_markets': 'We currently cover: 🇺🇸 USA (NYSE, NASDAQ — via SEC), 🇫🇷 France (Euronext Paris — via AMF), 🇩🇪 Germany & euro zone (Xetra, Euronext — via BaFin). That\'s 1000+ analyzable stocks. More markets to come progressively (UK FCA, Switzerland SIX).',
+      'faq.a_markets': 'We cover 8 markets: USA (SEC), France (AMF), Germany (BaFin), United Kingdom (FCA), Netherlands (AFM), Switzerland (SIX), Spain (CNMV) and Italy (Consob) — that\'s 1000+ analyzable stocks. Insider coverage is deepest on the US, France and Germany; other markets are tracked via activist and threshold disclosures.',
       'faq.q_funds': 'How are the 200+ tracked hedge funds selected?',
       'faq.a_funds': 'We follow the <strong>200 largest hedge funds and asset managers by AUM</strong>, automatically discovered <strong>weekly</strong> via SEC EDGAR (script that scans recent 13F-HR filings and sorts by size). Includes legends (Buffett, Burry, Klarman, Ackman, Einhorn…), multi-strategy mega (Citadel, Point72, Millennium), quants (Renaissance, Two Sigma, D.E. Shaw, AQR), Tiger Cubs (Tiger Global, Coatue, Viking, Lone Pine), activists (Elliott, Trian, Icahn, Starboard), macro (Bridgewater, Tudor, Druckenmiller) and mega managers (Vanguard $5.9T, BlackRock $4.4T, State Street, Fidelity, Morgan Stanley…).',
       'faq.q_etf': 'Which thematic ETFs are tracked?',
