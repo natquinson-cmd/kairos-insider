@@ -88,3 +88,6 @@ worker/trends_data.json
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Mockup design local (jamais deploye)
+_design-directions.html

@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://www.googletagmanager.com https://js.stripe.com https://*.firebasedatabase.app https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://kairos-insider-api.natquinson.workers.dev https://cdn.jsdelivr.net https://www.gstatic.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://accounts.google.com; frame-src https://*.firebasedatabase.app https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://accounts.google.com https://kairos-insider.firebaseapp.com; form-action 'self' https://checkout.stripe.com; base-uri 'self'; object-src 'none'; upgrade-insecure-requests" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://www.googletagmanager.com https://js.stripe.com https://*.firebasedatabase.app https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com; connect-src 'self' https://kairos-insider-api.natquinson.workers.dev https://cdn.jsdelivr.net https://www.gstatic.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://accounts.google.com; frame-src https://*.firebasedatabase.app https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://accounts.google.com https://kairos-insider.firebaseapp.com; form-action 'self' https://checkout.stripe.com; base-uri 'self'; object-src 'none'; upgrade-insecure-requests" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Google Analytics 4 (RGPD-friendly : IP anonymisee, pas de signaux publicitaires) -->
@@ -36,7 +36,9 @@
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
   <script src="assets/i18n.js?v=20260522-activist-direction"></script>
@@ -369,7 +371,7 @@
       border-bottom: 1px solid var(--border);
     }
     .nav-container { display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; }
+    .logo { font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; }
     .logo-mark {
       width: 28px; height: 28px; min-width: 28px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
@@ -1322,7 +1324,7 @@
       .news-row .news-title { -webkit-line-clamp: 3 !important; } /* +1 ligne car plus de place verticale */
     }
     .auth-card .logo-mark { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 16px; }
-    .auth-card h2 { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 24px; margin-bottom: 8px; }
+    .auth-card h2 { font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 24px; margin-bottom: 8px; }
     .auth-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
     .auth-card input {
       width: 100%; padding: 14px 18px;
@@ -1585,7 +1587,7 @@
       min-width: 0;
     }
     .import-title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 15px;
       font-weight: 700;
       color: var(--text-primary);
@@ -1724,7 +1726,7 @@
       margin-bottom: 8px;
     }
     .delete-portfolio-modal h3 {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 17px;
       margin: 0;
       color: #EF4444;
@@ -1792,7 +1794,7 @@
     }
     .portfolio-toast-body { flex: 1; min-width: 0; }
     .portfolio-toast-title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 14px;
       font-weight: 700;
       color: var(--text-primary);
@@ -1874,7 +1876,7 @@
       margin-bottom: 3px;
     }
     .home-pf-stat-val {
-      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-family: 'Clash Display', 'Inter', sans-serif;
       font-size: 16px;
       font-weight: 700;
       color: var(--text-primary);
@@ -1963,7 +1965,7 @@
     }
     .home-pf-empty-body { flex: 1; min-width: 0; }
     .home-pf-empty-title {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 15px;
       font-weight: 700;
       color: var(--text-primary);
@@ -2034,7 +2036,7 @@
     }
     .modal-inner.csv-help-modal h3 {
       margin: 0;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 18px;
       color: var(--text-primary);
     }
@@ -2164,7 +2166,7 @@
       margin-bottom: 2px;
     }
     .positions-total-value {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 16px;
       font-weight: 700;
       color: var(--text-primary);
@@ -2241,7 +2243,7 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
     .positions-table .pos-ticker {
-      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-family: 'Clash Display', 'Inter', sans-serif;
       font-weight: 700;
       font-size: 15px;
       color: var(--text-primary);
@@ -2274,7 +2276,7 @@
       cursor: help;
     }
     .positions-table .pos-score-num {
-      font-family: 'Space Grotesk', 'Inter', sans-serif;
+      font-family: 'Clash Display', 'Inter', sans-serif;
       font-weight: 700;
       font-size: 16px;
       line-height: 1;
@@ -2438,7 +2440,7 @@
       margin-bottom: 12px;
     }
     .modal-inner.smart-money-upsell h3 {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Clash Display', sans-serif;
       font-size: 18px;
       margin: 0;
       color: var(--text-primary);
@@ -2520,7 +2522,7 @@
       filter: drop-shadow(0 2px 8px rgba(59,130,246,0.4));
     }
     .radar-title {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       margin: 0 0 4px;
@@ -2605,7 +2607,7 @@
       border-bottom: 1px solid var(--border);
     }
     .radar-connected-title {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 18px;
       font-weight: 700;
       color: var(--text-primary);
@@ -2667,7 +2669,7 @@
       margin-bottom: 6px;
     }
     .radar-kpi-value {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       color: var(--text-primary);
@@ -2691,7 +2693,7 @@
     }
     .radar-block-head h4 {
       margin: 0;
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 15px;
       font-weight: 700;
       color: var(--text-primary);
@@ -2815,7 +2817,7 @@
     }
     .broker-modal-header h3 {
       margin: 0;
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 22px;
       font-weight: 700;
       background: linear-gradient(135deg, #3B82F6, #8B5CF6);
@@ -2932,7 +2934,7 @@
     }
     .broker-back:hover { color: var(--text-primary); }
     .broker-form-title {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 18px;
       font-weight: 700;
       color: var(--text-primary);
@@ -3168,7 +3170,7 @@
     .sig-table tbody tr:hover { background: var(--surface-2); }
     .sig-ticker-cell {
       font-weight: 700; color: #74b9ff; font-size: 14px;
-      font-family: 'Space Grotesk', monospace;
+      font-family: 'Clash Display', monospace;
     }
     .sig-pill {
       display: inline-block; padding: 3px 9px; border-radius: 100px;
@@ -3190,7 +3192,7 @@
     }
     .section-page.active { display: block; }
     .section-page h2 {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 17px;
       font-weight: 700;
       margin-bottom: 3px;
@@ -3367,7 +3369,7 @@
       border-radius: 14px; padding: 20px 24px;
     }
     .stat-card .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    .stat-card .stat-value { font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 28px; font-weight: 700; }
+    .stat-card .stat-value { font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 28px; font-weight: 700; }
     .stat-card .stat-value.green { color: var(--accent-green); }
     .stat-card .stat-value.red { color: var(--accent-red); }
 
@@ -3462,7 +3464,7 @@
     }
     tbody tr:hover { background: var(--bg-card); }
     tbody tr:last-child td { border-bottom: none; }
-    .ticker { color: var(--accent-blue); font-weight: 700; font-family: 'Space Grotesk', monospace; }
+    .ticker { color: var(--accent-blue); font-weight: 700; font-family: 'Clash Display', monospace; }
     .clickable-ticker { cursor: pointer; transition: all 0.15s; }
     .clickable-ticker:hover { text-decoration: underline; transform: translateX(2px); }
     .pill {
@@ -3769,7 +3771,7 @@
       position: relative;
     }
     .chart-card h4 {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 13px;
       font-weight: 600;
       color: var(--text-secondary);
@@ -3887,7 +3889,7 @@
       margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
     }
     .hero-card .hero-value {
-      font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 32px; font-weight: 800;
       margin-bottom: 4px;
     }
@@ -4449,7 +4451,7 @@
 
       <!-- Prix -->
       <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:16px;margin-bottom:14px;text-align:center">
-        <div style="font-family:'Space Grotesk';font-size:34px;font-weight:800;color:var(--accent-blue);line-height:1"><span id="pwAmount">19€</span><span id="pwPeriod" style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
+        <div style="font-family:'Clash Display';font-size:34px;font-weight:800;color:var(--accent-blue);line-height:1"><span id="pwAmount">19€</span><span id="pwPeriod" style="font-size:16px;font-weight:500;color:var(--text-muted)">/mois</span></div>
         <div id="pwSubline" style="font-size:12px;color:var(--text-secondary);margin-top:4px">Sans engagement — Annulable à tout moment</div>
       </div>
 
@@ -5930,7 +5932,7 @@
                - Hero KPI + Charts (ci-dessous) = P&L REALISE (trades clos)
                ============================================================ -->
           <div style="display:flex;align-items:center;gap:10px;margin:8px 0 14px">
-            <h3 style="font-family:'Space Grotesk';font-size:18px;margin:0;color:var(--text-primary)" data-i18n="dash.portfolio.realized_title">Performance réalisée</h3>
+            <h3 style="font-family:'Clash Display';font-size:18px;margin:0;color:var(--text-primary)" data-i18n="dash.portfolio.realized_title">Performance réalisée</h3>
             <span class="pnl-section-badge" data-i18n="dash.portfolio.realized_badge">Trades clôturés</span>
           </div>
 
@@ -5970,7 +5972,7 @@
                           stroke-dasharray="0 188.5" stroke-linecap="round" transform="rotate(-90 36 36)"
                           style="transition:stroke-dasharray 0.8s ease"/>
                   <text id="donutText" x="36" y="41" text-anchor="middle" fill="var(--text-primary)"
-                        font-family="Space Grotesk" font-size="16" font-weight="800">0%</text>
+                        font-family="Clash Display" font-size="16" font-weight="800">0%</text>
                 </svg>
                 <div class="donut-info">
                   <div style="font-size:13px;margin-bottom:4px"><span style="color:var(--accent-green);font-weight:700" id="kpiWinsN">0</span> <span data-i18n="dash.portfolio.kpi.winners">gagnants</span></div>
@@ -6149,7 +6151,7 @@
 
           <!-- Tableau des trades -->
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:32px">
-            <h3 style="font-family:'Space Grotesk';font-size:16px" data-i18n="dash.portfolio.history_title">Historique des trades</h3>
+            <h3 style="font-family:'Clash Display';font-size:16px" data-i18n="dash.portfolio.history_title">Historique des trades</h3>
             <div style="display:flex;gap:8px">
               <span id="portfolioTradeCount" style="font-size:12px;color:var(--text-muted)"></span>
               <button class="btn-search" onclick="clearPortfolio()" style="font-size:11px;padding:6px 12px;color:var(--accent-red)" data-i18n="dash.portfolio.clear_btn">Supprimer mes données</button>
@@ -10153,7 +10155,7 @@
           return `
             <div style="padding:5px 10px;text-align:center">
               <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">${label}</div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:${small ? '14px' : '16px'};font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1.1">${fmtPrice(data.price)}</div>
+              <div style="font-family:'Clash Display',sans-serif;font-size:${small ? '14px' : '16px'};font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1.1">${fmtPrice(data.price)}</div>
               <div style="font-size:10px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(data.changePct)}</div>
             </div>`;
         };
@@ -10174,7 +10176,7 @@
             <div onclick="switchSection('feargreed')" style="cursor:pointer;padding:5px 10px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="F&amp;G hier: ${fg.previousClose != null ? fg.previousClose : '?'} · cliquer pour voir l'historique 1 an">
               <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">Fear &amp; Greed</div>
               ${gauge}
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:800;color:${color};line-height:1;margin-top:-1px">${s}</div>
+              <div style="font-family:'Clash Display',sans-serif;font-size:15px;font-weight:800;color:${color};line-height:1;margin-top:-1px">${s}</div>
               <div style="font-size:10px;color:${deltaColor};font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px">${arrow} ${deltaStr}</div>
             </div>`;
         };
@@ -10189,7 +10191,7 @@
           return `
             <div onclick="switchSection('vix')" style="cursor:pointer;padding:5px 10px;text-align:center;transition:background 0.15s" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'" title="VIX — indice de peur (volatilité implicite S&P). Cliquer pour voir l'historique 1 an.">
               <div style="font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600">VIX</div>
-              <div style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1.1">${fmtPrice(vix.price)}</div>
+              <div style="font-family:'Clash Display',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1.1">${fmtPrice(vix.price)}</div>
               <div style="font-size:9px;color:${zoneColor};font-weight:700;margin-top:1px;text-transform:uppercase;letter-spacing:0.04em">${zone}</div>
               <div style="font-size:10px;color:${color};font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums">${arrow} ${fmtPct(vix.changePct)}</div>
             </div>`;
@@ -12605,7 +12607,7 @@
             <div onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${entry.ticker}'), 200)" style="padding:18px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor='rgba(116,185,255,0.5)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
               <div style="width:32px;height:32px;border-radius:50%;background:${rankBg};color:${rankFg};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">#${rank}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em">${entry.ticker}</div>
+                <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.01em">${entry.ticker}</div>
                 <div style="font-size:12px;opacity:0.6;margin-top:2px">Intérêt : ${entry.interestNow}/100</div>
               </div>
               <div style="text-align:right;flex-shrink:0">
@@ -14252,7 +14254,7 @@
         // Le X/Y absolu (3/20, 10/10) reste dispo en tooltip pour debug.
         const pctLabel = Math.round((p.pctFill || 0) * 100) + '%';
         return `
-          <text x="${xAdj}" y="${y + 3}" text-anchor="${anchor}" font-size="10.5" font-weight="700" fill="${palette.label}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.04em">${p.axis.short}</text>
+          <text x="${xAdj}" y="${y + 3}" text-anchor="${anchor}" font-size="10.5" font-weight="700" fill="${palette.label}" font-family="'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.04em">${p.axis.short}</text>
           <text x="${xAdj}" y="${y + 17}" text-anchor="${anchor}" font-size="10" fill="var(--text-muted)" font-family="Inter, sans-serif">${pctLabel}</text>
         `;
       }).join('');
@@ -14312,7 +14314,7 @@
             <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden;position:relative">
               <div style="height:100%;background:linear-gradient(90deg, ${c.from}, ${c.to});width:${pct}%;border-radius:3px;box-shadow:0 0 10px ${c.from}33;transition:width 0.8s cubic-bezier(0.22,1,0.36,1)"></div>
             </div>
-            <div style="flex:0 0 52px;text-align:right;font-size:12px;font-family:'Space Grotesk',sans-serif">
+            <div style="flex:0 0 52px;text-align:right;font-size:12px;font-family:'Clash Display',sans-serif">
               <strong style="color:${c.text}">${pctDisplay}</strong><span style="opacity:0.5">%</span>
             </div>
           </div>
@@ -14332,7 +14334,7 @@
                 <span style="width:6px;height:6px;background:${palette.main};border-radius:50%;box-shadow:0 0 10px ${palette.main}"></span>
                 ${signal}
               </div>
-              <h2 style="font-size:22px;margin:0;letter-spacing:-0.01em;font-family:'Space Grotesk',sans-serif;font-weight:700">
+              <h2 style="font-size:22px;margin:0;letter-spacing:-0.01em;font-family:'Clash Display',sans-serif;font-weight:700">
                 Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:16px">/100</span>
               </h2>
             </div>
@@ -14368,8 +14370,8 @@
                 ${dots}
                 ${labels}
                 <!-- Score central -->
-                <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="52" font-weight="700" fill="${palette.main}" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="-0.02em">${total}</text>
-                <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.08em">/ 100</text>
+                <text x="${CX}" y="${CY - 8}" text-anchor="middle" font-size="52" font-weight="700" fill="${palette.main}" font-family="'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="-0.02em">${total}</text>
+                <text x="${CX}" y="${CY + 14}" text-anchor="middle" font-size="11" fill="var(--text-muted)" font-family="'Clash Display', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" letter-spacing="0.08em">/ 100</text>
               </svg>
             </div>
 
@@ -18810,7 +18812,7 @@
                     const a = scoreToAngle(l.s) * Math.PI / 180;
                     const x = cx + rLabel * Math.cos(a);
                     const y = cy - rLabel * Math.sin(a);
-                    return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="var(--text-muted)" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="600">${l.text}</text>`;
+                    return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" fill="var(--text-muted)" font-family="Clash Display, sans-serif" font-size="13" font-weight="600">${l.text}</text>`;
                   }).join('');
                 })()}
 
@@ -18832,7 +18834,7 @@
 
             <!-- Score + rating sous la gauge (pas d'overlay qui chevauche l'aiguille) -->
             <div class="fg-score" style="text-align:center;margin-top:-8px">
-              <div id="fgCounter" style="font-family:'Space Grotesk';font-size:64px;font-weight:800;color:${color};line-height:1;text-shadow:0 4px 24px ${color}55">0</div>
+              <div id="fgCounter" style="font-family:'Clash Display';font-size:64px;font-weight:800;color:${color};line-height:1;text-shadow:0 4px 24px ${color}55">0</div>
               <div style="font-size:15px;color:${color};font-weight:700;margin-top:6px;letter-spacing:0.04em;text-transform:uppercase">${ratingFR}</div>
             </div>
 
@@ -18867,7 +18869,7 @@
               return `
                 <div style="padding:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px;text-align:center">
                   <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${c.label}</div>
-                  <div style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:'Space Grotesk'">${c.val}</div>
+                  <div style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:'Clash Display'">${c.val}</div>
                   <div style="font-size:11px;color:${deltaColor};margin-top:2px">${deltaArrow} ${delta > 0 ? '+' : delta < 0 ? '-' : ''}${deltaAbs}pt</div>
                 </div>`;
             }).join('')}
@@ -18969,7 +18971,7 @@
                         </div>
                         <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.04em">${c.labelEN}</div>
                       </div>
-                      <div style="font-size:18px;font-weight:800;color:${col};font-family:'Space Grotesk';line-height:1;flex-shrink:0">${s}</div>
+                      <div style="font-size:18px;font-weight:800;color:${col};font-family:'Clash Display';line-height:1;flex-shrink:0">${s}</div>
                     </div>
                     <div style="font-size:11px;color:var(--text-muted);margin:6px 0 8px;line-height:1.35">${c.shortDesc}</div>
                     <div style="height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
@@ -19237,7 +19239,7 @@
             <div style="padding:18px 20px;background:linear-gradient(135deg,${zone.color}14,${zone.color}05);border:1px solid ${zone.color}33;border-radius:12px">
               <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">VIX actuel</div>
               <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-                <div style="font-family:'Space Grotesk';font-size:38px;font-weight:800;color:${zone.color};line-height:1">${v.toFixed(2)}</div>
+                <div style="font-family:'Clash Display';font-size:38px;font-weight:800;color:${zone.color};line-height:1">${v.toFixed(2)}</div>
                 <div style="font-size:12px;color:${deltaColor};font-weight:700">${arrow} ${(changePct > 0 ? '+' : '') + changePct}%</div>
               </div>
               <div style="margin-top:8px">
@@ -19247,7 +19249,7 @@
             </div>
             <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
               <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Percentile 1 an</div>
-              <div style="font-family:'Space Grotesk';font-size:38px;font-weight:800;color:var(--text-primary);line-height:1">${stats.percentile}%</div>
+              <div style="font-family:'Clash Display';font-size:38px;font-weight:800;color:var(--text-primary);line-height:1">${stats.percentile}%</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:6px">du temps, le VIX était inférieur au niveau actuel</div>
             </div>
             <div style="padding:18px 20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
@@ -19255,15 +19257,15 @@
               <div style="display:flex;gap:14px;align-items:baseline;margin-top:4px">
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Bas</div>
-                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#10B981">${stats.low}</div>
+                  <div style="font-family:'Clash Display';font-size:22px;font-weight:700;color:#10B981">${stats.low}</div>
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Moyenne</div>
-                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:var(--text-primary)">${stats.avg}</div>
+                  <div style="font-family:'Clash Display';font-size:22px;font-weight:700;color:var(--text-primary)">${stats.avg}</div>
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">Haut</div>
-                  <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;color:#EF4444">${stats.high}</div>
+                  <div style="font-family:'Clash Display';font-size:22px;font-weight:700;color:#EF4444">${stats.high}</div>
                 </div>
               </div>
             </div>
@@ -19293,7 +19295,7 @@
               <div class="vix-zone-card" style="border-color:${v >= parseInt(z.range.match(/\\d+/)?.[0] || '0') && (z.label === 'Crash' || v < parseInt(z.range.split('-')[1] || '999')) ? z.color : 'var(--border)'}">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                   <span class="vix-zone-badge" style="background:${z.color}22;color:${z.color};border:1px solid ${z.color}44">${z.label}</span>
-                  <span style="font-family:'Space Grotesk';font-size:13px;font-weight:700;color:var(--text-primary)">${z.range}</span>
+                  <span style="font-family:'Clash Display';font-size:13px;font-weight:700;color:var(--text-primary)">${z.range}</span>
                 </div>
                 <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">${z.desc}</div>
               </div>
@@ -19768,7 +19770,7 @@
               plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.x}%` } } },
               scales: {
                 x: { grid: { color: getCssVar('--chart-grid') }, ticks: { color: getCssVar('--text-muted'), font: { size: 11 }, callback: v => v + '%' } },
-                y: { grid: { display: false }, ticks: { color: getCssVar('--text-secondary'), font: { size: 11, weight: 600, family: 'Space Grotesk' } } }
+                y: { grid: { display: false }, ticks: { color: getCssVar('--text-secondary'), font: { size: 11, weight: 600, family: 'Clash Display' } } }
               }
             }
           });
@@ -22421,10 +22423,10 @@
         `).join('');
 
         content.innerHTML = `
-          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">📋 Schéma D1</h4>
+          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">📋 Schéma D1</h4>
           <p style="margin:0 0 16px">Schema version : ${schemaCol} (${(diag.schema?.columns || []).length} colonnes)</p>
 
-          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔌 Connexions</h4>
+          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">🔌 Connexions</h4>
           <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
             <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
               <th style="padding:6px 10px;text-align:left">Broker</th>
@@ -22436,14 +22438,14 @@
             <tbody>${connsHtml || '<tr><td colspan="5" style="padding:10px;color:var(--text-muted)">Aucune connexion.</td></tr>'}</tbody>
           </table>
 
-          <h4 style="margin:0 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">📊 Positions stockées (par broker)</h4>
+          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">📊 Positions stockées (par broker)</h4>
           ${posCountsHtml}
 
-          <h4 style="margin:16px 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔁 Résultat du sync test</h4>
+          <h4 style="margin:16px 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">🔁 Résultat du sync test</h4>
           ${syncHtml}
 
           ${sampleHtml ? `
-            <h4 style="margin:16px 0 10px;font-family:'Space Grotesk';font-size:14px;color:var(--text-primary)">🔬 Sample des 5 premières positions</h4>
+            <h4 style="margin:16px 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">🔬 Sample des 5 premières positions</h4>
             <table style="width:100%;border-collapse:collapse;background:var(--surface-1);border-radius:8px;overflow:hidden">
               <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
                 <th style="padding:6px 8px;text-align:left">Broker</th>
@@ -22490,7 +22492,7 @@
           return;
         }
         const brokerCatalog = await loadRadarBrokerCatalog();
-        list.innerHTML = '<h4 style="margin:0 0 12px;font-family:\'Space Grotesk\';font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px"><span>🔌</span> <span>Brokers connectés</span></h4>'
+        list.innerHTML = '<h4 style="margin:0 0 12px;font-family:\'Clash Display\';font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px"><span>🔌</span> <span>Brokers connectés</span></h4>'
           + conns.map(c => {
               const broker = (brokerCatalog || []).find(b => b.id === c.broker);
               const flag = broker?.flag || '🏦';
@@ -23647,18 +23649,18 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
           <div class="tip" data-tip="Monthly Recurring Revenue. Somme normalisée en €/mois de tous les abonnements ACTIVE. Les plans annuels sont divisés par 12 pour l'estimation mensuelle." style="padding:12px;background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04));border:1px solid rgba(16,185,129,0.25);border-radius:8px">
             <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">MRR</div>
-            <div style="font-size:22px;font-weight:700;color:#10B981;font-family:'Space Grotesk'">${fmtEur2(rev.mrrEur)}</div>
+            <div style="font-size:22px;font-weight:700;color:#10B981;font-family:'Clash Display'">${fmtEur2(rev.mrrEur)}</div>
             <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${rev.activeSubsCount} abo actifs</div>
           </div>
           <div class="tip" data-tip="Annualised Run Rate = MRR × 12. Projection de revenu annuel si les abonnements actifs actuels restent tels quels pendant 12 mois. Ne tient pas compte du churn ou de la croissance." style="padding:12px;background:linear-gradient(135deg,rgba(116,185,255,0.12),rgba(116,185,255,0.04));border:1px solid rgba(116,185,255,0.25);border-radius:8px">
             <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">ARR (MRR×12)</div>
-            <div style="font-size:22px;font-weight:700;color:#74b9ff;font-family:'Space Grotesk'">${fmtEur(rev.arrEur)}</div>
+            <div style="font-size:22px;font-weight:700;color:#74b9ff;font-family:'Clash Display'">${fmtEur(rev.arrEur)}</div>
             <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Run rate annuel</div>
           </div>
           ${(rev.byPlan || []).slice(0, 3).map(p => `
             <div class="tip" data-tip="${p.count} abonnement(s) ${planLabel(p.plan, p.billing)}. Contribution MRR : ${fmtEur2(p.mrrEur)}." style="padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
               <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${p.plan === 'elite' ? '⚡' : p.plan === 'pro' ? '⭐' : '🛡'} ${planLabel(p.plan, p.billing)}</div>
-              <div style="font-size:20px;font-weight:700;font-family:'Space Grotesk'">${p.count}</div>
+              <div style="font-size:20px;font-weight:700;font-family:'Clash Display'">${p.count}</div>
               <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${fmtEur2(p.mrrEur)} MRR</div>
             </div>
           `).join('')}

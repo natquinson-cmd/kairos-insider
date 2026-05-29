@@ -14,7 +14,7 @@
   <!-- Wordmark CONSOB centre -->
   <text x="64" y="78"
         text-anchor="middle"
-        font-family="'Space Grotesk', 'Inter', Arial, sans-serif"
+        font-family="'Clash Display', 'Inter', Arial, sans-serif"
         font-size="26"
         font-weight="800"
         fill="#FFFFFF"
