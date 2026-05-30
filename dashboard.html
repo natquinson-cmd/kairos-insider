@@ -12348,15 +12348,17 @@
         ['SAN.PA',  'Sanofi',   _S('pharmaFr'),  '#74b9ff'],
         ['SHEL.L',  'Shell',    _S('energieUk'), '#fdcb6e'],
       ];
+      // [iconName, color, label, sub] — icônes ligne cohérentes avec les
+      // en-têtes de section de l'analyse (mai 2026, remplace les emoji).
       const dimensions = [
-        ['🕴️',  _T('dash.stockDiscovery.dim.insiders', 'Insiders'),                _T('dash.stockDiscovery.dim.insiders_sub', 'SEC + AMF + BaFin')],
-        ['🏦',  _T('dash.stockDiscovery.dim.hedgeFunds', 'Hedge funds'),            _T('dash.stockDiscovery.dim.hedgeFunds_sub', '13F filings (47 fonds)')],
-        ['🏛️',  _T('dash.stockDiscovery.dim.politicians', 'Politiques'),            _T('dash.stockDiscovery.dim.politicians_sub', 'NANC + GOP + Pelosi')],
-        ['📈',  _T('dash.stockDiscovery.dim.priceTimeline', 'Prix & timeline'),    _T('dash.stockDiscovery.dim.priceTimeline_sub', '5 ans cours + variations')],
-        ['💰',  _T('dash.stockDiscovery.dim.fundamentals', 'Fondamentaux'),         _T('dash.stockDiscovery.dim.fundamentals_sub', 'MarketCap, P/E, ROE…')],
-        ['🎯',  _T('dash.stockDiscovery.dim.consensus', 'Consensus'),               _T('dash.stockDiscovery.dim.consensus_sub', 'Analystes US + EU')],
-        ['🛡️',  _T('dash.stockDiscovery.dim.financialHealth', 'Santé financière'), _T('dash.stockDiscovery.dim.financialHealth_sub', 'Altman Z + Piotroski F')],
-        ['📰',  _T('dash.stockDiscovery.dim.news', 'News récentes'),                _T('dash.stockDiscovery.dim.news_sub', 'Yahoo + Google Trends')],
+        ['user',       '#8B5CF6', _T('dash.stockDiscovery.dim.insiders', 'Insiders'),                _T('dash.stockDiscovery.dim.insiders_sub', 'SEC + AMF + BaFin')],
+        ['wallet',     '#10B981', _T('dash.stockDiscovery.dim.hedgeFunds', 'Hedge funds'),            _T('dash.stockDiscovery.dim.hedgeFunds_sub', '13F filings (47 fonds)')],
+        ['landmark',   '#F59E0B', _T('dash.stockDiscovery.dim.politicians', 'Politiques'),            _T('dash.stockDiscovery.dim.politicians_sub', 'NANC + GOP + Pelosi')],
+        ['trendingUp', '#3B82F6', _T('dash.stockDiscovery.dim.priceTimeline', 'Prix & timeline'),    _T('dash.stockDiscovery.dim.priceTimeline_sub', '5 ans cours + variations')],
+        ['barChart',   '#06B6D4', _T('dash.stockDiscovery.dim.fundamentals', 'Fondamentaux'),         _T('dash.stockDiscovery.dim.fundamentals_sub', 'MarketCap, P/E, ROE…')],
+        ['users',      '#3B82F6', _T('dash.stockDiscovery.dim.consensus', 'Consensus'),               _T('dash.stockDiscovery.dim.consensus_sub', 'Analystes US + EU')],
+        ['heartPulse', '#10B981', _T('dash.stockDiscovery.dim.financialHealth', 'Santé financière'), _T('dash.stockDiscovery.dim.financialHealth_sub', 'Altman Z + Piotroski F')],
+        ['newspaper',  '#94A3B8', _T('dash.stockDiscovery.dim.news', 'News récentes'),                _T('dash.stockDiscovery.dim.news_sub', 'Yahoo + Google Trends')],
       ];
 
       const renderCard = ([t, n, s, c]) => `
@@ -12367,9 +12369,9 @@
         </button>
       `;
 
-      const renderDim = ([icon, label, sub]) => `
+      const renderDim = ([iconName, color, label, sub]) => `
         <div style="text-align:center;padding:14px 8px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-          <div style="font-size:26px;margin-bottom:6px">${icon}</div>
+          <div style="display:flex;justify-content:center;margin-bottom:8px">${iconChip(iconName, color, 40, 22)}</div>
           <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${label}</div>
           <div style="font-size:10px;color:var(--text-muted);margin-top:3px;line-height:1.3">${sub}</div>
         </div>
@@ -14480,6 +14482,7 @@
       history:     '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
       zap:         '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
       wallet:      '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
+      trendingUp:  '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
     };
     function _hexToRgba(hex, a) {
       const m = String(hex).replace('#', '');
