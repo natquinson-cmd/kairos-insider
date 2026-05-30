@@ -284,7 +284,16 @@
       margin-bottom: 36px; max-width: 580px;
       line-height: 1.6;
     }
-    .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 32px; }
+    .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+    /* CTA tertiaire : lien texte discret (hierarchie primary > secondary > texte)
+       pour ne pas concurrencer les 2 boutons d'action principaux. */
+    .hero-cta-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--text-secondary); text-decoration: none;
+      font-size: 14px; font-weight: 600;
+      margin-bottom: 30px; transition: color 0.2s, gap 0.2s;
+    }
+    .hero-cta-link:hover { color: var(--accent-blue); gap: 9px; }
     .hero-meta {
       display: flex; gap: 28px; flex-wrap: wrap;
       font-size: 13px; color: var(--text-muted);
@@ -1165,6 +1174,14 @@
       border-bottom: 1px solid var(--border);
       background: linear-gradient(180deg, transparent, rgba(116,185,255,0.04), transparent);
     }
+    .sources-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      line-height: 1.2;
+    }
     .sources-label {
       text-align: center;
       font-size: 14px;
@@ -1689,8 +1706,8 @@
               <span data-i18n="hero.cta_backtest">📊 Backtest gratuit</span>
               <span style="position:absolute;top:-8px;right:-8px;background:#10B981;color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;font-weight:800;letter-spacing:0.5px">FREE</span>
             </a>
-            <a href="/a/AAPL" class="btn btn-secondary btn-large" data-i18n="hero.cta_example">Voir un exemple d'analyse</a>
           </div>
+          <a href="/a/AAPL" class="hero-cta-link"><span data-i18n="hero.cta_example">Voir un exemple d'analyse</span> →</a>
 
           <!-- LIVE PROOF : preuve concrete de la fraicheur. Fetched depuis l'API,
                affiche le dernier filing 13D detecte avec son age. Fallback statique
@@ -1901,8 +1918,9 @@
     Section logos sources officielles AVANT backtest : credibilite institutionnelle
     immediatement apres le hero, avant que l'utilisateur voit les chiffres.
   -->
-  <section class="data-sources-strip">
+  <section class="data-sources-strip" id="data">
     <div class="container">
+      <h2 class="sources-title"><span data-i18n="data.title_part1">Des données publiques.</span> <span data-i18n="data.title_part2">Un traitement d'expert.</span></h2>
       <div class="sources-label" data-i18n="sources.label">Données officielles agrégées depuis</div>
       <div class="sources-logos">
         <div class="source-logo" title="Securities and Exchange Commission (SEC) — régulateur US">
@@ -2381,30 +2399,6 @@
           <h3 data-i18n="how.step3.title">Surveillez le smart money</h3>
           <p data-i18n="how.step3.desc">Chaque matin à 7h, retrouvez les mouvements majeurs, les Hot Stocks et les nouveaux signaux sur vos actions suivies.</p>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== DATA SOURCES ===== -->
-  <section class="section" id="data" style="padding-top:60px">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge" data-i18n="data.badge">Sources de données</span>
-        <h2><span data-i18n="data.title_part1">Des données publiques.</span><br /><span data-i18n="data.title_part2">Un traitement d'expert.</span></h2>
-        <p class="section-subtitle" data-i18n="data.subtitle">
-          Kairos Insider agrège, traduit et analyse les déclarations officielles des régulateurs financiers — 100% légal, 100% transparent.
-        </p>
-      </div>
-
-      <div class="data-sources">
-        <div class="data-tag"><strong>SEC Form 4</strong><span data-i18n="data.sec_4">Transactions d'insiders US</span></div>
-        <div class="data-tag"><strong>SEC Form 13F</strong><span data-i18n="data.sec_13f">Portefeuilles hedge funds</span></div>
-        <div class="data-tag"><strong>AMF France</strong><span data-i18n="data.amf">Déclarations dirigeants</span></div>
-        <div class="data-tag"><strong>BaFin</strong><span data-i18n="data.bafin">Directors' dealings (Europe)</span></div>
-        <div class="data-tag"><strong>Google Trends</strong><span data-i18n="data.trends">Intérêt retail (proxy)</span></div>
-        <div class="data-tag"><strong>Subversive ETFs</strong><span data-i18n="data.subversive">NANC / GOP politique US</span></div>
-        <div class="data-tag"><strong>Global X / Zacks</strong><span data-i18n="data.zacks">Holdings ETF temps réel</span></div>
-        <div class="data-tag"><strong>Yahoo / StockAnalysis</strong><span data-i18n="data.yahoo">Prix, fondamentaux, consensus</span></div>
       </div>
     </div>
   </section>
