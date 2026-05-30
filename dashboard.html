@@ -41,7 +41,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260529-dash-badges"></script>
+  <script src="assets/i18n.js?v=20260530-emoji-icons"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
@@ -4590,18 +4590,18 @@
             </div>
             <!-- Items -->
             <button class="profile-menu-item" onclick="gotoProfileCard()" role="menuitem">
-              <span style="font-size:15px">👤</span><span data-i18n="dash.sidebar.profile">Mon Profil</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span data-i18n="dash.sidebar.profile">Mon Profil</span>
             </button>
             <div style="height:1px;background:var(--border-strong);margin:6px 2px"></div>
             <button class="profile-menu-item" onclick="toggleTheme();toggleProfileMenu()" role="menuitem">
-              <span style="font-size:15px">🌓</span><span data-i18n="profile.theme">Thème</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="profile.theme">Thème</span>
             </button>
             <button class="profile-menu-item" onclick="window.KairosI18n.setLang(window.KairosI18n.getLang() === 'fr' ? 'en' : 'fr');toggleProfileMenu()" role="menuitem">
-              <span style="font-size:15px">🌐</span><span id="navProfileMenuLang">English</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg><span id="navProfileMenuLang">English</span>
             </button>
             <div style="height:1px;background:var(--border-strong);margin:6px 2px"></div>
             <button class="profile-menu-item" onclick="logout()" role="menuitem" style="color:#F87171">
-              <span style="font-size:15px">🚪</span><span data-i18n="nav.logout">Déconnexion</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg><span data-i18n="nav.logout">Déconnexion</span>
             </button>
           </div>
         </li>
@@ -4627,7 +4627,7 @@
       <!-- Header -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:20px 22px 14px;border-bottom:1px solid var(--border-strong)">
         <div>
-          <h3 id="supportModalTitle" style="margin:0;font-size:18px;color:var(--text-primary)" data-i18n="support.title">🎧 Aide & Support</h3>
+          <h3 id="supportModalTitle" style="margin:0;font-size:18px;color:var(--text-primary);display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-7a9 9 0 0 1 18 0v7a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg><span data-i18n="support.title">Aide & Support</span></h3>
           <div style="font-size:12px;color:var(--text-muted);margin-top:4px" data-i18n="support.subtitle">Une question, un bug ou une suggestion ? Nous répondons sous 24h ouvrées.</div>
         </div>
         <button onclick="closeSupportModal()" aria-label="Fermer"
@@ -4639,13 +4639,13 @@
       <!-- Quick links -->
       <div style="padding:14px 22px;border-bottom:1px solid var(--border-strong);display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <a href="index.html#faq" target="_blank" class="support-chip">
-          <span style="font-size:18px">❓</span><span data-i18n="support.faq">FAQ</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg><span data-i18n="support.faq">FAQ</span>
         </a>
         <a href="cgv.html" target="_blank" class="support-chip">
-          <span style="font-size:18px">📄</span><span data-i18n="support.cgv">CGV</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg><span data-i18n="support.cgv">CGV</span>
         </a>
         <a href="legal.html" target="_blank" class="support-chip">
-          <span style="font-size:18px">🔒</span><span data-i18n="support.privacy">Confidentialité</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span data-i18n="support.privacy">Confidentialité</span>
         </a>
       </div>
 
@@ -4654,12 +4654,12 @@
         <div style="margin-bottom:14px">
           <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px" data-i18n="support.subject">Sujet</label>
           <select id="supportSubject" required class="form-input" style="width:100%">
-            <option value="question" data-i18n="support.subj_question">❓ Question générale</option>
-            <option value="bug" data-i18n="support.subj_bug">🐛 Signaler un bug</option>
-            <option value="billing" data-i18n="support.subj_billing">💳 Facturation / Abonnement</option>
-            <option value="feature" data-i18n="support.subj_feature">💡 Suggestion d'amélioration</option>
-            <option value="data" data-i18n="support.subj_data">📊 Problème de données</option>
-            <option value="other" data-i18n="support.subj_other">✉️ Autre</option>
+            <option value="question" data-i18n="support.subj_question">Question générale</option>
+            <option value="bug" data-i18n="support.subj_bug">Signaler un bug</option>
+            <option value="billing" data-i18n="support.subj_billing">Facturation / Abonnement</option>
+            <option value="feature" data-i18n="support.subj_feature">Suggestion d'amélioration</option>
+            <option value="data" data-i18n="support.subj_data">Problème de données</option>
+            <option value="other" data-i18n="support.subj_other">Autre</option>
           </select>
         </div>
         <div style="margin-bottom:14px">
@@ -4679,7 +4679,7 @@
         <div id="supportFormMsg" style="display:none;padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:13px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button type="button" onclick="closeSupportModal()" class="btn btn-secondary" style="width:auto;padding:10px 18px" data-i18n="support.cancel">Annuler</button>
-          <button type="submit" id="supportSubmitBtn" class="btn btn-primary" style="width:auto;padding:10px 22px"><span data-i18n="support.send">📤 Envoyer</span></button>
+          <button type="submit" id="supportSubmitBtn" class="btn btn-primary" style="width:auto;padding:10px 22px;display:inline-flex;align-items:center;justify-content:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg><span data-i18n="support.send">Envoyer</span></button>
         </div>
       </form>
     </div>
@@ -4823,8 +4823,8 @@
               </div>
             </div>
             <div style="display:flex;gap:8px">
-              <button onclick="switchSection('stockAnalysis')" class="cockpit-btn-primary" style="padding:8px 14px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">🔎 Analyser un ticker</button>
-              <button onclick="switchSection('watchlist')" class="cockpit-btn-secondary" style="padding:8px 14px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer">⭐ Watchlist</button>
+              <button onclick="switchSection('stockAnalysis')" class="cockpit-btn-primary" style="padding:8px 14px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:8px;color:#fff;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Analyser un ticker</button>
+              <button onclick="switchSection('watchlist')" class="cockpit-btn-secondary" style="padding:8px 14px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Watchlist</button>
             </div>
           </div>
 
@@ -5042,7 +5042,7 @@
 
       <!-- ===== SECTION: HOT STOCKS (Google Trends) ===== -->
       <div class="section-page" id="section-hotStocks">
-        <h2 data-i18n="dash.section.hotStocks.title">🔥 Tendances retail — Pics d'intérêt Google</h2>
+        <h2 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24" style="flex-shrink:0"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg><span data-i18n="dash.section.hotStocks.title">Tendances retail — Pics d'intérêt Google</span></h2>
         <p class="section-desc" data-i18n="dash.section.hotStocks.desc">Les actions dont l'intérêt retail explose en ce moment. Basé sur les données Google Trends — l'attention retail précède souvent les mouvements de prix, surtout sur les small caps. Mis à jour quotidiennement.</p>
 
         <div id="hotStocksBody">
@@ -5566,9 +5566,9 @@
 
         <!-- HUB HEDGE FUNDS (regroupe donnees 13F-HR : portefeuilles + explorer + consensus) -->
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
-          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')">🔬 <span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
+          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg><span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
+          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
         <!-- SEARCH BAR : 2 dimensions de recherche fusionnees (mai 2026) :
@@ -5603,15 +5603,15 @@
            Affiche TOUTES les positions hedge funds sur un ticker donne,
            1 ligne par fund, avec une ligne TOTAL agregee. -->
       <div class="section-page" id="section-13f-explorer">
-        <h2 data-i18n="dash.section.13f.explorer.title">Hedge Funds — Explorer 🔬</h2>
+        <h2 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.section.13f.explorer.title">Hedge Funds — Explorer</span></h2>
         <p class="section-desc" data-i18n="dash.section.13f.explorer.desc">
           Vue position-centrique : toutes les positions hedge funds sur une action donnée, agrégées avec une ligne <strong>Total</strong>. Accessible depuis la fiche action via « Voir tous les fonds qui détiennent X ».
         </p>
 
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
-          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')">🔬 <span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
+          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg><span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
+          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
         <!-- Input ticker + autocomplete + bouton retour fiche action -->
@@ -5640,16 +5640,16 @@
 
       <!-- ===== SECTION: SMART MONEY CONSENSUS (13F) ===== -->
       <div class="section-page" id="section-consensus13f">
-        <h2 data-i18n="dash.section.consensus13f.title">Hedge Funds — Consensus 🤝</h2>
+        <h2 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="dash.section.consensus13f.title">Hedge Funds — Consensus</span></h2>
         <p class="section-desc" data-i18n="dash.section.consensus13f.desc">
           Quelles actions sont détenues par <strong>plusieurs hedge funds simultanément</strong> ? Plus une position est partagée, plus elle est consensus du smart money. À l'inverse, les actions tenues par un seul fonds sont des "lonely picks" — paris originaux ou contrarian.
         </p>
 
         <!-- HUB HEDGE FUNDS (meme barre qu'ailleurs) -->
         <div class="hub-tabs" role="tablist">
-          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')">🏛️ <span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
-          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')">🔬 <span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
-          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')">🤝 <span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
+          <button class="hub-tab" data-hub-target="13f" onclick="switchSection('13f')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg><span data-i18n="dash.hub.hedgefunds.portfolios">Portefeuilles</span></button>
+          <button class="hub-tab" data-hub-target="13f-explorer" onclick="switchSection('13f-explorer')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.hub.hedgefunds.explorer">Explorer</span></button>
+          <button class="hub-tab" data-hub-target="consensus13f" onclick="switchSection('consensus13f')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="dash.hub.hedgefunds.consensus">Consensus</span></button>
         </div>
 
         <div id="consensus13fBody">
@@ -5787,7 +5787,7 @@
                ondragleave="this.classList.remove('drag-over')"
                ondrop="event.preventDefault();this.classList.remove('drag-over');handleCsvDrop(event)"
                onclick="if(event.target.tagName !== 'A' && event.target.tagName !== 'BUTTON' && !event.target.closest('a') && !event.target.closest('button')) document.getElementById('csvFileInput').click()">
-            <div class="import-icon">📤</div>
+            <div class="import-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#74b9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg></div>
             <div class="import-body">
               <h3 class="import-title" data-i18n="dash.portfolio.import_title">Importez votre historique de trades</h3>
               <p class="import-sub" data-i18n="dash.portfolio.import_sub_compact">Glissez votre CSV ici ou parcourez — Détection automatique du broker</p>
@@ -5797,7 +5797,7 @@
             </button>
           </div>
           <div class="import-hero-footer">
-            <a onclick="openCsvHelpModal()" data-i18n="dash.portfolio.compat_link">📚 Compatible avec 20+ brokers EU et US — Voir la liste</a>
+            <a onclick="openCsvHelpModal()" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg><span data-i18n="dash.portfolio.compat_link">Compatible avec 20+ brokers EU et US — Voir la liste</span></a>
           </div>
           <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" onchange="handleCsvFile(this.files[0])" />
           <p id="csvStatus" style="margin-top:10px;font-size:12px;color:var(--text-muted);display:none;text-align:center"></p>
@@ -5811,7 +5811,7 @@
         <div class="modal-overlay" id="csvHelpModal" onclick="if(event.target===this)closeCsvHelpModal()" style="display:none">
           <div class="modal-inner csv-help-modal">
             <div class="modal-header">
-              <h3 data-i18n="dash.portfolio.help_modal_title">📖 Comment exporter mon historique CSV ?</h3>
+              <h3 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg><span data-i18n="dash.portfolio.help_modal_title">Comment exporter mon historique CSV ?</span></h3>
               <button class="modal-close" onclick="closeCsvHelpModal()">✕</button>
             </div>
             <p class="modal-sub" data-i18n="dash.portfolio.help_modal_sub">Chaque broker propose un export de votre historique. La détection du broker est automatique : importez juste le CSV.</p>
@@ -5970,7 +5970,7 @@
           <div class="hero-kpi">
             <!-- CARTE 1 : Performance globale -->
             <div class="hero-card">
-              <div class="hero-label" data-i18n="dash.portfolio.kpi.global_perf">💰 Performance globale</div>
+              <div class="hero-label" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg><span data-i18n="dash.portfolio.kpi.global_perf">Performance globale</span></div>
               <div class="hero-value" id="kpiPnl">—</div>
               <div class="hero-sub">
                 <span id="kpiPerfPct">—</span>
@@ -5980,7 +5980,7 @@
 
             <!-- CARTE 2 : Gain Total avec barre split -->
             <div class="hero-card pnl" id="kpiGainCard">
-              <div class="hero-label" data-i18n="dash.portfolio.kpi.gain_total">📈 Gain Total</div>
+              <div class="hero-label" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg><span data-i18n="dash.portfolio.kpi.gain_total">Gain Total</span></div>
               <div class="hero-value" id="kpiGainTotal">—</div>
               <div class="hero-sub">
                 <span id="kpiGainPct" style="color:var(--accent-green)">—</span>
@@ -5994,7 +5994,7 @@
 
             <!-- CARTE 3 : Trades Gagnants avec donut -->
             <div class="hero-card">
-              <div class="hero-label" data-i18n="dash.portfolio.kpi.winning_trades">🎯 Trades Gagnants</div>
+              <div class="hero-label" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span data-i18n="dash.portfolio.kpi.winning_trades">Trades Gagnants</span></div>
               <div class="donut-wrap">
                 <svg width="72" height="72" viewBox="0 0 72 72">
                   <circle cx="36" cy="36" r="30" style="stroke:var(--border)" stroke-width="8" fill="none"/>
@@ -6045,7 +6045,8 @@
           <!-- ANALYSE AVANCÉE (expandable) -->
           <div class="advanced-toggle" onclick="this.classList.toggle('open');document.getElementById('advancedSection').classList.toggle('open')">
             <span class="chev">&#9654;</span>
-            <span data-i18n="dash.portfolio.kpi.advanced_analysis">📊 Analyse Avancée</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0;vertical-align:middle"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
+            <span data-i18n="dash.portfolio.kpi.advanced_analysis">Analyse Avancée</span>
           </div>
           <div class="advanced-content" id="advancedSection">
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">
@@ -6124,7 +6125,7 @@
           <!-- CALENDRIER JOURNALIER (identique au Trading Dashboard) -->
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <div class="stat-label" data-i18n="dash.portfolio.chart.daily_calendar">📅 Calendrier journalier</div>
+              <div class="stat-label" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg><span data-i18n="dash.portfolio.chart.daily_calendar">Calendrier journalier</span></div>
               <label class="toggle-wrap">
                 <span class="toggle-val">€</span>
                 <input type="checkbox" id="pDayPctToggle" onchange="buildPortfolioDailyCal()">
@@ -6144,7 +6145,7 @@
           <!-- HEATMAP MENSUELLE (identique au Trading Dashboard) -->
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <div class="stat-label" data-i18n="dash.portfolio.chart.monthly_perf">📊 Performance mensuelle</div>
+              <div class="stat-label" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><span data-i18n="dash.portfolio.chart.monthly_perf">Performance mensuelle</span></div>
               <label class="toggle-wrap">
                 <span class="toggle-val">€</span>
                 <input type="checkbox" id="pMonthPctToggle" onchange="renderMonthlyHeatmap()">
@@ -6157,7 +6158,7 @@
 
           <div class="stat-card" style="padding:20px;margin-bottom:24px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-              <div class="stat-label" data-i18n="dash.portfolio.chart.pnl_period">📊 P&L par période</div>
+              <div class="stat-label" style="display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><span data-i18n="dash.portfolio.chart.pnl_period">P&L par période</span></div>
               <div class="chart-period-btns">
                 <button data-pnlperiod="day" class="active" onclick="setPnlPeriod('day')" data-i18n="dash.portfolio.period.day">Jour</button>
                 <button data-pnlperiod="week" onclick="setPnlPeriod('week')" data-i18n="dash.portfolio.period.week">Semaine</button>
@@ -6198,7 +6199,7 @@
         <div class="modal-overlay" id="deletePortfolioModal" onclick="if(event.target===this)closeDeletePortfolioModal()" style="display:none">
           <div class="modal-inner delete-portfolio-modal">
             <div class="modal-header">
-              <h3>🗑 Supprimer toutes les données ?</h3>
+              <h3 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Supprimer toutes les données ?</h3>
               <button class="modal-close" onclick="closeDeletePortfolioModal()">✕</button>
             </div>
             <p class="modal-sub" data-i18n="dash.portfolio.delete_warn">Cette action supprime <strong class="delete-modal-count">0</strong> trades importés, vos positions reconstruites et tous les snapshots Firebase associés. <strong>Action irréversible.</strong></p>
@@ -6222,7 +6223,7 @@
         <div class="modal-overlay" id="adminGrantPremiumModal" onclick="if(event.target===this)closeAdminGrantModal()" style="display:none">
           <div class="modal-inner" style="max-width:520px">
             <div class="modal-header">
-              <h3 data-i18n="dash.admin.grant_title">🎁 Offrir Premium</h3>
+              <h3 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg><span data-i18n="dash.admin.grant_title">Offrir Premium</span></h3>
               <button class="modal-close" onclick="closeAdminGrantModal()">✕</button>
             </div>
             <p class="modal-sub" style="margin-top:0" data-i18n="dash.admin.grant_sub">Octroie un acces Premium gratuit (influenceur, beta, gift). Stocke separement de Stripe — peut etre revoque sans impact sur les abonnements payants.</p>
@@ -6237,8 +6238,8 @@
               <div>
                 <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;font-weight:600" data-i18n="dash.admin.grant_plan">Plan</label>
                 <select id="adminGrantPlan" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px">
-                  <option value="pro">⭐ Pro (19€/mois)</option>
-                  <option value="elite">⚡ Elite (49€/mois)</option>
+                  <option value="pro">Pro (19€/mois)</option>
+                  <option value="elite">Elite (49€/mois)</option>
                 </select>
               </div>
               <div>
@@ -6255,10 +6256,10 @@
             <div style="margin-bottom:12px">
               <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;font-weight:600" data-i18n="dash.admin.grant_source">Source</label>
               <select id="adminGrantSource" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:inherit;font-size:13px">
-                <option value="influencer">🎙 Influencer (partenariat affiliate)</option>
-                <option value="beta">🧪 Beta tester</option>
-                <option value="gift" selected>🎁 Gift (cadeau / early supporter)</option>
-                <option value="team">👥 Team (interne)</option>
+                <option value="influencer">Influencer (partenariat affiliate)</option>
+                <option value="beta">Beta tester</option>
+                <option value="gift" selected>Gift (cadeau / early supporter)</option>
+                <option value="team">Team (interne)</option>
               </select>
             </div>
 
@@ -6295,13 +6296,13 @@
         <div class="modal-overlay" id="smartMoneyUpsellModal" onclick="if(event.target===this)closeSmartMoneyUpsellModal()" style="display:none">
           <div class="modal-inner smart-money-upsell">
             <div class="modal-header">
-              <h3 id="smartMoneyUpsellTitle">🔔 Smart money sur AAPL</h3>
+              <h3 id="smartMoneyUpsellTitle" style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span id="smartMoneyUpsellTitleText">Smart money sur AAPL</span></h3>
               <button class="modal-close" onclick="closeSmartMoneyUpsellModal()">✕</button>
             </div>
             <p class="modal-sub" data-i18n="dash.portfolio.upsell_sub">Voici les mouvements smart money detectes sur cette position dans les 30 derniers jours. Activez Pro+ pour recevoir ces alertes en temps reel par email.</p>
             <div id="smartMoneyUpsellBody"></div>
             <div style="margin-top:20px;text-align:center">
-              <a href="/abonnement" class="btn-primary" style="display:inline-block;padding:12px 28px;font-weight:600;text-decoration:none;border-radius:8px" data-i18n="dash.portfolio.upsell_cta">⚡ Activer les alertes Pro+</a>
+              <a href="/abonnement" class="btn-primary" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;font-weight:600;text-decoration:none;border-radius:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span data-i18n="dash.portfolio.upsell_cta">Activer les alertes Pro+</span></a>
               <p style="font-size:12px;color:var(--text-muted);margin-top:8px" data-i18n="dash.portfolio.upsell_note">Annulation a tout moment · 14j gratuits</p>
             </div>
           </div>
@@ -6360,7 +6361,7 @@
 
         <!-- Preferences alertes -->
         <div style="margin-top:32px;padding:20px 22px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px">
-          <h3 style="margin:0 0 14px;font-size:15px;color:var(--text-primary)">⚙️ Preferences d'alertes</h3>
+          <h3 style="margin:0 0 14px;font-size:15px;color:var(--text-primary);display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Preferences d'alertes</h3>
 
           <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:14px;padding:12px;background:rgba(59,130,246,0.05);border-radius:8px">
             <input type="checkbox" id="wlEmailAlerts" onchange="saveWatchlistPrefs()" style="margin-top:2px;width:18px;height:18px;cursor:pointer;accent-color:var(--accent-blue)" />
@@ -6374,29 +6375,29 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeCluster" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
-              <span style="font-size:13px">🚨 Convergences d'initiés (3+ dirigeants)</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0;opacity:0.85"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span style="font-size:13px">Convergences d'initiés (3+ dirigeants)</span>
             </label>
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeEtf" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
-              <span style="font-size:13px">💼 Entrees / sorties d'ETF</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0;opacity:0.85"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span style="font-size:13px">Entrees / sorties d'ETF</span>
             </label>
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeScore" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
-              <span style="font-size:13px">📊 Variation Kairos Score (±10pt)</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0;opacity:0.85"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><span style="font-size:13px">Variation Kairos Score (±10pt)</span>
             </label>
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
               <input type="checkbox" id="wlTypeInsider" onchange="saveWatchlistPrefs()" style="accent-color:var(--accent-green)" />
-              <span style="font-size:13px">🏛️ Transactions insiders individuelles</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0;opacity:0.85"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg><span style="font-size:13px">Transactions insiders individuelles</span>
             </label>
             <label style="display:flex;gap:10px;align-items:center;cursor:pointer;padding:10px 14px;background:linear-gradient(135deg,rgba(245,158,11,0.08),var(--surface-2));border:1px solid rgba(245,158,11,0.28);border-radius:8px">
               <input type="checkbox" id="wlTypeActivist" onchange="saveWatchlistPrefs()" style="accent-color:#F59E0B" />
-              <span style="font-size:13px">⚡ Activistes (13D/G, signal de positionnement)</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span style="font-size:13px">Activistes (13D/G, signal de positionnement)</span>
             </label>
           </div>
 
           <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
-            <button onclick="testWatchlistDigest()" class="btn" style="padding:10px 18px;font-size:13px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-primary)">
-              📧 Tester le Brief maintenant
+            <button onclick="testWatchlistDigest()" class="btn" style="padding:10px 18px;font-size:13px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-primary);display:inline-flex;align-items:center;gap:8px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Tester le Brief maintenant
             </button>
             <button onclick="clearWatchlist()" class="btn" style="padding:10px 18px;font-size:13px;background:transparent;border:1px solid var(--accent-red);color:var(--accent-red)">
               Tout supprimer
@@ -6410,7 +6411,7 @@
         <!-- ===== TELEGRAM ALERTS (Phase 1) ===== -->
         <div id="telegramPanel" style="margin-top:24px;padding:20px 22px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-            <span style="font-size:22px">💬</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
             <h3 style="margin:0;font-size:15px;color:var(--text-primary)">Alertes Telegram <span style="font-size:11px;font-weight:600;background:linear-gradient(135deg,#3B82F6,#8B5CF6,#EC4899);color:#fff;padding:2px 7px;border-radius:4px;letter-spacing:0.06em;margin-left:6px">NOUVEAU</span></h3>
           </div>
           <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;line-height:1.55">
@@ -6459,8 +6460,8 @@
                 <div style="font-size:11.5px;color:var(--text-muted)" id="tgLinkedInfo">—</div>
               </div>
               <div style="display:flex;gap:8px">
-                <button onclick="testTelegram()" class="btn" style="padding:7px 13px;font-size:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;cursor:pointer">
-                  📤 Tester
+                <button onclick="testTelegram()" class="btn" style="padding:7px 13px;font-size:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>Tester
                 </button>
                 <button onclick="unlinkTelegram()" class="btn" style="padding:7px 13px;font-size:12px;background:transparent;border:1px solid var(--accent-red);color:var(--accent-red);border-radius:6px;cursor:pointer">
                   Délier
@@ -6494,7 +6495,7 @@
               <div id="profileHeroEmail" class="profile-hero-email">—</div>
               <div class="profile-hero-meta">
                 <span id="profileHeroBadge" class="profile-pill profile-pill-free">FREE</span>
-                <span class="profile-meta-item"><span class="profile-meta-icon">📅</span><span data-i18n="profile.member_since">Membre depuis</span> <strong id="profileHeroMember">—</strong></span>
+                <span class="profile-meta-item"><span class="profile-meta-icon" style="display:inline-flex;vertical-align:-2px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg></span><span data-i18n="profile.member_since">Membre depuis</span> <strong id="profileHeroMember">—</strong></span>
               </div>
             </div>
             <button id="profilePhotoRemoveBtn" class="profile-hero-action" onclick="removeProfilePhoto()" style="display:none" data-i18n="profile.remove_photo">Supprimer la photo</button>
@@ -6557,33 +6558,33 @@
           <div class="profile-prefs-grid">
             <div class="profile-pref-item">
               <div class="profile-pref-label">
-                <span class="profile-pref-emoji">🌐</span>
+                <span class="profile-pref-emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span>
                 <div>
                   <div class="profile-pref-name" data-i18n="profile.language">Langue</div>
                   <div class="profile-pref-desc" data-i18n="profile.language_desc">Interface du dashboard</div>
                 </div>
               </div>
               <div class="profile-segmented">
-                <button id="profileLangFr" onclick="window.KairosI18n.setLang('fr');refreshProfilePrefsActive()" class="profile-seg-btn">🇫🇷 FR</button>
-                <button id="profileLangEn" onclick="window.KairosI18n.setLang('en');refreshProfilePrefsActive()" class="profile-seg-btn">🇬🇧 EN</button>
+                <button id="profileLangFr" onclick="window.KairosI18n.setLang('fr');refreshProfilePrefsActive()" class="profile-seg-btn" style="display:inline-flex;align-items:center;gap:6px"><img src="assets/flags/fr.png" alt="" width="16" height="12" style="border-radius:2px;flex-shrink:0" />FR</button>
+                <button id="profileLangEn" onclick="window.KairosI18n.setLang('en');refreshProfilePrefsActive()" class="profile-seg-btn" style="display:inline-flex;align-items:center;gap:6px"><img src="assets/flags/gb.png" alt="" width="16" height="12" style="border-radius:2px;flex-shrink:0" />EN</button>
               </div>
             </div>
             <div class="profile-pref-item">
               <div class="profile-pref-label">
-                <span class="profile-pref-emoji">🌓</span>
+                <span class="profile-pref-emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
                 <div>
                   <div class="profile-pref-name" data-i18n="profile.theme">Thème</div>
                   <div class="profile-pref-desc" data-i18n="profile.theme_desc">Clair ou sombre</div>
                 </div>
               </div>
               <div class="profile-segmented">
-                <button id="profileThemeLight" onclick="setThemeProfile('light')" class="profile-seg-btn">☀️ Clair</button>
-                <button id="profileThemeDark" onclick="setThemeProfile('dark')" class="profile-seg-btn">🌙 Sombre</button>
+                <button id="profileThemeLight" onclick="setThemeProfile('light')" class="profile-seg-btn" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>Clair</button>
+                <button id="profileThemeDark" onclick="setThemeProfile('dark')" class="profile-seg-btn" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>Sombre</button>
               </div>
             </div>
             <div class="profile-pref-item">
               <div class="profile-pref-label">
-                <span class="profile-pref-emoji">🔔</span>
+                <span class="profile-pref-emoji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></span>
                 <div>
                   <div class="profile-pref-name" data-i18n="profile.alerts">Alertes email</div>
                   <div class="profile-pref-desc" data-i18n="profile.alerts_desc">Watchlist et événements smart money</div>
@@ -6607,14 +6608,14 @@
           </div>
           <div class="profile-stats-grid">
             <div class="profile-stat">
-              <div class="profile-stat-icon">📅</div>
+              <div class="profile-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg></div>
               <div>
                 <div class="profile-stat-label" data-i18n="profile.created">Compte créé le</div>
                 <div id="profileCreatedAt" class="profile-stat-value">—</div>
               </div>
             </div>
             <div class="profile-stat">
-              <div class="profile-stat-icon">🕐</div>
+              <div class="profile-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
               <div>
                 <div class="profile-stat-label" data-i18n="profile.last_login">Dernière connexion</div>
                 <div id="profileLastLogin" class="profile-stat-value">—</div>
@@ -6627,7 +6628,7 @@
               <div style="color:var(--text-primary);font-weight:600;font-size:13px" data-i18n="profile.password_title">Mot de passe</div>
               <div class="profile-hint" style="margin-top:2px" data-i18n="profile.password_desc">Recevez un lien sécurisé par email pour le réinitialiser.</div>
             </div>
-            <button class="profile-btn profile-btn-secondary" onclick="sendPasswordResetFromProfile()" data-i18n="profile.reset_password_short">🔑 Réinitialiser</button>
+            <button class="profile-btn profile-btn-secondary" onclick="sendPasswordResetFromProfile()" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg><span data-i18n="profile.reset_password_short">Réinitialiser</span></button>
           </div>
           <div id="profilePasswordMsg" class="profile-success-msg" style="display:none"></div>
         </div>
@@ -6648,7 +6649,7 @@
               <div style="color:var(--text-primary);font-weight:600;font-size:13px" data-i18n="profile.export_title">Exporter mes données</div>
               <div class="profile-hint" style="margin-top:2px" data-i18n="profile.export_desc">Télécharger un fichier JSON avec votre profil, watchlist et abonnement (RGPD).</div>
             </div>
-            <button class="profile-btn profile-btn-secondary" onclick="exportMyData()" data-i18n="profile.export_btn">📥 Télécharger</button>
+            <button class="profile-btn profile-btn-secondary" onclick="exportMyData()" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg><span data-i18n="profile.export_btn">Télécharger</span></button>
           </div>
           <div class="profile-divider"></div>
           <div class="profile-danger-row">
@@ -6656,7 +6657,7 @@
               <div style="color:#F87171;font-weight:600;font-size:13px" data-i18n="profile.delete_title">Supprimer mon compte</div>
               <div class="profile-hint" style="margin-top:2px" data-i18n="profile.delete_desc">Suppression définitive du compte, watchlist et abonnement.</div>
             </div>
-            <button class="profile-btn profile-btn-danger" onclick="deleteMyAccount()" data-i18n="profile.delete_btn">🗑️ Supprimer</button>
+            <button class="profile-btn profile-btn-danger" onclick="deleteMyAccount()" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex-shrink:0"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg><span data-i18n="profile.delete_btn">Supprimer</span></button>
           </div>
         </div>
       </div>
@@ -6667,7 +6668,7 @@
           <div class="sig-page-header">
             <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
             <h2 class="sig-page-title">
-              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)">📊</span>
+              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg></span>
               Kairos Score — Variations
             </h2>
             <span class="sig-page-count" id="sigScoreCount">—</span>
@@ -6727,7 +6728,7 @@
           <div class="sig-page-header">
             <button class="sig-page-back" onclick="switchSection('home')">← Accueil</button>
             <h2 class="sig-page-title">
-              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)">💼</span>
+              <span class="sig-page-title-icon" style="background:linear-gradient(135deg,#F59E0B,#F97316)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
               Rotations ETF
             </h2>
             <span class="sig-page-count" id="sigEtfCount">—</span>
@@ -6791,7 +6792,7 @@
       <!-- ===== SECTION ELITE : ALERTES TEMPS-REEL ===== -->
       <div class="section-page" id="section-eliteAlerts">
         <h2 style="display:flex;align-items:center;gap:12px">
-          <span>🔔 Alertes temps-réel</span>
+          <span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Alertes temps-réel</span>
           <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
         </h2>
         <p class="section-desc">Soyez notifié dès qu'un signal smart money se déclenche sur vos tickers watchlistés. Email + push navigateur.</p>
@@ -6805,32 +6806,32 @@
         <h3 style="margin:24px 0 14px;font-size:16px">Types d'alertes prévues</h3>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:20px;margin-bottom:6px">🎯</div>
+            <div style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
             <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Vague d'initiés détectée</div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">≥3 dirigeants achètent leurs propres actions en moins de 30 jours sur un ticker de votre watchlist.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:20px;margin-bottom:6px">⚡</div>
+            <div style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
             <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Nouveau 13D activist</div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un fonds offensif connu (Elliott, Ackman, Icahn…) dépose un 13D sur un ticker que vous suivez.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:20px;margin-bottom:6px">💰</div>
+            <div style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
             <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Big insider buy</div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un CEO/CFO achète pour &gt; 1 M$ de ses propres actions (signal de vraie conviction).</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:20px;margin-bottom:6px">📊</div>
+            <div style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg></div>
             <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Kairos Score +10 pts</div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un ticker de votre watchlist voit son score grimper significativement (≥ 10 pts sur 7j).</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:20px;margin-bottom:6px">🤝</div>
+            <div style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
             <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Consensus 13F nouveau</div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">≥3 hedge funds top 50 achètent le même ticker ce trimestre.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="font-size:20px;margin-bottom:6px">🌊</div>
+            <div style="margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></div>
             <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px">Rotation ETF</div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Un ticker entre ou sort d'un ETF que vous suivez (NANC, GOP, ARK…).</div>
           </div>
@@ -6839,9 +6840,9 @@
         <div style="margin-top:28px;padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;text-align:center">
           <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Canaux de notification prévus</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0">
-            <span style="padding:6px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:12px;color:#10B981;font-weight:600">📧 Email temps-réel</span>
-            <span style="padding:6px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:100px;font-size:12px;color:#60A5FA;font-weight:600">🔔 Push navigateur</span>
-            <span style="padding:6px 14px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:100px;font-size:12px;color:#A78BFA;font-weight:600">🪝 Webhooks</span>
+            <span style="padding:6px 14px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:12px;color:#10B981;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Email temps-réel</span>
+            <span style="padding:6px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:100px;font-size:12px;color:#60A5FA;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Push navigateur</span>
+            <span style="padding:6px 14px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:100px;font-size:12px;color:#A78BFA;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/></svg>Webhooks</span>
           </div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:8px">Les abonnés Elite actuels auront accès gratuit aux alertes dès leur lancement.</div>
         </div>
@@ -6850,7 +6851,7 @@
       <!-- ===== SECTION ELITE : BACKTESTS ===== -->
       <div class="section-page" id="section-eliteBacktests">
         <h2 style="display:flex;align-items:center;gap:12px">
-          <span>📈 Backtests historiques</span>
+          <span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Backtests historiques</span>
           <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
         </h2>
         <p class="section-desc">Testez vos stratégies smart money sur 5 ans d'historique : "acheter quand une vague d'initiés est détectée", "suivre les 13D activists", "copier le top 50 hedge funds".</p>
@@ -6864,23 +6865,23 @@
         <h3 style="margin:24px 0 14px;font-size:16px">Stratégies backtestables (prévues)</h3>
         <div style="display:flex;flex-direction:column;gap:12px">
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🎯 Convergence chasing</strong></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><strong style="color:var(--text-primary);font-size:14px">Convergence chasing</strong></div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Acheter 100$ à chaque détection de convergence ≥3 insiders. Hold 90/180/365 jours. Compare au S&amp;P 500.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">⚡ Activist following</strong></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><strong style="color:var(--text-primary);font-size:14px">Activist following</strong></div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Tracker Elliott / Ackman / Icahn : acheter à chaque 13D nouveau. Hold jusqu'à la sortie (13D/A — Item 4).</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🏛️ Top 50 hedge funds clone</strong></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg><strong style="color:var(--text-primary);font-size:14px">Top 50 hedge funds clone</strong></div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Répliquer les top 10 positions de chaque 13F-HR trimestriel. Rebalance à chaque release (45j lag SEC).</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">📊 Kairos Score ≥ 80</strong></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><strong style="color:var(--text-primary);font-size:14px">Kairos Score ≥ 80</strong></div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Acheter tous les tickers qui atteignent un Kairos Score ≥ 80. Vendre quand &lt; 50. Rebalance mensuel.</div>
           </div>
           <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><strong style="color:var(--text-primary);font-size:14px">🌊 NANC (Pelosi) clone</strong></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg><strong style="color:var(--text-primary);font-size:14px">NANC (Pelosi) clone</strong></div>
             <div style="font-size:12px;color:var(--text-secondary);line-height:1.5">Répliquer l'ETF NANC (transactions Congrès US). Mesurer vs S&amp;P 500 et vs ETF officiel (qui a 50 pts de base de frais).</div>
           </div>
         </div>
@@ -6894,17 +6895,17 @@
       <!-- ===== SECTION: ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS) ===== -->
       <div class="section-page" id="section-admin">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap">
-          <h2 style="margin:0">🛡️ Tableau de bord Admin</h2>
+          <h2 style="margin:0;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg>Tableau de bord Admin</h2>
           <span id="adminAutoRefreshStatus" class="tip tip-below" data-tip="Heure de la dernière mise à jour des données admin (users, trafic, jobs, backup, erreurs). Cliquer sur 🔄 Refresh ou activer Auto-refresh pour rafraichir." style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:100px;font-size:11px;color:#10B981;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap">—</span>
           <label style="margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer;padding:6px 10px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px">
             <input type="checkbox" id="adminAutoRefresh" onchange="toggleAdminAutoRefresh()" style="accent-color:#10B981" />
             <span>Auto-refresh</span>
             <span id="adminCountdown" style="font-size:10px;color:var(--text-muted)"></span>
           </label>
-          <button onclick="loadAdminDashboard(true)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
-          <button onclick="previewDailyTweets()" class="tip" data-tip="Preview les 3 tweets que le worker génère aujourd'hui à partir des signaux Kairos (sans envoi)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid rgba(29,161,242,0.4);border-radius:6px;color:#1DA1F2;cursor:pointer;margin-left:4px">🐦 Preview tweets</button>
-          <button onclick="sendTweetsEmail()" class="tip" data-tip="Envoie immédiatement un email avec les 3 tweets du jour (même contenu que celui envoyé auto chaque matin 8h30)" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">📧 Email tweets</button>
-          <button onclick="sendCommentDigestEmail()" class="tip" data-tip="Envoie immédiatement le digest des tweets X à commenter (15 handles cibles + tickers + Kairos Score). Cron auto : lun-ven 7h45 Paris" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#EC4899,#F59E0B);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">💬 Digest commentaires</button>
+          <button onclick="loadAdminDashboard(true)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
+          <button onclick="previewDailyTweets()" class="tip" data-tip="Preview les 3 tweets que le worker génère aujourd'hui à partir des signaux Kairos (sans envoi)" style="padding:8px 14px;font-size:12px;background:var(--surface-2);border:1px solid rgba(29,161,242,0.4);border-radius:6px;color:#1DA1F2;cursor:pointer;margin-left:4px;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>Preview tweets</button>
+          <button onclick="sendTweetsEmail()" class="tip" data-tip="Envoie immédiatement un email avec les 3 tweets du jour (même contenu que celui envoyé auto chaque matin 8h30)" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#8B5CF6);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Email tweets</button>
+          <button onclick="sendCommentDigestEmail()" class="tip" data-tip="Envoie immédiatement le digest des tweets X à commenter (15 handles cibles + tickers + Kairos Score). Cron auto : lun-ven 7h45 Paris" style="padding:8px 14px;font-size:12px;background:linear-gradient(135deg,#EC4899,#F59E0B);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>Digest commentaires</button>
         </div>
         <p class="section-desc">Monitoring interne de la plateforme. Acces limite a ton email.</p>
 
@@ -6944,7 +6945,7 @@
              MRR / plan / billing / prochain paiement sans compromis) -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <h3 style="margin:0;font-size:16px">👥 Utilisateurs &amp; Abonnements</h3>
+            <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Utilisateurs &amp; Abonnements</h3>
             <span id="adUsersCount" style="font-size:12px;color:var(--text-muted)">—</span>
           </div>
           <div id="adUsersBody" style="min-height:240px">
@@ -6956,7 +6957,7 @@
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
             <div>
-              <h3 style="margin:0;font-size:16px">🤝 Candidatures partenaires</h3>
+              <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Candidatures partenaires</h3>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Formulaires reçus depuis la page <a href="/partenaires" target="_blank" style="color:var(--accent-blue)">/partenaires</a>. KV TTL 90j.</div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -6966,7 +6967,7 @@
                 <option value="accepted">✅ Accepted</option>
                 <option value="rejected">❌ Rejected</option>
               </select>
-              <button onclick="loadAdminPartners()" class="tip" data-tip="Recharger les candidatures" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+              <button onclick="loadAdminPartners()" class="tip" data-tip="Recharger les candidatures" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
             </div>
           </div>
           <div id="adPartnersBody" style="min-height:160px">
@@ -6978,7 +6979,7 @@
         <div class="modal-overlay" id="adminPartnerDetailModal" onclick="if(event.target===this)closeAdminPartnerModal()" style="display:none">
           <div class="modal-inner" style="max-width:640px">
             <div class="modal-header">
-              <h3 id="adminPartnerDetailTitle">🤝 Candidature partenaire</h3>
+              <h3 id="adminPartnerDetailTitle" style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Candidature partenaire</h3>
               <button class="modal-close" onclick="closeAdminPartnerModal()">✕</button>
             </div>
             <div id="adminPartnerDetailBody" style="font-size:13px;line-height:1.6"></div>
@@ -6988,7 +6989,7 @@
         <!-- PANEL TRAFFIC (pleine largeur aussi) -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <h3 style="margin:0;font-size:16px">📈 Trafic <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">via Google Analytics</span></h3>
+            <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Trafic <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:6px">via Google Analytics</span></h3>
             <select id="adTrafficDays" onchange="loadAdminDashboard(true)" style="padding:6px 10px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);outline:none">
               <option value="1">24h</option>
               <option value="7" selected>7j</option>
@@ -7005,7 +7006,7 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;margin-bottom:24px">
           <!-- PANEL DB STATUS -->
           <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden">
-            <h3 style="margin:0 0 14px;font-size:16px">💾 Base de données</h3>
+            <h3 style="margin:0 0 14px;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>Base de données</h3>
             <div id="adDbBody" style="min-height:200px;min-width:0">
               <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Phase D — en attente.</div>
             </div>
@@ -7017,11 +7018,11 @@
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;min-width:0;overflow:hidden">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
             <div>
-              <h3 style="margin:0;font-size:16px">📊 Timeline des jobs (24h)</h3>
+              <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>Timeline des jobs (24h)</h3>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Vue Gantt des cron jobs sur les 24 dernières heures. Vert = OK, rouge = échec, gris = à venir, ambre = en retard.</div>
             </div>
             <div style="display:flex;gap:8px">
-              <button onclick="loadJobsTimeline()" class="tip" data-tip="Recharger les données" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+              <button onclick="loadJobsTimeline()" class="tip" data-tip="Recharger les données" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
             </div>
           </div>
           <div id="adJobsTimelineBody" style="min-height:200px;min-width:0;overflow-x:auto">
@@ -7033,7 +7034,7 @@
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;min-width:0;overflow:hidden">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
             <div>
-              <h3 style="margin:0;font-size:16px">💬 Conversations Chatbot</h3>
+              <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>Conversations Chatbot</h3>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Dernières conversations IA des visiteurs. Clique sur une ligne pour lire le transcript complet (questions, blockers, feedback).</div>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
@@ -7042,7 +7043,7 @@
                 <option value="fr">🇫🇷 FR</option>
                 <option value="en">🇬🇧 EN</option>
               </select>
-              <button onclick="loadChatSessions()" class="tip" data-tip="Recharger les sessions" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+              <button onclick="loadChatSessions()" class="tip" data-tip="Recharger les sessions" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
             </div>
           </div>
           <div id="adChatSessionsBody" style="min-height:200px;min-width:0">
@@ -7070,13 +7071,13 @@
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
             <div>
-              <h3 style="margin:0;font-size:16px">⚖️ Pondération Kairos Score</h3>
+              <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>Pondération Kairos Score</h3>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Poids de chaque axe dans le score composite 0-100 affiché aux users. Modifiable ici, masqué côté user.</div>
             </div>
             <div style="display:flex;gap:8px">
-              <button onclick="loadAdminScoreWeights()" class="tip" data-tip="Recharger les poids depuis le serveur" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
+              <button onclick="loadAdminScoreWeights()" class="tip" data-tip="Recharger les poids depuis le serveur" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
               <button onclick="resetAdminScoreWeights()" class="tip" data-tip="Revenir aux poids par défaut (20/20/10/15/10/10/10/5)" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">↺ Reset</button>
-              <button onclick="saveAdminScoreWeights()" class="tip" data-tip="Sauvegarder les nouveaux poids. Appliqué dans les ~60 min suivants (cache stock-analysis TTL 1h)." style="padding:6px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">💾 Sauvegarder</button>
+              <button onclick="saveAdminScoreWeights()" class="tip" data-tip="Sauvegarder les nouveaux poids. Appliqué dans les ~60 min suivants (cache stock-analysis TTL 1h)." style="padding:6px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>Sauvegarder</button>
             </div>
           </div>
           <div id="adScoreWeightsBody" style="min-height:200px">
@@ -7087,10 +7088,10 @@
         <!-- PANEL ERROR TRACKING (Priorité 3.2) -->
         <div style="padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;min-width:0;overflow:hidden;margin-bottom:24px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">
-            <h3 style="margin:0;font-size:16px">🐛 Suivi d'erreurs</h3>
+            <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="flex-shrink:0"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>Suivi d'erreurs</h3>
             <div style="display:flex;gap:8px">
-              <button onclick="loadAdminErrors()" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">🔄 Refresh</button>
-              <button onclick="clearAdminErrors()" style="padding:6px 12px;font-size:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;color:#F87171;cursor:pointer">🗑️ Vider</button>
+              <button onclick="loadAdminErrors()" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
+              <button onclick="clearAdminErrors()" style="padding:6px 12px;font-size:12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;color:#F87171;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Vider</button>
             </div>
           </div>
           <div id="adErrorsBody" style="min-height:120px;min-width:0">
@@ -9424,7 +9425,7 @@
       const msg = document.getElementById('supportFormMsg');
       if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
       const btn = document.getElementById('supportSubmitBtn');
-      if (btn) { btn.disabled = false; btn.innerHTML = '<span>📤 Envoyer</span>'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg><span>' + t('support.send', 'Envoyer') + '</span>'; }
       modal.style.display = 'flex';
       // Focus sur le sujet
       setTimeout(() => document.getElementById('supportSubject')?.focus(), 50);
@@ -9501,7 +9502,7 @@
         msgBox.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>📤 Envoyer</span>';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg><span>' + t('support.send', 'Envoyer') + '</span>';
       }
       return false;
     }
@@ -12679,7 +12680,7 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
             <!-- Top Rising -->
             <div>
-              <h3 style="font-size:18px;margin-bottom:14px">📈 En forte hausse (7j)</h3>
+              <h3 style="font-size:18px;margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>En forte hausse (7j)</h3>
               <div style="display:grid;gap:10px">
                 ${rising.length > 0 ? rising.map((e, i) => renderCard(e, i + 1)).join('') : '<p style="opacity:0.5">Aucune tendance détectée</p>'}
               </div>
@@ -12687,7 +12688,7 @@
 
             <!-- Top Hot (absolute interest) -->
             <div>
-              <h3 style="font-size:18px;margin-bottom:14px">🔥 Les plus recherchées</h3>
+              <h3 style="font-size:18px;margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>Les plus recherchées</h3>
               <div style="display:grid;gap:10px">
                 ${hot.length > 0 ? hot.map((e, i) => renderCard(e, i + 1)).join('') : '<p style="opacity:0.5">Aucune donnée</p>'}
               </div>
@@ -12696,7 +12697,7 @@
 
           ${falling.length > 0 ? `
             <div style="margin-top:32px">
-              <h3 style="font-size:18px;margin-bottom:14px">📉 En baisse d'intérêt (7j)</h3>
+              <h3 style="font-size:18px;margin-bottom:14px;display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" style="flex-shrink:0"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>En baisse d'intérêt (7j)</h3>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">
                 ${falling.map((e, i) => renderCard(e, i + 1)).join('')}
               </div>
@@ -21692,9 +21693,9 @@
       // confirm() pour eviter les clics accidentels sur 14+ positions.
       const hasTrades = portfolioTrades && portfolioTrades.length > 0;
       const importBtn = `<button class="positions-import-btn" onclick="document.getElementById('csvFileInput').click()" title="Importer un autre CSV (fusion automatique)" data-i18n="dash.portfolio.import_more">+ Importer plus</button>`;
-      const helpBtn = `<button class="positions-help-btn" onclick="openCsvHelpModal()" title="Voir la liste des 20 brokers compatibles + instructions export" data-i18n="dash.portfolio.brokers_btn">📚 Brokers</button>`;
+      const helpBtn = `<button class="positions-help-btn" onclick="openCsvHelpModal()" title="Voir la liste des 20 brokers compatibles + instructions export" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg><span data-i18n="dash.portfolio.brokers_btn">Brokers</span></button>`;
       const deleteBtn = hasTrades
-        ? `<button class="positions-delete-btn" onclick="confirmDeletePortfolio()" title="Supprimer toutes les données du portefeuille (confirmation requise)" data-i18n="dash.portfolio.delete_btn">🗑 Supprimer</button>`
+        ? `<button class="positions-delete-btn" onclick="confirmDeletePortfolio()" title="Supprimer toutes les données du portefeuille (confirmation requise)" style="display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg><span data-i18n="dash.portfolio.delete_btn">Supprimer</span></button>`
         : '';
       const toolbarBtn = hasTrades ? (importBtn + helpBtn + deleteBtn) : helpBtn;
       // Slot pour les boutons — injecté dans le header de la section positions
@@ -21927,7 +21928,9 @@
       const titleEl = document.getElementById('smartMoneyUpsellTitle');
       const bodyEl = document.getElementById('smartMoneyUpsellBody');
       if (!modal || !titleEl || !bodyEl) return;
-      titleEl.textContent = `🔔 Smart money sur ${symbol}`;
+      const titleTextEl = document.getElementById('smartMoneyUpsellTitleText');
+      if (titleTextEl) titleTextEl.textContent = `Smart money sur ${symbol}`;
+      else titleEl.textContent = `Smart money sur ${symbol}`;
       const sum = (_smPositionsSummaryCache || {})[symbol];
       if (!sum) { bodyEl.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Chargement…</p>'; }
       else {
@@ -22866,7 +22869,7 @@
             <td style="padding:12px 14px"><span class="ticker" style="font-weight:700;color:var(--accent-blue)">${tk}</span></td>
             <td style="padding:12px 14px;color:var(--text-secondary);font-size:13px">${escapeHtmlClient(name || '—')}</td>
             <td style="padding:12px 14px;text-align:right">
-              <a href="${actionUrl}" class="btn-search" style="padding:6px 12px;font-size:12px;margin-right:6px">📊 Analyse</a>
+              <a href="${actionUrl}" class="btn-search" style="padding:6px 12px;font-size:12px;margin-right:6px;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>Analyse</a>
               <button onclick="removeFromWatchlist('${tk}')" class="btn-search" style="padding:6px 12px;font-size:12px;color:var(--accent-red);border-color:var(--accent-red)">✕ Retirer</button>
             </td>
           </tr>`;
