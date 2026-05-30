@@ -12538,14 +12538,14 @@
       // i18n FR/EN : labels traduits via t(), fallback FR conserve si i18n indisponible
       const _L = (k, fb) => (typeof t === 'function' ? t(k, fb) : fb);
       const steps = [
-        { icon: '🔍', label: _L('dash.stockLoader.step.insiders', "Recherche des transactions d'initiés (SEC + AMF + BaFin)") },
-        { icon: '💰', label: _L('dash.stockLoader.step.hedgeFunds', "Interrogation des portefeuilles des hedge funds") },
-        { icon: '🏛️', label: _L('dash.stockLoader.step.etfs', "Vérification dans les ETF politiciens & gurus") },
-        { icon: '📈', label: _L('dash.stockLoader.step.price', "Récupération du cours et de l'historique 1 an") },
-        { icon: '📊', label: _L('dash.stockLoader.step.fundamentals', "Chargement des fondamentaux (P/E, ROE, marge…)") },
-        { icon: '🎯', label: _L('dash.stockLoader.step.consensus', "Agrégation du consensus analystes") },
-        { icon: '📰', label: _L('dash.stockLoader.step.news', "Recherche des news récentes") },
-        { icon: '🧮', label: _L('dash.stockLoader.step.score', "Calcul du Kairos Score composite") },
+        { name: 'user',       color: '#8B5CF6', label: _L('dash.stockLoader.step.insiders', "Recherche des transactions d'initiés (SEC + AMF + BaFin)") },
+        { name: 'wallet',     color: '#10B981', label: _L('dash.stockLoader.step.hedgeFunds', "Interrogation des portefeuilles des hedge funds") },
+        { name: 'landmark',   color: '#F59E0B', label: _L('dash.stockLoader.step.etfs', "Vérification dans les ETF politiciens & gurus") },
+        { name: 'trendingUp', color: '#3B82F6', label: _L('dash.stockLoader.step.price', "Récupération du cours et de l'historique 1 an") },
+        { name: 'barChart',   color: '#06B6D4', label: _L('dash.stockLoader.step.fundamentals', "Chargement des fondamentaux (P/E, ROE, marge…)") },
+        { name: 'users',      color: '#3B82F6', label: _L('dash.stockLoader.step.consensus', "Agrégation du consensus analystes") },
+        { name: 'newspaper',  color: '#94A3B8', label: _L('dash.stockLoader.step.news', "Recherche des news récentes") },
+        { name: 'gauge',      color: '#74b9ff', label: _L('dash.stockLoader.step.score', "Calcul du Kairos Score composite") },
       ];
       // Le pattern "Analyse de {ticker}" : on split le template pour pouvoir
       // colorer le ticker en bleu sans HTML-encoded markers dans la chaîne i18n.
@@ -12568,7 +12568,7 @@
           <div id="kiLoaderSteps" style="display:flex;flex-direction:column;gap:10px">
             ${steps.map((s, i) => `
               <div class="ki-step" data-idx="${i}" style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:8px;background:var(--surface-0);font-size:13px;opacity:0.35;transition:all 0.4s">
-                <span class="ki-step-icon" style="font-size:16px;width:20px;display:inline-block;text-align:center">${s.icon}</span>
+                <span class="ki-step-icon" style="display:inline-flex;flex-shrink:0">${iconChip(s.name, s.color, 24, 14)}</span>
                 <span class="ki-step-label" style="flex:1">${s.label}</span>
                 <span class="ki-step-status" style="font-size:12px;color:#2ecc71;opacity:0;transition:opacity 0.4s">✓</span>
               </div>
