@@ -2539,10 +2539,24 @@ async function handleTickerActivity(url, env, origin) {
         cutoff.setDate(cutoff.getDate() - days);
         const cutoffStr = cutoff.toISOString().slice(0, 10);
 
-        // Poids du ticker aujourd'hui, pour chaque ETF
+        // Poids du ticker "aujourd'hui", pour chaque ETF.
+        // FIX (mai 2026, bug NANC "sorti" fantome) : on NE PEUT PAS utiliser le
+        // latestDate GLOBAL (MAX sur tous les ETF) comme date "aujourd'hui" pour
+        // chaque ETF — les ETF ne sont pas tous snapshotes le meme jour (un data
+        // source en retard d'1 jour suffit). Si NANC est snapshote au 30 mai mais
+        // GURU au 31 mai, latestDate=31 mai et NANC n'a aucune ligne ce jour-la
+        // -> cur=absent -> faux "sorti (etait 5.85%)" alors que NANC detient
+        // toujours le ticker. On lit donc le poids a la date du DERNIER snapshot
+        // DE CHAQUE ETF (sous-requete MAX(date) GROUP BY etf_symbol). Si le ticker
+        // est absent a cette date = vraie sortie.
         const todayRes = await env.HISTORY.prepare(
-          `SELECT etf_symbol, weight, rank FROM etf_snapshots WHERE ticker = ? AND date = ?`
-        ).bind(ticker, latestDate).all();
+          `SELECT e.etf_symbol, e.weight, e.rank
+           FROM etf_snapshots e
+           INNER JOIN (
+             SELECT etf_symbol, MAX(date) AS d FROM etf_snapshots GROUP BY etf_symbol
+           ) m ON e.etf_symbol = m.etf_symbol AND e.date = m.d
+           WHERE e.ticker = ?`
+        ).bind(ticker).all();
         const todayByEtf = {};
         (todayRes.results || []).forEach(r => { todayByEtf[r.etf_symbol] = { weight: r.weight, rank: r.rank }; });
 
