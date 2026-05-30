@@ -8265,6 +8265,11 @@
 
     // Vérifier l'abonnement Stripe
     async function checkSubscription() {
+      // MIGRATION (mai 2026) : l'ancien preview-plan admin était stocké en
+      // localStorage et pouvait rester coincé ('free') → cadenas fantômes pour
+      // un premium même après reload. Le preview est désormais session-only ;
+      // on purge tout résidu localStorage sur n'importe quel device au 1er load.
+      try { localStorage.removeItem('kairos_preview_plan'); } catch (e) {}
       try {
         const data = await apiFetch('/stripe/status');
         isPremium = data.hasSubscription;
@@ -10111,7 +10116,7 @@
         // Lit le plan reel OU le preview override (pour admins qui veulent voir les cadenas)
         const realPlan = (window._currentPlan || 'free').toLowerCase();
         let previewPlan = null;
-        try { previewPlan = localStorage.getItem('kairos_preview_plan'); } catch (e) {}
+        try { previewPlan = sessionStorage.getItem('kairos_preview_plan'); } catch (e) {}
         const plan = (previewPlan && ['free', 'pro', 'elite'].includes(previewPlan)) ? previewPlan : realPlan;
         const labels = {
           free: { text: 'FREE', color: 'var(--text-secondary)', bg: 'rgba(255,255,255,0.04)', border: 'var(--border)' },
@@ -10136,10 +10141,10 @@
           if (adminOn) {
             // Cycle preview : null → free → pro → elite → null
             const cycle = { '': 'free', 'free': 'pro', 'pro': 'elite', 'elite': '' };
-            const current = (localStorage.getItem('kairos_preview_plan') || '');
+            const current = (sessionStorage.getItem('kairos_preview_plan') || '');
             const next = cycle[current] ?? '';
-            if (next) localStorage.setItem('kairos_preview_plan', next);
-            else localStorage.removeItem('kairos_preview_plan');
+            if (next) sessionStorage.setItem('kairos_preview_plan', next);
+            else sessionStorage.removeItem('kairos_preview_plan');
             Toast.info(next ? 'Preview : ' + next.toUpperCase() : 'Preview désactivé (plan réel)');
             renderCockpitHeader();
             applyHomeCardLocking();
@@ -10259,9 +10264,11 @@
     function applyHomeCardLocking() {
       let userPlan = (window._currentPlan || 'free').toLowerCase();
       // Preview mode admin : override le plan via localStorage pour tester les cadenas.
-      // Active via le badge plan (clic) ou via console : localStorage.kairos_preview_plan='free'
+      // Active via le badge plan (clic admin) — stocké en sessionStorage : le
+      // preview ne survit JAMAIS à un reload/onglet (évite de piéger un premium
+      // avec des cadenas fantômes, cf bug mai 2026).
       try {
-        const preview = localStorage.getItem('kairos_preview_plan');
+        const preview = sessionStorage.getItem('kairos_preview_plan');
         if (preview && ['free', 'pro', 'elite'].includes(preview)) {
           userPlan = preview;
         }
