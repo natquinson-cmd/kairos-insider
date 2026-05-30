@@ -8292,6 +8292,11 @@
         }
       });
       renderUpgradeBanner();
+      // FIX (mai 2026) : re-evalue les cadenas des home-cards une fois le plan REEL
+      // resolu. checkSubscription() est async ; au 1er loadHome() le plan vaut encore
+      // 'free' (defaut) → les cards PRO se verrouillent. Sans ce re-run, un premium
+      // garde les cadenas du pass initial (jamais re-evalues).
+      try { if (typeof applyHomeCardLocking === 'function') applyHomeCardLocking(); } catch (e) {}
     }
 
     // Bouton 'Passer Pro' dans la navbar : visible uniquement pour les users
@@ -8329,16 +8334,21 @@
     // Re-run au resize (rotate device, fenetre desktop -> mobile)
     window.addEventListener('resize', () => { try { updateNavAuthButtons(); } catch (e) {} });
 
-    // Nettoyage potentiel des anciens overlays pose sur .home-card
+    // Nettoyage des anciens overlays v1 poses sur .home-card
     // (migration v1 → v2 du locking : avant on floutait les tuiles de
-    // navigation, maintenant on floute les blocs de donnees reelles).
+    // navigation via un .home-card-lock-overlay, maintenant via la classe
+    // .home-card.locked geree par applyHomeCardLocking).
+    //
+    // FIX CRITIQUE (mai 2026) : cette fonction strippait AUSSI data-required-plan
+    // et data-locked sur TOUTES les cards. Or applyHomeCardLocking SET data-locked
+    // (donc le selecteur [data-locked] matchait les cards du NOUVEAU systeme) et
+    // a BESOIN de data-required-plan pour re-evaluer. Resultat : une fois une card
+    // verrouillee (ex: admin en preview 'free', ou race au 1er load avant resolution
+    // du plan), data-required-plan disparaissait → la card ne pouvait PLUS jamais
+    // etre deverrouillee (cadenas permanents, meme apres preview off / vrai premium).
+    // On ne retire donc QUE l'overlay legacy, jamais les attributs du nouveau systeme.
     function clearLegacyHomeCardLocks() {
-      document.querySelectorAll('.home-card[data-locked]').forEach(card => {
-        card.removeAttribute('data-locked');
-        card.removeAttribute('data-required-plan');
-        const overlay = card.querySelector('.home-card-lock-overlay');
-        if (overlay) overlay.remove();
-      });
+      document.querySelectorAll('.home-card .home-card-lock-overlay').forEach(ov => ov.remove());
     }
 
     // Applique le floutage 'sneak peek' sur les DONNEES des cards 'Top signaux
