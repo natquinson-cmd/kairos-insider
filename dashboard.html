@@ -14949,7 +14949,7 @@
           <div class="stock-grid-2col" style="margin-bottom:20px">
           <!-- INSIDERS -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column" data-saInsiderCard data-ticker="${(d.ticker||'').toUpperCase()}">
-            <h3 style="margin:0 0 12px;font-size:16px">${secLabel(L.secInsiders, 'user', '#8B5CF6')} ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
+            <h3 style="margin:0 0 12px;font-size:14px">${secLabel(L.secInsiders, 'user', '#8B5CF6', 24)} ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
             <!-- Filtres period + type -->
             <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
               <select id="saInsiderDays" onchange="refreshStockInsiderCard()" style="padding:5px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;outline:none">
@@ -15059,7 +15059,7 @@
                L'eventuel vide en bas (si Insiders est plus haut) est accepte
                vs alternative "card immense" ou "scroll hijacking lent". -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column">
-            <h3 style="margin:0 0 12px;font-size:16px">${secLabel('💰 Hedge Funds', 'wallet', '#10B981')}</h3>
+            <h3 style="margin:0 0 12px;font-size:14px">${secLabel('💰 Hedge Funds', 'wallet', '#10B981', 24)}</h3>
             ${(() => {
               // HEADLINE (mai 2026, demande user) : remplace 'nb fonds' + 'Δ
               // positions' (mean simple bugguee par les new positions a
