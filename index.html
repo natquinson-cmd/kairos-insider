@@ -663,13 +663,15 @@
       font-size: 22px;
       margin-bottom: 16px;
     }
-    .feature-big-icon.blue { background: rgba(59,130,246,0.12); }
-    .feature-big-icon.purple { background: rgba(139,92,246,0.14); }
-    .feature-big-icon.pink { background: rgba(236,72,153,0.12); }
-    .feature-big-icon.green { background: rgba(16,185,129,0.12); }
-    .feature-big-icon.orange { background: rgba(245,158,11,0.14); }
-    .feature-big-icon.cyan { background: rgba(6,182,212,0.12); }
-    .feature-big-icon.yellow { background: rgba(251,191,36,0.14); }
+    /* color = teinte de l'icône ligne (SVG hérite via currentColor) */
+    .feature-big-icon.blue { background: rgba(59,130,246,0.12); color: #3B82F6; }
+    .feature-big-icon.purple { background: rgba(139,92,246,0.14); color: #8B5CF6; }
+    .feature-big-icon.pink { background: rgba(236,72,153,0.12); color: #EC4899; }
+    .feature-big-icon.green { background: rgba(16,185,129,0.12); color: #10B981; }
+    .feature-big-icon.orange { background: rgba(245,158,11,0.14); color: #F59E0B; }
+    .feature-big-icon.cyan { background: rgba(6,182,212,0.12); color: #06B6D4; }
+    .feature-big-icon.yellow { background: rgba(251,191,36,0.14); color: #FBBF24; }
+    .feature-big-icon svg { width: 24px; height: 24px; }
     .feature-big h3 { font-size: 19px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.01em; }
     .feature-big p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
     .feature-big-chip {
@@ -704,7 +706,8 @@
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(59,130,246,0.12);
     }
-    .promo-bullet-icon { font-size: 28px; margin-bottom: 8px; line-height: 1; }
+    .promo-bullet-icon { margin-bottom: 8px; line-height: 1; }
+    .promo-bullet-icon svg { width: 28px; height: 28px; }
     .promo-bullet-title {
       font-family: 'Clash Display', 'Inter', sans-serif;
       font-size: 16px;
@@ -1402,7 +1405,11 @@
       font-size: 24px;
       flex-shrink: 0;
       line-height: 1;
+      display: inline-flex;
+      align-items: center;
     }
+    .trust-ico svg { width: 24px; height: 24px; }
+    .trust-ico img { width: 24px; height: auto; border-radius: 3px; }
     .trust-text {
       display: flex;
       flex-direction: column;
@@ -2117,70 +2124,70 @@
 
       <div class="features-detailed">
         <div class="feature-big">
-          <div class="feature-big-icon blue">🔎</div>
+          <div class="feature-big-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></div>
           <h3 data-i18n="feat.score.title">Kairos Score 0-100</h3>
           <p data-i18n="feat.score.desc">Score composite qui agrège 8 dimensions : initiés (SEC/AMF/BaFin), hedge funds, politiciens &amp; gourous, momentum, valorisation, consensus analystes, santé financière, résultats. Visualisé en radar SVG signature avec synthèse textuelle adaptative.</p>
           <span class="feature-big-chip live" data-i18n="feat.score.chip">● Calculé pour 1000+ actions</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon purple">🤝</div>
+          <div class="feature-big-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
           <h3 data-i18n="feat.consensus.title">Consensus Hedge Funds</h3>
           <p data-i18n="feat.consensus.desc_html"><strong>200+ hedge funds suivis</strong> (Buffett, Burry, Ackman, Tiger Global, Coatue, BlackRock, Vanguard…). Voyez quelles actions sont partagées en <strong>conviction ★</strong> et qui sont les "lonely picks" — ces paris contrariens qu'un seul fonds détient.</p>
           <span class="feature-big-chip live" data-i18n="feat.consensus.chip">● Activité du trimestre</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon pink">📋</div>
+          <div class="feature-big-icon pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></div>
           <h3 data-i18n="feat.insiders.title">Transactions Insiders</h3>
           <p data-i18n="feat.insiders.desc">Chaque achat ou vente déclaré par les dirigeants aux régulateurs : SEC (États-Unis), AMF (France), BaFin (Allemagne / UE). Traduit et contextualisé en français, avec détection automatique des clusters d'initiés (signal historiquement fort).</p>
           <span class="feature-big-chip live" data-i18n="feat.insiders.chip">● MàJ quotidienne</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon orange">🔥</div>
+          <div class="feature-big-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>
           <h3 data-i18n="feat.trends.title">Hot Stocks — Google Trends</h3>
           <p data-i18n="feat.trends.desc">Détectez les spikes d'intérêt retail avant qu'ils ne se traduisent en mouvement de prix. Données Google Trends filtrées anti-bruit (seuils d'intérêt absolu), top risers / top hot rafraîchis chaque jour.</p>
           <span class="feature-big-chip new" data-i18n="feat.trends.chip">NEW · Signal retail</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon green">📊</div>
+          <div class="feature-big-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
           <h3 data-i18n="feat.etf.title">ETF Live (11 ETF thématiques)</h3>
           <p data-i18n="feat.etf.desc_html"><strong>Politique US</strong> (NANC, GOP), <strong>hedge funds consensus</strong> (GURU), <strong>innovation</strong> (ARKK, ARKW, ARKG, ARKF, ARKQ), <strong>sentiment retail</strong> (BUZZ, MEME), <strong>income</strong> (JEPI, JEPQ), <strong>thématiques</strong> (Defense, Uranium, Espace, Cannabis). Heatmap visuelle + détection rotations.</p>
           <span class="feature-big-chip new" data-i18n="feat.etf.chip">NEW · 11 ETF</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon cyan">📈</div>
+          <div class="feature-big-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></div>
           <h3 data-i18n="feat.history.title">Profondeur historique</h3>
           <p data-i18n="feat.history.desc_html">Remontez dans le temps. Voyez comment <strong>les positions évoluent</strong> trimestre après trimestre : quels fonds entrent ou sortent, quelles convictions se renforcent, quels Kairos Scores montent ou descendent. Une <strong>base profonde</strong> pour backtester vos intuitions.</p>
           <span class="feature-big-chip new" data-i18n="feat.history.chip">NEW · Historique long terme</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon blue">🎯</div>
+          <div class="feature-big-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
           <h3 data-i18n="feat.deep.title">Décrypter une valeur en profondeur</h3>
           <p data-i18n="feat.deep.desc">Deep-dive sur n'importe quel ticker : Kairos Score visuel, fondamentaux avec verdict couleur (P/E, PEG, EV/EBITDA…), santé financière (Altman Z, Piotroski F), earnings 6 trimestres, peers sectoriels, consensus analystes avec objectif de cours, chart 1 an avec overlay insiders.</p>
           <span class="feature-big-chip live" data-i18n="feat.deep.chip">● 1000+ tickers couverts</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon orange">⚡</div>
+          <div class="feature-big-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
           <h3 data-i18n="feat.activists.title">Fonds Offensifs <span style="font-size:13px;color:var(--text-muted);font-weight:400">(Activistes)</span></h3>
           <p data-i18n="feat.activists.desc_html">Quand un <strong>fonds offensif</strong> comme Elliott, Ackman ou Icahn achète plus de <strong>5 % d'une entreprise</strong>, c'est pour <strong>forcer un changement</strong> (vente d'une division, CEO remplacé, rachats d'actions). Carl Icahn chez Apple 2013 → +30 %. Kairos détecte ces déclarations en <strong>10 jours</strong> — 35 jours plus rapide que les 13F.</p>
           <span class="feature-big-chip new" data-i18n="feat.activists.chip">NEW · Signal 10 jours</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon yellow">⭐</div>
+          <div class="feature-big-icon yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
           <h3 data-i18n="feat.watchlist.title">Watchlist &amp; Alertes Email</h3>
           <p data-i18n="feat.watchlist.desc_html">Créez votre <strong>watchlist personnalisée</strong> et recevez chaque matin un <strong>Brief par email</strong> avec tous les événements smart money détectés sur VOS actions : nouveaux clusters d'initiés, entrées/sorties d'ETF, variations du Kairos Score, consensus hedge funds qui change. Plus jamais rater un signal.</p>
           <span class="feature-big-chip new" data-i18n="feat.watchlist.chip">NEW · Alerte matinale 8h</span>
         </div>
 
         <div class="feature-big">
-          <div class="feature-big-icon orange">💼</div>
+          <div class="feature-big-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
           <h3 data-i18n="feat.portfolio.title">Mon Portefeuille</h3>
           <p data-i18n="feat.portfolio.desc_html">Importez votre CSV depuis <strong>20+ brokers EU et US</strong> (Trade Republic, Degiro, Fidelity, Schwab, Robinhood…). Détection automatique. <strong>Alertes smart money</strong> sur vos positions, P&amp;L latent en temps réel, win rate, drawdown.</p>
           <span class="feature-big-chip new" data-i18n="feat.portfolio.chip">100% gratuit · 20+ brokers · Smart money</span>
@@ -2205,17 +2212,17 @@
       <!-- Value props : 3 bullets -->
       <div class="promo-bullets">
         <div class="promo-bullet">
-          <div class="promo-bullet-icon">📤</div>
+          <div class="promo-bullet-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg></div>
           <div class="promo-bullet-title" data-i18n="promo.portfolio.b1_title">Détection automatique</div>
           <div class="promo-bullet-desc" data-i18n="promo.portfolio.b1_desc">CSV de n'importe quel broker → on identifie tout seul.</div>
         </div>
         <div class="promo-bullet">
-          <div class="promo-bullet-icon">📈</div>
+          <div class="promo-bullet-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
           <div class="promo-bullet-title" data-i18n="promo.portfolio.b2_title">Vos positions enrichies</div>
           <div class="promo-bullet-desc" data-i18n="promo.portfolio.b2_desc">Logo, prix actuel, variation veille, sparkline 1 an, P&amp;L latent.</div>
         </div>
         <div class="promo-bullet">
-          <div class="promo-bullet-icon">🔔</div>
+          <div class="promo-bullet-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></div>
           <div class="promo-bullet-title" data-i18n="promo.portfolio.b3_title">Alertes smart money</div>
           <div class="promo-bullet-desc" data-i18n="promo.portfolio.b3_desc">Un insider vend sur AAPL que vous détenez ? Vous savez le jour même.</div>
         </div>
@@ -2554,28 +2561,28 @@
       <!-- Trust badges : levier psychologique juste avant la decision d'achat -->
       <div class="trust-badges">
         <div class="trust-badge">
-          <span class="trust-ico">🇫🇷</span>
+          <span class="trust-ico"><img src="assets/flags/fr.png" alt="France" loading="lazy" /></span>
           <div class="trust-text">
             <strong data-i18n="trust.france">Basé en France</strong>
             <span data-i18n="trust.france_sub">Annecy · SIRET vérifiable</span>
           </div>
         </div>
         <div class="trust-badge">
-          <span class="trust-ico">🛡️</span>
+          <span class="trust-ico" style="color:#10B981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg></span>
           <div class="trust-text">
             <strong data-i18n="trust.rgpd">RGPD compliant</strong>
             <span data-i18n="trust.rgpd_sub">Suppression &amp; export en 1 clic</span>
           </div>
         </div>
         <div class="trust-badge">
-          <span class="trust-ico">💳</span>
+          <span class="trust-ico" style="color:#8B5CF6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></span>
           <div class="trust-text">
             <strong data-i18n="trust.stripe">Paiements Stripe</strong>
             <span data-i18n="trust.stripe_sub">PSD2 + 3DS2 chiffrés</span>
           </div>
         </div>
         <div class="trust-badge">
-          <span class="trust-ico">🔒</span>
+          <span class="trust-ico" style="color:#F59E0B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
           <div class="trust-text">
             <strong data-i18n="trust.security">Sécurité renforcée</strong>
             <span data-i18n="trust.security_sub">CSP, HSTS, webhooks signés</span>
