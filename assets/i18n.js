@@ -1011,6 +1011,7 @@
       'dash.home.stat_update_title': 'Dernière mise à jour',
       'dash.home.stat_update_detail': 'Données rafraîchies quotidiennement',
       'dash.home.explore_features': 'Explorez les fonctionnalités',
+      'dash.home.badge_free': 'GRATUIT',
       // Widget portfolio sur la home (mai 2026)
       'dash.home.pf_header': 'Vos positions live',
       'dash.home.pf_view_all': 'Voir tout le portefeuille →',
@@ -2683,6 +2684,7 @@
       'dash.home.stat_update_title': 'Last update',
       'dash.home.stat_update_detail': 'Data refreshed daily',
       'dash.home.explore_features': 'Explore features',
+      'dash.home.badge_free': 'FREE',
       // Home portfolio widget (May 2026)
       'dash.home.pf_header': 'Your live positions',
       'dash.home.pf_view_all': 'View full portfolio →',

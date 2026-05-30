@@ -41,7 +41,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260529-markets8-livedot"></script>
+  <script src="assets/i18n.js?v=20260529-dash-badges"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
@@ -917,6 +917,26 @@
       color: #1E1B4B;
     }
 
+    /* ===== TAGS PLAN (home cards) — "mark, don't alarm" =====
+       Avant : chaque carte premium portait un badge PRO en gradient plein
+       criard (#74b9ff→#a29bfe, texte blanc) repete ~9 fois = effet "mur de
+       cadenas" demotivant pour le user gratuit. Maintenant :
+       - .pro-tag : ghost violet discret (marque le premium sans agresser)
+       - .free-tag : ghost vert "GRATUIT" (signal POSITIF : utilisable tout de
+         suite, rassure et invite a l'usage avant l'upsell). */
+    .pro-tag {
+      font-size: 10px; padding: 3px 8px; border-radius: 4px;
+      font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+      background: rgba(139, 92, 246, 0.12); color: #a29bfe;
+      border: 1px solid rgba(139, 92, 246, 0.30);
+    }
+    .free-tag {
+      font-size: 10px; padding: 3px 8px; border-radius: 4px;
+      font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+      background: rgba(16, 185, 129, 0.13); color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.30);
+    }
+
     /* ===== COCKPIT HEADER ===== */
     .cockpit-btn-primary:hover {
       transform: translateY(-1px);
@@ -1503,10 +1523,12 @@
       background: rgba(16,185,129,0.15);
       color: var(--accent-green);
     }
+    /* Badge premium sidebar : violet discret (pas rouge "danger" qui donnait
+       une impression de "tout est interdit" pour le user gratuit). */
     .sidebar-item .premium-badge {
-      background: rgba(239,68,68,0.15);
-      color: #F87171;
-      border: 1px solid rgba(239,68,68,0.25);
+      background: rgba(139,92,246,0.14);
+      color: #a29bfe;
+      border: 1px solid rgba(139,92,246,0.28);
     }
     .sidebar-item .premium-badge.unlocked {
       background: rgba(16,185,129,0.15);
@@ -1525,10 +1547,11 @@
     }
     /* Badge Elite : gradient doree/rose (power users, pricing plus haut).
        Diffore visuellement de PRO (bleu) pour bien distinguer les niveaux. */
+    /* ELITE = tier distinct (amber, vs violet PRO) mais meme style ghost calme. */
     .sidebar-item .elite-badge {
-      background: linear-gradient(135deg, rgba(245,158,11,0.22), rgba(236,72,153,0.16));
+      background: rgba(245,158,11,0.13);
       color: #F59E0B;
-      border: 1px solid rgba(245,158,11,0.42);
+      border: 1px solid rgba(245,158,11,0.30);
     }
     /* ============================================================
        PORTFOLIO IMPORT HERO — refonte mai 2026
@@ -4837,7 +4860,7 @@
           <div onclick="switchSection('stockAnalysis')" class="home-card" data-required-plan="free" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(59,130,246,0.14);color:#3B82F6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+              <span class="free-tag" data-i18n="dash.home.badge_free">GRATUIT</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.stockAnalysis_title">Décrypter une valeur</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.stockAnalysis_desc">Deep-dive complet sur n'importe quel ticker : <strong>Kairos Score</strong> composite de 0 à 100, initiés, hedge funds, fondamentaux, santé financière, peers, earnings.</p>
@@ -4848,7 +4871,7 @@
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(251,191,36,0.18);border:1px solid rgba(251,191,36,0.4);border-radius:4px;font-size:10px;color:#FBBF24;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(251,191,36,0.16);color:#FBBF24;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+              <span class="pro-tag" style="margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.watchlist_title">Ma Watchlist</h4>
             <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.watchlist_desc">Suivez vos actions préférées et recevez un <strong>Brief quotidien par email</strong> à 8h avec les événements smart money détectés : convergences d'initiés, rotations ETF, variations Kairos Score.</p>
@@ -4859,6 +4882,7 @@
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(116,185,255,0.2);border:1px solid rgba(116,185,255,0.4);border-radius:4px;font-size:10px;color:#74b9ff;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,0.16);color:#F59E0B;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>
+              <span class="free-tag" style="margin-top:22px" data-i18n="dash.home.badge_free">GRATUIT</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.hotStocks_title">Tendances retail</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.hotStocks_desc">Les actions <strong>les plus cherchees sur Google</strong> avec score de momentum. Detectez les small caps qui commencent a attirer l'attention retail avant le reste du marche.</p>
@@ -4869,7 +4893,7 @@
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(116,185,255,0.2);border:1px solid rgba(116,185,255,0.4);border-radius:4px;font-size:10px;color:#74b9ff;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,0.14);color:#10B981;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+              <span class="pro-tag" style="margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.consensus_title">Consensus Hedge Funds</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.consensus_desc">Les actions ou <strong>le plus de hedge funds convergent</strong> (position ≥ 0,3% du portefeuille). Les ★ conviction = pari actif, pas de l'indexation passive BlackRock/Vanguard.</p>
@@ -4887,7 +4911,7 @@
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4);border-radius:4px;font-size:10px;color:#F59E0B;font-weight:700;letter-spacing:0.5px">NEW</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,0.16);color:#F59E0B;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+              <span class="pro-tag" style="margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.activists_title">Activistes <span style="font-size:11px;color:var(--text-muted);font-weight:400">(13D/G)</span></h4>
             <p style="margin:0;font-size:13px;opacity:0.75;line-height:1.5" data-i18n="dash.home.activists_desc">Quand <strong>Elliott, Ackman ou Icahn</strong> achètent plus de 5 % d'une société pour forcer un changement. Signal <strong>10 jours</strong> avant les 13F — souvent avant une forte hausse du cours.</p>
@@ -4897,7 +4921,7 @@
           <div onclick="switchSection('insider')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(139,92,246,0.14);color:#8B5CF6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+              <span class="pro-tag">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.insider_title">Transactions Insiders</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.insider_desc">Tous les achats et ventes des dirigeants — déclarations officielles <strong>SEC</strong> (US), <strong>AMF</strong> (France), <strong>BaFin</strong> (Allemagne), mises à jour quotidiennement.</p>
@@ -4908,7 +4932,7 @@
             <div style="position:absolute;top:14px;right:14px;padding:3px 8px;background:rgba(46,204,113,0.2);border:1px solid rgba(46,204,113,0.35);border-radius:4px;font-size:10px;color:#2ecc71;font-weight:600;letter-spacing:0.5px">SIGNAL FORT</div>
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(239,68,68,0.13);color:#EF4444;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600;margin-top:22px">PRO</span>
+              <span class="pro-tag" style="margin-top:22px">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.clustering_title">Convergences d'initiés</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.clustering_desc">Quand <strong>3+ dirigeants</strong> achètent sur la même entreprise dans un court laps de temps. Historiquement le signal le plus fiable — les insiders savent quelque chose.</p>
@@ -4918,7 +4942,7 @@
           <div onclick="switchSection('13f')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(20,184,166,0.14);color:#14B8A6;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+              <span class="pro-tag">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.13f_title">Portefeuilles Hedge Funds</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.13f_desc">Les positions des plus grands hedge funds : <strong>Berkshire</strong> (Buffett), <strong>Pershing Square</strong> (Ackman), <strong>Tiger Global</strong>, <strong>Bridgewater</strong> et 100+ autres.</p>
@@ -4928,7 +4952,7 @@
           <div onclick="switchSection('etf')" class="home-card" data-required-plan="pro" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(6,182,212,0.14);color:#06B6D4;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+              <span class="pro-tag">PRO</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.etf_title">ETF Politiciens & Gourous</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.etf_desc"><strong>NANC</strong> (démocrates US), <strong>GOP</strong> (républicains US), <strong>GURU</strong> (top hedge funds) — des ETF qui répliquent les portefeuilles de ceux qui savent.</p>
@@ -4938,7 +4962,7 @@
           <div onclick="switchSection('portfolio')" class="home-card" data-required-plan="free" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
               <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(236,72,153,0.14);color:#EC4899;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
-              <span style="font-size:10px;padding:3px 8px;background:linear-gradient(135deg,#74b9ff,#a29bfe);border-radius:4px;color:#fff;font-weight:600">PRO</span>
+              <span class="free-tag" data-i18n="dash.home.badge_free">GRATUIT</span>
             </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.portfolio_title">Mon Portefeuille</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.portfolio_desc">Importez vos trades depuis <strong>n'importe quelle plateforme</strong> (IG, Trade Republic, Degiro, eToro…) via CSV. Suivez votre performance avec des KPIs pros.</p>
@@ -4946,14 +4970,20 @@
           </div>
 
           <div onclick="switchSection('feargreed')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
-            <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(234,179,8,0.16);color:#D97706;border-radius:12px;margin-bottom:10px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(234,179,8,0.16);color:#D97706;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></div>
+              <span class="free-tag" data-i18n="dash.home.badge_free">GRATUIT</span>
+            </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.feargreed_title">Fear &amp; Greed</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.feargreed_desc">L'indice de sentiment du marché de <strong>CNN</strong> — mesurez si le marché est dans la panique ou l'euphorie. Warren Buffett : « soyez avide quand les autres ont peur ».</p>
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.feargreed_cta">Voir l'indice →</div>
           </div>
 
           <div onclick="switchSection('shorts')" class="home-card" style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s">
-            <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(99,102,241,0.14);color:#6366F1;border-radius:12px;margin-bottom:10px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+              <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(99,102,241,0.14);color:#6366F1;border-radius:12px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg></div>
+              <span class="free-tag" data-i18n="dash.home.badge_free">GRATUIT</span>
+            </div>
             <h4 style="margin:0 0 6px;font-size:16px" data-i18n="dash.home.shorts_title">Short Interest</h4>
             <p style="margin:0;font-size:13px;opacity:0.7;line-height:1.5" data-i18n="dash.home.shorts_desc">Les actions les plus <strong>shortées</strong> du marché — potentiels short squeezes, signaux baissiers des pros… ou pièges à éviter.</p>
             <div style="margin-top:12px;font-size:12px;color:#74b9ff" data-i18n="dash.home.shorts_cta">Voir le classement →</div>
@@ -8358,7 +8388,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'signal-card-lock-overlay';
         overlay.innerHTML = `
-          <div class="signal-card-lock-badge">🔒 PRO</div>
+          <div class="signal-card-lock-badge">🔒</div>
           <div class="signal-card-lock-cta">
             Débloquer les signaux
             <small>19€/mois — voir tickers &amp; montants</small>
