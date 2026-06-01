@@ -3883,7 +3883,7 @@
       display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
     }
     .etf-subtab {
-      padding: 8px 14px; font-size: 12px; font-weight: 600; font-family: inherit;
+      padding: 6px 11px; font-size: 12px; font-weight: 600; font-family: inherit;
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
       color: var(--text-muted); cursor: pointer; transition: all 0.2s;
       display: flex; align-items: center; gap: 6px;
@@ -3902,7 +3902,7 @@
     .etf-badge.thematic { background: rgba(236,72,153,0.2); color: #F472B6; }
 
     /* Layout group\u00e9 par cat\u00e9gorie */
-    .etf-tabs-grouped { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+    .etf-tabs-grouped { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
     .etf-cat-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .etf-cat-label {
       font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
@@ -5766,15 +5766,12 @@
 
       <!-- ===== SECTION: ETF LIVE ===== -->
       <div class="section-page" id="section-etf">
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;" data-i18n="dash.section.etf.desc">
-          Positions en temps réel des ETF qui répliquent les stratégies des grands investisseurs, politiciens, sentiment retail et thématiques.
-        </p>
 
         <!-- Encart "Comment lire cette page" (collapsible) -->
         <details id="etfGuidePanel" style="margin-bottom:18px;background:linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.03));border:1px solid rgba(59,130,246,0.22);border-radius:12px;padding:14px 18px">
           <summary style="cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:10px">
-            <span style="font-size:18px">💡</span>
-            <span>Comment lire cette page ? — Guide des ETF et de la heatmap</span>
+            <span style="display:inline-flex;color:#FBBF24"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></span>
+            <span>Comment lire cette page ? — Guide des ETF et de leurs positions</span>
             <span style="margin-left:auto;font-size:12px;opacity:0.6;font-weight:400">Clique pour déplier</span>
           </summary>
           <div style="margin-top:14px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
@@ -5782,67 +5779,73 @@
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px">
               <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;color:#60A5FA;margin-bottom:6px;font-size:13px">🏛️ Politique US — NANC / GOP</div>
+                <div style="font-weight:600;color:#60A5FA;margin-bottom:6px;font-size:13px">Politique US — NANC / GOP</div>
                 <div style="font-size:12px;opacity:0.85">Réplique les trades déclarés par les élus du Congrès (obligation STOCK Act). <strong>NANC</strong> = Démocrates, <strong>GOP</strong> = Républicains. Signal d'information asymétrique : ces gens votent les lois qui bougent les marchés.</div>
               </div>
               <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;color:#A78BFA;margin-bottom:6px;font-size:13px">💼 Hedge Funds — GURU</div>
+                <div style="font-weight:600;color:#A78BFA;margin-bottom:6px;font-size:13px">Hedge Funds — GURU</div>
                 <div style="font-size:12px;opacity:0.85">Agrège les positions long des <strong>60 plus grands hedge funds</strong> déclarées via 13F (SEC). Consensus smart money : ce que tiennent en masse les pros.</div>
               </div>
               <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;color:#22D3EE;margin-bottom:6px;font-size:13px">🚀 Innovation — ARK (Cathie Wood)</div>
+                <div style="font-weight:600;color:#22D3EE;margin-bottom:6px;font-size:13px">Innovation — ARK (Cathie Wood)</div>
                 <div style="font-size:12px;opacity:0.85"><strong>ARKK</strong> (disruptive), <strong>ARKW</strong> (internet), <strong>ARKG</strong> (biotech/génomique), <strong>ARKF</strong> (fintech), <strong>ARKQ</strong> (robotique/IA). Gestion active, haute conviction, très volatils.</div>
               </div>
               <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;color:#F472B6;margin-bottom:6px;font-size:13px">📱 Sentiment retail — BUZZ / MEME</div>
+                <div style="font-weight:600;color:#F472B6;margin-bottom:6px;font-size:13px">Sentiment retail — BUZZ / MEME</div>
                 <div style="font-size:12px;opacity:0.85"><strong>BUZZ</strong> track les 75 grandes caps avec le plus de sentiment positif sur les réseaux sociaux. <strong>MEME</strong> suit les actions les plus discutées sur Reddit/Twitter. Indicateur de l'humeur des particuliers — à contre-courant souvent utile.</div>
               </div>
               <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;color:#34D399;margin-bottom:6px;font-size:13px">💵 Income — JEPI / JEPQ</div>
+                <div style="font-weight:600;color:#34D399;margin-bottom:6px;font-size:13px">Income — JEPI / JEPQ</div>
                 <div style="font-size:12px;opacity:0.85">Stratégie <em>covered call</em> de JPMorgan : actions stables + vente d'options pour générer un rendement mensuel élevé (7-10% /an). <strong>JEPI</strong> = large cap, <strong>JEPQ</strong> = Nasdaq. Positions peu volatiles, profil défensif.</div>
               </div>
               <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;color:#FBBF24;margin-bottom:6px;font-size:13px">🎯 Thématiques — ITA / URA / UFO / MJ</div>
+                <div style="font-weight:600;color:#FBBF24;margin-bottom:6px;font-size:13px">Thématiques — ITA / URA / UFO / MJ</div>
                 <div style="font-size:12px;opacity:0.85"><strong>ITA</strong> (défense & aérospatial), <strong>URA</strong> (uranium/nucléaire), <strong>UFO</strong> (espace), <strong>MJ</strong> (cannabis). Expositions sectorielles pures pour surfer une tendance macro ou réglementaire.</div>
               </div>
             </div>
 
             <div style="margin-top:16px;padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
-              <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px;font-size:13px">📊 Comment lire la heatmap (carte des positions)</div>
+              <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px;font-size:13px">Comment lire les positions &amp; les variations</div>
               <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.7;opacity:0.9">
-                <li><strong>Taille du rectangle</strong> = poids de la position dans l'ETF. Plus c'est gros, plus l'ETF y est exposé.</li>
-                <li><strong>Couleur pastel</strong> = code visuel neutre (bleu, violet, turquoise...). <em>Pas</em> un indicateur de performance, juste pour distinguer les positions.</li>
-                <li><strong>Pourcentage affiché</strong> = part du portefeuille de l'ETF allouée à cette action.</li>
-                <li><strong>Badges ▲ vert / ▼ rouge</strong> (si présents) = variation du poids depuis le dernier snapshot. Vert = l'ETF renforce, rouge = il allège.</li>
-                <li><strong>Badges NEW / EXIT</strong> dans le tableau en dessous = entrées et sorties fraîches du portefeuille.</li>
+                <li><strong>Bandeau résumé</strong> (en haut) = nombre de positions + mouvements depuis le dernier relevé : <span style="color:#06B6D4">nouvelles</span>, <span style="color:#10B981">renforcées</span>, <span style="color:#EF4444">allégées</span>.</li>
+                <li><strong>Top positions</strong> (barres) = les plus gros poids de l'ETF, avec le badge de variation à droite (▲ / ▼ / NOUV.).</li>
+                <li><strong>Colonne Variation</strong> du tableau = variation du poids vs le relevé d'il y a ~7 jours. Les lignes sont teintées (<span style="color:#06B6D4">nouvelle</span> / <span style="color:#10B981">renfort</span> / <span style="color:#EF4444">allègement</span>).</li>
+                <li><strong>Filtre « Mouvements seulement »</strong> = masque les positions stables pour ne voir que ce qui a bougé.</li>
               </ul>
             </div>
 
             <div style="margin-top:12px;padding:12px 14px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:10px;font-size:12px;opacity:0.9">
-              <strong style="color:#FBBF24">⚡ Astuce :</strong> l'encart <em>"Rotations récentes"</em> en haut (quand il y en a) résume en une lecture quels ETF viennent de faire bouger leur portefeuille sur les 7 derniers jours — parfait pour détecter les thèmes en train de gagner ou perdre du consensus.
+              <strong style="color:#FBBF24">Astuce :</strong> l'encart <em>"Rotations récentes"</em> en bas de page résume en une lecture quels ETF viennent de faire bouger leur portefeuille sur les 7 derniers jours — parfait pour détecter les thèmes en train de gagner ou perdre du consensus.
             </div>
           </div>
         </details>
 
-        <!-- Encart rotations recentes (alimente par D1 si historique dispo) -->
-        <div id="etfRotationsArea" style="margin-bottom:18px"></div>
+        <!-- ERGONOMIE (juin 2026, retour user "trop de place en haut, on ne voit
+             pas l'essentiel") : ordre data-first. Sélecteur d'ETF → infobar →
+             APERÇU (résumé mouvements + top positions) → TABLEAU. La fiche
+             explicative (repliable) et les rotations cross-ETF passent EN BAS. -->
 
         <!-- Sous-onglets ETF (groupes par catégorie) -->
         <div id="etfTabs" class="etf-tabs-grouped"></div>
 
-        <div id="etfInfoBar" style="display:none;margin-bottom:12px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div id="etfInfoBar" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-secondary);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <span id="etfInfoLabel"></span>
           <span id="etfInfoDate" class="last-update"></span>
         </div>
 
-        <!-- Fiche explicative de l'ETF selectionne -->
-        <div id="etfDescBox" style="display:none;margin-bottom:16px;padding:14px 16px;background:linear-gradient(135deg, rgba(59,130,246,0.05), transparent);border-left:3px solid var(--accent-blue);border-radius:8px;font-size:13px;line-height:1.6;color:var(--text-secondary)"></div>
-
+        <!-- Aperçu : résumé des mouvements + top positions en barres -->
         <div id="etfCharts"></div>
 
+        <!-- Tableau des positions (ESSENTIEL — data-first) -->
         <div id="etfTableArea">
           <div class="empty-state"><p>Selectionnez un ETF ci-dessus pour voir ses positions en temps réel.</p></div>
         </div>
+
+        <!-- Fiche explicative de l'ETF (repliable, sous les données) -->
+        <div id="etfDescBox" style="display:none;margin-bottom:16px"></div>
+
+        <!-- Rotations récentes cross-ETF (résumé secondaire, en bas) -->
+        <div id="etfRotationsArea" style="margin-top:20px;margin-bottom:8px"></div>
 
         <!-- Pattern 'Voir plus' (mai 2026) : footer rendu directement dans le tableau via renderLoadMoreFooter -->
       </div>
@@ -14609,6 +14612,10 @@
       wallet:      '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
       trendingUp:  '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
       sparkles:    '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/>',
+      settings:    '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+      lightbulb:   '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+      alertTriangle:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      rotateCw:    '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
     };
     function _hexToRgba(hex, a) {
       const m = String(hex).replace('#', '');
@@ -18167,19 +18174,24 @@
       if (!box) return;
       const info = ETF_INFO[symbol];
       if (!info) { box.style.display = 'none'; return; }
-      box.style.display = 'block';
-      box.style.borderLeftColor = info.color;
+      box.style.cssText = 'display:block;margin-bottom:16px';
+      // Repliable (collapsed par defaut) + icones SVG -> moins de place en haut,
+      // l'utilisateur deplie la strategie/profil s'il en a besoin.
+      const _ico = (n, c) => `<span style="color:${c};flex-shrink:0;margin-top:2px;display:inline-flex">${kIcon(n, 14)}</span>`;
       box.innerHTML = `
-        <div style="display:flex;gap:12px;align-items:flex-start">
-          <div style="font-size:26px;line-height:1">${info.icon}</div>
-          <div style="flex:1">
-            <div style="font-weight:700;color:var(--text-primary);font-size:14px;margin-bottom:8px">${symbol} — ${info.title}</div>
-            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">🎯 Objectif :</strong> ${info.purpose}</div>
-            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">⚙️ Stratégie :</strong> ${info.strategy}</div>
-            <div style="margin-bottom:6px"><strong style="color:var(--text-primary);opacity:0.85">💡 Cas d'usage :</strong> ${info.useCase}</div>
-            <div style="font-size:12px;opacity:0.75"><strong style="color:var(--text-primary);opacity:0.9">⚠️ Profil de risque :</strong> ${info.risk}</div>
+        <details style="border-left:3px solid ${info.color};border-radius:8px;background:linear-gradient(135deg, rgba(59,130,246,0.05), transparent)">
+          <summary style="cursor:pointer;list-style:none;padding:11px 14px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;color:var(--text-primary)">
+            <span style="color:${info.color};display:inline-flex">${kIcon('building', 16)}</span>
+            <span>${symbol} — ${info.title}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Stratégie &amp; profil ▾</span>
+          </summary>
+          <div style="padding:2px 14px 14px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
+            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('target', info.color)}<span><strong style="color:var(--text-primary)">Objectif :</strong> ${info.purpose}</span></div>
+            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('settings', info.color)}<span><strong style="color:var(--text-primary)">Stratégie :</strong> ${info.strategy}</span></div>
+            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('lightbulb', info.color)}<span><strong style="color:var(--text-primary)">Cas d'usage :</strong> ${info.useCase}</span></div>
+            <div style="display:flex;gap:7px;font-size:12px;opacity:0.85">${_ico('alertTriangle', '#F59E0B')}<span><strong style="color:var(--text-primary)">Profil de risque :</strong> ${info.risk}</span></div>
           </div>
-        </div>
+        </details>
       `;
     }
 
@@ -18206,7 +18218,7 @@
           <div style="background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.04));border:1px solid rgba(59,130,246,0.25);border-radius:14px;padding:18px 20px">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
               <div>
-                <h3 style="margin:0 0 4px;font-size:15px;color:var(--text-primary)">🔄 Rotations récentes (${data.days} derniers jours)</h3>
+                <h3 style="margin:0 0 4px;font-size:15px;color:var(--text-primary);display:flex;align-items:center;gap:8px">${kIcon('rotateCw', 17)}<span>Rotations récentes (${data.days} derniers jours)</span></h3>
                 <p style="margin:0;font-size:12px;opacity:0.65">${meaningful.length} ETF ont rebalancé leur portefeuille</p>
               </div>
             </div>
