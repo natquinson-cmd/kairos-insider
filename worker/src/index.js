@@ -9380,10 +9380,12 @@ async function enrichEtfChanges(env, symbol, holdings, days = 7) {
         h.sharesChange = Math.round(rel * 10) / 10;  // % relatif, 1 decimale
         // status != 'unchanged' pour les vrais mouvements -> etfHasChanges=true
         // cote front (sinon la colonne variation + le resume ne s'affichent pas).
-        if (rel > 0.5) h.status = 'increased';
-        else if (rel < -0.5) h.status = 'decreased';
+        // Seuil 3% relatif : filtre la derive de prix quotidienne (bruit) tout en
+        // gardant les vraies rotations. Aligne avec ETF_MOVE_THRESHOLD du front.
+        if (rel > 3) h.status = 'increased';
+        else if (rel < -3) h.status = 'decreased';
         else h.status = 'unchanged';
-        if (Math.abs(rel) > 0.5) changed++;
+        if (Math.abs(rel) > 3) changed++;
       }
     }
     res.prevDate = prevDate; res.changed = changed;

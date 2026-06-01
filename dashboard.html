@@ -17955,8 +17955,10 @@
     const ETF_INITIAL_COUNT = 25;
     let etfDisplayedCount = ETF_INITIAL_COUNT;
 
-    // ETF Live — seuil de bruit pour qualifier un "mouvement" de poids (%)
-    const ETF_MOVE_THRESHOLD = 0.5;
+    // ETF Live — seuil (% relatif) pour qualifier un "mouvement" de poids notable.
+    // 3% : filtre la dérive de prix quotidienne (bruit) tout en gardant les vraies
+    // rotations (rebalances post-13F, entrées/sorties). Aligné avec le worker.
+    const ETF_MOVE_THRESHOLD = 3;
     // Compte les mouvements (nouvelles / renforcées / allégées) des holdings courants.
     function _etfMoveCounts() {
       const H = etfAllHoldings || [];
@@ -18342,7 +18344,7 @@
           let changeHtml = '';
           if (h.status === 'new') {
             changeHtml = '<span style="color:var(--accent-cyan);font-weight:700;font-size:11px">NOUVEAU</span>';
-          } else if (h.sharesChange !== null && h.sharesChange !== undefined && Math.abs(h.sharesChange) > 0.5) {
+          } else if (h.sharesChange !== null && h.sharesChange !== undefined && Math.abs(h.sharesChange) > ETF_MOVE_THRESHOLD) {
             const color = h.sharesChange >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
             const arrow = h.sharesChange >= 0 ? '&#9650;' : '&#9660;';
             changeHtml = `<span style="color:${color};font-weight:700">${arrow} ${h.sharesChange >= 0 ? '+' : ''}${h.sharesChange}%</span>`;
