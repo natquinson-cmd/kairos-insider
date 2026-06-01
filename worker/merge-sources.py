@@ -89,6 +89,42 @@ def main():
     # Sort by fileDate desc (most recent first), tiebreak by date
     combined.sort(key=lambda t: (t.get('fileDate', ''), t.get('date', '')), reverse=True)
 
+    # --- Dedup transaction economique (juin 2026) ---
+    # Une MEME operation peut etre declaree par PLUSIEURS entites liees (chaine de
+    # detention beneficiaire). Ex : SoftBank vend Symbotic via 'SVF Sponsor III
+    # (DE) LLC' (detenteur direct) ET 'SOFTBANK GROUP CORP.' (parent ultime) ->
+    # deux Form 4 distincts (accessions ...026479 / ...026481, CIK differents)
+    # pour la MEME vente (5,59M titres @ 50.41 = 281.8M$). Sans dedup : la vente
+    # compte 2x (flux net double, 2 inities distincts au lieu d'1).
+    # Cle = operation economique : ticker + date transaction + sens + nb titres +
+    # montant EXACT (au cent). Le montant exact rend une coincidence entre 2
+    # inities NON lies quasi impossible. On garde la 1re ligne (tri fileDate desc).
+    # Garde-fou : on ne dedup QUE les operations chiffrees (shares>0 ET value>0).
+    # Une cle avec shares=0/value=0 n'identifie pas une operation unique -> on ne
+    # touche jamais ces lignes (sinon on ecraserait des operations distinctes).
+    def _econ_key(t):
+        return (
+            (t.get('ticker') or '').upper(),
+            t.get('date') or t.get('transDate') or t.get('fileDate') or '',
+            t.get('type') or '',
+            t.get('shares') or 0,
+            t.get('value') or 0,
+        )
+    seen_tx = set()
+    deduped = []
+    dup_removed = 0
+    for t in combined:
+        if (t.get('shares') or 0) and (t.get('value') or 0):
+            k = _econ_key(t)
+            if k in seen_tx:
+                dup_removed += 1
+                continue
+            seen_tx.add(k)
+        deduped.append(t)
+    if dup_removed:
+        print(f'\n  DEDUP economique : {len(combined)} -> {len(deduped)} (retire {dup_removed} doublons chaine de detention beneficiaire / multi-declarants)')
+    combined = deduped
+
     # FIX (mai 2026, user feedback 'pas de donnees FR/Allemagne') :
     # truncate a 60 jours pour rester sous le cap KV Cloudflare 25 MiB.
     # Sans cap : transactions_data.json ~28 MB, upload wrangler kv put

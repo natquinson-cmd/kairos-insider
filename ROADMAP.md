@@ -20,6 +20,15 @@
 - `fetch-amf-dd.py` stocke les **codes SEC bruts** `P`/`S`/`?` au lieu des mots `buy`/`sell`/`other` → les ventes de dirigeants EU comptaient **0** (buyCount/sellCount/netValue nuls) et n'étaient pas colorées.
 - **Fix read-time** dans `aggregateInsiders` : `P→buy`, `S→sell`, `?→other` (idempotent pour SEC/BaFin déjà canoniques). Corrige l'affichage immédiatement sans re-run du pipeline.
 
+### ✅ Dedup transaction économique (doublons chaîne de détention bénéficiaire)
+- **Bug** : sur `$SYM` (Symbotic), la même vente apparaissait **2×** — `SVF Sponsor III (DE) LLC` (détenteur direct) **et** `SOFTBANK GROUP CORP.` (parent ultime), deux Form 4 SEC distincts (accessions/CIK différents) pour la **même** opération (5,59M titres @ 50,41 $ = 281,8 M$). Conséquence : flux net doublé (‑571 M$), nombre d'initiés gonflé.
+- **Cause** : une opération unique déclarée par plusieurs entités liées (chaîne de détention bénéficiaire) ou par plusieurs co-déclarants. La dedup existante (`accession+cik+insider`) ne les voyait pas comme doublons.
+- **Fix (3 niveaux, clé = `ticker + date + sens + nb titres + montant exact`)** :
+  1. **`merge-sources.py`** (source) — dedup avant écriture du KV `insider-transactions` → nettoie KV + D1 au prochain run pipeline. *C'est la prévention systémique.*
+  2. **`aggregateInsiders`** (worker, carte initiale) — dedup read-time → corrige l'affichage immédiatement.
+  3. **`handleHistoryInsider`** (worker, refresh D1) — dedup read-time → D1 étant cumulatif, collapse les doublons historiques sans migration.
+- **Garde-fou** : seules les opérations **chiffrées** (`shares>0 ET value>0`) sont dédupliquées ; le montant exact au cent rend une coïncidence entre 2 initiés non liés quasi impossible.
+
 ---
 
 ## 🎯 v16 — Fraîcheur données EU + identité typographique (25-26 mai 2026)

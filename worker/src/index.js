@@ -4647,7 +4647,32 @@ async function handleHistoryInsider(url, env, origin) {
                  ORDER BY COALESCE(trans_date, filing_date) DESC, filing_date DESC
                  LIMIT ?`;
     const result = await env.HISTORY.prepare(sql).bind(...args).all();
-    const rows = result.results || [];
+    const rawRows = result.results || [];
+
+    // Dedup transaction economique (juin 2026). Une MEME operation peut etre
+    // declaree par plusieurs entites liees (chaine de detention beneficiaire) :
+    // ex SoftBank vend Symbotic via 'SVF Sponsor III (DE) LLC' (detenteur direct)
+    // ET 'SOFTBANK GROUP CORP.' (parent) -> 2 Form 4 distincts pour la meme vente.
+    // D1 est cumulatif (les anciens doublons persistent malgre le dedup amont de
+    // merge-sources.py), donc on collapse aussi a la lecture. Cle = ticker + date
+    // transaction + sens + nb titres + montant exact. Garde-fou : seulement les
+    // rows chiffrees (shares>0 ET value>0). Coherent avec aggregateInsiders (KV).
+    const _seenRow = new Set();
+    const rows = [];
+    for (const r of rawRows) {
+      if ((Number(r.shares) || 0) && (Number(r.value) || 0)) {
+        const k = [
+          (r.ticker || '').toUpperCase(),
+          r.trans_date || r.filing_date || '',
+          r.trans_type || '',
+          Number(r.shares) || 0,
+          Number(r.value) || 0,
+        ].join('|');
+        if (_seenRow.has(k)) continue;
+        _seenRow.add(k);
+      }
+      rows.push(r);
+    }
 
     return jsonResponse({
       ticker: ticker || null,

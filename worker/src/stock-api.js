@@ -180,8 +180,11 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // vs Schneider FR) + normalisation type AMF-dd P/S/? -> buy/sell/other. Bump
   // pour purger les caches qui melangeaient les deux marches (ex SU montrait
   // Tricoire/Schneider sur la fiche Suncor).
+  // v17 : dedup transaction economique (chaine de detention beneficiaire, ex
+  // SoftBank/SVF sur SYM comptait la meme vente 2x). Bump pour purger les caches
+  // qui contenaient les doublons.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v16:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v17:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -2032,6 +2035,33 @@ async function aggregateInsiders(ticker, env) {
       else if (rt === 's') t.type = 'sell';
       else if (rt === '?' || rt === '') t.type = 'other';
     }
+
+    // Dedup transaction economique (mai 2026). Une MEME operation peut etre
+    // declaree par plusieurs entites liees (chaine de detention beneficiaire) :
+    // ex SoftBank vend Symbotic via 'SVF Sponsor III (DE) LLC' (detenteur direct)
+    // ET 'SOFTBANK GROUP CORP.' (parent ultime) -> deux Form 4 distincts
+    // (accessions ...026479 / ...026481, CIK differents) pour la MEME vente
+    // (5,59M titres @ 50.41 = 281.8M$). Sans dedup : la vente compte 2x (flux net
+    // double, 2 inities distincts au lieu d'1). Cle = meme operation economique :
+    // ticker + date de transaction + sens + nb titres + montant exact (au cent).
+    // Le montant exact (281819850) rend une coincidence entre 2 inities non lies
+    // quasi impossible. On garde la 1re ligne rencontree (tri date desc).
+    const _seenTx = new Set();
+    const _dedup = [];
+    for (const t of matches) {
+      const key = [
+        (t.ticker || '').toUpperCase(),
+        t.date || t.transDate || t.fileDate || '',
+        t.type || '',
+        Number(t.shares) || 0,
+        Number(t.value) || 0,
+      ].join('|');
+      if (_seenTx.has(key)) continue;
+      _seenTx.add(key);
+      _dedup.push(t);
+    }
+    matches.length = 0;
+    Array.prototype.push.apply(matches, _dedup);
 
     // FIX (mai 2026 / HAYW $29K = max insider score) : separer 'exercise' des
     // vrais 'buy'. Un exercise = conversion d'options a strike bas, pas de
