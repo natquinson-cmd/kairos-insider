@@ -176,8 +176,12 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // car sous cle ONDAS HLDGS (vs ONDAS exact match qui stoppait l'exploration).
   // v15 : normalize THE prefix/suffix + re-normalize keys au query-time -> NYT
   // renvoyait 1 fund (AGF) au lieu de 30+ (Berkshire, BlackRock, AQR, etc.).
+  // v16 : desambiguisation collision ticker inities par region (SU = Suncor US
+  // vs Schneider FR) + normalisation type AMF-dd P/S/? -> buy/sell/other. Bump
+  // pour purger les caches qui melangeaient les deux marches (ex SU montrait
+  // Tricoire/Schneider sur la fiche Suncor).
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v15:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v16:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
