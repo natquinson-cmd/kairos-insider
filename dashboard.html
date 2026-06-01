@@ -16259,13 +16259,16 @@
           // ou seul fileDate est dispo).
           const pickDate = (t) => t.date || t.fileDate;
           const txs = (insiders.transactions || []).filter(t => pickDate(t));
-          // Calculer les tailles de points proportionnelles au volume
-          const values_arr = txs.map(t => Math.abs(t.value || 0)).filter(v => v > 0);
-          const maxVal = values_arr.length ? Math.max(...values_arr) : 0;
+          // Taille du marker = ABSOLUE (echelle log), plus relative au max du
+          // dataset. FIX (juin 2026) : avant, ratio=|value|/maxVal -> une vente
+          // SEULE (ex Dabiri 133K$ sur NVIDIA) ressortait en 12px (le max) car elle
+          // EST son propre maximum, alors qu'elle est negligeable. Echelle stable
+          // desormais : ~10K$ -> 4px, 1M$ -> ~7px, 100M$+ -> 12px. Un petit trade =
+          // petit point, un gros = gros point, comparable d'une action a l'autre.
           function radiusFor(value) {
-            if (!value || !maxVal) return 5;
-            const ratio = Math.min(Math.abs(value) / maxVal, 1);
-            return 4 + Math.round(ratio * 8); // 4 a 12px
+            const v = Math.abs(value || 0);
+            if (v < 1000) return 4;
+            return Math.max(4, Math.min(12, Math.round(3 + (Math.log10(v) - 4) * 1.5)));
           }
 
           txs.forEach(t => {

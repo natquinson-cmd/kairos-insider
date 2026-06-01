@@ -183,8 +183,11 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // v17 : dedup transaction economique (chaine de detention beneficiaire, ex
   // SoftBank/SVF sur SYM comptait la meme vente 2x). Bump pour purger les caches
   // qui contenaient les doublons.
+  // v18 : pilier Inities pondere par la significativite vs market cap (une vente
+  // negligeable face a la taille de la boite ne penalise plus le score). Bump
+  // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v17:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v18:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -2649,8 +2652,24 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   const buyVsSell = insiders.buyCount - insiders.sellCount;
   let insiderScore = 10; // neutre
   const valueBonus = (v) => Math.max(0, Math.min(6, (Math.log10(v) - 4) * 2));
-  if (totalNet > 0) insiderScore += valueBonus(Math.abs(totalNet));
-  else if (totalNet < 0) insiderScore -= valueBonus(Math.abs(totalNet));
+  // FIX (juin 2026 / Dabiri 133K$ sur NVIDIA 5,1T$) : la formule valueBonus est
+  // ABSOLUE (en $) — une vente d'initie de 133K$ franchit le seuil de 10K$ et
+  // ponctionne ~2,25 pts du pilier Inities, alors que c'est 0,00026 bps (!) de la
+  // capitalisation de NVIDIA = bruit total. On pondere donc le bonus/penalite par
+  // la SIGNIFICATIVITE relative a la mcap : plein poids des qu'on atteint ~0,001%
+  // de la mcap (0,1 bps), decote lineaire vers 0 en-dessous. Les small/mid-caps ne
+  // bougent pas (un trade y atteint vite 0,1 bps). Fallback absolu si mcap inconnue
+  // (certaines actions EU). N'affecte PAS le cluster (+3) ni uniqueInsiders (+1),
+  // qui restent des signaux quelle que soit la taille de la boite.
+  const _mcap = Number((fundamentals && fundamentals.marketCap) || (quote && quote.price && quote.price.marketCap) || 0) || 0;
+  let mcapMult = 1;
+  if (_mcap > 0 && totalNet !== 0) {
+    const bps = Math.abs(totalNet) / _mcap * 1e4; // points de base de la mcap
+    mcapMult = Math.max(0, Math.min(1, bps / 0.1)); // plein poids a partir de 0,1 bps
+  }
+  const netSig = valueBonus(Math.abs(totalNet)) * mcapMult;
+  if (totalNet > 0) insiderScore += netSig;
+  else if (totalNet < 0) insiderScore -= netSig;
   if (buyVsSell > 0) insiderScore += Math.min(2, buyVsSell * 0.4);
   else if (buyVsSell < 0) insiderScore -= Math.min(2, Math.abs(buyVsSell) * 0.4);
   if (insiders.clusterSignal) insiderScore += 3;

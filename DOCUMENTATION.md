@@ -571,15 +571,22 @@ Voir §10.6 pour les **5 garde-fous anti-mouvements artificiels** qui exploitent
 let insiderScore = 10;  // baseline neutre
 const totalNet  = netValueUsd + netValueEur;       // somme signée USD+EUR
 const buyVsSell = buyCount - sellCount;
-if (totalNet > 0)  insiderScore += min(6, log10(|totalNet|+1) * 1.5);   // volume buys
-if (totalNet < 0)  insiderScore -= min(6, log10(|totalNet|+1) * 1.5);   // volume sells
+const valueBonus = (v) => clamp(0, 6, (log10(v) - 4) * 2);   // 10K$:0 100K$:2 1M$:4 10M$+:6
+// Pondération significativité vs market cap (juin 2026) : plein poids dès
+// ~0,001% de la mcap (0,1 bps), décote linéaire vers 0 en-dessous. mult=1 si
+// mcap inconnue (fallback absolu).
+const bps  = mcap > 0 ? |totalNet| / mcap * 1e4 : null;
+const mult = bps == null ? 1 : clamp(0, 1, bps / 0.1);
+const netSig = valueBonus(|totalNet|) * mult;
+if (totalNet > 0) insiderScore += netSig;            // volume buys (pondéré mcap)
+if (totalNet < 0) insiderScore -= netSig;            // volume sells (pondéré mcap)
 if (buyVsSell > 0) insiderScore += min(2, buyVsSell * 0.4);              // ratio buys
-if (buyVsSell < 0) insiderScore -= min(2, |buyVsSell| * 0.4);            // ratio sells
-if (clusterSignal)        insiderScore += 3;        // ≥3 acheteurs uniques sur 30j
-if (uniqueInsiders >= 5)  insiderScore += 1;        // diversité signal
+if (buyVsSell < 0) insiderScore -= min(2, |buyVsSell| * 0.4);           // ratio sells
+if (clusterSignal)        insiderScore += 3;        // ≥3 acheteurs uniques sur 30j (NON pondéré)
+if (uniqueInsiders >= 5)  insiderScore += 1;        // diversité signal (NON pondéré)
 ```
 
-**Plage théorique** : 0 (saturée) à 20 (max bullish). La pénalité capping à `min(6, ...)` empêche les signaux extrêmes — un single Form 4 vente $500M et $5M produisent le même score.
+**Plage théorique** : 0 (saturée) à 20 (max bullish). `valueBonus` sature à 6 ($10M+ en absolu), mais la pondération `mult` rend le pilier **conscient de la taille de la société** : une vente négligeable face à la mcap ne pénalise plus (ex Dabiri 133 k$ sur NVIDIA 5,1 T$ = 0,00026 bps → pénalité ≈ 0). Le **cluster** et `uniqueInsiders` ne sont PAS pondérés (un cluster d'achats reste un signal quelle que soit la taille).
 
 **Cluster signal** : ≥3 insiders distincts achetant sur 30 jours = boost +3pt.
 

@@ -4,7 +4,21 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 1er juin 2026 (v18 - Liens de détail uniformisés + explore ETF)
+**Dernière mise à jour** : 1er juin 2026 (v19 - Pilier Initiés pondéré par la market cap)
+
+---
+
+## 🎯 v19 — Pilier Initiés : significativité vs market cap (1er juin 2026)
+
+### ✅ Score : une vente d'initié négligeable ne plombe plus un mega-cap
+- **Symptôme** (user, `$NVDA`) : une **seule** vente de John Dabiri (administrateur) de **625 titres @ 214 $ = 133 750 $** faisait baisser le Kairos Score, alors que c'est **0,00026 bps** (!) de la capitalisation de NVIDIA (**5,1 T$**) — du bruit total.
+- **Cause** : le pilier Initiés pénalisait sur la **valeur ABSOLUE en $** (`valueBonus = (log10(v)−4)×2`, seuil 10 k$, max 6). 133 k$ franchit le seuil et ponctionnait ~2,25 pts → pilier Initiés 10→7 (≈ −3 sur le score /100). La formule ne regardait **jamais** la taille de la société.
+- **Fix** : pondération du bonus/pénalité par la **significativité relative à la mcap** : plein poids dès **~0,001 % de la mcap** (0,1 bps), décote linéaire vers 0 en-dessous. Dabiri : pénalité **2,25 → 0,01** → pilier Initiés revient à neutre (~10/20). **Small/mid-caps inchangés** (un trade y atteint vite 0,1 bps) ; achats/ventes réellement significatifs conservés (CEO 5 M$ sur 2 Md$ = 5,40 pts inchangé ; 50 M$ sur NVDA = 5,87). Fallback absolu si mcap inconnue (EU). Cluster (+3) et uniqueInsiders (+1) **non affectés** (signaux quelle que soit la taille). Cache `stock-analysis` v17→v18.
+
+### ✅ Graphique : la taille du marqueur d'initié devient absolue
+- **Symptôme** : sur le graphique cours, la vente Dabiri ressortait en **gros point rouge (12 px = max)** alors qu'elle est minuscule.
+- **Cause** : le rayon était **relatif au max du dataset** (`ratio = |value|/maxVal`). Avec une seule transaction, elle EST son propre max → 12 px systématiquement.
+- **Fix** : rayon sur **échelle log absolue** (~10 k$ → 4 px, 1 M$ → ~7 px, 100 M$+ → 12 px), **comparable d'une action à l'autre**. Dabiri 133 k$ → **5 px** (petit point) au lieu de 12 px.
 
 ---
 
