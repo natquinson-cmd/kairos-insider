@@ -4578,6 +4578,10 @@ async function handleHistoryInsider(url, env, origin) {
   const insiderFilter = (url.searchParams.get('insider') || '').trim();
   const roleFilter = (url.searchParams.get('role') || '').trim();
   const source = (url.searchParams.get('source') || '').toUpperCase();
+  // region=US|EU : desambiguisation marché (fix collision ticker, ex SU = Suncor
+  // US vs Schneider FR). Passe par le front depuis l'attribut data-region de la
+  // card (derive du suffixe Yahoo du ticker resolu). Voir le bloc plus bas.
+  const region = (url.searchParams.get('region') || '').toUpperCase();
   const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '500', 10), 1), 5000);
   if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
   // Exige au moins UN filtre pour eviter les requetes "return everything"
@@ -4597,7 +4601,19 @@ async function handleHistoryInsider(url, env, origin) {
     // filing_date pour ne pas perdre les rows.
     const conditions = ["COALESCE(trans_date, filing_date) >= date('now', ?)"];
     const args = [`-${days} days`];
-    if (ticker) { conditions.push('ticker = ?'); args.push(ticker); }
+    if (ticker) {
+      const dot = ticker.lastIndexOf('.');
+      if (region === 'EU' && dot > 0) {
+        // Titre EU (ex 'SU.PA') : les rows AMF/BaFin/AFM sont souvent stockes
+        // NUS ('SU') faute d'enrichissement OpenFIGI (certains le sont avec
+        // suffixe 'DG.PA'). On matche les DEUX formes ; le filtre region en aval
+        // garde uniquement les regulateurs EU, donc pas de re-collision avec l'US.
+        conditions.push('(ticker = ? OR ticker = ?)');
+        args.push(ticker, ticker.slice(0, dot));
+      } else {
+        conditions.push('ticker = ?'); args.push(ticker);
+      }
+    }
     if (typeFilter && ['buy', 'sell', 'other', 'option-exercise'].includes(typeFilter)) {
       conditions.push('trans_type = ?'); args.push(typeFilter);
     }
@@ -4614,12 +4630,10 @@ async function handleHistoryInsider(url, env, origin) {
     }
     // Desambiguisation marché (mai 2026, fix collision ticker). Un ticker NU
     // (ex 'SU') coexiste en base chez Suncor (source SEC / US) ET Schneider
-    // (source AMF / FR). Sur la fiche action, le front passe region=US|EU
-    // (derive du suffixe Yahoo du ticker resolu : SU -> US, SU.PA -> EU) pour
-    // ne garder que les regulateurs de la bonne zone. Purement SOUSTRACTIF :
+    // (source AMF / FR). Le front passe region=US|EU (cf. declaration en haut).
+    // On ne garde que les regulateurs de la bonne zone. Purement SOUSTRACTIF :
     // ne casse aucun match existant, retire juste les rows de l'autre zone.
     // Applique seulement avec un ticker et si aucune source explicite n'est demandee.
-    const region = (url.searchParams.get('region') || '').toUpperCase();
     if (!source && ticker) {
       if (region === 'US') { conditions.push("source IN ('SEC', 'SEDI')"); }
       else if (region === 'EU') { conditions.push("source NOT IN ('SEC', 'SEDI')"); }
