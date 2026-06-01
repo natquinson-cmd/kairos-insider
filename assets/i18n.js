@@ -653,6 +653,15 @@
       'stock.etf.status_flat': 'Stable',
       'stock.etf.openLive': 'Ouvrir dans ETF Live',
       'stock.etf.error': 'Impossible de charger les ETF. Réessaie plus tard.',
+      // ETF Live — sous-onglet Explorer (action -> ETF qui la détiennent)
+      'dash.hub.etf.live': 'ETF Live',
+      'dash.hub.etf.explore': 'Explorer',
+      'dash.section.etfExplorer.title': 'ETF Live — Explorer',
+      'dash.section.etfExplorer.desc': 'Vue action-centrique : tous les ETF suivis qui détiennent une action donnée, avec poids, rang et évolution. Accessible depuis la fiche action via « Voir tous les ETF détenant X ».',
+      'etfExplorer.placeholder': '🔍 Ticker (ex : AAPL, NVDA, MC.PA)…',
+      'etfExplorer.no_ticker': 'Tape un ticker ci-dessus ou clique sur « Voir tous les ETF détenant X » depuis une fiche action.',
+      'etfExplorer.back_to_stock': '← Retour à la fiche {ticker}',
+      'etfExplorer.result_title': '{ticker} est détenu par {n} ETF suivis',
       // Hedge Funds page — search bar (mai 2026 : search par fonds + actions detenues)
       'hedge.search.placeholder': '🔍 Fonds OU action détenue (ex: Berkshire, Apple, AAPL, Nvidia)...',
       'hedge.search.hint': 'Tape pour filtrer',
@@ -2361,6 +2370,15 @@
       'stock.etf.status_flat': 'Unchanged',
       'stock.etf.openLive': 'Open in ETF Live',
       'stock.etf.error': 'Could not load ETFs. Please try again later.',
+      // ETF Live — Explorer sub-tab (stock -> ETFs holding it)
+      'dash.hub.etf.live': 'ETF Live',
+      'dash.hub.etf.explore': 'Explorer',
+      'dash.section.etfExplorer.title': 'ETF Live — Explorer',
+      'dash.section.etfExplorer.desc': 'Stock-centric view: every tracked ETF holding a given stock, with weight, rank and trend. Reachable from the stock page via “See all ETFs holding X”.',
+      'etfExplorer.placeholder': '🔍 Ticker (e.g. AAPL, NVDA, MC.PA)…',
+      'etfExplorer.no_ticker': 'Type a ticker above or click “See all ETFs holding X” from a stock page.',
+      'etfExplorer.back_to_stock': '← Back to {ticker}',
+      'etfExplorer.result_title': '{ticker} is held by {n} tracked ETFs',
       // Hedge Funds page — search bar (may 2026: search by fund + held stocks)
       'hedge.search.placeholder': '🔍 Fund OR held stock (e.g. Berkshire, Apple, AAPL, Nvidia)...',
       'hedge.search.hint': 'Type to filter',

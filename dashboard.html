@@ -41,7 +41,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260601-etf-explore"></script>
+  <script src="assets/i18n.js?v=20260601-etf-tab"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
@@ -5767,6 +5767,14 @@
       <!-- ===== SECTION: ETF LIVE ===== -->
       <div class="section-page" id="section-etf">
 
+        <!-- HUB ETF (sous-onglets) : ETF Live (vue ETF -> holdings) | Explorer
+             (vue action -> ETF qui la detiennent). Meme barre dupliquee dans
+             #section-etf-explorer. -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="etf" onclick="switchSection('etf')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg><span data-i18n="dash.hub.etf.live">ETF Live</span></button>
+          <button class="hub-tab" data-hub-target="etf-explorer" onclick="switchSection('etf-explorer')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.hub.etf.explore">Explorer</span></button>
+        </div>
+
         <!-- Encart "Comment lire cette page" (collapsible) -->
         <details id="etfGuidePanel" style="margin-bottom:18px;background:linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.03));border:1px solid rgba(59,130,246,0.22);border-radius:12px;padding:14px 18px">
           <summary style="cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:10px">
@@ -5848,6 +5856,45 @@
         <div id="etfRotationsArea" style="margin-top:20px;margin-bottom:8px"></div>
 
         <!-- Pattern 'Voir plus' (mai 2026) : footer rendu directement dans le tableau via renderLoadMoreFooter -->
+      </div>
+
+      <!-- ===== SECTION: ETF LIVE — EXPLORER (action -> ETF qui la detiennent) ===== -->
+      <!-- Sous-onglet de ETF Live (juin 2026, demande user). Pendant des explore
+           Hedge Funds (#section-13f-explorer) et Inities. Inverse-lookup : on tape
+           une action, on voit TOUS les ETF suivis qui la detiennent. -->
+      <div class="section-page" id="section-etf-explorer">
+        <h2 style="display:flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.section.etfExplorer.title">ETF Live — Explorer</span></h2>
+        <p class="section-desc" data-i18n="dash.section.etfExplorer.desc">
+          Vue action-centrique : tous les ETF suivis qui détiennent une action donnée, avec poids, rang et évolution. Accessible depuis la fiche action via « Voir tous les ETF détenant X ».
+        </p>
+
+        <!-- HUB ETF (meme barre que #section-etf) -->
+        <div class="hub-tabs" role="tablist">
+          <button class="hub-tab" data-hub-target="etf" onclick="switchSection('etf')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg><span data-i18n="dash.hub.etf.live">ETF Live</span></button>
+          <button class="hub-tab" data-hub-target="etf-explorer" onclick="switchSection('etf-explorer')" style="display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.58 16.5h12.85"/></svg><span data-i18n="dash.hub.etf.explore">Explorer</span></button>
+        </div>
+
+        <!-- Input ticker + autocomplete + bouton retour fiche action (meme pattern que 13f-explorer) -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin:16px 0 8px">
+          <div style="position:relative;flex:1;min-width:280px;max-width:480px">
+            <input id="etfExplorerTickerInput" type="text"
+                   placeholder="🔍 Ticker (ex: AAPL, NVDA, MC.PA)…"
+                   data-i18n-placeholder="etfExplorer.placeholder"
+                   autocomplete="off"
+                   style="width:100%;padding:12px 16px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--text-primary);outline:none;font-size:14px;font-family:inherit;box-sizing:border-box" />
+            <div id="etfExplorerTickerSuggest" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:12px;max-height:420px;overflow-y:auto;z-index:100;box-shadow:0 12px 32px rgba(0,0,0,0.35)"></div>
+          </div>
+          <button id="etfExplorerBackBtn" onclick="(function(){const tk=document.getElementById('etfExplorerTickerInput')?.value?.trim()?.toUpperCase();if(tk){window.location.hash='#stockAnalysis?t='+encodeURIComponent(tk);switchSection('stockAnalysis');setTimeout(()=>loadStockAnalysis(tk),120);}})()" style="display:none;padding:10px 14px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--text-secondary);cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'">
+            <span id="etfExplorerBackLabel">← Retour fiche action</span>
+          </button>
+        </div>
+
+        <div id="etfExplorerBody" style="margin-top:12px">
+          <div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center">
+            <div style="font-size:42px;margin-bottom:10px">🔬</div>
+            <p style="font-size:13px;color:var(--text-muted);margin:0;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5" data-i18n="etfExplorer.no_ticker">Tape un ticker ci-dessus ou clique sur « Voir tous les ETF détenant X » depuis une fiche action.</p>
+          </div>
+        </div>
       </div>
 
       <!-- ===== SECTION: FEAR & GREED ===== -->
@@ -9234,6 +9281,7 @@
       clustering: 'insider',
       consensus13f: '13f',
       '13f-explorer': '13f',
+      'etf-explorer': 'etf',
     };
 
     function switchSection(section, opts = {}) {
@@ -9326,6 +9374,12 @@
           // Pas de load par defaut : la page demarre vide avec un message
           // d'instructions. L'utilisateur arrive ici soit en cliquant le tab,
           // soit via navigateToFundsWithHolding(ticker) qui pre-fill + load.
+        }
+        if (section === 'etf-explorer') {
+          // Sous-onglet Explorer de ETF Live : autocomplete ticker, pas de load
+          // par defaut (page vide + instructions). Arrivee soit via le tab, soit
+          // via navigateToEtfExplorer(ticker) depuis la fiche action.
+          if (typeof initEtfExplorerSearch === 'function') initEtfExplorerSearch();
         }
         if (section === 'admin') loadAdminDashboard();
         if (section === 'profile') loadProfileSection();
@@ -9458,6 +9512,10 @@
       // Cas special : Hedge Funds Explorer via #13f-explorer?t=TICKER
       if (section === '13f-explorer' && params.t && typeof loadHedgeFundsExplorer === 'function') {
         setTimeout(() => loadHedgeFundsExplorer(params.t), 80);
+      }
+      // Cas special : ETF Explorer via #etf-explorer?t=TICKER
+      if (section === 'etf-explorer' && params.t && typeof loadEtfExplorer === 'function') {
+        setTimeout(() => loadEtfExplorer(params.t), 80);
       }
       return true;
     }
@@ -13070,9 +13128,9 @@
           recordStockVisit(ticker, (data.company && data.company.name) || data.ticker || ticker);
         } catch {}
         renderStockAnalysis(data);
-        // (Les ETF detenant ce ticker sont desormais accessibles a la demande via
-        //  le lien "Voir tous les ETF" de la card Politiciens & Gurus -> openEtfHoldersModal.
-        //  Plus d'encart inline #etfHistorySlot auto-rendu en bas de fiche.)
+        // (Les ETF detenant ce ticker sont accessibles via le lien "Voir tous les
+        //  ETF" de la card Politiciens & Gurus -> navigateToEtfExplorer ->
+        //  sous-onglet Explorer de ETF Live. Plus d'encart inline #etfHistorySlot.)
         // Charge les filings 13D/G recents sur ce ticker (banner + markers chart)
         loadActivistsForTicker(ticker).catch(() => {});
         // Enrichit la card Politicians & Gurus avec sparkline + status par ETF
@@ -14100,14 +14158,16 @@
     }
 
     // ============================================================
-    // ETF EXPLORE : modal "tous les ETF detenant une action" (juin 2026)
+    // ETF EXPLORE : sous-onglet "Explorer" de ETF Live (juin 2026)
     // ============================================================
     // Inverse-lookup : pour une ACTION, quels ETF suivis la detiennent + poids,
-    // rang et evolution. Ecran on-demand declenche depuis la card "Politiciens &
-    // Gurus" (lien bas de card), coherent avec les explore HF / Inities.
-    // (Remplace l'ancien encart inline #etfHistorySlot qui s'auto-rendait en bas
-    //  de fiche au chargement -> desormais a la demande dans ce modal.)
+    // rang et evolution. Rendu dans #section-etf-explorer (sous-onglet hub ETF),
+    // pendant des explore Hedge Funds (#section-13f-explorer) et Inities.
+    // Ouvert depuis la card "Politiciens & Gurus" (lien bas de card) ou le badge
+    // smart money via navigateToEtfExplorer(ticker).
+    // (Remplace l'ancien encart inline #etfHistorySlot + l'ex-modal intermediaire.)
     // Donnees : /api/history/etf?ticker= (D1 etf_snapshots, premium).
+    // etfHoldersGridHtml (rendu cards) est reutilise par loadEtfExplorer.
     function _etfLocale() {
       return (window.KairosI18n && window.KairosI18n.getLang && window.KairosI18n.getLang() === 'en') ? 'en-US' : 'fr-FR';
     }
@@ -14160,54 +14220,73 @@
       return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(208px,1fr));gap:12px">${cards}</div>`;
     }
 
-    function _etfModalEsc(e) { if (e.key === 'Escape') closeEtfHoldersModal(); }
-    function closeEtfHoldersModal() {
-      const m = document.getElementById('etfHoldersModal');
-      if (m) m.remove();
-      document.removeEventListener('keydown', _etfModalEsc);
+    // navigateToEtfExplorer : depuis la fiche action (card Politiciens & Gurus) ou
+    // le badge smart money. Ouvre le sous-onglet Explorer de ETF Live + charge le
+    // ticker. Mirror de navigateToFundsWithHolding (Hedge Funds).
+    function navigateToEtfExplorer(ticker) {
+      const q = String(ticker || '').trim().toUpperCase();
+      if (!q) return;
+      window.location.hash = `etf-explorer?t=${encodeURIComponent(q)}`;
+      switchSection('etf-explorer');
+      // Petit delai pour laisser switchSection appliquer .active avant le render.
+      setTimeout(() => loadEtfExplorer(q), 80);
     }
-    window.closeEtfHoldersModal = closeEtfHoldersModal;
+    window.navigateToEtfExplorer = navigateToEtfExplorer;
 
-    async function openEtfHoldersModal(ticker) {
+    let _etfExplorerSearchInit = false;
+    async function initEtfExplorerSearch() {
+      if (_etfExplorerSearchInit) return;
+      const input = document.getElementById('etfExplorerTickerInput');
+      const suggest = document.getElementById('etfExplorerTickerSuggest');
+      if (!input || !suggest) return;
+      if (typeof ensureTickerList === 'function') { try { await ensureTickerList(); } catch (e) {} }
+      if (typeof wireTickerAutocomplete === 'function') {
+        wireTickerAutocomplete(input, suggest, (ticker) => { input.value = ticker; loadEtfExplorer(ticker); });
+        _etfExplorerSearchInit = true;
+      }
+    }
+    window.initEtfExplorerSearch = initEtfExplorerSearch;
+
+    // Charge la vue "tous les ETF detenant {ticker}" dans #etfExplorerBody.
+    // Reutilise etfHoldersGridHtml (meme rendu cards/sparklines que l'ex-modal).
+    // Mirror de loadHedgeFundsExplorer (back button, input fill, empty/error).
+    async function loadEtfExplorer(ticker) {
+      const body = document.getElementById('etfExplorerBody');
+      const input = document.getElementById('etfExplorerTickerInput');
+      const backBtn = document.getElementById('etfExplorerBackBtn');
+      const backLbl = document.getElementById('etfExplorerBackLabel');
+      if (!body) return;
       const tk = String(ticker || '').trim().toUpperCase();
-      if (!tk) return;
-      closeEtfHoldersModal(); // idempotent
-      const titleTxt = t('stock.etf.modal_title', 'ETF détenant {ticker}').replace('{ticker}', tk);
-      const overlay = document.createElement('div');
-      overlay.id = 'etfHoldersModal';
-      overlay.className = 'modal-overlay';
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) closeEtfHoldersModal(); });
-      overlay.innerHTML = `
-        <div class="modal-inner" role="dialog" aria-modal="true" aria-label="${titleTxt}" style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:16px;padding:22px 24px;max-width:760px;width:100%;max-height:86vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,0.55)">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px">
-            <h3 style="margin:0;font-family:'Clash Display',sans-serif;font-size:19px;color:var(--text-primary)">${secLabel(titleTxt, 'layers', '#06B6D4')}</h3>
-            <button onclick="closeEtfHoldersModal()" aria-label="Fermer" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:2px 6px;line-height:1">✕</button>
-          </div>
-          <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 16px;line-height:1.5">${t('stock.etf.modal_sub', 'Tous les ETF suivis qui détiennent cette action — poids, rang et évolution sur la période.')}</p>
-          <div id="etfHoldersBody">${(window.Skeleton && window.Skeleton.lines) ? window.Skeleton.lines(4) : `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">${t('stock.etf.loading', 'Chargement des ETF…')}</div>`}</div>
-        </div>`;
-      document.body.appendChild(overlay);
-      document.addEventListener('keydown', _etfModalEsc);
-
-      const bodyEl = document.getElementById('etfHoldersBody');
+      if (!tk) {
+        body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center"><div style="font-size:42px;margin-bottom:10px">🔬</div><p style="font-size:13px;color:var(--text-muted);margin:0" data-i18n="etfExplorer.no_ticker">${t('etfExplorer.no_ticker', 'Tape un ticker ci-dessus ou clique sur « Voir tous les ETF détenant X » depuis une fiche action.')}</p></div>`;
+        if (backBtn) backBtn.style.display = 'none';
+        return;
+      }
+      if (input && input.value !== tk) input.value = tk;
+      try { history.replaceState(null, '', `#etf-explorer?t=${encodeURIComponent(tk)}`); } catch {}
+      body.innerHTML = `<div class="loading" style="padding:40px 24px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;text-align:center"><div class="spinner"></div><div style="margin-top:12px;font-size:13px;color:var(--text-muted)">${t('stock.etf.loading', 'Chargement des ETF…')}</div></div>`;
       try {
         const res = await apiFetch(`/api/history/etf?ticker=${encodeURIComponent(tk)}&days=180`);
-        if (!bodyEl || !document.getElementById('etfHoldersModal')) return; // fermee entre-temps
         const etfs = (res && Array.isArray(res.etfs))
           ? res.etfs.slice().sort((a, b) => (b.currentWeight || 0) - (a.currentWeight || 0))
           : [];
+        if (backBtn) backBtn.style.display = '';
+        if (backLbl) backLbl.textContent = t('etfExplorer.back_to_stock', '← Retour à la fiche {ticker}').replace('{ticker}', tk);
         if (!etfs.length) {
-          bodyEl.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--text-muted)"><div style="font-size:34px;opacity:0.5;margin-bottom:8px">${kIcon('layers', 30)}</div><div style="font-size:13px">${t('stock.etf.empty', 'Aucun ETF suivi ne détient {ticker} pour l\'instant.').replace('{ticker}', tk)}</div></div>`;
+          body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center"><div style="font-size:42px;margin-bottom:10px">${kIcon('layers', 38)}</div><p style="font-size:13px;color:var(--text-muted);margin:0">${t('stock.etf.empty', 'Aucun ETF suivi ne détient {ticker} pour l\'instant.').replace('{ticker}', '<strong>' + tk + '</strong>')}</p></div>`;
           return;
         }
-        const countLine = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${t('stock.etf.count', '{n} ETF').replace('{n}', etfs.length)}</div>`;
-        const footer = `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--divider);text-align:center"><a href="#" onclick="closeEtfHoldersModal();switchSection('etf');return false" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--accent-blue);text-decoration:none;font-weight:600">${t('stock.etf.openLive', 'Ouvrir dans ETF Live')} <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a></div>`;
-        bodyEl.innerHTML = countLine + etfHoldersGridHtml(etfs) + footer;
+        const header = `<div style="margin-bottom:14px;font-size:14px;color:var(--text-secondary)">${
+          t('etfExplorer.result_title', '{ticker} est détenu par {n} ETF suivis')
+            .replace('{ticker}', `<strong style="color:var(--text-primary)">${tk}</strong>`)
+            .replace('{n}', `<strong style="color:var(--text-primary)">${etfs.length}</strong>`)
+        }</div>`;
+        body.innerHTML = header + etfHoldersGridHtml(etfs);
       } catch (e) {
-        if (bodyEl) bodyEl.innerHTML = `<div style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:13px">${t('stock.etf.error', 'Impossible de charger les ETF. Réessaie plus tard.')}</div>`;
+        body.innerHTML = `<div class="empty-state" style="padding:40px 24px;background:var(--bg-card);border:1px dashed var(--border);border-radius:12px;text-align:center"><p style="font-size:13px;color:var(--text-muted);margin:0">${t('stock.etf.error', 'Impossible de charger les ETF. Réessaie plus tard.')}</p></div>`;
       }
     }
-    window.openEtfHoldersModal = openEtfHoldersModal;
+    window.loadEtfExplorer = loadEtfExplorer;
 
     // Lien "voir le detail" UNIFORME en bas des cards de la fiche action
     // (Inities / Hedge Funds / Politiciens-ETF / Activists) : bordure top, centre,
@@ -15410,7 +15489,7 @@
             ${currentUser && gov.inEtfs && gov.inEtfs.length > 0
               ? stockCardDetailLink(
                   t('stock.etf.viewAllEtfs', 'Voir tous les ETF détenant {ticker}').replace('{ticker}', (d.ticker || '').toUpperCase()),
-                  `openEtfHoldersModal('${(d.ticker || '').replace(/'/g, '').toUpperCase()}')`)
+                  `navigateToEtfExplorer('${(d.ticker || '').replace(/'/g, '').toUpperCase()}')`)
               : ''}
           </div>
 
@@ -21822,10 +21901,10 @@
       }, 150);
     }
     function _openEtfForTicker(ticker) {
-      // Badge ETF du widget smart money -> ouvre directement le modal "ETF
-      // detenant {ticker}" (inverse-lookup), coherent avec _openInsiderForTicker
-      // / _openActivistsForTicker qui ouvrent leur explore respectif.
-      if (typeof openEtfHoldersModal === 'function') openEtfHoldersModal(ticker);
+      // Badge ETF du widget smart money -> ouvre le sous-onglet Explorer de ETF
+      // Live filtre sur {ticker} (inverse-lookup), coherent avec
+      // _openInsiderForTicker / _openActivistsForTicker / navigateToFundsWithHolding.
+      if (typeof navigateToEtfExplorer === 'function') navigateToEtfExplorer(ticker);
     }
     // Badge "Kairos Score 30j" -> ouvre l'analyse complete (fiche action).
     function _openStockFicheFor(ticker) {

@@ -14,11 +14,12 @@
 - Les 4 cards de la fiche (Initiés, Hedge Funds, Politiciens & Gurus, Activistes) ont désormais un lien de détail **identique** : helper `stockCardDetailLink(label, onclick)` → bas de card, bordure top, centré, flèche SVG, couleur accent commune.
 - **Activistes** : le lien « Voir les N déclarations » était en **haut à droite** (incohérent) → déplacé **en bas** comme les autres.
 
-### ✅ Nouvel écran : explore ETF par action (`openEtfHoldersModal`)
-- Nouveau lien dans la card **Politiciens & Gurus** : « Voir tous les ETF détenant {ticker} » → ouvre un **modal** listant **tous** les ETF suivis qui détiennent l'action (pas seulement NANC/GOP/GURU) avec **poids, rang, date d'entrée, sparkline d'évolution et statut** (Nouveau / Renforcé / Allégé / Stable).
-- Inverse-lookup (action → ETF), pendant des explore **Hedge Funds** et **Initiés**. Données : `/api/history/etf?ticker=` (D1 `etf_snapshots`, 180 j).
-- **Refactor** : l'ancien encart inline `#etfHistorySlot` (auto-rendu en bas de fiche au chargement) est remplacé par ce modal on-demand. Le badge ETF du widget smart money (`_openEtfForTicker`) ouvre directement le modal ; le badge Score ouvre l'analyse complète (`_openStockFicheFor`).
-- i18n FR+EN (`stock.etf.*`), cache-buster i18n `20260601-etf-explore`.
+### ✅ Nouvel écran : sous-onglet « Explorer » de ETF Live (explore ETF par action)
+- La page **ETF Live** a désormais une barre de **sous-onglets** (comme Hedge Funds / Initiés) : **ETF Live** (vue ETF → holdings) | **Explorer** (vue action → ETF qui la détiennent). Nouvelle section `#section-etf-explorer` (hub `etf` / `etf-explorer`).
+- Le lien de la card **Politiciens & Gurus** « Voir tous les ETF détenant {ticker} » ouvre ce sous-onglet pré-rempli (`navigateToEtfExplorer`), avec **recherche ticker autocomplete** + bouton retour fiche. Liste **tous** les ETF suivis détenant l'action (poids, rang, date d'entrée, sparkline, statut Nouveau/Renforcé/Allégé/Stable).
+- Inverse-lookup (action → ETF), pendant exact des explore **Hedge Funds** (`#section-13f-explorer`) et **Initiés**. Données : `/api/history/etf?ticker=` (D1 `etf_snapshots`, 180 j). Deep-link `#etf-explorer?t=TICKER` (cold-load + back/forward).
+- **Refactor** : l'ancien encart inline `#etfHistorySlot` **et** le modal intermédiaire (`openEtfHoldersModal`, première itération) sont remplacés par ce sous-onglet. Rendu `etfHoldersGridHtml` réutilisé. Badge ETF smart money → le sous-onglet ; badge Score → analyse complète (`_openStockFicheFor`).
+- i18n FR+EN (`stock.etf.*`, `dash.hub.etf.*`, `dash.section.etfExplorer.*`, `etfExplorer.*`), cache-buster i18n `20260601-etf-tab`.
 
 ---
 
