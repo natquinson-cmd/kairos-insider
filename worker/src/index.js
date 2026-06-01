@@ -4612,6 +4612,18 @@ async function handleHistoryInsider(url, env, origin) {
     if (source && ['SEC', 'BAFIN', 'AMF', 'FCA', 'SEDI'].includes(source)) {
       conditions.push('source = ?'); args.push(source);
     }
+    // Desambiguisation marché (mai 2026, fix collision ticker). Un ticker NU
+    // (ex 'SU') coexiste en base chez Suncor (source SEC / US) ET Schneider
+    // (source AMF / FR). Sur la fiche action, le front passe region=US|EU
+    // (derive du suffixe Yahoo du ticker resolu : SU -> US, SU.PA -> EU) pour
+    // ne garder que les regulateurs de la bonne zone. Purement SOUSTRACTIF :
+    // ne casse aucun match existant, retire juste les rows de l'autre zone.
+    // Applique seulement avec un ticker et si aucune source explicite n'est demandee.
+    const region = (url.searchParams.get('region') || '').toUpperCase();
+    if (!source && ticker) {
+      if (region === 'US') { conditions.push("source IN ('SEC', 'SEDI')"); }
+      else if (region === 'EU') { conditions.push("source NOT IN ('SEC', 'SEDI')"); }
+    }
     args.push(limit);
 
     const sql = `SELECT filing_date, trans_date, source, ticker, company, insider, insider_cik, title,
@@ -4631,6 +4643,7 @@ async function handleHistoryInsider(url, env, origin) {
         insider: insiderFilter || null,
         role: roleFilter || null,
         source: source || null,
+        region: region || null,
       },
       count: rows.length,
       limit,

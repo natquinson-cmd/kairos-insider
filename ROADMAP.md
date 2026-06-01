@@ -4,7 +4,21 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 26 mai 2026 (v16 - Fraîcheur données EU + typo Clash Display)
+**Dernière mise à jour** : 1er juin 2026 (v17 - Désambiguïsation collision de ticker initiés)
+
+---
+
+## 🎯 v17 — Collision de ticker initiés (Suncor vs Schneider) (1er juin 2026)
+
+### ✅ Fix data-correctness : un ticker, deux marchés
+- **Bug** : le ticker NU `SU` existe chez **Suncor Energy** (SEC / US) ET **Schneider Electric** (AMF / FR), tous deux stockés en base avec `ticker='SU'`. La fiche action Suncor (US) affichait les ventes d'initiés de **Jean-Pascal Tricoire** (PDG Schneider), et à l'inverse la fiche Schneider (`SU.PA`) n'affichait **aucun** initié (rows stockés nus, jamais matchés).
+- **Cause** : `aggregateInsiders` (`worker/src/stock-api.js`) filtrait sur `ticker` uniquement, sans tenir compte du marché. Les rows portent pourtant `region` (`US` pour SEC, `Europe` pour AMF/BaFin/AFM/FCA).
+- **Fix** : désambiguïsation par **région**, déduite du **suffixe Yahoo** du ticker résolu (`SU` → US, `SU.PA` → EU). On matche le ticker NU contre la région attendue. Corrige les deux sens (Suncor n'affiche plus Schneider ; Schneider affiche enfin ses initiés).
+- **Path filtre (refresh card)** : `/api/history/insider` (D1) accepte un param `region=US|EU` (soustractif : `source IN ('SEC','SEDI')` ou `source NOT IN (...)`), passé par le front via `data-region` sur la card. Helper JS `stockMarketRegion()` aligné sur le worker.
+
+### ✅ Fix secondaire : normalisation type AMF dirigeants
+- `fetch-amf-dd.py` stocke les **codes SEC bruts** `P`/`S`/`?` au lieu des mots `buy`/`sell`/`other` → les ventes de dirigeants EU comptaient **0** (buyCount/sellCount/netValue nuls) et n'étaient pas colorées.
+- **Fix read-time** dans `aggregateInsiders` : `P→buy`, `S→sell`, `?→other` (idempotent pour SEC/BaFin déjà canoniques). Corrige l'affichage immédiatement sans re-run du pipeline.
 
 ---
 

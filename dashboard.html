@@ -15065,7 +15065,7 @@
                - .stock-grid-2col : force 2 cols max -->
           <div class="stock-grid-2col" style="margin-bottom:20px">
           <!-- INSIDERS -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column" data-saInsiderCard data-ticker="${(d.ticker||'').toUpperCase()}">
+          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column" data-saInsiderCard data-ticker="${(d.ticker||'').toUpperCase()}" data-region="${stockMarketRegion(d.ticker, d.price && d.price.exchange)}">
             <h3 style="margin:0 0 12px;font-size:14px">${secLabel(L.secInsiders, 'user', '#8B5CF6', 24)} ${insiders.clusterSignal ? '<span style="background:#2ecc71;color:white;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px">CLUSTER</span>' : ''}</h3>
             <!-- Filtres period + type -->
             <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
@@ -26211,6 +26211,24 @@
 
     // Rafraichit la card insider de l'onglet Analyse Action avec les filtres choisis
     // (period / type / role). Lit le ticker depuis data-ticker de la card.
+    // Region marché d'une action (US vs EU) pour desambiguiser les inities.
+    // Collision : le ticker NU 'SU' = Suncor (SEC/US) ET Schneider (AMF/FR).
+    // Source de verite = suffixe Yahoo du ticker resolu (SU -> US, SU.PA -> EU),
+    // avec l'exchange en repli. DOIT rester aligne avec aggregateInsiders
+    // (worker/src/stock-api.js) qui filtre la card initiale.
+    function stockMarketRegion(ticker, exchange) {
+      const tk = (ticker || '').toUpperCase();
+      const dot = tk.lastIndexOf('.');
+      if (dot > 0) {
+        const EU_SUF = new Set(['PA','AS','BR','LS','MC','MI','DE','F','SG','MU','HM','HA','DU','BE','SW','VX','L','IL','VI','ST','HE','CO','OL','IC','IR','AT','WA','PR','BD','MA','TG','RG','VS']);
+        if (EU_SUF.has(tk.slice(dot + 1))) return 'EU';
+      }
+      // Repli exchange (cas rares ou un titre EU n'a pas de suffixe Yahoo)
+      const ex = (exchange || '').toUpperCase();
+      if (/\b(PAR|EPA|AMS|AEX|BRU|EBR|LIS|ELI|MCE|BME|MIL|BIT|MTA|ETR|GER|FRA|XETRA|STU|BER|HAM|DUS|MUN|SWX|EBS|VTX|LSE|LON|VIE|WBAH|STO|OMX|HEL|CPH|OSL|ICE|WSE)\b/.test(ex)) return 'EU';
+      return 'US';
+    }
+
     async function refreshStockInsiderCard() {
       const card = document.querySelector('[data-saInsiderCard]');
       if (!card) return;
@@ -26218,6 +26236,7 @@
       if (!ticker) return;
       if (!currentUser) return;
 
+      const region = (card.dataset.region || '').toUpperCase();
       const days = document.getElementById('saInsiderDays')?.value || '90';
       const type = document.getElementById('saInsiderType')?.value || '';
       const role = document.getElementById('saInsiderRole')?.value || '';
@@ -26229,6 +26248,7 @@
         const params = new URLSearchParams({ ticker, days, limit: '500' });
         if (type) params.set('type', type);
         if (role) params.set('role', role);
+        if (region === 'US' || region === 'EU') params.set('region', region);
 
         const token = await currentUser.getIdToken();
         const res = await fetch(`${API_BASE}/api/history/insider?${params.toString()}`, {

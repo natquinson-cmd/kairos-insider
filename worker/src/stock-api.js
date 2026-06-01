@@ -1973,13 +1973,61 @@ async function aggregateInsiders(ticker, env) {
     if (!data || !Array.isArray(data.transactions)) return result;
 
     const up = ticker.toUpperCase();
+
+    // ---- FIX collision de ticker (mai 2026) ----
+    // Un ticker NU (ex 'SU') peut exister sur plusieurs marches : Suncor Energy
+    // (SEC / region 'US') ET Schneider Electric (AMF / region 'Europe'), tous deux
+    // stockes en KV avec ticker='SU'. Sans desambiguisation, la fiche Suncor (US)
+    // affichait les ventes d'inities de Schneider (Tricoire), et inversement la
+    // fiche Schneider ('SU.PA') n'affichait RIEN (rows stockes nus).
+    //
+    // On resout via le suffixe Yahoo du ticker DEJA resolu a ce stade :
+    //   - suffixe boursier EU (.PA/.DE/.AS/.SW/.MI/.MC/.L/...) -> stock europeen
+    //   - aucun suffixe (ou suffixe non-EU type classe d'action .B) -> stock US
+    // puis on matche le ticker NU (sans suffixe) contre la region attendue.
+    // Region des rows : SEC='US', AMF/BaFin/AFM/FCA='Europe' (tout != 'US').
+    const EU_EXCH_SUFFIXES = new Set([
+      'PA', 'AS', 'BR', 'LS', 'MC', 'MI', 'DE', 'F', 'SG', 'MU', 'HM', 'HA', 'DU',
+      'BE', 'SW', 'VX', 'L', 'IL', 'VI', 'ST', 'HE', 'CO', 'OL', 'IC', 'IR', 'AT',
+      'WA', 'PR', 'BD', 'MA', 'TG', 'RG', 'VS',
+    ]);
+    const stripEuSuffix = (sym) => {
+      const dot = sym.lastIndexOf('.');
+      if (dot <= 0) return { bare: sym, isEu: false };
+      const suf = sym.slice(dot + 1);
+      return EU_EXCH_SUFFIXES.has(suf)
+        ? { bare: sym.slice(0, dot), isEu: true }
+        : { bare: sym, isEu: false }; // ex BRK.B : classe d'action US, on garde tel quel
+    };
+    const stock = stripEuSuffix(up);
+    const expectedEu = stock.isEu;
+
     const matches = data.transactions.filter(t => {
-      const tTicker = (t.ticker || '').toUpperCase();
-      return tTicker === up;
+      const rawT = (t.ticker || '').toUpperCase();
+      if (!rawT) return false;
+      const row = stripEuSuffix(rawT);
+      // Match ticker : EU -> compare le ticker NU ; US -> compare exact (preserve BRK.B)
+      const tickerMatch = expectedEu ? (row.bare === stock.bare) : (rawT === up);
+      if (!tickerMatch) return false;
+      // Match region : 'US' (SEC) vs 'Europe' (AMF/BaFin/AFM/FCA). region absente => 'US'.
+      const rowIsEu = !!(t.region && t.region !== 'US');
+      return rowIsEu === expectedEu;
     });
 
     // Tri par date desc
     matches.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
+
+    // Normalisation du champ `type` (mai 2026). fetch-amf-dd.py (declarations
+    // dirigeants AMF) stocke les CODES SEC bruts 'P'/'S'/'?' au lieu des mots
+    // canoniques 'buy'/'sell'/'other'. Sans ca, les ventes de dirigeants EU
+    // comptaient 0 (buyCount/sellCount/netValue restaient nuls) et n'etaient pas
+    // colorees cote front. Idempotent pour les rows deja canoniques (SEC/BaFin/AMF).
+    for (const t of matches) {
+      const rt = (t.type || '').toLowerCase();
+      if (rt === 'p') t.type = 'buy';
+      else if (rt === 's') t.type = 'sell';
+      else if (rt === '?' || rt === '') t.type = 'other';
+    }
 
     // FIX (mai 2026 / HAYW $29K = max insider score) : separer 'exercise' des
     // vrais 'buy'. Un exercise = conversion d'options a strike bas, pas de

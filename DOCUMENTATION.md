@@ -583,6 +583,8 @@ if (uniqueInsiders >= 5)  insiderScore += 1;        // diversité signal
 
 **Cluster signal** : ≥3 insiders distincts achetant sur 30 jours = boost +3pt.
 
+> **⚠️ Désambiguïsation de marché (collision de ticker)** — Un ticker NU (ex `SU`) peut désigner plusieurs sociétés selon le marché : Suncor Energy (SEC / `region='US'`) **et** Schneider Electric (AMF / `region='Europe'`), tous deux stockés en KV/D1 avec `ticker='SU'`. `aggregateInsiders` (worker/src/stock-api.js) ne matche donc pas que le ticker : il déduit la **région du titre** depuis le **suffixe Yahoo** du ticker résolu (`SU` → US, `SU.PA` → EU) et ne garde que les rows de la bonne région (`region==='US'` vs `!=='US'`). Sur la fiche, le filtre dynamique (`/api/history/insider`, source D1) reçoit `region=US|EU` (param soustractif sur `source`), passé par le front via l'attribut `data-region` calculé par le helper `stockMarketRegion()`. **Le suffixe Yahoo est la source de vérité** : front et worker doivent rester alignés. Normalisation associée : les codes SEC bruts `P`/`S`/`?` de `fetch-amf-dd.py` sont remappés en `buy`/`sell`/`other` au read-time.
+
 #### Pilier 2 — Smart Money (raw 0-20)
 
 ```js
