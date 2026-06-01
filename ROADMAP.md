@@ -4,7 +4,21 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 1er juin 2026 (v17 - Désambiguïsation collision de ticker initiés)
+**Dernière mise à jour** : 1er juin 2026 (v18 - Liens de détail uniformisés + explore ETF)
+
+---
+
+## 🎯 v18 — Liens de détail uniformisés + explore ETF par action (1er juin 2026)
+
+### ✅ Uniformisation des liens « voir le détail » (fiche action)
+- Les 4 cards de la fiche (Initiés, Hedge Funds, Politiciens & Gurus, Activistes) ont désormais un lien de détail **identique** : helper `stockCardDetailLink(label, onclick)` → bas de card, bordure top, centré, flèche SVG, couleur accent commune.
+- **Activistes** : le lien « Voir les N déclarations » était en **haut à droite** (incohérent) → déplacé **en bas** comme les autres.
+
+### ✅ Nouvel écran : explore ETF par action (`openEtfHoldersModal`)
+- Nouveau lien dans la card **Politiciens & Gurus** : « Voir tous les ETF détenant {ticker} » → ouvre un **modal** listant **tous** les ETF suivis qui détiennent l'action (pas seulement NANC/GOP/GURU) avec **poids, rang, date d'entrée, sparkline d'évolution et statut** (Nouveau / Renforcé / Allégé / Stable).
+- Inverse-lookup (action → ETF), pendant des explore **Hedge Funds** et **Initiés**. Données : `/api/history/etf?ticker=` (D1 `etf_snapshots`, 180 j).
+- **Refactor** : l'ancien encart inline `#etfHistorySlot` (auto-rendu en bas de fiche au chargement) est remplacé par ce modal on-demand. Le badge ETF du widget smart money (`_openEtfForTicker`) ouvre directement le modal ; le badge Score ouvre l'analyse complète (`_openStockFicheFor`).
+- i18n FR+EN (`stock.etf.*`), cache-buster i18n `20260601-etf-explore`.
 
 ---
 
