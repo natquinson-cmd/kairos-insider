@@ -3914,6 +3914,56 @@
       .etf-cat-label { min-width: 0; width: 100%; }
     }
 
+    /* ===== ETF LIVE — aperçu compact (remplace la heatmap 520px) + variations =====
+       Bandeau résumé des mouvements + filtre + top positions en barres compactes,
+       data-first (les positions + variations passent avant le visuel). */
+    .etf-overview { margin-bottom: 16px; }
+    .etf-summary {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+      padding: 12px 16px; margin-bottom: 12px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; font-size: 13px;
+    }
+    .etf-summary .es-stat { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+    .etf-summary .es-stat svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .etf-summary .es-tot { color: var(--text-primary); }
+    .etf-summary .es-new { color: var(--accent-cyan); }
+    .etf-summary .es-up { color: var(--accent-green); }
+    .etf-summary .es-down { color: var(--accent-red); }
+    .etf-summary .es-empty { color: var(--text-muted); font-weight: 500; }
+    .etf-summary .es-date { margin-left: auto; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+
+    .etf-filter { display: inline-flex; gap: 4px; padding: 3px; background: var(--surface-2); border-radius: 9px; margin-bottom: 14px; }
+    .etf-filter button {
+      padding: 6px 14px; border: none; background: transparent; color: var(--text-secondary);
+      font-family: inherit; font-size: 12px; font-weight: 600; border-radius: 7px; cursor: pointer; transition: all .15s;
+    }
+    .etf-filter button.active { background: var(--accent-blue); color: #fff; }
+    .etf-filter button:not(.active):hover { color: var(--text-primary); }
+
+    .etf-minibars-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+    .etf-minibars-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; margin-bottom: 10px; }
+    .etf-minibar { display: grid; grid-template-columns: 58px 1fr 130px 54px 66px; align-items: center; gap: 10px; padding: 5px 0; font-size: 12.5px; }
+    .etf-minibar + .etf-minibar { border-top: 1px solid rgba(255,255,255,0.045); }
+    .etf-minibar .mb-ticker { font-weight: 700; color: var(--text-primary); cursor: pointer; }
+    .etf-minibar .mb-ticker:hover { color: var(--accent-blue); }
+    .etf-minibar .mb-co { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
+    .etf-minibar .mb-track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+    .etf-minibar .mb-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #3B82F6, #8B5CF6); }
+    .etf-minibar .mb-pct { text-align: right; font-weight: 700; color: var(--text-primary); }
+    .etf-minibar .mb-delta { text-align: right; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .etf-minibar .mb-delta.up { color: var(--accent-green); }
+    .etf-minibar .mb-delta.down { color: var(--accent-red); }
+    .etf-minibar .mb-delta.new { color: var(--accent-cyan); }
+    .etf-minibar .mb-delta.flat { color: var(--text-muted); }
+    @media (max-width: 680px) {
+      .etf-minibar { grid-template-columns: 50px 1fr 50px 58px; }
+      .etf-minibar .mb-co { display: none; }
+    }
+    /* lignes du tableau avec mouvement : léger fond pour repérer les variations */
+    tr.etf-row-new td { background: rgba(6,182,212,0.05); }
+    tr.etf-row-up td { background: rgba(16,185,129,0.045); }
+    tr.etf-row-down td { background: rgba(239,68,68,0.045); }
+
     /* ===== iOS-style Toggle (repris Trading Dashboard) ===== */
     .toggle-wrap {
       display: flex; align-items: center; gap: 10px; cursor: pointer;
@@ -17900,9 +17950,93 @@
     let etfAllHoldings = [];
     let etfHasChanges = false;
     let etfPrevDate = null;
+    let etfMovesOnly = false;  // filtre "Mouvements seulement" du tableau ETF
     // Pattern 'Voir plus' (mai 2026) : etfDisplayedCount au lieu de etfPage.
     const ETF_INITIAL_COUNT = 25;
     let etfDisplayedCount = ETF_INITIAL_COUNT;
+
+    // ETF Live — seuil de bruit pour qualifier un "mouvement" de poids (%)
+    const ETF_MOVE_THRESHOLD = 0.5;
+    // Compte les mouvements (nouvelles / renforcées / allégées) des holdings courants.
+    function _etfMoveCounts() {
+      const H = etfAllHoldings || [];
+      let newC = 0, upC = 0, downC = 0;
+      for (const h of H) {
+        if (h.status === 'new') newC++;
+        else if (h.sharesChange != null && h.sharesChange > ETF_MOVE_THRESHOLD) upC++;
+        else if (h.sharesChange != null && h.sharesChange < -ETF_MOVE_THRESHOLD) downC++;
+      }
+      return { total: H.length, newC, upC, downC, moves: newC + upC + downC };
+    }
+    function _etfIsMove(h) {
+      return h.status === 'new' || (h.sharesChange != null && Math.abs(h.sharesChange) > ETF_MOVE_THRESHOLD);
+    }
+
+    // Aperçu ETF (remplace la heatmap 520px) : bandeau résumé des mouvements +
+    // filtre Toutes/Mouvements + top 8 positions en barres compactes. Rendu dans
+    // #etfCharts, AU-DESSUS du tableau → data-first, variations visibles d'un coup.
+    function renderEtfOverview() {
+      const wrap = document.getElementById('etfCharts');
+      if (!wrap) return;
+      const H = etfAllHoldings || [];
+      if (!H.length) { wrap.innerHTML = ''; return; }
+      const c = _etfMoveCounts();
+      const hasHist = !!(etfHasChanges && etfPrevDate);
+
+      // --- bandeau résumé ---
+      let summary;
+      if (hasHist) {
+        const parts = [`<span class="es-stat es-tot">${kIcon('layers', 14)} ${c.total} positions</span>`];
+        if (c.newC) parts.push(`<span class="es-stat es-new">${kIcon('sparkles', 14)} ${c.newC} nouvelle${c.newC > 1 ? 's' : ''}</span>`);
+        if (c.upC) parts.push(`<span class="es-stat es-up">${kIcon('trendingUp', 14)} ${c.upC} renforcée${c.upC > 1 ? 's' : ''}</span>`);
+        if (c.downC) parts.push(`<span class="es-stat es-down">${kIcon('trendingDown', 14)} ${c.downC} allégée${c.downC > 1 ? 's' : ''}</span>`);
+        if (!c.moves) parts.push(`<span class="es-stat es-empty">aucun mouvement notable depuis le dernier relevé</span>`);
+        parts.push(`<span class="es-date">vs ${etfPrevDate}</span>`);
+        summary = parts.join('');
+      } else {
+        summary = `<span class="es-stat es-tot">${kIcon('layers', 14)} ${c.total} positions</span>`
+          + `<span class="es-stat es-empty">— première observation, les variations apparaîtront au prochain relevé</span>`;
+      }
+
+      // --- filtre Toutes / Mouvements (seulement si historique + mouvements) ---
+      let filter = '';
+      if (hasHist && c.moves > 0) {
+        filter = `<div class="etf-filter">`
+          + `<button class="${!etfMovesOnly ? 'active' : ''}" onclick="setEtfFilter(false)">Toutes (${c.total})</button>`
+          + `<button class="${etfMovesOnly ? 'active' : ''}" onclick="setEtfFilter(true)">Mouvements (${c.moves})</button>`
+          + `</div>`;
+      }
+
+      // --- top 8 positions en barres ---
+      const top = H.slice().sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 8);
+      const maxW = top.length ? (top[0].weight || 1) : 1;
+      const bars = top.map(h => {
+        const w = Math.max(((h.weight || 0) / maxW) * 100, 3);
+        let delta = '<span class="mb-delta flat">—</span>';
+        if (h.status === 'new') delta = '<span class="mb-delta new">NOUV.</span>';
+        else if (h.sharesChange != null && h.sharesChange > ETF_MOVE_THRESHOLD) delta = `<span class="mb-delta up">&#9650; +${h.sharesChange}%</span>`;
+        else if (h.sharesChange != null && h.sharesChange < -ETF_MOVE_THRESHOLD) delta = `<span class="mb-delta down">&#9660; ${h.sharesChange}%</span>`;
+        const tk = h.ticker
+          ? `<span class="mb-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(h.ticker).replace(/'/g, "\\'")}'), 150)" title="Analyser ${h.ticker}">${h.ticker}</span>`
+          : '<span class="mb-ticker">—</span>';
+        return `<div class="etf-minibar">${tk}<span class="mb-co">${h.company || ''}</span>`
+          + `<span class="mb-track"><span class="mb-fill" style="width:${w}%"></span></span>`
+          + `<span class="mb-pct">${h.weight}%</span>${delta}</div>`;
+      }).join('');
+
+      wrap.innerHTML = `<div class="etf-overview">`
+        + `<div class="etf-summary">${summary}</div>`
+        + filter
+        + `<div class="etf-minibars-card"><div class="etf-minibars-title">Top positions (poids dans l'ETF)</div>${bars}</div>`
+        + `</div>`;
+    }
+
+    function setEtfFilter(movesOnly) {
+      etfMovesOnly = !!movesOnly;
+      etfDisplayedCount = ETF_INITIAL_COUNT;
+      renderEtfOverview();
+      renderEtfPage();
+    }
 
     // Definition des onglets ETF groupes par catégorie (UI + endpoint mapping)
     const ETF_GROUPS = [
@@ -18135,6 +18269,7 @@
 
     async function loadEtf(type, symbol, btnEl) {
       etfDisplayedCount = ETF_INITIAL_COUNT;  // reset 'Voir plus'
+      etfMovesOnly = false;  // reset filtre mouvements au changement d'ETF
       // Activer le sous-onglet (par data-attribute, plus fiable que event.target)
       document.querySelectorAll('.etf-subtab').forEach(b => b.classList.remove('active'));
       const target = btnEl || document.querySelector(`.etf-subtab[data-symbol="${symbol}"][data-type="${type}"]`);
@@ -18178,10 +18313,13 @@
         etfHasChanges = data.holdings.some(h => h.status && h.status !== 'unchanged');
         etfPrevDate = data.prevDate || null;
 
-        // Graphiques (ETF Live = heatmap seul, pas de donut + bar redondants avec le tableau)
+        // ETF Live (mai 2026, retour user "la heatmap prend trop de place, on ne
+        // voit pas les variations") : heatmap 520px remplacée par un aperçu compact
+        // (bandeau mouvements + top 8 positions en barres) AU-DESSUS d'un tableau
+        // data-first avec colonne variation + lignes colorées + filtre Mouvements.
         destroyCharts();
+        renderEtfOverview();
         renderEtfPage();
-        setTimeout(() => renderChartsForHoldings('etfCharts', data.holdings, data.symbol + ' — ' + (data.label || ''), { treemapOnly: true }), 100);
       } catch (err) {
         if (err.message !== 'Unauthorized') {
           area.innerHTML = '<div class="empty-state"><p>Erreur lors du chargement. Reessayez.</p></div>';
@@ -18191,9 +18329,11 @@
 
     function renderEtfPage() {
       const area = document.getElementById('etfTableArea');
+      // Filtre "Mouvements seulement" : ne garde que nouvelles + renforcées + allégées.
+      const source = etfMovesOnly ? etfAllHoldings.filter(_etfIsMove) : etfAllHoldings;
       // Pattern 'Voir plus' : on rend de 0 a etfDisplayedCount (cumulatif)
-      const visibleCount = Math.min(etfDisplayedCount, etfAllHoldings.length);
-      const pageHoldings = etfAllHoldings.slice(0, visibleCount);
+      const visibleCount = Math.min(etfDisplayedCount, source.length);
+      const pageHoldings = source.slice(0, visibleCount);
       const hasChanges = etfHasChanges;
 
       let rows = '';
@@ -18215,7 +18355,13 @@
             ? `<td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(h.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${h.ticker}">${h.ticker}</td>`
             : `<td class="ticker">—</td>`;
 
-          rows += `<tr>
+          // Classe de ligne pour repérer visuellement les variations
+          let rowCls = '';
+          if (h.status === 'new') rowCls = 'etf-row-new';
+          else if (h.sharesChange != null && h.sharesChange > ETF_MOVE_THRESHOLD) rowCls = 'etf-row-up';
+          else if (h.sharesChange != null && h.sharesChange < -ETF_MOVE_THRESHOLD) rowCls = 'etf-row-down';
+
+          rows += `<tr class="${rowCls}">
             <td style="text-align:center;color:var(--text-muted)">${h.rank}</td>
             ${tickerClickable}
             <td style="color:var(--text-primary)">${h.company || '—'}</td>
@@ -18230,7 +18376,7 @@
         const prevLabel = etfPrevDate ? ` (vs ${etfPrevDate})` : '';
         const footerHtml = renderLoadMoreFooter({
           visible: visibleCount,
-          total: etfAllHoldings.length,
+          total: source.length,
           onLoadMore: 'loadMoreEtf()',
           initialCount: ETF_INITIAL_COUNT,
           label: 'positions',
