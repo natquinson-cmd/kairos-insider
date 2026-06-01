@@ -1401,6 +1401,8 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/etf-guru') {
     const data = await env.CACHE.get('etf-guru', 'json');
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    const _ch = await enrichEtfChanges(env, data.symbol || 'GURU', data.holdings);
+    if (_ch.prevDate) data.prevDate = _ch.prevDate;
     return jsonResponse(data, 200, origin);
   }
   // Route generique ETF (symbol=BUZZ -> KV etf-buzz)
@@ -1412,6 +1414,8 @@ async function handleApiRoute(path, url, env, origin) {
     }
     const data = await env.CACHE.get(`etf-${symbol.toLowerCase()}`, 'json');
     if (!data) return jsonResponse({ error: 'ETF not loaded', symbol }, 404, origin);
+    const _ch = await enrichEtfChanges(env, data.symbol || symbol, data.holdings);
+    if (_ch.prevDate) data.prevDate = _ch.prevDate;
     return jsonResponse(data, 200, origin);
   }
   // Liste des ETF disponibles (groupes par categorie pour l'UI)
@@ -9322,6 +9326,71 @@ async function handleAdminSendFounderLetter(request, env, origin) {
 // ============================================================
 // ETF : ARK API proxy
 // ============================================================
+// ============================================================
+// ETF Live — variations de positions (vs snapshot precedent en D1)
+// ============================================================
+// Le prefetch (NANC/GOP/GURU/thematiques) ne stocke que les holdings COURANTS
+// en KV, sans delta -> la page ETF Live affichait "premiere observation" et
+// aucune variation (retour user "on ne voit pas les variations de positions").
+// On calcule donc la variation du POIDS de chaque position en joignant la table
+// D1 etf_snapshots (qui a l'historique). Mute les holdings en place : ajoute
+// h.sharesChange (% relatif de variation du poids) + h.status ('new' si absent
+// du snapshot precedent). Retourne { prevDate, changed }. ARK a deja sa propre
+// logique (KV ark-prev) -> ne pas l'enrichir ici.
+async function enrichEtfChanges(env, symbol, holdings, days = 7) {
+  const res = { prevDate: null, changed: 0 };
+  try {
+    if (!env.HISTORY || !symbol || !Array.isArray(holdings) || !holdings.length) return res;
+    const sym = String(symbol).toUpperCase();
+    const latRes = await env.HISTORY.prepare(
+      `SELECT MAX(date) AS d FROM etf_snapshots WHERE etf_symbol = ?`
+    ).bind(sym).all();
+    const latest = latRes.results && latRes.results[0] && latRes.results[0].d;
+    if (!latest) return res;
+    // snapshot de reference : le plus recent <= latest - days (sinon le precedent distinct)
+    const cutoff = new Date(latest); cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    let prevRes = await env.HISTORY.prepare(
+      `SELECT MAX(date) AS d FROM etf_snapshots WHERE etf_symbol = ? AND date <= ? AND date < ?`
+    ).bind(sym, cutoffStr, latest).all();
+    let prevDate = prevRes.results && prevRes.results[0] && prevRes.results[0].d;
+    if (!prevDate) {
+      const d2 = await env.HISTORY.prepare(
+        `SELECT DISTINCT date FROM etf_snapshots WHERE etf_symbol = ? AND date < ? ORDER BY date DESC LIMIT 1`
+      ).bind(sym, latest).all();
+      prevDate = d2.results && d2.results[0] && d2.results[0].date;
+    }
+    if (!prevDate) return res;
+    const pw = await env.HISTORY.prepare(
+      `SELECT ticker, weight FROM etf_snapshots WHERE etf_symbol = ? AND date = ?`
+    ).bind(sym, prevDate).all();
+    const prevByTk = {};
+    (pw.results || []).forEach(r => { if (r.ticker) prevByTk[String(r.ticker).toUpperCase()] = Number(r.weight); });
+    if (!Object.keys(prevByTk).length) return res;
+    let changed = 0;
+    for (const h of holdings) {
+      const tk = String(h.ticker || '').toUpperCase();
+      if (!tk) continue;
+      const prevW = prevByTk[tk];
+      const curW = Number(h.weight);
+      if (prevW == null) {
+        h.status = 'new'; h.sharesChange = null; changed++;
+      } else if (prevW > 0 && isFinite(curW)) {
+        const rel = ((curW - prevW) / prevW) * 100;
+        h.sharesChange = Math.round(rel * 10) / 10;  // % relatif, 1 decimale
+        // status != 'unchanged' pour les vrais mouvements -> etfHasChanges=true
+        // cote front (sinon la colonne variation + le resume ne s'affichent pas).
+        if (rel > 0.5) h.status = 'increased';
+        else if (rel < -0.5) h.status = 'decreased';
+        else h.status = 'unchanged';
+        if (Math.abs(rel) > 0.5) changed++;
+      }
+    }
+    res.prevDate = prevDate; res.changed = changed;
+    return res;
+  } catch (e) { return res; }
+}
+
 async function handleEtfArk(url, env, origin) {
   const symbol = (url.searchParams.get('symbol') || 'ARKK').toUpperCase();
   const allowed = ['ARKK', 'ARKW', 'ARKG', 'ARKF', 'ARKQ'];
@@ -9384,6 +9453,8 @@ async function handleEtfCongress(url, env, origin) {
   // Serve from KV (pre-fetched by GitHub Action)
   const data = await env.CACHE.get(`etf-${symbol.toLowerCase()}`, 'json');
   if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+  const _ch = await enrichEtfChanges(env, data.symbol || symbol, data.holdings);
+  if (_ch.prevDate) data.prevDate = _ch.prevDate;
   return jsonResponse(data, 200, origin);
 }
 
