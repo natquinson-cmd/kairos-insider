@@ -596,6 +596,7 @@
       // faire partie d'un card qui les englobe nomme Smart Money')
       'stock.section.smartMoney': 'Smart Money',
       'stock.section.smartMoney_sub': '— Initiés · Hedge funds · Politiciens · Activistes',
+      'stock.section.smartMoney_badge': 'Signal phare',
       // Enrichissement Politicians & Gurus card (sparkline + status par ETF)
       'stock.gov.spark_tooltip': 'Évolution du poids dans l\'ETF sur 60 jours',
       'stock.gov.status_new': 'Nouvelle entrée',
@@ -2290,6 +2291,7 @@
       // Smart Money wrapper (may 2026)
       'stock.section.smartMoney': 'Smart Money',
       'stock.section.smartMoney_sub': '— Insiders · Hedge funds · Politicians · Activists',
+      'stock.section.smartMoney_badge': 'Flagship signal',
       // Politicians & Gurus card enrichment (sparkline + status badge per ETF)
       'stock.gov.spark_tooltip': 'Weight change in the ETF over 60 days',
       'stock.gov.status_new': 'New entry',
