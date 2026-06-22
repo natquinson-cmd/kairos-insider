@@ -4,9 +4,17 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 1er juin 2026 (v20 - Health check : seuils de staleness par job)
+**Dernière mise à jour** : 20 juin 2026 (v21 - Fix coût D1 Cloudflare : ~81$/mois → ~0$)
 
 ---
+
+## 🎯 v21 — Fix coût Cloudflare D1 : ~81 $/mois supprimés (20 juin 2026)
+
+### ✅ `push-insiders-to-d1` : retour à INSERT OR IGNORE (cron horaire)
+- **Symptôme** (facture Cloudflare 86,52 $) : ligne **D1 Rows Written = 80 410 308 rows = 81 $** (94 % de la facture).
+- **Cause** : `push-insiders-to-d1.py` tourne **toutes les heures** (`realtime-form4-30min`). En mai 2026 il avait été passé en **`INSERT OR REPLACE`** pour un back-enrichissement **ponctuel** (colonnes `trans_code`/`insider_cik` sur les vieilles rows). Mais `OR REPLACE` fait delete+reinsert de **chaque** row à **chaque** run → ~110k rows réécrites 24×/jour → **~80 M rows/mois** facturées, alors que le delta réel = quelques nouveaux Form 4/heure. Les filings SEC sont **immuables** → réécrire ne sert à rien en steady state.
+- **Fix** : retour à **`INSERT OR IGNORE`** par défaut (seules les nouvelles rows comptent → ~0 row-written facturée, sous le palier gratuit 50 M). Escape-hatch `--replace` / `D1_REPLACE=1` pour un back-enrichissement manuel ponctuel (jamais en cron). `push-scores-to-d1` et `push-to-d1` (etf_snapshots) restent en OR REPLACE mais sont **quotidiens + keyés par date** (nouvelles rows, pas de réécriture) → négligeables.
+- **Impact attendu** : prochaine facture D1 ~**0 $** au lieu de 81 $.
 
 ## 🎯 v20 — Health check : fausse alerte quotidienne supprimée (1er juin 2026)
 

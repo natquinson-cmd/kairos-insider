@@ -24,6 +24,27 @@ from datetime import date
 TODAY = date.today().isoformat()
 DB_NAME = 'kairos-history'
 
+# ---------------------------------------------------------------------------
+# Mode d'insertion D1 (FIX COUT juin 2026).
+# Par defaut : INSERT OR IGNORE. Les filings SEC/AMF/BaFin sont IMMUABLES, donc
+# on ne reecrit JAMAIS une row existante -> en steady state, seules les NOUVELLES
+# transactions comptent comme "rows written" D1.
+#
+# CRUCIAL : ce script tourne TOUTES LES HEURES (realtime-form4-30min). En mai
+# 2026, le mode avait ete passe a OR REPLACE pour un back-enrichissement PONCTUEL
+# (ajout des colonnes trans_code / insider_cik sur les vieilles rows). Mais
+# OR REPLACE delete+reinsert CHAQUE row a CHAQUE run -> ~110k rows reecrites 24x/j
+# -> ~80 millions de rows/mois -> ~81$/mois sur la facture Cloudflare D1 (alors
+# que le delta reel = quelques dizaines de nouveaux Form 4/heure).
+#
+# Le back-enrichissement etant termine, on revient a OR IGNORE. Pour re-forcer un
+# back-enrichissement ponctuel (nouveau changement de schema), lancer avec
+# `--replace` ou `D1_REPLACE=1` (a n'utiliser QUE manuellement, jamais en cron).
+# ---------------------------------------------------------------------------
+INSERT_VERB = ('INSERT OR REPLACE'
+               if ('--replace' in sys.argv or os.environ.get('D1_REPLACE') == '1')
+               else 'INSERT OR IGNORE')
+
 # Ordre de priorite : on prend le fichier unifie produit par merge-sources.py
 # (contient deja SEC + BaFin + AMF avec le bon tagging source/market/currency).
 # Fallback sur les sources individuelles si le merge a echoue.
@@ -216,26 +237,14 @@ def collect_inserts():
                     continue
                 seen_keys.add(full_key)
 
-                # FIX CRITIQUE (mai 2026) : INSERT OR REPLACE (au lieu de OR IGNORE
-                # avant). Le OR IGNORE empechait le back-enrichissement des rows
-                # existantes : quand on ajoutait trans_code et insider_cik en
-                # nouveaux champs, les anciens INSERT etaient ignores car PK
-                # (source, accession, cik, insider, trans_date, trans_type,
-                # line_num) deja presente -> les rows restaient avec NULL sur les
-                # nouveaux champs. Le run #25721079156 (backfill 60j) avait l'air
-                # de marcher mais en realite n'a updaté aucune row pre-existante,
-                # juste insere les nouvelles. Symptome utilisateur : badges "OTHER"
-                # sans le code SEC granulaire (M/G/F/etc.) sur la fiche Initiés.
-                #
-                # INSERT OR REPLACE est safe ici car :
-                # - la PK matche exactement le tuple naturel de la transaction
-                # - les valeurs re-fetchees sont les memes que l'origine (filing
-                #   SEC immutable) sauf les NOUVEAUX champs qu'on veut justement
-                #   ecraser de NULL vers la valeur
-                # - prefetch-all parse les XML SEC de maniere deterministe ->
-                #   line_num reproductible
+                # Verbe d'insertion = INSERT_VERB (OR IGNORE par defaut, OR REPLACE
+                # uniquement avec --replace/D1_REPLACE pour un back-enrichissement
+                # manuel ponctuel). Cf. le commentaire en tete de fichier : OR
+                # REPLACE en cron horaire reecrivait tout l'historique -> ~81$/mois
+                # de rows-written D1. PK = (source, accession, cik, insider,
+                # trans_date, trans_type, line_num).
                 sql_lines.append(
-                    f"INSERT OR REPLACE INTO insider_transactions_history "
+                    f"{INSERT_VERB} INTO insider_transactions_history "
                     f"(filing_date, trans_date, source, accession, cik, ticker, company, "
                     f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
                     f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
