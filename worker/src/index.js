@@ -13138,6 +13138,18 @@ async function runHealthCheck(env) {
   try {
     const now = Math.floor(Date.now() / 1000);
     const HOURS_STALE = 24 * 3600;
+    // Seuil de staleness PAR JOB (juin 2026). La plupart des jobs tournent >=1x/j
+    // -> defaut 48h. Mais certains sont VOLONTAIREMENT peu frequents : ex
+    // fetch-13f-history est MENSUEL (cron '0 2 1 * *', car les 13F sont
+    // trimestriels avec 45j de lag). Avec le seuil plat de 48h, il declenchait une
+    // FAUSSE alerte chaque matin (~28j/30 il a >48h). On utilise donc un seuil
+    // dedie par job. Un job peut aussi declarer son propre seuil en postant
+    // `maxAgeH` dans record-job-status (override sans toucher au worker).
+    const DEFAULT_MAX_AGE_H = 48;
+    const JOB_MAX_AGE_H = {
+      'fetch-13f-history': 35 * 24, // mensuel -> ~31j + marge
+    };
+    const maxAgeSecFor = (j) => (Number(j.maxAgeH) || JOB_MAX_AGE_H[j.name] || DEFAULT_MAX_AGE_H) * 3600;
 
     // Cooldown : skip si déjà alerté dans les 20 dernières heures
     const lastAlert = await env.CACHE.get('health:last-alert', 'json').catch(() => null);
@@ -13157,6 +13169,7 @@ async function runHealthCheck(env) {
         ts: data.ts || 0,
         status: data.status || 'unknown',
         error: data.error || '',
+        maxAgeH: data.maxAgeH || null, // override cadence optionnel posté par le job
       });
     }
     // Ajoute le cron watchlist
@@ -13173,7 +13186,7 @@ async function runHealthCheck(env) {
     const anomalies = [];
     const recentOk = jobs.filter(j => j.status === 'ok' && (now - j.ts) < HOURS_STALE);
     const recentFail = jobs.filter(j => j.status === 'failed' && (now - j.ts) < HOURS_STALE);
-    const stale = jobs.filter(j => j.ts > 0 && (now - j.ts) > 2 * HOURS_STALE); // > 48h
+    const stale = jobs.filter(j => j.ts > 0 && (now - j.ts) > maxAgeSecFor(j)); // seuil par job
 
     if (jobs.length === 0) {
       anomalies.push('Aucun job enregistré dans KV (pipeline totalement silencieux)');
@@ -13184,7 +13197,7 @@ async function runHealthCheck(env) {
       anomalies.push(`${recentFail.length} job(s) en erreur dans les 24h : ${recentFail.map(j => j.name).join(', ')}`);
     }
     if (stale.length > 0) {
-      anomalies.push(`${stale.length} job(s) stale (>48h) : ${stale.map(j => j.name).join(', ')}`);
+      anomalies.push(`${stale.length} job(s) en retard sur leur cadence : ${stale.map(j => `${j.name} (${Math.round((now - j.ts) / 3600)}h)`).join(', ')}`);
     }
 
     if (anomalies.length === 0) {
@@ -13223,7 +13236,7 @@ async function runHealthCheck(env) {
               // Un job peut etre "ok" en dernier run mais n'avoir pas tourne
               // depuis >48h (ex. GitHub Action kill par timeout). Le status STALE
               // a priorite sur l'ancien status "ok" pour eviter un faux positif.
-              const isStale = j.ts > 0 && ageSec > 2 * HOURS_STALE;
+              const isStale = j.ts > 0 && ageSec > maxAgeSecFor(j);
               const displayStatus = isStale ? 'STALE' : j.status.toUpperCase();
               const color = isStale ? '#F59E0B'
                           : j.status === 'ok' ? '#10B981'
@@ -14684,6 +14697,10 @@ async function handleAdminLogWorkflowRun(request, env, origin) {
   const durationSec = (typeof body.durationSec === 'number') ? body.durationSec : null;
   const summary = String(body.summary || '').slice(0, 200);
   const errorMsg = String(body.error || '').slice(0, 500);
+  // maxAgeH : seuil de staleness DÉCLARÉ par le job (heures). Permet aux jobs peu
+  // fréquents (ex fetch-13f-history mensuel) de ne pas déclencher de fausse alerte
+  // health check. Lu par runHealthCheck. Cap 8760h (1 an) par sécurité.
+  const maxAgeH = (typeof body.maxAgeH === 'number' && body.maxAgeH > 0) ? Math.min(8760, Math.round(body.maxAgeH)) : null;
   const now = new Date();
   const payload = {
     ts: Math.floor(now.getTime() / 1000),
@@ -14693,6 +14710,7 @@ async function handleAdminLogWorkflowRun(request, env, origin) {
     error: errorMsg,
   };
   if (durationSec !== null) payload.durationSec = Math.round(durationSec * 10) / 10;
+  if (maxAgeH !== null) payload.maxAgeH = maxAgeH;
   await env.CACHE.put(`lastRun:${jobId}`, JSON.stringify(payload));
   await appendRunHistory(env, jobId, payload);
   return jsonResponse({ ok: true, jobId, ts: payload.ts }, 200, origin);

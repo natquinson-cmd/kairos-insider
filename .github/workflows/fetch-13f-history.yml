@@ -80,7 +80,7 @@ jobs:
             -H "X-Admin-API-Key: $ADMIN_API_KEY" \
             -H "Content-Type: application/json" \
             "https://kairos-insider-api.natquinson.workers.dev/api/admin/log-workflow-run" \
-            -d "{\"jobId\":\"fetch-13f-history\",\"status\":\"$status\",\"summary\":\"13F historical backfill (mensuel)\"}" \
+            -d "{\"jobId\":\"fetch-13f-history\",\"status\":\"$status\",\"summary\":\"13F historical backfill (mensuel)\",\"maxAgeH\":840}" \
             | head -c 200
           echo ""
         continue-on-error: true

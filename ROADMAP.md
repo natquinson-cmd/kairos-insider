@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 1er juin 2026 (v19 - Pilier Initiés pondéré par la market cap)
+**Dernière mise à jour** : 1er juin 2026 (v20 - Health check : seuils de staleness par job)
 
 ---
+
+## 🎯 v20 — Health check : fausse alerte quotidienne supprimée (1er juin 2026)
+
+### ✅ Seuils de staleness PAR JOB (au lieu d'un 48h plat)
+- **Symptôme** (user) : email « [Kairos Alert] 1 anomalie détectée » **chaque matin** → `fetch-13f-history` flaggé « stale (>48h) ».
+- **Cause** : `runHealthCheck` (worker) utilisait un seuil **plat de 48h** pour tous les jobs. Or `fetch-13f-history` est **mensuel** (cron `0 2 1 * *`, car les 13F sont trimestriels +45j de lag) → il a >48h ~28j/30 → fausse alerte quotidienne.
+- **Fix** : seuil de staleness **par job**. Map dédiée (`fetch-13f-history` = 35j) + override **auto-déclaré** par le job (`maxAgeH` posté dans `/api/admin/log-workflow-run`, persisté en KV, lu par le health check). Défaut 48h inchangé pour tous les autres. **Le monitoring reste actif** : un job mensuel réellement bloqué (>35j) est toujours détecté.
 
 ## 🎯 v19 — Pilier Initiés : significativité vs market cap (1er juin 2026)
 
