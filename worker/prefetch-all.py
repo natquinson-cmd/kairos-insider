@@ -515,6 +515,29 @@ all_transactions.sort(key=lambda t: t.get('date', ''), reverse=True)
 cutoff = (now - timedelta(days=DAYS)).strftime('%Y-%m-%d')
 all_transactions = [t for t in all_transactions if (t.get('date') or t.get('fileDate', '')) >= cutoff]
 
+# ------------------------------------------------------------------
+# CAP TAILLE KV (juillet 2026) : la valeur KV 'insider-transactions' a une
+# limite DURE de 25 MiB par valeur cote Cloudflare. Le volume a depasse 25 MiB
+# -> `wrangler kv put` echouait (code 10024) -> workflow realtime-form4 en echec
+# a chaque run (mails d'erreur horaires) + data insiders figee. Un cap par jours
+# fixe (60/90j) n'est pas fiable (le volume grandit) -> on cape par TAILLE reelle.
+# On garde les transactions les PLUS RECENTES (deja triees date desc) tant qu'on
+# tient sous un budget de securite de 24 MiB (marge 1 MiB sous le cap 25 MiB).
+# La D1 conserve l'historique complet ; seul le blob KV (fiche action / score)
+# est borne, et il n'utilise de toute facon que les transactions recentes.
+_KV_BUDGET = 24 * 1024 * 1024  # 24 MiB
+_before_cap = len(all_transactions)
+_kept, _sz = [], 2048  # ~overhead du wrapper JSON (meta + cles)
+for _t in all_transactions:
+    _s = len(json.dumps(_t, separators=(',', ':'))) + 1  # mesure compacte (matche l'ecriture)
+    if _sz + _s > _KV_BUDGET:
+        break
+    _kept.append(_t)
+    _sz += _s
+if len(_kept) < _before_cap:
+    print(f'  CAP KV 25MiB : {_before_cap} -> {len(_kept)} tx (~{_sz // (1024 * 1024)} MiB, retire {_before_cap - len(_kept)} plus anciennes pour tenir sous le cap)', flush=True)
+all_transactions = _kept
+
 # ============================================================
 # ETAPE 3 : Sauvegarder les transactions
 # ============================================================
@@ -528,7 +551,7 @@ tx_result = {
 }
 
 with open('transactions_data.json', 'w') as f:
-    json.dump(tx_result, f)
+    json.dump(tx_result, f, separators=(',', ':'))  # compact : ~2-3 MB de moins que le defaut (espaces)
 
 buys = sum(1 for t in all_transactions if t['type'] == 'buy')
 sells = sum(1 for t in all_transactions if t['type'] == 'sell')

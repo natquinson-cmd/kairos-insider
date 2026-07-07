@@ -139,6 +139,27 @@ def main():
     if truncated:
         print(f'\n  TRUNCATE 60j (>= {cutoff_60d}) : {before_truncate} -> {len(combined)} (retire {truncated} entrees anciennes pour rester sous cap KV 25 MiB)')
 
+    # --- CAP TAILLE KV (juillet 2026) ---
+    # Garde-fou robuste : la valeur KV 'insider-transactions' a un cap DUR de
+    # 25 MiB cote Cloudflare. Le truncate 60j + le format compact (indent supprime
+    # plus bas) suffisent normalement, mais le volume grandit -> on cape en plus
+    # par TAILLE REELLE (24 MiB, marge 1 MiB) en gardant les tx les PLUS RECENTES.
+    # Sans ca : `wrangler kv put` echoue (code 10024) -> pipeline en echec + data
+    # figee. Meme logique que prefetch-all.py (chemin realtime-form4).
+    combined.sort(key=lambda t: (t.get('fileDate') or '', t.get('date') or ''), reverse=True)
+    _KV_BUDGET = 24 * 1024 * 1024
+    _before_cap = len(combined)
+    _kept, _sz = [], 2048
+    for _t in combined:
+        _s = len(json.dumps(_t, ensure_ascii=False).encode('utf-8')) + 1
+        if _sz + _s > _KV_BUDGET:
+            break
+        _kept.append(_t)
+        _sz += _s
+    if len(_kept) < _before_cap:
+        print(f'  CAP KV 25MiB : {_before_cap} -> {len(_kept)} tx (~{_sz // (1024 * 1024)} MiB, retire {_before_cap - len(_kept)} plus anciennes)')
+    combined = _kept
+
     # --- Stats by region / market ---
     by_region = {}
     by_market = {}
@@ -163,7 +184,10 @@ def main():
         'transactions': combined,
     }
     with open('transactions_data.json', 'w', encoding='utf-8') as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+        # Compact (pas d'indent) : la valeur est lue par le Worker en JSON, pas par
+        # un humain. indent=2 gonflait le fichier ~30-40% et contribuait au
+        # depassement du cap KV 25 MiB.
+        json.dump(output, f, ensure_ascii=False, separators=(',', ':'))
 
     print(f'\nWritten: transactions_data.json ({len(combined)} total, {os.path.getsize("transactions_data.json"):,} bytes)')
 

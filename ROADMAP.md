@@ -4,9 +4,19 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 20 juin 2026 (v21 - Fix coût D1 Cloudflare : ~81$/mois → ~0$)
+**Dernière mise à jour** : 7 juillet 2026 (v22 - Fix cap KV 25 MiB : pipeline insiders réparé)
 
 ---
+
+## 🎯 v22 — Cap KV 25 MiB : pipeline realtime-form4 réparé (7 juillet 2026)
+
+### ✅ Le blob `insider-transactions` avait dépassé 25 MiB → uploads KV en échec
+- **Symptôme** (user) : mails d'erreur **horaires** « Realtime Form 4 Refresh 30 min : All jobs have failed ». Data insiders figée depuis le 6 juillet ~15h UTC.
+- **Cause** : erreur wrangler `Value size 26766397 bytes exceeds maximum allowed size of 25MiB [code: 10024]`. La valeur KV `insider-transactions` (lue par la fiche action / le score) a un **cap DUR de 25 MiB** par valeur Cloudflare. Le volume d'initiés (SEC+BaFin+AMF) a grandi et dépassé le cap. Aggravé par : `prefetch-all.py` gardait **90 j** (pas 60 j) et `merge-sources.py` écrivait en **`indent=2`** (pretty-print, +30-40 %).
+- **Fix** :
+  1. **Cap par TAILLE réelle** (24 MiB, marge 1 MiB) dans `prefetch-all.py` **et** `merge-sources.py` : on garde les transactions les **plus récentes** tant qu'on tient sous le budget. Auto-ajustable au volume (vs day-count fixe qui a déjà lâché à 60→90 j).
+  2. **JSON compact** : suppression de `indent=2` (merge-sources) + `separators=(',',':')` (prefetch-all) → ~2-3 MB + 30-40 % économisés.
+- **Pas de perte de données** : la D1 garde l'historique complet (explorer 5 ans) ; seul le blob KV (fiche action / score, qui n'utilise que le récent) est borné. Récupération au prochain run horaire (< 1 h).
 
 ## 🎯 v21 — Fix coût Cloudflare D1 : ~81 $/mois supprimés (20 juin 2026)
 
