@@ -4,9 +4,20 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 7 juillet 2026 (v22 - Fix cap KV 25 MiB : pipeline insiders réparé)
+**Dernière mise à jour** : 13 juillet 2026 (v23 - Admin/fondateur : accès Pro/Elite réel via le badge preview)
 
 ---
+
+## 🎯 v23 — Badge plan : le preview admin débloque vraiment les features (13 juillet 2026)
+
+### ✅ Admin/fondateur : accès complet au produit
+- **Symptôme** (user) : le badge cockpit affichait « PRO (preview) » mais cliquer / naviguer ne débloquait **pas** les fonctionnalités Pro.
+- **Cause** : le preview admin (`kairos_preview_plan`) ne changeait que **l'affichage** (badge + cadenas des home-cards via `applyHomeCardLocking`), **pas le gating réel** (`isPremium` / `switchSection`). Donc un clic sur une card « déverrouillée » repassait par `switchSection` → `isPremium=false` → paywall.
+- **Fix** : `applyAdminPlanOverride()` fait piloter `isPremium` + `window._currentPlan` par le plan **effectif** :
+  - Admin **sans** preview → **Elite** (accès total : le fondateur utilise tout son produit).
+  - Admin **avec** preview → le plan de preview (free/pro/elite) pour tester chaque tier + les cadenas depuis le badge.
+  - Non-admin → inchangé (plan réel Stripe).
+- Rappelé après `checkSubscription` **et** `checkAdminStatus` (async, ordre non garanti) + à chaque clic du badge. Le badge devient un vrai **sélecteur de plan** pour l'admin (features réellement actives/inactives).
 
 ## 🎯 v22 — Cap KV 25 MiB : pipeline realtime-form4 réparé (7 juillet 2026)
 

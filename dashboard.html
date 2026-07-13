@@ -8434,10 +8434,12 @@
         // Expose le plan (free | pro | elite | legacy) pour les gatings
         // feature-by-feature (ex: exports CSV reserves Elite).
         window._currentPlan = data.plan || (isPremium ? 'pro' : 'free');
+        applyAdminPlanOverride(); // admin/fondateur : accès complet ou preview
         updatePremiumUI();
       } catch (err) {
         isPremium = false;
         window._currentPlan = 'free';
+        applyAdminPlanOverride();
         updatePremiumUI();
       }
     }
@@ -8461,6 +8463,28 @@
       // garde les cadenas du pass initial (jamais re-evalues).
       try { if (typeof applyHomeCardLocking === 'function') applyHomeCardLocking(); } catch (e) {}
     }
+
+    // Admin / fondateur : accès COMPLET au produit + preview de plan.
+    // - Admin SANS preview  -> plan effectif 'elite' (accès total : le fondateur
+    //   doit pouvoir utiliser toutes les features de son propre produit).
+    // - Admin AVEC preview   -> le plan de preview (free/pro/elite), pour tester
+    //   les cadenas et l'expérience de chaque tier via le badge du cockpit.
+    // - Non-admin            -> ne touche à rien (plan réel Stripe).
+    // FIX (juillet 2026) : avant, le preview admin ne changeait QUE l'affichage
+    // (badge + cadenas home-cards) mais PAS le gating réel (isPremium /
+    // switchSection). Résultat : badge "PRO (preview)" affiché mais features
+    // toujours verrouillées (clic -> paywall). Désormais le plan effectif pilote
+    // isPremium PARTOUT. À rappeler après checkSubscription ET checkAdminStatus
+    // (les deux async, ordre non garanti) + à chaque changement de preview.
+    function applyAdminPlanOverride() {
+      if (!(typeof isAdminUser !== 'undefined' && isAdminUser)) return;
+      let preview = null;
+      try { preview = sessionStorage.getItem('kairos_preview_plan'); } catch (e) {}
+      const plan = (preview && ['free', 'pro', 'elite'].includes(preview)) ? preview : 'elite';
+      window._currentPlan = plan;
+      isPremium = (plan === 'pro' || plan === 'elite');
+    }
+    window.applyAdminPlanOverride = applyAdminPlanOverride;
 
     // Bouton 'Passer Pro' dans la navbar : visible uniquement pour les users
     // non-premium. Petit, bien visible (gradient anime), ouvre le paywall au
@@ -10314,8 +10338,10 @@
             const next = cycle[current] ?? '';
             if (next) sessionStorage.setItem('kairos_preview_plan', next);
             else sessionStorage.removeItem('kairos_preview_plan');
-            Toast.info(next ? 'Preview : ' + next.toUpperCase() : 'Preview désactivé (plan réel)');
+            applyAdminPlanOverride(); // le preview pilote le gating RÉEL (isPremium)
+            Toast.info(next ? 'Preview : ' + next.toUpperCase() + ' (features actives)' : 'Preview désactivé — accès admin complet (Elite)');
             renderCockpitHeader();
+            if (typeof updatePremiumUI === 'function') updatePremiumUI();
             applyHomeCardLocking();
           } else if (realPlan === 'free') {
             // Non-admin free : upgrade prompt
@@ -23873,6 +23899,13 @@
         if (!res.ok) { isAdminUser = false; return false; }
         const data = await res.json();
         isAdminUser = !!data.isAdmin;
+        // Le statut admin arrive souvent APRÈS checkSubscription -> il faut
+        // re-appliquer l'override (accès complet) + rafraîchir le gating + badge.
+        if (isAdminUser) {
+          applyAdminPlanOverride();
+          try { if (typeof updatePremiumUI === 'function') updatePremiumUI(); } catch (e) {}
+          try { if (typeof renderCockpitHeader === 'function') renderCockpitHeader(); } catch (e) {}
+        }
         // Affiche la section sidebar "Admin" si admin
         const el = document.getElementById('sidebarAdminSection');
         if (el) el.style.display = isAdminUser ? '' : 'none';
