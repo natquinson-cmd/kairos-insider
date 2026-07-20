@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 13 juillet 2026 (v23 - Admin/fondateur : accès Pro/Elite réel via le badge preview)
+**Dernière mise à jour** : 13 juillet 2026 (v24 - Health check : heartbeat telegram-alerts idle)
 
 ---
+
+## 🎯 v24 — Health check : fin des fausses alertes `telegram-alerts` (13 juillet 2026)
+
+### ✅ Heartbeat sur le cron Telegram idle
+- **Symptôme** (user) : alerte health check **quotidienne** « telegram-alerts (401h) en retard sur sa cadence ».
+- **Cause** : `runTelegramAlertingCron` (cron Worker toutes les 5 min) faisait un **early-return quand 0 abonné Telegram**, SANS écrire `lastRun:telegram-alerts`. Le cron tournait bien (les autres crons Worker tournent — le mail de health check le prouve), mais son timestamp gelait → le health check le croyait en panne.
+- **Fix** : écrire un **heartbeat** `lastRun` (status ok, `0 abonné (idle)`) aussi sur le chemin idle. Le monitoring **reste valide** : si le cron s'arrête réellement, `lastRun` vieillit et l'alerte redevient légitime. Pas d'`appendRunHistory` sur idle (évite 288 runs/jour dans le Gantt admin). Complète le fix v20 (seuils par job).
 
 ## 🎯 v23 — Badge plan : le preview admin débloque vraiment les features (13 juillet 2026)
 

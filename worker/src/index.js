@@ -15155,6 +15155,25 @@ async function runTelegramAlertingCron(env) {
   const subs = await listTelegramSubscribers(env);
   if (subs.length === 0) {
     log.info('telegram.cron.no-subs');
+    // HEARTBEAT (fix juillet 2026) : le cron A bien tourné, il n'y avait juste
+    // aucun abonné Telegram à servir. Sans ce write, lastRun:telegram-alerts
+    // gelait -> le health check quotidien le croyait en panne et envoyait une
+    // FAUSSE alerte chaque matin (« telegram-alerts 401h »). On enregistre donc
+    // le run idle (le monitoring reste valide : si le cron s'arrête vraiment,
+    // lastRun vieillit et l'alerte redevient légitime). On n'append PAS au
+    // runHistory pour éviter 288 runs idle/jour dans le Gantt admin.
+    const _isoIdle = new Date().toISOString();
+    try {
+      await env.CACHE.put('lastRun:telegram-alerts', JSON.stringify({
+        ts: Math.floor(Date.now() / 1000),
+        iso: _isoIdle,
+        timestamp: _isoIdle,
+        status: 'ok',
+        durationSec: (Date.now() - start) / 1000,
+        summary: '0 abonné Telegram (idle)',
+        subs: 0,
+      }));
+    } catch {}
     return;
   }
   log.info('telegram.cron.subs', { count: subs.length });
