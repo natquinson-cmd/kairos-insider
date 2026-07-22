@@ -4,7 +4,7 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 22 juillet 2026 (v25 - Accès admin côté serveur + reveal landing)
+**Dernière mise à jour** : 22 juillet 2026 (v26 - Fix racine paywall fantôme : /stripe/status connaît admin + comp)
 
 ---
 

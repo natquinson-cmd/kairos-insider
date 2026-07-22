@@ -6966,10 +6966,27 @@ async function handleSubscriptionStatus(env, user, origin) {
     plan = resolved.plan;
     billing = resolved.billing;
   }
+  // v26 (FIX RACINE paywall fantome) : le client derive isPremium et
+  // window._currentPlan de CETTE reponse. Or elle ne connaissait NI isAdmin()
+  // NI getCompPremium() : c'etait le SEUL emetteur de droits non migre en v25.
+  // Consequence : le fondateur (aucun abonnement Stripe paye) et les comptes
+  // comp:{uid} (affilies / beta / cadeaux) etaient vus 'free' cote client
+  // jusqu'a un 2e aller-retour reseau (/api/admin/whoami) -> paywall fantome
+  // sur les sections Pro (Hedge Funds, Activists, ETF...).
+  // `hasSubscription` reste STRICTEMENT Stripe (le portail de facturation et
+  // l'auto-checkout en dependent) : on ajoute `entitled` a cote.
+  const _admin = isAdmin(user);
+  const _hasSub = !!(subData && (subData.status === 'active' || subData.status === 'past_due'));
+  // isPremiumUser couvre deja Stripe actif + comp:{uid}.
+  const _entitled = _hasSub || _admin || await isPremiumUser(env, user.uid);
+  const _effectivePlan = _admin ? 'elite' : (plan || (_entitled ? 'pro' : 'free'));
   return jsonResponse({
     uid: user.uid,
     email: user.email,
-    hasSubscription: !!(subData && (subData.status === 'active' || subData.status === 'past_due')),
+    hasSubscription: _hasSub,
+    isAdmin: _admin,
+    entitled: _entitled,                            // droit REEL (Stripe | comp | admin)
+    effectivePlan: _effectivePlan,                  // plan a appliquer cote UI
     status: subData?.status || null,
     subscriptionStatus: subData?.status || null,   // retrocompat
     currentPeriodEnd: subData?.currentPeriodEnd || null,

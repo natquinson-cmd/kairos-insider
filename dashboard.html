@@ -7920,9 +7920,17 @@
           // Deep link / browser navigation : tente de restaurer la section depuis l'URL
           // Couvre TOUTES les sections (pas juste signals-*) + le ticker dans #stockAnalysis?t=X
           // Format URL : #section ou #stockAnalysis?t=AAPL
-          const navigated = (typeof navigateFromHash === 'function')
-            ? navigateFromHash(window.location.hash)
-            : false;
+          // v26 : navigation ISOLEE. Toute exception synchrone ici avortait le
+          // callback AVANT le dispatch de 'kairos:auth-ready', seul declencheur
+          // de checkAdminStatus -> isAdminUser restait false pour TOUTE la
+          // session, silencieusement (paywall colle). La branche anonyme etait
+          // deja protegee par un try/catch, pas celle-ci.
+          let navigated = false;
+          try {
+            navigated = (typeof navigateFromHash === 'function')
+              ? navigateFromHash(window.location.hash)
+              : false;
+          } catch (e) { console.error('[boot] navigateFromHash a levé une exception:', e); }
           if (!navigated) {
             // Accueil : affichage immédiat (nom + stats)
             loadHome();
@@ -8435,10 +8443,16 @@
       try { localStorage.removeItem('kairos_preview_plan'); } catch (e) {}
       try {
         const data = await apiFetch('/stripe/status');
-        isPremium = data.hasSubscription;
+        // v26 : `entitled` = Stripe OU comp:{uid} OU admin, calcule 100% SERVEUR
+        // (cf. handleSubscriptionStatus). Supprime la race a la source : le droit
+        // est connu des le 1er await, AVANT le routing et tout gate. Fallback sur
+        // hasSubscription tant que le worker n'est pas redeploye (champ absent
+        // -> comportement v25 strictement inchange, aucun ordre de deploiement
+        // impose).
+        isPremium = (typeof data.entitled === 'boolean') ? data.entitled : data.hasSubscription;
         // Expose le plan (free | pro | elite | legacy) pour les gatings
         // feature-by-feature (ex: exports CSV reserves Elite).
-        window._currentPlan = data.plan || (isPremium ? 'pro' : 'free');
+        window._currentPlan = data.effectivePlan || data.plan || (isPremium ? 'pro' : 'free');
         applyAdminPlanOverride(); // admin/fondateur : accès complet ou preview
         updatePremiumUI();
       } catch (err) {
@@ -9083,9 +9097,22 @@
           throw err;
         }
         if (data.code === 'PREMIUM_REQUIRED') {
-          document.getElementById('paywallOverlay').classList.remove('hidden');
-          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
-          throw new Error('Premium required');
+          // v26 : un admin ne doit JAMAIS voir le paywall. Si un 403 arrive
+          // quand meme, c'est qu'un endpoint n'est pas couvert par
+          // isPremiumOrAdmin cote worker : on le rend DIAGNOSTICABLE en console
+          // au lieu de le masquer derriere une modale. isAdminUser ne provient
+          // QUE du serveur (/api/admin/whoami), jamais d'une valeur locale.
+          if (typeof isAdminUser !== 'undefined' && isAdminUser) {
+            console.error('[admin] 403 PREMIUM_REQUIRED non couvert par isPremiumOrAdmin :', endpoint);
+          } else {
+            document.getElementById('paywallOverlay').classList.remove('hidden');
+            if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
+          }
+          // .code pose explicitement : plusieurs appelants testent e.code
+          // === 'PREMIUM_REQUIRED' alors que le throw ne le posait jamais.
+          const _e = new Error('Premium required');
+          _e.code = 'PREMIUM_REQUIRED';
+          throw _e;
         }
       }
 
