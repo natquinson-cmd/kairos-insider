@@ -215,6 +215,16 @@ const RATE_LIMIT_EXEMPT_PATHS = new Set(['/stripe/webhook', '/telegram/webhook']
 export default {
   async fetch(request, env, ctx) {
     try {
+      // Support HEAD global (audit SEO juillet 2026) : toutes les routes sont
+      // declarees en `method === 'GET'` -> un HEAD tombait en 404 sur /a/,
+      // /sitemap.xml, /robots.txt... Les validateurs de liens, Bing et les
+      // outils d'audit voyaient un site mort. On traite HEAD comme GET et on
+      // renvoie la reponse SANS corps (semantique HTTP correcte).
+      if (request.method === 'HEAD') {
+        const getReq = new Request(request.url, { method: 'GET', headers: request.headers });
+        const resp = await handleRequest(getReq, env, ctx);
+        return new Response(null, { status: resp.status, statusText: resp.statusText, headers: resp.headers });
+      }
       return await handleRequest(request, env, ctx);
     } catch (err) {
       // Global catch : toute exception non-catchée finit ici + est loggée pour observabilité
@@ -423,31 +433,17 @@ async function handleRequest(request, env, ctx) {
     if (request.method === 'GET' && path.startsWith('/a/')) {
       const ticker = decodeURIComponent(path.slice('/a/'.length));
       const lang = (url.searchParams.get('lang') || '').toLowerCase() === 'en' ? 'en' : 'fr';
-      // User-Agent split :
-      //  - Bots sociaux/SEO -> SSR HTML avec meta tags (Twitter Card / Google)
-      //  - Humains -> redirection vers le dashboard avec ticker prefile
-      // Pattern : on garde /a/[ticker] comme "URL de partage canonical" pour
-      // que les cartes Twitter / Discord / LinkedIn fonctionnent, mais quand
-      // un humain clique, il atterrit direct sur la page Decrypter.
-      const ua = request.headers.get('User-Agent') || '';
-      // FIX (mai 2026, v2) : regex plus stricte. Avant 'twitter' tout seul
-      // matchait aussi 'Twitter for iPhone' (UA du navigateur in-app de X
-      // mobile) -> les visiteurs cliquant un tweet depuis l'app X recevaient
-      // la page SSR au lieu de la redirection dashboard. Maintenant on
-      // matche UNIQUEMENT les UA de bots scrapers explicites (terminant
-      // par 'bot' ou contenant des noms connus avec qualifier).
-      const isBot = /bot|crawler|spider|crawling|scraper|preview|fetch\b|whatsapp\b|telegram\b|slackbot|twitterbot|facebookexternalhit|linkedinbot|pinterestbot|discordbot|googlebot|bingbot|yandex|duckduck|ahrefs|semrush|petalbot|applebot|chatgpt|claude-web|perplexity|gptbot|embedly|prerender|headless/i.test(ua);
-      if (!isBot) {
-        const cleanTicker = String(ticker || '').toUpperCase().trim().replace(/[^A-Z0-9.\-]/g, '');
-        if (cleanTicker && cleanTicker.length <= 12) {
-          // dashboard.html supporte le hash #stockAnalysis?t=TICKER pour
-          // ouvrir directement la fiche valeur (cf. dashboard.html:9180).
-          // Le query ?lang=fr/en est lu par assets/i18n.js au load.
-          const langQs = lang === 'en' ? '?lang=en' : '';
-          const target = `https://kairosinsider.fr/dashboard.html${langQs}#stockAnalysis?t=${encodeURIComponent(cleanTicker)}`;
-          return Response.redirect(target, 302);
-        }
-      }
+      // SSR POUR TOUS (juillet 2026, fin du UA-split). Avant : bots -> SSR,
+      // humains -> 302 vers dashboard.html#stockAnalysis. Problemes prouves par
+      // l'audit SEO : (1) parite de contenu NULLE (l'humain ne voyait jamais la
+      // page indexee, destination Disallow dans robots.txt + fragment invisible
+      // serveur = definition fonctionnelle du cloaking) ; (2) tout lien /a/
+      // partage etait sterile SEO (302 vers une impasse interdite au crawl,
+      // zero signal CrUX) ; (3) la regex isBot etait une dette a vie (fix
+      // 'Twitter for iPhone' mai 2026, bots IA non matches rediriges) ; (4) le
+      // maillage interne exige des pages navigables par les humains. La page
+      // SSR est une vraie landing (double CTA vers action.html) : on la sert a
+      // tout le monde, memes contenus bots/humains.
       return handleActionSSR(ticker, env, lang);
     }
 
@@ -5005,29 +5001,49 @@ async function handleSitemap(env) {
   try {
     const today = new Date().toISOString().slice(0, 10);
 
-    // Recupere la liste des tickers depuis le cache KV
-    let tickers = [];
+    // REFONTE SEO (juillet 2026, audit) : avant, source = KV public-tickers-list
+    // (tickers avec transactions insiders uniquement) tronquee a slice(0,1000)
+    // ALPHABETIQUE -> NVDA, MSFT, TSLA, GOOGL, META absents du sitemap (!) et
+    // ~70% de la surface programmatique invisible. Desormais : UNION de la KV
+    // ET des tickers scores en D1 (score_history, ~3349) — source deterministe,
+    // pas de churn lie a la fenetre roulante des transactions.
+    const set = new Map(); // ticker -> { ticker }
+    const addTicker = (raw) => {
+      const tk = (raw || '').trim().toUpperCase();
+      // 12 chars max (tickers EU suffixes type AIR.PA, format /a/ accepte)
+      if (!tk || !/^[A-Z0-9.\-]{1,12}$/.test(tk)) return;
+      if (!set.has(tk)) set.set(tk, { ticker: tk });
+    };
     try {
       const cached = await env.CACHE.get('public-tickers-list', 'json');
       if (cached && Array.isArray(cached.tickers)) {
-        tickers = cached.tickers;
-      } else {
-        // Reconstruit a la volee si le cache est vide
-        const tx = await env.CACHE.get('insider-transactions', 'json');
-        const set = new Map();
-        if (tx && Array.isArray(tx.transactions)) {
-          for (const t of tx.transactions) {
-            const tk = (t.ticker || '').trim().toUpperCase();
-            if (!tk || !/^[A-Z0-9.\-]{1,6}$/.test(tk)) continue;
-            if (!set.has(tk)) set.set(tk, { ticker: tk });
-          }
-        }
-        tickers = Array.from(set.values());
+        for (const t of cached.tickers) addTicker(t.ticker);
       }
-    } catch (_) { tickers = []; }
+    } catch (_) { /* source KV optionnelle */ }
+    try {
+      if (env.HISTORY) {
+        const res = await env.HISTORY.prepare(
+          'SELECT DISTINCT ticker FROM score_history'
+        ).all();
+        for (const r of (res.results || [])) addTicker(r.ticker);
+      }
+    } catch (_) { /* D1 optionnelle : la KV suffit en degrade */ }
+    let tickers = Array.from(set.values()).sort((a, b) => a.ticker.localeCompare(b.ticker));
 
-    // Limite raisonnable pour Googlebot
-    tickers = tickers.slice(0, 1000);
+    // Garde-fou protocole sitemap : 50 000 URLs / fichier max. On est ~3500.
+    tickers = tickers.slice(0, 45000);
+
+    // lastmod HONNETE (audit : avant, date du jour sur toutes les URLs a chaque
+    // generation -> Google detecte le lastmod menteur et cesse de s'y fier).
+    // On utilise la date du dernier run REUSSI du pipeline Form 4 (cle lastRun,
+    // ~200 octets, ecrite par realtime-form4) : vraie date de derniere mise a
+    // jour des donnees affichees par les pages /a/.
+    let dataLastmod = today;
+    try {
+      const lr = await env.CACHE.get('lastRun:form4-realtime', 'json');
+      if (lr && lr.iso) dataLastmod = String(lr.iso).slice(0, 10);
+      else if (lr && lr.ts) dataLastmod = new Date(lr.ts * 1000).toISOString().slice(0, 10);
+    } catch (_) {}
 
     // URL de base branded (worker monte sur kairosinsider.fr via routes)
     const SITE = 'https://kairosinsider.fr';
@@ -5091,7 +5107,7 @@ async function handleSitemap(env) {
 <xhtml:link rel="alternate" hreflang="fr" href="${SITE}/a/${tk}"/>
 <xhtml:link rel="alternate" hreflang="en" href="${SITE}/a/${tk}?lang=en"/>
 <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/a/${tk}"/>
-<lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.8</priority>
+<lastmod>${dataLastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority>
 </url>`);
     }
 
@@ -5106,10 +5122,11 @@ async function handleSitemap(env) {
       },
     });
   } catch (e) {
-    return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`, {
-      status: 200,
-      headers: { 'Content-Type': 'application/xml; charset=utf-8' },
-    });
+    // FIX (audit juillet 2026) : avant, un echec renvoyait un sitemap VIDE en
+    // HTTP 200 -> Google l'aurait pris pour argent comptant et desindexe tout,
+    // silencieusement. Un 500 le fait reessayer avec l'ancienne version.
+    log.error('sitemap.build.failed', { err: String(e && e.message || e) });
+    return new Response('sitemap generation failed', { status: 500 });
   }
 }
 
@@ -6099,7 +6116,28 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
   const pe = data.fundamentals?.peRatio;
   const dividendYield = data.fundamentals?.dividendYield;
 
-  const title = `${name} (${ticker}) — Kairos Score ${score}/100 · ${sig.label} | Kairos Insider`;
+  // Pairs sectoriels -> maillage interne (audit SEO juillet 2026). data.peers
+  // vient de stockanalysis (US, avec name) ou Finnhub (EU, ticker seul).
+  // On normalise en { ticker, label } et on filtre le ticker courant + les
+  // formats invalides pour /a/. Max 8 liens (assez pour mailler, pas spammy).
+  const peerLinks = (Array.isArray(data.peers) ? data.peers : [])
+    .map(p => {
+      const tk = String((typeof p === 'string' ? p : (p && (p.ticker || p.symbol))) || '')
+        .trim().toUpperCase();
+      const label = (p && typeof p === 'object' && (p.name || p.companyName)) || tk;
+      return { ticker: tk, label: String(label).slice(0, 40) };
+    })
+    .filter(p => p.ticker
+      && p.ticker !== String(ticker).toUpperCase()
+      && /^[A-Z0-9.\-]{1,12}$/.test(p.ticker))
+    .slice(0, 8);
+
+  // Title aligne sur les requetes reelles (audit juillet 2026) : les gens
+  // cherchent "action nvidia analyse/avis", pas "Kairos Score" (metrique
+  // proprietaire inconnue). Le score reste en fin de title comme signal.
+  const title = lang === 'fr'
+    ? `Action ${name} (${ticker}) : analyse initiés & hedge funds — Score ${score}/100 | Kairos Insider`
+    : `${name} (${ticker}) stock: insider & hedge fund analysis — Score ${score}/100 | Kairos Insider`;
   const desc = ssrT(lang, 'description', {
     name, ticker,
     sector: sector ? ' — ' + sector : '',
@@ -6110,7 +6148,12 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
     price: fmtCurrSsr(price, currency),
   });
   // URL du dashboard (pour les CTA "Voir l'analyse complete")
-  const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}`;
+  // FIX CRITIQUE SEO (juillet 2026) : lang integre ICI avec '&'. Avant, les 2
+  // CTA concatenaient '?lang=' a une URL contenant deja '?ticker=' -> double '?'
+  // -> action.html parsait ticker='NVDA?lang=fr' -> sanitize -> 'NVDALANGFR'
+  // -> fiche introuvable. Le bouton de conversion principal des ~2000 pages SSR
+  // (FR+EN) menait donc dans le vide.
+  const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}&lang=${lang}`;
   // Canonical = URL brande (Worker route sur kairosinsider.fr/a/*)
   const canonical = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
 
@@ -6333,7 +6376,7 @@ footer a{color:#9CA3AF;text-decoration:none}
       <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="20" stroke="url(#lg1)" stroke-width="2" fill="none"/><path d="M10 30 L18 20 L26 26 L38 14" stroke="url(#lg1)" fill="none"/><defs><linearGradient id="lg1" x1="0" y1="0" x2="48" y2="48"><stop offset="0" stop-color="#3B82F6"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs></svg>
       Kairos Insider
     </a>
-    <a href="${dashboardUrl}?lang=${lang}" class="cta">${ssrT(lang, 'open_full')}</a>
+    <a href="${dashboardUrl}" class="cta">${ssrT(lang, 'open_full')}</a>
   </nav>
 
   <div class="ticker-header">
@@ -6385,7 +6428,7 @@ footer a{color:#9CA3AF;text-decoration:none}
         <span style="width:6px;height:6px;background:${sig.color};border-radius:50%;box-shadow:0 0 10px ${sig.color}"></span>
         ${sig.label}
       </div>
-      <h1 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em">Kairos Score${lang === 'fr' ? ' :' : ':'} <span style="color:${sig.color}">${score}</span><span style="opacity:0.4;font-size:20px">/100</span></h1>
+      <h1 style="font-size:26px;margin:0 0 10px;letter-spacing:-0.01em">${lang === 'fr' ? 'Analyse' : 'Analysis'} ${escHtmlSsr(name)} (${escHtmlSsr(ticker)})${lang === 'fr' ? ' — Kairos Score' : ' — Kairos Score'} <span style="color:${sig.color}">${score}</span><span style="opacity:0.4;font-size:20px">/100</span></h1>
       <p>${ssrT(lang, 'score_intro')}</p>
       ${data.score && data.score._breakdownHidden ? `<p style="font-size:12px;opacity:0.6;margin-top:10px">${ssrT(lang, 'breakdown_locked')}</p>` : ''}
     </div>
@@ -6519,6 +6562,19 @@ footer a{color:#9CA3AF;text-decoration:none}
     </div>
   </div>
 
+  <!-- MAILLAGE INTERNE (audit SEO juillet 2026) : levier n1 identifie.
+       Avant, chaque page /a/ etait ORPHELINE (0 lien sortant vers un autre
+       ticker) -> ~988 pages sans aucun lien interne entrant, PageRank interne
+       nul, profondeur de clic infinie -> "Detectee, actuellement non indexee".
+       On expose les pairs sectoriels (data.peers, deja calcule + cache) avec
+       des ancres DESCRIPTIVES (pas "cliquez ici"). -->
+  ${peerLinks.length ? `<div class="peers-nav" style="margin:28px 0;padding:18px 20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px">
+    <h2 style="font-size:16px;margin:0 0 12px">${lang === 'fr' ? `Analyses du même secteur que ${escHtmlSsr(name)}` : `Companies in the same sector as ${escHtmlSsr(name)}`}</h2>
+    <ul style="list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:10px">
+      ${peerLinks.map(p => `<li><a href="/a/${encodeURIComponent(p.ticker)}${lang === 'en' ? '?lang=en' : ''}" style="display:inline-block;padding:7px 12px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.25);border-radius:8px;color:#93C5FD;text-decoration:none;font-size:13px">${lang === 'fr' ? 'Analyse' : 'Analysis'} ${escHtmlSsr(p.label)} (${escHtmlSsr(p.ticker)})</a></li>`).join('')}
+    </ul>
+  </div>` : ''}
+
   <!-- Trust bar : rassurer sur la provenance officielle des donnees -->
   <div class="trust-bar">
     <strong>${ssrT(lang, 'trust_h2')}</strong>
@@ -6542,7 +6598,7 @@ footer a{color:#9CA3AF;text-decoration:none}
       <div class="feature">${ssrT(lang, 'paywall_f8')}</div>
       <div class="feature">${ssrT(lang, 'paywall_f9')}</div>
     </div>
-    <a href="${dashboardUrl}?lang=${lang}" class="cta">${ssrT(lang, 'paywall_cta')}</a>
+    <a href="${dashboardUrl}" class="cta">${ssrT(lang, 'paywall_cta')}</a>
     <br>
     <a href="https://kairosinsider.fr/?lang=${lang}" class="paywall-secondary">${ssrT(lang, 'cta_secondary_label')} →</a>
     <p style="margin-top:14px;font-size:12px;color:#6B7280;position:relative">${ssrT(lang, 'paywall_terms')}</p>
