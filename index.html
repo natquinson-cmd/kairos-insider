@@ -1530,6 +1530,23 @@
       border-radius: 6px;
     }
 
+    /* Scroll reveal (juillet 2026) : apparition en fondu + translation des
+       sections au scroll, avec cascade (delay incrémental via --rvd) sur les
+       cards d'une même grille. PROGRESSIVE ENHANCEMENT : la classe est posée
+       par JS en fin de body — sans JS (crawlers, no-script), rien n'est caché.
+       Même pattern que le dashboard (.reveal-on-scroll + .is-visible). */
+    .reveal-on-scroll {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+      transition-delay: var(--rvd, 0ms);
+      will-change: opacity, transform;
+    }
+    .reveal-on-scroll.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
     /* Respect de prefers-reduced-motion : coupe animations + transitions + scroll
        fluide pour les utilisateurs sensibles au mouvement (troubles vestibulaires).
        Le dashboard le faisait déjà ; la landing non. */
@@ -3351,5 +3368,76 @@
   <!-- Chatbot widget : assistant IA pour repondre aux questions des visiteurs
        et collecter feedback. Lazy-loaded en defer pour ne pas bloquer le LCP. -->
   <script src="assets/chatbot.js?v=20260511-mobile-compact" defer></script>
+
+  <!-- Scroll reveal (juillet 2026) : effet d'apparition retardée des sections.
+       Ce script TAGUE (classe .reveal-on-scroll + délai --rvd) puis RÉVÈLE via
+       IntersectionObserver. Placé en fin de body : le DOM est parsé, le tag part
+       avant le premier paint (pas de flash). Sans JS -> rien n'est jamais caché
+       (progressive enhancement, crawler-safe). -->
+  <script>
+    (function () {
+      try {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if (!('IntersectionObserver' in window)) return;
+
+        var tagged = [];
+        function tag(el, delayMs) {
+          if (!el || el.classList.contains('reveal-on-scroll')) return;
+          el.classList.add('reveal-on-scroll');
+          if (delayMs) el.style.setProperty('--rvd', Math.min(delayMs, 560) + 'ms');
+          tagged.push(el);
+        }
+        function tagChildren(container, stepMs) {
+          if (!container) return;
+          var kids = container.children;
+          for (var i = 0; i < kids.length; i++) tag(kids[i], i * (stepMs || 80));
+        }
+
+        // --- Hero : cascade au chargement (au-dessus de la ligne de flottaison) ---
+        var heroContent = document.querySelector('.hero .hero-content');
+        if (heroContent) tagChildren(heroContent, 110);
+        var heroVisual = document.querySelector('.hero .hero-visual');
+        if (heroVisual) tag(heroVisual, 240);
+
+        // --- Sections : header (délai 0) + cascade sur les cards des grilles ---
+        // Conteneurs à cascade (enfants tagués un à un avec délai incrémental).
+        ['.sources-logos', '.profiles-grid', '.features-detailed', '.pricing-grid',
+         '.steps', '.faq-list', '.popular-stocks'].forEach(function (sel) {
+          tagChildren(document.querySelector(sel), 80);
+        });
+        // Blocs révélés d'un seul tenant (carousel testimonials : ne pas taguer
+        // les slides -> conflit avec la logique active/inactive ; table : idem).
+        ['.section-header', '.comparison-table', '.testimonials-carousel',
+         '.popular-cta', '.cta-section .container', '.data-sources-strip .container > p'].forEach(function (sel) {
+          var els = document.querySelectorAll(sel);
+          for (var j = 0; j < els.length; j++) tag(els[j], 0);
+        });
+
+        var anyRevealed = false;
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              anyRevealed = true;
+              entry.target.classList.add('is-visible');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+        tagged.forEach(function (el) { io.observe(el); });
+
+        // Filet de sécurité : UNIQUEMENT si l'observer n'a jamais tiré après
+        // 2,5 s (observer cassé : iframe, bug navigateur) on révèle tout.
+        // Surtout PAS de révélation aveugle : elle tuerait la cascade au scroll
+        // pour les sections sous la ligne de flottaison.
+        setTimeout(function () {
+          if (anyRevealed) return;
+          tagged.forEach(function (el) { el.classList.add('is-visible'); });
+        }, 2500);
+      } catch (e) {
+        // Jamais bloquant : en cas d'erreur on révèle tout.
+        document.querySelectorAll('.reveal-on-scroll').forEach(function (el) { el.classList.add('is-visible'); });
+      }
+    })();
+  </script>
 </body>
 </html>
