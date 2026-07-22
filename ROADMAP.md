@@ -4,9 +4,20 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 13 juillet 2026 (v24 - Health check : heartbeat telegram-alerts idle)
+**Dernière mise à jour** : 22 juillet 2026 (v25 - Accès admin côté serveur + reveal landing)
 
 ---
+
+## 🎯 v25 — Accès admin serveur (fix « page Activists vide ») + reveal landing (22 juillet 2026)
+
+### ✅ Fix : page Activist Investors vide alors que la donnée 13D/G est fraîche
+- **Symptôme** (user) : « Plus aucune donnée d'activists ? » — page vide (« Aucune déclaration ») alors que la bannière affichait des filings du jour (RACD 21/07…).
+- **Diagnostic** : donnée 13D/G **saine** (46 173 filings en KV, 15,6 Mo, EDGAR répond, pipeline vert). La cause : le fix v23 donnait l'accès admin **côté client** (la section se charge au lieu du paywall), mais **côté serveur** `/api/13dg/recent` exige premium (`isPremiumUser` = Stripe OU comp) → 403 `PREMIUM_REQUIRED` → avalé par le `.catch()` du front → état vide trompeur.
+- **Fix** : helper `isPremiumOrAdmin(env, user)` (admin `ADMIN_EMAILS` ⇒ accès complet) appliqué aux **5 portails** où `user` est en scope : gate API global, portfolio, watchlist, telegram init/test. Le cron Telegram (uid-only) reste sur `isPremiumUser` (inchangé).
+- **Amélioration UX associée à faire plus tard** : le front affiche « Aucune déclaration » sur une erreur API avalée — distinguer erreur vs zéro résultat.
+
+### ✅ Landing : effet d'apparition retardée (voir commit aefdb97)
+- Cascade hero au chargement + reveal au scroll des sections/cards (progressive enhancement, crawler-safe, reduced-motion respecté).
 
 ## 🎯 v24 — Health check : fin des fausses alertes `telegram-alerts` (13 juillet 2026)
 

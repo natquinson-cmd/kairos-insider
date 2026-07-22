@@ -709,8 +709,8 @@ async function handleRequest(request, env, ctx) {
           return handlePortfolioSmartMoneySummary(url, env, origin);
         }
         // Autres routes : Pro+ uniquement (le sync API est une feature premium).
-        // isPremiumUser couvre Stripe ET comp:{uid} (grants offerts admin).
-        const isPremium = await isPremiumUser(env, user.uid);
+        // isPremiumOrAdmin couvre Stripe + comp:{uid} + admin/fondateur.
+        const isPremium = await isPremiumOrAdmin(env, user);
         if (!isPremium) {
           return jsonResponse({ error: 'Radar Portefeuille réservé aux abonnés Pro et Elite', code: 'PREMIUM_REQUIRED' }, 403, origin);
         }
@@ -744,8 +744,8 @@ async function handleRequest(request, env, ctx) {
 
       // --- Routes Watchlist (auth requise, check premium integre dans la route) ---
       if (path.startsWith('/api/watchlist/')) {
-        // isPremiumUser couvre Stripe ET comp:{uid} (grants offerts admin).
-        const isPremium = await isPremiumUser(env, user.uid);
+        // isPremiumOrAdmin couvre Stripe + comp:{uid} + admin/fondateur.
+        const isPremium = await isPremiumOrAdmin(env, user);
 
         if (request.method === 'POST' && path === '/api/watchlist/sync') {
           return handleWatchlistSync(request, env, user, isPremium, origin);
@@ -991,8 +991,9 @@ async function handleRequest(request, env, ctx) {
           || FREE_PREFIXES.some(prefix => path.startsWith(prefix));
 
         if (!isFree) {
-          // Vérifier l'abonnement premium (Stripe OU comp:{uid} = grants admin).
-          const isPremium = await isPremiumUser(env, user.uid);
+          // Vérifier l'abonnement premium (Stripe OU comp:{uid} = grants admin,
+          // OU admin/fondateur — cf isPremiumOrAdmin).
+          const isPremium = await isPremiumOrAdmin(env, user);
 
           if (!isPremium) {
             // Cas special : les users Free ont droit a FREE_STOCK_QUOTA
@@ -13945,6 +13946,17 @@ async function getCompPremium(env, uid) {
   return comp;
 }
 
+// Admin/fondateur = accès produit complet côté SERVEUR (juillet 2026).
+// Pendant du fix client v23 (applyAdminPlanOverride) : sans ce bypass, le front
+// admin chargeait les sections Pro mais chaque endpoint gated renvoyait 403
+// PREMIUM_REQUIRED (avalé par les .catch du front) -> pages "vides" trompeuses
+// (ex : Activist Investors affichait « Aucune déclaration » alors que la donnée
+// 13D/G était fraîche en KV). Utiliser PARTOUT où `user` est en scope.
+async function isPremiumOrAdmin(env, user) {
+  if (isAdmin(user)) return true;
+  return isPremiumUser(env, user && user.uid);
+}
+
 async function isPremiumUser(env, uid) {
   if (!uid) return false;
   // 1) Sub Stripe active
@@ -13984,7 +13996,7 @@ async function handleTelegramInitLink(env, user, origin) {
   // Note : HTTP 403 + code 'PREMIUM_REQUIRED' (pas 402) pour matcher la
   // convention apiFetch cote dashboard qui trigger le paywallOverlay sur
   // 403+PREMIUM_REQUIRED uniquement.
-  if (!await isPremiumUser(env, user.uid)) {
+  if (!await isPremiumOrAdmin(env, user)) {
     return jsonResponse({
       error: 'Telegram alerts are a Pro feature. Upgrade to receive real-time signals on your watchlist.',
       code: 'PREMIUM_REQUIRED',
@@ -14051,7 +14063,7 @@ async function handleTelegramTestMessage(env, user, origin) {
   // PREMIUM GATE : meme regle que init-link (403 + PREMIUM_REQUIRED). Un user
   // qui a downgrade peut encore avoir tg:{uid} en KV mais ne peut plus envoyer
   // de test (= visuel dashboard "feature locked" si Free).
-  if (!await isPremiumUser(env, user.uid)) {
+  if (!await isPremiumOrAdmin(env, user)) {
     return jsonResponse({
       error: 'Telegram alerts are a Pro feature.',
       code: 'PREMIUM_REQUIRED',
