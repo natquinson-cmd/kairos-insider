@@ -7878,6 +7878,11 @@
     let firebaseAuth = null;
     let currentUser = null;
     let isPremium = false;
+    // Section Pro/Elite dont la navigation a ete bloquee par le paywall alors
+    // que le statut premium n'etait pas encore resolu (checkAdminStatus /
+    // checkSubscription sont async). Rejouee par updatePremiumUI() des que
+    // isPremium bascule a true. Cf. switchSection().
+    let _pendingGatedSection = null;
     // FIX (mai 2026) : init window.isAnonymous=true par defaut. Avant Firebase
     // ne se prononce, tout endpoint qui fire en arriere-plan et retourne 401
     // ne doit PAS afficher l'authOverlay. Ce sera mis a false dans
@@ -8462,6 +8467,25 @@
       // 'free' (defaut) → les cards PRO se verrouillent. Sans ce re-run, un premium
       // garde les cadenas du pass initial (jamais re-evalues).
       try { if (typeof applyHomeCardLocking === 'function') applyHomeCardLocking(); } catch (e) {}
+
+      // FILET ANTI-PAYWALL FANTOME (juillet 2026). isPremium/isAdminUser sont
+      // resolus en ASYNC : un user premium (ou l'admin) pouvait declencher le
+      // paywall avant la resolution, et RIEN ne le refermait ensuite (seul un
+      // clic manuel le fermait) -> paywall persistant malgre un compte Elite.
+      // Des qu'on sait que l'user a les droits : on referme, et on rejoue la
+      // navigation avortee. Strictement conditionne a isPremium === true, donc
+      // aucun impact sur les vrais users Free (leur paywall reste affiche).
+      if (isPremium) {
+        try {
+          const _pw = document.getElementById('paywallOverlay');
+          if (_pw && !_pw.classList.contains('hidden')) _pw.classList.add('hidden');
+        } catch (e) {}
+        if (_pendingGatedSection) {
+          const _target = _pendingGatedSection;
+          _pendingGatedSection = null;
+          try { switchSection(_target); } catch (e) {}
+        }
+      }
     }
 
     // Admin / fondateur : accès COMPLET au produit + preview de plan.
@@ -9349,6 +9373,9 @@
       if (isEliteSection) {
         const plan = (window._currentPlan || '').toLowerCase();
         if (plan !== 'elite') {
+          // Cf. _pendingGatedSection ci-dessous : on memorise la cible pour
+          // rejouer la navigation si le statut (admin/abo) se resout apres coup.
+          _pendingGatedSection = section;
           try { localStorage.setItem('kairos_plan', 'elite'); } catch (e) {}
           if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
           document.getElementById('paywallOverlay').classList.remove('hidden');
@@ -9357,10 +9384,20 @@
       }
 
       if (isPremiumSection && !isPremium) {
+        // RACE (fix juillet 2026) : isAdminUser/isPremium sont resolus en ASYNC
+        // (checkAdminStatus -> /api/admin/whoami, checkSubscription -> Stripe).
+        // Si l'user clique une section Pro avant la resolution, on tombait ici,
+        // le paywall s'ouvrait ET la navigation etait abandonnee (return) —
+        // sans jamais etre rejouee ni le paywall referme. Un admin/abonne
+        // restait donc bloque devant un paywall. On memorise la cible : dès que
+        // le statut bascule (updatePremiumUI), on referme et on rejoue.
+        _pendingGatedSection = section;
         document.getElementById('paywallOverlay').classList.remove('hidden');
         if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
         return;
       }
+      // Navigation autorisee : plus rien en attente.
+      _pendingGatedSection = null;
 
       // Sidebar : active le parent hub (ou le bouton direct si pas dans un hub)
       document.querySelectorAll('.sidebar-item').forEach(b => b.classList.toggle('active', b.dataset.section === hubParent));
