@@ -849,6 +849,13 @@ async function handleRequest(request, env, ctx) {
         if (request.method === 'POST' && path === '/api/admin/run-health-check') {
           return handleAdminRunHealthCheck(env, origin);
         }
+        // Garde-fou post-deadline 13F (aout 2026) : verifie que la vague de
+        // depots du trimestre echu (deadline +45j) est bien rentree. Appele par
+        // le workflow 13f-freshness-check.yml quelques jours apres chaque
+        // deadline (fev/mai/aou/nov). Alerte email si sous le seuil.
+        if (path === '/api/admin/check-13f-freshness') {
+          return handleCheck13fFreshness(env, url, origin);
+        }
         if (path === '/api/admin/health-status') {
           return handleAdminHealthStatus(env, origin);
         }
@@ -2210,6 +2217,118 @@ async function handleQuarterActivity(env, origin) {
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'Activity computation failed', detail: String(e && e.message || e) }, 500, origin);
+  }
+}
+
+// ============================================================
+// GARDE-FOU POST-DEADLINE 13F (aout 2026)
+// ============================================================
+// Les 13F d'un trimestre sont dus 45 jours apres sa fin (14 fev / 15 mai /
+// 14 aout / 14 nov). La quasi-totalite des gros fonds deposent les 2-3 derniers
+// jours. Ce check, lance quelques jours APRES chaque deadline par le workflow
+// 13f-freshness-check.yml, verifie que la vague de depots du trimestre echu est
+// bien rentree (part des fonds dont le dernier reportDate = ce trimestre) et
+// envoie une alerte email si on est sous le seuil (defaut 70%).
+//
+// GET/POST /api/admin/check-13f-freshness[?threshold=70][&notifyOk=1]
+//   threshold : % minimal de fonds au dernier trimestre (defaut 70)
+//   notifyOk  : si '1', envoie aussi un email de confirmation quand tout est OK
+// Reponse : { expectedQuarter, totalFunds, atLatest, pct, threshold, healthy,
+//             distribution, alertSent }
+// Dernier jour de trimestre >= ~45j avant `now`. Reference stable sans dependre
+// de l'ordre des fonds.
+function expectedQuarterEnd(now) {
+  const cutoff = new Date(now.getTime() - 46 * 86400 * 1000); // deadline ~45j + marge
+  const y = cutoff.getUTCFullYear();
+  const ends = [];
+  for (const yr of [y, y - 1]) {
+    ends.push(new Date(Date.UTC(yr, 2, 31)));   // 31 mars
+    ends.push(new Date(Date.UTC(yr, 5, 30)));   // 30 juin
+    ends.push(new Date(Date.UTC(yr, 8, 30)));   // 30 sept
+    ends.push(new Date(Date.UTC(yr, 11, 31)));  // 31 dec
+  }
+  const valid = ends.filter(e => e <= cutoff).sort((a, b) => b - a);
+  return valid[0].toISOString().slice(0, 10);
+}
+
+async function handleCheck13fFreshness(env, url, origin) {
+  try {
+    const funds = await env.CACHE.get('13f-all-funds', 'json');
+    if (!Array.isArray(funds) || funds.length === 0) {
+      return jsonResponse({ error: '13f-all-funds KV vide ou introuvable' }, 503, origin);
+    }
+    const threshold = Math.min(Math.max(parseFloat(url.searchParams.get('threshold') || '70'), 0), 100);
+    const notifyOk = url.searchParams.get('notifyOk') === '1';
+    const now = new Date();
+    const expectedQuarter = expectedQuarterEnd(now);
+
+    // Distribution des fonds par dernier reportDate.
+    const dist = {};
+    for (const f of funds) {
+      const rd = (f.reportDate || '').slice(0, 10) || 'inconnu';
+      dist[rd] = (dist[rd] || 0) + 1;
+    }
+    const totalFunds = funds.length;
+    const atLatest = dist[expectedQuarter] || 0;
+    const pct = totalFunds ? Math.round((atLatest / totalFunds) * 1000) / 10 : 0;
+    const healthy = pct >= threshold;
+
+    const distSorted = Object.entries(dist).sort((a, b) => b[0].localeCompare(a[0]));
+    log.info('check13f.freshness', { expectedQuarter, totalFunds, atLatest, pct, threshold, healthy });
+
+    // Email : alerte si sous le seuil ; confirmation seulement si notifyOk=1.
+    let alertSent = false;
+    const shouldEmail = !healthy || notifyOk;
+    if (shouldEmail && env.BREVO_API_KEY) {
+      const adminEmail = env.SUPPORT_INBOX_EMAIL || 'natquinson@gmail.com';
+      const distRows = distSorted.map(([d, n]) => {
+        const isLatest = d === expectedQuarter;
+        return `<tr style="border-bottom:1px solid #E5E7EB">
+          <td style="padding:6px 8px${isLatest ? ';font-weight:700' : ''}">${d}${isLatest ? ' (attendu)' : ''}</td>
+          <td style="padding:6px 8px;text-align:right${isLatest ? ';font-weight:700' : ''}">${n}</td>
+        </tr>`;
+      }).join('');
+      const bar = `<div style="background:#E5E7EB;border-radius:6px;height:14px;overflow:hidden;margin:6px 0">
+        <div style="background:${healthy ? '#10B981' : '#EF4444'};height:14px;width:${Math.min(pct, 100)}%"></div></div>`;
+      const html = `
+        <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1F2937">
+          <h2 style="color:${healthy ? '#10B981' : '#EF4444'};border-bottom:2px solid ${healthy ? '#10B981' : '#EF4444'};padding-bottom:8px">
+            ${healthy ? '✅ 13F à jour' : '⚠️ 13F incomplets'} — trimestre ${expectedQuarter}</h2>
+          <p><strong>${atLatest}/${totalFunds}</strong> fonds ont déposé leur 13F du trimestre échu (<strong>${pct}%</strong>, seuil ${threshold}%).</p>
+          ${bar}
+          <h3 style="margin-top:20px;font-size:14px;color:#6B7280">Répartition par trimestre</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:#F3F4F6"><th style="padding:6px 8px;text-align:left">Report date</th><th style="padding:6px 8px;text-align:right">Fonds</th></tr></thead>
+            <tbody>${distRows}</tbody>
+          </table>
+          ${healthy ? '' : `<div style="margin-top:16px;padding:12px;background:#FEE2E2;border-radius:6px;font-size:13px">
+            Sous le seuil : la vague de dépôts n'est peut-être pas complète, ou le pipeline 13F n'a pas ingéré la deadline. Vérifier <code>13f-deadline-refresh</code> et <code>update-13f</code>.</div>`}
+          <div style="margin-top:16px;padding:12px;background:#FEF3C7;border-radius:6px;font-size:12px">
+            💡 Dashboard admin : <a href="https://kairosinsider.fr/dashboard.html#admin" style="color:#3B82F6">kairosinsider.fr</a></div>
+        </div>`;
+      try {
+        const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
+          body: JSON.stringify({
+            sender: { name: 'Kairos Data Check', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
+            to: [{ email: adminEmail, name: 'Admin' }],
+            subject: healthy
+              ? `✅ [Kairos] 13F ${expectedQuarter} à jour (${pct}%)`
+              : `⚠️ [Kairos Alert] 13F ${expectedQuarter} incomplets : ${pct}% (< ${threshold}%)`,
+            htmlContent: html,
+          }),
+        });
+        alertSent = r.ok;
+      } catch (e) { log.error('check13f.email.failed', { err: String(e && e.message || e) }); }
+    }
+
+    return jsonResponse({
+      expectedQuarter, totalFunds, atLatest, pct, threshold, healthy,
+      distribution: Object.fromEntries(distSorted), alertSent,
+    }, 200, origin);
+  } catch (e) {
+    return jsonResponse({ error: '13F freshness check failed', detail: String(e && e.message || e) }, 500, origin);
   }
 }
 

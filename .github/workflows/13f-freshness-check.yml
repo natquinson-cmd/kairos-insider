@@ -1,0 +1,58 @@
+name: 13F Freshness Check (post-deadline)
+
+# Garde-fou post-deadline 13F (aout 2026).
+# Les 13F d'un trimestre sont dus 45j apres sa fin : ~14 fev / 15 mai / 14 aou /
+# 14 nov. La quasi-totalite des gros fonds deposent les 2-3 derniers jours. Ce
+# check tourne QUELQUES JOURS APRES chaque deadline et verifie que la vague est
+# bien rentree (part des fonds dont le dernier reportDate = trimestre echu).
+# L'endpoint worker envoie une ALERTE EMAIL si on est sous le seuil ; il reste
+# SILENCIEUX si tout est OK (sauf notify_ok). Ce workflow n'echoue jamais sur des
+# 13F incomplets (l'email est le canal d'alerte) -> pas de mail "workflow failed"
+# parasite ; il n'echoue que si l'endpoint est injoignable.
+
+on:
+  schedule:
+    # 16, 18 et 20 des mois de deadline (fev/mai/aou/nov) a 6h UTC.
+    # 3 passages : le 1er attrape la vague, les suivants re-checkent si incomplet.
+    - cron: '0 6 16,18,20 2,5,8,11 *'
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: 'Seuil % de fonds au dernier trimestre (defaut 70)'
+        required: false
+        default: '70'
+      notify_ok:
+        description: 'Envoyer aussi un email de confirmation si OK (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  check-13f-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call 13F freshness endpoint
+        env:
+          ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+          THRESHOLD: ${{ github.event.inputs.threshold || '70' }}
+          NOTIFY_OK: ${{ github.event.inputs.notify_ok || 'false' }}
+        run: |
+          set -euo pipefail
+          QS="threshold=${THRESHOLD}"
+          if [ "${NOTIFY_OK}" = "true" ]; then QS="${QS}&notifyOk=1"; fi
+          URL="https://kairos-insider-api.natquinson.workers.dev/api/admin/check-13f-freshness?${QS}"
+          echo "GET ${URL}"
+          # -f : echec HTTP (endpoint injoignable / 5xx) => job en erreur.
+          #      Un simple 13F incomplet renvoie 200 + healthy:false (pas d'echec).
+          RESP=$(curl -fsS -X POST -H "X-Admin-API-Key: ${ADMIN_API_KEY}" "${URL}")
+          echo "Reponse : ${RESP}"
+          python3 - "$RESP" <<'PY'
+          import json, sys
+          d = json.loads(sys.argv[1])
+          print(f"Trimestre attendu : {d.get('expectedQuarter')}")
+          print(f"Fonds a jour      : {d.get('atLatest')}/{d.get('totalFunds')} ({d.get('pct')}%, seuil {d.get('threshold')}%)")
+          print(f"Statut            : {'OK' if d.get('healthy') else 'SOUS LE SEUIL (alerte email envoyee)'}")
+          print(f"Repartition       : {d.get('distribution')}")
+          PY

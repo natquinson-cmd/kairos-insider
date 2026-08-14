@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 22 juillet 2026 (v26 - Fix racine paywall fantôme : /stripe/status connaît admin + comp)
+**Dernière mise à jour** : 14 août 2026 (v27 - Garde-fou post-deadline 13F)
 
 ---
+
+## 🎯 v27 — Garde-fou post-deadline 13F (14 août 2026)
+
+### ✅ Alerte automatique si la vague 13F n'est pas rentrée
+- **Contexte** : premier abonné payant + les 13F du T2 (positions au 30 juin) arrivent pile à la deadline du 14 août. Les gros fonds déposent les 2-3 derniers jours.
+- **Ajout** : endpoint worker `GET/POST /api/admin/check-13f-freshness?threshold=70` — calcule le trimestre échu (deadline +45j), la part des fonds (`13f-all-funds`) dont le dernier `reportDate` = ce trimestre, et **envoie une alerte email Brevo si sous le seuil** (défaut 70%). Silencieux si OK (sauf `notifyOk=1`). Renvoie la distribution complète par trimestre.
+- **Workflow** `13f-freshness-check.yml` : cron `0 6 16,18,20 2,5,8,11 *` (3 passages quelques jours après chaque deadline fév/mai/août/nov). N'échoue **jamais** sur des 13F incomplets (l'email est le canal) → pas de mail « workflow failed » parasite ; échoue seulement si l'endpoint est injoignable.
 
 ## 🎯 v25 — Accès admin serveur (fix « page Activists vide ») + reveal landing (22 juillet 2026)
 
