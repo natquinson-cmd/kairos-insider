@@ -41,7 +41,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260821b-i18n"></script>
+  <script src="assets/i18n.js?v=20260821c-i18n"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
@@ -10960,9 +10960,9 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             : '';
           // Format chip : "8 ach · 13 vt" couleur sur chiffres
           const chip = `<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">
-            <strong style="color:${buy>0?'#10B981':'var(--text-muted)'}">${buy}${t('dash.home.signal_buys_abbr', '</strong>&nbsp;ach')}
+            <strong style="color:${buy>0?'#10B981':'var(--text-muted)'}">${buy}</strong>&nbsp;ach
             <span style="opacity:0.5;margin:0 4px">·</span>
-            <strong style="color:${sell>0?'#EF4444':'var(--text-muted)'}">${sell}${t('dash.home.signal_sells_abbr', '</strong>&nbsp;vt')}
+            <strong style="color:${sell>0?'#EF4444':'var(--text-muted)'}">${sell}</strong>&nbsp;vt
           </span>`;
           return `
             <div class="signal-row" ${goTicker(c.ticker)}>
@@ -12965,7 +12965,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <details class="explainer-collapsible" style="margin-top:24px;padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
             <summary style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
               <span>💡</span>
-              ${t('dash.hot.explainer_title', '<span>Comment interpréter ces données ?</span>')}
+              <span>${t('dash.hot.explainer_title', 'Comment interpréter ces données ?')}</span>
               <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
             </summary>
             <div style="padding:14px 4px 4px 28px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
@@ -15931,7 +15931,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
               return `
                 <div style="margin-top:10px;padding:12px 14px;background:linear-gradient(135deg,${zbColor}10,transparent);border-left:3px solid ${zbColor};border-radius:6px;font-size:12px">
                   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
-                    <span style="opacity:0.85">📊 Consensus <a href="${zb.sourceUrl||'#'}" target="_blank" rel="noopener" style="color:#3B82F6;text-decoration:underline">${t('stock.zb.euAnalysts', 'Zonebourse</a> (analystes EU)')}</span>
+                    <span style="opacity:0.85">📊 Consensus <a href="${zb.sourceUrl||'#'}" target="_blank" rel="noopener" style="color:#3B82F6;text-decoration:underline">Zonebourse</a> (analystes EU)</span>
                     <strong style="text-transform:uppercase;letter-spacing:0.04em;color:${zbColor}">${zb.recommendationMean || zb.consensus || '—'}</strong>
                   </div>
                   <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;opacity:0.85">
@@ -16772,10 +16772,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <h3 style="font-size:16px;margin:0 0 12px">${secLabel(L.secLastQuarter, 'history', '#14B8A6')}</h3>
           <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
             ${t('dash.13f.activityIntro', 'Mouvements significatifs détectés dans les top holdings des fonds suivis')} :
-            <strong>${s.newCount}${t('dash.13f.newPositionsLabel', '</strong> nouvelles positions ·')}
-            <strong>${s.soldCount}${t('dash.13f.exitsLabel', '</strong> sorties ·')}
-            <strong>${s.increasedCount}${t('dash.13f.increasedLabel', '</strong> renforcées (+20%) ·')}
-            <strong>${s.decreasedCount}${t('dash.13f.reducedLabel', '</strong> réduites (-20%)')}
+            <strong>${s.newCount}</strong> nouvelles positions ·
+            <strong>${s.soldCount}</strong> sorties ·
+            <strong>${s.increasedCount}</strong> renforcées (+20%) ·
+            <strong>${s.decreasedCount}</strong> réduites (-20%)
           </p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px">
             ${card('Nouvelles positions', '#2ecc71', data.newPositions, '🆕')}
@@ -16877,7 +16877,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
 
           <h3 style="font-size:18px;margin:0 0 12px">${t('dash.consensus13f.top50Title', '🏆 Top 50 actions partagées')}</h3>
           <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
-            ${t('dash.consensus13f.top50Intro', 'Triées par nombre de fonds en <strong>conviction</strong> (position ≥ 0.3% du portefeuille). Les puces vertes ★ indiquent les convictions, les grises sont les positions passives.')}
+            Triées par nombre de fonds en <strong>conviction</strong> (position ≥ 0.3% du portefeuille). Les puces vertes ★ indiquent les convictions, les grises sont les positions passives.
           </p>
           <div class="table-scroll" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -16901,7 +16901,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             <div style="margin-top:32px">
               <h3 style="font-size:18px;margin:0 0 12px">${t('dash.consensus13f.lonelyPicksTitle', '🎯 Lonely Picks — paris uniques')}</h3>
               <p style="font-size:12px;opacity:0.6;margin-bottom:14px">
-                ${t('dash.consensus13f.lonelyPicksIntro', 'Actions détenues par <strong>un seul fonds</strong> dans notre liste. Soit pari contrarian / niche, soit position que les autres n\'ont pas encore découverte.')}
+                Actions détenues par <strong>un seul fonds</strong> dans notre liste. Soit pari contrarian / niche, soit position que les autres n'ont pas encore découverte.
               </p>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px">
                 ${lonelyPicks.map(c => `
@@ -16921,12 +16921,12 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <details class="explainer-collapsible" style="margin-top:24px;padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
             <summary style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;outline:none">
               <span>💡</span>
-              ${t('dash.consensus13f.howToRead', '<span>Comment lire ces données ?</span>')}
+              <span>${t('dash.consensus13f.howToRead', 'Comment lire ces données ?')}</span>
               <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Cliquer pour déplier</span>
             </summary>
             <div style="padding:14px 4px 4px 28px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
               • <strong style="color:var(--text-primary)">Nombre de fonds</strong> (${total} ${t('dash.consensus13f.explainNbFundsBody', 'suivis) : combien détiennent la position, même infime. Rassurant car montre que les institutionnels valident le titre.')}<br>
-              • <span style="color:#2ecc71">★ <strong>Conviction</strong></span> ${t('dash.consensus13f.explainConviction', ': fonds dont la position représente <strong>')}≥ 0.3% du portefeuille</strong> ${t('dash.consensus13f.explainConvictionNote', '(signal fort : ils l\'ont choisie activement, ce n\'est pas juste de l\'indexation passive type BlackRock/Vanguard)')}.<br>
+              • <span style="color:#2ecc71">★ <strong>Conviction</strong></span> : fonds dont la position représente <strong>≥ 0.3% du portefeuille</strong> ${t('dash.consensus13f.explainConvictionNote', '(signal fort : ils l\'ont choisie activement, ce n\'est pas juste de l\'indexation passive type BlackRock/Vanguard)')}.<br>
               • Le tri privilégie les <strong>actions avec plusieurs fonds en conviction simultanément</strong> — c'est le vrai smart money consensus.
               ${updatedAt ? `<br><span style="opacity:0.5;font-size:11px">Mis à jour : ${updatedAt}</span>` : ''}
             </div>
@@ -17265,12 +17265,13 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           const labelTxt = filter.query || filter.matchKey || filter.normalized;
           banner.innerHTML = `
             <div style="color:var(--text-secondary)">
-              ${t('dash.hedge.filteredOn', '🔍 Affichage filtré sur <strong')} style="color:#74b9ff">${escapeHtmlClient(labelTxt)}</strong>
+              🔍 Affichage filtré sur <strong style="color:#74b9ff">${escapeHtmlClient(labelTxt)}</strong>
               · ${matchedCount}/${totalCount} ${t('dash.hedge.positionsShown', 'positions affichées')}
             </div>
             <button type="button" onclick="showAllFundPositions(this)"
               style="padding:5px 10px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">
-              ${t('dash.hedge.viewAllPositions', 'Voir toutes les positions\n            </button>')}`;
+              Voir toutes les positions
+            </button>`;
           // Insere apres le sub-header (juste avant le .table-wrap)
           const tableWrap = wrap.querySelector('.table-wrap');
           if (tableWrap) tableWrap.parentNode.insertBefore(banner, tableWrap);
@@ -17839,7 +17840,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             <div class="table-wrap" style="border:none">
               <table>
                 <thead><tr>
-                  ${t('dash.hedge.col_stock', '<th>Action</th>')}
+                  <th>${t('dash.hedge.col_stock', 'Action')}</th>
                   <th style="text-align:right">Nb d'actions</th>
                   <th style="text-align:right">Valeur</th>
                   <th style="text-align:right">% du portefeuille</th>
@@ -17878,7 +17879,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <table>
             <thead><tr>
               <th style="width:40px">#</th>
-              ${t('dash.hedge.col_investor', '<th>Investisseur</th>')}
+              <th>${t('dash.hedge.col_investor', 'Investisseur')}</th>
               <th class="${sortCls('aum')}" onclick="sortHedgeFunds('aum')" style="text-align:right;white-space:nowrap" title="${titleSort}">AUM estimé${sortIcon('aum')}</th>
               <th class="${sortCls('perf')}" onclick="sortHedgeFunds('perf')" style="text-align:right;white-space:nowrap" title="Performance du dernier trimestre — ${titleSort}" data-i18n-title="dash.hedge.col_perfq_tip">Perf. trim.${sortIcon('perf')}</th>
               <th class="${sortCls('perfY')}" onclick="sortHedgeFunds('perfY')" style="text-align:right;white-space:nowrap" title="Performance sur 1 an — ${titleSort}" data-i18n-title="dash.hedge.col_perfy_tip">Perf. 1 an${sortIcon('perfY')}</th>
@@ -18258,7 +18259,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       wrap.innerHTML = `<div class="etf-overview">`
         + `<div class="etf-summary">${summary}</div>`
         + filter
-        + `<div class="etf-minibars-card">${t('dash.etf.top_positions_weight', '<div class="etf-minibars-title">Top positions (poids dans l\'ETF)</div>')}${bars}</div>`
+        + `<div class="etf-minibars-card"><div class="etf-minibars-title">${t('dash.etf.top_positions_weight', 'Top positions (poids dans l\'ETF)')}</div>${bars}</div>`
         + `</div>`;
     }
 
@@ -18408,10 +18409,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">Stratégie &amp; profil ▾</span>
           </summary>
           <div style="padding:2px 14px 14px;font-size:13px;line-height:1.6;color:var(--text-secondary)">
-            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('target', info.color)}<span>${t('dash.etf.label_objective', '<strong style="color:var(--text-primary)">Objectif :</strong>')} ${info.purpose}</span></div>
-            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('settings', info.color)}<span>${t('dash.etf.label_strategy', '<strong style="color:var(--text-primary)">Stratégie :</strong>')} ${info.strategy}</span></div>
-            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('lightbulb', info.color)}<span>${t('dash.etf.label_usecase', '<strong style="color:var(--text-primary)">Cas d\'usage :</strong>')} ${info.useCase}</span></div>
-            <div style="display:flex;gap:7px;font-size:12px;opacity:0.85">${_ico('alertTriangle', '#F59E0B')}<span>${t('dash.etf.label_riskprofile', '<strong style="color:var(--text-primary)">Profil de risque :</strong>')} ${info.risk}</span></div>
+            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('target', info.color)}<span><strong style="color:var(--text-primary)">${t('dash.etf.label_objective', 'Objectif :')}</strong> ${info.purpose}</span></div>
+            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('settings', info.color)}<span><strong style="color:var(--text-primary)">${t('dash.etf.label_strategy', 'Stratégie :')}</strong> ${info.strategy}</span></div>
+            <div style="margin-bottom:6px;display:flex;gap:7px">${_ico('lightbulb', info.color)}<span><strong style="color:var(--text-primary)">${t('dash.etf.label_usecase', 'Cas d\'usage :')}</strong> ${info.useCase}</span></div>
+            <div style="display:flex;gap:7px;font-size:12px;opacity:0.85">${_ico('alertTriangle', '#F59E0B')}<span><strong style="color:var(--text-primary)">${t('dash.etf.label_riskprofile', 'Profil de risque :')}</strong> ${info.risk}</span></div>
           </div>
         </details>
       `;
@@ -18465,7 +18466,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                   ` : ''}
                   ${r.movers.length > 0 ? `
                     <div style="font-size:11px">
-                      ${t('dash.etf.big_moves', '<span style="opacity:0.6">Gros mouvements :</span>')}
+                      <span style="opacity:0.6">${t('dash.etf.big_moves', 'Gros mouvements :')}</span>
                       <span style="opacity:0.85"> ${r.movers.slice(0, 3).map(m => {
                         const c = m.delta > 0 ? '#34D399' : '#F87171';
                         const arrow = m.delta > 0 ? '↗' : '↘';
@@ -18625,9 +18626,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                 <th style="text-align:center">#</th>
                 <th>Ticker</th>
                 <th>Entreprise</th>
-                ${t('dash.etf.col_shares', '<th style="text-align:right">Actions</th>\n                <th style="text-align:right">Prix</th>')}
+                <th style="text-align:right">Actions</th>
+                <th style="text-align:right">Prix</th>
                 <th style="text-align:right">Valeur</th>
-                ${t('dash.etf.col_weight', '<th style="text-align:right">Poids</th>')}
+                <th style="text-align:right">${t('dash.etf.col_weight', 'Poids')}</th>
                 ${hasChanges ? `<th style="text-align:right">Variation${prevLabel}</th>` : ''}
               </tr></thead>
               <tbody>${rows}</tbody>
@@ -18859,7 +18861,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         <!-- Hint navigation : 2 clics distincts (mai 2026) -->
         <div style="background:linear-gradient(135deg,rgba(116,185,255,0.06),rgba(162,155,254,0.03));border:1px solid rgba(116,185,255,0.18);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:14px">💡</span>
-          ${t('dash.clustering.hint_nav', '<span>Clic sur le <strong style="color:var(--accent-blue)">ticker</strong> → décrypter la valeur · Clic sur la <strong>ligne</strong> → détail des transactions du cluster dans Explorer</span>')}
+          <span>Clic sur le <strong style="color:var(--accent-blue)">ticker</strong> → décrypter la valeur · Clic sur la <strong>ligne</strong> → détail des transactions du cluster dans Explorer</span>
         </div>
         <div class="table-wrap">
           <table>
@@ -18867,10 +18869,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
               <th>Ticker</th>
               <th style="text-align:center">Direction</th>
               <th style="text-align:center"># Insiders</th>
-              ${t('dash.clustering.col_totalvalue', '<th style="text-align:right">Valeur totale</th>')}
-              ${t('dash.clustering.col_netbuysell', '<th style="text-align:right">Net achat/vente</th>')}
-              ${t('dash.clustering.col_insiders_top3', '<th>Insiders (top 3)</th>')}
-              ${t('dash.clustering.col_last', '<th>Derniere</th>')}
+              <th style="text-align:right">${t('dash.clustering.col_totalvalue', 'Valeur totale')}</th>
+              <th style="text-align:right">${t('dash.clustering.col_netbuysell', 'Net achat/vente')}</th>
+              <th>${t('dash.clustering.col_insiders_top3', 'Insiders (top 3)')}</th>
+              <th>${t('dash.clustering.col_last', 'Derniere')}</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -18956,19 +18958,19 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       content.innerHTML = `
         <div class="sub-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <span style="color:var(--text-primary);font-size:13px;font-weight:600">${txs.length} transaction${txs.length > 1 ? 's' : ''} · ${escapeHtml(company || ticker)} · triees par date decroissante</span>
-          ${t('dash.clustering.last90days', '<span class="last-update">90 derniers jours</span>')}
+          <span class="last-update">${t('dash.clustering.last90days', '90 derniers jours')}</span>
         </div>
         <div style="overflow-x:auto;overflow-y:auto;max-height:500px;border:1px solid var(--border);border-radius:8px">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead style="position:sticky;top:0;background:var(--surface-2);z-index:1">
               <tr>
                 <th style="text-align:left;padding:8px 12px;white-space:nowrap">Date</th>
-                ${t('dash.clustering.col_filer', '<th style="text-align:left;padding:8px 12px">Déclarant</th>')}
-                ${t('dash.clustering.col_position', '<th style="text-align:left;padding:8px 12px">Poste</th>')}
+                <th style="text-align:left;padding:8px 12px">${t('dash.clustering.col_filer', 'Déclarant')}</th>
+                <th style="text-align:left;padding:8px 12px">${t('dash.clustering.col_position', 'Poste')}</th>
                 <th style="text-align:center;padding:8px 12px">Type</th>
-                ${t('dash.clustering.col_shares', '<th style="text-align:right;padding:8px 12px;white-space:nowrap">Actions</th>')}
-                ${t('dash.clustering.col_unitprice', '<th style="text-align:right;padding:8px 12px;white-space:nowrap">Prix unit.</th>')}
-                ${t('dash.clustering.col_value', '<th style="text-align:right;padding:8px 12px;white-space:nowrap">Valeur</th>')}
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">${t('dash.clustering.col_shares', 'Actions')}</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">${t('dash.clustering.col_unitprice', 'Prix unit.')}</th>
+                <th style="text-align:right;padding:8px 12px;white-space:nowrap">${t('dash.clustering.col_value', 'Valeur')}</th>
                 <th style="text-align:center;padding:8px 12px">Source</th>
               </tr>
             </thead>
@@ -19002,7 +19004,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     async function loadNetFlow() {
       const area = document.getElementById('nfArea');
       if (!area) return;
-      area.innerHTML = `<div class="loading">${t('dash.netflow.computing', '<div class="spinner"></div>Calcul du flux net insiders…')}</div>`;
+      area.innerHTML = `<div class="loading"><div class="spinner"></div>Calcul du flux net insiders…</div>`;
 
       const days = document.getElementById('nfDays')?.value || '30';
       const direction = document.getElementById('nfDirection')?.value || 'all';
@@ -19082,7 +19084,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     async function loadCrossTicker() {
       const area = document.getElementById('ctArea');
       if (!area) return;
-      area.innerHTML = `<div class="loading">${t('dash.crossticker.searching', '<div class="spinner"></div>Recherche des insiders transversaux…')}</div>`;
+      area.innerHTML = `<div class="loading"><div class="spinner"></div>Recherche des insiders transversaux…</div>`;
 
       const days = document.getElementById('ctDays')?.value || '90';
       const minTickers = document.getElementById('ctMinTickers')?.value || '3';
@@ -19440,7 +19442,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <div style="margin:32px 0">
             <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap">
               <h4 style="margin:0;font-size:15px;font-weight:700">🧭 Les 7 indicateurs CNN qui composent l'indice</h4>
-              ${t('dash.feargreed.hover_hint', '<span style="font-size:11px;color:var(--text-muted)">Survolez chaque ℹ️ pour le détail</span>')}
+              <span style="font-size:11px;color:var(--text-muted)">${t('dash.feargreed.hover_hint', 'Survolez chaque ℹ️ pour le détail')}</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
               ${[
@@ -19853,7 +19855,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <div class="empty-state" style="padding:60px 20px;text-align:center">
             <div style="font-size:48px;margin-bottom:14px">📉</div>
             <p style="margin:0 0 10px;font-size:16px;color:var(--text-primary);font-weight:600">VIX indisponible</p>
-            <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">${t('dash.vix.unavailable_body', 'Impossible de récupérer l\'historique VIX. Réessayez dans quelques minutes.</p>')}
+            <p style="margin:0;color:var(--text-secondary);font-size:13px;max-width:420px;margin:0 auto">Impossible de récupérer l'historique VIX. Réessayez dans quelques minutes.</p>
           </div>`;
       }
     }
@@ -20022,7 +20024,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const statCards = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">
           <div style="padding:12px 14px;background:rgba(231,76,60,0.10);border:1px solid rgba(231,76,60,0.25);border-radius:10px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">${t('dash.shorts.risk_extreme', '🔥 Extrême (>40%)')}</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">🔥 Extrême (>40%)</div>
             <div style="font-size:22px;font-weight:700;color:#e74c3c">${byRisk.extreme || 0}</div>
           </div>
           <div style="padding:12px 14px;background:rgba(231,165,76,0.10);border:1px solid rgba(231,165,76,0.25);border-radius:10px">
@@ -20034,7 +20036,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             <div style="font-size:22px;font-weight:700;color:#74b9ff">${byRisk.modere || 0}</div>
           </div>
           <div style="padding:12px 14px;background:rgba(46,204,113,0.10);border:1px solid rgba(46,204,113,0.25);border-radius:10px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">${t('dash.shorts.risk_low', '✅ Faible (<15%)')}</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.65;margin-bottom:4px">✅ Faible (<15%)</div>
             <div style="font-size:22px;font-weight:700;color:#2ecc71">${byRisk.faible || 0}</div>
           </div>
           <div style="padding:12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px">
@@ -20108,13 +20110,14 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             <thead><tr>
               <th style="text-align:center;width:40px">#</th>
               <th>Ticker</th>
-              ${t('dash.shorts.col_company', '<th>Entreprise</th>\n              <th style="text-align:right">Short %</th>')}
+              <th>Entreprise</th>
+              <th style="text-align:right">Short %</th>
               <th style="text-align:right" title="Variation absolue % du float vs il y a 7 jours" data-i18n-title="dash.shorts.tip_delta7" data-i18n-title="dash.shorts.col_d7_tip">Δ 7j</th>
               <th style="text-align:right" title="Variation absolue % du float vs il y a 30 jours" data-i18n-title="dash.shorts.tip_delta30" data-i18n-title="dash.shorts.col_d30_tip">Δ 30j</th>
               <th style="text-align:center" title="Évolution du % short sur 30 jours" data-i18n-title="dash.shorts.tip_trend" data-i18n-title="dash.shorts.col_trend_tip">Tendance 30j</th>
               <th style="text-align:right">Float</th>
-              ${t('dash.shorts.col_sector', '<th>Secteur</th>')}
-              ${t('dash.shorts.col_risk', '<th style="text-align:center">Risque</th>')}
+              <th>${t('dash.shorts.col_sector', 'Secteur')}</th>
+              <th style="text-align:center">${t('dash.shorts.col_risk', 'Risque')}</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -20270,11 +20273,11 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         <div class="charts-row">
           ${treemapOnly ? '' : `
             <div class="chart-card">
-              ${t('dash.charts.portfolio_split', '<h4>Repartition du portefeuille</h4>')}
+              <h4>${t('dash.charts.portfolio_split', 'Repartition du portefeuille')}</h4>
               <canvas id="${containerId}-pie"></canvas>
             </div>
             <div class="chart-card">
-              ${t('dash.charts.top10_weight', '<h4>Top 10 positions par poids</h4>')}
+              <h4>${t('dash.charts.top10_weight', 'Top 10 positions par poids')}</h4>
               <canvas id="${containerId}-bar"></canvas>
             </div>
           `}
@@ -21544,7 +21547,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       if (statsEl) statsEl.innerHTML = `
         <div><span class="stat-dot green"></span>${totalWinDays} jours gagnants (${winPct}%)</div>
         <div><span class="stat-dot red"></span>${totalLossDays} jours perdants (${lossPct}%)</div>
-        ${t('dash.portfolio.month_pnl', '<div><strong>P&L du mois :</strong>&nbsp;')}<span style="color:${monthTotal>=0?'var(--accent-green)':'var(--accent-red)'};font-weight:700">${monthDisp}</span></div>
+        <div><strong>${t('dash.portfolio.cal_month_pnl', 'P&L du mois :')}</strong>&nbsp;<span style="color:${monthTotal>=0?'var(--accent-green)':'var(--accent-red)'};font-weight:700">${monthDisp}</span></div>
       `;
     }
 
@@ -22430,7 +22433,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         </tr>`;
       }
       area.innerHTML = `<div class="table-wrap"><table>
-        ${t('dash.portfolio.col_asset', '<thead><tr><th>Date</th><th>Actif</th><th>Type</th><th style="text-align:right">Taille</th>')}<th style="text-align:right">P&L</th></tr></thead>
+        <thead><tr><th>Date</th><th>Actif</th><th>Type</th><th style="text-align:right">Taille</th><th style="text-align:right">P&L</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
     }
@@ -22846,8 +22849,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       el.innerHTML = `
         <table class="radar-table">
           <thead><tr>
-            ${t('dash.radar.col_value', '<th>Instrument</th><th style="text-align:right">Qté</th><th style="text-align:right">Valeur</th>')}
-            <th style="text-align:right">P&amp;L</th>${t('dash.radar.col_alerts', '<th style="text-align:center">Kairos</th><th style="text-align:center">Alertes</th>')}
+            <th>Instrument</th><th style="text-align:right">Qté</th><th style="text-align:right">Valeur</th>
+            <th style="text-align:right">P&amp;L</th><th style="text-align:center">Kairos</th><th style="text-align:center">Alertes</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
@@ -22885,12 +22888,12 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       modal.innerHTML = `
         <div class="broker-modal-inner" style="max-width:760px;max-height:85vh;overflow-y:auto">
           <div class="broker-modal-header">
-            <h3 style="background:none;-webkit-background-clip:initial;background-clip:initial;-webkit-text-fill-color:initial;color:var(--text-primary)">${t('dash.radar.diag_title', '🔍 Diagnostic Radar</h3>')}
+            <h3 style="background:none;-webkit-background-clip:initial;background-clip:initial;-webkit-text-fill-color:initial;color:var(--text-primary)">🔍 Diagnostic Radar</h3>
             <button class="broker-modal-close" onclick="this.closest('.broker-modal').remove()">✕</button>
           </div>
           <p class="broker-modal-sub">${t('dash.radar.diag_sub', 'État technique de ta connexion broker. Utile pour identifier pourquoi des positions ne remontent pas.')}</p>
           <div id="radarDiagContent" style="font-size:12px;line-height:1.6">
-            ${t('dash.radar.diag_loading', '<p style="color:var(--text-muted)">Chargement...</p>')}
+            <p style="color:var(--text-muted)">${t('dash.radar.diag_loading', 'Chargement...')}</p>
           </div>
         </div>`;
       document.body.appendChild(modal);
@@ -22963,43 +22966,43 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         `).join('');
 
         content.innerHTML = `
-          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">${t('dash.radar.schema_d1', '📋 Schéma D1</h4>')}
+          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">📋 Schéma D1</h4>
           <p style="margin:0 0 16px">Schema version : ${schemaCol} (${(diag.schema?.columns || []).length} colonnes)</p>
 
-          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">${t('dash.radar.connections', '🔌 Connexions</h4>')}
+          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">🔌 Connexions</h4>
           <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
             <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
               <th style="padding:6px 10px;text-align:left">Broker</th>
-              ${t('dash.radar.col_status', '<th style="padding:6px 10px;text-align:left">Statut</th>')}
+              <th style="padding:6px 10px;text-align:left">${t('dash.radar.col_status', 'Statut')}</th>
               <th style="padding:6px 10px;text-align:left">Pos.</th>
-              ${t('dash.radar.col_value2', '<th style="padding:6px 10px;text-align:left">Valeur</th>')}
+              <th style="padding:6px 10px;text-align:left">${t('dash.radar.col_value2', 'Valeur')}</th>
               <th style="padding:6px 10px;text-align:left">Sync</th>
             </tr></thead>
             <tbody>${connsHtml || '<tr><td colspan="5" style="padding:10px;color:var(--text-muted)">Aucune connexion.</td></tr>'}</tbody>
           </table>
 
-          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">${t('dash.radar.positions_by_broker', '📊 Positions stockées (par broker)</h4>')}
+          <h4 style="margin:0 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">📊 Positions stockées (par broker)</h4>
           ${posCountsHtml}
 
-          <h4 style="margin:16px 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">${t('dash.radar.sync_test_result', '🔁 Résultat du sync test</h4>')}
+          <h4 style="margin:16px 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">🔁 Résultat du sync test</h4>
           ${syncHtml}
 
           ${sampleHtml ? `
-            <h4 style="margin:16px 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">${t('dash.radar.sample_positions', '🔬 Sample des 5 premières positions</h4>')}
+            <h4 style="margin:16px 0 10px;font-family:'Clash Display';font-size:14px;color:var(--text-primary)">🔬 Sample des 5 premières positions</h4>
             <table style="width:100%;border-collapse:collapse;background:var(--surface-1);border-radius:8px;overflow:hidden">
               <thead><tr style="font-size:10px;color:var(--text-muted);text-transform:uppercase">
                 <th style="padding:6px 8px;text-align:left">Broker</th>
                 <th style="padding:6px 8px;text-align:left">Ticker</th>
                 <th style="padding:6px 8px;text-align:left">Kairos</th>
-                ${t('dash.radar.col_has_value', '<th style="padding:6px 8px;text-align:left">Valeur ?</th>')}
-                ${t('dash.radar.col_has_score', '<th style="padding:6px 8px;text-align:left">Score ?</th>')}
+                <th style="padding:6px 8px;text-align:left">${t('dash.radar.col_has_value', 'Valeur ?')}</th>
+                <th style="padding:6px 8px;text-align:left">${t('dash.radar.col_has_score', 'Score ?')}</th>
               </tr></thead>
               <tbody>${sampleHtml}</tbody>
             </table>
           ` : ''}
 
           <details style="margin-top:20px;padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px">
-            <summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">${t('dash.radar.see_raw_json', 'Voir le JSON brut complet</summary>')}
+            <summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Voir le JSON brut complet</summary>
             <pre style="margin:10px 0 0;padding:10px;background:var(--bg-card);border-radius:6px;font-size:10.5px;overflow-x:auto;white-space:pre-wrap;word-break:break-word">${escapeHtml(JSON.stringify({ diagnostic: diag, syncResult }, null, 2))}</pre>
           </details>
         `;
@@ -23048,7 +23051,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                     <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${c.positions_count || 0} position${(c.positions_count || 0) > 1 ? 's' : ''} · Dernière sync : ${lastSync}</div>
                     ${errBadge}
                   </div>
-                  <button class="radar-btn danger" style="font-size:11px" onclick="confirmAndDelete('disconnect:${escapeHtml(c.broker)}:${escapeHtml(c.account_id || 'default')}')">${t('dash.manage.disconnect', '🔌 Déconnecter</button>')}
+                  <button class="radar-btn danger" style="font-size:11px" onclick="confirmAndDelete('disconnect:${escapeHtml(c.broker)}:${escapeHtml(c.account_id || 'default')}')">🔌 Déconnecter</button>
                 </div>`;
             }).join('');
       } catch (e) {
@@ -23900,7 +23903,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <th>Ticker</th>
           <th>Entreprise</th>
           <th>Insider</th>
-          ${t('dash.screener.col_role', '<th>Role</th>')}
+          <th>${t('dash.screener.col_role', 'Role')}</th>
           <th style="text-align:center">Type</th>
           <th style="text-align:right">Qty</th>
           <th style="text-align:right">Prix</th>
@@ -23991,7 +23994,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         modal.innerHTML = `
           <div style="max-width:640px;width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-              <h3 style="margin:0;font-size:18px">${t('dash.admin.tweets_preview_title', '🐦 Preview des tweets du jour</h3>')}
+              <h3 style="margin:0;font-size:18px">🐦 Preview des tweets du jour</h3>
               <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:4px 10px">✕</button>
             </div>
             <p style="font-size:12px;color:var(--text-muted);margin:0 0 18px">${t('dash.admin.tweets_preview_sub', 'Générés depuis les signaux Kairos du jour. En cliquant "Push Typefully", ces 3 drafts seront ajoutés à ta queue.')}</p>
@@ -24624,8 +24627,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
           <button onclick="closeAdminPartnerModal()" style="padding:9px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer;font-family:inherit;font-size:13px">Fermer</button>
           <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','pending')" style="padding:9px 16px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#F59E0B;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">${t('dash.admin.partner_set_pending', '⏳ Mettre en pending')}</button>
-          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','rejected')" style="padding:9px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#EF4444;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">${t('dash.admin.partner_reject', '❌ Rejeter</button>')}
-          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','accepted')" style="padding:9px 16px;background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">${t('dash.admin.partner_accept', '✅ Accepter</button>')}
+          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','rejected')" style="padding:9px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#EF4444;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">❌ Rejeter</button>
+          <button onclick="updateAdminPartnerStatus('${esc(app.id || app._kvKey || '')}','accepted')" style="padding:9px 16px;background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">✅ Accepter</button>
         </div>
       `;
       const title = document.getElementById('adminPartnerDetailTitle');
@@ -24694,7 +24697,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;font-size:11px">
           <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
             <div style="font-size:18px;font-weight:700;color:#74b9ff">${fmtN(k.totalUsers)}</div>
-            ${t('dash.admin.traffic_users', '<div style="color:var(--text-muted)">Utilisateurs</div>')}
+            <div style="color:var(--text-muted)">${t('dash.admin.traffic_users', 'Utilisateurs')}</div>
           </div>
           <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
             <div style="font-size:18px;font-weight:700;color:#10B981">${fmtN(k.activeUsers)}</div>
@@ -24714,7 +24717,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           </div>
           <div style="padding:10px;background:var(--surface-2);border-radius:6px;text-align:center">
             <div style="font-size:14px;font-weight:700">${fmtDur(k.avgSessionDuration || 0)}</div>
-            ${t('dash.admin.traffic_avg_duration', '<div style="color:var(--text-muted)">Durée moy.</div>')}
+            <div style="color:var(--text-muted)">${t('dash.admin.traffic_avg_duration', 'Durée moy.')}</div>
           </div>
         </div>
       `;
@@ -25512,7 +25515,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <div>Job · cron · summary</div>
           <div>Timeline 24h (UTC)</div>
           <div style="text-align:center">Status</div>
-          ${t('dash.admin.col_last_run', '<div style="text-align:right">Dernier run</div>')}
+          <div style="text-align:right">${t('dash.admin.col_last_run', 'Dernier run')}</div>
           <div style="text-align:right">Action</div>
         </div>
         ${rows}
@@ -25656,7 +25659,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <div>Pays</div>
           <div>Session · page</div>
           <div style="text-align:center">Lang</div>
-          ${t('dash.admin.chat_col_activity', '<div style="text-align:center">Activité</div>')}
+          <div style="text-align:center">${t('dash.admin.chat_col_activity', 'Activité')}</div>
           <div style="text-align:center">Msgs</div>
           <div style="text-align:right">Action</div>
         </div>
@@ -25811,14 +25814,14 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       body.innerHTML = `
         <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:0 0 8px;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)">
           <div>Axe</div>
-          ${t('dash.admin.weight_col_weight', '<div>Poids (slider 0–40)</div>')}
-          ${t('dash.admin.weight_col_value', '<div style="text-align:center">Valeur</div>')}
-          ${t('dash.admin.weight_col_default', '<div style="text-align:right">Défaut</div>')}
+          <div>${t('dash.admin.weight_col_weight', 'Poids (slider 0–40)')}</div>
+          <div style="text-align:center">${t('dash.admin.weight_col_value', 'Valeur')}</div>
+          <div style="text-align:right">${t('dash.admin.weight_col_default', 'Défaut')}</div>
         </div>
         ${rows}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 14px;background:var(--surface-2);border-radius:8px">
           <div style="font-size:12px;color:var(--text-secondary)">Somme des poids</div>
-          <div style="font-size:18px;font-weight:700;color:${sumColor};font-variant-numeric:tabular-nums">${sum.toFixed(1)} ${t('dash.admin.weight_sum_ideal', '<span style="font-size:11px;font-weight:400;opacity:0.6">/ 100 idéal</span>')}</div>
+          <div style="font-size:18px;font-weight:700;color:${sumColor};font-variant-numeric:tabular-nums">${sum.toFixed(1)} <span style="font-size:11px;font-weight:400;opacity:0.6">${t('dash.admin.weight_sum_ideal', '/ 100 idéal')}</span></div>
         </div>
         <div style="margin-top:10px;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:11px;color:var(--text-secondary);line-height:1.5">
           💡 Les poids somment idéalement à <strong>100</strong> pour que le score affiché soit lisible (0-100). Une somme différente reste valide — le score total peut juste sortir de l'intervalle (ex: max 120 si somme=120). Le cache stock-analysis (TTL 1h) expire progressivement, donc les nouveaux poids s'appliquent dans les ~60 min.
@@ -25930,7 +25933,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         body.innerHTML = kpi + sparkline + `
           <div style="padding:30px;text-align:center;color:#10B981">
             <div style="font-size:32px;margin-bottom:8px">✅</div>
-            ${t('dash.admin.errors_none', '<div style="font-size:13px">Aucune erreur enregistrée — tout roule !</div>')}
+            <div style="font-size:13px">${t('dash.admin.errors_none', 'Aucune erreur enregistrée — tout roule !')}</div>
           </div>`;
         return;
       }
@@ -26148,7 +26151,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         if (!filings.length) {
           body.innerHTML = `<div style="padding:60px 20px;text-align:center;color:var(--text-muted)">
             <div style="font-size:36px;margin-bottom:12px">🤷</div>
-            ${t('dash.activist.no_filings', '<p style="margin:0">Aucune déclaration correspondant aux critères.</p>')}
+            <p style="margin:0">${t('dash.activist.no_filings', 'Aucune déclaration correspondant aux critères.')}</p>
           </div>`;
           return;
         }
@@ -26165,9 +26168,9 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           // FIX (mai 2026) : 13D (initial) en ROUGE FORT (signal majeur,
           // l'activiste se revele), 13D/A en ORANGE (amendement, update).
           // Avant : c'etait inverse, le 13D/A volait la vedette au 13D.
-          if (/13D\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13D — mise à jour d'une position ACTIVE : le filer ajuste sa déclaration, l'intention d'influencer la gestion reste en place." data-i18n-title="dash.activist.tip_13da">${t('dash.activist.badge_active', '13D/A <span style="opacity:0.75;font-weight:500">· Actif</span>')}</span>`;
+          if (/13D\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13D — mise à jour d'une position ACTIVE : le filer ajuste sa déclaration, l'intention d'influencer la gestion reste en place." data-i18n-title="dash.activist.tip_13da">13D/A <span style="opacity:0.75;font-weight:500">· Actif</span></span>`;
           if (/13D/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(239,68,68,0.20);color:#EF4444;border:1.5px solid rgba(239,68,68,0.55);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13D — PRISE ACTIVE INITIALE >5% : le filer se revele et a l'intention d'influencer la strategie (board, buybacks, spin-off, fusion…). Signal activiste le plus fort." data-i18n-title="dash.activist.tip_13d">13D <span style="opacity:0.85;font-weight:500">· Actif</span></span>`;
-          if (/13G\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13G — mise à jour d'une position PASSIVE : le filer ajuste sa déclaration sans intention d'influencer la gestion." data-i18n-title="dash.activist.tip_13ga">${t('dash.activist.badge_passive', '13G/A <span style="opacity:0.75;font-weight:500">· Passif</span>')}</span>`;
+          if (/13G\/A/.test(form)) return `<span style="cursor:help;padding:3px 8px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Amendement Schedule 13G — mise à jour d'une position PASSIVE : le filer ajuste sa déclaration sans intention d'influencer la gestion." data-i18n-title="dash.activist.tip_13ga">13G/A <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
           if (/13G/.test(form))   return `<span style="cursor:help;padding:3px 8px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700" title="Schedule 13G — prise PASSIVE >5% : simple déclaration d'investissement, sans intention d'influencer la stratégie (Vanguard, BlackRock, family offices…)." data-i18n-title="dash.activist.tip_13g">13G <span style="opacity:0.75;font-weight:500">· Passif</span></span>`;
           // Formes EU : franchissement de seuil (AMF, BaFin, FCA, AFM, SIX...)
           // Format type : "AFM SUBSTANTIAL 5%", "AMF SEUIL 10%", "BaFin §33 5%", "FCA TR-1"
@@ -26222,7 +26225,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           let activistBadge = '';
           if (f.isActivist) {
             if (f.relationType === 'controlling') {
-              activistBadge = `<span style="cursor:help;padding:3px 8px;background:rgba(59,130,246,0.20);color:#60A5FA;border:1px solid rgba(59,130,246,0.45);border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Contrôle interne — le filer et la cible partagent un overlap de noms et le filer détient ≥40% du capital. Probablement une relation parent-filiale, holding contrôlant, ou founder maintenant son contrôle (ex: Imperial Petroleum → C3is, structures armateurs grecs). NOT a hostile activist." data-i18n-title="dash.activist.tip_control">${t('dash.activist.badge_control', '🏢 CONTRÔLE</span>')}`;
+              activistBadge = `<span style="cursor:help;padding:3px 8px;background:rgba(59,130,246,0.20);color:#60A5FA;border:1px solid rgba(59,130,246,0.45);border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Contrôle interne — le filer et la cible partagent un overlap de noms et le filer détient ≥40% du capital. Probablement une relation parent-filiale, holding contrôlant, ou founder maintenant son contrôle (ex: Imperial Petroleum → C3is, structures armateurs grecs). NOT a hostile activist." data-i18n-title="dash.activist.tip_control">🏢 CONTRÔLE</span>`;
             } else {
               activistBadge = `<span style="cursor:help;padding:3px 8px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px" title="Fonds activiste — soit un nom reconnu (Elliott, Ackman, Icahn…) soit auto-detecte via filing 13D US (intention SEC d'influencer la gestion). Historique de campagnes actives pour forcer un changement." data-i18n-title="dash.activist.tip_activist">⚡ ACTIVISTE</span>`;
             }
@@ -26371,9 +26374,9 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <div style="padding:12px 16px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;font-size:12px;line-height:1.6;color:var(--text-secondary)">
             <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:6px">
               <strong style="color:var(--text-primary);font-size:13px">Légende :</strong>
-              <span><span style="padding:2px 7px;background:rgba(239,68,68,0.20);color:#EF4444;border:1.5px solid rgba(239,68,68,0.55);border-radius:6px;font-size:10px;font-weight:700">13D</span> ${t('dash.activist.legend_active', '<strong style="color:#EF4444">Actif</strong> — intention d\'influencer (1er dépôt)')}</span>
+              <span><span style="padding:2px 7px;background:rgba(239,68,68,0.20);color:#EF4444;border:1.5px solid rgba(239,68,68,0.55);border-radius:6px;font-size:10px;font-weight:700">13D</span> <strong style="color:#EF4444">Actif</strong> — intention d'influencer (1er dépôt)</span>
               <span><span style="padding:2px 7px;background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:10px;font-weight:700">13D/A</span> Amendement (mise à jour)</span>
-              <span><span style="padding:2px 7px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700">13G</span> ${t('dash.activist.legend_passive', '<strong style="color:#10B981">Passif</strong> — simple investissement')}</span>
+              <span><span style="padding:2px 7px;background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.25);border-radius:6px;font-size:10px;font-weight:700">13G</span> <strong style="color:#10B981">Passif</strong> — simple investissement</span>
               <span><span style="padding:2px 7px;background:rgba(107,114,128,0.12);color:var(--text-muted);border:1px solid rgba(107,114,128,0.25);border-radius:6px;font-size:10px;font-weight:700">13G/A</span> Amendement position passive</span>
               <span><span style="padding:2px 7px;background:linear-gradient(135deg,#EF4444,#F59E0B);color:#fff;border-radius:6px;font-size:10px;font-weight:700">⚡ ACTIVISTE</span> Fonds activiste reconnu <span style="color:var(--text-muted);cursor:help" title="Liste hardcodée de ~28 activists institutionnels connus : Elliott, Ackman, Icahn, Peltz (Trian), Starboard, Loeb (Third Point), ValueAct, Cevian, JANA, Greenlight/Einhorn…" data-i18n-title="dash.activist.legend_activist_details_tip">(détails)</span></span>
             </div>
@@ -26384,10 +26387,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                 <tr>
                   <th style="text-align:left;width:64px;padding:8px 6px">Date</th>
                   <th style="text-align:center;width:36px;padding:8px 4px" title="Marché / régulateur d'origine" data-i18n-title="dash.activist.col_market_tip">🌍</th>
-                  ${t('dash.activist.col_form', '<th style="text-align:left;width:76px;padding:8px 6px">Forme</th>')}
+                  <th style="text-align:left;width:76px;padding:8px 6px">${t('dash.activist.col_form', 'Forme')}</th>
                   <th style="text-align:left;width:60px;padding:8px 6px">Ticker</th>
-                  ${t('dash.activist.col_target', '<th style="text-align:left;width:120px;padding:8px 6px">Entreprise ciblée</th>')}
-                  ${t('dash.activist.col_filer', '<th style="text-align:left;width:180px;padding:8px 6px">Investisseur (filer)</th>')}
+                  <th style="text-align:left;width:120px;padding:8px 6px">${t('dash.activist.col_target', 'Entreprise ciblée')}</th>
+                  <th style="text-align:left;width:180px;padding:8px 6px">${t('dash.activist.col_filer', 'Investisseur (filer)')}</th>
                   <th style="text-align:right;width:76px;padding:8px 6px" title="% du capital détenu" data-i18n-title="dash.activist.col_ownership">% capital</th>
                   <th style="text-align:right;width:58px;padding:8px 6px" title="Nombre d'actions détenues">Actions</th>
                   <th style="text-align:right;width:70px;padding:8px 6px" title="Montant total investi (~)">Investi ~</th>
