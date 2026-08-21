@@ -4,9 +4,20 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 14 août 2026 (v27 - Garde-fou post-deadline 13F)
+**Dernière mise à jour** : 21 août 2026 (v28 - Balayage i18n du dashboard)
 
 ---
+
+## 🎯 v28 — Balayage i18n : traduction EN complète du dashboard (21 août 2026)
+
+### ✅ Câblage des chaînes FR codées en dur vers l'i18n (abonné anglophone)
+- **Contexte** : premier abonné = anglophone. Le dictionnaire `assets/i18n.js` était complet (1547 clés FR = 1548 EN, aucune clé FR orpheline), mais **beaucoup de texte du `dashboard.html` était codé en dur** (ni `t()` ni `data-i18n`) et restait en français en mode EN.
+- **Méthode** : catalogue exhaustif des ~1300 chaînes FR hardcodées (workflow multi-agents), traduction EN pro (finance), puis application automatisée **sécurisée** : ajout des clés FR+EN dans `i18n.js`, remplacement dans `dashboard.html` uniquement si correspondance unique.
+  - HTML statique → `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label`.
+  - Tooltips custom `data-tip` → nouveau support **`data-i18n-tip`** ajouté à la fonction d'application d'`i18n.js`.
+  - Texte de template JS → `${t('clé','fallback FR')}`, appliqué **seulement** si le contexte est un vrai template backtick (garde-fous anti-code + boucle de purge `node --check` + scan statique de fuites `${t(` hors backtick).
+- **Résultat** : ~390 chaînes câblées cette vague (tooltips, placeholders, labels statiques, messages d'état). `data-i18n*` passe de ~466 à **700**. Validé : `i18n.js` et JS inline `node --check` OK, **0 fuite** `${t(` hors template, bascule FR↔EN vérifiée dans le DOM. Cache-buster `i18n.js?v=20260821-i18nfull`.
+- **[ ] Reste à faire (vague 2)** : ~900 chaînes non couvertes automatiquement (js-text hors template strict, HTML avec balises internes `html-complex`, chaînes avec `${}` imbriqués `js-unsafe-chars`, finds non uniques). À traiter section par section avec vérification runtime (nécessite une vue authentifiée).
 
 ## 🎯 v27 — Garde-fou post-deadline 13F (14 août 2026)
 
