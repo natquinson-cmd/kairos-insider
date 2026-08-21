@@ -4369,6 +4369,7 @@
         if (key) el.setAttribute(attr, t(key));
       });
     });
+    // Tooltip custom data-tip (le composant tooltip maison lit l'attribut data-tip)
     scope.querySelectorAll('[data-i18n-tip]').forEach(function(el) {
       const key = el.getAttribute('data-i18n-tip');
       if (key) el.setAttribute('data-tip', t(key));

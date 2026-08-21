@@ -41,7 +41,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260821-i18nfull"></script>
+  <script src="assets/i18n.js?v=20260821b-i18n"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
@@ -4643,7 +4643,7 @@
           </button>
         </li>
         <li>
-          <button id="navSupportBtn" onclick="openSupportModal()" title="Aide et support" aria-label="Aide et support" data-i18n-title="dash.nav.support_title"
+          <button id="navSupportBtn" onclick="openSupportModal()" title="Aide et support" data-i18n-title="dash.nav.support_title" aria-label="Aide et support"
                   style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);width:34px;height:34px;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s;padding:0"
                   onmouseover="this.style.borderColor='var(--accent-blue)';this.style.color='var(--text-primary)'"
                   onmouseout="this.style.borderColor='var(--border-strong)';this.style.color='var(--text-secondary)'">
@@ -4671,7 +4671,7 @@
           </button>
         </li>
         <li style="position:relative">
-          <button id="navProfileBtn" onclick="toggleProfileMenu(event)" title="Mon compte" aria-label="Mon compte" data-i18n-title="dash.nav.account_title" aria-haspopup="true" aria-expanded="false"
+          <button id="navProfileBtn" onclick="toggleProfileMenu(event)" title="Mon compte" data-i18n-title="dash.nav.account_title" aria-label="Mon compte" aria-haspopup="true" aria-expanded="false"
                   style="background:transparent;border:1px solid var(--border-strong);padding:3px;border-radius:50%;cursor:pointer;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;transition:all 0.2s"
                   onmouseover="this.style.borderColor='var(--accent-blue)'"
                   onmouseout="this.style.borderColor='var(--border-strong)'">
@@ -6643,7 +6643,7 @@
             <div class="profile-avatar-wrap">
               <div id="profileAvatarBig" class="profile-avatar-xl">?</div>
               <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(event)" />
-              <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Changer la photo" aria-label="Changer la photo" data-i18n-title="dash.profile.change_photo">
+              <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Changer la photo" data-i18n-title="dash.profile.change_photo" aria-label="Changer la photo">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               </button>
             </div>
@@ -15360,7 +15360,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                           style="cursor:pointer;border-bottom:1px dashed currentColor"
                           onmouseover="this.style.color='var(--accent-blue)'"
                           onmouseout="this.style.color=''"
-                          title="Cliquer pour ouvrir la fiche">${_insiderFull} data-i18n-title="stock.insider.clickToOpenProfile"</strong>
+                          title="Cliquer pour ouvrir la fiche" data-i18n-title="stock.insider.clickToOpenProfile">${_insiderFull}</strong>
                         <span style="font-size:11px;opacity:0.5;margin-left:6px">${tx.title || ''}</span>
                       </div>
                       <span style="color:${tx.type==='buy'?'#2ecc71':tx.type==='sell'?'#ff7675':'#9CA3AF'};font-weight:600;font-size:11px">${txStatusLabel(tx.type)}</span>
@@ -18822,7 +18822,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <td style="text-align:right;color:${netColor};font-weight:600">${fmtUsdShort(c.netValue)}</td>
           <td style="font-size:11px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtmlClient(insidersPreview)}">${escapeHtmlClient(insidersPreview)}${c.insiders && c.insiders.length > 3 ? ` +${c.insiders.length - 3}` : ''}
               <div style="font-size:10px;opacity:0.6;margin-top:2px">${escapeHtmlClient(rolesPreview)}</div></td>
-          <td class="last-update" style="white-space:nowrap">${fmtDate(c.lastDate)} <span class="chevron" title="Cliquez pour voir le détail"> data-i18n-title="dash.clustering.chevron_tip"&#9654;</span></td>
+          <td class="last-update" style="white-space:nowrap">${fmtDate(c.lastDate)} <span class="chevron" title="Cliquez pour voir le détail" data-i18n-title="dash.clustering.chevron_tip">&#9654;</span></td>
         </tr>`;
       }
 
@@ -19425,7 +19425,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                 <h4 style="margin:0;font-size:15px;font-weight:700">📈 Historique 1 an</h4>
                 <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Évolution du Fear &amp; Greed Index — ${history.length} jours</div>
               </div>
-              <div class="chart-period-btns" role="group" aria-label="Période"> data-i18n-aria-label="dash.feargreed.period_aria"
+              <div class="chart-period-btns" role="group" aria-label="Période" data-i18n-aria-label="dash.feargreed.period_aria">
                 <button onclick="setFgChartPeriod(30)" data-fg-period="30">1M</button>
                 <button onclick="setFgChartPeriod(90)" data-fg-period="90">3M</button>
                 <button onclick="setFgChartPeriod(180)" data-fg-period="180">6M</button>
@@ -20088,7 +20088,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
 
         rows += `<tr>
           <td style="font-weight:700;text-align:center;color:var(--text-muted);font-size:12px">${s._rank || ''}</td>
-          <td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(s.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${s.ticker}" data-i18n-title="dash.shorts.click_analyze">${s.ticker}</td> data-i18n-title="dash.shorts.analyze_tip"
+          <td class="ticker clickable-ticker" onclick="switchSection('stockAnalysis'); setTimeout(() => loadStockAnalysis('${String(s.ticker).replace(/'/g, "\\'")}'), 150)" title="Cliquer pour analyser ${s.ticker}" data-i18n-title="dash.shorts.click_analyze" data-i18n-title="dash.shorts.analyze_tip">${s.ticker}</td>
           <td style="color:var(--text-primary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.company || ''}</td>
           <td style="text-align:right;font-weight:700;color:#e74c3c;font-size:15px">${s.shortPct}%</td>
           <td style="text-align:right">${fmtDelta(s.delta7d)}</td>
@@ -20111,7 +20111,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
               ${t('dash.shorts.col_company', '<th>Entreprise</th>\n              <th style="text-align:right">Short %</th>')}
               <th style="text-align:right" title="Variation absolue % du float vs il y a 7 jours" data-i18n-title="dash.shorts.tip_delta7" data-i18n-title="dash.shorts.col_d7_tip">Δ 7j</th>
               <th style="text-align:right" title="Variation absolue % du float vs il y a 30 jours" data-i18n-title="dash.shorts.tip_delta30" data-i18n-title="dash.shorts.col_d30_tip">Δ 30j</th>
-              <th style="text-align:center" title="Évolution du % short sur 30 jours" data-i18n-title="dash.shorts.tip_trend">Tendance 30j</th> data-i18n-title="dash.shorts.col_trend_tip"
+              <th style="text-align:center" title="Évolution du % short sur 30 jours" data-i18n-title="dash.shorts.tip_trend" data-i18n-title="dash.shorts.col_trend_tip">Tendance 30j</th>
               <th style="text-align:right">Float</th>
               ${t('dash.shorts.col_sector', '<th>Secteur</th>')}
               ${t('dash.shorts.col_risk', '<th style="text-align:center">Risque</th>')}
@@ -24301,10 +24301,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const badgeLang = (u) => {
         const lang = (u.lang || '').toLowerCase();
         if (lang === 'fr') {
-          return `<span title="Langue détectée au signup (KairosI18n.getLang()), envoyée au worker via /send-welcome." style="padding:2px 7px;background:rgba(59,130,246,0.12) data-i18n-title="dash.admin.tip_lang_fr";color:#74b9ff;border:1px solid rgba(59,130,246,0.25);border-radius:10px;font-size:10px;font-weight:700">🇫🇷 FR</span>`;
+          return `<span title="Langue détectée au signup (KairosI18n.getLang()), envoyée au worker via /send-welcome." data-i18n-title="dash.admin.tip_lang_fr" style="padding:2px 7px;background:rgba(59,130,246,0.12);color:#74b9ff;border:1px solid rgba(59,130,246,0.25);border-radius:10px;font-size:10px;font-weight:700">🇫🇷 FR</span>`;
         }
         if (lang === 'en') {
-          return `<span title="Langue détectée au signup (KairosI18n.getLang()), envoyée au worker via /send-welcome." style="padding:2px 7px;background:rgba(236,72,153,0.12) data-i18n-title="dash.admin.tip_lang_en";color:#F472B6;border:1px solid rgba(236,72,153,0.25);border-radius:10px;font-size:10px;font-weight:700">🇬🇧 EN</span>`;
+          return `<span title="Langue détectée au signup (KairosI18n.getLang()), envoyée au worker via /send-welcome." data-i18n-title="dash.admin.tip_lang_en" style="padding:2px 7px;background:rgba(236,72,153,0.12);color:#F472B6;border:1px solid rgba(236,72,153,0.25);border-radius:10px;font-size:10px;font-weight:700">🇬🇧 EN</span>`;
         }
         // Inscrit pre-fix mai 2026 : lang non stockee. Le worker la captera
         // au prochain envoi de welcome (idempotence KV bypass pour re-trigger).
@@ -25088,9 +25088,9 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         };
         const wf = workflowMap[jobName];
         if (wf) {
-          return `<a href="https://github.com/${GITHUB_REPO}/actions/workflows/${wf}" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir dans GitHub Actions">🔗 GitHub</a> data-i18n-title="dash.admin.open_github_actions"`;
+          return `<a href="https://github.com/${GITHUB_REPO}/actions/workflows/${wf}" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir dans GitHub Actions" data-i18n-title="dash.admin.open_github_actions">🔗 GitHub</a>`;
         }
-        return `<a href="https://github.com/${GITHUB_REPO}/actions" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir Actions">🔗 Actions</a> data-i18n-title="dash.admin.open_actions"`;
+        return `<a href="https://github.com/${GITHUB_REPO}/actions" target="_blank" rel="noopener" class="admin-run-btn" title="Ouvrir Actions" data-i18n-title="dash.admin.open_actions">🔗 Actions</a>`;
       };
 
       const rows = jobs.map(j => `
@@ -25638,7 +25638,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
 
       const rows = sessions.slice(0, 50).map(s => `
         <div onclick="openChatTranscript('${s.sessionId}')" style="display:grid;grid-template-columns:40px 1fr 80px 100px 60px 90px;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--divider);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;background:var(--surface-1)" onmouseover="this.style.borderColor='#74b9ff';this.style.background='var(--surface-2)'" onmouseout="this.style.borderColor='var(--divider)';this.style.background='var(--surface-1)'">
-          <div style="font-size:18px;text-align:center" title="${s.country || 'Inconnu'}">${flagFor(s.country)} data-i18n-title="dash.admin.chat_unknown_country"</div>
+          <div style="font-size:18px;text-align:center" title="${s.country || 'Inconnu'}" data-i18n-title="dash.admin.chat_unknown_country">${flagFor(s.country)}</div>
           <div style="min-width:0">
             <div style="font-size:12px;font-family:monospace;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.sessionId)}</div>
             <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(s.page || '/')}">📄 ${escapeHtml(s.page || '/')}</div>
@@ -25802,7 +25802,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         const isModified = Math.abs(val - def) > 0.01;
         return `
           <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider)">
-            <div style="font-size:13px;color:var(--text-primary);font-weight:500">${escapeHtml(labels[k])}${isModified ? ' <span style="font-size:10px;color:#F59E0B;margin-left:4px" title="Modifié par rapport au défaut">●</span> data-i18n-title="dash.admin.weight_modified"' : ''}</div>
+            <div style="font-size:13px;color:var(--text-primary);font-weight:500">${escapeHtml(labels[k])}${isModified ? ' <span style="font-size:10px;color:#F59E0B;margin-left:4px" title="Modifié par rapport au défaut" data-i18n-title="dash.admin.weight_modified">●</span>' : ''}</div>
             <input type="range" min="0" max="40" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%" aria-label="${escapeHtml(labels[k])}" />
             <input type="number" min="0" max="100" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:13px;font-variant-numeric:tabular-nums" />
             <div style="font-size:11px;color:var(--text-muted);text-align:right">déf. ${def}</div>
@@ -26299,7 +26299,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             sourceLabel = (f.regulator || country) + ' ↗';
           }
           const sourceLink = sourceUrl
-            ? `<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px" title="Voir la source officielle">${sourceLabel}</a> data-i18n-title="dash.activist.view_source"`
+            ? `<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="font-size:10px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px" title="Voir la source officielle" data-i18n-title="dash.activist.view_source">${sourceLabel}</a>`
             : '';
 
           // Drapeau pays (US 🇺🇸 / FR 🇫🇷 / DE 🇩🇪) avec tooltip régulateur
@@ -26334,7 +26334,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           const displayTicker = f.yahooSymbol || f.ticker;
           const tickerCell = displayTicker
             ? `<strong style="color:#74b9ff">${escapeHtmlClient(displayTicker)}</strong>`
-            : `<span style="color:var(--text-muted);font-size:11px" title="Ticker non résolu — voir le nom de l'entreprise ci-contre">—</span> data-i18n-title="dash.activist.tip_ticker_unresolved"`;
+            : `<span style="color:var(--text-muted);font-size:11px" title="Ticker non résolu — voir le nom de l'entreprise ci-contre" data-i18n-title="dash.activist.tip_ticker_unresolved">—</span>`;
           // Tooltip de ligne enrichi : rawTitle si disponible (titre RNS/news brut)
           // pour donner du contexte quand les champs structures sont vides
           // (cas Google News RSS fallback UK ou autres sources partielles).
@@ -26346,7 +26346,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           const filerDisplay = f.filerName
             ? `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtmlClient(f.filerName)}</span>${activistBadge}`
             : f.rawTitle
-              ? `<span style="color:var(--text-muted);font-style:italic;font-size:12px" title="Données partielles - voir source officielle pour le filer">(non extrait)</span> data-i18n-title="dash.activist.filer_not_extracted"`
+              ? `<span style="color:var(--text-muted);font-style:italic;font-size:12px" title="Données partielles - voir source officielle pour le filer" data-i18n-title="dash.activist.filer_not_extracted">(non extrait)</span>`
               : `<span style="color:var(--text-muted)">—</span>`;
           return `
             <tr ${displayTicker ? `onclick="switchSection('stockAnalysis'); setTimeout(()=>loadStockAnalysis('${String(displayTicker).replace(/'/g,"\\'")}'), 150)" style="cursor:pointer"` : ''} ${rowTitle ? `title="${rowTitle.replace(/"/g, '&quot;')}"` : ''}>
@@ -26360,8 +26360,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                 <div style="font-weight:600;color:${pctColor}">${fmtPct(f.percentOfClass)}</div>
                 ${deltaHtml}
               </td>
-              <td style="padding:10px 6px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues">${fmtSharesA(f.sharesOwned)} data-i18n-title="dash.activist.tip_shares"</td>
-              <td style="padding:10px 6px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (approximatif)">${fmtPriceA(f.purchasePriceApprox)} data-i18n-title="dash.activist.tip_invested"</td>
+              <td style="padding:10px 6px;text-align:right;font-variant-numeric:tabular-nums" title="Nombre d'actions détenues" data-i18n-title="dash.activist.tip_shares">${fmtSharesA(f.sharesOwned)}</td>
+              <td style="padding:10px 6px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums" title="Montant total investi (approximatif)" data-i18n-title="dash.activist.tip_invested">${fmtPriceA(f.purchasePriceApprox)}</td>
               <td style="padding:10px 4px;text-align:center">${sourceLink}</td>
             </tr>
           `;
@@ -26383,15 +26383,15 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
               <thead>
                 <tr>
                   <th style="text-align:left;width:64px;padding:8px 6px">Date</th>
-                  <th style="text-align:center;width:36px;padding:8px 4px" title="Marché / régulateur d'origine">🌍</th> data-i18n-title="dash.activist.col_market_tip"
+                  <th style="text-align:center;width:36px;padding:8px 4px" title="Marché / régulateur d'origine" data-i18n-title="dash.activist.col_market_tip">🌍</th>
                   ${t('dash.activist.col_form', '<th style="text-align:left;width:76px;padding:8px 6px">Forme</th>')}
                   <th style="text-align:left;width:60px;padding:8px 6px">Ticker</th>
                   ${t('dash.activist.col_target', '<th style="text-align:left;width:120px;padding:8px 6px">Entreprise ciblée</th>')}
                   ${t('dash.activist.col_filer', '<th style="text-align:left;width:180px;padding:8px 6px">Investisseur (filer)</th>')}
-                  <th style="text-align:right;width:76px;padding:8px 6px" title="% du capital détenu">% capital</th> data-i18n-title="dash.activist.col_ownership"
+                  <th style="text-align:right;width:76px;padding:8px 6px" title="% du capital détenu" data-i18n-title="dash.activist.col_ownership">% capital</th>
                   <th style="text-align:right;width:58px;padding:8px 6px" title="Nombre d'actions détenues">Actions</th>
                   <th style="text-align:right;width:70px;padding:8px 6px" title="Montant total investi (~)">Investi ~</th>
-                  <th style="text-align:center;width:50px;padding:8px 4px" title="Voir la source officielle (SEC, AMF, BaFin)">Source</th> data-i18n-title="dash.activist.col_source_tip"
+                  <th style="text-align:center;width:50px;padding:8px 4px" title="Voir la source officielle (SEC, AMF, BaFin)" data-i18n-title="dash.activist.col_source_tip">Source</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
