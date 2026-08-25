@@ -187,7 +187,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v18:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v19:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -312,13 +312,21 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   let finnhubEarnings = null;
   let finnhubCalendar = null;
   let finnhubPeers = null;
+  // FIX (aou 2026) : le consensus analystes venait de stockanalysis.com
+  // (overview.analystChart). Leur API a change -> /api/symbol/.../overview
+  // renvoie 404 -> consensus VIDE pour TOUS les tickers US (NVDA, AAPL, GOOGL...).
+  // On bascule sur Finnhub /stock/recommendation (API officielle avec cle,
+  // fonction fetchFinnhubConsensus deja ecrite mais jamais branchee). Meme format
+  // exact que l'ancien : { strongBuy, buy, hold, sell, strongSell, total, bullishPct }.
+  let finnhubConsensus = null;
   if (env.FINNHUB_KEY) {
-    // Parallel pour gagner du temps (4 endpoints differents Finnhub)
-    [finnhubMetrics, finnhubEarnings, finnhubCalendar, finnhubPeers] = await Promise.all([
+    // Parallel pour gagner du temps (5 endpoints differents Finnhub)
+    [finnhubMetrics, finnhubEarnings, finnhubCalendar, finnhubPeers, finnhubConsensus] = await Promise.all([
       fetchFinnhubMetrics(ticker, env.FINNHUB_KEY, env).catch(() => null),
       fetchFinnhubEarnings(ticker, env.FINNHUB_KEY, env).catch(() => null),
       fetchFinnhubEarningsCalendar(ticker, env.FINNHUB_KEY, env).catch(() => null),
       fetchFinnhubPeers(ticker, env.FINNHUB_KEY, env).catch(() => null),
+      fetchFinnhubConsensus(ticker, env.FINNHUB_KEY).catch(() => null),
     ]);
   }
   let extendedRatios = statistics.extendedRatios || {};
@@ -393,6 +401,11 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   let consensus = overview.consensus;
   if (!consensus && zonebourseConsensus && (zonebourseConsensus.analystCount || zonebourseConsensus.targetMean)) {
     consensus = synthesizeConsensusFromZonebourse(zonebourseConsensus);
+  }
+  // Fallback US (aou 2026) : Finnhub recommendation trends quand stockanalysis
+  // (mort) et Zonebourse (EU only) ne donnent rien. Couvre tous les tickers US.
+  if (!consensus && finnhubConsensus && finnhubConsensus.total > 0) {
+    consensus = finnhubConsensus;
   }
 
   // Poids du Kairos Score : parametrables via console admin → KV config:score-weights.
