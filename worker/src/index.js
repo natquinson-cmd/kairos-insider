@@ -13393,6 +13393,31 @@ async function runHealthCheck(env) {
       anomalies.push(`${stale.length} job(s) en retard sur leur cadence : ${stale.map(j => `${j.name} (${Math.round((now - j.ts) / 3600)}h)`).join(', ')}`);
     }
 
+    // SONDE "consensus analystes vivant" (aou 2026). Les sources externes de
+    // consensus cassent silencieusement : stockanalysis.com a renvoye 404 sans
+    // prevenir, laissant le bloc "Analyst consensus" vide sur TOUS les tickers US.
+    // On sonde la source ACTUELLE (Finnhub /stock/recommendation) sur 2 grosses
+    // caps US ; si les DEUX sont vides, c'est que la source est cassee -> anomalie
+    // dans l'email de sante quotidien. NB : mettre a jour si on change de source.
+    try {
+      if (env.FINNHUB_KEY) {
+        const probeConsensus = async (sym) => {
+          try {
+            const r = await fetch(`https://finnhub.io/api/v1/stock/recommendation?symbol=${sym}&token=${env.FINNHUB_KEY}`);
+            if (!r.ok) return false;
+            const arr = await r.json();
+            return Array.isArray(arr) && arr.length > 0 && ((arr[0].strongBuy || 0) + (arr[0].buy || 0) + (arr[0].hold || 0) + (arr[0].sell || 0) + (arr[0].strongSell || 0)) > 0;
+          } catch { return false; }
+        };
+        const [nv, ap] = await Promise.all([probeConsensus('NVDA'), probeConsensus('AAPL')]);
+        if (!nv && !ap) {
+          anomalies.push('Consensus analystes indisponible (Finnhub NVDA + AAPL vides) — source cassée, le bloc « Analyst consensus » est vide côté produit.');
+        }
+      }
+    } catch (e) {
+      log.warn('health.consensus-probe.failed', { err: String(e && e.message || e) });
+    }
+
     if (anomalies.length === 0) {
       log.info('health.ok', { totalJobs: jobs.length, recentOk: recentOk.length });
       // Log le health OK pour le dashboard

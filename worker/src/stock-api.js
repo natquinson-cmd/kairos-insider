@@ -187,7 +187,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v19:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v20:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -308,6 +308,12 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // ROE, ROA, marges, enterprise value, financialPosition + earnings + peers.
   // Free tier 60 calls/min, cache 24h dans KV.
   // Activer en setant le secret FINNHUB_KEY : `wrangler secret put FINNHUB_KEY`.
+  // OBJECTIF DE COURS analystes (aou 2026) : venait de stockanalysis (mort).
+  // Yahoo quoteSummary (module financialData) fournit targetMeanPrice +
+  // numberOfAnalystOpinions + recommendationKey, pour US ET EU. On lance l'appel
+  // ICI en parallele du bloc Finnhub (pas de latence ajoutee) ; on injecte le
+  // resultat dans `fundamentals` plus bas (le front lit fund.targetMeanPrice).
+  const yahooFundP = fetchYahooFundamentals(ticker, env).catch(() => null);
   let finnhubMetrics = null;
   let finnhubEarnings = null;
   let finnhubCalendar = null;
@@ -328,6 +334,14 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
       fetchFinnhubPeers(ticker, env.FINNHUB_KEY, env).catch(() => null),
       fetchFinnhubConsensus(ticker, env.FINNHUB_KEY).catch(() => null),
     ]);
+  }
+  // Injecte l'objectif de cours Yahoo si stockanalysis/Zonebourse ne l'ont pas.
+  const yahooFund = await yahooFundP;
+  if (yahooFund && yahooFund.stats) {
+    const ys = yahooFund.stats;
+    if (fundamentals.targetMeanPrice == null && ys.targetMeanPrice != null) fundamentals.targetMeanPrice = ys.targetMeanPrice;
+    if (fundamentals.numberOfAnalystOpinions == null && ys.numberOfAnalystOpinions != null) fundamentals.numberOfAnalystOpinions = ys.numberOfAnalystOpinions;
+    if (!fundamentals.recommendationKey && ys.recommendationKey) fundamentals.recommendationKey = ys.recommendationKey;
   }
   let extendedRatios = statistics.extendedRatios || {};
   let margins = statistics.margins || {};

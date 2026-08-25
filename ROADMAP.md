@@ -4,9 +4,17 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 21 août 2026 (v28 - Balayage i18n du dashboard)
+**Dernière mise à jour** : 25 août 2026 (v28 - Objectif de cours + sonde consensus)
 
 ---
+
+## 🎯 v28 — Objectif de cours analystes + sonde consensus (25 août 2026)
+
+### ✅ Objectif de cours rebranché
+- Le prix cible analystes venait aussi de stockanalysis.com (mort). Le front l'affiche déjà (`fund.targetMeanPrice` + upside + narrative) mais la donnée était vide. Rebranché sur **Yahoo quoteSummary** (`financialData.targetMeanPrice` + `numberOfAnalystOpinions`), lancé en parallèle du bloc Finnhub (zéro latence), injecté dans `fundamentals` en fallback. Fonction `fetchYahooFundamentals` (écrite mais jamais branchée) enfin utilisée. Cache `stock-analysis` v19→v20.
+
+### ✅ Sonde « consensus vivant » dans le health check
+- Les sources de consensus cassent silencieusement (stockanalysis → 404 sans prévenir). Ajout d'une **sonde quotidienne** dans `runHealthCheck` : teste Finnhub `/stock/recommendation` sur NVDA + AAPL ; si les deux sont vides → anomalie dans l'email de santé existant. Léger (2 appels), réutilise le canal email + le cron quotidien, pas de nouveau workflow. À mettre à jour si on change de source consensus.
 
 ## 🎯 v28 — Balayage i18n : traduction EN complète du dashboard (21 août 2026)
 
