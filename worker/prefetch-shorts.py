@@ -60,15 +60,28 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 from datetime import datetime, timedelta
 
-UA = 'Mozilla/5.0 (compatible; KairosInsider/1.0; +https://kairosinsider.fr)'
+# UA navigateur : la source sert parfois une page vide/challenge aux UA "bot".
+# L'identite Kairos reste dans le referer moral (site public), pas besoin de la
+# claironner dans le UA au prix d'un blocage.
+UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
 NAMESPACE_ID = 'aca7ff9d2a244b06ae92d6a7129b4cc4'
 KV_KEY = 'shorts-recent'
 SOURCE_URL = 'https://highshortinterest.com/'
 
 HISTORY_DAYS = 35  # On garde 35j pour avoir 30j garantis meme si fail occasionnels
+
+# Resilience du scrape (aout 2026) : la source repond parfois HTTP 200 mais
+# avec 0 ligne exploitable (hoquet transitoire / blocage IP ponctuel du runner
+# GitHub). Un seul echec quotidien depasse deja le seuil de fraicheur 48h du
+# health check. On retente donc, et on exige un plancher de lignes valides.
+MIN_STOCKS = 10        # sous ce plancher on considere le fetch casse -> retry
+FETCH_ATTEMPTS = 4     # tentatives, backoff 2/4/8/16s (plafonne a 20s)
+LAST_FETCH_ERROR = ''  # renseigne par fetch_short_interest_top en cas d'echec
 
 
 def http_get(url, timeout=20):
@@ -104,14 +117,11 @@ def squeeze_risk(short_pct):
     return 'FAIBLE'
 
 
-def fetch_short_interest_top():
-    print(f'[FETCH] {SOURCE_URL}')
-    try:
-        html = http_get(SOURCE_URL)
-    except Exception as e:
-        print(f'[ERROR] HTTP fetch failed: {e}')
-        return None
-
+def _parse_stocks(html):
+    """Extrait la liste de stocks du HTML highshortinterest.com.
+    Tolerant : ignore l'entete et toute ligne non conforme (ticker hors
+    A-Z{1,5}, pct non numerique). Renvoie une liste, vide si le HTML n'est
+    pas la vraie page (challenge, page d'erreur, structure changee)."""
     rows = re.findall(r'<tr[^>]*>(.+?)</tr>', html, re.DOTALL)
     stocks = []
     for r in rows:
@@ -137,10 +147,41 @@ def fetch_short_interest_top():
             'sector': clean[6][:60],
             'squeezeRisk': squeeze_risk(short_pct),
         })
-
-    stocks.sort(key=lambda s: s['shortPct'] or 0, reverse=True)
-    print(f'[OK] Parsed {len(stocks)} stocks')
     return stocks
+
+
+def fetch_short_interest_top():
+    """Fetch + parse avec retries et plancher MIN_STOCKS.
+    Sur echec definitif : renseigne LAST_FETCH_ERROR et renvoie None (le main
+    logge alors un statut 'failed' en KV sans ecraser la donnee existante)."""
+    global LAST_FETCH_ERROR
+    print(f'[FETCH] {SOURCE_URL}')
+    last_reason = 'aucune tentative'
+    for attempt in range(1, FETCH_ATTEMPTS + 1):
+        try:
+            html = http_get(SOURCE_URL)
+        except Exception as e:
+            last_reason = f'HTTP fetch failed: {e}'
+            print(f'[RETRY {attempt}/{FETCH_ATTEMPTS}] {last_reason}')
+            if attempt < FETCH_ATTEMPTS:
+                time.sleep(min(2 ** attempt, 20))
+            continue
+
+        stocks = _parse_stocks(html)
+        if len(stocks) >= MIN_STOCKS:
+            stocks.sort(key=lambda s: s['shortPct'] or 0, reverse=True)
+            print(f'[OK] Parsed {len(stocks)} stocks (tentative {attempt}/{FETCH_ATTEMPTS})')
+            return stocks
+
+        last_reason = (f'{len(stocks)} stock(s) parses (< {MIN_STOCKS} attendu), '
+                       f'HTML {len(html)} bytes — page vide/challenge probable')
+        print(f'[RETRY {attempt}/{FETCH_ATTEMPTS}] {last_reason}')
+        if attempt < FETCH_ATTEMPTS:
+            time.sleep(min(2 ** attempt, 20))
+
+    LAST_FETCH_ERROR = last_reason
+    print(f'[FAIL] fetch_short_interest_top apres {FETCH_ATTEMPTS} tentatives : {last_reason}')
+    return None
 
 
 def load_existing_kv():
@@ -272,6 +313,17 @@ def main():
     stocks = fetch_short_interest_top()
     if not stocks:
         print('[FAIL] No stocks fetched')
+        # Statut 'failed' explicite en KV : le health check remonte l'anomalie
+        # sous 24h (recentFail) au lieu d'attendre la peremption 48h. La donnee
+        # KV shorts-recent existante n'est PAS ecrasee (on sort avant push_to_kv)
+        # -> la page garde le dernier bon snapshot.
+        try:
+            from kv_lastrun import log_last_run
+            log_last_run('prefetch-shorts', status='failed',
+                         error=(LAST_FETCH_ERROR
+                                or 'highshortinterest.com : 0 stock apres retries'))
+        except Exception as _e:
+            print(f'[lastRun] {_e}')
         sys.exit(1)
 
     # 2. Load existing history from KV

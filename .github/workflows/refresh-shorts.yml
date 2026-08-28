@@ -1,0 +1,36 @@
+name: Refresh Short Interest (manual)
+
+# Rafraichit UNIQUEMENT le short interest (highshortinterest.com -> KV shorts-recent).
+# Declenchable a la main quand le health check signale prefetch-shorts en retard
+# ou en erreur, sans relancer tout update-13f.yml (qui, via workflow_dispatch,
+# retriggererait le lourd refetch 13F mensuel).
+#
+# Le job quotidien reste porte par update-13f.yml (step prefetch-shorts.py, 1h30 UTC).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh-shorts:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      # Pas de continue-on-error : sur un run manuel on VEUT que l'echec soit
+      # visible (rouge). Le script logge aussi un statut 'failed' en KV.
+      - name: Refresh short interest
+        run: cd worker && python prefetch-shorts.py
+        timeout-minutes: 5

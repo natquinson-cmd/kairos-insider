@@ -4,9 +4,19 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 25 août 2026 (v28 - Objectif de cours + sonde consensus)
+**Dernière mise à jour** : 25 août 2026 (v29 - Scraper short interest résilient)
 
 ---
+
+## 🛡️ v29 — Scraper short interest résilient + refresh manuel (25 août 2026)
+
+### 🔎 Diagnostic (health check a fait son job)
+- Le health check quotidien a signalé `prefetch-shorts` en retard (49h). Cause : le 08-27, highshortinterest.com a répondu **HTTP 200 mais 0 ligne** (hoquet transitoire / blocage IP ponctuel du runner GitHub). La source et le parseur sont sains (50 stocks parsés en local). Un seul échec quotidien suffit à dépasser le seuil de fraicheur 48h (job daily -> 2x intervalle).
+
+### ✅ Corrections
+- **`prefetch-shorts.py` durci** : UA navigateur (au lieu de `KairosInsider/1.0` filtrable), **retry x4 + backoff** (2/4/8/16s), **plancher MIN_STOCKS=10** (rejette une page partielle/challenge). Parseur extrait dans `_parse_stocks` (testable).
+- **Observabilité** : sur échec définitif, logue un statut `failed` explicite en KV -> le health check remonte l'anomalie sous 24h (`recentFail`) au lieu d'attendre la péremption 48h. La donnée `shorts-recent` existante n'est jamais écrasée (sortie avant `push_to_kv`), la page garde le dernier bon snapshot.
+- **`refresh-shorts.yml`** (workflow_dispatch) : refresh manuel du short interest seul, sans relancer tout `update-13f.yml` (qui retriggererait le lourd refetch 13F mensuel).
 
 ## 🎯 v28 — Objectif de cours analystes + sonde consensus (25 août 2026)
 

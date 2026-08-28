@@ -229,7 +229,7 @@ Le pipeline tourne **quotidiennement à 1h30 UTC** (3h30 Paris heure d'été) vi
 | `merge-sources.py` | Merge SEC + BaFin + AMF en 1 fichier unifié | ~2 min |
 | `prefetch-trends.py` | Google Trends pour top 100 tickers | ~20 min |
 | `prefetch-etf.py` | Fetch composition des 16 ETF (politiques + smart money + thématiques + convictions + international) | ~5 min |
-| `prefetch-shorts.py` | (NEW mai 2026) Top 50 actions US shortées via highshortinterest.com + historique 30j | ~5s |
+| `prefetch-shorts.py` | (NEW mai 2026) Top 50 actions US shortées via highshortinterest.com + historique 30j. Résilient (aout 2026) : retry x4 + backoff + plancher 10 lignes ; sur échec définitif logue un statut `failed` en KV (visible sous 24h dans le health check) sans écraser le dernier bon snapshot. Refresh manuel : workflow `refresh-shorts.yml`. | ~5s |
 | `fetch-13f-history.py` | (mensuel) Fetch 12 ans de 13F historique pour les 47 fonds du CIK_MAP | ~10 min |
 | `push-to-d1.py` | Push ETF snapshots + 13F holdings vers D1 | ~10 min |
 | `push-insiders-to-d1.py` | Push transactions insiders vers D1 | ~15 min |
