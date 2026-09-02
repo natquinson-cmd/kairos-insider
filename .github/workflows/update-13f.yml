@@ -59,7 +59,9 @@ jobs:
         if: ${{ steps.dow.outputs.day == '1' || github.event_name == 'workflow_dispatch' }}
         id: discover
         run: cd worker && python discover-13f-funds.py
-        timeout-minutes: 25
+        # 45 min de marge : depuis le passage en fetch AUM parallele (1 req/CIK)
+        # la discovery tourne en ~5-8 min, mais on garde du mou si SEC throttle.
+        timeout-minutes: 45
         continue-on-error: true
 
       # Si pas de discovery aujourd'hui : restaurer la derniere liste depuis KV

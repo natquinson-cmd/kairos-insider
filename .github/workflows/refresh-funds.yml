@@ -1,0 +1,44 @@
+name: Refresh Fund Universe (manual)
+
+# Reconstruit l'univers de fonds 13F (discover-13f-funds.py -> KV 13f-funds-list).
+# A lancer a la main pour :
+#  - injecter un gros fonds recemment apparu (ex : Situational Awareness LP),
+#  - re-tester la discovery apres modif, sans attendre le cron du lundi.
+#
+# NB : ce workflow met a jour la LISTE des fonds. Les HOLDINGS de chaque fonds
+# (KV 13f-all-funds, ce que lit /api/13f-funds) sont rafraichis au prochain run
+# quotidien de update-13f.yml (step prefetch-13f.py qui lit cette liste).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh-funds:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PYTHONUNBUFFERED: '1'
+      SEC_PROXY_URL: 'https://kairos-insider-api.natquinson.workers.dev/api/admin/sec-proxy'
+      KAIROS_ADMIN_API_KEY: ${{ secrets.KAIROS_ADMIN_API_KEY }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Rebuild fund universe (discovery)
+        run: cd worker && python discover-13f-funds.py
+        timeout-minutes: 45
+
+      - name: Push fund list to KV
+        run: |
+          cd worker
+          wrangler kv key put --namespace-id=aca7ff9d2a244b06ae92d6a7129b4cc4 --remote "13f-funds-list" --path=13f_funds_list.json
+          echo "13f-funds-list cached in KV ($(python -c "import json;print(json.load(open('13f_funds_list.json'))['count'])") fonds)"

@@ -21,8 +21,10 @@ A run hebdo (lundi) car la liste evolue lentement.
 import json
 import os
 import re
+import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 UA = 'KairosInsider contact@kairosinsider.fr'
@@ -68,8 +70,15 @@ GUARANTEED_CIKS = [
     ('0001732541', 'DEFIANCE ETFS, LLC',                'ETF Specialist',           5_000_000_000),  # Small but top holder sometimes
     ('0001578177', 'Hood River Capital Management LLC', 'Small-Mid Cap Active',     3_500_000_000),
     ('0001997464', 'Marex Group plc',                   'Broker-Dealer',            5_000_000_000),
+    # ===== Hedge funds notables recents (CIK eleve = filer recent, parfois rate
+    # par le full-text search) =====
+    ('0002045724', 'SITUATIONAL AWARENESS LP',          'Hedge Fund',              20_000_000_000),  # Leopold Aschenbrenner (AI supercycle), $20B au Q2 2026
 ]
 RATE_LIMIT_SLEEP = 0.15       # 6.6 req/s (sous la limite SEC 10/s)
+DISCOVER_WORKERS = 5          # fetch AUM en parallele (ETAPE 2). http_get a un
+                              # retry x3 sur 429 -> concurrence sûre. 1 req/CIK
+                              # (nom+accession viennent deja de l'efts ETAPE 1)
+                              # -> ~4500 CIK en 5-8 min, largement dans le timeout.
 
 # Override manuel : pour les CIK connus, on force le label utilisateur
 # (sinon on prend le name SEC qui est en majuscules sans label friendly)
@@ -113,6 +122,7 @@ KNOWN_LABELS = {
     '0001645505': ('JPMorgan AM', 'Bank Asset Manager'),
     '0000019617': ('Goldman AM', 'Bank Asset Manager'),
     '0000914208': ('Jean Hynes', 'Long-only Active'),
+    '0002045724': ('Situational Awareness (Aschenbrenner)', 'Hedge Fund'),
 }
 
 
@@ -169,15 +179,21 @@ def fetch_json(url, timeout=20):
 # ETAPE 1 : Decouvrir tous les CIK qui ont file un 13F-HR recemment
 # ============================================================
 def discover_13f_ciks():
-    """Query SEC EDGAR full-text search pour tous les 13F-HR des 6 derniers mois."""
+    """Query SEC EDGAR full-text search pour tous les 13F-HR des 6 derniers mois.
+    Capture pour chaque CIK, DIRECTEMENT depuis les hits efts, le nom + l'accession
+    du 13F-HR le PLUS RECENT (name/adsh/file_date sont dans _source). Evite ainsi
+    un appel submissions.json par CIK en ETAPE 2 : 2x moins de requetes SEC, la
+    discovery tient enfin dans le timeout (avant : timeout a ~2300/4500).
+
+    Retourne : dict {cik_padded: {'cik','name','accession','filing_date'}}."""
     print('=== ETAPE 1 : Discovery des CIK 13F-HR ===')
-    seen_ciks = set()
+    cik_meta = {}
     today = datetime.utcnow()
     start_date = (today - timedelta(days=180)).strftime('%Y-%m-%d')
     end_date = today.strftime('%Y-%m-%d')
 
     page_size = 100
-    max_pages = 50  # 5000 filings max
+    max_pages = 100  # 10000 filings max (cap dur de l'efts sur `from`)
 
     for page in range(max_pages):
         from_idx = page * page_size
@@ -197,21 +213,27 @@ def discover_13f_ciks():
             break
 
         for hit in hits:
-            # _id format : "ACCESSION-NUMBER:cik" ou similaire
             src = hit.get('_source', {})
-            ciks = src.get('ciks', [])
-            for c in ciks:
-                seen_ciks.add(c.zfill(10))
+            fd = src.get('file_date', '') or ''
+            adsh = src.get('adsh', '') or ''
+            names = src.get('display_names', []) or ['']
+            name = re.sub(r'\s*\(CIK[^)]*\)\s*$', '', names[0]).strip()
+            for c in src.get('ciks', []):
+                c = c.zfill(10)
+                prev = cik_meta.get(c)
+                # garde le 13F-HR le plus recent par CIK
+                if prev is None or fd > prev['filing_date']:
+                    cik_meta[c] = {'cik': c, 'name': name, 'accession': adsh, 'filing_date': fd}
 
         if page % 5 == 0:
-            print(f'  Page {page + 1} : {len(seen_ciks)} CIK uniques cumules')
+            print(f'  Page {page + 1} : {len(cik_meta)} CIK uniques cumules', flush=True)
         time.sleep(RATE_LIMIT_SLEEP)
 
         if len(hits) < page_size:
             break
 
-    print(f'Total CIK uniques: {len(seen_ciks)}')
-    return list(seen_ciks)
+    print(f'Total CIK uniques: {len(cik_meta)}')
+    return cik_meta
 
 
 # ============================================================
@@ -316,50 +338,48 @@ def humanize_name(name):
 def main():
     start = time.time()
 
-    # ETAPE 1 : decouvrir
-    ciks = discover_13f_ciks()
-    if not ciks:
+    # ETAPE 1 : decouvrir (renvoie {cik: {name, accession, filing_date}})
+    cik_meta = discover_13f_ciks()
+    if not cik_meta:
         print('Aucun CIK decouvert. Abandon.')
         return
 
-    # ETAPE 2 : enrichir avec AUM
-    print(f'\n=== ETAPE 2 : Recuperation AUM pour {len(ciks)} CIK ===')
-    funds = []
-    fail_count = 0
-    for i, cik in enumerate(ciks):
-        if i % 50 == 0:
-            print(f'  Progress {i}/{len(ciks)} ({len(funds)} retenus)')
+    # ETAPE 2 : enrichir avec AUM, EN PARALLELE.
+    # 1 requete/CIK (primary_doc.xml) : le nom + l'accession viennent deja de
+    # l'ETAPE 1. get_aum_from_filing passe par http_get (retry x3 + proxy SEC),
+    # donc la concurrence est sûre (les 429 sont retentes). ~4500 CIK en 5-8 min.
+    items = list(cik_meta.values())
+    print(f'\n=== ETAPE 2 : Recuperation AUM pour {len(items)} CIK '
+          f'(parallele x{DISCOVER_WORKERS}) ===', flush=True)
 
-        meta = get_fund_metadata(cik)
-        if not meta:
-            fail_count += 1
-            time.sleep(RATE_LIMIT_SLEEP)
-            continue
-
-        time.sleep(RATE_LIMIT_SLEEP)
-
-        # Filtre rapide AVANT de fetch le filing : si on a deja largement plus
-        # que TARGET_TOP_N candidats au dessus de MIN_AUM, on peut arreter.
-        # Mais sans AUM on ne peut pas filtrer ; on prend tous les CIK pour
-        # avoir le tableValueTotal.
-        aum = get_aum_from_filing(meta)
-        if aum < MIN_AUM_USD:
-            time.sleep(RATE_LIMIT_SLEEP)
-            continue
-
-        meta['aum'] = aum
-        # Label friendly + categorie
+    def enrich(meta):
+        try:
+            aum = get_aum_from_filing(meta)
+        except Exception:
+            return None
+        if not aum or aum < MIN_AUM_USD:
+            return None
+        m = dict(meta)
+        m['aum'] = aum
+        cik = m['cik']
         if cik in KNOWN_LABELS:
-            meta['label'], meta['category'] = KNOWN_LABELS[cik]
+            m['label'], m['category'] = KNOWN_LABELS[cik]
         else:
-            meta['label'] = humanize_name(meta['name'])
-            meta['category'] = categorize(meta['name'])
+            m['label'] = humanize_name(m['name'])
+            m['category'] = categorize(m['name'])
+        return m
 
-        funds.append(meta)
-        time.sleep(RATE_LIMIT_SLEEP)
+    funds = []
+    done = 0
+    with ThreadPoolExecutor(max_workers=DISCOVER_WORKERS) as ex:
+        for res in ex.map(enrich, items):
+            done += 1
+            if done % 500 == 0:
+                print(f'  Progress {done}/{len(items)} ({len(funds)} retenus)', flush=True)
+            if res:
+                funds.append(res)
 
     print(f'\n  Total avec AUM > ${MIN_AUM_USD/1e9:.0f}B : {len(funds)}')
-    print(f'  Echecs (CIK invalide / pas de 13F-HR) : {fail_count}')
 
     # ETAPE 2.5 : injecter les GUARANTEED_CIKS si pas deja decouverts.
     # Necessaire car SEC full-text search a une limite (~10000 hits) qui
@@ -406,10 +426,23 @@ def main():
             'label': f['label'],
             'category': f['category'],
             'aum': f['aum'],
-            'last_filing': f['filing_date'],
+            # defensif : les fonds injectes (GUARANTEED) n'ont pas 'filing_date'
+            'last_filing': f.get('filing_date') or f.get('last_filing', ''),
         }
         for f in top
     ]
+
+    # GARDE-FOU ANTI-REGRESSION : si la liste ressort anormalement courte
+    # (discovery partielle, panne SEC...), on NE reecrit PAS le fichier. Le
+    # fichier committe / la derniere bonne liste en KV sont ainsi conserves,
+    # au lieu d'ecraser l'univers avec une liste tronquee.
+    MIN_LIST_FLOOR = 150
+    if len(out_list) < MIN_LIST_FLOOR:
+        print(f'\n[SANITY] Seulement {len(out_list)} fonds (< {MIN_LIST_FLOOR}) : '
+              f'discovery probablement partielle. Fichier 13f_funds_list.json NON '
+              f'reecrit pour ne pas regresser l\'univers.', flush=True)
+        sys.exit(1)
+
     with open('13f_funds_list.json', 'w') as f:
         json.dump({
             'discoveredAt': datetime.utcnow().isoformat() + 'Z',

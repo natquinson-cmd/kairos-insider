@@ -4,9 +4,24 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 25 août 2026 (v29 - Scraper short interest résilient)
+**Dernière mise à jour** : 2 septembre 2026 (v30 - Découverte fonds réparée)
 
 ---
+
+## 🏦 v30 — Découverte de fonds réparée (univers gelé depuis mai) (2 sept. 2026)
+
+### 🔎 Diagnostic
+- `discover-13f-funds.py` (cron lundi dans update-13f.yml) **timeout systématiquement à ~2300/4500 CIK** (25 min). L'ÉTAPE 2 faisait 2 requêtes SEC par CIK (submissions.json + primary_doc.xml) en séquentiel → jamais fini. Résultat : la liste n'était jamais réécrite et, comme `13f_funds_list.json` est committé, le vieux fichier de mai était repoussé en KV chaque semaine. **Univers gelé à 238 fonds depuis le 16 mai.** `GUARANTEED_CIKS` injectés APRÈS l'ÉTAPE 2 → jamais appliqués non plus.
+- Symptôme signalé : Situational Awareness LP (Leopold Aschenbrenner, CIK 2045724, **20,2 Md$** au Q2) absent des Hedge Funds.
+
+### ✅ Corrections
+- **ÉTAPE 1 capture nom + accession depuis l'efts** (déjà dans `_source`) → supprime l'appel submissions.json → **1 requête/CIK** au lieu de 2.
+- **ÉTAPE 2 parallélisée** (`ThreadPoolExecutor` x5, `http_get` garde son retry x3 sur 429) → ~4500 CIK en 5-8 min.
+- **Garde-fou anti-régression** : si la liste ressort < 150 fonds, on NE réécrit PAS `13f_funds_list.json` (pas d'écrasement de l'univers par une liste tronquée).
+- **Build défensif** : `last_filing` via `.get()` (les fonds `GUARANTEED` injectés n'ont pas `filing_date` → évite un KeyError qui plantait la sauvegarde une fois la découverte enfin complète).
+- Situational Awareness LP ajouté à `GUARANTEED_CIKS` + label `KNOWN_LABELS`.
+- Timeout du step 25 → 45 min (marge). `pages` efts 50 → 100 (meilleure couverture).
+- **`refresh-funds.yml`** (workflow_dispatch) : reconstruire l'univers à la demande. Les holdings suivent au prochain run quotidien (prefetch-13f).
 
 ## 🛡️ v29 — Scraper short interest résilient + refresh manuel (25 août 2026)
 
