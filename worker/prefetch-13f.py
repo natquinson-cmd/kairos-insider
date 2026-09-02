@@ -315,7 +315,26 @@ def fetch_filing_holdings(cik, accession, cik_clean):
                 except ValueError:
                     tvt = None
 
-    return normalize_filing_units(parse_holdings(xml_data), tvt, label=f'cik={cik_clean} {accession}')
+    label = f'cik={cik_clean} {accession}'
+    holdings = normalize_filing_units(parse_holdings(xml_data), tvt, label=label)
+
+    # GARDE-FOU COMPLETUDE : la somme des lignes doit rester coherente avec le
+    # tableValueTotal que le filer declare LUI-MEME. Exemple reel : JPMorgan
+    # 13F Q1 2026 ne contient que 378 positions pour $1,1 Md alors qu'il
+    # declare $1,557 T (0,07 %), quand le trimestre suivant en a 34 064 pour
+    # $1,71 T. Comparer les deux produisait une "performance" de +154 793 %.
+    # On refuse le depot plutot que de publier un chiffre faux : en courant le
+    # fonds est ignore, en Q-1 / Y-1 aucune perf n'est calculee (les appelants
+    # traitent deja None). Bande large (20 %-500 %) : on ne vise que les
+    # incoherences grossieres, pas l'ecart normal du filtrage options/PRN.
+    if holdings and tvt and tvt > 0:
+        ratio = sum(h['value'] for h in holdings) / tvt
+        if ratio < 0.2 or ratio > 5:
+            print(f'    [units] {label} : depot INCOHERENT avec son propre tableValueTotal '
+                  f'({ratio*100:.2f} % du total declare, {len(holdings)} lignes) -> ignore', flush=True)
+            return None
+
+    return holdings
 
 def compute_total_value(holdings):
     """Valeur totale en $. Les unites sont deja normalisees par

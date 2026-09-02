@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v36 - Normalisation des unités 13F par filing)
+**Dernière mise à jour** : 2 septembre 2026 (v37 - Garde-fou dépôts 13F incomplets)
 
 ---
+
+## 🚧 v37 — Dépôts 13F incomplets : garde-fou de complétude (2 sept. 2026)
+
+- Après v36, il restait des perfs absurdes (**JPMorgan +154 793 %**, State Street +123 247 %, RK Capital +4 136 %). Ce n'était PAS une histoire d'unités : **JPMorgan a déposé un 13F Q1 2026 incomplet**, 378 positions pour 1,1 Md$ alors qu'il déclare lui-même **1,557 T$** (0,07 %), quand le trimestre suivant en compte 34 064 pour 1,71 T$. Comparer les deux fabriquait la perf.
+- Hypothèse écartée en chemin : « les gros filers répartissent leurs positions sur plusieurs XML ». Vérifié : un seul fichier `Information_Table` par dépôt, correctement choisi par le parseur. C'est bien le dépôt qui est incomplet.
+- Fix : après normalisation, `fetch_filing_holdings` compare la somme des lignes au `tableValueTotal` déclaré par le filer. Hors bande 20 %-500 % → dépôt **refusé** (`None`). Les appelants gèrent déjà : en courant le fonds est ignoré, en Q-1 / Y-1 aucune performance n'est calculée. On refuse de publier un chiffre plutôt que d'en inventer un.
+- Bande volontairement large : on ne vise que les incohérences grossières, pas l'écart normal dû au filtrage des options / PRN.
 
 ## 🧮 v36 — « 147 % du capital détenu » : normalisation des unités par filing (2 sept. 2026)
 
