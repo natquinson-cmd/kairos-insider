@@ -17454,7 +17454,33 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         // Totaux
         const totalValue = sorted.reduce((s, f) => s + (f.value || 0), 0);
         const totalCount = sorted.length;
-        const totalShares = sorted.reduce((s, f) => s + (f.shares || 0), 0);
+        // GARDE-FOU (sept. 2026) : un fonds ne peut pas detenir plus d'actions
+        // qu'il n'en existe. Certains filers deposent des 13F corrompus (CalSTRS
+        // Q2 2026 avait inverse value et sshPrnamt -> 1,46 Md d'actions LLY pour
+        // 994 M en circulation -> "147,10 % du capital detenu" en hero).
+        // Corrige a la source par normalize_filing_units cote pipeline ; ce
+        // filtre reste la ceinture de securite pour tout futur filing aberrant.
+        // On exclut la ligne du calcul de part de capital (elle reste affichee
+        // dans le tableau, signalee) plutot que de publier un chiffre faux.
+        const sharesOutGuard = (() => {
+          let so = (data.fundamentals && Number(data.fundamentals.sharesOut)) || null;
+          if (!so || so <= 0) {
+            const mc = data.fundamentals && Number(data.fundamentals.marketCap);
+            const px = data.price && Number(data.price.current);
+            if (mc > 0 && px > 0) so = mc / px;
+          }
+          return so;
+        })();
+        sorted.forEach(f => {
+          const sh = Number(f.shares) || 0;
+          f._sharesSuspect = !!(sharesOutGuard && sharesOutGuard > 0 && sh > sharesOutGuard);
+          if (f._sharesSuspect) {
+            console.warn('[explorer] shares > actions en circulation, exclu du % du capital :',
+              f.fundName, sh, '>', sharesOutGuard);
+          }
+        });
+        const totalShares = sorted.reduce((s, f) => s + (f._sharesSuspect ? 0 : (Number(f.shares) || 0)), 0);
+        const suspectCount = sorted.filter(f => f._sharesSuspect).length;
 
         // % du float + son evolution Q-vs-Q (mai 2026 v3, user feedback) :
         // - Avant : "Variation moyenne ponderee vs Q-1" (bugguee par les new
@@ -17478,6 +17504,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         // Reconstruct totalShares prev via shares / (1 + deltaPct/100).
         // Cf stock card meme commentaire.
         const totalSharesPrev = sorted.reduce((s, f) => {
+          if (f._sharesSuspect) return s;   // meme exclusion que totalShares
           const shares = Number(f.shares) || 0;
           const dp = Number(f.deltaPct);
           if (!Number.isFinite(dp)) return s + shares;

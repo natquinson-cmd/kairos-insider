@@ -4,9 +4,17 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v35 - Tickers abréviations EDGAR + diagnostic D1)
+**Dernière mise à jour** : 2 septembre 2026 (v36 - Normalisation des unités 13F par filing)
 
 ---
+
+## 🧮 v36 — « 147 % du capital détenu » : normalisation des unités par filing (2 sept. 2026)
+
+- Signalé : page Explore LLY, **147,10 % du capital détenu** par 6 fonds, avec CalSTRS à 1,46 Md d'actions (994 M en circulation) et un delta à +120 133 %.
+- Cause : **CalSTRS a inversé `value` et `sshPrnamt`** dans son 13F Q2 2026. Preuve : `sum(sshPrnamt)` = son propre `tableValueTotal` (108 615 536 242) au dollar près, et `sshPrnamt/value` sur LLY = **1 199,4 $**, exactement le prix implicite des 5 autres fonds du tableau.
+- L'enquête a aussi montré que **v34 était trop brutale** : supprimer tout ×1000 cassait les filers déclarant légitimement **en milliers** (T. Rowe, TIAA-CREF, Pacer, Baupost, Egerton, HRT), qui seraient devenus 1000× trop petits. L'ancien seuil « total < 1 Md$ » et sa suppression sont faux tous les deux.
+- Fix : `normalize_filing_units()` normalise **chaque dépôt** en (dollars, actions). Inversion détectée via le `tableValueTotal` du filer ; unité tranchée par le **prix implicite médian** (le total déclaré porte la même unité que les lignes, il ne peut donc pas trancher). Vérifié sur 3 dépôts réels : CalSTRS → 108,6 Md$ et NVDA à 200,09 $ ; Baupost → 5,42 Md$ et AMZN à 238,34 $ ; Berkshire intact à 299,25 Md$ et AAPL à 289,36 $.
+- Garde-fou UI : un fonds dont `shares > sharesOut` est exclu du % de capital (ceinture de sécurité pour tout futur filing aberrant), avec un `console.warn`.
 
 ## 🔤 v35 — Tickers manquants, 2ᵉ famille : abréviations EDGAR (2 sept. 2026)
 

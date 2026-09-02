@@ -221,15 +221,74 @@ def parse_holdings(xml):
     holdings.sort(key=lambda h: h['value'], reverse=True)
     return holdings
 
+# Bande de PRIX D'ACTION plausible pour la MEDIANE d'un portefeuille 13F.
+# Sert de discriminant d'unites (cf. normalize_filing_units).
+PRICE_MIN, PRICE_MAX = 1.0, 100_000.0
+
+
+def _median(xs):
+    xs = sorted(xs)
+    return xs[len(xs) // 2] if xs else 0.0
+
+
+def normalize_filing_units(holdings, table_value_total=None, label=''):
+    """Ramene un filing en (valeur en DOLLARS, nombre d'ACTIONS), quelle que soit
+    la convention du filer. Trois cas rencontres en production (sept. 2026) :
+
+      1. CHAMPS INVERSES : le filer met la valeur $ dans <sshPrnamt> et le nombre
+         d'actions dans <value>. CalSTRS Q2 2026 : sum(sshPrnamt) reproduit son
+         propre tableValueTotal AU DOLLAR PRES ($108 615 536 242). Sans
+         correction : 1,46 Md d'actions LLY pour un seul fonds -> la page
+         Explore affichait "147,10 % du capital detenu" (et un delta a
+         +120 133 %), alors que LLY n'a que 994 M d'actions en circulation.
+      2. VALEURS EN MILLIERS : toujours utilise par T. Rowe, TIAA-CREF, Pacer,
+         Baupost, Egerton, HRT malgre la regle SEC du dollar direct (2023).
+      3. DOLLARS : le cas normal (Vanguard, BlackRock, Berkshire...).
+
+    Discriminant : le PRIX IMPLICITE MEDIAN (value/shares) doit tomber dans une
+    bande plausible. Attention, le tableValueTotal ne peut PAS servir a trancher
+    milliers/dollars (il porte la meme unite que les lignes, le ratio est donc
+    invariant) : il ne sert qu'a detecter l'inversion. L'ancien test "total du
+    fonds < 1 Md$ => milliers" etait faux DANS LES DEUX SENS (petits fonds en
+    dollars gonfles x1000 -> faux hedge funds a $97B ; gros fonds en milliers
+    laisses 1000x trop petits)."""
+    rows = [h for h in holdings if h['value'] > 0 and h['shares'] > 0]
+    if not rows:
+        return holdings
+
+    # 1. Champs inverses : la somme des "shares" reproduit le total declare.
+    if table_value_total and table_value_total > 0:
+        sum_v = sum(h['value'] for h in holdings)
+        sum_s = sum(h['shares'] for h in holdings)
+        close = lambda a: abs(a - table_value_total) / table_value_total < 0.01
+        if sum_s > 0 and close(sum_s) and not close(sum_v):
+            for h in holdings:
+                h['value'], h['shares'] = h['shares'], h['value']
+            print(f'    [units] {label} : champs value/sshPrnamt INVERSES par le filer -> corriges', flush=True)
+            rows = [h for h in holdings if h['value'] > 0 and h['shares'] > 0]
+
+    # 2. Unite des valeurs, via le prix implicite median.
+    med = _median([h['value'] / h['shares'] for h in rows])
+    if 0 < med < PRICE_MIN and PRICE_MIN <= med * 1000 <= PRICE_MAX:
+        for h in holdings:
+            h['value'] *= 1000
+        print(f'    [units] {label} : valeurs en MILLIERS (prix median {med:.4f}) -> x1000', flush=True)
+    elif med and not (PRICE_MIN <= med <= PRICE_MAX):
+        print(f'    [units] {label} : WARN prix implicite median hors bande ({med:.4f}), laisse tel quel', flush=True)
+
+    holdings.sort(key=lambda h: h['value'], reverse=True)
+    return holdings
+
+
 def fetch_filing_holdings(cik, accession, cik_clean):
-    """Telecharge et parse les positions d'un filing 13F."""
+    """Telecharge, parse et NORMALISE les unites des positions d'un filing 13F."""
     acc_clean = accession.replace('-', '')
     index_html = fetch(f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/')
     if not index_html:
         return None
 
-    xml_files = re.findall(r'href="([^"]*\.xml)"', index_html, re.IGNORECASE)
-    xml_files = [f for f in xml_files if 'primary_doc' not in f.lower() and 'xsl' not in f.lower()]
+    all_xml = re.findall(r'href="([^"]*\.xml)"', index_html, re.IGNORECASE)
+    xml_files = [f for f in all_xml if 'primary_doc' not in f.lower() and 'xsl' not in f.lower()]
 
     if not xml_files:
         return None
@@ -240,15 +299,27 @@ def fetch_filing_holdings(cik, accession, cik_clean):
     if not xml_data:
         return None
 
-    return parse_holdings(xml_data)
+    # tableValueTotal declare par le filer : seul moyen de detecter une inversion
+    # des champs (value <-> sshPrnamt). Best-effort : sans lui, on garde quand
+    # meme la detection milliers/dollars par le prix implicite.
+    tvt = None
+    pd_files = [f for f in all_xml if 'primary_doc' in f.lower() and 'xsl' not in f.lower()]
+    if pd_files:
+        pd_xml = fetch(f'https://www.sec.gov/Archives/edgar/data/{cik_clean}/{acc_clean}/'
+                       f'{pd_files[0].split("/")[-1]}')
+        if pd_xml:
+            m = re.search(r'<(?:\w+:)?tableValueTotal>([\d.]+)</(?:\w+:)?tableValueTotal>', pd_xml)
+            if m:
+                try:
+                    tvt = float(m.group(1))
+                except ValueError:
+                    tvt = None
+
+    return normalize_filing_units(parse_holdings(xml_data), tvt, label=f'cik={cik_clean} {accession}')
 
 def compute_total_value(holdings):
-    """Valeur totale en $. FIX (sept. 2026) : PLUS de x1000. Depuis le 3 janv.
-    2023 la SEC impose le dollar direct et ce script ne lit que les 13F-HR
-    courants -> tous en dollars. L'ancienne heuristique (somme < $1B => "format
-    en milliers" => x1000) affichait un activiste must-have a $600M comme
-    $600B ("AUM estime") et fabriquait des perfs a +154 000 % quand deux
-    periodes tombaient de part et d'autre du seuil."""
+    """Valeur totale en $. Les unites sont deja normalisees par
+    normalize_filing_units() a la lecture du filing : simple somme ici."""
     return sum(h['value'] for h in holdings)
 
 def holding_value(h, raw_sum):

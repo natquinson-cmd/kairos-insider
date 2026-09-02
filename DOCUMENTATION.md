@@ -1518,6 +1518,15 @@ Dès qu'on dépasse ~1000 users actifs :
 - Abréviations EDGAR canonicalisées des deux côtés (`NAME_ABBREV` : MATERIALS↔MATLS, SYSTEMS↔SYS, MANUFAC*→MFG, INCORPORATED→INC, INTERNATION*→INTL...), marqueurs d'état strippés **seulement après un suffixe corporatif** (« INC DEL », « /MD/ »), et `resolveTickerByName` = exact puis **repli par préfixe** (noms 13F tronqués à ~28 caractères, ≥ 12 caractères communs, frontière de mot exigée quand la clé est le préfixe).
 - `normalizeForMatch` est **idempotente** : strip répété suffixe corporatif / classe `CL A` / « & »-« AND » résiduel, jusqu'à stabilité. Les clés `KNOWN_TICKERS` passent par la même fonction (les deux côtés convergent). Cache map : `ticker-by-name-v3` (1h).
 
-### Unités des valeurs 13F (règle SEC, sept. 2026)
+### Unités des valeurs 13F : normalisation par filing (sept. 2026)
+`prefetch-13f.py` -> `normalize_filing_units()` ramène **chaque dépôt** en (valeur en dollars, nombre d'actions). Trois conventions coexistent en production :
+1. **Champs inversés** : le filer met la valeur $ dans `sshPrnamt` et les actions dans `value`. Détecté quand `sum(sshPrnamt)` reproduit le `tableValueTotal` déclaré (CalSTRS Q2 2026, au dollar près). Non corrigé, cela donnait « 147,10 % du capital détenu » sur LLY.
+2. **Valeurs en milliers** : encore utilisé par T. Rowe, TIAA-CREF, Pacer, Baupost, Egerton, HRT.
+3. **Dollars** : cas normal (Vanguard, BlackRock, Berkshire).
+
+Discriminant = **prix implicite médian** (`value/shares`) ramené dans [1 $, 100 000 $]. ⚠️ Le `tableValueTotal` ne peut PAS trancher milliers/dollars (même unité que les lignes, ratio invariant) : il ne sert qu'à détecter l'inversion. L'ancien test « total du fonds < 1 Md$ ⇒ milliers » était faux **dans les deux sens**.
+Garde-fou UI (`dashboard.html`, Explore) : un fonds dont `shares > sharesOut` est exclu du calcul de part de capital.
+
+### Ancien contexte (v34)
 - Depuis le **3 janvier 2023**, la SEC impose le **dollar direct** dans les 13F (avant : en milliers). Toute heuristique « valeur < 100 M$ ⇒ format en milliers ⇒ ×1000 » est fausse sur les dépôts courants : elle a été retirée de `discover-13f-funds.py` (AUM), `augment-funds-list.py` (AUM must-have) et `prefetch-13f.py` (« AUM estimé » + valeurs de positions ; expliquait des perfs à +154 000 %).
 - `fetch-13f-history.py` (12 ans) applique ×1000 **uniquement** si `filingDate < 2023-01-03`. Blobs KV `13f-history-*` réécrits à chaque run mensuel (auto-correction). Reliquat possible : lignes D1 `fund_holdings_history` de petits fonds insérées gonflées (INSERT OR IGNORE), cleanup ciblé à faire.
