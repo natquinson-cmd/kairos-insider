@@ -98,6 +98,20 @@ def main():
     for r in rows:
         print(f"    cik={r.get('cik'):>10}  {r.get('report_date')}  prev={fmt_usd(r.get('prev')):>9} -> total={fmt_usd(r.get('total')):>9}  x{r.get('ratio')}")
 
+    # S5 : serie COMPLETE des fonds flagges en S3 (total + nb de lignes par
+    # trimestre). Permet de distinguer (a) trimestres anterieurs DEFLATES /1000
+    # (meme nb de lignes, echelle differente -> cleanup = x1000 sur ces lignes)
+    # de (b) capture PARTIELLE (tres peu de lignes -> cleanup = supprimer /
+    # re-ingerer), et de localiser la frontiere entre les deux scripteurs
+    # (backfill historique vs prefetch quotidien).
+    flagged = sorted({str(r.get('cik')) for r in rows if str(r.get('cik', '')).isdigit()})[:14]
+    section(f'S5  Series completes des {len(flagged)} fonds flagges (total | lignes par trimestre)')
+    for cik in flagged:
+        serie = q(f"SELECT report_date, SUM(value) AS total, COUNT(*) AS n FROM fund_holdings_history "
+                  f"WHERE cik = '{cik}' GROUP BY report_date ORDER BY report_date", f'S5-{cik}')
+        parts = [f"{s.get('report_date')[2:7]}:{fmt_usd(s.get('total'))}({s.get('n')})" for s in serie]
+        print(f"  cik={cik:>10}  " + '  '.join(parts))
+
     section('S4  Distribution des totaux fonds-trimestre')
     for r in q("SELECT CASE WHEN total < 1e9 THEN '1 <1B' WHEN total < 1e10 THEN '2 1-10B' "
                "WHEN total < 1e11 THEN '3 10-100B' WHEN total < 1e12 THEN '4 100B-1T' "
