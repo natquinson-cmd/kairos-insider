@@ -219,7 +219,7 @@ Le pipeline tourne **quotidiennement à 1h30 UTC** (3h30 Paris heure d'été) vi
 
 | Script | Rôle | Durée typique |
 |---|---|---|
-| `discover-13f-funds.py` | (hebdo lundi, dans update-13f.yml) Univers de fonds à **2 paniers** : A = top 100 par AUM toutes catégories (couverture « qui détient quoi ») + B = top 200 par AUM parmi les catégories smart money (`SMART_CATEGORIES` : Hedge Fund, Activist, Quant, Macro, Tiger Cub...) ; + `GUARANTEED_CIKS` forcés (survivent à la coupe) + MUST_HAVE. Min 1 Md$. Depuis sept. 2026 : nom+accession capturés depuis l'efts (1 req/CIK), fetch AUM **parallèle x5**, retry 500/502, page en échec sautée, **garde-fou** : liste < 150 fonds → fichier NON réécrit (pas de régression). Refresh manuel : `refresh-funds.yml`. | ~5-8 min |
+| `discover-13f-funds.py` | (hebdo lundi, dans update-13f.yml) Univers de fonds à **2 paniers** : A = top 100 par AUM toutes catégories (couverture « qui détient quoi ») + B = top 230 par AUM parmi les catégories smart money (dont `Pension Fund` depuis sept. 2026) (`SMART_CATEGORIES` : Hedge Fund, Activist, Quant, Macro, Tiger Cub...) ; + `GUARANTEED_CIKS` forcés (survivent à la coupe) + MUST_HAVE. Min 1 Md$. Depuis sept. 2026 : nom+accession capturés depuis l'efts (1 req/CIK), fetch AUM **parallèle x5**, retry 500/502, page en échec sautée, **garde-fou** : liste < 150 fonds → fichier NON réécrit (pas de régression). Refresh manuel : `refresh-funds.yml`. | ~5-8 min |
 | `prefetch-13f.py` | Fetch les positions trimestrielles de tous les fonds | ~30 min |
 | `prefetch-all.py` | Fetch SEC Form 4 + clusters d'insiders en 1 pass | ~20 min |
 | `fetch-bafin.py` | Scrape BaFin Directors' Dealings | ~5 min |

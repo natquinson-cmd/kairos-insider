@@ -90,7 +90,12 @@ DISCOVER_WORKERS = 5          # fetch AUM en parallele (ETAPE 2). http_get a un
 #   B. SMART_TOP_N : top N par AUM parmi les categories smart money ci-dessous.
 # + GUARANTEED_CIKS forces (ETAPE 3.5) + MUST_HAVE (augment-funds-list.py).
 MEGA_TOP_N = 100
-SMART_TOP_N = 200
+# 200 -> 230 (sept. 2026) : l'admission des 'Pension Fund' a fait entrer 27
+# fonds dans le panier B, qui en evinçaient donc 27 par le bas (hedge funds
+# tombes de ~188 a 161, cutoff 4,6 -> 5,3 Md$). Les pensions doivent s'AJOUTER,
+# pas se substituer : on elargit d'autant. Cout : ~30 fonds de plus a fetcher
+# dans prefetch-13f (~4 min, le step est a 60 min).
+SMART_TOP_N = 230
 SMART_CATEGORIES = {
     'Hedge Fund', 'Activist', 'Quant', 'Macro', 'Multi-strategy', 'Contrarian',
     'Distressed', 'Growth Tech', 'Innovation', 'Tech Long-Short', 'Tech Tiger Cub',

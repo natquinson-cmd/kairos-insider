@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v37 - Garde-fou dépôts 13F incomplets)
+**Dernière mise à jour** : 2 septembre 2026 (v38 - Fonds de pension dans le panier smart money)
 
 ---
+
+## 🏛️ v38 — Fonds de pension admis dans le panier smart money (2 sept. 2026)
+
+- Les grands institutionnels publics (CalSTRS, NY State Common, CalPERS, Teacher Retirement System...) sont de vrais détenteurs suivis, mais souvent **sous le cutoff du panier A** (112,6 Md$). CalSTRS, à 108,6 Md$, était sorti de l'univers, ce qui **masquait** accidentellement le bug des « 147 % du capital » au lieu de le corriger.
+- `'Pension Fund'` ajouté à `SMART_CATEGORIES` (+ `'Sovereign Wealth'` par cohérence, jamais produit par `categorize()` aujourd'hui : Norges Bank passe par les MUST_HAVE).
+- **Anti-régression** : la première mesure a montré que les 27 pensions entrantes en évinçaient 27 par le bas (hedge funds 188 → 161, cutoff 4,6 → 5,3 Md$). `SMART_TOP_N` passé de 200 à **230** pour que les pensions s'ajoutent au lieu de se substituer. Le log imprime désormais la **répartition par catégorie du panier B** pour surveiller ce type d'éviction.
+- Effet de bord utile : CalSTRS revenant dans l'univers, la détection d'inversion `value`/`sshPrnamt` (v36) est enfin exercée en production.
 
 ## 🚧 v37 — Dépôts 13F incomplets : garde-fou de complétude (2 sept. 2026)
 
