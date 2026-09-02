@@ -96,6 +96,12 @@ SMART_CATEGORIES = {
     'Distressed', 'Growth Tech', 'Innovation', 'Tech Long-Short', 'Tech Tiger Cub',
     'Tiger Cub', 'Tiger Cub Growth', 'Tiger Cub Long-Short', 'Tiger Grandcub',
     'Value investing', 'Small-Mid Cap Active',
+    # Ajoutes sept. 2026 : les grands investisseurs institutionnels publics
+    # (CalSTRS, CalPERS, NY State Common, Teacher Retirement System...) sont de
+    # vrais detenteurs suivis, souvent sous le cutoff du panier A. 'Sovereign
+    # Wealth' n'est jamais produit par categorize() (Norges Bank passe par les
+    # MUST_HAVE), on le liste pour que la regle reste vraie si ca change.
+    'Pension Fund', 'Sovereign Wealth',
 }
 
 # Override manuel : pour les CIK connus, on force le label utilisateur
@@ -454,6 +460,12 @@ def main():
           f'sur {len(smart_pool)} eligibles | cutoff ${smart_cut/1e9:.1f}B', flush=True)
     for f in bucket_smart[:10]:
         print(f"    B  {f['label'][:40]:40} {str(f.get('category', ''))[:22]:22} ${f['aum']/1e9:.1f}B")
+    # Repartition par categorie du panier B : sert a verifier qu'une categorie
+    # nouvellement admise (ex. Pension Fund) n'evince pas les hedge funds.
+    from collections import Counter
+    breakdown = Counter(str(f.get('category', '?')) for f in bucket_smart)
+    print('  Panier B par categorie : '
+          + ', '.join(f'{c}={n}' for c, n in breakdown.most_common()), flush=True)
 
     # ETAPE 3.5 : les GUARANTEED_CIKS doivent SURVIVRE a la coupe top N.
     # Avant, "garanti" ne protegeait que contre un oubli de la discovery : un
