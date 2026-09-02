@@ -32,6 +32,7 @@ import json
 import re
 import statistics
 import subprocess
+import time
 import sys
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -61,13 +62,25 @@ def q(sql, label='sql'):
     return rows
 
 
-def fetch(u, t=25):
-    r = urllib.request.urlopen(urllib.request.Request(
-        u, headers={'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate'}), timeout=t)
-    d = r.read()
-    if r.headers.get('Content-Encoding') == 'gzip':
-        d = gzip.decompress(d)
-    return d.decode('utf-8', 'replace')
+def fetch(u, t=30, attempts=4):
+    """SEC avec retry : sans lui, un TimeoutError/HTTPError transitoire faisait
+    passer le trimestre en SKIP. Or ces trimestres appartiennent a des SERIES
+    dont les voisins sont corriges : en sauter un recree exactement le probleme
+    de frontiere que ce script vise a supprimer."""
+    last = None
+    for i in range(1, attempts + 1):
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(
+                u, headers={'User-Agent': UA, 'Accept-Encoding': 'gzip, deflate'}), timeout=t)
+            d = r.read()
+            if r.headers.get('Content-Encoding') == 'gzip':
+                d = gzip.decompress(d)
+            return d.decode('utf-8', 'replace')
+        except Exception as e:
+            last = e
+            if i < attempts:
+                time.sleep(min(2 ** i, 15))
+    raise last
 
 
 def usd(v):
