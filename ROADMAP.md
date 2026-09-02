@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v32 - Recherche Hedge Funds priorité au nom)
+**Dernière mise à jour** : 2 septembre 2026 (v33 - Univers de fonds à 2 paniers)
 
 ---
+
+## 🧺 v33 — Univers de fonds à 2 paniers (smart money préservé) + prefetch 60 min (2 sept. 2026)
+
+- Une fois la découverte réparée (v30), le « top 300 par AUM » sur ~9 000 CIK donnait un **cutoff à 71,9 Md$** : univers 100 % géants passifs/banques/pensions, et **145 des 238 fonds de l'ancienne liste disparaissaient** (dont 23 hedge funds : Adage, GQG, Alkeon, LMR, CFM... + activistes, quants, macros). Régression silencieuse du signal smart money.
+- **Fix** : panier **A** = top 100 par AUM toutes catégories (couverture « qui détient quoi ») + panier **B** = top 200 par AUM parmi `SMART_CATEGORIES` (include-list explicite, les « Asset Manager » génériques n'y entrent pas) ; `GUARANTEED_CIKS` forcés + MUST_HAVE inchangés. Total ~330, charge similaire. Log : cutoffs A/B, top 10 du panier B, garantis présents/forcés.
+- `prefetch-13f` : timeout **30 → 60 min** (le step était à 30 min pile avec 238 fonds ; des fonds jamais fetchés arrivent).
+- Constantes `MEGA_TOP_N` / `SMART_TOP_N` / `SMART_CATEGORIES` ajustables.
 
 ## 🔍 v32 — Recherche Hedge Funds : priorité au nom du fonds (2 sept. 2026)
 

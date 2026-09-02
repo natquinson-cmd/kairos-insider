@@ -103,7 +103,11 @@ jobs:
       # ===== 13F prefetch (tous les jours, utilise la liste dynamique) =====
       - name: Fetch 13F data from SEC EDGAR (uses dynamic funds list)
         run: cd worker && python prefetch-13f.py
-        timeout-minutes: 30
+        # 30 -> 60 min (sept. 2026) : le step etait au plafond (30 min pile) avec
+        # 238 fonds ; l'univers passe a ~300 (2 paniers) avec des fonds jamais
+        # fetches -> marge necessaire, sinon le step timeout et 13f-all-funds
+        # n'est pas mis a jour.
+        timeout-minutes: 60
         continue-on-error: true
 
       - name: Upload 13F to KV

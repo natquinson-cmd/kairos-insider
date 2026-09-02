@@ -80,6 +80,24 @@ DISCOVER_WORKERS = 5          # fetch AUM en parallele (ETAPE 2). http_get a un
                               # (nom+accession viennent deja de l'efts ETAPE 1)
                               # -> ~4500 CIK en 5-8 min, largement dans le timeout.
 
+# UNIVERS A 2 PANIERS (sept. 2026). Depuis que la discovery scanne ~9000 CIK
+# (2990 fonds > $1B), un simple "top 300 par AUM" a un cutoff a ~$72B : l'univers
+# devient 100 % geants passifs/banques/pensions et 145 fonds de l'ancienne liste
+# (dont 23 hedge funds, activistes, quants, macros = le VRAI smart money)
+# disparaissent. On garde donc :
+#   A. MEGA_TOP_N  : top N par AUM toutes categories (couverture "qui detient
+#                    quoi" : Vanguard/BlackRock/banques/pensions/souverains).
+#   B. SMART_TOP_N : top N par AUM parmi les categories smart money ci-dessous.
+# + GUARANTEED_CIKS forces (ETAPE 3.5) + MUST_HAVE (augment-funds-list.py).
+MEGA_TOP_N = 100
+SMART_TOP_N = 200
+SMART_CATEGORIES = {
+    'Hedge Fund', 'Activist', 'Quant', 'Macro', 'Multi-strategy', 'Contrarian',
+    'Distressed', 'Growth Tech', 'Innovation', 'Tech Long-Short', 'Tech Tiger Cub',
+    'Tiger Cub', 'Tiger Cub Growth', 'Tiger Cub Long-Short', 'Tiger Grandcub',
+    'Value investing', 'Small-Mid Cap Active',
+}
+
 # Override manuel : pour les CIK connus, on force le label utilisateur
 # (sinon on prend le name SEC qui est en majuscules sans label friendly)
 KNOWN_LABELS = {
@@ -416,9 +434,24 @@ def main():
     if injected:
         print(f'  Injected {injected} guaranteed CIKs (discovery missed them)')
 
-    # ETAPE 3 : tri par AUM desc, top N
+    # ETAPE 3 : tri par AUM desc, puis UNIVERS A 2 PANIERS (cf. constantes).
     funds.sort(key=lambda f: -f['aum'])
-    top = funds[:TARGET_TOP_N]
+    bucket_mega = funds[:MEGA_TOP_N]
+    mega_ciks = {f['cik'].lstrip('0') for f in bucket_mega}
+    smart_pool = [f for f in funds
+                  if f.get('category') in SMART_CATEGORIES
+                  and f['cik'].lstrip('0') not in mega_ciks]
+    bucket_smart = smart_pool[:SMART_TOP_N]
+    top = bucket_mega + bucket_smart
+    top.sort(key=lambda f: -f['aum'])  # ordre AUM global conserve pour la liste
+    mega_cut = bucket_mega[-1]['aum'] if bucket_mega else 0
+    smart_cut = bucket_smart[-1]['aum'] if bucket_smart else 0
+    print(f'\n  Panier A (top {MEGA_TOP_N} AUM, toutes categories) : {len(bucket_mega)} '
+          f'| cutoff ${mega_cut/1e9:.1f}B')
+    print(f'  Panier B (top {SMART_TOP_N} AUM, smart money) : {len(bucket_smart)} '
+          f'sur {len(smart_pool)} eligibles | cutoff ${smart_cut/1e9:.1f}B', flush=True)
+    for f in bucket_smart[:10]:
+        print(f"    B  {f['label'][:40]:40} {str(f.get('category', ''))[:22]:22} ${f['aum']/1e9:.1f}B")
 
     # ETAPE 3.5 : les GUARANTEED_CIKS doivent SURVIVRE a la coupe top N.
     # Avant, "garanti" ne protegeait que contre un oubli de la discovery : un
@@ -429,9 +462,13 @@ def main():
     top_ciks = {f['cik'].lstrip('0') for f in top}
     by_cik = {f['cik'].lstrip('0'): f for f in funds}
     forced = []
+    present = []
     for cik, _name, _category, _aum in GUARANTEED_CIKS:
         k = cik.lstrip('0')
         if k in top_ciks:
+            fp = by_cik.get(k)
+            if fp:
+                present.append(f"{fp['label']} (${fp['aum']/1e9:.1f}B)")
             continue
         f = by_cik.get(k)
         if f is None:
@@ -439,7 +476,8 @@ def main():
         top.append(f)
         top_ciks.add(k)
         forced.append(f"{f['label']} (${f['aum']/1e9:.1f}B)")
-    print(f'\n  Cutoff top {TARGET_TOP_N} : ${cutoff_aum/1e9:.1f}B')
+    print(f'\n  Plus petit AUM de l\'univers (avant forces) : ${cutoff_aum/1e9:.1f}B')
+    print(f'  Garantis deja presents ({len(present)}) : ' + ', '.join(present), flush=True)
     if forced:
         print(f'  Forces dans la liste (garantis sous le cutoff) : {len(forced)} -> '
               + ', '.join(forced), flush=True)
