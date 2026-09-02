@@ -4,9 +4,15 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v31 - Tickers manquants JNJ/JPM/LLY + découverte résiliente)
+**Dernière mise à jour** : 2 septembre 2026 (v32 - Recherche Hedge Funds priorité au nom)
 
 ---
+
+## 🔍 v32 — Recherche Hedge Funds : priorité au nom du fonds (2 sept. 2026)
+
+- Bug : « Berkshire » renvoyait **108 fonds** (tous ceux qui **détiennent** BRK dans leur top 50, triés par AUM) et enterrait Berkshire Hathaway lui-même. `data-fund-search` mélange identité + holdings en un seul substring.
+- Fix : attribut `data-fund-name` (label + nom + catégorie, sans holdings) et recherche en **2 niveaux** : si au moins un fonds PORTE ce nom → on n'affiche que ceux-là ; sinon → texte complet avec holdings (la feature « cherchez par action », ex. « Apple », et le deep-link `#13f?holding=AAPL` sont intacts) ; sinon → fallback serveur.
+- Vérifié dans le navigateur sur la vraie `filterHedgeFunds` : Berkshire → 1 fonds ; Apple → 3 détenteurs ; hedge → 2 (catégorie) ; vide → tout.
 
 ## 🔤 v31 — Tickers manquants (JNJ/JPM/LLY) + découverte résiliente au 500 efts (2 sept. 2026)
 

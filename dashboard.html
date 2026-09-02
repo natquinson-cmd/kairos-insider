@@ -16956,8 +16956,21 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const hint = document.getElementById('hedgeFundsSearchHint');
       const rows = area.querySelectorAll('tr.fund-row');
       let visible = 0;
+      // FIX (sept. 2026) : recherche en 2 NIVEAUX. Niveau 1 = identite du fonds
+      // (data-fund-name : label + nom + categorie). Si au moins un fonds PORTE ce
+      // nom, on n'affiche que ceux-la. Niveau 2 (seulement si aucun nom ne
+      // matche) = texte complet AVEC holdings (data-fund-search), pour garder la
+      // feature "cherchez par action" (ex. "Apple", deep-link #13f?holding=AAPL).
+      // Avant : un seul substring sur le texte complet -> "Berkshire" renvoyait
+      // les 108 fonds detenteurs de BRK tries par AUM, Berkshire Hathaway enterre.
+      const nameMatchCount = q
+        ? Array.from(rows).filter(r => (r.dataset.fundName || '').toLowerCase().includes(q)).length
+        : 0;
+      const useNameTier = !!q && nameMatchCount > 0;
       rows.forEach(row => {
-        const searchableText = (row.dataset.fundSearch || '').toLowerCase();
+        const searchableText = useNameTier
+          ? (row.dataset.fundName || '').toLowerCase()
+          : (row.dataset.fundSearch || '').toLowerCase();
         const matches = !q || searchableText.includes(q);
         // On cache aussi les ligne details (qui ont id="fund-detail-X")
         const idx = row.dataset.fundIdx;
@@ -17777,7 +17790,12 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           [h.name, h.ticker, h.symbol].filter(Boolean).join(' ')
         ).join(' ');
         const searchableText = [labelTxt, fundTxt, categoryTxt, holdingsText].filter(Boolean).join(' ').toLowerCase();
-        rows += `<tr class="fund-row" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
+        // FIX (sept. 2026) : identite SEULE (label + nom + categorie, SANS les
+        // holdings) pour que la recherche priorise les fonds dont c'est le NOM.
+        // Avant, "Berkshire" matchait les 108 fonds qui DETIENNENT BRK dans
+        // leur top 50 et enterrait Berkshire Hathaway lui-meme (tri par AUM).
+        const nameText = [labelTxt, fundTxt, categoryTxt].filter(Boolean).join(' ').toLowerCase();
+        rows += `<tr class="fund-row" data-fund-name="${escapeHtmlClient(nameText)}" data-fund-search="${escapeHtmlClient(searchableText)}" data-fund-idx="${i}" onclick="toggleFund(${i})">
           <td style="opacity:0.6">${displayRank}</td>
           <td>
             <div style="font-weight:600;color:var(--text-primary)">${labelTxt} <span class="chevron">&#9654;</span></div>

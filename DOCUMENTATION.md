@@ -219,7 +219,7 @@ Le pipeline tourne **quotidiennement à 1h30 UTC** (3h30 Paris heure d'été) vi
 
 | Script | Rôle | Durée typique |
 |---|---|---|
-| `discover-13f-funds.py` | Découvre les top 200 hedge funds par AUM (hebdo) | ~25 min |
+| `discover-13f-funds.py` | (hebdo lundi, dans update-13f.yml) Univers de fonds = top 300 filers 13F-HR par AUM (min 1 Md$) + `GUARANTEED_CIKS`. Depuis sept. 2026 : nom+accession capturés depuis l'efts (1 req/CIK), fetch AUM **parallèle x5**, retry 500/502, page en échec sautée, **garde-fou** : liste < 150 fonds → fichier NON réécrit (pas de régression). Refresh manuel : `refresh-funds.yml`. | ~5-8 min |
 | `prefetch-13f.py` | Fetch les positions trimestrielles de tous les fonds | ~30 min |
 | `prefetch-all.py` | Fetch SEC Form 4 + clusters d'insiders en 1 pass | ~20 min |
 | `fetch-bafin.py` | Scrape BaFin Directors' Dealings | ~5 min |
@@ -1504,3 +1504,14 @@ Dès qu'on dépasse ~1000 users actifs :
 ---
 
 *Cette documentation est vivante. Mettre à jour à chaque ajout de feature majeure ou changement d'architecture.*
+
+### Workflows manuels (workflow_dispatch) — sept. 2026
+| Workflow | Rôle |
+|---|---|
+| `refresh-shorts.yml` | Rafraîchit le short interest seul (highshortinterest.com → KV `shorts-recent`). |
+| `refresh-funds.yml` | Reconstruit l'univers de fonds 13F (`discover-13f-funds.py` → KV `13f-funds-list`). Les holdings suivent au prochain run quotidien (`prefetch-13f.py`). |
+| `13f-freshness-check.yml` | Garde-fou post-deadline 13F (16/18/20 des mois de dépôt) : email si trop de fonds n'ont pas encore leur trimestre. |
+
+### Résolution nom → ticker (worker, `normalizeForMatch`)
+- Les 13F sont du XML : `&` y est `&amp;`. `prefetch-13f.py` fait `html.unescape` sur `nameOfIssuer`, et côté worker `decodeEntities()` décode avant normalisation (robuste aux anciennes données KV).
+- `normalizeForMatch` est **idempotente** : strip répété suffixe corporatif / classe `CL A` / « & »-« AND » résiduel, jusqu'à stabilité. Les clés `KNOWN_TICKERS` passent par la même fonction (les deux côtés convergent). Cache map : `ticker-by-name-v3` (1h).
