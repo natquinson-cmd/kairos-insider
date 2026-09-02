@@ -1,0 +1,44 @@
+name: D1 Cleanup verifie (dry-run par defaut)
+
+# Cleanup CIBLE du reliquat D1 fund_holdings_history, action decidee par
+# trimestre APRES verification du depot original sur SEC EDGAR
+# (cf. worker/d1-cleanup-verified.py). DRY-RUN par defaut : n'ecrit RIEN.
+# apply=true applique, apres sauvegarde JSON uploadee en artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "true = ECRIRE reellement (UPDATE/DELETE). Defaut : dry-run."
+        required: false
+        default: "false"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Wrangler
+        run: npm install -g wrangler
+      - name: Dry-run
+        if: ${{ github.event.inputs.apply != 'true' }}
+        run: cd worker && python d1-cleanup-verified.py
+        timeout-minutes: 15
+      - name: APPLY
+        if: ${{ github.event.inputs.apply == 'true' }}
+        run: cd worker && python d1-cleanup-verified.py --apply
+        timeout-minutes: 20
+      - name: Upload backup
+        if: ${{ github.event.inputs.apply == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-cleanup-verified-backup
+          path: worker/d1-cleanup-verified-backup-*.json
+          if-no-files-found: warn
