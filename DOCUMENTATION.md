@@ -1515,3 +1515,7 @@ Dès qu'on dépasse ~1000 users actifs :
 ### Résolution nom → ticker (worker, `normalizeForMatch`)
 - Les 13F sont du XML : `&` y est `&amp;`. `prefetch-13f.py` fait `html.unescape` sur `nameOfIssuer`, et côté worker `decodeEntities()` décode avant normalisation (robuste aux anciennes données KV).
 - `normalizeForMatch` est **idempotente** : strip répété suffixe corporatif / classe `CL A` / « & »-« AND » résiduel, jusqu'à stabilité. Les clés `KNOWN_TICKERS` passent par la même fonction (les deux côtés convergent). Cache map : `ticker-by-name-v3` (1h).
+
+### Unités des valeurs 13F (règle SEC, sept. 2026)
+- Depuis le **3 janvier 2023**, la SEC impose le **dollar direct** dans les 13F (avant : en milliers). Toute heuristique « valeur < 100 M$ ⇒ format en milliers ⇒ ×1000 » est fausse sur les dépôts courants : elle a été retirée de `discover-13f-funds.py` (AUM), `augment-funds-list.py` (AUM must-have) et `prefetch-13f.py` (« AUM estimé » + valeurs de positions ; expliquait des perfs à +154 000 %).
+- `fetch-13f-history.py` (12 ans) applique ×1000 **uniquement** si `filingDate < 2023-01-03`. Blobs KV `13f-history-*` réécrits à chaque run mensuel (auto-correction). Reliquat possible : lignes D1 `fund_holdings_history` de petits fonds insérées gonflées (INSERT OR IGNORE), cleanup ciblé à faire.

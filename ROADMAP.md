@@ -4,9 +4,16 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v33 - Univers de fonds à 2 paniers)
+**Dernière mise à jour** : 2 septembre 2026 (v34 - Fin du ×1000 fantôme 13F)
 
 ---
+
+## 💵 v34 — Fin du ×1000 fantôme sur les valeurs 13F (2 sept. 2026)
+
+- Symptôme : le top 10 du panier smart money = « Guilbault Capital 99,6 Md$ », « Drum Hill 98 Md$ », « Inkwell 96 Md$ »... des petits RIAs groupés à 96-100 Md$. Cause : heuristique « < 100 M$ ⇒ milliers ⇒ ×1000 » alors que la SEC impose le dollar direct depuis le 3 janv. 2023 (et la découverte ne lit que 180 jours). Chaque filer à 12-100 M$ devenait un faux hedge fund de 12-100 Md$ et squattait l'univers devant les vrais.
+- Retiré dans `discover-13f-funds.py`, `augment-funds-list.py`, et surtout `prefetch-13f.py` (**« AUM estimé » + valeurs de positions de la page Hedge Funds** ; un must-have à 600 M$ s'affichait 600 Md$, et les perfs à +154 793 % venaient d'un mismatch d'échelle entre périodes).
+- `fetch-13f-history.py` : ×1000 seulement si `filingDate < 2023-01-03` (l'inconditionnel gonflait ×1000 tout 2023-2026). Blobs KV auto-corrigés au prochain run mensuel.
+- Reliquat à traiter : lignes D1 `fund_holdings_history` gonflées (petits fonds, INSERT OR IGNORE) → cleanup ciblé.
 
 ## 🧺 v33 — Univers de fonds à 2 paniers (smart money préservé) + prefetch 60 min (2 sept. 2026)
 

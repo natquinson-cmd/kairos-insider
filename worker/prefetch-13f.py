@@ -243,13 +243,18 @@ def fetch_filing_holdings(cik, accession, cik_clean):
     return parse_holdings(xml_data)
 
 def compute_total_value(holdings):
-    """Calcule la valeur totale en $ (gestion des unites variables)."""
-    raw_sum = sum(h['value'] for h in holdings)
-    return raw_sum if raw_sum > 1_000_000_000 else raw_sum * 1000
+    """Valeur totale en $. FIX (sept. 2026) : PLUS de x1000. Depuis le 3 janv.
+    2023 la SEC impose le dollar direct et ce script ne lit que les 13F-HR
+    courants -> tous en dollars. L'ancienne heuristique (somme < $1B => "format
+    en milliers" => x1000) affichait un activiste must-have a $600M comme
+    $600B ("AUM estime") et fabriquait des perfs a +154 000 % quand deux
+    periodes tombaient de part et d'autre du seuil."""
+    return sum(h['value'] for h in holdings)
 
 def holding_value(h, raw_sum):
-    """Valeur d'une position en $ (ajuste selon le format du filer)."""
-    return h['value'] if raw_sum > 1_000_000_000 else h['value'] * 1000
+    """Valeur d'une position en $ (dollar direct, cf. compute_total_value).
+    Signature conservee (raw_sum ignore) pour ne pas toucher les appelants."""
+    return h['value']
 
 # ============================================================
 # MAIN

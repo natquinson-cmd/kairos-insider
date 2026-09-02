@@ -156,8 +156,12 @@ def fetch_filing_list(cik, debug=False):
     return filings
 
 
-def fetch_info_table(cik, accession, debug=False):
-    """Recupere les positions d'un filing 13F via son XML info table."""
+def fetch_info_table(cik, accession, filing_date=None, debug=False):
+    """Recupere les positions d'un filing 13F via son XML info table.
+
+    filing_date (YYYY-MM-DD) pilote l'unite des valeurs : la SEC impose le
+    dollar direct pour les 13F DEPOSES a partir du 3 janv. 2023 (avant : en
+    milliers). Sans date on suppose l'ancien format (x1000), comme avant."""
     accession_clean = accession.replace('-', '')
     cik_int = int(cik)
     index_url = f'https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_clean}/'
@@ -198,7 +202,11 @@ def fetch_info_table(cik, accession, debug=False):
         value_str = get('value')
         shares_str = re.search(r'<sshPrnamt>(.*?)</sshPrnamt>', tbl)
 
-        try: value = int(value_str) * 1000  # SEC reports value in thousands $
+        # FIX (sept. 2026) : x1000 SEULEMENT pour les depots d'avant le
+        # 3 janv. 2023 (valeurs en milliers). Depuis, dollar direct : le x1000
+        # inconditionnel gonflait x1000 tout l'historique 2023-2026.
+        scale = 1000 if (not filing_date or filing_date < '2023-01-03') else 1
+        try: value = int(value_str) * scale
         except: value = 0
         try: shares = int(shares_str.group(1)) if shares_str else 0
         except: shares = 0
@@ -230,7 +238,7 @@ def fetch_filer_history(filer_key, cik, filer_name, max_filings=50, debug=False)
     parsed_filings = []
     for fm in filings_meta:
         if not fm.get('accession'): continue
-        positions = fetch_info_table(cik, fm['accession'], debug=debug)
+        positions = fetch_info_table(cik, fm['accession'], filing_date=fm.get('filingDate'), debug=debug)
         if not positions:
             if debug: print(f'    [{fm["filingDate"]}] no positions')
             continue

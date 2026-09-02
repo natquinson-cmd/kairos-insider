@@ -105,7 +105,9 @@ def fetch_fund_meta(cik):
         if m:
             v = float(m.group(1))
             # Format moderne USD direct depuis 2023, ancien en milliers
-            aum = v * 1000 if (v > 0 and v < 1e8) else v
+            # FIX (sept. 2026) : plus de x1000, dollar direct depuis 2023 (on ne
+            # lit que le dernier 13F-HR). Cf. discover-13f-funds.get_aum_from_filing.
+            aum = v
     except Exception as e:
         print(f'    AUM fetch failed: {e}')
 

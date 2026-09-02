@@ -312,11 +312,13 @@ def get_aum_from_filing(filing):
         m = re.search(r'<(?:\w+:)?tableValueTotal>([\d.]+)</(?:\w+:)?tableValueTotal>', xml)
         if m:
             v = float(m.group(1))
-            # Heuristique : format moderne = USD direct (depuis 2023)
-            # Si la valeur est tres petite (< 1e8 = 100M$), c'est probablement
-            # un format ancien en milliers -> multiplier par 1000.
-            if v > 0 and v < 1e8:
-                return v * 1000
+            # FIX (sept. 2026) : PLUS de x1000. Depuis 2023 la SEC impose le
+            # dollar direct, et la discovery ne lit que les 13F-HR des 180
+            # derniers jours -> TOUS post-2023. L'ancienne heuristique
+            # (< $100M => "format en milliers" => x1000) transformait chaque
+            # petit filer a $12M-$100M en faux "hedge fund" de $12B-$100B : le
+            # panier smart money etait envahi de RIAs fantomes a ~$97B
+            # (Guilbault, Drum Hill, Inkwell...) devant les vrais fonds.
             return v
         return 0
     except Exception:
