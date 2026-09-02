@@ -42,6 +42,7 @@
 - **Garde-fou anti-régression** : si la liste ressort < 150 fonds, on NE réécrit PAS `13f_funds_list.json` (pas d'écrasement de l'univers par une liste tronquée).
 - **Build défensif** : `last_filing` via `.get()` (les fonds `GUARANTEED` injectés n'ont pas `filing_date` → évite un KeyError qui plantait la sauvegarde une fois la découverte enfin complète).
 - Situational Awareness LP ajouté à `GUARANTEED_CIKS` + label `KNOWN_LABELS`.
+- **Garantie réelle (ETAPE 3.5)** : les `GUARANTEED_CIKS` **survivent à la coupe top-300** (avant, « garanti » ne protégeait que contre un oubli de découverte : un fonds découvert avec un AUM sous le 300ᵉ était tranché par le slice). Le cutoff et les fonds forcés sont imprimés dans le log. Premier run réel : 8 877 CIK en 249 s, 2 990 fonds > 1 Md$, top 300 + 23 must-have.
 - Timeout du step 25 → 45 min (marge). `pages` efts 50 → 100 (meilleure couverture).
 - **`refresh-funds.yml`** (workflow_dispatch) : reconstruire l'univers à la demande. Les holdings suivent au prochain run quotidien (prefetch-13f).
 

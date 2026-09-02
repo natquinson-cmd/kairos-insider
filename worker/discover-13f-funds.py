@@ -420,6 +420,30 @@ def main():
     funds.sort(key=lambda f: -f['aum'])
     top = funds[:TARGET_TOP_N]
 
+    # ETAPE 3.5 : les GUARANTEED_CIKS doivent SURVIVRE a la coupe top N.
+    # Avant, "garanti" ne protegeait que contre un oubli de la discovery : un
+    # fonds garanti DECOUVERT avec un AUM sous le N-ieme (ex. Situational
+    # Awareness $20B quand le 300e est a ~$25B, maintenant que la discovery
+    # scanne ~9000 CIK) etait tranche par le slice. On les re-force ici.
+    cutoff_aum = top[-1]['aum'] if top else 0
+    top_ciks = {f['cik'].lstrip('0') for f in top}
+    by_cik = {f['cik'].lstrip('0'): f for f in funds}
+    forced = []
+    for cik, _name, _category, _aum in GUARANTEED_CIKS:
+        k = cik.lstrip('0')
+        if k in top_ciks:
+            continue
+        f = by_cik.get(k)
+        if f is None:
+            continue  # ni decouvert ni injecte (ne devrait pas arriver)
+        top.append(f)
+        top_ciks.add(k)
+        forced.append(f"{f['label']} (${f['aum']/1e9:.1f}B)")
+    print(f'\n  Cutoff top {TARGET_TOP_N} : ${cutoff_aum/1e9:.1f}B')
+    if forced:
+        print(f'  Forces dans la liste (garantis sous le cutoff) : {len(forced)} -> '
+              + ', '.join(forced), flush=True)
+
     elapsed = int(time.time() - start)
     print(f'\n=== DONE in {elapsed}s ===')
     print(f'Top {TARGET_TOP_N} hedge funds par AUM :')
