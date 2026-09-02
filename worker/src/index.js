@@ -2060,7 +2060,10 @@ async function handleSmartMoneyConsensus(env, origin) {
 // Utilise pour resoudre les holdings 13F sans ticker (ex: Allied Gold Corp -> AAUC.TO).
 async function lookupTickerCached(name, env) {
   if (!name) return null;
-  const cleanName = String(name).toUpperCase().trim().slice(0, 80);
+  // decodeEntities : "JOHNSON &amp; JOHNSON" -> "JOHNSON & JOHNSON". Sans ca la
+  // requete Yahoo partait avec "&AMP;" (miss) ET le miss etait memorise 30j.
+  // La cle change aussi -> les null empoisonnes existants sont contournes.
+  const cleanName = decodeEntities(name).toUpperCase().trim().slice(0, 80);
   const cacheKey = `ticker-by-name:${cleanName}`;
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
@@ -5015,11 +5018,11 @@ const KNOWN_TICKERS = {
 //
 // Total typique : 6000-10000 mappings name->ticker, vs 70-200 avant.
 //
-// Cache key : 'ticker-by-name-v2' (1h TTL)
+// Cache key : 'ticker-by-name-v3' (1h TTL)
 async function buildTickerByName(env) {
   // Try cache first (1h)
   try {
-    const cached = await env.CACHE.get('ticker-by-name-v2', 'json');
+    const cached = await env.CACHE.get('ticker-by-name-v3', 'json');
     if (cached && Array.isArray(cached.entries)) {
       const m = new Map();
       for (const [name, ticker] of cached.entries) m.set(name, ticker);
@@ -5030,8 +5033,11 @@ async function buildTickerByName(env) {
   const m = new Map();
 
   // 1. KNOWN_TICKERS hardcoded (priorite max - Alphabet -> GOOGL etc.)
+  // Cles normalisees avec la MEME fonction que le lookup (normalizeForMatch),
+  // sinon "JPMORGAN CHASE & CO" (cle brute) ne matche jamais le nom 13F
+  // normalise ("JPMORGAN CHASE"). Idempotent des deux cotes.
   for (const [name, ticker] of Object.entries(KNOWN_TICKERS)) {
-    m.set(name, ticker);
+    m.set(normalizeForMatch(name), ticker);
   }
 
   // 2. Transactions insiders (Form 4 + BaFin + AMF)
@@ -5094,7 +5100,7 @@ async function buildTickerByName(env) {
   // Cache 1h pour eviter de recompute a chaque /api/13f-consensus request
   try {
     const entries = Array.from(m.entries());
-    await env.CACHE.put('ticker-by-name-v2', JSON.stringify({
+    await env.CACHE.put('ticker-by-name-v3', JSON.stringify({
       entries, builtAt: new Date().toISOString(), size: entries.length,
     }), { expirationTtl: 3600 });
   } catch (_) {}
@@ -5102,15 +5108,41 @@ async function buildTickerByName(env) {
   return m;
 }
 
+// Decode les entites XML/HTML dans un nom d'emetteur. Les 13F sont du XML : '&'
+// y est OBLIGATOIREMENT encode '&amp;'. Le parseur regex de prefetch-13f.py le
+// gardait brut -> "JOHNSON &amp; JOHNSON" en KV (affiche "&" par le navigateur,
+// d'ou l'illusion) mais la cle normalisee ne matchait JAMAIS "JOHNSON & JOHNSON"
+// des autres sources -> ticker null ("—") sur JNJ/JPM/LLY dans le consensus.
+function decodeEntities(s) {
+  return String(s == null ? '' : s)
+    .replace(/&amp;/gi, '&').replace(/&#0*38;/g, '&')
+    .replace(/&apos;|&#0*39;/gi, "'").replace(/&quot;|&#0*34;/gi, '"')
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&nbsp;|&#0*160;/gi, ' ');
+}
+
+// Normalisation IDEMPOTENTE des deux cotes (nom 13F ET cles KNOWN_TICKERS /
+// sources) : strip repete des suffixes corporatifs, des classes d'actions et
+// du "&"/"AND" residuel jusqu'a stabilite. Ainsi "ALPHABET INC CL A",
+// "ALPHABET INC" et "ALPHABET" convergent ; "JPMORGAN CHASE & CO." et
+// "JPMORGAN CHASE" aussi. Avant : un seul strip -> "JPMORGAN CHASE &" ne
+// matchait ni "JPMORGAN CHASE & CO" (cle brute) ni "JPMORGAN CHASE".
 function normalizeForMatch(s) {
   if (!s) return '';
-  return String(s)
+  let n = decodeEntities(s)
     .toUpperCase()
     .replace(/[.,'"`]/g, '')
-    .replace(/\s+(INC|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|SA|SE|AG|NV|PLC|HOLDINGS?|GROUP|TRUST|LP|LLC)$/gi, '')
-    .replace(/\s+CL\s*[A-Z]$/i, '')   // "Class A" suffix
     .replace(/\s+/g, ' ')
     .trim();
+  const SUFFIX = /\s+(INC|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|SA|SE|AG|NV|PLC|HOLDINGS?|GROUP|TRUST|LP|LLC)$/i;
+  const CLASS = /\s+CL\s*[A-Z]$/i;          // "CL A" / "CL C" (classe d'actions)
+  const DANGLING = /(\s+AND|\s*&)$/i;       // "& CO" strippe -> "&" residuel ; \s+AND evite "BRAND"
+  let prev;
+  do {
+    prev = n;
+    n = n.replace(CLASS, '').replace(SUFFIX, '').replace(DANGLING, '').trim();
+  } while (n !== prev && n.length > 0);
+  return n;
 }
 
 // ============================================================

@@ -157,7 +157,10 @@ def http_get(url, timeout=20, max_retries=3):
             with urllib.request.urlopen(req, timeout=timeout + 5) as resp:
                 return resp.read().decode('utf-8', errors='replace')
         except urllib.error.HTTPError as e:
-            if e.code in (429, 503, 504):
+            # 500/502 ajoutes (sept. 2026) : l'efts SEC renvoie parfois un 500
+            # transitoire ; sans retry, un seul 500 sur une page tuait toute la
+            # discovery (26 CIK au lieu de 4500 -> liste tronquee).
+            if e.code in (429, 500, 502, 503, 504):
                 wait = 2 ** (attempt + 1)
                 print(f'  [discover retry {attempt+1}] HTTP {e.code} | wait {wait}s', flush=True)
                 time.sleep(wait)
@@ -195,6 +198,7 @@ def discover_13f_ciks():
     page_size = 100
     max_pages = 100  # 10000 filings max (cap dur de l'efts sur `from`)
 
+    consecutive_fail = 0
     for page in range(max_pages):
         from_idx = page * page_size
         url = (
@@ -204,9 +208,18 @@ def discover_13f_ciks():
         )
         try:
             data = fetch_json(url, timeout=15)
+            consecutive_fail = 0
         except Exception as e:
-            print(f'  Page {page} failed: {e}')
-            break
+            # Une page en echec (apres les retries de http_get) ne doit PAS
+            # tuer toute la discovery : on la saute. On abandonne seulement
+            # apres 3 echecs consecutifs (panne efts reelle).
+            consecutive_fail += 1
+            print(f'  Page {page} failed ({consecutive_fail}/3): {e}', flush=True)
+            if consecutive_fail >= 3:
+                print('  3 pages consecutives en echec -> arret ETAPE 1', flush=True)
+                break
+            time.sleep(2 * consecutive_fail)
+            continue
 
         hits = data.get('hits', {}).get('hits', [])
         if not hits:

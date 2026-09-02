@@ -5,7 +5,7 @@ Compare le trimestre actuel vs le precedent pour calculer :
   - Variation de chaque position (en % de shares)
 Resultat : un fichier funds_data.json a uploader dans Cloudflare KV.
 """
-import json, re, time, urllib.request, urllib.parse, urllib.error, socket, os, sys
+import json, re, time, urllib.request, urllib.parse, urllib.error, socket, os, sys, html
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 
@@ -196,7 +196,12 @@ def parse_holdings(xml):
             m = re.search(rf'<(?:\w+:)?{tag}>([^<]*)</(?:\w+:)?{tag}>', block)
             return m.group(1).strip() if m else ''
 
-        name = get('nameOfIssuer')
+        # FIX (sept. 2026) : en XML, '&' est obligatoirement encode '&amp;'. Le
+        # regex brut le gardait tel quel -> noms stockes "JOHNSON &amp; JOHNSON",
+        # "JPMORGAN CHASE &amp; CO." (le navigateur les affichait bien, d'ou
+        # l'illusion) mais la cle normalisee ne matchait JAMAIS les autres
+        # sources -> ticker null ("—") sur JNJ/JPM/LLY dans le consensus.
+        name = html.unescape(get('nameOfIssuer'))
         cusip = get('cusip')
         value = int(get('value') or 0)
         shares = int(get('sshPrnamt') or 0)

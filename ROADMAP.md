@@ -4,9 +4,25 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v30 - Découverte fonds réparée)
+**Dernière mise à jour** : 2 septembre 2026 (v31 - Tickers manquants JNJ/JPM/LLY + découverte résiliente)
 
 ---
+
+## 🔤 v31 — Tickers manquants (JNJ/JPM/LLY) + découverte résiliente au 500 efts (2 sept. 2026)
+
+### 🔎 Tickers « — » dans Top 50 shared stocks
+- Point commun des lignes sans ticker : un **« & »** dans le nom (JPMORGAN CHASE & CO., ELI LILLY & CO, JOHNSON & JOHNSON). En XML, `&` est encodé `&amp;` ; `prefetch-13f.py` (regex brut) le gardait → « JOHNSON &amp; JOHNSON » en KV (affiché « & » par le navigateur, d'où l'illusion) → clé normalisée « JOHNSON &AMP; JOHNSON » ne matchait jamais → ticker `null`.
+- 2ᵉ bug cumulé : les clés `KNOWN_TICKERS` (« JPMORGAN CHASE & CO ») étaient insérées **brutes** alors que le lookup strippe le suffixe (« JPMORGAN CHASE & ») → jamais égales.
+
+### ✅ Corrections
+- `decodeEntities()` + `normalizeForMatch` **idempotente** (strip répété suffixe / classe `CL A` / « & »-« AND » résiduel, garde-fou `\s+AND` pour ne pas casser « BRAND ») : les deux côtés convergent (« JPMORGAN CHASE &amp; CO. » = « JPMORGAN CHASE & CO » = « JPMORGAN CHASE »). Test unitaire 8/8.
+- Clés `KNOWN_TICKERS` passées par `normalizeForMatch`. Cache map `ticker-by-name-v2` → **v3** (rebuild immédiat).
+- `lookupTickerCached` décode aussi (la requête Yahoo partait avec « &AMP; » et le miss était mémorisé **30 jours**) ; la clé change → nulls empoisonnés contournés.
+- `prefetch-13f.py` : `html.unescape` sur `nameOfIssuer` (noms propres en KV dès le prochain run).
+
+### 🛡️ Découverte : résistance au 500 efts
+- Premier run de `refresh-funds` : `Page 1 failed: HTTP 500` → `break` → 26 CIK → **le garde-fou anti-régression a fonctionné** (28 < 150, fichier non réécrit). Mais un seul 500 transitoire tuait tout.
+- `http_get` retente aussi sur **500/502** ; une page en échec est **sautée** (arrêt seulement après 3 échecs consécutifs) au lieu de casser toute l'ÉTAPE 1.
 
 ## 🏦 v30 — Découverte de fonds réparée (univers gelé depuis mai) (2 sept. 2026)
 
