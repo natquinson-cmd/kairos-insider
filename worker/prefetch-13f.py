@@ -188,8 +188,17 @@ def fetch(url, max_retries=3):
     return None
 
 def parse_holdings(xml):
-    """Parse les positions d'un fichier XML 13F (supporte les namespaces)."""
+    """Parse les positions d'un fichier XML 13F (supporte les namespaces).
+
+    Renvoie (holdings, raw_value, raw_shares). Les deux totaux BRUTS portent sur
+    TOUTES les lignes, options/PRN ecartees comprises, et restent dans l'unite
+    du filer : c'est la seule base comparable au tableValueTotal declare (meme
+    population, meme unite). Comparer le total ACTIONS SEULES au total declare
+    faisait chuter les filers riches en derives a 9-20 % et les faisait rejeter
+    a tort par le garde-fou de completude."""
     holdings = []
+    raw_value = 0
+    raw_shares = 0
     for match in re.finditer(r'<(?:\w+:)?infoTable>(.*?)</(?:\w+:)?infoTable>', xml, re.DOTALL):
         block = match.group(1)
         def get(tag):
@@ -208,6 +217,9 @@ def parse_holdings(xml):
         stype = get('sshPrnamtType')
         putcall = get('putCall')
 
+        raw_value += value
+        raw_shares += shares
+
         if putcall or stype != 'SH':
             continue
 
@@ -219,7 +231,7 @@ def parse_holdings(xml):
             holdings.append({'name': name, 'cusip': cusip, 'value': value, 'shares': shares})
 
     holdings.sort(key=lambda h: h['value'], reverse=True)
-    return holdings
+    return holdings, raw_value, raw_shares
 
 # Bande de PRIX D'ACTION plausible pour la MEDIANE d'un portefeuille 13F.
 # Sert de discriminant d'unites (cf. normalize_filing_units).
@@ -231,7 +243,7 @@ def _median(xs):
     return xs[len(xs) // 2] if xs else 0.0
 
 
-def normalize_filing_units(holdings, table_value_total=None, label=''):
+def normalize_filing_units(holdings, table_value_total=None, label='', raw_value=0, raw_shares=0):
     """Ramene un filing en (valeur en DOLLARS, nombre d'ACTIONS), quelle que soit
     la convention du filer. Trois cas rencontres en production (sept. 2026) :
 
@@ -252,16 +264,20 @@ def normalize_filing_units(holdings, table_value_total=None, label=''):
     fonds < 1 Md$ => milliers" etait faux DANS LES DEUX SENS (petits fonds en
     dollars gonfles x1000 -> faux hedge funds a $97B ; gros fonds en milliers
     laisses 1000x trop petits)."""
+    swapped = False
     rows = [h for h in holdings if h['value'] > 0 and h['shares'] > 0]
     if not rows:
-        return holdings
+        return holdings, swapped
 
     # 1. Champs inverses : la somme des "shares" reproduit le total declare.
+    #    On utilise les totaux BRUTS (toutes lignes) quand ils sont fournis :
+    #    c'est la meme population que le tableValueTotal, donc le test est net.
     if table_value_total and table_value_total > 0:
-        sum_v = sum(h['value'] for h in holdings)
-        sum_s = sum(h['shares'] for h in holdings)
+        sum_v = raw_value or sum(h['value'] for h in holdings)
+        sum_s = raw_shares or sum(h['shares'] for h in holdings)
         close = lambda a: abs(a - table_value_total) / table_value_total < 0.01
         if sum_s > 0 and close(sum_s) and not close(sum_v):
+            swapped = True
             for h in holdings:
                 h['value'], h['shares'] = h['shares'], h['value']
             print(f'    [units] {label} : champs value/sshPrnamt INVERSES par le filer -> corriges', flush=True)
@@ -277,7 +293,7 @@ def normalize_filing_units(holdings, table_value_total=None, label=''):
         print(f'    [units] {label} : WARN prix implicite median hors bande ({med:.4f}), laisse tel quel', flush=True)
 
     holdings.sort(key=lambda h: h['value'], reverse=True)
-    return holdings
+    return holdings, swapped
 
 
 def fetch_filing_holdings(cik, accession, cik_clean):
@@ -316,20 +332,30 @@ def fetch_filing_holdings(cik, accession, cik_clean):
                     tvt = None
 
     label = f'cik={cik_clean} {accession}'
-    holdings = normalize_filing_units(parse_holdings(xml_data), tvt, label=label)
+    parsed, raw_value, raw_shares = parse_holdings(xml_data)
+    holdings, swapped = normalize_filing_units(parsed, tvt, label=label,
+                                               raw_value=raw_value, raw_shares=raw_shares)
 
-    # GARDE-FOU COMPLETUDE : la somme des lignes doit rester coherente avec le
-    # tableValueTotal que le filer declare LUI-MEME. Exemple reel : JPMorgan
-    # 13F Q1 2026 ne contient que 378 positions pour $1,1 Md alors qu'il
-    # declare $1,557 T (0,07 %), quand le trimestre suivant en a 34 064 pour
-    # $1,71 T. Comparer les deux produisait une "performance" de +154 793 %.
-    # On refuse le depot plutot que de publier un chiffre faux : en courant le
-    # fonds est ignore, en Q-1 / Y-1 aucune perf n'est calculee (les appelants
-    # traitent deja None). Bande large (20 %-500 %) : on ne vise que les
-    # incoherences grossieres, pas l'ecart normal du filtrage options/PRN.
+    # GARDE-FOU COMPLETUDE : avons-nous bien lu TOUT le depot ? On compare le
+    # total BRUT des lignes au tableValueTotal declare par le filer. Exemple
+    # reel : JPMorgan 13F Q1 2026 ne contient que 378 positions pour $1,1 Md
+    # alors qu'il declare $1,557 T (0,07 %), quand le trimestre suivant en a
+    # 34 064 pour $1,71 T -> "performance" de +154 793 %. On refuse le depot
+    # plutot que de publier un chiffre faux : en courant le fonds est ignore,
+    # en Q-1 / Y-1 aucune perf n'est calculee (les appelants traitent deja None).
+    #
+    # La reference est le total BRUT (toutes lignes, options/PRN comprises) et
+    # AVANT tout x1000, donc exactement la meme population et la meme unite que
+    # le tableValueTotal. Les deux versions naives de ce test etaient fausses :
+    #   - comparer les lignes ACTIONS SEULES faisait tomber les filers riches en
+    #     derives a 9-20 % -> rejetes a tort ;
+    #   - comparer APRES le x1000 des filers "en milliers" donnait 99 778 % (le
+    #     total declare, lui, reste en milliers) -> T. Rowe et Barclays rejetes.
+    # Si les champs etaient inverses, le role de "valeur" est tenu par shares.
     if holdings and tvt and tvt > 0:
-        ratio = sum(h['value'] for h in holdings) / tvt
-        if ratio < 0.2 or ratio > 5:
+        declared_base = raw_shares if swapped else raw_value
+        ratio = declared_base / tvt if tvt else 0
+        if ratio < 0.5 or ratio > 2:
             print(f'    [units] {label} : depot INCOHERENT avec son propre tableValueTotal '
                   f'({ratio*100:.2f} % du total declare, {len(holdings)} lignes) -> ignore', flush=True)
             return None

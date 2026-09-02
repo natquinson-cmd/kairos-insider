@@ -1525,7 +1525,7 @@ Dès qu'on dépasse ~1000 users actifs :
 3. **Dollars** : cas normal (Vanguard, BlackRock, Berkshire).
 
 Discriminant = **prix implicite médian** (`value/shares`) ramené dans [1 $, 100 000 $]. ⚠️ Le `tableValueTotal` ne peut PAS trancher milliers/dollars (même unité que les lignes, ratio invariant) : il ne sert qu'à détecter l'inversion. L'ancien test « total du fonds < 1 Md$ ⇒ milliers » était faux **dans les deux sens**.
-**Garde-fou de complétude** : la somme des lignes d'un dépôt doit rester dans 20 %-500 % du `tableValueTotal` déclaré par le filer, sinon le dépôt est refusé (`fetch_filing_holdings` renvoie `None`). Motif : JPMorgan Q1 2026 (378 lignes / 1,1 Md$ contre 1,557 T$ déclaré) comparé au Q2 (34 064 lignes) produisait une perf de +154 793 %.
+**Garde-fou de complétude** : le total **brut** des lignes (toutes lignes, options/PRN comprises, **avant** tout ×1000 ; `shares` si les champs sont inversés) doit rester dans 50 %-200 % du `tableValueTotal` déclaré par le filer, sinon le dépôt est refusé (`fetch_filing_holdings` renvoie `None`). Motif : JPMorgan Q1 2026 (378 lignes / 1,1 Md$ contre 1,557 T$ déclaré) comparé au Q2 (34 064 lignes) produisait une perf de +154 793 %.
 Garde-fou UI (`dashboard.html`, Explore) : un fonds dont `shares > sharesOut` est exclu du calcul de part de capital.
 
 ### Ancien contexte (v34)

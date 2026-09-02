@@ -4,9 +4,22 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v38 - Fonds de pension dans le panier smart money)
+**Dernière mise à jour** : 2 septembre 2026 (v39 - Garde-fou de complétude corrige)
 
 ---
+
+## 🩹 v39 — Garde-fou de complétude : correction de mes deux faux rejets (2 sept. 2026)
+
+Le premier run en production a montré **31 dépôts refusés sur 342** (9 % de l'univers), dont deux causes introduites par moi en v37 :
+1. Comparer **après** le ×1000 des filers « en milliers » : le `tableValueTotal` de référence reste, lui, en milliers → ratio de 99 778 % → **T. Rowe et Barclays rejetés à tort**.
+2. Comparer la somme des lignes **actions seules** à un total déclaré qui inclut **les options** → les filers riches en dérivés tombaient à 9-20 % → rejetés à tort.
+
+Fix : `parse_holdings` renvoie désormais les **totaux bruts** (toutes lignes, options/PRN comprises, avant tout ×1000), seule base de même population et même unité que le `tableValueTotal`. Si les champs sont inversés, le rôle de « valeur » est tenu par `shares`. Bande resserrée à 50 %-200 % puisque la comparaison est enfin homogène.
+
+Vérifié sur 4 dépôts réels : CalSTRS 100 % gardé (108,6 Md$), T. Rowe 100 % gardé (996,9 Md$), JPMorgan Q1 0,20 % rejeté, Berkshire 100 % gardé (299,3 Md$).
+
+**Acquis en production (v36-v38)** : inversion CalSTRS détectée et corrigée, JPMorgan Q1 refusé, sa perf à +154 793 % disparue, 342 fonds chargés.
+**Reste ouvert** : 4 perfs à 4 chiffres (State Street +123 247 %, un fonds SpaceX +9 796 %, Micron +1 838 %, +1 001 %) à instruire, probablement la même famille de dépôts atypiques mais sous le seuil.
 
 ## 🏛️ v38 — Fonds de pension admis dans le panier smart money (2 sept. 2026)
 
