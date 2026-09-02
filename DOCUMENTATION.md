@@ -1509,11 +1509,13 @@ Dès qu'on dépasse ~1000 users actifs :
 | Workflow | Rôle |
 |---|---|
 | `refresh-shorts.yml` | Rafraîchit le short interest seul (highshortinterest.com → KV `shorts-recent`). |
+| `d1-diagnostic-13f-values.yml` | **Lecture seule.** Quantifie le reliquat ×1000 dans D1 `fund_holdings_history` (`worker/d1-diagnostic-13f-values.py` : positions > 2 T$, fonds-trimestres > 15 T$, sauts ×1000 entre trimestres, distribution). À lancer avant tout cleanup. |
 | `refresh-funds.yml` | Reconstruit l'univers de fonds 13F (`discover-13f-funds.py` → KV `13f-funds-list`). Les holdings suivent au prochain run quotidien (`prefetch-13f.py`). |
 | `13f-freshness-check.yml` | Garde-fou post-deadline 13F (16/18/20 des mois de dépôt) : email si trop de fonds n'ont pas encore leur trimestre. |
 
 ### Résolution nom → ticker (worker, `normalizeForMatch`)
 - Les 13F sont du XML : `&` y est `&amp;`. `prefetch-13f.py` fait `html.unescape` sur `nameOfIssuer`, et côté worker `decodeEntities()` décode avant normalisation (robuste aux anciennes données KV).
+- Abréviations EDGAR canonicalisées des deux côtés (`NAME_ABBREV` : MATERIALS↔MATLS, SYSTEMS↔SYS, MANUFAC*→MFG, INCORPORATED→INC, INTERNATION*→INTL...), marqueurs d'état strippés **seulement après un suffixe corporatif** (« INC DEL », « /MD/ »), et `resolveTickerByName` = exact puis **repli par préfixe** (noms 13F tronqués à ~28 caractères, ≥ 12 caractères communs, frontière de mot exigée quand la clé est le préfixe).
 - `normalizeForMatch` est **idempotente** : strip répété suffixe corporatif / classe `CL A` / « & »-« AND » résiduel, jusqu'à stabilité. Les clés `KNOWN_TICKERS` passent par la même fonction (les deux côtés convergent). Cache map : `ticker-by-name-v3` (1h).
 
 ### Unités des valeurs 13F (règle SEC, sept. 2026)

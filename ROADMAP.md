@@ -4,9 +4,15 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v34 - Fin du ×1000 fantôme 13F)
+**Dernière mise à jour** : 2 septembre 2026 (v35 - Tickers abréviations EDGAR + diagnostic D1)
 
 ---
+
+## 🔤 v35 — Tickers manquants, 2ᵉ famille : abréviations EDGAR (2 sept. 2026)
+
+- Après le fix `&amp;`, restaient AMAT, CSCO, MA, TSM, BRK.B : les noms 13F utilisent les **abréviations EDGAR** (« APPLIED **MATLS** », « CISCO **SYS** », « MASTERCARD **INCORPORATED** », « TAIWAN SEMICONDUCTOR **MANUFAC** » tronqué à ~28 caractères, « BERKSHIRE HATHAWAY INC **DEL** »).
+- Fix : `NAME_ABBREV` (canonicalisation courte des deux côtés), marqueurs d'état/`/DE/` strippés seulement après un suffixe corporatif (jamais un vrai dernier mot), `resolveTickerByName` avec **repli par préfixe** pour les troncatures, cache map v4, clé `KNOWN_TICKERS` « BERKSHIRE HATHAWAY DEL » corrigée + ~37 megacaps ajoutées (AMAT, IBM, TXN, ABT, TMO, LIN, ACN, HON, BLK, SPGI...). Tests 25/25 sur les vraies fonctions.
+- Diagnostic D1 (lecture seule) livré : `d1-diagnostic-13f-values.yml` + script.
 
 ## 💵 v34 — Fin du ×1000 fantôme sur les valeurs 13F (2 sept. 2026)
 

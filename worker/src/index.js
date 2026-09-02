@@ -1996,7 +1996,7 @@ async function handleSmartMoneyConsensus(env, origin) {
         if (!consensus.has(key)) {
           consensus.set(key, {
             name: h.name,
-            ticker: tickerByName.get(key) || null,
+            ticker: resolveTickerByName(tickerByName, key),
             cusip: h.cusip || null,
             fundCount: 0,
             convictionCount: 0,
@@ -2148,7 +2148,7 @@ async function handleQuarterActivity(env, origin) {
         const entry = {
           ...fundMeta,
           name: h.name,
-          ticker: tickerByName.get(key) || null,
+          ticker: resolveTickerByName(tickerByName, key),
           cusip: h.cusip || null,
           shares: Number(h.shares) || 0,
           value: Number(h.value) || 0,
@@ -4934,7 +4934,7 @@ async function handleHistoryInsiderTop(url, env, origin) {
 // les insiders deposent rarement sur les megacaps super-liquides).
 const KNOWN_TICKERS = {
   'ALPHABET': 'GOOGL',
-  'BERKSHIRE HATHAWAY DEL': 'BRK.B',
+  'BERKSHIRE HATHAWAY': 'BRK.B',   // le marqueur EDGAR "INC DEL" est strippe par normalizeForMatch
   'META PLATFORMS': 'META',
   'AMAZON COM': 'AMZN',
   'APPLE': 'AAPL',
@@ -4984,7 +4984,7 @@ const KNOWN_TICKERS = {
   'MERCK & CO': 'MRK',
   'ABBVIE': 'ABBV',
   'NOVO NORDISK A S ADR': 'NVO',
-  'TAIWAN SEMICONDUCTOR': 'TSM',
+  'TAIWAN SEMICONDUCTOR MANUFACTURING': 'TSM',   // 13F : "TAIWAN SEMICONDUCTOR MANUFAC" (tronque) -> MFG
   'PALANTIR TECHNOLOGIES': 'PLTR',
   'COINBASE GLOBAL': 'COIN',
   'SHOPIFY': 'SHOP',
@@ -5002,6 +5002,45 @@ const KNOWN_TICKERS = {
   'PAYPAL HOLDINGS': 'PYPL',
   'INTUIT': 'INTU',
   'SERVICENOW': 'NOW',
+  // Megacaps ajoutees (sept. 2026) : sortaient sans ticker dans le consensus.
+  // Cles en forme naturelle : normalisees par normalizeForMatch au build.
+  'APPLIED MATERIALS': 'AMAT',
+  'INTERNATIONAL BUSINESS MACHINES': 'IBM',
+  'TEXAS INSTRUMENTS': 'TXN',
+  'LAM RESEARCH': 'LRCX',
+  'MICRON TECHNOLOGY': 'MU',
+  'KLA': 'KLAC',
+  'ANALOG DEVICES': 'ADI',
+  'MICROCHIP TECHNOLOGY': 'MCHP',
+  'ARISTA NETWORKS': 'ANET',
+  'ABBOTT LABORATORIES': 'ABT',
+  'THERMO FISHER SCIENTIFIC': 'TMO',
+  'DANAHER': 'DHR',
+  'STRYKER': 'SYK',
+  'MEDTRONIC': 'MDT',
+  'AMGEN': 'AMGN',
+  'GILEAD SCIENCES': 'GILD',
+  'BRISTOL MYERS SQUIBB': 'BMY',
+  'CVS HEALTH': 'CVS',
+  'LINDE': 'LIN',
+  'ACCENTURE': 'ACN',
+  'HONEYWELL INTERNATIONAL': 'HON',
+  'UNION PACIFIC': 'UNP',
+  'LOCKHEED MARTIN': 'LMT',
+  'RTX': 'RTX',
+  'AMERICAN EXPRESS': 'AXP',
+  'CHARLES SCHWAB': 'SCHW',
+  'BLACKROCK': 'BLK',
+  'S&P GLOBAL': 'SPGI',
+  'PHILIP MORRIS INTERNATIONAL': 'PM',
+  'ALTRIA GROUP': 'MO',
+  'COMCAST': 'CMCSA',
+  'T MOBILE US': 'TMUS',
+  'FEDEX': 'FDX',
+  'UNITED PARCEL SERVICE': 'UPS',
+  'GENERAL MOTORS': 'GM',
+  'FORD MOTOR': 'F',
+  'SUPER MICRO COMPUTER': 'SMCI',
 };
 
 // Construit un Map(normalizedName -> ticker) en combinant TOUTES les sources KV
@@ -5018,11 +5057,11 @@ const KNOWN_TICKERS = {
 //
 // Total typique : 6000-10000 mappings name->ticker, vs 70-200 avant.
 //
-// Cache key : 'ticker-by-name-v3' (1h TTL)
+// Cache key : 'ticker-by-name-v4' (1h TTL)
 async function buildTickerByName(env) {
   // Try cache first (1h)
   try {
-    const cached = await env.CACHE.get('ticker-by-name-v3', 'json');
+    const cached = await env.CACHE.get('ticker-by-name-v4', 'json');
     if (cached && Array.isArray(cached.entries)) {
       const m = new Map();
       for (const [name, ticker] of cached.entries) m.set(name, ticker);
@@ -5100,7 +5139,7 @@ async function buildTickerByName(env) {
   // Cache 1h pour eviter de recompute a chaque /api/13f-consensus request
   try {
     const entries = Array.from(m.entries());
-    await env.CACHE.put('ticker-by-name-v3', JSON.stringify({
+    await env.CACHE.put('ticker-by-name-v4', JSON.stringify({
       entries, builtAt: new Date().toISOString(), size: entries.length,
     }), { expirationTtl: 3600 });
   } catch (_) {}
@@ -5127,6 +5166,32 @@ function decodeEntities(s) {
 // "ALPHABET INC" et "ALPHABET" convergent ; "JPMORGAN CHASE & CO." et
 // "JPMORGAN CHASE" aussi. Avant : un seul strip -> "JPMORGAN CHASE &" ne
 // matchait ni "JPMORGAN CHASE & CO" (cle brute) ni "JPMORGAN CHASE".
+// Abreviations EDGAR (13F nameOfIssuer) -> forme canonique COURTE, appliquee aux
+// DEUX cotes pour converger : "APPLIED MATLS INC" == "Applied Materials Inc",
+// "CISCO SYS INC" == "Cisco Systems Inc", "MASTERCARD INCORPORATED" == "Mastercard
+// Inc", "TAIWAN SEMICONDUCTOR MANUFAC" (tronque a ~28 chars par EDGAR) ==
+// "Taiwan Semiconductor Manufacturing Co". Sans ca, ces megacaps sortaient sans
+// ticker ("—") dans le consensus.
+const NAME_ABBREV = [
+  [/\bINCORPORATED\b/g, 'INC'], [/\bCORPORATION\b/g, 'CORP'], [/\bCOMPANY\b/g, 'CO'],
+  [/\bLIMITED\b/g, 'LTD'], [/\bHOLDINGS?\b/g, 'HLDGS'], [/\bGROUP\b/g, 'GRP'],
+  [/\bMATERIALS\b/g, 'MATLS'], [/\bSYSTEMS\b/g, 'SYS'], [/\bMACHINES\b/g, 'MACHS'],
+  [/\bMANUFAC\w*\b/g, 'MFG'], [/\bINTERNATION\w*\b/g, 'INTL'], [/\bTECHNOL\w*\b/g, 'TECH'],
+  [/\bSERVICES\b/g, 'SVCS'], [/\bFINANCIAL\b/g, 'FINL'], [/\bINDUSTRIES\b/g, 'INDS'],
+  [/\bCOMMUNICATIONS?\b/g, 'COMM'], [/\bPHARMACEUTICALS?\b/g, 'PHARM'], [/\bLABORATORIES\b/g, 'LABS'],
+  [/\bRESOURCES\b/g, 'RES'], [/\bELECTRIC\b/g, 'ELEC'], [/\bENTERTAINMENT\b/g, 'ENTMT'],
+  [/\bPROPERTIES\b/g, 'PPTYS'], [/\bENTERPRISES\b/g, 'ENTPRS'],
+];
+const NORM_SUFFIX = /\s+(INC|CORP|CO|LTD|SA|SE|AG|NV|PLC|HLDGS|GRP|TRUST|LP|LLC|LLP)$/i;
+const NORM_CLASS = /\s+CL\s*[A-Z]$/i;                // "CL A" / "CL C" (classe d'actions)
+const NORM_DANGLING = /(\s+AND|\s*&)$/i;            // "& CO" strippe -> "&" residuel ; \s+AND evite "BRAND"
+const NORM_SLASH_STATE = /\s*\/[A-Z ]{1,6}\/\s*$/;  // " /DE/", " /MD/", " /NEW/" (jamais un vrai nom)
+// Marqueur d'etat EDGAR ("INC DEL", "CORP NEW", "INC CALIF") : strippe SEULEMENT
+// s'il suit un suffixe corporatif (garde le suffixe, jete l'etat ; le suffixe
+// tombe au tour suivant). Conditionne au suffixe pour ne jamais toucher un vrai
+// dernier mot ("BRAVE NEW" reste intact). Liste = formes EDGAR courantes.
+const NORM_STATE_AFTER_SUFFIX = /\s+(INC|CORP|CO|LTD|LLC|LP|PLC|TRUST|HLDGS|GRP|SA|NV|AG|SE)\s+(DEL|DE|NEW|CALIF|MD|N ?J|NY|PA|VA|GA|FLA|TEX|OHIO|WASH|MASS|CONN|MICH|MINN|WIS|ILL|IND|MO|NC|NEV|ORE|COLO|ARIZ|TENN|KY|OKLA|IOWA|KANS|UTAH|NEB|ARK|ALA|SC|MONT|PR)$/i;
+
 function normalizeForMatch(s) {
   if (!s) return '';
   let n = decodeEntities(s)
@@ -5134,15 +5199,41 @@ function normalizeForMatch(s) {
     .replace(/[.,'"`]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  const SUFFIX = /\s+(INC|CORP|CORPORATION|COMPANY|CO|LTD|LIMITED|SA|SE|AG|NV|PLC|HOLDINGS?|GROUP|TRUST|LP|LLC)$/i;
-  const CLASS = /\s+CL\s*[A-Z]$/i;          // "CL A" / "CL C" (classe d'actions)
-  const DANGLING = /(\s+AND|\s*&)$/i;       // "& CO" strippe -> "&" residuel ; \s+AND evite "BRAND"
+  for (const [re, rep] of NAME_ABBREV) n = n.replace(re, rep);
   let prev;
   do {
     prev = n;
-    n = n.replace(CLASS, '').replace(SUFFIX, '').replace(DANGLING, '').trim();
+    n = n.replace(NORM_SLASH_STATE, '')
+         .replace(NORM_STATE_AFTER_SUFFIX, ' $1')
+         .replace(NORM_CLASS, '')
+         .replace(NORM_SUFFIX, '')
+         .replace(NORM_DANGLING, '')
+         .replace(/\s+/g, ' ')
+         .trim();
   } while (n !== prev && n.length > 0);
   return n;
+}
+
+// Resolution nom normalise -> ticker : exact, puis repli par PREFIXE. Les
+// nameOfIssuer 13F sont tronques a ~28 chars ("INTERNATIONAL BUSINESS MACHS",
+// "TAIWAN SEMICONDUCTOR MANUFAC") : si la requete (>= 12 chars) est un prefixe
+// d'une cle, on accepte meme en milieu de mot (troncature). Dans l'autre sens
+// (cle prefixe de la requete) on exige une frontiere de mot, pour ne pas
+// matcher "APPLE" sur "APPLE HOSPITALITY". On garde le candidat le plus long.
+function resolveTickerByName(m, key) {
+  if (!key) return null;
+  const exact = m.get(key);
+  if (exact) return exact;
+  if (key.length < 12) return null;
+  let best = null, bestLen = 0;
+  for (const [k, t] of m) {
+    if (k.length < 12) continue;
+    let common = 0;
+    if (k.startsWith(key)) common = key.length;                              // requete tronquee
+    else if (key.startsWith(k) && (key.length === k.length || key.charAt(k.length) === ' ')) common = k.length;
+    if (common > bestLen) { best = t; bestLen = common; }
+  }
+  return best;
 }
 
 // ============================================================

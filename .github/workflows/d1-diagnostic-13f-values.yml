@@ -1,0 +1,31 @@
+name: D1 Diagnostic 13F values (read-only)
+
+# LECTURE SEULE : quantifie le reliquat "x1000" dans D1 fund_holdings_history
+# (cf. worker/d1-diagnostic-13f-values.py). Ne modifie rien. A lancer a la main
+# avant de decider d'un cleanup.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Run read-only diagnostic
+        run: cd worker && python d1-diagnostic-13f-values.py
+        timeout-minutes: 10
