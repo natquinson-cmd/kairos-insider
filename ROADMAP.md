@@ -4,9 +4,19 @@
 > **Légende** : ✅ fait · `[ ]` à faire (cliquable sur GitHub).
 > Quand une tâche est terminée, remplacer `- [ ] ` par `✅ ` (sans tiret) pour la passer en vert.
 
-**Dernière mise à jour** : 2 septembre 2026 (v39 - Garde-fou de complétude corrige)
+**Dernière mise à jour** : 7 septembre 2026 (v40 - Resilience Finnhub)
 
 ---
+
+## 📡 v40 — Alerte « connexion Finnhub » du 05/09 : faux positif + vraie fragilité derrière (7 sept. 2026)
+
+**Enquête.** Le mail de santé du samedi 05/09 signalait la source Finnhub. Vérification : Finnhub répond parfaitement, en **live** (tickers non cachés, 1,5-2,4 s), sur les **5 endpoints** utilisés (`recommendation`, `metric`, `earnings`, `calendar/earnings`, `peers`). Il n'existe qu'un seul message d'alerte Finnhub dans tout le code : ma sonde consensus.
+
+**Défaut n°1, ma sonde (faux positif).** Elle traitait `!r.ok` comme « source cassée », donc un simple 429 déclenchait l'alerte. Pire, les 2 symboles partaient en `Promise.all` : ils partageaient la même fenêtre de panne, donc la redondance à deux tickers ne protégeait de rien. Corrigée en **tri-état** : `ok` / `empty` (HTTP 200 sans analyste, vraie panne de source) / `error` (injoignable après 3 tentatives, panne de transport). L'alerte « source cassée » n'est émise que sur `empty` des deux côtés ; l'injoignabilité donne un message distinct et honnête. Sondes désormais **séquentielles**. 12/12 tests unitaires.
+
+**Défaut n°2, le vrai (produit).** Le helper `fetchWithRetry` gère le 429 avec respect du `Retry-After`, mais **aucun des 5 fetchers Finnhub ne l'utilisait** : tous en `fetch()` nu, et enveloppés dans `.catch(() => null)`. Au moindre rate-limit (Finnhub = 60 appels/min, une fiche action en consomme 5), le produit perdait **silencieusement** consensus, PER, ratios, peers et historique des résultats. Les 5 routés vers le helper.
+
+⚠️ Cache `stock-analysis` volontairement **non bumpé** : l'invalider provoquerait une rafale d'appels Finnhub, exactement le rate-limit qu'on cherche à éviter.
 
 ## 🩹 v39 — Garde-fou de complétude : correction de mes deux faux rejets (2 sept. 2026)
 

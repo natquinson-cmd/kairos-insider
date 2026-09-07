@@ -13524,17 +13524,46 @@ async function runHealthCheck(env) {
     // dans l'email de sante quotidien. NB : mettre a jour si on change de source.
     try {
       if (env.FINNHUB_KEY) {
-        const probeConsensus = async (sym) => {
-          try {
-            const r = await fetch(`https://finnhub.io/api/v1/stock/recommendation?symbol=${sym}&token=${env.FINNHUB_KEY}`);
-            if (!r.ok) return false;
-            const arr = await r.json();
-            return Array.isArray(arr) && arr.length > 0 && ((arr[0].strongBuy || 0) + (arr[0].buy || 0) + (arr[0].hold || 0) + (arr[0].sell || 0) + (arr[0].strongSell || 0)) > 0;
-          } catch { return false; }
+        // Sonde TRI-ETAT. Le premier jet (sept. 2026) renvoyait un booleen et
+        // traitait `!r.ok` comme "source cassee" : un simple 429 de Finnhub
+        // (60 appels/min, et chaque fiche action en consomme 5) suffisait a
+        // crier au loup. Pire, les 2 symboles partaient en Promise.all, donc
+        // ils partageaient la meme fenetre de panne : la redondance a 2 tickers
+        // ne protegeait de rien. Faux positif constate le 05/09/2026 alors que
+        // les 5 endpoints Finnhub repondaient normalement.
+        //   'ok'    : HTTP 200 + donnees presentes
+        //   'empty' : HTTP 200 mais aucun analyste -> vraie panne de SOURCE
+        //   'error' : injoignable apres retries -> panne de TRANSPORT, ce qui
+        //             n'autorise PAS a affirmer que le bloc produit est vide
+        const probeConsensus = async (sym, attempts = 3) => {
+          let transportFailed = false;
+          for (let i = 1; i <= attempts; i++) {
+            try {
+              const r = await fetch(`https://finnhub.io/api/v1/stock/recommendation?symbol=${sym}&token=${env.FINNHUB_KEY}`);
+              if (!r.ok) {
+                transportFailed = true;                 // 429 / 5xx : on retente
+              } else {
+                const arr = await r.json();
+                const n = Array.isArray(arr) && arr.length > 0
+                  ? (arr[0].strongBuy || 0) + (arr[0].buy || 0) + (arr[0].hold || 0) + (arr[0].sell || 0) + (arr[0].strongSell || 0)
+                  : 0;
+                return n > 0 ? 'ok' : 'empty';          // 200 : verdict definitif
+              }
+            } catch { transportFailed = true; }
+            if (i < attempts) await new Promise(res => setTimeout(res, 1500 * i));
+          }
+          return transportFailed ? 'error' : 'empty';
         };
-        const [nv, ap] = await Promise.all([probeConsensus('NVDA'), probeConsensus('AAPL')]);
-        if (!nv && !ap) {
-          anomalies.push('Consensus analystes indisponible (Finnhub NVDA + AAPL vides) — source cassée, le bloc « Analyst consensus » est vide côté produit.');
+        // Sequentiel (et non Promise.all) pour que les 2 sondes ne tombent pas
+        // dans la meme fenetre de panne : c'est tout l'interet d'en avoir deux.
+        const nv = await probeConsensus('NVDA');
+        const ap = await probeConsensus('AAPL');
+        if (nv === 'empty' && ap === 'empty') {
+          anomalies.push('Consensus analystes indisponible (Finnhub NVDA + AAPL repondent 200 mais sans analyste) — source cassée, le bloc « Analyst consensus » est vide côté produit.');
+        } else if (nv !== 'ok' && ap !== 'ok') {
+          // Injoignable : on le signale, mais sans affirmer que la source est
+          // cassee. Si c'est transitoire, ca ne reviendra pas demain.
+          anomalies.push('Sonde consensus non concluante : Finnhub injoignable sur NVDA et AAPL après 3 tentatives chacun (rate-limit ou indisponibilité). À surveiller si cela se répète.');
         }
       }
     } catch (e) {

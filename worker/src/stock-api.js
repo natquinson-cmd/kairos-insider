@@ -1483,7 +1483,7 @@ async function fetchFinnhubConsensus(ticker, apiKey) {
   if (!apiKey) return null;
   try {
     const url = `https://finnhub.io/api/v1/stock/recommendation?symbol=${encodeURIComponent(ticker)}&token=${apiKey}`;
-    const resp = await fetch(url);
+    const resp = await fetchWithRetry(url, {}, { label: 'finnhub:recommendation' });
     if (!resp.ok) return null;
     const arr = await resp.json();
     if (!Array.isArray(arr) || arr.length === 0) return null;
@@ -1608,7 +1608,7 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
   const tryFetch = async (sym) => {
     const url = `https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(sym)}&metric=all&token=${apiKey}`;
     try {
-      const resp = await fetch(url);
+      const resp = await fetchWithRetry(url, {}, { label: 'finnhub:metric' });
       if (!resp.ok) return null;
       const data = await resp.json();
       const m = data.metric || {};
@@ -1804,7 +1804,7 @@ async function fetchFinnhubEarnings(ticker, apiKey, env) {
   }
   const tryFetch = async (sym) => {
     try {
-      const r = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(sym)}&token=${apiKey}`);
+      const r = await fetchWithRetry(`https://finnhub.io/api/v1/stock/earnings?symbol=${encodeURIComponent(sym)}&token=${apiKey}`, {}, { label: 'finnhub:earnings' });
       if (!r.ok) return null;
       const arr = await r.json();
       return Array.isArray(arr) && arr.length > 0 ? arr : null;
@@ -1873,7 +1873,7 @@ async function fetchFinnhubEarningsCalendar(ticker, apiKey, env) {
   const toDate = futureMax.toISOString().slice(0, 10);
   const tryFetch = async (sym) => {
     try {
-      const r = await fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${today}&to=${toDate}&symbol=${encodeURIComponent(sym)}&token=${apiKey}`);
+      const r = await fetchWithRetry(`https://finnhub.io/api/v1/calendar/earnings?from=${today}&to=${toDate}&symbol=${encodeURIComponent(sym)}&token=${apiKey}`, {}, { label: 'finnhub:earnings-calendar' });
       if (!r.ok) return null;
       const data = await r.json();
       const events = data.earningsCalendar || [];
@@ -1930,7 +1930,7 @@ async function fetchFinnhubPeers(ticker, apiKey, env) {
   }
   const tryFetch = async (sym) => {
     try {
-      const r = await fetch(`https://finnhub.io/api/v1/stock/peers?symbol=${encodeURIComponent(sym)}&token=${apiKey}`);
+      const r = await fetchWithRetry(`https://finnhub.io/api/v1/stock/peers?symbol=${encodeURIComponent(sym)}&token=${apiKey}`, {}, { label: 'finnhub:peers' });
       if (!r.ok) return null;
       const arr = await r.json();
       return Array.isArray(arr) && arr.length > 0 ? arr : null;
