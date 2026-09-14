@@ -172,6 +172,8 @@ def make_filing(item):
         # Default : company qui declare = title (la societe communique)
         filer = title
 
+    regulatory_eligible = type_short == 'tr1'
+    source_url = item.get('link', '') or 'https://www.cnmv.es/portal/Otra-Informacion-Relevante/AlDia-OIR'
     return {
         'fileDate': iso_date,
         'form': type_label,
@@ -190,9 +192,15 @@ def make_filing(item):
         'source': 'cnmv',
         'country': 'ES',
         'regulator': 'CNMV (OIR)',
-        'sourceUrl': item.get('link', '') or 'https://www.cnmv.es/portal/Otra-Informacion-Relevante/AlDia-OIR',
+        'sourceUrl': source_url,
         'sourceProvider': 'CNMV RSS officiel',
         'announcementType': type_short,
+        'collectionMethod': 'cnmv-oir-official',
+        'provenance': {
+            'kind': 'official-regulator', 'officialDocument': True,
+            'verified': True, 'evidenceUrl': source_url,
+        },
+        'regulatorySignalEligible': regulatory_eligible,
         'rawTitle': f'{title} — {desc[:100]}' if desc else title,
         'cnmvNreg': item.get('nreg', ''),
     }

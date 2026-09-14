@@ -163,6 +163,12 @@ def make_filing(item):
         'sourceUrl': detail_url,
         'sourceProvider': 'SIX SER (API officielle)',
         'announcementType': 'shareholding',
+        'collectionMethod': 'six-ser-official',
+        'provenance': {
+            'kind': 'official-regulator', 'officialDocument': True,
+            'verified': True, 'evidenceUrl': detail_url,
+        },
+        'regulatorySignalEligible': True,
         'rawTitle': f'{filer} → {target} ({threshold:g}%)' if filer and target else (target or filer),
         'sixListed': pub.get('swxListed') == 'T',
     }

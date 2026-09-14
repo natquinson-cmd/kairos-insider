@@ -26,6 +26,8 @@
 
 import { aggregateEuThresholds } from './eu_thresholds_aggregator.js';
 import { fetchZonebourseConsensus } from './zonebourse_consensus.js';
+import { normalizeDividendYield, normalizeEarningsHistory, normalizeStockAnalysisEarningsRecord, summarizeEarningsBeats } from './financial-normalization.js';
+import { canonicalizeFundIdentity, summarizeReportDates } from './fund-identity.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -187,7 +189,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v20:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:v21:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -492,7 +494,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
       result.insiders.transactions = result.insiders.transactions.slice(0, 3);
     }
     if (result.smartMoney && result.smartMoney.topFunds) {
-      result.smartMoney._totalFunds = result.smartMoney.topFunds.length;
+      result.smartMoney._totalFunds = result.smartMoney.fundCount;
       // Bump 2 -> 5 (mai 2026) : le teaser SEO 2-funds etait trop faible
       // visuellement. 5 donne une vraie photo des gros holders sans devoiler
       // la valeur en $ (qui n'est pas dans cette liste, juste les noms).
@@ -1247,20 +1249,8 @@ async function fetchStockAnalysisEarnings(ticker) {
       const cutoffISO = cutoffDate.toISOString().slice(0, 10);
 
       // 4 derniers passes (eps_actual non null + date récente)
-      const past = sorted.filter(x => x.eps_actual != null && x.eps_surprise_percent != null && (!x.date || x.date >= cutoffISO));
-      const history = past.slice(-6).reverse().map(x => ({
-        date: x.date,
-        year: x.year,
-        period: x.period,
-        epsEst: x.eps_est,
-        epsActual: x.eps_actual,
-        epsSurprisePct: x.eps_surprise_percent,
-        revenueEst: x.revenue_est,
-        revenueActual: x.revenue_actual,
-        revenueSurprisePct: x.revenue_surprise_percent,
-        // beat = surprise > 0
-        beat: (x.eps_surprise_percent || 0) > 0,
-      }));
+      const past = sorted.filter(x => x.eps_actual != null && x.eps_est != null && (!x.date || x.date >= cutoffISO));
+      const history = past.slice(-6).reverse().map(normalizeStockAnalysisEarningsRecord);
 
       // Prochain (eps_actual null, date future la plus proche)
       const todayISO = new Date().toISOString().slice(0, 10);
@@ -1658,7 +1648,7 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
       // === Caracteristiques ===
       eps: num(m.epsTTM) || num(m.epsBasicExclExtraItemsTTM),
       beta: num(m.beta),
-      dividendYield: num(m.currentDividendYieldTTM) != null ? num(m.currentDividendYieldTTM) / 100 : null,  // % -> fraction
+      dividendYield: normalizeDividendYield(num(m.currentDividendYieldTTM), 'percent'),
       dividendsPerShare: num(m.dividendsPerShareAnnual),
       payoutRatio: num(m.payoutRatioTTM) != null ? num(m.payoutRatioTTM) / 100 : null,
       // === 52 weeks ===
@@ -1791,14 +1781,14 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
 // ============================================================
 async function fetchFinnhubEarnings(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
-  // v2 : ajout filtre stale-data >3 ans (Finnhub free tier coupe à 2019 pour micro-caps)
-  const cacheKey = `finnhub-earnings:v2:${String(ticker).toUpperCase()}`;
+  // v3 : surprises EPS recalculees depuis actual/estimate, y compris a la lecture cache.
+  const cacheKey = `finnhub-earnings:v3:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
       if (cached && cached.fetchedAt) {
         const age = (Date.now() - new Date(cached.fetchedAt).getTime()) / 1000;
-        if (age < 86400) return cached;
+        if (age < 86400) return { ...cached, history: normalizeEarningsHistory(cached.history) };
       }
     } catch {}
   }
@@ -1833,15 +1823,13 @@ async function fetchFinnhubEarnings(ticker, apiKey, env) {
     return empty;
   }
 
-  const history = fresh.slice(0, 12).map(e => ({
+  const history = normalizeEarningsHistory(fresh.slice(0, 12).map(e => ({
     period: e.quarter ? `Q${e.quarter}` : '',
     year: e.year,
     date: e.period || null,  // Finnhub utilise 'period' pour la date YYYY-MM-DD
-    epsActual: e.actual != null ? Number(e.actual) : null,
-    epsEst: e.estimate != null ? Number(e.estimate) : null,
-    epsSurprisePct: e.surprisePercent != null ? Number(e.surprisePercent) : null,
-    beat: (e.actual != null && e.estimate != null) ? (e.actual >= e.estimate) : null,
-  }));
+    epsActual: e.actual,
+    epsEst: e.estimate,
+  })));
   const payload = { history, _source: 'finnhub', fetchedAt: new Date().toISOString() };
   try {
     await env.CACHE?.put(cacheKey, JSON.stringify(payload), { expirationTtl: 86400 + 3600 });
@@ -2261,7 +2249,7 @@ async function aggregate13F(ticker, env, companyName) {
             else if (deltaPct === 0 && h.p > 0) status = 'unchanged';
             else status = 'new';
           }
-          return {
+          return canonicalizeFundIdentity({
             fundName: h.n || h.fundName || h.name || h.companyName || '',
             cik: h.k || h.cik || '',
             label: h.l || h.label,
@@ -2276,7 +2264,7 @@ async function aggregate13F(ticker, env, companyName) {
             // tiger cub, macro, innovation, multi-strat, etc.). Permet au frontend
             // de mettre en avant ces fonds (badges, tri prioritaire) vs les mega passifs.
             isOffensive: h.o === 1 || h.o === true || false,
-          };
+          });
         });
       }
     }
@@ -2299,7 +2287,8 @@ async function aggregate13F(ticker, env, companyName) {
               || hName.startsWith(normalizedTarget + ' ')
               || normalizedTarget.startsWith(hName + ' ');
             if (isMatch) {
-              matches.push({
+              matches.push(canonicalizeFundIdentity({
+                cik: fund.cik,
                 fundName: fund.fundName || fund.name || fund.manager || fund.label,
                 label: fund.label,
                 category: fund.category,
@@ -2309,7 +2298,7 @@ async function aggregate13F(ticker, env, companyName) {
                 deltaPct: Number(h.sharesChange || h.deltaPct || h.change) || 0,
                 status: h.status || null,
                 reportDate: fund.reportDate,
-              });
+              }));
               break;
             }
           }
@@ -2383,8 +2372,9 @@ async function aggregate13F(ticker, env, companyName) {
     }
 
     matches.sort((a, b) => (b.value || 0) - (a.value || 0));
-    result.topFunds = matches.slice(0, 20);
+    result.topFunds = matches;
     result.fundCount = matches.length;
+    result.reportDates = summarizeReportDates(matches);
     result.totalShares = matches.reduce((s, m) => s + (m.shares || 0), 0);
     result.totalValue = matches.reduce((s, m) => s + (m.value || 0), 0);
 
@@ -2834,11 +2824,10 @@ function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals,
   // --- EARNINGS MOMENTUM (0-5) : beats consecutifs ---
   let earnScore = 2;
   const hist = (earnings && earnings.history) || [];
-  const last4 = hist.slice(0, 4);
-  const beats = last4.filter(x => x.beat).length;
-  if (last4.length > 0) {
-    earnScore = Math.round((beats / last4.length) * 5);
-    breakdown.earnings.detail = `${beats}/${last4.length} dépassements sur les ${last4.length} derniers trimestres`;
+  const beatSummary = summarizeEarningsBeats(hist);
+  if (beatSummary.available > 0) {
+    earnScore = Math.round((beatSummary.beats / beatSummary.available) * 5);
+    breakdown.earnings.detail = `${beatSummary.beats}/${beatSummary.available} dépassements sur les ${beatSummary.available} derniers trimestres disponibles`;
   } else {
     breakdown.earnings.detail = 'Historique indisponible';
   }

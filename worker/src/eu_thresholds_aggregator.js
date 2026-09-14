@@ -7,6 +7,7 @@
 // pour booster le pilier smartMoney du Kairos Score.
 
 import { EU_YAHOO_SYMBOLS } from './eu_yahoo_symbols.js';
+import { partitionThresholdFilings } from './threshold_provenance.js';
 
 // Mapping inverse : yahooSymbol -> nom de société matchable
 // Ex : "MC.PA" -> "LVMH MOET HENNESSY"
@@ -40,6 +41,7 @@ export async function aggregateEuThresholds(ticker, env) {
     topFilers: [],     // [{ name, count, isActivist }]
     biggestFiler: null,
     sources: {},       // counts by KV source (amf, fca, etc.)
+    excludedPressReports: 0,
   };
 
   if (!ticker || !env?.CACHE) return result;
@@ -95,7 +97,12 @@ export async function aggregateEuThresholds(ticker, env) {
     const data = kvData[i];
     if (!data || !Array.isArray(data.filings)) continue;
     const kvKey = allKvKeys[i];
-    const matches = data.filings.filter(f => {
+    const { regulatoryFilings, pressReports } = partitionThresholdFilings(data.filings, data);
+    result.excludedPressReports += pressReports.filter(f => {
+      const tn = String(f.targetName || '').toUpperCase();
+      return tn.includes(matchUpper);
+    }).length;
+    const matches = regulatoryFilings.filter(f => {
       const tn = String(f.targetName || '').toUpperCase();
       // Fuzzy match : si le mapping match est dans le targetName
       return tn.includes(matchUpper);

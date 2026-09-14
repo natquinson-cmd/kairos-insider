@@ -66,6 +66,8 @@
 
   <!-- i18n FR/EN -->
   <script src="assets/i18n.js"></script>
+  <script src="assets/analysis-presentation.js?v=20260914"></script>
+  <script src="assets/public-journey.js?v=20260914"></script>
 
   <!-- Schema.org JSON-LD (rempli dynamiquement) -->
   <script type="application/ld+json" id="schemaOrg">
@@ -218,7 +220,6 @@
       background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.08));
       border: 1px solid rgba(59,130,246,0.3);
       border-radius: 16px; text-align: center;
-    }
     .paywall h2 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; margin-bottom: 10px; }
     .paywall p { color: var(--text-secondary); font-size: 15px; margin-bottom: 20px; max-width: 640px; margin-left: auto; margin-right: auto; }
     .paywall-features {
@@ -283,9 +284,9 @@
         <span class="logo-text">Kairos Insider</span>
       </a>
       <ul class="nav-links">
-        <li><a href="index.html">Accueil</a></li>
-        <li><a href="dashboard.html">Dashboard</a></li>
-        <li><a href="dashboard.html" class="cta-btn">S'inscrire</a></li>
+        <li><a href="index.html" data-i18n="nav.home">Accueil</a></li>
+        <li><a href="dashboard.html" data-i18n="nav.dashboard">Dashboard</a></li>
+        <li><a href="dashboard.html" class="cta-btn" data-i18n="nav.try_free">Essayer gratuitement</a></li>
       </ul>
     </div>
   </nav>
@@ -322,6 +323,12 @@
       const params = new URLSearchParams(window.location.search);
       const t = (params.get('ticker') || '').toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
       return t.length >= 1 && t.length <= 12 ? t : null;
+    }
+
+    function getCurrentLang() {
+      const requested = new URLSearchParams(window.location.search).get('lang');
+      if (requested === 'en' || requested === 'fr') return requested;
+      return window.KairosI18n?.getLang?.() === 'en' ? 'en' : 'fr';
     }
 
     function signalFromScore(total) {
@@ -416,6 +423,9 @@
 
     function renderAnalysis(d) {
       const ticker = escHtml(d.ticker);
+      const isEnglish = getCurrentLang() === 'en';
+      const analysisUrl = window.KairosPublicJourney.dashboardAnalysisUrl(d.ticker, getCurrentLang());
+      const pricingUrl = window.KairosPublicJourney.withLang('index.html#pricing', getCurrentLang());
       const name = escHtml(d.company?.name || ticker);
       const score = d.score?.total || 0;
       const sig = signalFromScore(score);
@@ -479,7 +489,7 @@
           ${d.company?.employees ? `<div class="info-item"><div class="info-label">Employés</div><div class="info-value">${fmtInt(d.company.employees)}</div></div>` : ''}
           ${marketCap ? `<div class="info-item"><div class="info-label">Capitalisation</div><div class="info-value">${fmtCurr(marketCap, currency)}</div></div>` : ''}
           ${pe ? `<div class="info-item"><div class="info-label">PER</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : pe}</div></div>` : ''}
-          ${dividendYield ? `<div class="info-item"><div class="info-label">Rendement dividende</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : dividendYield}</div></div>` : ''}
+          <div class="info-item"><div class="info-label">Rendement dividende</div><div class="info-value">${window.KairosAnalysisPresentation.formatDividendYield(dividendYield, getCurrentLang())}</div></div>
           ${d.company?.ipoDate ? `<div class="info-item"><div class="info-label">Entrée en bourse (IPO)</div><div class="info-value">${escHtml(d.company.ipoDate)}</div></div>` : ''}
         </div>
 
@@ -538,22 +548,23 @@
             <div class="paywall-feature">✅ Import portefeuille multi-broker (CSV)</div>
           </div>
           <div class="paywall-actions">
-            <a href="dashboard.html" class="btn-primary">Créer un compte gratuit →</a>
-            <a href="index.html#pricing" class="btn-secondary">Voir les tarifs Premium</a>
+            <a href="${analysisUrl}" class="btn-primary">${isEnglish ? 'Open the full analysis' : "Ouvrir l'analyse complète"} →</a>
+            <a href="${pricingUrl}" class="btn-secondary">${isEnglish ? 'View Premium pricing' : 'Voir les tarifs Premium'}</a>
           </div>
           <p style="margin-top:16px;font-size:12px;color:var(--text-muted)">
-            Inscription gratuite · Essai gratuit des fonctionnalités publiques · Premium à 29€/mois sans engagement
+            ${isEnglish ? 'Free registration · Pro €19/month or €190/year · Elite €49/month or €490/year' : 'Inscription gratuite · Pro 19 €/mois ou 190 €/an · Elite 49 €/mois ou 490 €/an'}
           </p>
         </div>
       `;
     }
 
     function renderError(message) {
+      const analysisUrl = window.KairosPublicJourney.dashboardAnalysisUrl('', getCurrentLang());
       return `
         <div class="error-state">
           <h2 style="display:flex;align-items:center;justify-content:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg><span>${escHtml(message)}</span></h2>
           <p>Le ticker n'a pas pu être chargé. Il est peut-être incorrect ou non couvert.</p>
-          <a href="dashboard.html" class="btn-primary">Rechercher un autre ticker</a>
+          <a href="${analysisUrl}" class="btn-primary">Rechercher un autre ticker</a>
         </div>
       `;
     }
@@ -561,13 +572,15 @@
     async function load() {
       const ticker = getTickerFromUrl();
       const body = document.getElementById('body');
+      window.KairosPublicJourney.syncDashboardLinks(document, getCurrentLang());
 
       if (!ticker) {
+        const analysisUrl = window.KairosPublicJourney.dashboardAnalysisUrl('', getCurrentLang());
         body.innerHTML = `
           <div class="error-state">
             <h2 style="display:flex;align-items:center;justify-content:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Aucun ticker spécifié</h2>
             <p>Cette page affiche l'analyse publique d'une action. Ajoutez <code>?ticker=AAPL</code> à l'URL, ou :</p>
-            <a href="dashboard.html" class="btn-primary">Rechercher une action</a>
+            <a href="${analysisUrl}" class="btn-primary">Rechercher une action</a>
           </div>
         `;
         return;

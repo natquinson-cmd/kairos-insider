@@ -236,6 +236,13 @@ def parse_csv(text, lookback_days, debug=False):
             'regulator': 'AFM',
             'sourceUrl': 'https://www.afm.nl/registers/meldingenregisters/substantiele-deelnemingen',
             'announcementType': share_class.lower() if share_class else 'substantial',
+            'collectionMethod': 'afm-csv-official',
+            'provenance': {
+                'kind': 'official-regulator', 'officialDocument': True,
+                'verified': True,
+                'evidenceUrl': 'https://www.afm.nl/registers/meldingenregisters/substantiele-deelnemingen',
+            },
+            'regulatorySignalEligible': True,
             'rawTitle': f'{holder} → {target} ({threshold:g}%)' if threshold else f'{holder} → {target}',
         })
     if debug:

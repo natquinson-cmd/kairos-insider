@@ -186,6 +186,14 @@ def parse_csv_to_filings(csv_text, lookback_days=DEFAULT_LOOKBACK_DAYS):
                 'country': 'DE',
                 'regulator': 'BaFin',
                 'sourceUrl': 'https://portal.mvp.bafin.de/database/AnteileInfo/',
+                'announcementType': 'shareholding',
+                'collectionMethod': 'bafin-csv-official',
+                'provenance': {
+                    'kind': 'official-regulator', 'officialDocument': True,
+                    'verified': True,
+                    'evidenceUrl': 'https://portal.mvp.bafin.de/database/AnteileInfo/',
+                },
+                'regulatorySignalEligible': True,
             })
         except Exception as e:
             skipped += 1

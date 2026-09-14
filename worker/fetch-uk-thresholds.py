@@ -22,6 +22,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.parse import urljoin
 from datetime import datetime, timedelta, timezone
 
 UA = 'KairosInsider contact@kairosinsider.fr'
@@ -308,8 +309,11 @@ def scrape_google_news_uk(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False):
             continue
         company = info['company'] or re.split(r'\s*-\s*', title)[0][:80].strip()
         if not company: continue
-        filings.append(make_uk_filing(title, iso_date, info, company, info['ticker'] or '',
-                                       extra={'url': it['link'], 'source': it['source']}))
+        filings.append(make_uk_filing(
+            title, iso_date, info, company, info['ticker'] or '',
+            extra={'url': it['link'], 'source': it['source']},
+            provenance_kind='press-report',
+        ))
     if debug:
         print(f'  [PARSER] retenus={len(filings)} skip_no_kw={skipped_no_kw} skip_old={skipped_old}')
     return filings
@@ -359,7 +363,8 @@ def classify_uk_title(title):
     return out
 
 
-def make_uk_filing(title, iso_date, info, company, ticker, extra=None):
+def make_uk_filing(title, iso_date, info, company, ticker, extra=None,
+                   provenance_kind='official-regulator'):
     extra = extra or {}
     threshold = None
     pct_m = re.search(r'(\d+(?:\.\d+)?)\s*%', title)
@@ -369,6 +374,9 @@ def make_uk_filing(title, iso_date, info, company, ticker, extra=None):
     filer = ''
     m = re.search(r'(?:by|from)\s+(.+?)(?:\s*-\s*|\s+plc\s*$|\s*$)', title, re.I)
     if m: filer = m.group(1).strip()
+    is_official = provenance_kind == 'official-regulator'
+    source_url = urljoin(FCA_NSM_URL, extra.get('url') or '') or FCA_NSM_URL
+    regulatory_eligible = is_official and info.get('type_short') in ('tr1', 'stake')
     return {
         'fileDate': iso_date, 'form': info.get('type_label') or 'UK RNS',
         'accession': str(extra.get('id') or ''),
@@ -378,9 +386,18 @@ def make_uk_filing(title, iso_date, info, company, ticker, extra=None):
         'activistLabel': is_known_activist(filer) if filer else None,
         'sharesOwned': extra.get('shares'), 'percentOfClass': threshold,
         'crossingDirection': 'up', 'crossingThreshold': threshold,
-        'source': 'fca', 'country': 'UK', 'regulator': 'FCA',
-        'sourceUrl': extra.get('url') or FCA_NSM_URL,
+        'source': 'fca' if is_official else 'press', 'country': 'UK',
+        'regulator': 'FCA' if is_official else None,
+        'sourceUrl': source_url,
         'sourceProvider': extra.get('source'), 'announcementType': info.get('type_short'),
+        'collectionMethod': 'fca-stealth' if is_official else 'google-news-rss',
+        'provenance': {
+            'kind': provenance_kind,
+            'officialDocument': is_official,
+            'verified': is_official,
+            'evidenceUrl': source_url,
+        },
+        'regulatorySignalEligible': regulatory_eligible,
         'rawTitle': title[:300],
     }
 

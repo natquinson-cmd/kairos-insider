@@ -6,6 +6,7 @@ Compare le trimestre actuel vs le precedent pour calculer :
 Resultat : un fichier funds_data.json a uploader dans Cloudflare KV.
 """
 import json, re, time, urllib.request, urllib.parse, urllib.error, socket, os, sys, html
+from fund_identity import canonical_fund
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 
@@ -83,10 +84,10 @@ HARDCODED_FUNDS = [
     ('0000354204', 'Capital Research Global', 'Capital Group', 'Asset Manager'),
     ('0001645505', 'JPMorgan Chase Asset Mgmt', 'JPMorgan AM', 'Bank Asset Manager'),
     ('0000730125', 'Morgan Stanley', 'Morgan Stanley AM', 'Bank Asset Manager'),
-    ('0000019617', 'Goldman Sachs Group', 'Goldman AM', 'Bank Asset Manager'),
+    ('0000019617', 'JPMORGAN CHASE & CO', 'JPMorgan Chase', 'Bank Asset Manager'),
 
     # ============ NOTABLE VALUE / LONG-ONLY ============
-    ('0000914208', 'Wellington Management', 'Jean Hynes', 'Long-only Active'),
+    ('0000914208', 'INVESCO LTD.', 'Invesco', 'Asset Manager'),
     ('0001179281', 'Norges Bank (Norway SWF)', 'Nicolai Tangen', 'Sovereign Wealth'),
     ('0001029160', 'Pzena Investment Mgmt', 'Richard Pzena', 'Deep Value'),
 
@@ -115,7 +116,7 @@ def _load_dynamic_funds():
         funds = data.get('funds', [])
         if not funds:
             return None
-        return [(f['cik'], f['name'], f['label'], f.get('category', 'Asset Manager')) for f in funds]
+        return [canonical_fund(f['cik'], f['name'], f['label'], f.get('category', 'Asset Manager')) for f in funds]
     except Exception as e:
         print(f'Warning: 13f_funds_list.json read failed ({e}), fallback to hardcoded.')
         return None
@@ -657,6 +658,7 @@ for fund in all_funds:
         # (match Fintel/Whalewisdom). Cout ~10 bytes/entry, negligeable sur 25MB KV.
         ticker_index[key].append({
             'n': fund_name,
+            'k': fund_cik,
             'v': h.get('value'),
             's': h.get('shares'),
             'p': h.get('pct'),

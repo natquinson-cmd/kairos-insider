@@ -65,7 +65,7 @@ worker/etf_*.json
 worker/etf_*.csv
 
 # Python cache
-worker/__pycache__/
+__pycache__/
 
 # Fichiers de debug locaux
 worker/abcbourse_page*.html

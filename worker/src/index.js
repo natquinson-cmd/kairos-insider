@@ -14,6 +14,16 @@
 import { handleStockAnalysis, normalizeCompanyName, getYahooSession, YAHOO_UA_EXPORT } from './stock-api.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
 import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
+import { partitionThresholdFilings } from './threshold_provenance.js';
+import { canonicalizeFundIdentity } from './fund-identity.js';
+import analysisPresentation from '../../assets/analysis-presentation.js';
+import publicJourney from '../../assets/public-journey.js';
+const { formatDividendYield, insiderKind } = analysisPresentation;
+const { dashboardAnalysisUrl } = publicJourney;
+
+function eligibleEuThresholdFilings(payload) {
+  return partitionThresholdFilings(payload?.filings, payload).regulatoryFilings;
+}
 // Resvg WASM : SVG -> PNG pour les OG images (Twitter Card spec exige PNG/JPG).
 // Init paresseux + memorise (1 seule init par instance Worker).
 import { initWasm, Resvg } from '@resvg/resvg-wasm';
@@ -1304,7 +1314,8 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/13f-funds') {
     const data = await env.CACHE.get('13f-all-funds', 'json');
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
-    return jsonResponse(data, 200, origin);
+    const funds = Array.isArray(data) ? data.map(canonicalizeFundIdentity) : data;
+    return jsonResponse(funds, 200, origin);
   }
   // ============================================================
   // /api/13f-funds-by-holding (mai 2026)
@@ -1369,8 +1380,11 @@ async function handleApiRoute(path, url, env, origin) {
       }
 
       // Format leger pour le client : fundName + financial details
-      const funds = entries.map(h => ({
+      const funds = entries.map(h => canonicalizeFundIdentity({
+        cik: h.k || h.cik || '',
         fundName: h.n || h.fundName || '',
+        label: h.l || h.label || '',
+        category: h.g || h.category || '',
         value: Number(h.v ?? h.value) || 0,
         pct: Number(h.p ?? h.pct) || 0,
         sharesChange: Number(h.c ?? h.sharesChange) || 0,
@@ -1951,7 +1965,8 @@ async function handleSmartMoneyConsensus(env, origin) {
     const CONVICTION_THRESHOLD = 0.3;  // % du portefeuille du fonds
     const consensus = new Map(); // name -> { ..., fundCount, convictionCount, fundsHolding[] }
 
-    for (const fund of funds) {
+    for (const rawFund of funds) {
+      const fund = canonicalizeFundIdentity(rawFund);
       if (!Array.isArray(fund.topHoldings)) continue;
 
       // ETAPE 1 : pre-aggreger les holdings DU FOND par key normalisee.
@@ -2131,7 +2146,8 @@ async function handleQuarterActivity(env, origin) {
     const increased = [];   // sharesChange >= +20%
     const decreased = [];   // sharesChange <= -20%
 
-    for (const fund of funds) {
+    for (const rawFund of funds) {
+      const fund = canonicalizeFundIdentity(rawFund);
       if (!Array.isArray(fund.topHoldings)) continue;
       const fundMeta = {
         fundName: fund.fundName,
@@ -2817,7 +2833,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   // v6 (mai 2026) : ajout scoreHistory (~20 points) pour sparkline progression
   // + cache passe a 60s (vs 900s precedemment) car le tableau positions s'auto
   // refresh cote client toutes les 30s.
-  const cacheKey = `pf-summary:v6:${tickers.slice().sort().join(',')}:${days}d`;
+  const cacheKey = `pf-summary:v7:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -3027,9 +3043,16 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       ]);
       const tickerSet = new Set(tickers);
       const allFilings = [];
-      for (const src of [secAct, amfAct, bafinAct, ukAct, nlAct]) {
-        if (src?.filings) {
-          for (const f of src.filings) {
+      for (const { payload, isEu } of [
+        { payload: secAct, isEu: false },
+        { payload: amfAct, isEu: true },
+        { payload: bafinAct, isEu: true },
+        { payload: ukAct, isEu: true },
+        { payload: nlAct, isEu: true },
+      ]) {
+        if (payload?.filings) {
+          const filings = isEu ? eligibleEuThresholdFilings(payload) : payload.filings;
+          for (const f of filings) {
             const t = String(f.ticker || '').toUpperCase();
             if (!t || !tickerSet.has(t)) continue;
             // Filtre par date (fenetre {days})
@@ -3162,7 +3185,7 @@ async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
   // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
-  const cacheKey = 'home:top-signals:v8';
+  const cacheKey = 'home:top-signals:v9';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -3333,17 +3356,13 @@ async function computeTopSignals(env) {
 
     const allFilings = [];
     if (secData?.filings) for (const f of secData.filings) allFilings.push({ ...f, country: f.country || 'US' });
-    if (amfData?.filings) for (const f of amfData.filings) allFilings.push({ ...f, country: f.country || 'FR' });
-    if (bafinData?.filings) for (const f of bafinData.filings) allFilings.push({ ...f, country: f.country || 'DE' });
-    if (ukData?.filings) for (const f of ukData.filings) allFilings.push({ ...f, country: f.country || 'UK' });
-    if (nlData?.filings) for (const f of nlData.filings) allFilings.push({ ...f, country: f.country || 'NL' });
-    if (chData?.filings) for (const f of chData.filings) allFilings.push({ ...f, country: f.country || 'CH' });
-    if (itData?.filings) for (const f of itData.filings) allFilings.push({ ...f, country: f.country || 'IT' });
-    if (esData?.filings) for (const f of esData.filings) allFilings.push({ ...f, country: f.country || 'ES' });
-    if (seData?.filings) for (const f of seData.filings) allFilings.push({ ...f, country: f.country || 'SE' });
-    if (noData?.filings) for (const f of noData.filings) allFilings.push({ ...f, country: f.country || 'NO' });
-    if (dkData?.filings) for (const f of dkData.filings) allFilings.push({ ...f, country: f.country || 'DK' });
-    if (fiData?.filings) for (const f of fiData.filings) allFilings.push({ ...f, country: f.country || 'FI' });
+    const appendEu = (payload, country) => {
+      for (const f of eligibleEuThresholdFilings(payload)) allFilings.push({ ...f, country: f.country || country });
+    };
+    appendEu(amfData, 'FR'); appendEu(bafinData, 'DE'); appendEu(ukData, 'UK');
+    appendEu(nlData, 'NL'); appendEu(chData, 'CH'); appendEu(itData, 'IT');
+    appendEu(esData, 'ES'); appendEu(seData, 'SE'); appendEu(noData, 'NO');
+    appendEu(dkData, 'DK'); appendEu(fiData, 'FI');
 
     // Tri : prio aux activists puis par date DESC
     allFilings.sort((a, b) => {
@@ -5057,11 +5076,11 @@ const KNOWN_TICKERS = {
 //
 // Total typique : 6000-10000 mappings name->ticker, vs 70-200 avant.
 //
-// Cache key : 'ticker-by-name-v4' (1h TTL)
+// Cache key : 'ticker-by-name-v5' (1h TTL)
 async function buildTickerByName(env) {
   // Try cache first (1h)
   try {
-    const cached = await env.CACHE.get('ticker-by-name-v4', 'json');
+    const cached = await env.CACHE.get('ticker-by-name-v5', 'json');
     if (cached && Array.isArray(cached.entries)) {
       const m = new Map();
       for (const [name, ticker] of cached.entries) m.set(name, ticker);
@@ -5127,7 +5146,7 @@ async function buildTickerByName(env) {
   await Promise.all(TH_KEYS.map(async (k) => {
     try {
       const data = await env.CACHE.get(k, 'json');
-      const filings = data && Array.isArray(data.filings) ? data.filings : [];
+      const filings = eligibleEuThresholdFilings(data);
       for (const f of filings) {
         const tk = (f.ticker || '').trim().toUpperCase();
         const cn = normalizeForMatch(f.targetName || f.companyName);
@@ -5139,7 +5158,7 @@ async function buildTickerByName(env) {
   // Cache 1h pour eviter de recompute a chaque /api/13f-consensus request
   try {
     const entries = Array.from(m.entries());
-    await env.CACHE.put('ticker-by-name-v4', JSON.stringify({
+    await env.CACHE.put('ticker-by-name-v5', JSON.stringify({
       entries, builtAt: new Date().toISOString(), size: entries.length,
     }), { expirationTtl: 3600 });
   } catch (_) {}
@@ -5513,7 +5532,7 @@ const SSR_I18N = {
     info_ceo: 'PDG', info_founded: 'Fondée en', info_hq: 'Siège', info_employees: 'Employés',
     info_marketcap: 'Capitalisation', info_pe: 'PER', info_div: 'Rendement div.', info_ipo: 'IPO',
     insiders_h2: '🕴️ Activité des initiés (90 jours)',
-    insiders_p: '<strong>{total}</strong> transactions — dont <strong>{buys}</strong> achats déclarés par les dirigeants de {name} auprès de la SEC / AMF / BaFin.',
+    insiders_p: '<strong>{total}</strong> transactions — <strong>{buys}</strong> achats et <strong>{sells}</strong> ventes déclarés par les dirigeants de {name}.',
     funds_h2: '🏦 Hedge Funds',
     funds_p: '<strong>{total}</strong> fonds institutionnels déclarent une position sur {ticker} dans leur dernière déclaration trimestrielle SEC.',
     news_h2: '📰 Actualités récentes',
@@ -5531,23 +5550,23 @@ const SSR_I18N = {
     paywall_p: 'Cette page publique ne montre qu\'un extrait. L\'analyse complète de <strong>{ticker}</strong> sur le dashboard Kairos Insider inclut :',
     paywall_f1: '✅ Kairos Score complet (radar 8 axes + synthèse)',
     paywall_f2: '✅ Historique des {total} transactions insiders sur 90j',
-    paywall_f3: '✅ Tous les {total} hedge funds (sur 200+ suivis)',
-    paywall_f4: '✅ 11 ETF thématiques (ARK, BUZZ, NANC, GOP, JEPI…)',
+    paywall_f3: '✅ Tous les {total} fonds institutionnels détectés',
+    paywall_f4: '✅ ETF thématiques (ARK, BUZZ, NANC, GOP, JEPI…)',
     paywall_f5: '✅ Hot Stocks Google Trends',
-    paywall_f6: '✅ Historique 2 ans : AUM + rotations',
+    paywall_f6: '✅ Historique disponible : AUM + rotations',
     paywall_f7: '✅ Fondamentaux (P/E, PEG, EV/EBITDA, ROE…)',
     paywall_f8: '✅ Santé financière (Altman Z, Piotroski F)',
-    paywall_f9: '✅ Concurrents sectoriels + earnings 6 trim.',
+    paywall_f9: '✅ Concurrents sectoriels + résultats récents',
     paywall_cta: 'Voir l\'analyse complète →',
-    paywall_terms: 'Inscription gratuite · Premium 29€/mois sans engagement',
+    paywall_terms: 'Inscription gratuite · Pro 19 €/mois · Elite 49 €/mois',
     footer_tagline: 'kairosinsider.fr · La plateforme francophone du smart money',
-    footer_sources: 'Données SEC EDGAR, AMF, BaFin, Yahoo Finance — mises à jour quotidiennement',
+    footer_sources: 'Données publiques SEC EDGAR, AMF, BaFin et données de marché',
     // NEW visual pack
     stats_h2: '📊 La donnée derrière cette analyse',
     stats_insiders: 'Transactions insiders',
     stats_insiders_sub: 'SEC Form 4 · AMF · BaFin — 90 jours glissants',
     stats_funds: 'Hedge funds suivis',
-    stats_funds_sub: '500+ fonds 13F SEC, mis a jour trimestriellement',
+    stats_funds_sub: 'Dernières déclarations 13F SEC disponibles',
     stats_etfs: 'ETF thematiques',
     stats_etfs_sub: 'ARK, NANC, GOP, GURU, BUZZ, JEPI, ITA…',
     stats_fresh: 'Frequence',
@@ -5557,15 +5576,15 @@ const SSR_I18N = {
     feat1_title: 'Kairos Score 0-100',
     feat1_desc: 'Score composite sur 8 dimensions : insiders · hedge funds · politiciens · momentum · valorisation · sante · analystes · earnings.',
     feat2_title: 'Clusters Insiders',
-    feat2_desc: 'Detection automatique quand 3+ dirigeants achetent la meme action simultanement — le signal le plus fiable historiquement.',
+    feat2_desc: 'Détection des achats ou ventes rapprochés de plusieurs dirigeants sur une même action.',
     feat3_title: 'Hedge funds 13F',
-    feat3_desc: 'Berkshire (Buffett), Pershing Square (Ackman), Tiger Global, Bridgewater + 200 autres. Qui achete quoi, chaque trimestre.',
+    feat3_desc: 'Berkshire, Pershing Square, Tiger Global, Bridgewater et d’autres fonds déclarants.',
     feat4_title: 'Rotations ETF',
     feat4_desc: 'NANC & GOP (Pelosi & republicains), GURU (top hedge funds), ARK (Cathie Wood). Voyez qui entre et sort chaque semaine.',
     feat5_title: 'Google Trends',
-    feat5_desc: 'Detectez les small caps dont l\'interet retail explose avant le reste du marche. 100+ tickers surveilles.',
+    feat5_desc: 'Repérez les variations marquées de l’intérêt de recherche autour des actions suivies.',
     feat6_title: 'Alertes email',
-    feat6_desc: 'Creez votre watchlist et recevez chaque matin a 8h le Brief des evenements sur VOS tickers.',
+    feat6_desc: 'Créez votre watchlist et recevez un brief des événements sur vos tickers.',
     trust_h2: 'Sources officielles · Donnees publiques',
     trust_sec: 'SEC EDGAR — Form 4 & 13F',
     trust_amf: 'AMF — Declarations dirigeants',
@@ -5590,7 +5609,7 @@ const SSR_I18N = {
     info_ceo: 'CEO', info_founded: 'Founded', info_hq: 'HQ', info_employees: 'Employees',
     info_marketcap: 'Market cap', info_pe: 'P/E', info_div: 'Dividend yield', info_ipo: 'IPO',
     insiders_h2: '🕴️ Insider activity (90 days)',
-    insiders_p: '<strong>{total}</strong> transactions — including <strong>{buys}</strong> buys declared by {name} executives to SEC / AMF / BaFin.',
+    insiders_p: '<strong>{total}</strong> transactions — <strong>{buys}</strong> buys and <strong>{sells}</strong> sales reported by {name} executives.',
     funds_h2: '🏦 Hedge Funds',
     funds_p: '<strong>{total}</strong> institutional funds report a position on {ticker} in their latest SEC quarterly filing.',
     news_h2: '📰 Recent news',
@@ -5608,23 +5627,23 @@ const SSR_I18N = {
     paywall_p: 'This public page only shows a preview. The full analysis of <strong>{ticker}</strong> on the Kairos Insider dashboard includes:',
     paywall_f1: '✅ Full Kairos Score (8-axis radar + synthesis)',
     paywall_f2: '✅ History of all {total} insider transactions over 90 days',
-    paywall_f3: '✅ All {total} hedge funds (among 200+ tracked)',
-    paywall_f4: '✅ 11 thematic ETFs (ARK, BUZZ, NANC, GOP, JEPI…)',
+    paywall_f3: '✅ All {total} detected institutional funds',
+    paywall_f4: '✅ Thematic ETFs (ARK, BUZZ, NANC, GOP, JEPI…)',
     paywall_f5: '✅ Hot Stocks Google Trends',
-    paywall_f6: '✅ 2-year history: AUM + rotations',
+    paywall_f6: '✅ Available history: AUM + rotations',
     paywall_f7: '✅ Fundamentals (P/E, PEG, EV/EBITDA, ROE…)',
     paywall_f8: '✅ Financial health (Altman Z, Piotroski F)',
-    paywall_f9: '✅ Sector peers + 6-quarter earnings',
+    paywall_f9: '✅ Sector peers + recent earnings',
     paywall_cta: 'See full analysis →',
-    paywall_terms: 'Free signup · Premium €29/month no commitment',
+    paywall_terms: 'Free signup · Pro €19/month · Elite €49/month',
     footer_tagline: 'kairosinsider.fr · The smart money platform',
-    footer_sources: 'Data from SEC EDGAR, AMF, BaFin, Yahoo Finance — updated daily',
+    footer_sources: 'Public SEC EDGAR, AMF, BaFin and market data',
     // NEW visual pack
     stats_h2: '📊 The data behind this analysis',
     stats_insiders: 'Insider transactions',
     stats_insiders_sub: 'SEC Form 4 · AMF · BaFin — rolling 90 days',
     stats_funds: 'Hedge funds tracked',
-    stats_funds_sub: '200+ 13F SEC funds, updated quarterly',
+    stats_funds_sub: 'Latest available SEC 13F filings',
     stats_etfs: 'Thematic ETFs',
     stats_etfs_sub: 'ARK, NANC, GOP, GURU, BUZZ, JEPI, ITA…',
     stats_fresh: 'Frequency',
@@ -5634,15 +5653,15 @@ const SSR_I18N = {
     feat1_title: 'Kairos Score 0-100',
     feat1_desc: '8-dimension composite score: insiders · hedge funds · politicians · momentum · valuation · health · analysts · earnings.',
     feat2_title: 'Insider Clusters',
-    feat2_desc: 'Automatic detection when 3+ executives buy the same stock simultaneously — historically the most reliable signal.',
+    feat2_desc: 'Detection of clustered purchases or sales by several executives in the same stock.',
     feat3_title: '13F Hedge Funds',
-    feat3_desc: 'Berkshire (Buffett), Pershing Square (Ackman), Tiger Global, Bridgewater + 200 more. Who buys what, each quarter.',
+    feat3_desc: 'Berkshire, Pershing Square, Tiger Global, Bridgewater and other reporting funds.',
     feat4_title: 'ETF Rotations',
     feat4_desc: 'NANC & GOP (Pelosi & Republicans), GURU (top hedge funds), ARK (Cathie Wood). See who enters and exits each week.',
     feat5_title: 'Google Trends',
-    feat5_desc: 'Spot small caps whose retail interest explodes before the rest of the market. 100+ tickers monitored.',
+    feat5_desc: 'Spot marked changes in search interest around the stocks being followed.',
     feat6_title: 'Email alerts',
-    feat6_desc: 'Create your watchlist and receive every morning at 8am the Brief of events on YOUR tickers.',
+    feat6_desc: 'Create your watchlist and receive a brief of events affecting your tickers.',
     trust_h2: 'Official sources · Public data',
     trust_sec: 'SEC EDGAR — Form 4 & 13F',
     trust_amf: 'AMF — Executive filings',
@@ -6060,7 +6079,7 @@ async function handleOgImage(rawTicker, env, fmt = 'png', lang = 'fr') {
   const changeYtd = data && data.price && data.price.changeYtdPct;
   const change1y = data && data.price && data.price.change1yPct;
   const insiderCount = (data && data.insiders && (data.insiders._totalTransactions ?? (data.insiders.transactions || []).length)) || 0;
-  const fundCount = (data && data.smartMoney && (data.smartMoney._totalFunds ?? (data.smartMoney.topFunds || []).length)) || 0;
+  const fundCount = (data && data.smartMoney && (data.smartMoney.fundCount ?? data.smartMoney._totalFunds ?? (data.smartMoney.topFunds || []).length)) || 0;
   const chartPoints = (data && data.chart && Array.isArray(data.chart.points)) ? data.chart.points : [];
 
   const scoreColor = ogScoreColor(score);
@@ -6319,7 +6338,7 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
   const isThinContent = (d) => {
     if (!d) return true;
     const insiderCount = d.insiders?._totalTransactions ?? (d.insiders?.transactions?.length ?? 0);
-    const fundCount = d.smartMoney?._totalFunds ?? (d.smartMoney?.topFunds?.length ?? 0);
+    const fundCount = d.smartMoney?.fundCount ?? d.smartMoney?._totalFunds ?? (d.smartMoney?.topFunds?.length ?? 0);
     const newsCount = d._totalNews ?? (d.news?.length ?? 0);
     const hasPrice = d.price?.current != null;
     const hasCompanyName = !!(d.company?.name);
@@ -6349,8 +6368,13 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
   const change1y = data.price?.change1yPct;
 
   const totalInsiderTx = data.insiders?._totalTransactions ?? (data.insiders?.transactions?.length ?? 0);
-  const insiderBuyCount = (data.insiders?.transactions || []).filter(t => (t.adType === 'A' || t.type === 'P')).length;
-  const totalFunds = data.smartMoney?._totalFunds ?? (data.smartMoney?.topFunds?.length ?? 0);
+  const insiderBuyCount = data.insiders?.buyCount
+    ?? (data.insiders?.transactions || []).filter(t => insiderKind(t) === 'buy').length;
+  const insiderSellCount = data.insiders?.sellCount
+    ?? (data.insiders?.transactions || []).filter(t => insiderKind(t) === 'sell').length;
+  const totalFunds = data.smartMoney?.fundCount
+    ?? data.smartMoney?._totalFunds
+    ?? (data.smartMoney?.topFunds?.length ?? 0);
   const totalNews = data._totalNews ?? (data.news?.length ?? 0);
   const trends = data.googleTrends;
 
@@ -6395,7 +6419,7 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
   // -> action.html parsait ticker='NVDA?lang=fr' -> sanitize -> 'NVDALANGFR'
   // -> fiche introuvable. Le bouton de conversion principal des ~2000 pages SSR
   // (FR+EN) menait donc dans le vide.
-  const dashboardUrl = `https://kairosinsider.fr/action.html?ticker=${encodeURIComponent(ticker)}&lang=${lang}`;
+  const dashboardUrl = dashboardAnalysisUrl(ticker, lang, 'https://kairosinsider.fr/');
   // Canonical = URL brande (Worker route sur kairosinsider.fr/a/*)
   const canonical = `https://kairosinsider.fr/a/${encodeURIComponent(ticker)}`;
 
@@ -6431,12 +6455,15 @@ async function handleActionSSR(rawTicker, env, lang = 'fr') {
   };
 
   const insiderTeaser = (data.insiders?.transactions || []).slice(0, 3).map(t => {
-    const action = (t.type === 'P' || t.adType === 'A') ? 'Achat' : 'Vente';
+    const kind = insiderKind(t);
+    const action = kind === 'buy' ? (lang === 'en' ? 'Buy' : 'Achat')
+      : kind === 'sell' ? (lang === 'en' ? 'Sell' : 'Vente')
+      : (lang === 'en' ? 'Other' : 'Autre');
     const who = escHtmlSsr(t.insider || 'Dirigeant');
     return `<li>${who} — <strong>${action}</strong>${t.date ? ' · ' + escHtmlSsr(t.date) : ''}</li>`;
   }).join('');
 
-  const fundsTeaser = (data.smartMoney?.topFunds || []).slice(0, 5).map(f => {
+  const fundsTeaser = (data.smartMoney?.topFunds || []).slice(0, 5).map(canonicalizeFundIdentity).map(f => {
     return `<li>${escHtmlSsr(f.fundName || f.cik || 'Hedge fund')}</li>`;
   }).join('');
 
@@ -6646,19 +6673,9 @@ footer a{color:#9CA3AF;text-decoration:none}
       <div class="stat-sub">${ssrT(lang, 'stats_insiders_sub')}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${totalFunds}${totalFunds > 0 ? '' : ' / 200+'}</div>
+      <div class="stat-value">${totalFunds}</div>
       <div class="stat-label">${ssrT(lang, 'stats_funds')}</div>
       <div class="stat-sub">${ssrT(lang, 'stats_funds_sub')}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">16</div>
-      <div class="stat-label">${ssrT(lang, 'stats_etfs')}</div>
-      <div class="stat-sub">${ssrT(lang, 'stats_etfs_sub')}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">24h</div>
-      <div class="stat-label">${ssrT(lang, 'stats_fresh')}</div>
-      <div class="stat-sub">${ssrT(lang, 'stats_fresh_sub')}</div>
     </div>
   </div>
 
@@ -6692,22 +6709,20 @@ footer a{color:#9CA3AF;text-decoration:none}
       ${data.company?.employees ? `<div class="info-item c-teal"><div class="info-icon">👥</div><div class="info-label">${ssrT(lang, 'info_employees')}</div><div class="info-value">${fmtIntSsr(data.company.employees)}</div></div>` : ''}
       ${marketCap ? `<div class="info-item c-blue"><div class="info-icon">💰</div><div class="info-label">${ssrT(lang, 'info_marketcap')}</div><div class="info-value">${fmtCurrSsr(marketCap, currency)}</div></div>` : ''}
       ${pe ? `<div class="info-item c-orange"><div class="info-icon">📊</div><div class="info-label">${ssrT(lang, 'info_pe')}</div><div class="info-value">${typeof pe === 'number' ? pe.toFixed(1) : escHtmlSsr(pe)}</div></div>` : ''}
-      ${dividendYield ? `<div class="info-item c-green"><div class="info-icon">💸</div><div class="info-label">${ssrT(lang, 'info_div')}</div><div class="info-value">${typeof dividendYield === 'number' ? dividendYield.toFixed(2) + '%' : escHtmlSsr(dividendYield)}</div></div>` : ''}
+      <div class="info-item c-green"><div class="info-icon">💸</div><div class="info-label">${ssrT(lang, 'info_div')}</div><div class="info-value">${formatDividendYield(dividendYield, lang)}</div></div>
       ${data.company?.ipoDate ? `<div class="info-item c-pink"><div class="info-icon">🚀</div><div class="info-label">${ssrT(lang, 'info_ipo')}</div><div class="info-value">${escHtmlSsr(data.company.ipoDate)}</div></div>` : ''}
     </div>
   </div>
 
   <div class="section">
     <h2>${ssrT(lang, 'insiders_h2')}</h2>
-    <p>${ssrT(lang, 'insiders_p', { total: String(totalInsiderTx), buys: String(insiderBuyCount), name: escHtmlSsr(name) })}</p>
+    <p>${ssrT(lang, 'insiders_p', { total: String(totalInsiderTx), buys: String(insiderBuyCount), sells: String(insiderSellCount), name: escHtmlSsr(name) })}</p>
     ${(() => {
       const txs = (data.insiders?.transactions || []).slice(0, 5);
       if (!txs.length) return '';
       const rows = txs.map(t => {
-        const isBuy = (t.type === 'P' || t.adType === 'A');
-        const isSell = (t.type === 'S' || t.adType === 'D');
-        const kind = isBuy ? 'buy' : isSell ? 'sell' : 'other';
-        const label = isBuy ? (lang === 'en' ? 'Buy' : 'Achat') : isSell ? (lang === 'en' ? 'Sell' : 'Vente') : (lang === 'en' ? 'Other' : 'Autre');
+        const kind = insiderKind(t);
+        const label = kind === 'buy' ? (lang === 'en' ? 'Buy' : 'Achat') : kind === 'sell' ? (lang === 'en' ? 'Sell' : 'Vente') : (lang === 'en' ? 'Other' : 'Autre');
         const name = escHtmlSsr(t.insider || '—');
         const initials = (t.insider || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join('') || '?';
         const date = t.date ? escHtmlSsr(t.date) : '';
@@ -6732,7 +6747,7 @@ footer a{color:#9CA3AF;text-decoration:none}
     <h2>${ssrT(lang, 'funds_h2')}</h2>
     <p>${ssrT(lang, 'funds_p', { total: String(totalFunds), ticker: escHtmlSsr(ticker) })}</p>
     ${(() => {
-      const funds = (data.smartMoney?.topFunds || []).slice(0, 5);
+      const funds = (data.smartMoney?.topFunds || []).slice(0, 5).map(canonicalizeFundIdentity);
       if (!funds.length) return '';
       const rows = funds.map(f => `<div class="fund-row"><strong>${escHtmlSsr(f.fundName || f.cik || 'Hedge fund')}</strong></div>`).join('');
       return `<div class="funds-list">${rows}</div>`;
@@ -11651,67 +11666,67 @@ async function loadAllThresholdsFilings(env) {
   }
   // AMF (FR)
   if (amfData?.filings) {
-    for (const f of amfData.filings) {
+    for (const f of eligibleEuThresholdFilings(amfData)) {
       all.push({ ...f, source: f.source || 'amf', country: f.country || 'FR', regulator: f.regulator || 'AMF' });
     }
   }
   // BaFin (DE)
   if (bafinData?.filings) {
-    for (const f of bafinData.filings) {
+    for (const f of eligibleEuThresholdFilings(bafinData)) {
       all.push({ ...f, source: f.source || 'bafin', country: f.country || 'DE', regulator: f.regulator || 'BaFin' });
     }
   }
   // FCA (UK)
   if (ukData?.filings) {
-    for (const f of ukData.filings) {
+    for (const f of eligibleEuThresholdFilings(ukData)) {
       all.push({ ...f, source: f.source || 'fca', country: f.country || 'UK', regulator: f.regulator || 'FCA' });
     }
   }
   // AFM (NL) - CSV officiel
   if (nlData?.filings) {
-    for (const f of nlData.filings) {
+    for (const f of eligibleEuThresholdFilings(nlData)) {
       all.push({ ...f, source: f.source || 'afm', country: f.country || 'NL', regulator: f.regulator || 'AFM' });
     }
   }
   // SIX (CH) - Google News
   if (chData?.filings) {
-    for (const f of chData.filings) {
+    for (const f of eligibleEuThresholdFilings(chData)) {
       all.push({ ...f, source: f.source || 'six', country: f.country || 'CH', regulator: f.regulator || 'SIX-Disclosure' });
     }
   }
   // CONSOB (IT) - Google News
   if (itData?.filings) {
-    for (const f of itData.filings) {
+    for (const f of eligibleEuThresholdFilings(itData)) {
       all.push({ ...f, source: f.source || 'consob', country: f.country || 'IT', regulator: f.regulator || 'CONSOB' });
     }
   }
   // CNMV (ES) - Google News
   if (esData?.filings) {
-    for (const f of esData.filings) {
+    for (const f of eligibleEuThresholdFilings(esData)) {
       all.push({ ...f, source: f.source || 'cnmv', country: f.country || 'ES', regulator: f.regulator || 'CNMV' });
     }
   }
   // FI Sweden (SE) - Google News
   if (seData?.filings) {
-    for (const f of seData.filings) {
+    for (const f of eligibleEuThresholdFilings(seData)) {
       all.push({ ...f, source: f.source || 'fi-se', country: f.country || 'SE', regulator: f.regulator || 'Finansinspektionen' });
     }
   }
   // Finanstilsynet Norway (NO)
   if (noData?.filings) {
-    for (const f of noData.filings) {
+    for (const f of eligibleEuThresholdFilings(noData)) {
       all.push({ ...f, source: f.source || 'ft-no', country: f.country || 'NO', regulator: f.regulator || 'Finanstilsynet (NO)' });
     }
   }
   // Finanstilsynet Denmark (DK)
   if (dkData?.filings) {
-    for (const f of dkData.filings) {
+    for (const f of eligibleEuThresholdFilings(dkData)) {
       all.push({ ...f, source: f.source || 'ft-dk', country: f.country || 'DK', regulator: f.regulator || 'Finanstilsynet (DK)' });
     }
   }
   // Finanssivalvonta Finland (FI)
   if (fiData?.filings) {
-    for (const f of fiData.filings) {
+    for (const f of eligibleEuThresholdFilings(fiData)) {
       all.push({ ...f, source: f.source || 'fiva', country: f.country || 'FI', regulator: f.regulator || 'Finanssivalvonta' });
     }
   }
@@ -11896,17 +11911,17 @@ async function loadAllThresholdsFilings(env) {
     updatedAt,
     sources: {
       sec:    { count: secData?.filings?.length    || 0, updatedAt: secData?.updatedAt    || null },
-      amf:    { count: amfData?.filings?.length    || 0, updatedAt: amfData?.updatedAt    || null },
-      bafin:  { count: bafinData?.filings?.length  || 0, updatedAt: bafinData?.updatedAt  || null },
-      fca:    { count: ukData?.filings?.length     || 0, updatedAt: ukData?.updatedAt     || null },
-      afm:    { count: nlData?.filings?.length     || 0, updatedAt: nlData?.updatedAt     || null },
-      six:    { count: chData?.filings?.length     || 0, updatedAt: chData?.updatedAt     || null },
-      consob: { count: itData?.filings?.length     || 0, updatedAt: itData?.updatedAt     || null },
-      cnmv:   { count: esData?.filings?.length     || 0, updatedAt: esData?.updatedAt     || null },
-      'fi-se':  { count: seData?.filings?.length || 0, updatedAt: seData?.updatedAt || null },
-      'ft-no':  { count: noData?.filings?.length || 0, updatedAt: noData?.updatedAt || null },
-      'ft-dk':  { count: dkData?.filings?.length || 0, updatedAt: dkData?.updatedAt || null },
-      fiva:     { count: fiData?.filings?.length || 0, updatedAt: fiData?.updatedAt || null },
+      amf:    { count: eligibleEuThresholdFilings(amfData).length, updatedAt: amfData?.updatedAt || null },
+      bafin:  { count: eligibleEuThresholdFilings(bafinData).length, updatedAt: bafinData?.updatedAt || null },
+      fca:    { count: eligibleEuThresholdFilings(ukData).length, updatedAt: ukData?.updatedAt || null },
+      afm:    { count: eligibleEuThresholdFilings(nlData).length, updatedAt: nlData?.updatedAt || null },
+      six:    { count: eligibleEuThresholdFilings(chData).length, updatedAt: chData?.updatedAt || null },
+      consob: { count: eligibleEuThresholdFilings(itData).length, updatedAt: itData?.updatedAt || null },
+      cnmv:   { count: eligibleEuThresholdFilings(esData).length, updatedAt: esData?.updatedAt || null },
+      'fi-se': { count: eligibleEuThresholdFilings(seData).length, updatedAt: seData?.updatedAt || null },
+      'ft-no': { count: eligibleEuThresholdFilings(noData).length, updatedAt: noData?.updatedAt || null },
+      'ft-dk': { count: eligibleEuThresholdFilings(dkData).length, updatedAt: dkData?.updatedAt || null },
+      fiva: { count: eligibleEuThresholdFilings(fiData).length, updatedAt: fiData?.updatedAt || null },
     },
   };
 }
@@ -12067,7 +12082,7 @@ async function handleTickerTape(env, origin) {
   // item sans ticker valide, quelle que soit sa source. Defense en
   // profondeur : meme si une source ajoute un futur bug, le filtre
   // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
-  const cacheKey = 'ticker-tape:v5';
+  const cacheKey = 'ticker-tape:v6';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -12148,7 +12163,7 @@ async function handleTickerTape(env, origin) {
       if (!data?.filings) continue;
       const passive = ['blackrock', 'vanguard', 'state street', 'norges bank', 'fmr llc', 'goldman sachs'];
       const isPassive = (n) => passive.some(p => (n || '').toLowerCase().includes(p));
-      const euItems = data.filings
+      const euItems = eligibleEuThresholdFilings(data)
         .filter(f => f.fileDate >= cutoff7d && f.percentOfClass != null && f.percentOfClass >= src.minPct)
         .filter(f => f.targetName) // need at least target name
         // FIX (mai 2026) : on exige un ticker resolu (yahooSymbol ou ticker).
@@ -12209,7 +12224,7 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 7. TOP KAIROS SCORE - score >= 80 ===
-    const topSignals = await env.CACHE.get('home:top-signals:v8', 'json').catch(() => null);
+    const topSignals = await env.CACHE.get('home:top-signals:v9', 'json').catch(() => null);
     if (topSignals?.topScores) {
       const scoreItems = topSignals.topScores
         .filter(s => s.score >= 80 && s.ticker)
@@ -14844,7 +14859,7 @@ async function checkEuThresholdCrossings(env, subs) {
   for (const src of sources) {
     const data = await env.CACHE.get(src.kvKey, 'json');
     if (!data || !Array.isArray(data.filings)) continue;
-    for (const f of data.filings) {
+    for (const f of eligibleEuThresholdFilings(data)) {
       const id = `${src.label}:${f.accession || f.id || `${f.fileDate}-${f.ticker}-${f.filerName}`}`;
       if (isBootstrap) { newIds.push(id); continue; }
       if (seenSet.has(id)) continue;

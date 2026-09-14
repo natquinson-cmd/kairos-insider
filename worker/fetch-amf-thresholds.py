@@ -342,8 +342,11 @@ def scrape_google_news_fallback(lookback_days=DEFAULT_LOOKBACK_DAYS, debug=False
             fallback = re.split(r'\s*[-:|–]\s*', title)[0][:80].strip()
             if len(fallback) < 4: continue
             parsed['target'] = fallback
-        filings.append(make_filing(title, iso_date, parsed,
-                                    extra={'url': it['link'], 'source': it['source']}))
+        filings.append(make_filing(
+            title, iso_date, parsed,
+            extra={'url': it['link'], 'source': it['source']},
+            provenance_kind='press-report',
+        ))
     if debug:
         print(f'  [PARSER] retenus={len(filings)} skip_no_kw={skipped_no_kw} skip_old={skipped_old}')
     return filings
@@ -402,10 +405,11 @@ def parse_title_for_threshold(title):
     return out
 
 
-def make_filing(title, iso_date, parsed, extra=None):
+def make_filing(title, iso_date, parsed, extra=None, provenance_kind='official-regulator'):
     extra = extra or {}
     threshold = parsed.get('threshold')
     filer = parsed.get('filer') or ''
+    is_official = provenance_kind == 'official-regulator'
     return {
         'fileDate': iso_date,
         'form': f'FRANCHISSEMENT {threshold:g}%' if threshold else 'FRANCHISSEMENT DE SEUIL',
@@ -421,11 +425,19 @@ def make_filing(title, iso_date, parsed, extra=None):
         'percentOfClass': threshold,
         'crossingDirection': parsed.get('direction', 'up'),
         'crossingThreshold': threshold,
-        'source': 'amf',
+        'source': 'amf' if is_official else 'press',
         'country': 'FR',
-        'regulator': 'AMF',
+        'regulator': 'AMF' if is_official else None,
         'sourceUrl': extra.get('url') or SEARCH_URL,
         'sourceProvider': extra.get('source'),
+        'collectionMethod': 'amf-stealth' if is_official else 'google-news-rss',
+        'provenance': {
+            'kind': provenance_kind,
+            'officialDocument': is_official,
+            'verified': is_official,
+            'evidenceUrl': extra.get('url') or SEARCH_URL,
+        },
+        'regulatorySignalEligible': is_official,
         'rawTitle': title[:300],
     }
 
@@ -449,6 +461,9 @@ def push_to_kv(filings, method='unknown', dry_run=False):
     if dry_run:
         print('[KV] --dry-run : skip wrangler push')
         return True
+    if method == 'google-news-rss':
+        print('[KV] Google News rows are press reports; refusing to overwrite the official AMF cache.')
+        return False
     print(f'[KV] Push vers cle {KV_KEY}...')
     try:
         result = subprocess.run(

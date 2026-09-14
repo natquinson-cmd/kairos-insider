@@ -26,6 +26,7 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from fund_identity import canonical_fund
 
 UA = 'KairosInsider contact@kairosinsider.fr'
 MIN_AUM_USD = 1_000_000_000  # 1 Mrd $ minimum pour entrer dans la liste
@@ -149,8 +150,8 @@ KNOWN_LABELS = {
     '0000080255': ('Rob Sharps', 'Asset Manager'),
     '0000354204': ('Capital Group', 'Asset Manager'),
     '0001645505': ('JPMorgan AM', 'Bank Asset Manager'),
-    '0000019617': ('Goldman AM', 'Bank Asset Manager'),
-    '0000914208': ('Jean Hynes', 'Long-only Active'),
+    '0000019617': ('JPMorgan Chase', 'Bank Asset Manager'),
+    '0000914208': ('Invesco', 'Asset Manager'),
     '0002045724': ('Situational Awareness (Aschenbrenner)', 'Hedge Fund'),
 }
 
@@ -411,6 +412,8 @@ def main():
         else:
             m['label'] = humanize_name(m['name'])
             m['category'] = categorize(m['name'])
+        m['cik'], m['name'], m['label'], m['category'] = canonical_fund(
+            m['cik'], m['name'], m['label'], m['category'])
         return m
 
     funds = []

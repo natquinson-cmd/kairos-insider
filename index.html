@@ -106,6 +106,7 @@
 
   <!-- Module i18n FR/EN (chargé en premier pour eviter le flash de langue) -->
   <script src="assets/i18n.js?v=20260601-etf-tab"></script>
+  <script src="assets/public-journey.js?v=20260914"></script>
   <!-- Tracker affiliate : capte ?ref= + genere visitorId. ~1KB, non-bloquant. -->
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
@@ -194,6 +195,11 @@
       background-clip: text;
     }
     .nav-links { list-style: none; display: flex; gap: 28px; align-items: center; }
+    .nav-menu-toggle {
+      display: none; width: 42px; height: 42px; align-items: center; justify-content: center;
+      border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-1);
+      color: var(--text-primary); font-size: 22px; cursor: pointer;
+    }
     .nav-links a {
       color: var(--text-secondary); text-decoration: none; font-size: 14px;
       font-weight: 500; transition: color 0.2s;
@@ -1458,7 +1464,16 @@
          Les autres ('left', 'right', 'topinsiders') restent display:none via
          les regles desktop (lignes 389-393). */
       .stats-bar { grid-template-columns: repeat(2, 1fr); margin-top: 40px; padding: 22px; }
-      .nav-links li:not(:last-child) { display: none; }
+      .nav-menu-toggle { display: inline-flex; }
+      .nav-links {
+        display: none; position: absolute; top: calc(100% + 8px); left: 14px; right: 14px;
+        padding: 14px; flex-direction: column; align-items: stretch; gap: 4px;
+        background: rgba(10,15,30,0.98); border: 1px solid var(--border-strong);
+        border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.35);
+      }
+      .nav-links.is-open { display: flex; }
+      .nav-links li, .nav-links a, .nav-links button { width: 100%; }
+      .nav-links a { display: block; padding: 10px 12px; }
       .comparison-table { font-size: 12px; }
       .comparison-table th, .comparison-table td { padding: 10px 8px; }
       /* Preuve sociale responsive */
@@ -1683,7 +1698,8 @@
         <div class="logo-mark"><img src="assets/logo.svg" alt="Kairos Insider" /></div>
         <span class="logo-text">Kairos Insider</span>
       </div>
-      <ul class="nav-links">
+      <button type="button" class="nav-menu-toggle" id="navMenuToggle" aria-controls="navLinks" aria-expanded="false" aria-label="Ouvrir le menu" data-i18n-aria-label="nav.open_menu">☰</button>
+      <ul class="nav-links" id="navLinks">
         <li><a href="#features" data-i18n="nav.features">Fonctionnalités</a></li>
         <li><a href="#pricing" data-i18n="nav.pricing">Tarifs</a></li>
         <li><a href="#data" data-i18n="nav.data">Données</a></li>
@@ -1712,7 +1728,7 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="pulse"></span>
-            <span data-i18n="hero.badge">LIVE · Refresh toutes les heures · Alertes Telegram en moins de 8 min</span>
+            <span data-i18n="hero.badge">Données actualisées régulièrement · Alertes selon disponibilité</span>
           </div>
 
           <h1>
@@ -1721,17 +1737,13 @@
           </h1>
 
           <p class="hero-subtitle" data-i18n="hero.subtitle_html">
-            Suivez chaque jour les mouvements des <strong style="color:var(--text-primary)">200 plus grands hedge funds</strong>, des <strong style="color:var(--text-primary)">dirigeants d'entreprise</strong>, des <strong style="color:var(--text-primary)">fonds offensifs sur 8 marchés (US, FR, DE, GB, NL, CH, ES, IT)</strong> et des <strong style="color:var(--text-primary)">ETF thématiques</strong>. Un Kairos Score composite 0-100 synthétise 8 dimensions du smart money pour chaque action.
+            Regroupez les mouvements des fonds, dirigeants et ETF thématiques. Le Kairos Score synthétise huit dimensions pour vous aider à explorer chaque action.
           </p>
 
           <div class="hero-cta">
             <a href="dashboard.html" class="btn btn-primary btn-large" data-i18n="hero.cta_try">Essayer gratuitement →</a>
-            <a href="backtest.html" class="btn btn-secondary btn-large" style="position:relative">
-              <span data-i18n="hero.cta_backtest">📊 Backtest gratuit</span>
-              <span style="position:absolute;top:-8px;right:-8px;background:#10B981;color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;font-weight:800;letter-spacing:0.5px">FREE</span>
-            </a>
+            <a href="dashboard.html?lang=fr#stockAnalysis?t=AAPL" id="heroExampleCta" class="btn btn-secondary btn-large"><span data-i18n="hero.cta_example">Voir l'analyse AAPL</span> →</a>
           </div>
-          <a href="/a/AAPL" class="hero-cta-link"><span data-i18n="hero.cta_example">Voir un exemple d'analyse</span> →</a>
 
           <!-- LIVE PROOF : preuve concrete de la fraicheur. Fetched depuis l'API,
                affiche le dernier filing 13D detecte avec son age. Fallback statique
@@ -1739,15 +1751,15 @@
           <div id="liveProofStrip" style="display:flex;align-items:center;gap:10px;margin-bottom:24px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.25);border-radius:10px;font-size:13px;flex-wrap:wrap">
             <span style="display:inline-flex;align-items:center;gap:6px;color:#10B981;font-weight:700">
               <span style="width:8px;height:8px;background:#10B981;border-radius:50%;animation:pulse 2s infinite;display:inline-block"></span>
-              LIVE
+              <span data-i18n="live.status_label">ACTUALISATION</span>
             </span>
-            <span id="liveProofText" style="color:var(--text-secondary);line-height:1.4" data-i18n="live.proof_static">Données refreshées il y a quelques minutes · 8 marchés monitorés en continu</span>
+            <span id="liveProofText" style="color:var(--text-secondary);line-height:1.4" data-i18n="live.proof_static">Fréquences variables selon la source · Dates de mise à jour visibles sur les fiches</span>
           </div>
 
           <div class="hero-meta">
             <span><span class="check">✓</span> <span data-i18n="hero.meta_legal">100% légal</span></span>
             <span><span class="check">✓</span> <span data-i18n="hero.meta_update">Données live</span></span>
-            <span><span class="check">✓</span> <span data-i18n="hero.meta_alerts">Alertes &lt; 8 min</span></span>
+            <span><span class="check">✓</span> <span data-i18n="hero.meta_alerts">Alertes Telegram</span></span>
             <span><span class="check">✓</span> <span data-i18n="hero.meta_french">100% en français</span></span>
           </div>
         </div>
@@ -1757,6 +1769,7 @@
              pas terrible visuellement. Les fichiers assets/screenshots/ sont
              conservés au cas où on veut re-tenter une autre approche. -->
         <div class="mockup">
+          <div style="margin:0 auto 10px;max-width:520px;color:var(--text-muted);font-size:12px;text-align:center" data-i18n="mockup.illustrative">Illustration produit · données d'exemple non actuelles</div>
           <div class="mockup-card">
             <div class="mockup-header">
               <div>
@@ -2000,46 +2013,38 @@
     </div>
   </section>
 
-  <!--
-    Section SPEED COMPARISON : montre concretement l'avantage Kairos vs
-    Bloomberg / brokers / apps retail FR sur la fraicheur des donnees.
-    C'est notre principal differenciateur prix : Bloomberg Terminal coute
-    24K$/an pour la meme latence que nous (49EUR/mois Elite).
-  -->
+  <!-- Circuit de traitement présenté sans comparaison de délai garantie. -->
   <section class="section" id="speed" style="padding-top:60px;padding-bottom:40px">
     <div class="container" style="max-width:1100px">
       <div style="text-align:center;margin-bottom:36px">
-        <span class="section-badge" style="display:inline-flex;align-items:center;gap:7px;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span data-i18n="speed.badge">FRAÎCHEUR · TEMPS RÉEL</span></span>
+        <span class="section-badge" style="display:inline-flex;align-items:center;gap:7px;background:rgba(16,185,129,0.15);color:#10B981;border:1px solid rgba(16,185,129,0.3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span data-i18n="speed.badge">CIRCUIT DES DONNÉES</span></span>
         <h2 style="font-size:34px;margin:14px 0 12px;letter-spacing:-0.5px">
-          <span data-i18n="speed.title_part1">Du filing SEC au Telegram</span> <span style="background:linear-gradient(135deg,#10B981 0%,#3B82F6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent" data-i18n="speed.title_part2">en moins de 8 minutes.</span>
+          <span data-i18n="speed.title_part1">Du dépôt officiel</span> <span style="background:linear-gradient(135deg,#10B981 0%,#3B82F6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent" data-i18n="speed.title_part2">à votre suivi.</span>
         </h2>
         <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:15px;line-height:1.65" data-i18n="speed.subtitle">
-          Quand Cevian dépose un 13D sur Smith &amp; Nephew, tu reçois la notif Telegram <strong style="color:var(--text-primary)">avant que les sell-side analysts ouvrent leur Bloomberg</strong>. Pendant que les retail FR attendent 24h+ via leurs apps.
+          Kairos relie les publications officielles à une analyse lisible. Les dates de mise à jour restent visibles sur les fiches.
         </p>
       </div>
 
-      <!-- Comparaison latency -->
+      <!-- Trois étapes concrètes du service -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:36px">
-        <!-- Kairos (winner) -->
+        <!-- Étape 1 -->
         <div style="position:relative;padding:24px 22px;background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(59,130,246,0.05));border:2px solid rgba(16,185,129,0.4);border-radius:14px">
-          <div style="position:absolute;top:-10px;right:14px;background:#10B981;color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">KAIROS</div>
-          <div style="font-size:11px;color:#10B981;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px" data-i18n="speed.kairos_subtitle">Telegram + Email</div>
-          <div style="font-size:32px;font-weight:800;color:#10B981;line-height:1;margin-bottom:6px">&lt; 8 min</div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.kairos_desc">Alerte Telegram + email dès qu'un activiste dépose un 13D, qu'un dirigeant achète, ou qu'un seuil de 5% est franchi — avant que les analystes ouvrent leur Bloomberg.</div>
+          <div style="position:absolute;top:-10px;right:14px;background:#10B981;color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:100px">1</div>
+          <div style="font-size:16px;color:#10B981;font-weight:700;margin-bottom:8px" data-i18n="speed.kairos_subtitle">Dépôts officiels</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.kairos_desc">Collecte des publications disponibles auprès des régulateurs et fournisseurs identifiés.</div>
         </div>
-        <!-- Bloomberg -->
+        <!-- Étape 2 -->
         <div style="padding:24px 22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;position:relative">
-          <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px">BLOOMBERG</div>
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px" data-i18n="speed.bloomberg_subtitle">Terminal · 24 000 $/an</div>
-          <div style="font-size:32px;font-weight:800;color:var(--text-primary);line-height:1;margin-bottom:6px">&lt; 5 min</div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.bloomberg_desc">Pareil voire plus rapide, mais accessible aux pros uniquement. Coût prohibitif pour le retail.</div>
+          <div style="position:absolute;top:-10px;right:14px;background:#3B82F6;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px">2</div>
+          <div style="font-size:16px;color:var(--text-primary);font-weight:700;margin-bottom:8px" data-i18n="speed.bloomberg_subtitle">Analyse Kairos</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.bloomberg_desc">Les signaux sont regroupés par ticker avec leur source et leur date de mise à jour.</div>
         </div>
-        <!-- Apps retail FR -->
+        <!-- Étape 3 -->
         <div style="padding:24px 22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;position:relative">
-          <div style="position:absolute;top:-10px;right:14px;background:#374151;color:#9CA3AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:0.5px" data-i18n="speed.retail_label">RETAIL FR</div>
-          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px" data-i18n="speed.retail_subtitle">Boursorama / Yahoo / etc.</div>
-          <div style="font-size:32px;font-weight:800;color:#F59E0B;line-height:1;margin-bottom:6px">24 h+</div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.retail_desc">Données J-1 ou pas du tout sur les filings 13D / seuils EU. Aucune notification temps réel.</div>
+          <div style="position:absolute;top:-10px;right:14px;background:#8B5CF6;color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px">3</div>
+          <div style="font-size:16px;color:var(--text-primary);font-weight:700;margin-bottom:8px" data-i18n="speed.retail_subtitle">Notification configurée</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.55" data-i18n="speed.retail_desc">Vous choisissez vos tickers et vos canaux disponibles dans la Watchlist.</div>
         </div>
       </div>
 
@@ -2059,14 +2064,14 @@
   </section>
 
   <!--
-    Section Backtest LIVE : widget interactif monte directement sur la landing.
+    Simulateur de placements historiques : widget interactif monte directement sur la landing.
     Berkshire 10y par defaut, l'utilisateur peut changer fonds/periode/patrimoine
     sans quitter la page. Effet "wow" maximum.
   -->
   <section class="section" id="backtest-preview" style="padding-top:40px;padding-bottom:60px">
     <div class="container" style="max-width:1100px">
       <div style="text-align:center;margin-bottom:32px">
-        <span class="section-badge" style="display:inline-flex;align-items:center;gap:7px;background:rgba(139, 92, 246, 0.15);color:#8B5CF6;border:1px solid rgba(139, 92, 246, 0.3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><span>BACKTEST LIVE — 100 % GRATUIT</span></span>
+        <span class="section-badge" style="display:inline-flex;align-items:center;gap:7px;background:rgba(139, 92, 246, 0.15);color:#8B5CF6;border:1px solid rgba(139, 92, 246, 0.3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><span data-i18n="home.backtest.badge">SIMULATEUR HISTORIQUE · GRATUIT</span></span>
         <h2 style="font-size:36px;margin:14px 0 12px;letter-spacing:-0.5px"><span data-i18n="home.backtest.h2_part1">Combien auriez-vous gagné</span> <span style="background:linear-gradient(135deg,#3B82F6 0%,#8B5CF6 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent" data-i18n="home.backtest.h2_part2">en suivant ces fonds légendaires ?</span></h2>
         <p style="color:var(--text-secondary);max-width:760px;margin:0 auto;font-size:16px;line-height:1.65" data-i18n="home.backtest.subtitle_html">
           Choisis un fonds, un horizon, ton patrimoine de départ — et découvre <strong style="color:var(--text-primary)">la performance réelle</strong> vs une <strong style="color:var(--text-primary)">assurance vie classique</strong> (~2.5%/an).
@@ -2560,7 +2565,7 @@
           <ul class="pricing-features">
             <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_all_pro"><strong style="color:var(--text-primary)">Tout le plan Pro</strong></span></li>
             <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_alerts"><strong>Alertes temps-réel</strong> (push + email) sur clusters, 13D, big buys</span></li>
-            <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_backtest"><strong>Backtests historiques</strong> (coming soon)</span></li>
+            <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_backtest"><strong>Backtests de stratégie</strong> (à venir)</span></li>
             <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_csv"><strong>Exports CSV</strong> (screener, insiders, 13F)</span></li>
             <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_support">Support prioritaire (réponse &lt; 4h)</span></li>
             <li><span class="feat-check">✓</span> <span data-i18n="pricing.elite.f_early">Accès anticipé aux nouvelles features</span></li>
@@ -2572,7 +2577,7 @@
 
       <!-- Ancrage psychologique -->
       <div style="max-width:760px;margin:36px auto 0;padding:18px 24px;background:rgba(116,185,255,0.05);border:1px solid rgba(116,185,255,0.18);border-radius:12px;text-align:center;font-size:14px;color:var(--text-muted);line-height:1.7" data-i18n="pricing.anchor">
-        💡 <strong style="color:var(--text-primary)">Bloomberg Terminal : 24 000 €/an</strong> · Kairos Pro : <strong style="color:#74b9ff">190 €/an</strong> · <strong style="color:#10B981">126× moins cher</strong> pour 90% du signal smart money.
+        Pro : <strong style="color:#74b9ff">19 €/mois ou 190 €/an</strong> · Elite : <strong style="color:#F59E0B">49 €/mois ou 490 €/an</strong>.
       </div>
 
       <!-- Trust badges : levier psychologique juste avant la decision d'achat -->
@@ -3149,6 +3154,7 @@
     // Nouvelle structure 3 plans : Free / Pro 19€ / Elite 49€.
     // Les toggles mettent a jour Pro ET Elite simultanement.
     function setPricing(mode) {
+      const isEnglish = window.KairosI18n?.getLang?.() === 'en';
       const tabM = document.getElementById('tabMonthly');
       const tabA = document.getElementById('tabAnnual');
       // Elements Pro
@@ -3164,28 +3170,29 @@
       if (mode === 'annual') {
         // Pro annuel : 190€ (soit 15,83€/mois, economie 38€/an = ~17%)
         if (proA) proA.textContent = '190€';
-        if (proP) proP.textContent = '/an';
-        if (proS) proS.textContent = 'Soit 15,83€/mois · 2 mois offerts';
-        if (proC) { proC.textContent = "S'abonner Pro — 190€/an"; proC.href = 'dashboard.html?plan=pro&billing=yearly'; }
+        if (proP) proP.textContent = isEnglish ? '/year' : '/an';
+        if (proS) proS.textContent = isEnglish ? 'Equivalent to €15.83/month · 2 months free' : 'Soit 15,83€/mois · 2 mois offerts';
+        if (proC) { proC.textContent = isEnglish ? 'Subscribe Pro — €190/year' : "S'abonner Pro — 190€/an"; proC.href = window.KairosPublicJourney.pricingUrl('pro', 'yearly', isEnglish ? 'en' : 'fr'); }
         // Elite annuel : 490€ (soit 40,83€/mois, economie 98€/an = ~17%)
         if (eliA) eliA.textContent = '490€';
-        if (eliP) eliP.textContent = '/an';
-        if (eliS) eliS.textContent = 'Soit 40,83€/mois · 2 mois offerts';
-        if (eliC) { eliC.textContent = "S'abonner Elite — 490€/an"; eliC.href = 'dashboard.html?plan=elite&billing=yearly'; }
+        if (eliP) eliP.textContent = isEnglish ? '/year' : '/an';
+        if (eliS) eliS.textContent = isEnglish ? 'Equivalent to €40.83/month · 2 months free' : 'Soit 40,83€/mois · 2 mois offerts';
+        if (eliC) { eliC.textContent = isEnglish ? 'Subscribe Elite — €490/year' : "S'abonner Elite — 490€/an"; eliC.href = window.KairosPublicJourney.pricingUrl('elite', 'yearly', isEnglish ? 'en' : 'fr'); }
         if (tabA) tabA.classList.add('active');
         if (tabM) tabM.classList.remove('active');
       } else {
         if (proA) proA.textContent = '19€';
-        if (proP) proP.textContent = '/mois';
-        if (proS) proS.textContent = 'Sans engagement · annulable en 1 clic';
-        if (proC) { proC.textContent = "S'abonner Pro — 19€/mois"; proC.href = 'dashboard.html?plan=pro&billing=monthly'; }
+        if (proP) proP.textContent = isEnglish ? '/month' : '/mois';
+        if (proS) proS.textContent = isEnglish ? 'No commitment · cancel in 1 click' : 'Sans engagement · annulable en 1 clic';
+        if (proC) { proC.textContent = isEnglish ? 'Subscribe Pro — €19/month' : "S'abonner Pro — 19€/mois"; proC.href = window.KairosPublicJourney.pricingUrl('pro', 'monthly', isEnglish ? 'en' : 'fr'); }
         if (eliA) eliA.textContent = '49€';
-        if (eliP) eliP.textContent = '/mois';
-        if (eliS) eliS.textContent = 'Sans engagement · annulable en 1 clic';
-        if (eliC) { eliC.textContent = "S'abonner Elite — 49€/mois"; eliC.href = 'dashboard.html?plan=elite&billing=monthly'; }
+        if (eliP) eliP.textContent = isEnglish ? '/month' : '/mois';
+        if (eliS) eliS.textContent = isEnglish ? 'No commitment · cancel in 1 click' : 'Sans engagement · annulable en 1 clic';
+        if (eliC) { eliC.textContent = isEnglish ? 'Subscribe Elite — €49/month' : "S'abonner Elite — 49€/mois"; eliC.href = window.KairosPublicJourney.pricingUrl('elite', 'monthly', isEnglish ? 'en' : 'fr'); }
         if (tabM) tabM.classList.add('active');
         if (tabA) tabA.classList.remove('active');
       }
+      window.KairosPublicJourney.syncDashboardLinks(document, isEnglish ? 'en' : 'fr');
     }
     // Helper : injecte le SVG drapeau cible (UK si on est en FR, FR si on est en EN)
     function applyLangFlagIcon() {
@@ -3195,10 +3202,19 @@
         ? window.KairosI18n.targetFlagSvg()
         : (window.KairosI18n.getLang() === 'fr' ? '🇬🇧' : '🇫🇷');
     }
+    window.KairosPublicJourney.initMobileMenu(document);
+    const heroExampleCta = document.getElementById('heroExampleCta');
+    function syncHeroExampleUrl() {
+      if (heroExampleCta) heroExampleCta.href = window.KairosPublicJourney.dashboardAnalysisUrl('AAPL', window.KairosI18n?.getLang?.());
+    }
+    syncHeroExampleUrl();
+    window.KairosPublicJourney.syncDashboardLinks(document, window.KairosI18n?.getLang?.());
     // Re-applique le pricing courant quand on change la langue
     window.addEventListener('kairos:langchange', () => {
+      syncHeroExampleUrl();
       const tabA = document.getElementById('tabAnnual');
       setPricing(tabA && tabA.classList.contains('active') ? 'annual' : 'monthly');
+      window.KairosPublicJourney.syncDashboardLinks(document, window.KairosI18n?.getLang?.());
       applyLangFlagIcon();
     });
     // Au chargement initial : ajuste le drapeau selon la langue détectee
@@ -3267,7 +3283,7 @@
   <script src="assets/toast.js?v=20260420" defer></script>
   <script src="assets/cookie-consent.js?v=20260420" defer></script>
 
-  <!-- Backtest LIVE widget : monte le widget interactif (lazy-loaded au scroll) -->
+  <!-- Simulateur historique : monte le widget interactif (lazy-loaded au scroll) -->
   <script src="/assets/backtest-widget.js?v=20260522-i18n-en" defer></script>
   <script>
     (function() {
