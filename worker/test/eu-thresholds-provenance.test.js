@@ -106,6 +106,41 @@ test('an official non-shareholding document never becomes a threshold signal', (
   assert.equal(filing.regulatorySignalEligible, false);
 });
 
+test('active FCA NSM types distinguish TR-1 disclosures from director trades and other notices', () => {
+  // Field values emitted by fetch-uk-fca.py make_filing, including the PDMR
+  // title whose word "Shareholding" must not override its explicit type.
+  const fixtures = [
+    ['Holding(s) in Company', 'tr1', true],
+    ['Notification of major holdings', 'tr1', true],
+    ['Director/PDMR Shareholding', 'pdmr', false],
+    ['Transaction in Own Shares', 'buyback', false],
+    ['Net Share Position', 'short', false],
+    ['Total Voting Rights', 'tvr', false],
+  ];
+
+  for (const [form, announcementType, eligible] of fixtures) {
+    const filing = normalizeThresholdFilingProvenance({
+      form, announcementType, source: 'fca', regulator: 'FCA (NSM)',
+      sourceUrl: 'https://data.fca.org.uk/Storage/example.pdf',
+      sourceProvider: 'FCA NSM API officielle',
+    }, { method: 'fca-nsm-official' });
+
+    assert.equal(filing.provenance.officialDocument, true, form);
+    assert.equal(filing.regulatorySignalEligible, eligible, form);
+  }
+});
+
+test('legacy official threshold titles remain eligible with missing or unrecognized types', () => {
+  for (const announcementType of [undefined, 'legacy-unknown']) {
+    const filing = normalizeThresholdFilingProvenance({
+      form: 'Notification of substantial shareholding', announcementType,
+      sourceUrl: 'https://data.fca.org.uk/Storage/legacy.pdf',
+    }, { method: 'fca-nsm-official' });
+
+    assert.equal(filing.regulatorySignalEligible, true);
+  }
+});
+
 test('legacy official BaFin and AFM threshold rows remain eligible', () => {
   const fixtures = [
     {

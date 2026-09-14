@@ -2833,7 +2833,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   // v6 (mai 2026) : ajout scoreHistory (~20 points) pour sparkline progression
   // + cache passe a 60s (vs 900s precedemment) car le tableau positions s'auto
   // refresh cote client toutes les 30s.
-  const cacheKey = `pf-summary:v7:${tickers.slice().sort().join(',')}:${days}d`;
+  const cacheKey = `pf-summary:v8:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -3185,7 +3185,7 @@ async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
   // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
-  const cacheKey = 'home:top-signals:v9';
+  const cacheKey = 'home:top-signals:v10';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -5076,11 +5076,11 @@ const KNOWN_TICKERS = {
 //
 // Total typique : 6000-10000 mappings name->ticker, vs 70-200 avant.
 //
-// Cache key : 'ticker-by-name-v5' (1h TTL)
+// Cache key : 'ticker-by-name-v6' (1h TTL)
 async function buildTickerByName(env) {
   // Try cache first (1h)
   try {
-    const cached = await env.CACHE.get('ticker-by-name-v5', 'json');
+    const cached = await env.CACHE.get('ticker-by-name-v6', 'json');
     if (cached && Array.isArray(cached.entries)) {
       const m = new Map();
       for (const [name, ticker] of cached.entries) m.set(name, ticker);
@@ -5158,7 +5158,7 @@ async function buildTickerByName(env) {
   // Cache 1h pour eviter de recompute a chaque /api/13f-consensus request
   try {
     const entries = Array.from(m.entries());
-    await env.CACHE.put('ticker-by-name-v5', JSON.stringify({
+    await env.CACHE.put('ticker-by-name-v6', JSON.stringify({
       entries, builtAt: new Date().toISOString(), size: entries.length,
     }), { expirationTtl: 3600 });
   } catch (_) {}
@@ -12082,7 +12082,7 @@ async function handleTickerTape(env, origin) {
   // item sans ticker valide, quelle que soit sa source. Defense en
   // profondeur : meme si une source ajoute un futur bug, le filtre
   // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
-  const cacheKey = 'ticker-tape:v6';
+  const cacheKey = 'ticker-tape:v7';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -12224,7 +12224,7 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 7. TOP KAIROS SCORE - score >= 80 ===
-    const topSignals = await env.CACHE.get('home:top-signals:v9', 'json').catch(() => null);
+    const topSignals = await env.CACHE.get('home:top-signals:v10', 'json').catch(() => null);
     if (topSignals?.topScores) {
       const scoreItems = topSignals.topScores
         .filter(s => s.score >= 80 && s.ticker)

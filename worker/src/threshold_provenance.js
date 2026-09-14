@@ -18,6 +18,7 @@ const OFFICIAL_HOSTS = new Set([
 
 const PRESS_METHODS = new Set(['google-news-rss', 'borsa-italiana-radiocor']);
 const THRESHOLD_TYPES = new Set(['shareholding', 'substantial', 'threshold', 'tr1', 'participation']);
+const NON_THRESHOLD_TYPES = new Set(['pdmr', 'buyback', 'short', 'tvr']);
 const THRESHOLD_METHODS = new Set([
   'amf-bdif-official', 'amf-stealth', 'bafin-csv-official',
   'afm-csv-official', 'six-ser-official',
@@ -57,9 +58,11 @@ export function normalizeThresholdFilingProvenance(filing, payload = {}) {
   const official = !explicitPress && urlIsOfficial && (explicitOfficial || method !== 'unknown');
   const announcementType = String(row.announcementType || '').toLowerCase();
   const form = String(row.form || '').toLowerCase();
-  const isThresholdDisclosure = THRESHOLD_TYPES.has(announcementType)
+  // FCA's "Director/PDMR Shareholding" is an insider notice, not a TR-1.
+  // Known non-threshold types take priority; legacy rows still use the title.
+  const isThresholdDisclosure = !NON_THRESHOLD_TYPES.has(announcementType) && (THRESHOLD_TYPES.has(announcementType)
     || THRESHOLD_METHODS.has(method)
-    || /franchissement|shareholding|substantial|stimmrechtsmitteilung|threshold/.test(form);
+    || /franchissement|shareholding|substantial|stimmrechtsmitteilung|threshold/.test(form));
 
   if (official) {
     return {
