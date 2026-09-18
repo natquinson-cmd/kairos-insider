@@ -718,7 +718,7 @@ async function handleRequest(request, env, ctx) {
         // isPremiumOrAdmin couvre Stripe + comp:{uid} + admin/fondateur.
         const isPremium = await isPremiumOrAdmin(env, user);
         if (!isPremium) {
-          return jsonResponse({ error: 'Radar Portefeuille réservé aux abonnés Pro et Elite', code: 'PREMIUM_REQUIRED' }, 403, origin);
+          return jsonResponse({ error: 'Radar Portefeuille réservé aux abonnés Pro', code: 'PREMIUM_REQUIRED' }, 403, origin);
         }
         if (request.method === 'GET' && path === '/api/portfolio/connections') {
           return jsonResponse(await handlePortfolioConnections(user.uid, env), 200, origin);
@@ -5558,7 +5558,7 @@ const SSR_I18N = {
     paywall_f8: '✅ Santé financière (Altman Z, Piotroski F)',
     paywall_f9: '✅ Concurrents sectoriels + résultats récents',
     paywall_cta: 'Voir l\'analyse complète →',
-    paywall_terms: 'Inscription gratuite · Pro 19 €/mois · Elite 49 €/mois',
+    paywall_terms: 'Inscription gratuite · Pro 19 €/mois ou 190 €/an',
     footer_tagline: 'kairosinsider.fr · La plateforme francophone du smart money',
     footer_sources: 'Données publiques SEC EDGAR, AMF, BaFin et données de marché',
     // NEW visual pack
@@ -5635,7 +5635,7 @@ const SSR_I18N = {
     paywall_f8: '✅ Financial health (Altman Z, Piotroski F)',
     paywall_f9: '✅ Sector peers + recent earnings',
     paywall_cta: 'See full analysis →',
-    paywall_terms: 'Free signup · Pro €19/month · Elite €49/month',
+    paywall_terms: 'Free signup · Pro €19/month or €190/year',
     footer_tagline: 'kairosinsider.fr · The smart money platform',
     footer_sources: 'Public SEC EDGAR, AMF, BaFin and market data',
     // NEW visual pack
@@ -6956,23 +6956,24 @@ async function handleCreateCheckout(request, env, user, origin) {
   try {
     const body = await request.json().catch(() => ({}));
 
-    // Nouveau modele 3 plans (avr 2026) :
-    //   plan=pro + billing=monthly  → STRIPE_PRICE_ID_PRO_MONTHLY   (19€/mois)
-    //   plan=pro + billing=yearly   → STRIPE_PRICE_ID_PRO_ANNUAL    (190€/an)
-    //   plan=elite + billing=monthly → STRIPE_PRICE_ID_ELITE_MONTHLY (49€/mois)
-    //   plan=elite + billing=yearly  → STRIPE_PRICE_ID_ELITE_ANNUAL  (490€/an)
-    //   fallback (pas de plan) → STRIPE_PRICE_ID (ancien Premium 29€, archive
-    //   cote Stripe mais toujours utilisable pour grandfathering).
-    const plan = (body.plan === 'elite') ? 'elite' : (body.plan === 'pro') ? 'pro' : 'pro'; // defaut pro (nouveau flow)
+    // Pro is the only plan sold now. Existing Elite/legacy subscriptions
+    // still resolve through resolveStripePlan and retain their entitlements.
+    if (String(body.plan || '').trim().toLowerCase() === 'elite') {
+      return jsonResponse({
+        error: body.lang === 'en'
+          ? 'Elite is no longer available for new subscriptions. Please choose Pro.'
+          : 'Elite n’est plus disponible pour les nouvelles souscriptions. Choisissez Pro.',
+        code: 'PLAN_UNAVAILABLE',
+      }, 400, origin);
+    }
+    const plan = 'pro';
     const billing = (body.billing === 'yearly') ? 'yearly' : 'monthly';
 
     const priceMap = {
       'pro:monthly':   env.STRIPE_PRICE_ID_PRO_MONTHLY,
       'pro:yearly':    env.STRIPE_PRICE_ID_PRO_ANNUAL,
-      'elite:monthly': env.STRIPE_PRICE_ID_ELITE_MONTHLY,
-      'elite:yearly':  env.STRIPE_PRICE_ID_ELITE_ANNUAL,
     };
-    const priceId = priceMap[`${plan}:${billing}`] || env.STRIPE_PRICE_ID;
+    const priceId = priceMap[`${plan}:${billing}`];
     const effectiveBilling = billing;
     const effectivePlan = plan;
 
@@ -7510,7 +7511,7 @@ p { font-size:15px; line-height:1.6; color:#9CA3AF; margin:0 0 16px; }
 // - Copie plus punchy : hero en 2 lignes "Ils achetent. Vous saurez quand."
 // - Strip de KPIs en haut (11 regulateurs, 45k tx, 9 marches, 8 axes)
 // - Bloc "Live signal" donnant un exemple concret pour creer le wow
-// - Mini-cards plans Free / Pro / Elite en horizontal (vs paragraphe)
+// - Mini-cards plans Free / Pro en horizontal (vs paragraphe)
 //
 // Contraintes email HTML maintenues :
 // - tables layout (Outlook < 2019 ne supporte pas flexbox)
@@ -7571,8 +7572,7 @@ function buildWelcomeEmail(lang) {
     cta: 'Open my dashboard',
     plansTitle: 'Pricing',
     planFreeName: 'Free', planFreeBody: '4 analyses/day · insider flows',
-    planProName: 'Pro €19/mo', planProBody: 'Unlimited · screener · alerts · activists · 13F · daily brief',
-    planEliteName: 'Elite', planEliteBody: 'Everything + CSV export · API · Telegram alerts',
+    planProName: 'Pro €19/mo', planProBody: 'Unlimited analyses · screener · activists · 13F · daily email brief · watchlist Telegram alerts as data is collected',
     plansCta: 'Compare plans',
     footerNote: 'You\'re receiving this email because you signed up at kairosinsider.fr.',
     contact: 'Questions? Just reply, or write to',
@@ -7599,8 +7599,7 @@ function buildWelcomeEmail(lang) {
     cta: 'Ouvrir mon dashboard',
     plansTitle: 'Plans',
     planFreeName: 'Free', planFreeBody: '4 analyses/jour · flux d\'initiés',
-    planProName: 'Pro 19€', planProBody: 'Illimité · screener · alertes · activistes · 13F · brief quotidien',
-    planEliteName: 'Elite', planEliteBody: 'Tout + export CSV · API · alertes Telegram',
+    planProName: 'Pro 19€', planProBody: 'Analyses illimitées · screener · activistes · 13F · brief email quotidien · alertes Telegram sur watchlist au fil des collectes',
     plansCta: 'Comparer les plans',
     footerNote: 'Vous recevez cet email car vous vous êtes inscrit sur kairosinsider.fr.',
     contact: 'Une question ? Répondez directement, ou écrivez à',
@@ -7806,7 +7805,7 @@ function buildWelcomeEmail(lang) {
           </td>
         </tr>
 
-        <!-- PLANS — 3 mini-cards (Free / Pro / Elite) -->
+        <!-- PLANS — Free / Pro -->
         <tr>
           <td style="padding:0 32px 8px 32px">
             <div style="font-size:11px;letter-spacing:1.8px;color:${C.muted};font-weight:600;text-transform:uppercase;margin-bottom:14px">${T.plansTitle}</div>
@@ -7817,24 +7816,17 @@ function buildWelcomeEmail(lang) {
             <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
               <tr>
                 <!-- Free -->
-                <td valign="top" width="33%" style="padding-right:6px">
+                <td valign="top" width="50%" style="padding-right:6px">
                   <div style="background:${C.surface2};border:1px solid ${C.border};border-radius:12px;padding:14px 14px 16px 14px;height:100%">
                     <div style="font-size:13px;font-weight:700;color:${C.text};margin-bottom:4px">${T.planFreeName}</div>
                     <div style="font-size:11.5px;line-height:1.5;color:${C.muted}">${T.planFreeBody}</div>
                   </div>
                 </td>
                 <!-- Pro (highlighted) -->
-                <td valign="top" width="33%" style="padding:0 6px">
+                <td valign="top" width="50%" style="padding:0 6px">
                   <div style="background:linear-gradient(135deg,rgba(${C_PRIMARY_RGB},0.12),rgba(${C_PRIMARY2_RGB},0.08));border:1px solid rgba(${C_PRIMARY_RGB},0.32);border-radius:12px;padding:14px 14px 16px 14px;height:100%;position:relative">
                     <div style="font-size:13px;font-weight:700;background:linear-gradient(135deg,${C.primary},${C.primary2});-webkit-background-clip:text;background-clip:text;color:${C.primary};margin-bottom:4px">${T.planProName}</div>
                     <div style="font-size:11.5px;line-height:1.5;color:${C.textDim}">${T.planProBody}</div>
-                  </div>
-                </td>
-                <!-- Elite -->
-                <td valign="top" width="33%" style="padding-left:6px">
-                  <div style="background:${C.surface2};border:1px solid ${C.border};border-radius:12px;padding:14px 14px 16px 14px;height:100%">
-                    <div style="font-size:13px;font-weight:700;color:${C.text};margin-bottom:4px">${T.planEliteName}</div>
-                    <div style="font-size:11.5px;line-height:1.5;color:${C.muted}">${T.planEliteBody}</div>
                   </div>
                 </td>
               </tr>
@@ -8137,17 +8129,16 @@ function buildFounderLetter(lang) {
       em('Politicians &amp; gurus') + ' — Pelosi, Cruz, Wyden… + Berkshire, Soros, Druckenmiller. When they buy, you know.',
       em('ETF flows') + ' — ARK, BUZZ, NANC, GOP. Who\'s flowing in, who\'s flowing out, every day.',
     ],
-    haveFooter: 'All on the free tier. No paywall on what matters — I want you to form an honest opinion before going Pro.',
+    haveFooter: "You can explore Kairos with 4 free analyses a day. Pro adds detailed views and monitoring.",
     h3Premium: 'Why upgrade to Pro',
-    premiumIntro: 'The Free tier gives you access to the signals. ' + em('Pro pushes them to you in real-time, where you are') + ' — on the stocks you actually care about.',
+    premiumIntro: "Pro brings detailed research and monitoring together for the companies you follow.",
     premiumItems: [
-      em('Real-time alerts on your watchlist — email + Telegram.') + ' You track 10 tickers? The moment a CEO buys ' + $('$1M+') + ', an activist crosses 5%, or a politician discloses a position on one of them, you get hit everywhere : instant email and ' + t('Telegram push in 90 seconds') + ' on your mobile. Reactive, not retroactive. You act in the ' + t('48-hour window') + ' before the market digests the move.',
-      em('Daily brief 7am Paris.') + ' Every morning, an email with the 10 most relevant signals for ' + em('YOUR') + ' tickers. Not the general SEC EDGAR noise. Filtered signal, curated to your portfolio.',
-      em('Advanced screener.') + ' Filter ' + t('5 years of history') + ' across 50+ combined criteria. Real examples : <em>"CEO buys &gt;' + $('$500k') + ' AND hedge fund increases position &gt;20% AND analyst upgrade within 30d"</em>, or <em>"Cluster ≥3 distinct insiders over 60d with net buys &gt;' + $('$2M') + '"</em>. The setups that precede rallies.',
-      em('Unlimited backtests.') + ' "If I had bought every insider cluster ≥3 over 5 years, what\'s my Sharpe ratio?". Built-in, unlimited, save your strategies.',
-      em('Activists deep dive.') + ' Every 13D filing decoded : campaign history, target track record, sector strategy, average 12-month return. Not just "Elliott crossed 5%" — the full picture.',
-    ],
-    premiumCta: 'Pro ' + $('€19/mo') + ' — cancel anytime, no questions. ' + em('(Elite €49/mo') + ' for API access + CSV export, for power users.)',
+      "Watchlist: keep the companies you follow together and open their analyses directly.",
+      "Daily email brief: configure a summary of the events detected on your watchlist.",
+      "Telegram alerts: connect your account to follow detected events on your watchlist. Timing depends on disclosures and data collection.",
+      "Research tools: explore insider transactions, disclosed fund portfolios and thematic ETF holdings. Check dates and sources before drawing conclusions."
+],
+    premiumCta: 'Pro ' + $('€19/mo') + ' — cancel anytime, no questions. ',
     premiumCtaLink: 'Go Pro →',
     h4Ask: 'One question, that\'s all',
     askP1: 'I\'d really love your answer to this one : ' + em('what\'s THE feature that would make you upgrade to Premium?'),
@@ -8182,17 +8173,16 @@ function buildFounderLetter(lang) {
       em('Politiciens &amp; gourous') + ' — Pelosi, Cruz, Wyden… + Berkshire, Soros, Druckenmiller. Quand ils achètent, tu le sais.',
       em('Flux ETF') + ' — ARK, BUZZ, NANC, GOP. Qui rentre, qui sort, chaque jour.',
     ],
-    haveFooter: 'Tout ça en accès gratuit. Pas de paywall sur l\'essentiel — je veux que tu puisses te faire un avis honnête avant de passer Pro.',
+    haveFooter: "Vous pouvez découvrir Kairos avec 4 analyses gratuites par jour. Pro ajoute les vues détaillées et le suivi.",
     h3Premium: 'Pourquoi passer Pro',
-    premiumIntro: 'Le Free te donne accès aux signaux. ' + em('Pro te les pousse en temps réel, là où tu es') + ' — sur les actions qui t\'intéressent vraiment.',
+    premiumIntro: "Pro rassemble les vues détaillées et le suivi des entreprises qui vous intéressent.",
     premiumItems: [
-      em('Alertes temps réel sur ta watchlist — email + Telegram.') + ' Tu suis 10 tickers ? Dès qu\'un CEO achète ' + $('1 M$+') + ', qu\'un activiste franchit 5%, ou qu\'un politicien déclare une position sur l\'un d\'eux, tu reçois la notif partout : email instant et ' + t('push Telegram en 90 secondes') + ' sur ton mobile. Réactive, pas rétroactive. Tu agis dans la ' + t('fenêtre de 48 h') + ' avant que le marché digère le move.',
-      em('Brief quotidien 7 h Paris.') + ' Tous les matins, un email avec les 10 signaux les plus pertinents pour ' + em('TES') + ' tickers. Pas le bruit général de SEC EDGAR. Du signal filtré, curé selon ton portefeuille.',
-      em('Screener avancé.') + ' Filtre ' + t('5 ans d\'historique') + ' sur 50+ critères combinés. Exemples réels : <em>"CEO achète &gt;' + $('500 k$') + ' ET hedge fund augmente position &gt;20% ET analyste upgrade dans les 30j"</em>, ou <em>"Cluster ≥3 insiders distincts sur 60j avec achats nets &gt;' + $('2 M$') + '"</em>. Les set-ups qui précèdent les rallies.',
-      em('Backtests illimités.') + ' "Si j\'avais acheté à chaque cluster insider ≥3 sur 5 ans, mon Sharpe ?". Intégré, illimité, stratégies sauvegardables.',
-      em('Activistes deep dive.') + ' Chaque filing 13D décodé : historique des campagnes, track record sur la cible, stratégie sectorielle, rendement moyen sur 12 mois. Pas juste "Elliott a franchi 5%" — le contexte complet.',
-    ],
-    premiumCta: 'Pro ' + $('19 €/mois') + ' — annulable à tout moment, sans question. ' + em('(Elite 49 €/mois') + ' pour accès API + export CSV, pour les power users.)',
+      "Watchlist : regroupez les entreprises que vous suivez et ouvrez directement leurs analyses.",
+      "Brief quotidien par email : configurez une synthèse des événements détectés sur votre watchlist.",
+      "Alertes Telegram : connectez votre compte pour suivre les événements détectés sur votre watchlist. Le délai dépend des déclarations et de la collecte des données.",
+      "Outils de recherche : explorez les transactions des dirigeants, les portefeuilles déclarés des fonds et les positions des ETF thématiques. Vérifiez les dates et les sources avant de conclure."
+],
+    premiumCta: 'Pro ' + $('19 €/mois') + ' — annulable à tout moment, sans question. ',
     premiumCtaLink: 'Passer Pro →',
     h4Ask: 'Une question, et c\'est tout',
     askP1: 'J\'aimerais beaucoup ta réponse à celle-ci : ' + em('quelle est LA feature qui te ferait passer Premium ?'),
@@ -9125,11 +9115,6 @@ async function handleAdminUpdatePartnershipApplication(request, env, user, origi
             <td width="50%" valign="top" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
               <div style="font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">⭐ Pro · 19&nbsp;€/mois</div>
               <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;font-weight:800;color:#10B981;margin-top:4px">9,50&nbsp;€/mois</div>
-              <div style="font-size:11px;color:#64748B;margin-top:2px">par abonné, à vie</div>
-            </td>
-            <td width="50%" valign="top" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:14px">
-              <div style="font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">⚡ Elite · 49&nbsp;€/mois</div>
-              <div style="font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;font-weight:800;color:#10B981;margin-top:4px">24,50&nbsp;€/mois</div>
               <div style="font-size:11px;color:#64748B;margin-top:2px">par abonné, à vie</div>
             </td>
           </tr>
@@ -14023,11 +14008,11 @@ Kairos Insider agrège quotidiennement les sources publiques de "smart money" po
 
 Le **Kairos Score 0-100** synthétise 8 axes par action : initiés, hedge funds, politiciens & gourous, momentum, valorisation, consensus analystes, santé financière, momentum résultats. Au-dessus de 75 = signal très favorable.
 
-# Pricing (3 plans)
+# Pricing (Free + Pro)
 
 - **Free** : 4 analyses/jour, Tendances retail, Fear & Greed, Short Interest. Pas de watchlist.
-- **Pro 19€/mois** : Kairos Score complet, insiders, hedge funds 13F, ETFs politiciens, Watchlist + Brief email quotidien, historique 2 ans.
-- **Elite 49€/mois** : Tout Pro + alertes Telegram temps réel (13D, seuils EU, clusters insiders) + backtests + exports CSV + support prioritaire.
+- **Pro 19€/mois ou 190€/an** : Kairos Score complet, insiders, hedge funds 13F, ETFs politiciens, Watchlist + Brief email quotidien + alertes Telegram, historique 2 ans. Le délai des alertes dépend des déclarations et de la collecte des données ; elles ne sont pas instantanées.
+- Elite est suspendu pour les nouvelles souscriptions. Les abonnés existants conservent leurs droits.
 
 # Fonctionnalités phares
 
@@ -14035,7 +14020,7 @@ Le **Kairos Score 0-100** synthétise 8 axes par action : initiés, hedge funds,
 - **Fonds Offensifs** : track les activistes (Cevian sur Smith & Nephew SN.L, Pearson PSON.L, Trian sur JHG, etc.)
 - **Alertes Telegram** : nouvelle 13D activist, seuil EU >5%, cluster insiders 3+, en moins de 8min après filing SEC
 - **Watchlist** : ajoute des tickers, reçois un brief email quotidien si event détecté
-- **Backtest** (Pro/Elite) : simule la performance de copier 47 fonds connus
+- **Simulateur historique gratuit** : explore la performance historique des portefeuilles de fonds. La page de stratégies Backtests en préparation a été retirée du dashboard.
 
 # Données et conformité
 
@@ -14074,11 +14059,11 @@ Kairos Insider aggregates daily public smart money sources to give users an info
 
 The **Kairos Score 0-100** synthesizes 8 dimensions per stock: insiders, hedge funds, politicians & gurus, momentum, valuation, analyst consensus, financial health, earnings momentum. Above 75 = very favorable signal.
 
-# Pricing (3 plans)
+# Pricing (Free + Pro)
 
 - **Free**: 4 analyses/day, retail trends, Fear & Greed, Short Interest. No watchlist.
-- **Pro 19€/month**: Full Kairos Score, insiders, hedge funds 13F, political ETFs, Watchlist + daily brief email, 2-year history.
-- **Elite 49€/month**: Everything in Pro + real-time Telegram alerts (13D, EU thresholds, insider clusters) + backtests + CSV exports + priority support.
+- **Pro €19/month or €190/year**: Full Kairos Score, insiders, hedge funds 13F, political ETFs, Watchlist + daily email brief + Telegram alerts, 2-year history. Alert timing depends on disclosures and data collection; alerts are not instantaneous.
+- Elite is not available for new subscriptions. Existing subscribers retain their access.
 
 # Key features
 
@@ -14086,7 +14071,7 @@ The **Kairos Score 0-100** synthesizes 8 dimensions per stock: insiders, hedge f
 - **Offensive funds**: track activists (Cevian on Smith & Nephew SN.L, Pearson PSON.L, Trian on JHG, etc.)
 - **Telegram alerts**: new 13D activist, EU threshold >5%, insider cluster 3+, in less than 8 min after SEC filing
 - **Watchlist**: add tickers, receive daily email brief if event detected
-- **Backtest** (Pro/Elite): simulate performance of copying 47 known funds
+- **Free historical simulator**: explore the historical performance of fund portfolios. The planned Backtests strategy page has been removed from the dashboard.
 
 # Data and compliance
 

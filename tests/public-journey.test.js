@@ -88,9 +88,13 @@ test('dashboard links retain language without changing query or hash state', () 
   );
 });
 
-test('pricing URL retains plan, billing cycle and selected language', () => {
+test('pricing links retain the Pro billing cycle and selected language', () => {
   assert.equal(
-    journey.pricingUrl('elite', 'yearly', 'en'),
-    'dashboard.html?plan=elite&billing=yearly&lang=en'
+    journey.pricingUrl('pro', 'yearly', 'en'),
+    'dashboard.html?plan=pro&billing=yearly&lang=en'
   );
+});
+
+test('an old Elite pricing link returns to current offers without starting a Pro checkout', () => {
+  assert.equal(journey.pricingUrl('elite', 'yearly', 'en'), 'index.html?lang=en#pricing');
 });

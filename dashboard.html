@@ -41,10 +41,10 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260914-audit"></script>
+  <script src="assets/i18n.js?v=20260918-pro"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
   <script src="assets/analysis-presentation.js?v=20260914"></script>
-  <script src="assets/public-journey.js?v=20260914"></script>
+  <script src="assets/public-journey.js?v=20260918-pro"></script>
 
   <!-- Applique le thème AVANT tout rendu CSS — évite le flash blanc au refresh -->
   <script>
@@ -81,11 +81,13 @@
         if (!hash) return;
         // Format : section[?params...] ou section[&params...] (legacy)
         var section = hash.split('?')[0].split('&')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+        if (section === 'eliteAlerts') section = 'alerts';
+        if (section === 'eliteBacktests') section = 'home';
         if (!section || section === 'home') return;
         // Whitelist : seules les sections connues sont prises en compte
         // (sinon un hash garbage pourrait masquer toutes les sections).
         var allowed = ['stockAnalysis','insider','insiderProfile','activists','13f','13f-explorer','etf',
-                       'eliteAlerts','eliteBacktests','portfolio','watchlist','hotStocks','consensus13f',
+                       'alerts','portfolio','watchlist','hotStocks','consensus13f',
                        'feargreed','shorts','admin','profile','signals-clusters','signals-netflow',
                        'signals-crossticker','signals-etf'];
         if (allowed.indexOf(section) < 0) return;
@@ -4579,13 +4581,9 @@
         <img src="assets/logo.svg" alt="Kairos Insider" />
       </div>
       <h2 style="margin-bottom:8px"><span data-i18n="dash.paywall.title">Débloquez le smart money</span></h2>
-      <p style="margin-bottom:18px;font-size:13px;color:var(--text-secondary)"><span data-i18n="dash.paywall.subtitle">Choisissez le plan qui vous convient. Sans engagement, annulable en 1 clic.</span></p>
+      <p style="margin-bottom:18px;font-size:13px;color:var(--text-secondary)"><span data-i18n="dash.paywall.subtitle">Kairos Pro : choisissez votre rythme de facturation. Annulable à tout moment.</span></p>
 
-      <!-- Selecteur de plan : Pro (recommande) vs Elite -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-        <button type="button" id="pwTabPro" onclick="setPaywallPlan('pro')" style="padding:10px 8px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:1px solid #3B82F6;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;text-align:center">⭐ Pro</button>
-        <button type="button" id="pwTabElite" onclick="setPaywallPlan('elite')" style="padding:10px 8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;text-align:center">⚡ Elite</button>
-      </div>
+      <p id="retiredPlanNotice" hidden style="margin:0 0 14px;color:var(--text-secondary);font-size:13px;line-height:1.5" data-i18n="dash.paywall.elite_retired">L’offre Elite est suspendue pour les nouvelles souscriptions. Vous pouvez choisir Pro ci-dessous. Les abonnements existants sont conservés.</p>
 
       <!-- Toggle Mensuel / Annuel -->
       <div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;padding:3px;margin-bottom:14px;width:100%">
@@ -4863,30 +4861,20 @@
         </button>
       </div>
 
-      <!-- ===== SECTION ELITE (power users : API + alertes + backtests) ===== -->
-      <div class="sidebar-section">
-        <div class="sidebar-title" data-i18n="dash.sidebar.elite_section">Elite</div>
-        <button class="sidebar-item" data-section="eliteAlerts" data-elite="true" onclick="switchSection('eliteAlerts')" title="Alertes temps-réel" data-i18n-title="dash.sidebar.elite_alerts">
-          <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
-          <span data-i18n="dash.sidebar.elite_alerts">Alertes temps-réel</span>
-          <span class="sidebar-badge elite-badge">ELITE</span>
-        </button>
-        <button class="sidebar-item" data-section="eliteBacktests" data-elite="true" onclick="switchSection('eliteBacktests')" title="Backtests" data-i18n-title="dash.sidebar.elite_backtests">
-          <span class="sidebar-icon icon-purple"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
-          <span data-i18n="dash.sidebar.elite_backtests">Backtests</span>
-          <span class="sidebar-badge elite-badge">ELITE</span>
-        </button>
-      </div>
-
       <div class="sidebar-section">
         <div class="sidebar-title" data-i18n="dash.sidebar.my_trading">Mon Trading</div>
-        <button class="sidebar-item" data-section="portfolio" data-premium="true" onclick="switchSection('portfolio')" title="Mon Portefeuille" data-i18n-title="dash.sidebar.portfolio">
+        <button class="sidebar-item" data-section="portfolio" onclick="switchSection('portfolio')" title="Mon Portefeuille" data-i18n-title="dash.sidebar.portfolio">
           <span class="sidebar-icon icon-pink"><svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
           <span data-i18n="dash.sidebar.portfolio">Mon Portefeuille</span>
         </button>
         <button class="sidebar-item" data-section="watchlist" data-premium="true" onclick="switchSection('watchlist')" title="Ma Watchlist" data-i18n-title="dash.sidebar.watchlist">
           <span class="sidebar-icon icon-yellow"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
           <span data-i18n="dash.sidebar.watchlist">Ma Watchlist</span>
+          <span class="sidebar-badge premium-badge">PRO</span>
+        </button>
+        <button class="sidebar-item" data-section="alerts" data-premium="true" onclick="switchSection('alerts')" title="Alertes temps réel" data-i18n-title="dash.sidebar.alerts">
+          <span class="sidebar-icon icon-orange"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span data-i18n="dash.sidebar.alerts">Alertes temps réel</span>
           <span class="sidebar-badge premium-badge">PRO</span>
         </button>
       </div>
@@ -6967,64 +6955,19 @@
         </div>
       </div>
 
-      <!-- ===== SECTION ELITE : ALERTES TEMPS-REEL ===== -->
-      <div class="section-page" id="section-eliteAlerts">
+      <!-- ===== SECTION PRO : ALERTES TEMPS-REEL ===== -->
+      <div class="section-page" id="section-alerts">
         <h2 style="display:flex;align-items:center;gap:12px">
-          <span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Alertes temps-réel</span>
-          <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
+          <span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span data-i18n="dash.sidebar.alerts">Alertes temps réel</span></span>
+          <span style="font-size:10px;padding:3px 10px;background:var(--accent-blue);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">PRO</span>
         </h2>
-        <p class="section-desc"><span data-i18n="dash.elite.alerts_desc">Configurez vos canaux dans la Watchlist : Brief quotidien par email et alertes Telegram.</span></p>
+        <p class="section-desc"><span data-i18n="dash.alerts.alerts_desc">Configurez vos canaux dans la Watchlist : Brief quotidien par email et alertes Telegram.</span></p>
         <div style="padding:22px;background:var(--surface-1);border:1px solid var(--border);border-radius:14px;margin-bottom:20px">
-          <h3 style="margin:0 0 10px" data-i18n="dash.elite.alerts_launch">Email et Telegram disponibles</h3>
-          <p style="font-size:14px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.elite.alerts_waitlist">Ajoutez vos tickers, confirmez votre adresse email et connectez Telegram depuis la Watchlist.</p>
-          <button class="btn btn-primary" onclick="switchSection('watchlist')" data-i18n="dash.elite.configure_alerts">Configurer mes alertes</button>
+          <h3 style="margin:0 0 10px" data-i18n="dash.alerts.alerts_launch">Email et Telegram disponibles</h3>
+          <p style="font-size:14px;color:var(--text-secondary);line-height:1.6" data-i18n="dash.alerts.alerts_waitlist">Ajoutez vos tickers, confirmez votre adresse email et connectez Telegram depuis la Watchlist.</p>
+          <button class="btn btn-primary" onclick="switchSection('watchlist')" data-i18n="dash.alerts.configure_alerts">Configurer mes alertes</button>
         </div>
-        <p style="font-size:13px;color:var(--text-muted)" data-i18n="dash.elite.alerts_free">Push navigateur et webhooks : à venir, sans date annoncée.</p>
-      </div>
-
-      <!-- ===== SECTION ELITE : BACKTESTS ===== -->
-      <div class="section-page" id="section-eliteBacktests">
-        <h2 style="display:flex;align-items:center;gap:12px">
-          <span style="display:inline-flex;align-items:center;gap:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" style="flex-shrink:0"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Backtests historiques</span>
-          <span style="font-size:10px;padding:3px 10px;background:linear-gradient(135deg,#F59E0B,#EC4899);color:#fff;border-radius:100px;font-weight:700;letter-spacing:0.05em">ELITE</span>
-        </h2>
-        <p class="section-desc"><span data-i18n="dash.elite.backtests_desc">Les stratégies fondées sur les signaux smart money sont en préparation. Le simulateur historique de placements est déjà disponible gratuitement.</span></p>
-
-        <div style="padding:22px;background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(236,72,153,0.05));border:1px solid rgba(139,92,246,0.25);border-radius:14px;margin-bottom:20px">
-          <div style="font-size:11px;color:#A78BFA;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:8px"><span data-i18n="dash.elite.in_construction">🚧 En cours de construction</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px"><span data-i18n="dash.elite.backtests_launch">Backtests de stratégie : à venir</span></div>
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6"><span data-i18n="dash.elite.backtests_prereq">Comparez dès maintenant la performance passée de placements avec le simulateur gratuit.</span></div>
-          <a class="btn btn-primary" href="backtest.html" style="display:inline-flex;margin-top:14px" data-i18n="dash.elite.open_simulator">Ouvrir le simulateur gratuit</a>
-        </div>
-
-        <h3 style="margin:24px 0 14px;font-size:16px" data-i18n="dash.elite.strategies_title">Stratégies backtestables (prévues)</h3>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><strong style="color:var(--text-primary);font-size:14px">Convergence chasing</strong></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5"><span data-i18n="dash.elite.strat_convergence">Acheter 100$ à chaque détection de convergence ≥3 insiders. Hold 90/180/365 jours. Compare au S&amp;P 500.</span></div>
-          </div>
-          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><strong style="color:var(--text-primary);font-size:14px">Activist following</strong></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5"><span data-i18n="dash.elite.strat_activist">Tracker Elliott / Ackman / Icahn : acheter à chaque 13D nouveau. Hold jusqu'à la sortie (13D/A — Item 4).</span></div>
-          </div>
-          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg><strong style="color:var(--text-primary);font-size:14px">Top 50 hedge funds clone</strong></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5"><span data-i18n="dash.elite.strat_clone">Répliquer les top 10 positions de chaque 13F-HR trimestriel. Rebalance à chaque release (45j lag SEC).</span></div>
-          </div>
-          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg><strong style="color:var(--text-primary);font-size:14px">Kairos Score ≥ 80</strong></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5"><span data-i18n="dash.elite.strat_score">Acheter tous les tickers qui atteignent un Kairos Score ≥ 80. Vendre quand &lt; 50. Rebalance mensuel.</span></div>
-          </div>
-          <div style="padding:16px 18px;background:var(--surface-1);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><svg viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg><strong style="color:var(--text-primary);font-size:14px">NANC (Pelosi) clone</strong></div>
-            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5"><span data-i18n="dash.elite.strat_nanc">Répliquer l'ETF NANC (transactions Congrès US). Mesurer vs S&amp;P 500 et vs ETF officiel (qui a 50 pts de base de frais).</span></div>
-          </div>
-        </div>
-
-        <div style="margin-top:28px;padding:20px;background:var(--surface-1);border:1px solid var(--border);border-radius:12px;text-align:center">
-          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:8px">Les abonnés Elite actuels auront accès gratuit</div>
-          <div style="font-size:12px;color:var(--text-muted);line-height:1.6"><span data-i18n="dash.elite.backtests_free_desc">Dès le lancement, les Elite pourront configurer et lancer des backtests illimités avec des métriques complètes (Sharpe, max drawdown, win rate, alpha vs benchmark).</span></div>
-        </div>
+        <p style="font-size:13px;color:var(--text-muted)" data-i18n="dash.alerts.timing">Les alertes Telegram suivent les événements détectés sur vos valeurs. Leur délai dépend des déclarations et de la collecte des données. Le brief email est quotidien.</p>
       </div>
 
       <!-- ===== SECTION: ADMIN DASHBOARD (reserve aux emails de ADMIN_EMAILS) ===== -->
@@ -8818,12 +8761,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       return 'monthly';
     }
 
-    // Prix des 4 combinaisons plan x billing (synchro avec landing + worker).
+    // Pro is the only plan available for new subscriptions.
     const PAYWALL_PRICES = {
       'pro:monthly':   { amount: '19€',  period: '/mois', subline: 'Sans engagement — Annulable en 1 clic', cta: "S'abonner Pro — 19€/mois" },
       'pro:yearly':    { amount: '190€', period: '/an',   subline: 'Soit 15,83€/mois · 2 mois offerts',       cta: "S'abonner Pro — 190€/an" },
-      'elite:monthly': { amount: '49€',  period: '/mois', subline: 'API + alertes temps-réel + backtests',    cta: "S'abonner Elite — 49€/mois" },
-      'elite:yearly':  { amount: '490€', period: '/an',   subline: 'Soit 40,83€/mois · 2 mois offerts',       cta: "S'abonner Elite — 490€/an" },
     };
 
     // Liste des features par plan affichees dans le paywall overlay.
@@ -8834,24 +8775,14 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         { ok: true,  text: 'Initiés : transactions · signaux · convergences · screener' },
         { ok: true,  text: '<strong>Activistes</strong> (Elliott, Ackman, Icahn…)' },
         { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
-        { ok: true,  text: '11 ETF thématiques live (NANC, GOP, ARK…)' },
-        { ok: true,  text: 'Watchlist + Brief quotidien par email' },
+        { ok: true,  text: 'ETF thématiques (NANC, GOP, ARK…)' },
+        { ok: true,  text: 'Watchlist + Brief quotidien par email + alertes Telegram' },
         { ok: true,  text: 'Historique 2 ans (scores, rotations, 13F)' },
-        { ok: false, text: 'Alertes temps-réel · backtests historiques · exports CSV' },
-      ],
-      elite: [
-        { ok: true,  text: '<strong style="color:var(--text-primary)">Tout le plan Pro</strong>, plus :' },
-        { ok: true,  text: '<strong>Alertes temps-réel</strong> (push + email) sur convergences & 13D' },
-        { ok: true,  text: '<strong>Backtests historiques</strong> (coming soon)' },
-        { ok: true,  text: '<strong>Exports CSV</strong> (screener, insiders, hedge funds)' },
-        { ok: true,  text: 'Support prioritaire (&lt; 4h)' },
-        { ok: true,  text: 'Accès anticipé aux nouvelles features' },
-        { ok: true,  text: 'Kit presse pour créateurs de contenu' },
       ],
     };
 
     function applyPaywallDisplay() {
-      const plan = getPlanPreference();        // 'pro' ou 'elite'
+      const plan = getPlanPreference();        // New subscriptions: Pro only.
       const billing = getBillingPreference();  // 'monthly' ou 'yearly'
       const key = `${plan}:${billing}`;
       const p = PAYWALL_PRICES[key] || PAYWALL_PRICES['pro:monthly'];
@@ -8877,24 +8808,6 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         }).join('');
       }
 
-      // Toggle visuel Pro/Elite
-      const tabPro = document.getElementById('pwTabPro');
-      const tabElite = document.getElementById('pwTabElite');
-      if (tabPro) {
-        if (plan === 'pro') {
-          tabPro.style.cssText = 'padding:10px 8px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:1px solid #3B82F6;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;text-align:center';
-        } else {
-          tabPro.style.cssText = 'padding:10px 8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;text-align:center';
-        }
-      }
-      if (tabElite) {
-        if (plan === 'elite') {
-          tabElite.style.cssText = 'padding:10px 8px;background:linear-gradient(135deg,#F59E0B,#EC4899);border:1px solid #F59E0B;border-radius:8px;color:#fff;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;text-align:center';
-        } else {
-          tabElite.style.cssText = 'padding:10px 8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;text-align:center';
-        }
-      }
-
       // Toggle visuel Monthly/Yearly
       const tabM = document.getElementById('pwTabMonthly');
       const tabY = document.getElementById('pwTabYearly');
@@ -8905,7 +8818,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     }
 
     function setPaywallPlan(plan) {
-      if (plan !== 'pro' && plan !== 'elite') return;
+      if (plan !== 'pro') return;
       try { localStorage.setItem('kairos_plan', plan); } catch (e) {}
       applyPaywallDisplay();
     }
@@ -8934,7 +8847,17 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         const url = new URL(window.location.href);
         const planUrl = (url.searchParams.get('plan') || '').toLowerCase();
         const billingUrl = (url.searchParams.get('billing') || '').toLowerCase();
-        const hasPricingIntent = (planUrl === 'pro' || planUrl === 'elite');
+        const retiredIntent = planUrl === 'elite' || (!planUrl && localStorage.getItem('kairos_plan') === 'elite');
+        if (retiredIntent) {
+          // Never turn an old Elite purchase intent into an automatic Pro charge.
+          localStorage.setItem('kairos_plan', 'pro');
+          localStorage.removeItem('kairos_auto_checkout');
+          sessionStorage.setItem('kairos_reopen_paywall', '1');
+          const notice = document.getElementById('retiredPlanNotice');
+          if (notice) notice.hidden = false;
+          url.searchParams.delete('plan');
+        }
+        const hasPricingIntent = planUrl === 'pro';
         if (hasPricingIntent) {
           localStorage.setItem('kairos_plan', planUrl);
           localStorage.setItem('kairos_auto_checkout', '1'); // one-shot
@@ -8980,10 +8903,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     }
 
     function getPlanPreference() {
-      try {
-        const p = localStorage.getItem('kairos_plan');
-        return (p === 'pro' || p === 'elite') ? p : 'pro';
-      } catch (e) { return 'pro'; }
+      return 'pro';
     }
 
     // Stripe Checkout
@@ -8995,12 +8915,12 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       try {
         const billing = getBillingPreference();
         const plan = getPlanPreference();
-        const data = await apiFetch('/stripe/create-checkout', { plan, billing }, 'POST');
+        const data = await apiFetch('/stripe/create-checkout', { plan, billing, lang: window.KairosI18n?.getLang?.() || 'fr' }, 'POST');
         if (data && data.error) {
           // Cas : plan annuel demande mais pas encore configure cote Stripe
           if (data.code === 'YEARLY_NOT_CONFIGURED' || data.code === 'PRICE_NOT_CONFIGURED') {
             Toast.warning(data.detail || t('toast.plan_unavailable', "Ce plan n'est pas encore disponible. Contactez le support."));
-            try { localStorage.setItem('kairos_billing', 'monthly'); } catch (e) {}
+            // Preserve the selected billing cycle for a later retry.
           } else {
             Toast.error('Erreur : ' + (data.detail || data.error));
           }
@@ -9339,6 +9259,9 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     };
 
     function switchSection(section, opts = {}) {
+      // Preserve bookmarks after moving alerts to Pro and retiring the placeholder.
+      if (section === 'eliteAlerts') section = 'alerts';
+      if (section === 'eliteBacktests') section = 'home';
       // Cleanup du pre-routing CSS (head script anti-flicker) : la 1ere
       // fois qu'on switche reellement vers une section, on retire le
       // !important qui forcait l'affichage initial. Sinon les sections
@@ -9372,22 +9295,6 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const hubParent = HUB_PARENT[section] || section;
       const btn = document.querySelector(`[data-section="${hubParent}"]`);
       const isPremiumSection = btn?.dataset.premium === 'true';
-      const isEliteSection = btn?.dataset.elite === 'true';
-
-      // Gate Elite : l'user doit etre plan='elite'. Pro + Free → paywall
-      // avec Elite preselectionne pour conversion directe.
-      if (isEliteSection) {
-        const plan = (window._currentPlan || '').toLowerCase();
-        if (plan !== 'elite') {
-          // Cf. _pendingGatedSection ci-dessous : on memorise la cible pour
-          // rejouer la navigation si le statut (admin/abo) se resout apres coup.
-          _pendingGatedSection = section;
-          try { localStorage.setItem('kairos_plan', 'elite'); } catch (e) {}
-          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
-          document.getElementById('paywallOverlay').classList.remove('hidden');
-          return;
-        }
-      }
 
       if (isPremiumSection && !isPremium) {
         // RACE (fix juillet 2026) : isAdminUser/isPremium sont resolus en ASYNC
@@ -10107,22 +10014,6 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           ? '<span style="background:rgba(245,158,11,0.15);color:#F59E0B;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">PAIEMENT EN RETARD</span>'
           : `<span style="background:rgba(148,163,184,0.15);color:#94A3B8;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${(status || '').toUpperCase()}</span>`;
 
-        // Banniere upsell Pro → Elite : affichee aux users Pro ou legacy (29€).
-        // Elite = alertes temps-reel + backtests + exports CSV + support prioritaire.
-        // Cachee si deja Elite.
-        const upsellBanner = (plan !== 'elite' && status === 'active')
-          ? `<div style="margin-top:14px;padding:16px 18px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:12px">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap">
-                <div style="flex:1;min-width:220px">
-                  <div style="font-size:12px;color:#F59E0B;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:6px">${t('dash.sub.unlock_more', '⚡ Débloquer plus')}</div>
-                  <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${t('dash.sub.upsell_title', 'Passer Elite — 49€/mois')}</div>
-                  <div style="font-size:12px;color:var(--text-muted);line-height:1.55">${t('dash.sub.upsell_features', 'Alertes temps-réel (push/email) · backtests historiques · exports CSV · support prioritaire')}</div>
-                </div>
-                <button type="button" onclick="try{localStorage.setItem('kairos_plan','elite');}catch(e){} if(typeof applyPaywallDisplay==='function') applyPaywallDisplay(); document.getElementById('paywallOverlay').classList.remove('hidden');" class="btn btn-primary" style="padding:9px 16px;width:auto;flex-shrink:0;background:linear-gradient(135deg,#F59E0B,#EC4899);border:none;font-size:13px;cursor:pointer">Passer Elite</button>
-              </div>
-            </div>`
-          : '';
-
         body.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
             <div>
@@ -10132,9 +10023,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             </div>
             <button class="btn btn-primary" onclick="openStripePortal()" style="padding:10px 18px;width:auto;flex-shrink:0">${t('dash.sub.manage', '💳 Gérer mon abonnement')}</button>
           </div>
-          ${upsellBanner}
           <div style="background:var(--surface-2);border:1px solid var(--border-strong);border-radius:8px;padding:12px;font-size:12px;color:var(--text-muted);line-height:1.6">
-            ${t('dash.sub.portal_help', 'Via le portail Stripe, vous pouvez : mettre à jour votre carte, télécharger vos factures, passer au plan annuel (économisez 20%), ou annuler à tout moment.')}
+            ${t('dash.sub.portal_help', 'Via le portail Stripe, vous pouvez : mettre à jour votre carte, télécharger vos factures, passer au plan annuel (2 mois offerts), ou annuler à tout moment.')}
           </div>`;
       } catch (e) {
         console.error('[profile] sub:', e);
@@ -10401,7 +10291,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         if (typeof isAdminUser !== 'undefined' && isAdminUser) {
           planBadge.title = 'Admin : cliquer pour cycler preview free / pro / elite (voir les cadenas comme un user lambda)';
         } else if (realPlan === 'free') {
-          planBadge.title = 'Cliquer pour découvrir les plans Pro et Elite';
+          planBadge.title = t('dash.paywall.discover_pro', 'Découvrir l’offre Pro');
         } else {
           planBadge.title = 'Cliquer pour gérer votre abonnement';
         }
@@ -10517,6 +10407,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const userRank = planRank[userPlan] ?? 0;
       document.querySelectorAll('#section-home .home-card[data-required-plan]').forEach(card => {
         const requiredPlan = (card.dataset.requiredPlan || 'free').toLowerCase();
+        card.style.display = requiredPlan === 'elite' && userPlan !== 'elite' ? 'none' : '';
         const requiredRank = planRank[requiredPlan] ?? 0;
         const locked = requiredRank > userRank;
         card.classList.toggle('locked', locked);
@@ -10527,7 +10418,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           card.addEventListener('click', function(e) {
             if (!card.classList.contains('locked')) return;
             e.preventDefault(); e.stopPropagation();
-            try { localStorage.setItem('kairos_plan', requiredPlan); } catch (err) {}
+            if (requiredPlan === 'elite') return;
+            try { localStorage.setItem('kairos_plan', 'pro'); } catch (err) {}
             if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
             document.getElementById('paywallOverlay')?.classList.remove('hidden');
           }, true);
@@ -26657,11 +26549,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       if (plan !== 'elite') {
         try {
           if (window.Toast && Toast.info) {
-            Toast.info('L\'export CSV est une feature Elite. Passez Elite pour l\'activer.');
+            Toast.info(t('dash.paywall.elite_unavailable', 'Cette fonctionnalité reste réservée aux abonnements Elite existants.'));
           }
-          localStorage.setItem('kairos_plan', 'elite'); // preselectionne Elite dans le paywall
-          if (typeof applyPaywallDisplay === 'function') applyPaywallDisplay();
-          document.getElementById('paywallOverlay')?.classList.remove('hidden');
         } catch (e) {}
         return;
       }

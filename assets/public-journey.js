@@ -19,7 +19,10 @@
   }
 
   function pricingUrl(plan, billing, lang) {
-    const safePlan = plan === 'elite' ? 'elite' : 'pro';
+    if (String(plan || '').trim().toLowerCase() === 'elite') {
+      return withLang('index.html#pricing', lang);
+    }
+    const safePlan = 'pro';
     const safeBilling = billing === 'yearly' ? 'yearly' : 'monthly';
     return withLang(`dashboard.html?plan=${safePlan}&billing=${safeBilling}`, lang);
   }
