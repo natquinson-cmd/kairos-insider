@@ -64,9 +64,13 @@ h1 { font-size: clamp(42px, 4vw, 60px); line-height: 1.08; max-width: 11em; text
 .source-strip { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 23px 0; }
 .source-inner { display: flex; justify-content: space-between; align-items: center; gap: 25px; }
 .source-inner > p { font-size: 13px; color: var(--text-secondary); max-width: 230px; }
-.source-names { display: flex; align-items: center; gap: 48px; }
-.source-names > span { font-weight: 650; color: #c2cde0; font-size: 19px; letter-spacing: -.03em; }
-.source-names small { display: block; font-weight: 400; color: var(--text-muted); font-size: 10px; letter-spacing: 0; }
+.source-names { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; flex-shrink: 0; }
+.source-brand { width: 138px; text-align: center; border-radius: 6px; }
+.source-logo { display: flex; align-items: center; justify-content: center; height: 68px; padding: 10px 12px; background: #fff; border-radius: 6px; }
+.source-logo img { width: 112px; max-width: 100%; max-height: 48px; object-fit: contain; }
+.source-logo .source-logo-sec { width: 52px; height: 52px; max-height: 52px; }
+.source-names small { display: block; margin-top: 6px; font-weight: 400; color: var(--text-muted); font-size: 11px; letter-spacing: 0; }
+.source-brand:hover small { color: var(--text-primary); }
 .source-note { font-size: 11px; color: var(--text-muted); text-align: right; max-width: 195px; }
 .section { padding: 94px 0; }
 .section-heading { max-width: 640px; margin-bottom: 40px; }
@@ -155,7 +159,8 @@ h2 { font-size: clamp(31px, 3.3vw, 44px); line-height: 1.15; }
   .hero { padding: 65px 0 55px; }
   h1 { font-size: 47px; }
   .hero-copy > p { font-size: 15px; }
-  .source-names { gap: 25px; }
+  .source-names { gap: 12px; }
+  .source-brand { width: 120px; }
   .demo-panel { gap: 30px; }
   .daily-grid, .faq-grid { gap: 45px; }
 }
@@ -177,7 +182,9 @@ h2 { font-size: clamp(31px, 3.3vw, 44px); line-height: 1.15; }
   .hero-takeaway { display: none; }
   .source-inner { flex-wrap: wrap; gap: 18px; }
   .source-inner > p { max-width: none; width: 100%; }
-  .source-names { flex: 1; gap: 27px; flex-wrap: wrap; }
+  .source-names { width: 100%; gap: 10px; }
+  .source-brand { width: 100%; min-width: 0; }
+  .source-logo { height: 64px; padding: 8px; }
   .source-note { display: none; }
   .section { padding: 60px 0; }
   .section-heading { margin-bottom: 27px; }
