@@ -1,4 +1,4 @@
-function finiteNumber(value) {
+export function finiteNumber(value) {
   if (value == null || typeof value === 'boolean') return null;
   if (typeof value === 'string' && value.trim() === '') return null;
   const numeric = Number(value);

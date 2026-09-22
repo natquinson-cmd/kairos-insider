@@ -26,7 +26,7 @@
 
 import { aggregateEuThresholds } from './eu_thresholds_aggregator.js';
 import { fetchZonebourseConsensus } from './zonebourse_consensus.js';
-import { normalizeDividendYield, normalizeEarningsHistory, normalizeStockAnalysisEarningsRecord, summarizeEarningsBeats } from './financial-normalization.js';
+import { finiteNumber, normalizeDividendYield, normalizeEarningsHistory, normalizeStockAnalysisEarningsRecord, summarizeEarningsBeats } from './financial-normalization.js';
 import { canonicalizeFundIdentity, summarizeReportDates } from './fund-identity.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
@@ -2611,7 +2611,15 @@ export function synthesizeConsensusFromZonebourse(zb) {
 }
 
 
-function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, euThresholds, weights }) {
+export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, euThresholds, weights }) {
+  // Provider fallbacks and old cache entries can contain numeric strings.
+  // Normalize before both data-presence checks and formatting; invalid data
+  // must stay unavailable instead of generating a fabricated numeric signal.
+  fundamentals = { ...(fundamentals || {}),
+    peRatio: finiteNumber(fundamentals?.peRatio),
+    forwardPE: finiteNumber(fundamentals?.forwardPE),
+    targetMeanPrice: finiteNumber(fundamentals?.targetMeanPrice),
+  };
   // weights custom OU defaults (meme repartition que BASE_MAX)
   const W = { ...SCORE_DEFAULT_WEIGHTS, ...(weights || {}) };
 
