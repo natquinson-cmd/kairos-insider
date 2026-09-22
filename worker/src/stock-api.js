@@ -190,7 +190,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  const cacheKey = `stock-analysis:v22:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v23: include supplied health criteria in scoring and expose their provenance.
+  const cacheKey = `stock-analysis:v23:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -341,10 +342,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Injecte l'objectif de cours Yahoo si stockanalysis/Zonebourse ne l'ont pas.
   const yahooFund = await yahooFundP;
   if (yahooFund && yahooFund.stats) {
-    const ys = yahooFund.stats;
-    if (fundamentals.targetMeanPrice == null && ys.targetMeanPrice != null) fundamentals.targetMeanPrice = ys.targetMeanPrice;
-    if (fundamentals.numberOfAnalystOpinions == null && ys.numberOfAnalystOpinions != null) fundamentals.numberOfAnalystOpinions = ys.numberOfAnalystOpinions;
-    if (!fundamentals.recommendationKey && ys.recommendationKey) fundamentals.recommendationKey = ys.recommendationKey;
+    applyYahooFundamentals(fundamentals, yahooFund.stats);
   }
   let extendedRatios = statistics.extendedRatios || {};
   let margins = statistics.margins || {};
@@ -408,7 +406,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // les EU, on a calcule un Health Score Kairos (proxy sur 7 criteres) depuis
   // Finnhub. Si stockanalysis renvoie vide, on expose le score Kairos.
   let mergedHealth = statistics.health || {};
-  if ((!mergedHealth.altmanZ && !mergedHealth.piotroskiF) && finnhubMetrics && finnhubMetrics.healthScore) {
+  if (finiteNumber(mergedHealth.altmanZ) == null && finiteNumber(mergedHealth.piotroskiF) == null && finnhubMetrics?.healthScore) {
     mergedHealth = { ...mergedHealth, kairosScore: finnhubMetrics.healthScore };
   }
   // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
@@ -436,7 +434,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
 
   const score = computeKairosScore({
     insiders, smartMoney, govEtf, quote, fundamentals, consensus,
-    health: statistics.health, earnings: mergedEarnings,
+    health: mergedHealth, earnings: mergedEarnings,
     euThresholds,  // EU activists/holdings (AMF/FCA/SIX/AFM/BaFin)
     weights: scoreWeights,
   });
@@ -447,23 +445,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     resolvedFromName,               // true si on a fait LVMH -> MC.PA
     updatedAt: new Date().toISOString(),
     _cachedAt: Date.now(),
-    company: {
-      name: (overview.profile && overview.profile.name) || (quote && quote.company && quote.company.name) || ticker,
-      sector: (overview.profile && overview.profile.sector) || null,
-      industry: (overview.profile && overview.profile.industry) || null,
-      country: (overview.profile && overview.profile.country) || null,
-      website: (overview.profile && overview.profile.website) || null,
-      description: (overview.profile && overview.profile.description) || null,
-      employees: (employeesData.stats && employeesData.stats.current) || (overview.profile && overview.profile.employees) || null,
-      employeesGrowth: (employeesData.stats && employeesData.stats.growth) || null,
-      exchange: (overview.profile && overview.profile.exchange) || null,
-      ceo: (overview.profile && overview.profile.ceo) || null,
-      founded: (overview.profile && overview.profile.founded) || null,
-      headquarters: (overview.profile && overview.profile.headquarters) || null,
-      ipoDate: (overview.profile && overview.profile.ipoDate) || null,
-      fiscalYearEnd: (overview.profile && overview.profile.fiscalYearEnd) || null,
-      isin: (overview.profile && overview.profile.isin) || null,
-    },
+    company: mergeCompanyProfile({ticker, primary: overview.profile, yahoo: yahooFund?.profile, quote: quote?.company, employeeStats: employeesData.stats}),
     price: quote.price,
     chart: quote.chart,
     fundamentals,
@@ -1351,7 +1333,42 @@ export async function getYahooSession(env, forceRefresh = false) {
 // ============================================================
 // YAHOO FINANCE : fondamentaux (quoteSummary avec crumb)
 // ============================================================
-async function fetchYahooFundamentals(ticker, env) {
+export function mergeCompanyProfile({ticker, primary = {}, yahoo = {}, quote = {}, employeeStats = {}}) {
+  primary = primary || {}; yahoo = yahoo || {}; quote = quote || {}; employeeStats = employeeStats || {};
+  const text = value => typeof value === 'string' && value.trim() ? value.trim() : null;
+  const officers = Array.isArray(yahoo.companyOfficers) ? yahoo.companyOfficers : [];
+  const executive = officers.find(officer => text(officer?.name) && /\b(?:CEO|Chief Executive Officer)\b/i.test(officer.title || '') && !/\b(?:former|retired)\b/i.test(officer.title || ''));
+  const address = [yahoo.address1, yahoo.address2, yahoo.city, yahoo.state, yahoo.zip].map(text).filter(Boolean);
+  const headquarters = address.length ? [...address, text(yahoo.country)].filter(Boolean).join(', ') : null;
+  return {
+    name: text(primary.name) || text(yahoo.longName) || text(yahoo.shortName) || text(quote.name) || ticker,
+    sector: text(primary.sector) || text(yahoo.sector),
+    industry: text(primary.industry) || text(yahoo.industry),
+    country: text(primary.country) || text(yahoo.country),
+    website: text(primary.website) || text(yahoo.website),
+    description: text(primary.description) || text(yahoo.longBusinessSummary),
+    employees: finiteNumber(employeeStats.current) ?? finiteNumber(primary.employees) ?? finiteNumber(yahoo.fullTimeEmployees),
+    employeesGrowth: finiteNumber(employeeStats.growth) ?? finiteNumber(primary.employeesGrowth),
+    exchange: text(primary.exchange) || text(yahoo.exchange),
+    ceo: text(primary.ceo) || text(executive?.name),
+    founded: primary.founded ?? null,
+    headquarters: text(primary.headquarters) || headquarters,
+    ipoDate: text(primary.ipoDate),
+    fiscalYearEnd: text(primary.fiscalYearEnd),
+    isin: text(primary.isin),
+  };
+}
+
+export function applyYahooFundamentals(fundamentals, stats = {}) {
+  for (const key of ['targetMeanPrice', 'numberOfAnalystOpinions']) {
+    if (fundamentals[key] == null && finiteNumber(stats[key]) != null) fundamentals[key] = finiteNumber(stats[key]);
+  }
+  if (!fundamentals.recommendationKey && stats.recommendationKey) fundamentals.recommendationKey = stats.recommendationKey;
+  // Yahoo sharesOutstanding is an absolute share count, unlike Finnhub's millions.
+  if (!(finiteNumber(fundamentals.sharesOut) > 0) && finiteNumber(stats.sharesOut) > 0) fundamentals.sharesOut = finiteNumber(stats.sharesOut);
+}
+
+export async function fetchYahooFundamentals(ticker, env) {
   const empty = { profile: {}, stats: {} };
 
   async function doFetch(session) {
@@ -1393,10 +1410,18 @@ async function fetchYahooFundamentals(ticker, env) {
         country: profile.country,
         website: profile.website,
         longBusinessSummary: profile.longBusinessSummary,
-        fullTimeEmployees: profile.fullTimeEmployees,
+        fullTimeEmployees: raw(profile.fullTimeEmployees),
+        address1: profile.address1,
+        address2: profile.address2,
+        city: profile.city,
+        state: profile.state,
+        zip: profile.zip,
+        companyOfficers: profile.companyOfficers,
+        exchange: raw(priceMod.exchangeName) || raw(priceMod.fullExchangeName),
       },
       stats: {
         marketCap: raw(priceMod.marketCap) || raw(summary.marketCap),
+        sharesOut: finiteNumber(raw(keystats.sharesOutstanding)),
         peRatio: raw(summary.trailingPE),
         forwardPE: raw(summary.forwardPE) || raw(keystats.forwardPE),
         pbRatio: raw(keystats.priceToBook),
@@ -1571,8 +1596,8 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
 
   // Cache 24h sur le ticker ORIGINAL (pas l'ADR) pour le lookup ulterieur.
-  // v3 : bump apres ajout healthScore + financialPosition (mai 2026).
-  const cacheKey = `finnhub-metrics:v3:${String(ticker).toUpperCase()}`;
+  // v4: health criteria include observed values, units and explicit thresholds.
+  const cacheKey = `finnhub-metrics:v4:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1612,7 +1637,7 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
 
   try {
     // Helper : retourne null si la valeur Finnhub est invalide (NaN, null, undefined)
-    const num = (v) => (v != null && !isNaN(v)) ? Number(v) : null;
+    const num = finiteNumber;
 
     // Mapping Finnhub -> notre format fundamentals
     // Note : Finnhub marketCap est en MILLIONS (ex: 233456 = 233.5B). On convertit en absolu.
@@ -1680,7 +1705,7 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
     // === Financial position (currentRatio, quickRatio, debtEquity, debtEbitda, interestCoverage) ===
     // Pour le panneau 'Sante financiere' qui etait vide pour EU.
     const fmtNum = (v) => v != null ? v.toFixed(2) : null;
-    const debtEquity = num(m['totalDebt/totalEquityAnnual']) || num(m['longTermDebt/equityAnnual']);
+    const debtEquity = num(m['totalDebt/totalEquityAnnual']) ?? num(m['longTermDebt/equityAnnual']);
     const debtEbitda = num(m['totalDebt/ebitdaAnnual']);
     const interestCoverage = num(m.interestCoverageAnnual) || num(m.netInterestCoverage);
     const financialPosition = {
@@ -1707,24 +1732,24 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
       const checks = [];
       // 1. Net income TTM positive (proxy via netProfitMarginTTM > 0)
       const npm = num(m.netProfitMarginTTM);
-      if (npm != null) checks.push({ ok: npm > 0, label: 'Marge nette positive' });
+      if (npm != null) checks.push({ key: 'netMargin', value: npm, unit: 'percent', threshold: 0, comparison: '>', ok: npm > 0, label: 'Marge nette positive' });
       // 2. ROA > 0
       const roa = num(m.roaTTM);
-      if (roa != null) checks.push({ ok: roa > 0, label: 'ROA positif' });
+      if (roa != null) checks.push({ key: 'roa', value: roa, unit: 'percent', threshold: 0, comparison: '>', ok: roa > 0, label: 'ROA positif' });
       // 3. ROE > 0
       const roe = num(m.roeTTM);
-      if (roe != null) checks.push({ ok: roe > 0, label: 'ROE positif' });
+      if (roe != null) checks.push({ key: 'roe', value: roe, unit: 'percent', threshold: 0, comparison: '>', ok: roe > 0, label: 'ROE positif' });
       // 4. Marge brute > 0
       const gm = num(m.grossMarginTTM);
-      if (gm != null) checks.push({ ok: gm > 0, label: 'Marge brute positive' });
+      if (gm != null) checks.push({ key: 'grossMargin', value: gm, unit: 'percent', threshold: 0, comparison: '>', ok: gm > 0, label: 'Marge brute positive' });
       // 5. Marge operationnelle > 0
       const om = num(m.operatingMarginTTM);
-      if (om != null) checks.push({ ok: om > 0, label: 'Marge opérationnelle positive' });
+      if (om != null) checks.push({ key: 'operatingMargin', value: om, unit: 'percent', threshold: 0, comparison: '>', ok: om > 0, label: 'Marge opérationnelle positive' });
       // 6. Current ratio > 1
       const cr = num(m.currentRatioAnnual);
-      if (cr != null) checks.push({ ok: cr > 1, label: 'Liquidité générale > 1' });
+      if (cr != null) checks.push({ key: 'currentRatio', value: cr, unit: 'ratio', threshold: 1, comparison: '>', ok: cr > 1, label: 'Liquidité générale > 1' });
       // 7. Debt/Equity < 2
-      if (debtEquity != null) checks.push({ ok: debtEquity < 2, label: 'Endettement maîtrisé' });
+      if (debtEquity != null) checks.push({ key: 'debtEquity', value: debtEquity, unit: 'ratio', threshold: 2, comparison: '<', minimum: 0, ok: debtEquity >= 0 && debtEquity < 2, label: 'Endettement maîtrisé' });
 
       if (checks.length >= 4) {  // au moins 4 criteres dispo pour donner un score fiable
         const passed = checks.filter(c => c.ok).length;
@@ -2609,6 +2634,12 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
     forwardPE: finiteNumber(fundamentals?.forwardPE),
     targetMeanPrice: finiteNumber(fundamentals?.targetMeanPrice),
   };
+  health = { ...(health || {}), altmanZ: finiteNumber(health?.altmanZ), piotroskiF: finiteNumber(health?.piotroskiF) };
+  const criteriaPassed = finiteNumber(health.kairosScore?.score), criteriaTotal = finiteNumber(health.kairosScore?.total);
+  const hasCriteriaCounts = criteriaPassed != null && criteriaTotal > 0 && criteriaPassed >= 0 && criteriaPassed <= criteriaTotal;
+  const suppliedHealthPercent = finiteNumber(health.kairosScore?.ratio);
+  const estimatedHealthRatio = hasCriteriaCounts ? criteriaPassed / criteriaTotal
+    : suppliedHealthPercent != null && suppliedHealthPercent >= 0 && suppliedHealthPercent <= 100 ? suppliedHealthPercent / 100 : null;
   // weights custom OU defaults (meme repartition que BASE_MAX)
   const W = { ...SCORE_DEFAULT_WEIGHTS, ...(weights || {}) };
 
@@ -2633,7 +2664,7 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   const hasMomentumData = !!(quote && quote.price && quote.price.current && quote.price.high52w && quote.price.low52w);
   const hasValuationData = !!(fundamentals && (fundamentals.peRatio || fundamentals.forwardPE));
   const hasAnalystData = !!(consensus && consensus.total > 0) || !!(fundamentals && fundamentals.targetMeanPrice);
-  const hasHealthData = !!(health && (health.altmanZ != null || health.piotroskiF != null));
+  const hasHealthData = health.altmanZ != null || health.piotroskiF != null || estimatedHealthRatio != null;
   const hasEarningsData = Array.isArray(earnings && earnings.history) && earnings.history.length > 0;
 
   breakdown.insider.dataOk = hasInsiderData;
@@ -2814,6 +2845,14 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
     if (h.piotroskiF >= 7) { healthScore += 3; bits.push(`F=${h.piotroskiF}/9 (solide)`); }
     else if (h.piotroskiF >= 4) { healthScore += 0; bits.push(`F=${h.piotroskiF}/9`); }
     else { healthScore -= 2; bits.push(`F=${h.piotroskiF}/9 (faible)`); }
+  }
+  if (h.altmanZ == null && h.piotroskiF == null && estimatedHealthRatio != null) {
+    healthScore = estimatedHealthRatio * SCORE_BASE_MAX.health;
+    breakdown.health.estimated = true;
+    breakdown.health.source = 'kairos';
+    bits.push(hasCriteriaCounts
+      ? `Santé estimée Kairos : ${criteriaPassed}/${criteriaTotal} critères favorables`
+      : `Santé estimée Kairos : ${Math.round(estimatedHealthRatio * 100)}% de critères favorables`);
   }
   breakdown.health.score = applyWeight('health', healthScore);
   breakdown.health.detail = bits.length > 0 ? bits.join(', ') : 'Scores indisponibles';
