@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../dashboard.html'), 'utf8').replace(/\r\n/g, '\n');
+const source = fs.readFileSync(path.join(__dirname, '../admin-workspace.html'), 'utf8').replace(/\r\n/g, '\n');
 
 test('alerts and their old URL use the Pro gate; retired backtests return home', () => {
   const start = source.indexOf('function switchSection(');

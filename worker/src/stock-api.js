@@ -28,6 +28,7 @@ import { aggregateEuThresholds } from './eu_thresholds_aggregator.js';
 import { fetchZonebourseConsensus } from './zonebourse_consensus.js';
 import { finiteNumber, normalizeDividendYield, normalizeEarningsHistory, normalizeStockAnalysisEarningsRecord, summarizeEarningsBeats } from './financial-normalization.js';
 import { canonicalizeFundIdentity, summarizeReportDates } from './fund-identity.js';
+import { searchQuote } from './search-quote.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -571,7 +572,7 @@ const CAC40_FAST_LOOKUP = {
 export async function searchTickersAutocomplete(query, env, limit = 10) {
   if (!query || query.length < 1) return [];
   // v5 : bump apres switch /v7 (401) -> /v8/chart pour les quotes (Promise.all)
-  const cacheKey = `yahoo-autocomplete:v5:${String(query).toLowerCase().trim()}`;
+  const cacheKey = `yahoo-autocomplete:v6:${String(query).toLowerCase().trim()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -664,23 +665,11 @@ export async function searchTickersAutocomplete(query, env, limit = 10) {
         const quoteBySymbol = {};
         await Promise.all(symbols.map(async (sym) => {
           try {
-            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`;
+            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d`;
             const r = await fetch(chartUrl, { headers: { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' } });
             if (!r.ok) return;
             const data = await r.json();
-            const meta = data?.chart?.result?.[0]?.meta;
-            if (!meta) return;
-            const price = meta.regularMarketPrice;
-            const prev = meta.chartPreviousClose ?? meta.previousClose;
-            const change = (typeof price === 'number' && typeof prev === 'number') ? price - prev : null;
-            const changePercent = (typeof change === 'number' && prev) ? (change / prev) * 100 : null;
-            quoteBySymbol[sym] = {
-              price,
-              change,
-              changePercent,
-              currency: meta.currency || null,
-              marketCap: null, // pas dispo via /v8/chart, ok
-            };
+            quoteBySymbol[sym] = searchQuote(data?.chart?.result?.[0]);
           } catch {}
         }));
         results = results.map(r => ({ ...r, quote: quoteBySymbol[r.symbol] || null }));

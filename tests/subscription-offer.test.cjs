@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const worker = fs.readFileSync(path.join(__dirname, '../worker/src/index.js'), 'utf8').replace(/\r\n/g, '\n');
-const dashboard = fs.readFileSync(path.join(__dirname, '../dashboard.html'), 'utf8').replace(/\r\n/g, '\n');
+const dashboard = fs.readFileSync(path.join(__dirname, '../admin-workspace.html'), 'utf8').replace(/\r\n/g, '\n');
 
 function between(source, start, end) {
   const begin = source.indexOf(start);

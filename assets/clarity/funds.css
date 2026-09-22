@@ -1,0 +1,64 @@
+/* Scoped quarterly fund overview; surrounding product layout is left untouched. */
+.kf-overview{min-width:0;color:#e5edfb;font-family:Inter,sans-serif}
+.kf-overview *{box-sizing:border-box}
+.kf-overview button{font:inherit;cursor:pointer}
+.kf-overview button:focus-visible,.kf-overview summary:focus-visible,.kf-overview [tabindex="0"]:focus-visible{outline:2px solid #84e6d1;outline-offset:4px}
+.kf-latest-heading{display:flex;align-items:baseline;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.kf-latest-heading h3,.kf-history-heading h3{font-family:'Clash Display',Inter,sans-serif;font-size:23px;font-weight:500;letter-spacing:-.02em;margin:0}
+.kf-latest-heading>span{font-size:11px;color:#a5b7d2}
+.kf-perimeter{font-size:12px;line-height:1.7;color:#99aecb;margin:8px 0 0;max-width:750px}
+.kf-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;padding:25px 0 30px}
+.kf-kpis>div{min-width:0;border-left:2px solid #8c74c7;padding-left:15px}
+.kf-kpis>div>span{display:block;font-size:11px;color:#b0c1dd}
+.kf-kpis strong{display:block;margin:7px 0 5px;font-family:'Clash Display',Inter,sans-serif;font-size:29px;font-weight:500;line-height:1.25;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#e6e3ff;overflow-wrap:anywhere}
+.kf-kpis small{display:block;font-size:10px;color:#8ea3c2;line-height:1.5}
+.kf-overview .kf-positive{color:#78e2c4}.kf-overview .kf-negative{color:#ffa4b3}
+.kf-history-panel{min-width:0;border:1px solid #344563;border-radius:11px;background:linear-gradient(140deg,#19243d,#122137 75%);padding:23px 25px 18px}
+.kf-history-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.kf-history-heading h3{font-size:21px}
+.kf-range{display:flex;gap:3px;padding:3px;background:#112035;border:1px solid #344664;border-radius:7px;max-width:100%}
+.kf-range button{border:0;background:transparent;color:#9eafcb;border-radius:4px;padding:6px 10px;font-size:10px;white-space:nowrap}
+.kf-range button[aria-pressed=true]{background:#3a3c64;color:#eee7ff}
+.kf-metrics{display:flex;gap:7px;flex-wrap:wrap;margin:20px 0 8px}
+.kf-metrics button{background:transparent;border:1px solid #3c4d67;border-radius:6px;padding:7px 10px;font-size:11px;color:#aebfda;line-height:1.3}
+.kf-metrics button[aria-pressed=true]{background:#343254;border-color:#8372b8;color:#e4d9ff}
+.kf-chart{width:100%;height:240px;position:relative;min-width:0;touch-action:pan-y}
+.kf-chart>svg{display:block;width:100%;height:100%;max-width:100%;overflow:visible}
+.kf-grid{stroke:#304059;stroke-width:1;stroke-dasharray:2 5}
+.kf-axis-label{fill:#9aaccc;font:10px Inter,sans-serif;font-variant-numeric:tabular-nums}
+.kf-line{fill:none;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round}
+.kf-selection-line{stroke:#9c9de2;stroke-width:1;stroke-dasharray:3 4;opacity:.7}
+.kf-point{outline:none;cursor:pointer}
+.kf-point-target{fill:transparent}
+.kf-point-halo{fill:#b09bff;opacity:0}
+.kf-point-dot{fill:#b4a1ef;stroke:#17253e;stroke-width:2}
+.kf-point[aria-pressed=true] .kf-point-halo{fill:#69dfc8;opacity:.17}
+.kf-point[aria-pressed=true] .kf-point-dot{fill:#7ae9d0;stroke:#d3fff4;stroke-width:1.5}
+.kf-point:focus-visible .kf-point-halo{fill:#69dfc8;stroke:#b8ffee;stroke-width:1;opacity:.8}
+.kf-point:focus-visible{outline:none!important}
+.kf-chart-help{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#8ea2c2;font-size:10px;line-height:1.5;margin:4px 0 17px}
+.kf-selected{border-top:1px solid #354761;padding-top:16px}
+.kf-selected-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:10px;color:#9fb2ce}
+.kf-selected-heading>strong{font-size:13px;font-weight:600;color:#e6dcff}
+.kf-selected-heading>button,.kf-latest-label{margin-left:auto}
+.kf-selected-heading>button{padding:0;background:none;border:0;font-size:10px;color:#b9c9ff;text-decoration:underline;text-underline-offset:3px}
+.kf-latest-label{font-size:10px;color:#8edfcf}
+.kf-selected-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;margin-top:14px}
+.kf-selected-metrics>div>span{display:block;font-size:10px;color:#9dafcc;line-height:1.45}
+.kf-selected-metrics b{display:block;margin-top:5px;font-size:16px;font-weight:500;color:#e6e7ff;line-height:1.4;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kf-details{margin-top:18px;border-top:1px solid #2c3f5b;padding-top:16px}
+.kf-details summary{width:max-content;max-width:100%;cursor:pointer;color:#bdd0f1;font-size:12px;line-height:1.5}
+.kf-table-wrap{max-width:100%;overflow-x:auto;margin-top:14px;border-radius:6px;scrollbar-color:#52698f #142139}
+.kf-table-wrap table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:11px}
+.kf-table-wrap caption{text-align:left;color:#95a9c9;font-size:10px;padding:0 0 10px}
+.kf-table-wrap th,.kf-table-wrap td{border-bottom:1px solid #2c3f58;padding:13px 17px 13px 0;font-variant-numeric:tabular-nums;text-align:right}
+.kf-table-wrap th:first-child{text-align:left}
+.kf-table-wrap th{font-weight:400;color:#9bafce}.kf-table-wrap tbody th{font-weight:500;color:#d4ddf0}
+.kf-table-wrap td{color:#c5d2e9}.kf-table-wrap th:last-child,.kf-table-wrap td:last-child{padding-right:0}
+.kf-method p{font-size:11px;line-height:1.8;color:#a6b9d6;max-width:880px;margin:14px 0 0}
+.kf-empty{padding:24px;border:1px dashed #3c506f;border-radius:10px;background:#142239}.kf-empty h3{font-size:19px;font-weight:500;margin:0 0 8px}.kf-empty p,.kf-chart-empty{font-size:12px;line-height:1.8;color:#a8bbd6;margin:0;max-width:620px}
+.kf-chart-empty{display:grid;place-items:center;height:100%;text-align:center;padding:20px}
+@media(max-width:1050px){.kf-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.kf-kpis strong{font-size:27px}}
+@media(max-width:600px){.kf-history-panel{padding:18px 13px 15px}.kf-history-heading h3{font-size:20px}.kf-latest-heading h3{font-size:22px}.kf-kpis{gap:21px 13px;padding-block:22px}.kf-kpis>div{padding-left:11px}.kf-kpis strong{font-size:25px}.kf-kpis>div>span{font-size:10px}.kf-chart{height:220px}.kf-metrics{gap:6px}.kf-metrics button{padding:7px 8px;font-size:10px}.kf-selected-metrics{gap:10px}.kf-selected-metrics b{font-size:14px}.kf-selected-heading>button,.kf-latest-label{margin-left:0}.kf-chart-help>span:last-child{display:none}}
+@media(prefers-reduced-motion:reduce){.kf-overview *{scroll-behavior:auto}}
+@media(forced-colors:active){.kf-line{stroke:CanvasText}.kf-point-dot{fill:CanvasText}.kf-grid,.kf-selection-line{stroke:GrayText}.kf-axis-label{fill:CanvasText}.kf-point:focus-visible .kf-point-halo{stroke:Highlight}}

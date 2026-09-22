@@ -1,0 +1,19 @@
+.kairos-ticker{display:flex;align-items:stretch;min-width:0;height:30px;box-sizing:border-box;background:#101d32;border-bottom:1px solid #2a3d59;color:#e6efff;font:12px/1.35 Inter,sans-serif;overflow:hidden}
+.kairos-ticker__heading{display:flex;flex:0 0 auto;align-items:center;gap:9px;padding:0 20px 0 28px;border-right:1px solid #2a3d59;background:#101d32;position:relative;z-index:1}
+.kairos-ticker__heading strong{font-weight:600;font-size:11px;white-space:nowrap}
+.kairos-ticker__demo{font-size:10px;color:#a3b8d8;border:1px solid #3c5070;padding:1px 4px;border-radius:4px}
+.kairos-ticker__viewport{min-width:0;flex:1;overflow:hidden;scrollbar-width:thin;scrollbar-color:#465e84 #101d32}
+.kairos-ticker__track{display:flex;width:max-content;min-width:200%;height:100%;animation:kairos-signal-scroll 45s linear infinite;will-change:transform}
+.kairos-ticker__group{display:flex;flex:1 0 auto;align-items:stretch;min-width:0}
+.kairos-ticker__item{--signal-color:#58dfba;display:flex;flex:1 0 auto;align-items:center;gap:8px;min-width:205px;max-width:310px;height:100%;margin:0;padding:0 20px 0 16px;border:0;border-right:1px solid #293c55;border-radius:0;background:transparent;color:#e6efff;font:inherit;text-align:left;white-space:nowrap;text-decoration:none;cursor:pointer;box-sizing:border-box}
+.kairos-ticker__item--sell{--signal-color:#ff9dad}.kairos-ticker__item--fund{--signal-color:#c1a7ff}
+.kairos-ticker__item:hover{background:#1a2b45}.kairos-ticker__item:focus-visible{outline:2px solid #87b0ff;outline-offset:-3px;background:#1a2b45}
+.kairos-ticker__signal{display:grid;place-items:center;flex:0 0 17px;height:20px;color:var(--signal-color);font-size:17px;font-weight:500;line-height:1}
+.kairos-ticker__copy{display:flex;min-width:0}.kairos-ticker__first{display:flex;align-items:center;gap:9px}.kairos-ticker__first strong{font-size:11px;letter-spacing:.015em;font-weight:650}.kairos-ticker__label{color:var(--signal-color);font-size:10px;font-weight:500}.kairos-ticker__second{display:none}
+.kairos-ticker__toggle{position:relative;z-index:1;flex:0 0 96px;align-self:stretch;border:0;border-left:1px solid #2d415d;border-radius:0;background:#14223a;color:#b7cae8;cursor:pointer;font:10px Inter,sans-serif;white-space:nowrap;padding:0 10px}.kairos-ticker__toggle:hover{color:#fff;background:#203351}.kairos-ticker__toggle:focus-visible{outline:2px solid #87b0ff;outline-offset:-4px}.kairos-ticker__toggle:disabled{cursor:default;color:#91a8c9;background:#14223a}.kairos-ticker__empty{display:flex;align-items:center;padding:0 20px;color:#a7bbd9;font-size:11px}
+.kairos-ticker:hover .kairos-ticker__track,.kairos-ticker:focus-within .kairos-ticker__track{animation-play-state:paused}
+.kairos-ticker--manual .kairos-ticker__track{animation:none;transform:none;min-width:100%;will-change:auto}.kairos-ticker--manual .kairos-ticker__mirror{display:none}.kairos-ticker--manual .kairos-ticker__viewport{overflow-x:auto;overscroll-behavior-inline:contain}.kairos-ticker--manual .kairos-ticker__item{min-height:24px}.kairos-ticker__viewport::-webkit-scrollbar{height:4px}.kairos-ticker__viewport::-webkit-scrollbar-thumb{background:#465e84;border-radius:2px}
+@keyframes kairos-signal-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(max-width:1000px){.kairos-ticker__heading{padding-inline:20px}.kairos-ticker__item{min-width:205px;padding-inline:15px}}
+@media(max-width:720px){.kairos-ticker__heading{padding-inline:12px;gap:6px}.kairos-ticker__heading strong{display:none}.kairos-ticker__toggle{flex-basis:78px;padding-inline:6px}.kairos-ticker__item{min-width:195px;padding-inline:12px;gap:7px}.kairos-ticker__first strong{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.kairos-ticker__track{animation:none;transform:none;min-width:100%;will-change:auto}.kairos-ticker__mirror{display:none}.kairos-ticker__viewport{overflow-x:auto}}

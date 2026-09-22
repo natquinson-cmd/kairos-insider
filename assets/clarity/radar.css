@@ -1,0 +1,61 @@
+/* Scoped to the signature radar; the surrounding card controls dimensions. */
+.kr-radar { position: relative; width: 100%; height: 100%; isolation: isolate; }
+.kr-radar .kr-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.kr-radar .kr-grid { fill: none; stroke: #334a69; stroke-opacity: .65; stroke-width: .8; }
+.kr-radar .kr-grid-outer { stroke: #526989; stroke-opacity: .7; }
+.kr-radar .kr-spoke { stroke: #435b7c; stroke-opacity: .43; stroke-width: .8; }
+.kr-radar .kr-axis { outline: none; cursor: help; }
+.kr-radar .kr-label { fill: #bdcce2; font-family: Inter, sans-serif; font-size: var(--kr-label-size, 11px); font-weight: 500; }
+.kr-radar .kr-axis-target { fill: transparent; }
+.kr-radar .kr-axis-dot { fill: var(--kr-axis-color); stroke: #122238; stroke-width: 1.6; }
+.kr-radar .kr-axis-focus { fill: var(--kr-axis-color); fill-opacity: .12; stroke: var(--kr-axis-color); stroke-width: 1; stroke-opacity: 0; opacity: 0; transition: opacity 120ms ease; }
+.kr-radar .kr-axis:hover .kr-axis-focus,
+.kr-radar .kr-axis:focus-visible .kr-axis-focus { opacity: 1; stroke-opacity: .85; }
+.kr-radar .kr-axis:hover .kr-label,
+.kr-radar .kr-axis:focus-visible .kr-label { fill: #f4f8ff; text-decoration: underline; text-underline-offset: 3px; }
+.kr-radar .kr-center { fill: #060f21; stroke: var(--kr-score-main); stroke-width: 2.2; stroke-opacity: 1; }
+.kr-radar .kr-score-ring { fill: none; stroke: var(--kr-score-main); stroke-width: 1.6; stroke-opacity: .7; filter: drop-shadow(0 0 8px var(--kr-score-glow)); }
+.kr-radar .kr-score { fill: var(--kr-score-light); fill: color-mix(in srgb, var(--kr-score-main) 70%, white); stroke: var(--kr-score-light); stroke-width: .35; paint-order: stroke fill; font-family: 'Clash Display', Inter, sans-serif; font-size: var(--kr-score-size, 44px); font-weight: 600; letter-spacing: -1.5px; filter: drop-shadow(0 0 3px var(--kr-score-glow)) drop-shadow(0 0 10px var(--kr-score-glow)); }
+.kr-radar .kr-score-group { cursor: help; outline: none; }
+.kr-radar .kr-score-group[aria-disabled=true] { cursor: default; }
+.kr-radar .kr-score-group:hover .kr-score-ring,
+.kr-radar .kr-score-group:focus-visible .kr-score-ring { stroke: var(--kr-score-light); stroke-opacity: 1; stroke-width: 2; }
+.kr-radar .kr-score-group:focus-visible .kr-center { stroke: #f4f8ff; stroke-width: 2; }
+.kr-radar .kr-denominator { fill: #b0c1d9; font-family: Inter, sans-serif; font-size: 10px; }
+.kr-radar .kr-scale-note { fill: #91a8c7; font-family: Inter, sans-serif; font-size: 9px; }
+.kr-radar .kr-quality-label { fill: var(--kr-score-light); font-size: 11px; font-weight: 600; }
+.kr-radar .kr-tooltip { position: absolute; z-index: 2; bottom: 0; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; width: min(240px, calc(100% - 10px)); box-sizing: border-box; padding: 10px 12px; border: 1px solid #526a8d; border-radius: 8px; background: #13223b; box-shadow: 0 8px 22px #030c2070; color: #e0e9f7; font-family: Inter, sans-serif; font-size: 11px; line-height: 1.4; pointer-events: none; }
+.kr-radar .kr-tooltip[hidden] { display: none; }
+.kr-radar .kr-tooltip-label { align-self: center; }
+.kr-radar .kr-tooltip strong { align-self: center; white-space: nowrap; font-size: 16px; font-weight: 600; }
+.kr-radar .kr-tooltip strong span { font-size: 9px; font-weight: 400; color: #b8c9e2; }
+.kr-radar .kr-tooltip small { grid-column: 1 / -1; color: #aec1df; font-size: 10px; }
+.kr-radar.kr-has-tooltip .kr-scale-note { opacity: 0; }
+.kr-radar .kr-gauge { position: absolute; z-index: 3; box-sizing: border-box; height: 164px; padding: 9px 10px; border: 1px solid var(--kr-score-main); border-radius: 9px; background: #0e1b30f7; box-shadow: 0 8px 22px #030c2070; color: #dfe9f9; font-family: Inter, sans-serif; line-height: 1.2; pointer-events: none; }
+.kr-radar .kr-gauge[hidden] { display: none; }
+.kr-radar .kr-gauge-caption { display: block; font-size: 10px; color: #adbfda; }
+.kr-radar .kr-gauge-value { display: block; color: var(--kr-score-light); font-size: 15px; font-weight: 600; margin: 3px 0 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.kr-radar .kr-gauge-value span { font-size: 10px; font-weight: 400; margin-left: 1px; color: #adbfda; }
+.kr-radar .kr-gauge-scale { position: relative; height: 101px; margin-left: 2px; }
+.kr-radar .kr-gauge-track { position: absolute; inset: 0 auto 0 0; width: 14px; overflow: hidden; background: linear-gradient(to top, #EF4444 0% 25%, #F59E0B 25% 40%, #8B5CF6 40% 60%, #3B82F6 60% 75%, #10B981 75% 100%); border: 1px solid #8194b3; border-radius: 4px; }
+.kr-radar .kr-gauge-fill { position: absolute; bottom: 0; left: 0; width: 100%; height: var(--kr-gauge-level); background: #ffffff24; transform-origin: center bottom; }
+.kr-radar .kr-gauge-marker { position: absolute; left: -3px; bottom: var(--kr-gauge-level); width: 20px; height: 2px; background: #fff; box-shadow: 0 1px 3px #000b; transform: translateY(50%); }
+.kr-radar .kr-gauge-marker::before { content: ''; position: absolute; right: 100%; top: -3px; border-left: 5px solid #fff; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.kr-radar .kr-gauge:not([hidden]) .kr-gauge-fill { animation: kr-score-rise 600ms cubic-bezier(.22,.75,.3,1) both; }
+.kr-radar .kr-gauge:not([hidden]) .kr-gauge-marker { animation: kr-marker-rise 600ms cubic-bezier(.22,.75,.3,1) both; }
+.kr-radar .kr-gauge-tick { position: absolute; left: 22px; transform: translateY(50%); font-size: 10px; color: #aabdd8; font-variant-numeric: tabular-nums; }
+.kr-radar .kr-gauge-tick::before { content: ''; position: absolute; top: 50%; right: calc(100% + 3px); width: 4px; border-top: 1px solid #7890b3; }
+@keyframes kr-score-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes kr-marker-rise { from { bottom: 0; } to { bottom: var(--kr-gauge-level); } }
+@media (prefers-reduced-motion: reduce) { .kr-radar .kr-axis-focus { transition: none; } .kr-radar .kr-gauge:not([hidden]) .kr-gauge-fill, .kr-radar .kr-gauge:not([hidden]) .kr-gauge-marker { animation: none; } }
+@media (forced-colors: active) {
+  .kr-radar .kr-grid, .kr-radar .kr-spoke { stroke: GrayText; }
+  .kr-radar .kr-axis-dot, .kr-radar .kr-label, .kr-radar .kr-score, .kr-radar .kr-denominator, .kr-radar .kr-scale-note { fill: CanvasText; }
+  .kr-radar .kr-center { fill: Canvas; stroke: CanvasText; }
+  .kr-radar .kr-score-ring { stroke: CanvasText; filter: none; }
+  .kr-radar .kr-score { filter: none; }
+  .kr-radar .kr-axis:focus-visible .kr-axis-focus { stroke: Highlight; }
+  .kr-radar .kr-gauge { background: Canvas; color: CanvasText; border-color: CanvasText; }
+  .kr-radar .kr-gauge-fill { background: Highlight; }
+  .kr-radar .kr-gauge-track { border-color: CanvasText; }
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><title>Kairos Insider — Fiche action</title>
+  <link rel="icon" type="image/svg+xml" href="assets/kairos-inflexion.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/clarity/app.css?v=live1"><link rel="stylesheet" href="assets/clarity/radar.css?v=live1"><link rel="stylesheet" href="assets/clarity/ticker.css?v=live1"><link rel="stylesheet" href="assets/clarity/funds.css?v=live1"><link rel="stylesheet" href="assets/clarity/activists.css?v=live1"><link rel="stylesheet" href="assets/clarity/analysis.css?v=live1"><link rel="stylesheet" href="assets/clarity/news-calendar.css?v=live1">
+  
+<link rel="stylesheet" href="assets/clarity/screener.css?v=live1"><link rel="stylesheet" href="assets/clarity/live.css?v=live1"><script src="assets/clarity/live-adapter.js?v=live1" defer></script><script src="assets/clarity/radar.js?v=live1" defer></script><script src="assets/clarity/ticker.js?v=live1" defer></script><script src="assets/clarity/chart-range.js?v=live1" defer></script><script src="assets/clarity/analysis.js?v=live1" defer></script><script src="assets/core-sharing.js?v=live1" defer></script><script type="module" src="assets/clarity/live-shell.js?v=live1"></script></head>
+<body>
+<script src="assets/clarity/entry-routes.js?v=live1"></script>
+<a class="skip-link" href="#companyMain">Aller à la fiche action</a>
+
+<div class="workspace">
+  <aside class="sidebar">
+    <a class="brand" href="dashboard.html" aria-label="Kairos, fiche action"><img src="assets/kairos-inflexion.svg" alt="" width="38" height="38"><span>kairos<small>INSIDER</small></span></a>
+    <nav aria-label="Navigation principale"><div class="nav-caption">Votre recherche</div><a class="nav-item active" href="#companyMain"><span aria-hidden="true">⌕</span> Fiche action</a>
+      <div class="nav-caption">Explorer le marché</div>
+      <a class="nav-item" data-market-screen="insiders" href="insiders.html"><span aria-hidden="true">◎</span> Initiés</a>
+      <a class="nav-item" data-market-screen="activists" href="insiders.html?screen=activists"><span aria-hidden="true">★</span> Activistes</a>
+      <a class="nav-item" data-market-screen="funds" href="insiders.html?screen=funds"><span aria-hidden="true">▥</span> Hedge funds</a>
+      <p class="nav-note">Explorez les opérations d’initiés, puis retrouvez ici le contexte de chaque société.</p>
+    </nav>
+    <div class="sidebar-foot"><span class="avatar">K</span><div>Espace de travail<small>Mon compte</small></div></div>
+  </aside>
+  <div class="workspace-body">
+    <div id="signalTicker"></div>
+    <header class="topbar">
+      <div class="search-wrap" id="searchWrap">
+        <label for="companySearch">Rechercher une valeur</label>
+        <div class="search-field"><span aria-hidden="true">⌕</span><input id="companySearch" type="search" placeholder="Nom de société ou symbole…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="searchResults" aria-expanded="false"><kbd>Ctrl K</kbd></div>
+        <div id="searchPopup" class="search-popup" hidden><div class="search-hint">Sociétés et cours disponibles</div><ul id="searchResults" role="listbox" aria-label="Entreprises"></ul><p id="searchEmpty" hidden>Aucun résultat. Essayez un nom ou un symbole.</p><div class="search-help">↑ ↓ pour parcourir · Entrée pour ouvrir · Échap pour fermer</div></div>
+      </div>
+      <a class="app-explore-link" data-market-screen="insiders" href="insiders.html">◎ Explorer les initiés</a>
+    </header><nav class="live-mobile-nav"><a href="dashboard.html">Fiche action</a><a href="insiders.html">Initiés</a><a href="insiders.html?screen=activists">Activistes</a><a href="insiders.html?screen=funds">Hedge funds</a></nav>
+    <div id="liveStatus" role="status">Chargement des données…</div><main hidden id="companyMain" tabindex="-1">
+      <div id="screenerReturn" class="screener-return" hidden><a id="screenerReturnLink" href="insiders.html">← Retour aux initiés</a><span id="screenerLanguageNote" hidden></span></div>
+      <div class="company-header"><div class="company-identity"><span id="companyMark" class="company-mark" aria-hidden="true"></span><div><div class="company-name-row"><h1 id="companyName"></h1><span id="companyTicker" class="ticker"></span></div><p id="companyMeta"></p></div></div><div class="quote"><strong id="companyPrice"></strong><span id="dailyChange"></span><small>Dernier cours disponible</small></div><button id="followButton" class="secondary" aria-pressed="false">Partager</button></div>
+      <nav class="company-tabs" aria-label="Contenu de la fiche" role="tablist">
+        <button id="tab-overview" role="tab" aria-controls="panel-overview" aria-selected="true" tabindex="0" data-tab="overview">Vue d’ensemble</button>
+        <button id="tab-insiders" role="tab" aria-controls="panel-insiders" aria-selected="false" tabindex="-1" data-tab="insiders">Initiés <span id="insiderCount"></span></button>
+        <button id="tab-funds" role="tab" aria-controls="panel-funds" aria-selected="false" tabindex="-1" data-tab="funds">Fonds & activistes</button>
+        <button id="tab-analysis" role="tab" aria-controls="panel-analysis" aria-selected="false" tabindex="-1" data-tab="analysis">Analyse</button>
+        <button id="tab-news" role="tab" aria-controls="panel-news" aria-selected="false" tabindex="-1" data-tab="news">Actualités</button>
+        <button id="tab-calendar" role="tab" aria-controls="panel-calendar" aria-selected="false" tabindex="-1" data-tab="calendar">Calendrier</button>
+        <button id="tab-company" role="tab" aria-controls="panel-company" aria-selected="false" tabindex="-1" data-tab="company">Société</button>
+      </nav>
+      <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+        <div class="overview-layout">
+          <section class="chart-panel" aria-labelledby="chartTitle">
+            <div class="section-top"><div><h2 id="chartTitle">Le cours et les investisseurs</h2><p>Repères placés à la publication, ou à la séance suivante.</p></div><div class="period-return"><strong id="periodChange"></strong><span id="periodDates"></span></div></div>
+            <div class="chart-toolbar"><div class="range-switch" role="group" aria-label="Période du graphique"><button data-range="1M" aria-pressed="false">1 mois</button><button data-range="3M" aria-pressed="true">3 mois</button><button data-range="6M" aria-pressed="false">6 mois</button><button data-range="1Y" aria-pressed="false">1 an</button></div><button id="resetZoom" class="text-button" hidden>Revenir à 3 mois</button><label class="benchmark" hidden><input type="checkbox" id="benchmarkToggle"></label></div>
+            <div class="chart-legend"><span><i class="legend-line"></i>Cours <b class="currency-label">USD</b></span><span><i class="buy-dot"></i>Achat déclaré</span><span><i class="sell-dot"></i>Vente déclarée</span><label class="star-toggle"><input id="activistToggle" type="checkbox" checked><span class="star-legend" aria-hidden="true">★</span> Activistes <span id="activistChartCount"></span></label><label class="star-toggle passive-star-toggle"><input id="passiveActivistToggle" type="checkbox"><span aria-hidden="true">☆</span> Participations passives</label></div>
+            <div id="chartReadout" class="chart-inline-readout" role="status" aria-label="Détail de la séance"></div>
+            <div id="priceChart" class="price-chart" tabindex="0" role="group" aria-label="Graphique interactif. Flèches gauche et droite pour parcourir les dates, Échap pour fermer le détail."></div>
+            <div class="chart-bottom"><span class="chart-pointer-hint">Molette : zoom · Glisser : déplacer · Survol : détail</span><span class="chart-touch-hint">Touchez le cours pour afficher le détail.</span><span id="chartPointCount"></span></div>
+            <div id="eventChoices" class="event-choices" aria-label="Déclarations sur la période"></div>
+          </section>
+          <section class="radar-panel" aria-labelledby="radarTitle"><div class="section-top"><div><h2 id="radarTitle">Le radar Kairos</h2><p>Le profil en huit dimensions</p></div><span class="soft-tag">/ 100</span></div><div id="productRadar" class="radar-chart"></div><div class="radar-copy"><strong id="radarReading"></strong><p>Le score utilise les dernières données disponibles. La période du graphique ne modifie pas ce score.</p></div><button id="scoreButton" class="text-button" aria-expanded="false" aria-controls="scoreDetails">Comprendre les huit axes <span>＋</span></button><div id="scoreDetails" hidden></div></section>
+        </div>
+        <section id="selectedEvent" class="event-detail" aria-live="polite" hidden></section>
+        <div class="context-grid"><section class="context-section"><div class="section-top"><div><span class="section-eyebrow">Sur la période sélectionnée</span><h2>Ce que font les initiés</h2></div><button class="text-button" data-open-tab="insiders">Voir les déclarations</button></div><div id="insiderSummary"></div></section><section class="context-section fund-preview"><div class="section-top"><div><span class="section-eyebrow">Derniers dépôts disponibles</span><h2>Ce que font les fonds</h2></div><button class="text-button" data-open-tab="funds">Voir les positions</button></div><div id="fundSummary"></div><p class="data-note">Les variations de positions sont trimestrielles. Elles ne donnent pas les dates d’achat ou de vente.</p></section></div>
+      </section>
+      <section id="panel-insiders" role="tabpanel" aria-labelledby="tab-insiders" hidden><div class="panel-intro"><div><h2>Les déclarations d’initiés</h2><p id="insiderIntro"></p></div><span class="soft-tag">Déclarations disponibles</span></div><div class="table-wrap"><table><thead><tr><th>Publication</th><th>Transaction</th><th>Déclarant</th><th>Nature</th><th class="number">Montant</th><th>Détail</th></tr></thead><tbody id="insiderRows"></tbody></table></div><p class="data-note">Un achat ou une vente ne suffit pas à expliquer une variation du cours.</p></section>
+      <section id="panel-funds" role="tabpanel" aria-labelledby="tab-funds" hidden>
+        <div class="fund-subtabs" role="tablist" aria-label="Informations sur les fonds"><button id="fund-tab-positions" type="button" role="tab" aria-controls="fund-panel-positions" aria-selected="true" data-fund-view="positions">Positions des fonds</button><button id="fund-tab-activists" type="button" role="tab" aria-controls="fund-panel-activists" aria-selected="false" tabindex="-1" data-fund-view="activists"><span class="star-legend" aria-hidden="true">★</span> Activistes <span id="activistTabCount"></span></button></div>
+        <section id="fund-panel-positions" role="tabpanel" aria-labelledby="fund-tab-positions"><div class="panel-intro"><div><h2>Les positions des hedge funds</h2><p id="fundIntro"></p></div><span class="soft-tag purple">Dernier trimestre déclaré</span></div><div id="fundOverview"></div><div class="fund-positions-heading"><h3>Les positions par fonds</h3><p id="fundMovements" class="summary-line"></p></div><div class="table-wrap"><table><thead><tr><th>Fonds</th><th>Mouvement</th><th class="number">Titres déclarés</th><th class="number">Variation de titres</th><th class="number">Poids du portefeuille</th><th>Date des positions</th></tr></thead><tbody id="fundRows"></tbody></table></div><p class="data-note">Les déclarations réglementaires ne décrivent pas des positions en temps réel.</p></section>
+        <section id="fund-panel-activists" role="tabpanel" aria-labelledby="fund-tab-activists" hidden><div id="activistsContent"></div></section>
+      </section>
+      <section id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis" hidden>
+        <div id="analysisContent"><p class="data-note">Chargement…</p></div>
+      </section>
+      <section id="panel-news" role="tabpanel" aria-labelledby="tab-news" hidden>
+        <div id="newsContent"><p class="data-note">Chargement…</p></div>
+      </section>
+      <section id="panel-calendar" role="tabpanel" aria-labelledby="tab-calendar" hidden>
+        <div id="calendarContent"><p class="data-note">Chargement…</p></div>
+      </section>
+      <section id="panel-company" role="tabpanel" aria-labelledby="tab-company" hidden>
+        <div class="panel-intro"><div><h2>Comprendre l’entreprise</h2><p>Son activité, son identité et les entreprises à comparer.</p></div></div>
+        <div class="company-about"><div class="company-description"><h3 id="aboutName"></h3><p id="companyDescription"></p></div><dl id="companyFacts"></dl></div>
+        <section class="company-peers" aria-labelledby="peersTitle"><div class="section-top"><div><h2 id="peersTitle">Concurrents et comparables</h2><p>Entreprises du même secteur.</p></div></div><div id="companyPeers" class="company-peers-grid"></div><p class="data-note">Les comparables dépendent de la couverture des sources.</p></section>
+      </section>
+      <footer class="content-footer"><span>Les déclarations sont publiées avec un délai. Aucun signal ne garantit une performance.</span><span>Kairos Insider</span></footer>
+    </main>
+  </div>
+</div>
+<div id="toast" role="status" hidden></div><div class="sr-only" id="searchStatus" role="status"></div>
+</body>
+</html>

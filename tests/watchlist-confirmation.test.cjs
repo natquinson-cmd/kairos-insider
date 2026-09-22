@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const dashboard = fs.readFileSync(path.join(__dirname, '..', 'dashboard.html'), 'utf8').replace(/\r\n/g, '\n');
+const dashboard = fs.readFileSync(path.join(__dirname, '..', 'admin-workspace.html'), 'utf8').replace(/\r\n/g, '\n');
 const match = dashboard.match(/async function resendWatchlistConfirmation\(\) \{[\s\S]*?\n    \}\n\n    function renderWatchlist/);
 assert.ok(match, 'resendWatchlistConfirmation must remain extractable from dashboard.html');
 const functionSource = match[0].replace(/\n\n    function renderWatchlist$/, '');
