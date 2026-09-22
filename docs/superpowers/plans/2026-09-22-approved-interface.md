@@ -12,10 +12,10 @@
 - French and English navigation; missing data has an explicit empty state.
 
 ## Execution
-- [ ] Add and test pure adapters: finite numbers, weighted radar normalization, transaction dates, missing holdings comparisons, source links.
-- [ ] Copy the approved presentation assets, replace fixture loading with authenticated API bootstrap and real search. Retain wheel zoom, operation-only popovers and activist stars.
-- [ ] Connect the stock tabs to actual fundamentals, funds, activists, news, earnings and company fields. No synthetic price history or benchmark.
-- [ ] Connect insider, convergence, activist and fund screens with search, filters, pagination and real identities.
-- [ ] Preserve admin in a dedicated workspace; update old hash routes and public entry links to the new UI.
-- [ ] Check automated tests, authenticated browser interactions, FR/EN and mobile. Compare screenshot against approved local page.
+- [x] Add and test pure adapters: finite numbers, weighted radar normalization, transaction dates, missing holdings comparisons, source links.
+- [x] Copy the approved presentation assets, replace fixture loading with authenticated API bootstrap and real search. Retain wheel zoom, operation-only popovers and activist stars.
+- [x] Connect the stock tabs to actual fundamentals, funds, activists, news, earnings and company fields. No synthetic price history or benchmark.
+- [x] Connect insider, convergence, activist and fund screens with search, filters, pagination and real identities.
+- [x] Preserve admin in a dedicated workspace; update old hash routes and public entry links to the new UI.
+- [x] Check automated tests, authenticated browser interactions, FR/EN and mobile. Compare screenshot against approved local page.
 - [ ] Publish explicit changed files and verify production, admin access and social metadata.

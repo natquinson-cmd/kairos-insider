@@ -9,7 +9,7 @@
   const T=window.KairosUI.t;const locale=window.KairosUI.lang==='en'?'en-US':'fr-FR';
   const fmt = (value, digits=0) => value == null ? '—' : value.toLocaleString(locale,{minimumFractionDigits:digits,maximumFractionDigits:digits});
   const money = value => `${fmt(value,2)} ${state.company.currency}`;
-  const compact = value => value===0?'0 $':Math.abs(value)>=1e6?`${fmt(value/1e6,1)} M$`:`${fmt(value/1e3,0)} k$`;
+  const compact = (value,currency=state.company.currency) => value==null?'—':value.toLocaleString(locale,{notation:'compact',maximumFractionDigits:1})+' '+currency;
   const signed = value => Math.abs(value)<.005?'0,00 %':`${value>=0?'+':'−'}${fmt(Math.abs(value),Math.abs(value)<.05?2:1)} %`;
   const dateLabel = (date,year=false) => !date?'—':new Date(`${date}T12:00:00Z`).toLocaleDateString(locale,{day:'numeric',month:'short',...(year?{year:'numeric'}:{})});
   const score = () => state.company.score;
@@ -57,7 +57,7 @@
   function setTab(name,focus=false){
     if(name!=='analysis')analysisView?.hideTooltip?.();
     if(state.tab!==name){cancelWheel();drag=null;clearHover();$('priceChart').classList.remove('is-dragging');}
-    state.tab=name;
+    state.tab=name;const url=new URL(location.href);url.searchParams.set('tab',name);history.replaceState(null,'',url);
     document.querySelectorAll('[data-tab]').forEach(button=>{const active=button.dataset.tab===name;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
     document.querySelectorAll('#companyMain > [role=tabpanel]').forEach(panel=>panel.hidden=panel.id!==`panel-${name}`);
     if(focus)$(`tab-${name}`).focus();
@@ -68,7 +68,7 @@
     button.addEventListener('keydown',event=>{const tabs=[...document.querySelectorAll('[data-tab]')];let index=tabs.indexOf(button);if(event.key==='ArrowRight')index=(index+1)%tabs.length;else if(event.key==='ArrowLeft')index=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')index=0;else if(event.key==='End')index=tabs.length-1;else return;event.preventDefault();setTab(tabs[index].dataset.tab,true);});
   });
   function setFundSection(name,focus=false){
-    state.fundSection=name;
+    state.fundSection=name;const url=new URL(location.href);url.searchParams.set('view',name);history.replaceState(null,'',url);
     document.querySelectorAll('[data-fund-view]').forEach(button=>{const selected=button.dataset.fundView===name;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;});
     $('fund-panel-positions').hidden=name!=='positions';$('fund-panel-activists').hidden=name!=='activists';
     if(focus)$(`fund-tab-${name}`).focus();
@@ -95,7 +95,7 @@
     $('companyMeta').textContent=`${company.exchange}${company.sector?" · "+company.sector:""}`;
     $('companyPrice').textContent=money(last.close);$('dailyChange').textContent=change==null?'—':`${signed(change)} aujourd’hui`; $('companyPrice').closest('.quote').querySelector('small').textContent=window.KairosUI.quoteDate(company.raw.price);$('dailyChange').className=change>=0?'positive':'negative';
     $('insiderCount').textContent=company.events.length;$('insiderIntro').textContent=`Les opérations de ${company.name}, avec leurs dates de transaction et de publication. `;
-    $('radarReading').textContent=`${labels[company.dimensions.indexOf(Math.max(...company.dimensions))]} : le point fort de ce profil`;
+    const observed=company.dimensions.filter(v=>v!==null);$('radarReading').textContent=observed.length?`${labels[company.dimensions.indexOf(Math.max(...observed))]} : le point fort de ce profil`:window.KairosUI.t('Données insuffisantes pour qualifier ce profil','Insufficient data to assess this profile');
     $('scoreDetails').innerHTML=labels.map((label,index)=>`<div><span>${esc(label)}</span><span>${company.dimensions[index]==null?'Indisponible':fmt(company.dimensions[index])+'/100'} · poids ${weights[index]??'—'} %</span><div class="axis-bar"><i style="width:${company.dimensions[index]??0}%"></i></div></div>`).join('');
     $('insiderRows').innerHTML=[...company.events].sort((a,b)=>b.publicationDate.localeCompare(a.publicationDate)).map(event=>`<tr><td>${dateLabel(event.publicationDate,true)}</td><td>${dateLabel(event.tradeDate,true)}</td><td>${esc(event.insiderName||event.role)}<small class="table-person">${esc(event.role)}</small></td><td><span class="trade-tag ${event.type}">${event.type==='buy'?'Achat':'Vente'}</span></td><td class="number">${fmt(event.amount)} ${esc(event.currency)}</td><td><button class="table-link" data-event-id="${event.id}">Voir sur le cours</button></td></tr>`).join('');
     $('insiderRows').querySelectorAll('[data-event-id]').forEach(button=>button.addEventListener('click',()=>{
@@ -155,12 +155,11 @@
   }
 
   function drawChart(){
-    if(state.company.history.length<2){$('priceChart').textContent=window.KairosUI.t('Historique de cours insuffisant.','Insufficient price history.');plot=null;return;}
+    if(historyInRange().length<2){$('priceChart').textContent=window.KairosUI.t('Historique de cours insuffisant.','Insufficient price history.');plot=null;return;}
     const host=$('priceChart');if(state.tab!=='overview'||host.clientWidth<100)return;
     const series=historyInRange(),width=host.clientWidth,height=host.clientHeight,pad={left:7,right:70,top:27,bottom:36},innerWidth=width-pad.left-pad.right;
     const withBenchmark=false;
-    const offset=currentWindow().start,benchmarkAt=index=>1+index*.00035+Math.sin(index*.12)*.012;
-    const benchmark=series.map((point,index)=>({date:point.date,close:series[0].close*benchmarkAt(offset+index)/benchmarkAt(offset)}));
+    const benchmark=[];
     const values=[...series.map(point=>point.close),...(withBenchmark?benchmark.map(point=>point.close):[])];
     const minimum=Math.min(...values),maximum=Math.max(...values),spread=Math.max(maximum-minimum,minimum*.002);
     const min=minimum-spread*.17,max=maximum+spread*.2,bottom=height-pad.bottom;
@@ -307,22 +306,6 @@
   new ResizeObserver(()=>requestAnimationFrame(renderVisuals)).observe($('priceChart'));
   new ResizeObserver(()=>{if(state.tab==='overview')window.KairosRadar.render($('productRadar'),{values:state.company.dimensions,labels,score:score(),weights});}).observe($('productRadar'));
 
-  function closeSearch(){$('searchPopup').hidden=true;$('companySearch').setAttribute('aria-expanded','false');$('companySearch').removeAttribute('aria-activedescendant');}
-  function updateSearchSelection(){
-    $('searchResults').querySelectorAll('[role=option]').forEach((option,index)=>option.setAttribute('aria-selected',String(index===state.searchIndex)));
-    if(searchMatches.length)$('companySearch').setAttribute('aria-activedescendant',`result-${searchMatches[state.searchIndex].ticker}`);else $('companySearch').removeAttribute('aria-activedescendant');
-  }
-  async function renderSearch(){const query=$('companySearch').value.trim();searchMatches=await window.KairosUI.search(query);if($('companySearch').value.trim()!==query)return;state.searchIndex=0;window.KairosUI.renderSearch(searchMatches,chooseCompany);updateSearchSelection();}
-  function chooseCompany(ticker){window.KairosUI.openStock(ticker);}
-  let searchTimer;const queueSearch=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(renderSearch,250);};$('companySearch').addEventListener('focus',queueSearch);$('companySearch').addEventListener('input',queueSearch);
-  $('companySearch').addEventListener('keydown',event=>{
-    if(event.key==='Escape'){closeSearch();return;}
-    if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();if($('searchPopup').hidden)renderSearch();else if(searchMatches.length)state.searchIndex=(state.searchIndex+(event.key==='ArrowDown'?1:-1)+searchMatches.length)%searchMatches.length;updateSearchSelection();}
-    if(event.key==='Enter'&&!$('searchPopup').hidden&&searchMatches.length){event.preventDefault();chooseCompany(searchMatches[state.searchIndex].ticker);}
-  });
-  document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('companySearch').focus();$('companySearch').select();}});
-  document.addEventListener('pointerdown',event=>{if(!$('searchWrap').contains(event.target))closeSearch();});
-  $('searchWrap').addEventListener('focusout',()=>setTimeout(()=>{if(!$('searchWrap').contains(document.activeElement))closeSearch();},0));
   renderCompany();
   const initialView=new URLSearchParams(location.search);
   if(['overview','insiders','funds','analysis','news','calendar','company'].includes(initialView.get('tab')))setTab(initialView.get('tab'));

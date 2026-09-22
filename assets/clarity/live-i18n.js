@@ -5,11 +5,97 @@ const pairs=[
 ];
 pairs.push(
  ['Le radar Kairos','The Kairos radar'],['Le score utilise les dernières données disponibles. La période du graphique ne modifie pas ce score.','The score uses the latest available data. Changing the chart period does not change it.'],['Les déclarations d’initiés','Insider filings'],['Déclarations disponibles','Available filings'],['Un achat ou une vente ne suffit pas à expliquer une variation du cours.','A purchase or sale alone does not explain a price change.'],['Nature','Type'],['Détail','Details'],['Les déclarations réglementaires ne décrivent pas des positions en temps réel.','Regulatory filings do not describe real-time holdings.'],['Navigation principale','Main navigation'],['Contenu de la fiche','Stock analysis content'],['Période du graphique','Chart range'],['Déclarations sur la période','Filings in this period'],['Courbe, opérations d’initiés et déclarations des fonds','Price chart, insider transactions and fund filings'],['Filtrer les sociétés et investisseurs','Filter companies and investors'],['Retour aux initiés','Back to insiders'],['Dernières données disponibles · Données des fournisseurs','Latest available data · Provider data'],['Avis à l’achat','Buy ratings'],['Écart à l’objectif moyen','Gap to mean target'],['Multiple bas','Low multiple'],['Multiple intermédiaire','Intermediate multiple'],['Multiple élevé','High multiple'],['Multiple très élevé','Very high multiple'],['Proche du marché','Close to market sensitivity'],['Calcul','Calculation'],['Fermer l’explication','Close explanation'],['L’absence de donnée n’est pas une valeur zéro.','Missing data is not a zero value.'],['Ce compteur reprend uniquement les critères affichés. Il ne remplace ni le radar Kairos ni ses pondérations.','This count uses only the displayed criteria. It does not replace the Kairos radar or its weights.'],['Altman Z et Piotroski F restent indisponibles tant que leurs données de calcul complètes ne sont pas présentes.','Altman Z and Piotroski F remain unavailable when required data is missing.'],['Un multiple faible ne suffit pas à conclure qu’une action est sous-évaluée. Survolez ou sélectionnez un indicateur pour comprendre son calcul.','A low multiple does not establish that a stock is undervalued. Hover or select a metric to understand its calculation.'],['« Achat » et « vente » décrivent ici les catégories d’avis des analystes. Kairos ne transforme pas ce consensus en consigne d’investissement.','Buy and sell describe analyst opinion categories. Kairos does not turn this consensus into an investment instruction.'],['Les critères sont indisponibles.','Criteria unavailable.'],['Objectifs du consensus à 12 mois','12-month consensus targets'],['L’intervalle décrit les objectifs à douze mois des analystes. Il ne représente pas une fourchette de prix garantie.','The interval describes analyst 12-month targets. It is not a guaranteed price range.']);
+pairs.push(
+ ['Kairos, fiche action','Kairos, stock analysis'],['Entreprises','Companies'],['Chargement…','Loading…'],['Chargement des données…','Loading data…'],['← Retour aux initiés','← Back to insiders'],['Détail de la séance','Trading session details'],['Graphique interactif. Flèches gauche et droite pour parcourir les dates, Échap pour fermer le détail.','Interactive chart. Use the left and right arrows to browse dates, and Escape to close details.'],['Derniers dépôts disponibles','Latest available filings'],['Informations sur les fonds','Fund information'],['Positions des fonds','Fund holdings'],['Les positions des hedge funds','Hedge fund holdings'],['Dernier trimestre déclaré','Latest reported quarter'],['Kairos Insider · SEC / AMF / BaFin · Les déclarations sont publiées avec un délai.','Kairos Insider · SEC / AMF / BaFin · Filings are published with a delay.'],
+ ['Nouvelle position','New position'],['Renforcement','Increased'],['Allègement','Reduced'],['Sortie','Exited'],['Aucune déclaration dans cette période.','No filings in this period.'],['Vente déclarée','Reported sale'],['Indice rebasé','Rebased benchmark'],['Cette publication est hors de l’historique du cours disponible.','This filing falls outside the available price history.'],['Déclaration de fonds','Fund filing'],['★ Déclaration de fonds','★ Fund filing'],['Passif','Passive'],['À confirmer','Unconfirmed'],['Cliquer ou Entrée : ouvrir les déclarations.','Click or press Enter to open filings.'],['Cliquer ou Entrée : ouvrir le détail.','Click or press Enter to open details.'],
+ ['Score Kairos indisponible','Kairos score unavailable'],['Niveau du score Kairos','Kairos score level'],['Dimensions de l’analyse','Analysis categories'],['date non précisée','date unspecified'],['Analyse bientôt disponible','Analysis available soon'],['Les données de valorisation, de rentabilité et de consensus apparaîtront ici lorsqu’elles seront disponibles.','Valuation, profitability and consensus data will appear here when available.'],['Évolution par rapport à l’exercice précédent','Change from the previous financial year'],['Les objectifs de cours ne sont pas tous disponibles.','Some price targets are unavailable.'],['Répartition indisponible','Breakdown unavailable'],
+ ['Base non interprétable','Basis cannot be interpreted'],['Base non positive','Non-positive basis'],['Couverture limitée','Limited coverage'],['Couverture partielle','Partial coverage'],['Couverture proche de 1×','Coverage close to 1×'],['Couverture supérieure à 1×','Coverage above 1×'],['Liquidité plus élevée','Higher liquidity'],['Dette relative faible','Low relative debt'],['Dette relative modérée','Moderate relative debt'],['Dette / fonds propres < 1×','Debt / equity < 1×'],['Dette ≥ fonds propres','Debt ≥ equity'],['Dette relative élevée','High relative debt'],['Peu de critères réunis','Few criteria met'],['Plusieurs critères à examiner','Several criteria to examine'],['Profil partagé','Mixed profile'],['Majorité des critères réunis','Most criteria met'],['Critères largement réunis','Criteria largely met'],['Sensibilité inverse','Inverse sensitivity'],['Sensibilité limitée','Limited sensitivity'],['Sensibilité élevée','High sensitivity'],['Sensibilité très élevée','Very high sensitivity'],['À l’équilibre','Break-even'],
+ ['Multiple plus bas','Lower multiple'],['Multiple plus élevé','Higher multiple'],['Sensibilité plus faible','Lower sensitivity'],['Sensibilité plus forte','Higher sensitivity'],['Dette relative plus faible','Lower relative debt'],['Dette relative plus élevée','Higher relative debt'],['Moins de critères','Fewer criteria'],['Plus de critères','More criteria'],['Valeur plus faible','Lower value'],['Valeur plus élevée','Higher value'],['La valeur dépasse les repères affichés ; le marqueur est placé au bord de l’échelle.','The value is outside the displayed range; the marker is placed at the edge of the scale.'],['Un ratio négatif peut provenir de capitaux propres négatifs. Cette base ne permet pas d’appliquer les repères usuels de dette ; la jauge est suspendue.','A negative ratio may result from negative equity. Standard debt comparisons do not apply, so the gauge is hidden.'],['La base de calcul est nulle ou négative : ce multiple ne permet pas de classer l’action comme « bon marché ». La jauge n’est pas appliquée.','The calculation basis is zero or negative: this multiple cannot establish that the stock is cheap. The gauge is hidden.'],
+ ['Repères de lecture, à comparer au secteur, à l’historique de la société et à sa croissance. Ces couleurs ne constituent pas un conseil d’achat ou de vente.','Compare these reference levels with the sector, company history and growth. These colors are not advice to buy or sell.'],['Les couleurs indiquent des niveaux de sensibilité au marché, pas une qualité d’investissement.','Colors indicate market sensitivity, not investment quality.'],['Repères du compteur de critères, distincts du score du radar.','Reference levels for the criteria count, separate from the radar score.'],['(Valeur de l’exercice courant ÷ valeur de l’exercice précédent − 1) × 100. Les variations fournies restent celles du fournisseur.','(Current financial year value ÷ previous financial year value − 1) × 100. Changes are reported as supplied by the provider.']
+);
+pairs.push(['Critère rempli','Criterion met'],['Critère non rempli','Criterion not met'],['Score Altman Z','Altman Z score'],['Score Piotroski F','Piotroski F score'],['Le nombre total d’avis est indisponible.','The total number of ratings is unavailable.']);
 const dictionary=new Map(pairs);
-function text(s){let value=s.trim();if(dictionary.has(value))return s.replace(value,dictionary.get(value));
-  const patterns=[[/^(.+) : le point fort de ce profil$/,(_,x)=>(dictionary.get(x)||x)+': strongest dimension'],[/^Analyse au (.+)$/,(_,x)=>'Analysis as of '+x],[/^(\d+) séances$/,(_,x)=>x+' sessions'],[/^Zoom libre · (\d+) séances$/,(_,x)=>'Custom range · '+x+' sessions'],[/^(.*) aujourd’hui$/,(_,x)=>x+' today'],[/^poids (.*)$/,(_,x)=>'weight '+x],[/^Opinions d’analystes, au (.+)\. Elles peuvent être révisées\.$/,(_,x)=>'Analyst opinions as of '+x+'. These may change.'],[/^Les opérations de (.+), avec leurs dates de transaction et de publication\.\s*$/,(_,x)=>x+' transactions, with execution and filing dates.']];
-  for(const [re,fn]of patterns)if(re.test(value))return value.replace(re,fn);return s;
+dictionary.set('Mettre le fil Kairos en pause','Pause Kairos signals');
+dictionary.set('Reprendre le défilement du fil Kairos','Resume Kairos signals');
+dictionary.set('▶ Reprendre','▶ Resume');
+dictionary.set('Manuel','Manual');
+dictionary.set('Mettre en pause pour parcourir les signaux','Pause to browse signals');
+dictionary.set('Reprendre le défilement','Resume scrolling');
+const translateLabel=value=>dictionary.get(value)||value;
+const numeric=value=>value.replace(/,/g,'.');
+const quality=value=>translateLabel(value);
+const patterns=[
+ [/^(.+) : le point fort de ce profil$/,(_,x)=>translateLabel(x)+': strongest dimension'],
+ [/^Analyse au (.+)$/,(_,x)=>'Analysis as of '+translateLabel(x)],
+ [/^(\d+) séances$/,(_,x)=>x+' sessions'],
+ [/^Zoom libre · (\d+) séances$/,(_,x)=>'Custom range · '+x+' sessions'],
+ [/^([+−\-\d.,\s%]+) aujourd’hui$/,(_,x)=>x+' today'],
+ [/^poids ([\d.,—\s%]+)$/,(_,x)=>'weight '+numeric(x)],
+ [/^(.+\/100|Indisponible) · poids ([\d.,—\s%]+)$/,(_,x,w)=>translateLabel(x)+' · weight '+numeric(w)],
+ [/^Opinions d’analystes, au (.+)\. Elles peuvent être révisées\.$/,(_,x)=>'Analyst opinions as of '+translateLabel(x)+'. These may change.'],
+ [/^Les opérations de (.+), avec leurs dates de transaction et de publication\.$/,(_,x)=>x+' transactions, with execution and filing dates.'],
+ [/^Poids dans le score : ([\d.,\s]+) %$/,(_,x)=>'Score weight: '+numeric(x)+' %'],
+ [/^Le radar Kairos : score indisponible$/,()=>'Kairos radar: score unavailable'],
+ [/^Le radar Kairos : (\d+) sur 100, (.+)$/,(_,x,q)=>'Kairos radar: '+x+' out of 100, '+quality(q)],
+ [/^Score Kairos : (\d+) sur 100, (.+)\. Afficher le niveau du score\.$/,(_,x,q)=>'Kairos score: '+x+' out of 100, '+quality(q)+'. Show the score level.'],
+ [/^(\d+) sur 100, (Signal .+)$/,(_,x,q)=>x+' out of 100, '+quality(q)],
+ [/^(.+) : (donnée indisponible|[\d.,]+ sur 100)(?:, poids ([\d.,]+) % dans le score global)?$/,(_,label,value,weight)=>translateLabel(label)+': '+(value==='donnée indisponible'?'data unavailable':numeric(value).replace(' sur 100',' out of 100'))+(weight===undefined?'':', '+numeric(weight)+'% weight in the overall score')],
+ [/^Huit dimensions sur une échelle commune de zéro à cent\. (.+)\. La pondération du score global ne modifie pas la forme du radar\.$/,(_,axes)=>'Eight dimensions on a shared scale from zero to one hundred. '+axes.split('. ').map(text).join('. ')+'. Overall score weights do not change the radar shape.'],
+ [/^(Marge|Rentabilité) (négative|positive|intermédiaire|élevée|très élevée)$/,(_,noun,level)=>({négative:'Negative',positive:'Positive',intermédiaire:'Intermediate',élevée:'High','très élevée':'Very high'}[level])+' '+(noun==='Marge'?'margin':'return')],
+ [/^Repères de (-?[\d.]+) à (-?[\d.]+)( pour cent)?\. Valeur : (.+)\.$/,(_,min,max,unit,value)=>'Reference range from '+min+' to '+max+(unit?' percent':'')+'. Value: '+value+'.'],
+ [/^Objectifs à douze mois de (.+) à (.+), moyenne (.+)\. Cours actuel (.+)\.$/,(_,low,high,mean,current)=>'12-month targets from '+low+' to '+high+', mean '+mean+'. Current price '+current+'.'],
+ [/^Avis « (achat fort|achat|conserver|vente|vente forte) »$/,(_,rating)=>translateLabel(rating[0].toUpperCase()+rating.slice(1))+' ratings'],
+ [/^Variation annuelle de « (.+) » dans la période indiquée, par rapport à l’exercice précédent\.$/,(_,label)=>'Annual change in '+translateLabel(label)+' for the stated period, compared with the previous financial year.'],
+ [/^([−\-\d.,\s]+) Md([$€£]|CHF|[A-Z]{3})$/,(_,amount,currency)=>amount+' B'+currency],
+ [/^(.+) · Données des fournisseurs$/,(_,period)=>translateLabel(period)+' · Provider data'],
+ [/^([+−\-\d.,]+) pt depuis le dépôt précédent$/,(_,x)=>x+' pp since the previous filing'],
+ [/^(Participation non renseignée|[\d.,\s]+ %) · (.+)$/,(_,holding,change)=>translateLabel(holding)+' · '+text(change)],
+ [/^(Achat|Vente) publié(?:e)? · (.+)$/,(_,type,details)=>(type==='Achat'?'Purchase':'Sale')+' filed · '+details],
+ [/^(Achat|Vente) · (.+)$/,(_,type,amount)=>translateLabel(type)+' · '+amount],
+ [/^(Transaction|Publication) : (.+)$/,(_,label,date)=>translateLabel(label)+': '+date],
+ [/^Publié le (.+?)( · .+)?$/,(_,date,details)=>'Filed on '+date+(details||'').replace(/ · Passif$/,' · Passive').replace(/ · À confirmer$/,' · Unconfirmed')],
+ [/^(★ )?(\d+) déclarations de fonds$/,(_,star,count)=>(star||'')+count+' fund filings'],
+ [/^Et (\d+) autre\(s\) déclaration\(s\)\.$/,(_,count)=>'And '+count+' more filing(s).'],
+ [/^(Achat|Vente) de (.+), (.+), publié le (.+)\. Afficher cette opération\.$/,(_,type,amount,role,date)=>(type==='Achat'?'Purchase':'Sale')+' of '+amount+', '+role+', filed on '+date+'. Show this transaction.'],
+ [/^(\d+) déclaration(?:s)? de fonds sur la séance du (.+) : (.+)\. Ouvrir les détails\.$/,(_,count,date,names)=>count+' fund filing(s) for the '+date+' session: '+names+'. Open details.'],
+ [/^(Séance du|Dernière séance de la période :) (.+)\. Clôture : (.+?)\.(?: Prix au curseur : (.+)\.)?$/,(_,label,date,close,cursor)=>(label==='Séance du'?'Session on ':'Last session in this period: ')+date+'. Close: '+close+'.'+(cursor?' Price at cursor: '+cursor+'.':'')],
+ [/^(.+), cours du (.+) au (.+), variation (.+)\. Molette pour zoomer, glisser pour déplacer\. Touches plus et moins pour zoomer, flèches pour parcourir les dates\. Échap ferme le détail\.$/,(_,name,start,end,change)=>name+', price from '+start+' to '+end+', change '+change+'. Scroll to zoom, drag to pan. Use plus and minus to zoom, arrows to browse dates. Escape closes details.']
+];
+function text(s){
+  const value=s.trim();
+  if(dictionary.has(value))return s.replace(value,()=>dictionary.get(value));
+  // Only split known explanatory sentences; never rewrite provider prose or names.
+  if(value.startsWith('Les couleurs indiquent des niveaux de sensibilité au marché,')||value.startsWith('Repères du compteur de critères,')){
+    const boundary=value.indexOf('.')+1,lead=value.slice(0,boundary),rest=value.slice(boundary).trim();
+    if(dictionary.has(lead)&&dictionary.has(rest))return s.replace(value,()=>translateLabel(lead)+' '+translateLabel(rest));
+  }
+  if(/^(Achat fort|Achat|Conserver|Vente|Vente forte) : (\d+|null)(, |$)/.test(value)){
+    const ratings=value.split(', ');
+    if(ratings.every(rating=>/^(Achat fort|Achat|Conserver|Vente|Vente forte) : (\d+|null)$/.test(rating)))return s.replace(value,()=>ratings.map(rating=>rating.replace(/^(.+) : (.+)$/,(_,label,count)=>translateLabel(label)+': '+(count==='null'?'unavailable':count))).join(', '));
+  }
+  for(const [re,fn]of patterns)if(re.test(value))return s.replace(value,()=>value.replace(re,fn));
+  return s;
 }
-window.KairosLiveTranslate=()=>{if(U.lang!=='en')return;const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode()){if(node.parentElement?.closest('script,style,[data-provider-text]'))continue;const next=text(node.nodeValue);if(next!==node.nodeValue)node.nodeValue=next;}document.querySelectorAll('[aria-label],[placeholder],[title]').forEach(el=>{for(const attr of ['aria-label','placeholder','title']){const old=el.getAttribute(attr);if(old){const next=text(old);if(next!==old)el.setAttribute(attr,next);}}});};
-if(U.lang==='en'){let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;window.KairosLiveTranslate();});}).observe(document.body,{childList:true,subtree:true,characterData:true});window.KairosLiveTranslate();}
+const attributes=['aria-label','aria-valuetext','aria-description','placeholder','title','alt'];
+const excluded='script,style,[data-provider-text],[translate="no"]';
+window.KairosLiveTranslate=()=>{
+  if(U.lang!=='en')return;
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
+  while(node=walker.nextNode()){
+    if(node.parentElement?.closest(excluded))continue;
+    const next=text(node.nodeValue);if(next!==node.nodeValue)node.nodeValue=next;
+  }
+  document.querySelectorAll(attributes.map(attr=>'['+attr+']').join(',')).forEach(el=>{
+    if(el.closest(excluded))return;
+    for(const attr of attributes){const old=el.getAttribute(attr);if(old){const next=text(old);if(next!==old)el.setAttribute(attr,next);}}
+  });
+};
+if(U.lang==='en'){
+  let scheduled=false;
+  new MutationObserver(()=>{
+    if(scheduled)return;scheduled=true;
+    requestAnimationFrame(()=>{scheduled=false;window.KairosLiveTranslate();});
+  }).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:attributes});
+  window.KairosLiveTranslate();
+}
 })();

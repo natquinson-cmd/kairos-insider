@@ -39,6 +39,24 @@ function renderSearch(rows,onChoose){
   list.innerHTML=rows.map(r=>{r.ticker=r.symbol;const q=r.quote||{};return `<li id="result-${esc(r.symbol)}" role="option" aria-selected="false" data-symbol="${esc(r.symbol)}"><img class="result-logo" src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(r.symbol)}" alt=""><span class="result-name"><strong>${esc(r.name||r.symbol)}</strong><small>${esc(r.symbol)} · ${esc(r.exchangeFull||r.exchange||'')}</small></span><span class="result-trend">${sparkline(q.sparkline)}</span><span class="result-quote"><strong>${format(q.price)} ${esc(q.currency||'')}</strong><small class="${q.changePercent>=0?'positive':'negative'}">${q.changePercent==null?'':format(q.changePercent)+' %'}</small></span></li>`;}).join('');
   list.querySelectorAll('[data-symbol]').forEach(el=>{el.onmousedown=e=>e.preventDefault();el.onclick=()=>onChoose(el.dataset.symbol);el.querySelector('img').onerror=e=>e.target.style.visibility='hidden';});document.getElementById('searchEmpty').hidden=rows.length>0;
 }
+function initializeStockSearch(){
+  const input=document.getElementById('companySearch');if(!input)return;
+  const popup=document.getElementById('searchPopup'),list=document.getElementById('searchResults'),wrap=document.getElementById('searchWrap');
+  let matches=[],index=0,timer,request=0;
+  function close(){request++;popup.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');}
+  function select(){list.querySelectorAll('[role=option]').forEach((option,i)=>option.setAttribute('aria-selected',String(i===index)));if(matches.length)input.setAttribute('aria-activedescendant','result-'+matches[index].ticker);else input.removeAttribute('aria-activedescendant');}
+  async function run(){const query=input.value.trim(),current=++request;const rows=await search(query);if(current!==request||input.value.trim()!==query)return;matches=rows;index=0;renderSearch(matches,openStock);select();}
+  const queue=()=>{clearTimeout(timer);timer=setTimeout(run,250);};input.addEventListener('focus',queue);input.addEventListener('input',queue);
+  input.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){clearTimeout(timer);close();return;}
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();if(popup.hidden)run();else if(matches.length){index=(index+(event.key==='ArrowDown'?1:-1)+matches.length)%matches.length;select();}}
+    if(event.key==='Enter'&&!popup.hidden&&matches.length){event.preventDefault();openStock(matches[index].ticker);}
+  });
+  document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();input.focus();input.select();}});
+  document.addEventListener('pointerdown',event=>{if(!wrap.contains(event.target)){clearTimeout(timer);close();}});
+  wrap.addEventListener('focusout',()=>setTimeout(()=>{if(!wrap.contains(document.activeElement)){clearTimeout(timer);close();}},0));
+  if(params.get('search')){input.value=params.get('search');input.focus();queue();}
+}
 const format=(value,digits=2)=>window.KairosAdapter.number(value)==null?'—':Number(value).toLocaleString(lang==='en'?'en-US':'fr-FR',{maximumFractionDigits:digits});
 const quoteDate=p=>p?.regularMarketTime?t('Cours du ','Price as of ')+new Date(p.regularMarketTime*1000).toLocaleString(lang==='en'?'en-US':'fr-FR'):t('Dernier cours disponible','Latest available price');
 window.KairosUI={api,lang,t,esc,format,openStock,stockUrl,share,search,renderSearch,showError,quoteDate,translate(){window.KairosLiveTranslate?.();}};
@@ -48,18 +66,22 @@ const header=document.querySelector('.topbar'),controls=document.createElement('
 controls.querySelector('[data-lang]').onclick=()=>{const u=new URL(location.href);u.searchParams.set('lang',lang==='fr'?'en':'fr');location.href=u.href;};controls.querySelector('[data-account]').onclick=login;
 document.querySelector('.sidebar-foot').innerHTML=`<span class="avatar">K</span><div>Kairos Insider<small>${t('Votre espace de recherche','Your research workspace')}</small></div>`;
 onAuthStateChanged(auth,async next=>{const previous=user;user=next;readyResolve();if(previous&&previous.uid!==next?.uid){location.reload();return;}controls.querySelector('[data-account]').textContent=next?t('Mon compte','My account'):t('Se connecter','Sign in');
-  if(next){controls.querySelector('[data-account]').onclick=()=>{const d=document.createElement('dialog');d.className='live-dialog';d.innerHTML=`<h2>${t('Mon compte','My account')}</h2><p>${esc(next.email)}</p><button class="secondary" data-signout>${t('Se déconnecter','Sign out')}</button><button class="text-button">${t('Fermer','Close')}</button>`;document.body.append(d);d.querySelector('[data-signout]').onclick=()=>signOut(auth);d.querySelector('.text-button').onclick=()=>d.close();d.showModal();};
+  if(next){controls.querySelector('[data-account]').onclick=()=>{const d=document.createElement('dialog');d.className='live-dialog';d.innerHTML=`<h2>${t('Mon compte','My account')}</h2><p>${esc(next.email)}</p><p><a class="secondary" href="admin-workspace.html?lang=${lang}#profile">${t('Gérer mon compte et mon abonnement','Manage my account and subscription')}</a></p><button class="secondary" data-signout>${t('Se déconnecter','Sign out')}</button><button class="text-button">${t('Fermer','Close')}</button>`;document.body.append(d);d.querySelector('[data-signout]').onclick=()=>signOut(auth);d.querySelector('.text-button').onclick=()=>d.close();d.showModal();};
     try{const who=await api('/api/admin/whoami');if(who.isAdmin===true&&who.emailVerified===true&&who.email?.toLowerCase()==='natquinson@gmail.com'&&auth.currentUser?.uid===next.uid){const a=document.createElement('a');a.className='nav-item';a.href='admin.html?lang='+lang;a.textContent=t('⚙ Administration','⚙ Administration');document.querySelector('.sidebar nav').append(a);}}catch{/* Server denial is expected for non-admin accounts. */}}
 });
-await loadScript('assets/clarity/live-i18n.js?v=live1');
+initializeStockSearch();
+await loadScript('assets/clarity/live-i18n.js?v=live3');
 async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items||d.signals||[]).map(x=>({ticker:x.ticker,company:x.company||x.ticker,label:x.label||'',detail:x.value||'',tone:x.color==='red'?'sell':'buy'}));window.KairosTicker.mount(document.getElementById('signalTicker'),{items,labels:{region:t('Signaux Kairos','Kairos signals'),title:t('Le fil Kairos','Kairos signals'),demo:t('Déclarations','Filings'),empty:t('Aucun signal récent.','No recent signals.')},onSelect:item=>openStock(item.ticker)});}catch{document.getElementById('signalTicker').textContent=t('Le fil des déclarations est temporairement indisponible.','The filing feed is temporarily unavailable.');}}
+if(!window.KairosEntryRedirect){
 ticker();
-const legacy=location.hash.slice(1);if(legacy==='admin'){location.replace('admin.html?lang='+lang);}else if(/^(insider|activists|13f|clustering|consensus13f)(\?|$)/.test(legacy)){location.replace('insiders.html?'+new URLSearchParams({lang,screen:legacy.startsWith('13f')||legacy==='consensus13f'?'funds':legacy.startsWith('activists')?'activists':'insiders',view:legacy==='clustering'?'convergences':'transactions'}));}
-else if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live1');}
+const legacy=location.hash.slice(1);
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live3');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
-  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live1');await loadScript('assets/clarity/live-stock-views.js?v=live1');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live1');window.KairosUI.translate();if(params.get('search')){document.getElementById('companySearch').value=params.get('search');document.getElementById('companySearch').focus();document.getElementById('companySearch').dispatchEvent(new Event('input'));}
+  if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
+  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live3');await loadScript('assets/clarity/live-stock-views.js?v=live3');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live3');window.KairosUI.translate();
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});
   }catch(error){showError(status,error);}
+}
 }
