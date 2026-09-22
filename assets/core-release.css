@@ -69,7 +69,7 @@ body.core-release { background-image:none; }
 #core-admin-tabs { margin-top:24px; }
 #section-admin .core-panel > div { margin-bottom:20px; }
 .core-admin-actions { display:flex; gap:10px; flex-wrap:wrap; }
-#core-share-dialog { max-width:590px; width:calc(100% - 32px); padding:26px; border-radius:18px; border:1px solid #44628b; color:var(--text-primary); background:var(--bg-secondary); box-shadow:0 30px 100px #0009; }
+#core-share-dialog { margin:auto; max-width:590px; width:calc(100% - 32px); max-height:calc(100dvh - 32px); overflow:auto; padding:26px; border-radius:18px; border:1px solid #44628b; color:var(--text-primary); background:var(--bg-secondary); box-shadow:0 30px 100px #0009; }
 #core-share-dialog::backdrop { background:#020817bb; backdrop-filter:blur(6px); }
 #core-share-dialog h2 { margin:0 30px 8px 0; font-size:22px; }
 #core-share-dialog p { font-size:13px; color:var(--text-secondary); line-height:1.6; }
