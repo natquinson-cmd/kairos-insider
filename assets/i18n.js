@@ -443,7 +443,10 @@
       // ==== WALLS (quota anon + quota Free) ====
       'wall.anon.title': 'Tu as épuisé tes {n} analyses gratuites du jour',
       'wall.anon.body_html': 'Crée un compte <strong style="color:var(--text-primary)">gratuit (30 secondes)</strong> pour passer à <strong style="color:#10B981">4 analyses par jour</strong>.',
-      'wall.anon.body2_html': 'Aucune carte bancaire requise. Tu débloques aussi <strong>Tendances retail</strong>, <strong>Fear &amp; Greed</strong> et <strong>Short Interest</strong>.',
+      'wall.anon.body2_html': 'Aucune carte bancaire requise. Retrouvez le radar Kairos, les fondamentaux et les actualités dans vos fiches action.',
+      'core.admin.denied': 'Accès réservé au compte administrateur vérifié.',
+      'core.activists.login': 'Connectez-vous pour consulter les déclarations des activistes.',
+      'core.activists.unavailable': 'Les déclarations sont momentanément indisponibles ou réservées à votre abonnement. Réessayez après connexion.',
       'wall.anon.cta_signup': 'Créer un compte gratuit',
       'wall.anon.cta_login': "J'ai déjà un compte",
       'wall.anon.history_html': 'Déjà consulté aujourd\'hui : <strong>{tickers}</strong><br>Tu peux toujours les rouvrir sans décompter.',
@@ -2531,7 +2534,10 @@
       // ==== WALLS (anon quota + Free quota) ====
       'wall.anon.title': "You've used your {n} free analyses for today",
       'wall.anon.body_html': 'Create a <strong style="color:var(--text-primary)">free account (30 seconds)</strong> to unlock <strong style="color:#10B981">4 analyses per day</strong>.',
-      'wall.anon.body2_html': 'No credit card required. You also unlock <strong>Retail trends</strong>, <strong>Fear &amp; Greed</strong> and <strong>Short Interest</strong>.',
+      'wall.anon.body2_html': 'No credit card required. Explore the Kairos radar, fundamentals and news in your stock pages.',
+      'core.admin.denied': 'Access is restricted to the verified administrator account.',
+      'core.activists.login': 'Sign in to view activist filings.',
+      'core.activists.unavailable': 'Filings are temporarily unavailable or require a subscription. Try again after signing in.',
       'wall.anon.cta_signup': 'Create a free account',
       'wall.anon.cta_login': 'I already have an account',
       'wall.anon.history_html': 'Already viewed today: <strong>{tickers}</strong><br>You can always reopen them without counting.',
@@ -4203,13 +4209,13 @@
   // ============================================================
   function detectLang() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored && SUPPORTED.indexOf(stored) >= 0) return stored;
-    } catch (e) {}
-    try {
       const params = new URLSearchParams(window.location.search);
       const fromUrl = params.get('lang');
       if (fromUrl && SUPPORTED.indexOf(fromUrl) >= 0) return fromUrl;
+    } catch (e) {}
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && SUPPORTED.indexOf(stored) >= 0) return stored;
     } catch (e) {}
     try {
       const nav = (navigator.language || '').toLowerCase();

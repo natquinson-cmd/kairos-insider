@@ -16,6 +16,7 @@ import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles 
 import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 import { partitionThresholdFilings } from './threshold_provenance.js';
 import { canonicalizeFundIdentity } from './fund-identity.js';
+import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
 const { formatDividendYield, insiderKind } = analysisPresentation;
@@ -1073,12 +1074,6 @@ async function handleRequest(request, env, ctx) {
 // Le check est fait via le JWT Firebase (email verifie), pas de password supplementaire.
 // Pour ajouter un admin, mettre son email ici (lowercase).
 // ============================================================
-const ADMIN_EMAILS = ['natquinson@gmail.com'];
-
-function isAdmin(user) {
-  if (!user || !user.email) return false;
-  return ADMIN_EMAILS.includes(user.email.toLowerCase());
-}
 
 // Comparaison timing-safe : eviter les timing attacks qui pourraient
 // deviner le secret caractere-par-caractere via mesures de duree de response.
@@ -5953,15 +5948,7 @@ function ogRadarSvg(breakdown, total, color, labels, cx, cy, R) {
 // Logo Kairos inline (cercle + courbe ascendante + point culminant).
 // Reproduit assets/logo.svg en pure SVG embedde, avec gradient propre.
 function ogKairosLogoSvg(x, y, size) {
-  const s = size / 40;
-  const tx = (n) => (x + n * s).toFixed(1);
-  const ty = (n) => (y + n * s).toFixed(1);
-  return `<g>`
-    + `<circle cx="${tx(20)}" cy="${ty(20)}" r="${(18.5 * s).toFixed(1)}" fill="none" stroke="url(#og-logo-grad)" stroke-width="${(2.2 * s).toFixed(2)}" opacity="0.95"/>`
-    + `<polyline points="${tx(9)},${ty(27)} ${tx(14)},${ty(22.5)} ${tx(20)},${ty(24.5)} ${tx(26)},${ty(14)} ${tx(31)},${ty(15.5)}" fill="none" stroke="url(#og-logo-grad)" stroke-width="${(2.4 * s).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`
-    + `<circle cx="${tx(26)}" cy="${ty(14)}" r="${(2.6 * s).toFixed(2)}" fill="url(#og-logo-dot)"/>`
-    + `<circle cx="${tx(25.3)}" cy="${ty(13.3)}" r="${(0.6 * s).toFixed(2)}" fill="#FCE7F3" opacity="0.9"/>`
-    + `</g>`;
+  return `<g transform="translate(${x} ${y}) scale(${size / 64})"><path d="M8 32C15 32 15 44 23 44C28 44 30 37 32 32C34 27 36 20 41 20C49 20 49 32 56 32" fill="none" stroke="#6D99FF" stroke-width="7" stroke-linecap="round"/><circle cx="32" cy="32" r="5.75" fill="#50DCC6"/></g>`;
 }
 
 // Fetch le logo de la company depuis parqet.com en PNG, retourne data URI base64.
@@ -6065,6 +6052,10 @@ async function handleOgImage(rawTicker, env, fmt = 'png', lang = 'fr') {
     data = await handleStockAnalysis(ticker, env, { publicView: false });
   } catch (e) {
     data = null;
+  }
+
+  if (!data || !Number.isFinite(data.score?.total)) {
+    return new Response('Stock preview temporarily unavailable', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
   }
 
   const name = (data && data.company && data.company.name) || ticker;

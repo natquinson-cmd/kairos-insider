@@ -41,7 +41,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260918-pro"></script>
+  <script src="assets/i18n.js?v=20260922-core"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
   <script src="assets/analysis-presentation.js?v=20260914"></script>
   <script src="assets/public-journey.js?v=20260918-pro"></script>
@@ -4295,6 +4295,10 @@
       .tabs { overflow-x: auto; }
     }
   </style>
+<link rel="stylesheet" href="assets/core-release.css?v=20260922-1">
+<script src="assets/core-sharing.js?v=20260922-1"></script>
+<script src="assets/core-release.js?v=20260922-1" defer></script>
+<script src="assets/core-price-chart.js?v=20260922-1" defer></script>
 </head>
 <body>
 
@@ -7829,6 +7833,10 @@
       window.__fbAuth = { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, sendEmailVerification, signInWithPopup, GoogleAuthProvider };
 
       onAuthStateChanged(firebaseAuth, async (user) => {
+        // Revoke the previous identity's admin presentation immediately.
+        isAdminUser = false;
+        document.getElementById('section-admin')?.setAttribute('data-access', 'denied');
+        document.getElementById('sidebarAdminSection').style.display = 'none';
         if (user) {
           currentUser = user;
           window.isAnonymous = false;  // user authentifie : permet a apiFetch d'afficher authOverlay sur 401 (token expire)
@@ -8708,8 +8716,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const __isEn = __lang === 'en';
       const subline = isAnon
         ? (__isEn
-            ? `${state.count}/${maxQuota} used · create a free account for 4/day + Retail trends + Fear & Greed + Short Interest`
-            : `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour 4/jour + Tendances retail + Fear & Greed + Short Interest`)
+            ? `${state.count}/${maxQuota} used · create a free account for 4 stock analyses per day`
+            : `${state.count}/${maxQuota} utilisées · crée un compte gratuit pour 4 fiches action par jour`)
         : (__isEn
             ? `${state.count}/${maxQuota} used · resets at midnight · upgrade to Pro for unlimited + filings + hedge funds + watchlist`
             : `${state.count}/${maxQuota} utilisées · reset à minuit · passer Pro pour illimité + filings + hedge funds + watchlist`);
@@ -12999,6 +13007,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
 
     async function loadStockAnalysis(ticker, chartRange, opts = {}) {
       ticker = ticker.toUpperCase().trim();
+      if (!document.getElementById('section-stockAnalysis')?.classList.contains('active')) switchSection('stockAnalysis');
       currentStockTicker = ticker;
       if (chartRange) currentChartRange = chartRange;
       const body = document.getElementById('stockAnalysisBody');
@@ -13414,7 +13423,9 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         // apres que le chart principal ait ete cree par renderStockAnalysis)
         addActivistMarkersToChart(res.filings);
       } catch (e) {
-        // silent fail - donnees 13dg peuvent ne pas etre encore loaded en KV
+        if (slot.isConnected) slot.innerHTML = `<div class="core-empty">${!currentUser
+          ? t('core.activists.login', 'Connectez-vous pour consulter les déclarations des activistes.')
+          : t('core.activists.unavailable', 'Les déclarations sont momentanément indisponibles ou réservées à votre abonnement. Réessayez après connexion.')}</div>`;
       }
     }
 
@@ -14745,6 +14756,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     }
 
     function jumpToStockDetail(id) {
+      const tabs = { 'smart-money':'funds', fundamentals:'analysis', health:'analysis', earnings:'calendar', news:'news' };
+      if (tabs[id]) window.KairosCore?.openStockTab?.(tabs[id]);
       const target = document.getElementById('analysis-detail-' + id);
       if (!target) return;
       target.focus({ preventScroll: true });
@@ -15033,7 +15046,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         ${coverageBanner}
         ${anonAlertCta}
         <!-- HERO (compresse mai 2026) -->
-        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;padding:12px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
+        <div class="core-company-hero" style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;padding:12px 14px;background:linear-gradient(135deg,rgba(116,185,255,0.08),rgba(116,185,255,0.02));border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
           <div style="flex:1;min-width:280px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:3px;flex-wrap:wrap">
               <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(d.ticker)}"
@@ -15061,7 +15074,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             </div>
             <div style="font-size:15px;opacity:0.9;margin-bottom:2px;font-weight:500">${company.name || ''}</div>
             <div style="font-size:11.5px;opacity:0.6;margin-bottom:10px">${[company.sector, company.industry, company.country].filter(Boolean).join(' · ') || '—'}</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:3px 16px">
+            <div id="core-company-details" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:3px 16px">
               ${infoRow('PDG', company.ceo)}
               ${infoRow(L.coFounded, company.founded)}
               ${infoRow(L.coHeadquarters, company.headquarters)}
@@ -15282,8 +15295,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                -> card compacte, scrollbar fine comme Insiders, consistance UI.
                L'eventuel vide en bas (si Insiders est plus haut) est accepte
                vs alternative "card immense" ou "scroll hijacking lent". -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column">
-            <h3 style="margin:0 0 12px;font-size:14px">${secLabel('💰 Hedge Funds', 'wallet', '#10B981', 24)}</h3>
+          <div id="core-funds-card" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column">
+            <h3 id="core-funds-heading" style="margin:0 0 12px;font-size:14px">${secLabel('💰 Hedge Funds', 'wallet', '#10B981', 24)}</h3>
             ${sm.reportDates?.mixed ? `<p style="font-size:11px;color:var(--text-muted);margin:0 0 12px;line-height:1.5">${_numLocale === 'en-US' ? 'Latest available filings span different reporting dates' : 'Les derniers dépôts disponibles portent sur des dates différentes'} : ${sm.reportDates.earliest} – ${sm.reportDates.latest}.</p>` : ''}
             ${(() => {
               // HEADLINE (mai 2026, demande user) : remplace 'nb fonds' + 'Δ
@@ -15416,8 +15429,8 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
              .stock-grid-2col : force 2 cols max (cf above). -->
         <div class="stock-grid-2col" style="margin-bottom:24px">
           <!-- POLITICIENS / GURUS -->
-          <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column">
-            <h3 style="margin:0 0 12px;font-size:16px">${secLabel(t('stock.section.politicians', '🏛️ Politiciens & Gurus'), 'landmark', '#F59E0B')}</h3>
+          <div id="core-politicians-card" style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:480px;display:flex;flex-direction:column">
+            <h3 id="core-politicians-heading" style="margin:0 0 12px;font-size:16px">${secLabel(t('stock.section.politicians', '🏛️ Politiciens & Gurus'), 'landmark', '#F59E0B')}</h3>
             ${gov.inEtfs && gov.inEtfs.length > 0 ? `
               <div style="font-size:13px;opacity:0.8;margin-bottom:12px">
                 ${t('stock.gov.presentIn', 'Présent dans <strong>{n}</strong> ETF suivis').replace('{n}', gov.inEtfs.length)}<br>
@@ -15670,7 +15683,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
 
           <!-- CONSENSUS ANALYSTES -->
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px">
-            <h3 style="margin:0 0 14px;font-size:16px">${secLabel(t('stock.section.consensus_full', '🎯 Consensus analystes'), 'users', '#3B82F6')}</h3>
+            <h3 id="core-analysts-heading" style="margin:0 0 14px;font-size:16px">${secLabel(t('stock.section.consensus_full', '🎯 Consensus analystes'), 'users', '#3B82F6')}</h3>
             ${consensus ? (() => {
               const tot = consensus.total || 1;
               const sbPct = (consensus.strongBuy / tot) * 100;
@@ -16033,7 +16046,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           <!-- PEERS : layout flex pour epouser la hauteur des autres cards de la row -->
           ${peers.length > 0 ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;min-height:0">
-            <h3 style="margin:0 0 12px;font-size:16px;flex-shrink:0">${secLabel(t('stock.section.peers', '🎯 Concurrents sectoriels'), 'target', '#06B6D4')}</h3>
+            <h3 id="core-peers-heading" style="margin:0 0 12px;font-size:16px;flex-shrink:0">${secLabel(t('stock.section.peers', '🎯 Concurrents sectoriels'), 'target', '#06B6D4')}</h3>
             <div style="font-size:11px;opacity:0.55;margin-bottom:10px;flex-shrink:0">${peers.length} ${L.peersIntro}</div>
             <div class="scroll-y-hover" style="flex:1;min-height:0;overflow-y:auto;padding-right:4px;max-height:600px">
               ${peers.map(p => `
@@ -16055,7 +16068,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         <!-- FAIR VALUE (Lynch + Graham) -->
         ${(fairValue.lynch && fairValue.lynch.display) || (fairValue.graham && fairValue.graham.display) ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
-            <h3 style="margin:0 0 12px;font-size:16px">${secLabel(L.secFairvalue, 'gem', '#8B5CF6')}</h3>
+            <h3 id="core-fair-value-heading" style="margin:0 0 12px;font-size:16px">${secLabel(L.secFairvalue, 'gem', '#8B5CF6')}</h3>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
               ${fairValue.lynch && fairValue.lynch.display ? `
                 <div style="padding:12px;background:var(--surface-1);border-radius:8px">
@@ -16090,7 +16103,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           return `
             <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-                <h3 style="margin:0;font-size:16px">${secLabel(L.secTrends, 'search', '#06B6D4')}</h3>
+                <h3 id="core-trends-heading" style="margin:0;font-size:16px">${secLabel(L.secTrends, 'search', '#06B6D4')}</h3>
                 ${LOW_VOLUME ? `<span style="font-size:11px;padding:3px 10px;background:rgba(156,163,175,0.15);color:#9CA3AF;border-radius:20px;font-weight:500">${L.emptyLowVol}</span>` : ''}
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:14px">
@@ -16149,19 +16162,14 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         <!-- DESCRIPTION ENTREPRISE -->
         ${company.description ? `
           <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
-            <h3 style="margin:0 0 12px;font-size:16px">${secLabel(L.secAbout, 'building', '#94A3B8')}</h3>
+            <h3 id="core-company-heading" style="margin:0 0 12px;font-size:16px">${secLabel(L.secAbout, 'building', '#94A3B8')}</h3>
             <p style="font-size:13px;line-height:1.7;opacity:0.85;margin:0">${company.description}</p>
             ${company.website ? `<div style="margin-top:12px"><a href="${company.website}" target="_blank" rel="noopener" style="color:#74b9ff;font-size:13px">${company.website}</a></div>` : ''}
           </div>
         ` : ''}
       `;
 
-      const detailLinks = [
-        ['smart-money', 'Smart Money'], ['fundamentals', L.secFundamentals],
-        ['health', L.secHealth], ['earnings', L.secEarnings], ['news', L.secNews],
-      ].filter(([id]) => document.getElementById('analysis-detail-' + id));
-      document.getElementById('stockAnalysisNav').innerHTML = detailLinks.map(([id, label]) =>
-        `<button type="button" onclick="jumpToStockDetail('${id}')">${label}</button>`).join('');
+      window.KairosCore?.mountStock(d);
 
       // ============================================================
       // Chart prix + superposition insiders — ENCAPSULÉ dans un closure
@@ -23920,29 +23928,28 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     let isAdminUser = false;
 
     async function checkAdminStatus() {
-      if (!currentUser) { isAdminUser = false; return false; }
+      const wasAdmin = isAdminUser;
+      isAdminUser = false;
       try {
-        const token = await currentUser.getIdToken();
-        const res = await fetch(`${API_BASE}/api/admin/whoami`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (!res.ok) { isAdminUser = false; return false; }
+        if (!currentUser) return false;
+        const identity = currentUser;
+        const token = await identity.getIdToken();
+        const res = await fetch(API_BASE + '/api/admin/whoami', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok || currentUser !== identity) return false;
         const data = await res.json();
-        isAdminUser = !!data.isAdmin;
-        // Le statut admin arrive souvent APRÈS checkSubscription -> il faut
-        // re-appliquer l'override (accès complet) + rafraîchir le gating + badge.
+        isAdminUser = currentUser === identity && data.isAdmin === true && data.emailVerified === true && String(data.email).toLowerCase() === 'natquinson@gmail.com';
         if (isAdminUser) {
           applyAdminPlanOverride();
-          try { if (typeof updatePremiumUI === 'function') updatePremiumUI(); } catch (e) {}
-          try { if (typeof renderCockpitHeader === 'function') renderCockpitHeader(); } catch (e) {}
+          try { updatePremiumUI(); renderCockpitHeader(); } catch (e) {}
         }
-        // Affiche la section sidebar "Admin" si admin
-        const el = document.getElementById('sidebarAdminSection');
-        if (el) el.style.display = isAdminUser ? '' : 'none';
         return isAdminUser;
-      } catch (e) {
-        isAdminUser = false;
-        return false;
+      } catch (e) { isAdminUser = false; return false; }
+      finally {
+        const menu = document.getElementById('sidebarAdminSection');
+        if (menu) menu.style.display = isAdminUser ? '' : 'none';
+        const section = document.getElementById('section-admin');
+        if (section) section.dataset.access = isAdminUser ? 'verified' : 'denied';
+        if (isAdminUser !== wasAdmin) window.dispatchEvent(new CustomEvent('kairos:admin-access', { detail: { allowed: isAdminUser } }));
       }
     }
 
@@ -24014,8 +24021,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       if (!isAdminUser) {
         await checkAdminStatus();
         if (!isAdminUser) {
-          Toast.error('Accès admin refusé.');
-          switchSection('home');
+          Toast.error(t('core.admin.denied', 'Accès réservé au compte administrateur vérifié.'));
           return;
         }
       }

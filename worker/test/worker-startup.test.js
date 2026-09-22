@@ -20,6 +20,12 @@ test('bundled Worker loads shared browser helpers and serves a preflight without
     );
     assert.equal(response.status, 200);
     assert.match(response.headers.get('Access-Control-Allow-Methods'), /GET/);
+    for (const endpoint of ['whoami', 'users', 'score-weights']) {
+      const denied = await module.default.fetch(
+        new Request('https://local.invalid/api/admin/' + endpoint), {}, {},
+      );
+      assert.ok([401, 403].includes(denied.status), `Anonymous ${endpoint} must be denied`);
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
