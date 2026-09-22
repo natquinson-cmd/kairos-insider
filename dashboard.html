@@ -25276,12 +25276,11 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       };
 
       // Helper : renvoie un badge HTML compact ✓ OK / ✕ FAILED / ⚠ STALE
-      const STALE_THRESHOLD_MS = 48 * 3600 * 1000;
-      const renderBadge = (lr) => {
+      const renderBadge = (lr, maxAgeSeconds = 48 * 3600) => {
         const baseStyle = 'display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:11px;font-size:10.5px;font-weight:700;letter-spacing:0.03em;white-space:nowrap';
         if (!lr || !lr.ts) return `<span style="${baseStyle};background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border)">— PENDING</span>`;
         const lastTs = lr.ts * 1000;
-        const stale = (now - lastTs) > STALE_THRESHOLD_MS;
+        const stale = (now - lastTs) > maxAgeSeconds * 1000;
         if (lr.status === 'failed') return `<span style="${baseStyle};background:rgba(239,68,68,0.18);color:#EF4444;border:1px solid rgba(239,68,68,0.35)">✕ FAILED</span>`;
         if (lr.status === 'partial') return `<span style="${baseStyle};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">◐ PARTIAL</span>`;
         if (stale) return `<span style="${baseStyle};background:rgba(245,158,11,0.18);color:#F59E0B;border:1px solid rgba(245,158,11,0.3)">⚠ STALE</span>`;
@@ -25406,7 +25405,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
             <div style="position:relative;height:30px;background:rgba(255,255,255,0.02);border-radius:4px;border:1px solid var(--divider)">
               ${segments}
             </div>
-            <div style="text-align:center">${renderBadge(j.lastRun)}</div>
+            <div style="text-align:center">${renderBadge(j.lastRun, j.maxAgeSeconds)}</div>
             <div style="font-size:11px;color:var(--text-muted);text-align:right">${fmtSummary(j.lastRun)}</div>
             <div style="text-align:right">${runBtn}</div>
           </div>
@@ -25427,7 +25426,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
           </div>
           <div style="padding:14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;text-align:center">
             <div style="font-size:24px;font-weight:700;color:#F59E0B;line-height:1">${h.stale || 0}</div>
-            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">Stale (&gt;48h)</div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">${getLang() === 'en' ? 'Overdue' : 'En retard'}</div>
           </div>
           <div style="padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;text-align:center">
             <div style="font-size:24px;font-weight:700;color:var(--text-muted);line-height:1">${h.pending || 0}</div>

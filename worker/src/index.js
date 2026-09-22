@@ -17,6 +17,7 @@ import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 import { partitionThresholdFilings } from './threshold_provenance.js';
 import { canonicalizeFundIdentity } from './fund-identity.js';
 import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
+import { maxJobAgeSeconds, jobState } from './job-freshness.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
 const { formatDividendYield, insiderKind } = analysisPresentation;
@@ -15480,6 +15481,7 @@ async function handleAdminJobsTimeline(request, env, origin) {
       id: def.id,
       name: def.name,
       cron: def.cron,
+      maxAgeSeconds: maxJobAgeSeconds(def.id),
       cronDisabled: !!def.cronDisabled,
       type: def.type,
       workflowFile: def.workflowFile,
@@ -15497,17 +15499,14 @@ async function handleAdminJobsTimeline(request, env, origin) {
   // FAILED : lastRun.status === 'failed'
   // OK : lastRun.status === 'ok'
   // PENDING : pas de lastRun (jamais tourne ou KV pas peuple)
-  const STALE_THRESHOLD_SEC = 48 * 3600;
   const nowSec = Math.floor(now.getTime() / 1000);
   let healthOk = 0, healthFailed = 0, healthStale = 0, healthPending = 0;
   for (const j of jobs) {
-    if (j.cronDisabled) continue;  // workflows manuel only -> pas compte
-    const lr = j.lastRun;
-    if (!lr || !lr.ts) { healthPending++; continue; }
-    const ageSec = nowSec - lr.ts;
-    if (lr.status === 'failed') healthFailed++;
-    else if (ageSec > STALE_THRESHOLD_SEC) healthStale++;
-    else if (lr.status === 'ok') healthOk++;
+    const state = jobState(j, nowSec);
+    if (state === 'manual') continue;
+    if (state === 'failed') healthFailed++;
+    else if (state === 'stale') healthStale++;
+    else if (state === 'ok') healthOk++;
     else healthPending++;
   }
   return jsonResponse({
