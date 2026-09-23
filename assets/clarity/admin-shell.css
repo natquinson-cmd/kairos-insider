@@ -1,0 +1,35 @@
+/* Approved Kairos visual language, scoped to the administration route. */
+.clarity-admin body.core-release{--bg-primary:#0b1222;--bg-secondary:#111d32;--bg-card:#15253c;--surface-1:#15253c;--surface-2:#1b2e49;--border:#30445f;--border-strong:#466080;--text-primary:#eff4ff;--text-secondary:#b1c6e3;--text-muted:#99afcc;--accent-blue:#83afff;--accent-green:#57ddba;background:#0b1222;color:#eff4ff;color-scheme:dark}
+.clarity-admin .core-release #sidebar{top:0!important;bottom:0;left:0;width:206px!important;padding:30px 16px 22px!important;background:#0d1729!important;border-right:1px solid #273650;z-index:110;transform:none;overflow-y:auto}
+#clarityAdminNavigation{display:none}.clarity-admin #clarityAdminNavigation{display:flex;flex-direction:column;min-height:calc(100dvh - 52px)}
+.clarity-admin #sidebar>:not(#clarityAdminNavigation){display:none!important}
+.clarity-admin .ca-brand{display:flex;align-items:center;gap:9px;color:#eff4ff;text-decoration:none;font:500 36px/.95 'Clash Display',Inter,sans-serif;margin:5px 0 46px}
+.clarity-admin .ca-brand img{width:44px;height:44px;flex-shrink:0}.clarity-admin .ca-brand small{display:block;font:9px Inter,sans-serif;letter-spacing:.4em;margin-top:12px;color:#a3b6d1}
+.clarity-admin .ca-navigation p{font-size:10px;color:#99afcc;margin:22px 6px 10px;line-height:1.5}
+.clarity-admin .ca-nav-item{display:flex;align-items:center;gap:12px;margin:4px -3px;padding:12px;border-radius:8px;color:#bed0e9;text-decoration:none;font:12px/1.5 Inter,sans-serif}
+.clarity-admin .ca-nav-item>span{width:16px;font-size:18px;text-align:center}.clarity-admin .ca-nav-item:hover{background:#182b46;color:#fff}.clarity-admin .ca-nav-item.is-active{background:#253e60;color:#fff}
+.clarity-admin .ca-sidebar-foot{margin-top:auto;padding:40px 8px 0;font-size:11px;color:#cad8ed}.clarity-admin .ca-sidebar-foot small{display:block;font-size:10px;color:#99afcc;margin-top:4px}
+.clarity-admin .core-release>nav{left:206px;top:26px;height:76px;padding:0;background:#0d1729;border-color:#273650;backdrop-filter:none}
+.clarity-admin .nav-container{height:100%;max-width:none;padding:0 32px;gap:12px}.clarity-admin body>nav .logo,.clarity-admin #navThemeBtn,.clarity-admin #navSupportBtn{display:none!important}
+#clarityAdminContext{display:none}.clarity-admin #clarityAdminContext{display:block;margin-right:auto;font-size:13px;color:#b1c6e3}
+.clarity-admin #clarityAdminContext{display:none}.clarity-admin .nav-container.has-compact-search{position:relative}.clarity-admin .core-release>nav{height:64px}.clarity-admin .core-release .dashboard-layout{padding-top:90px!important}
+.clarity-admin .compact-search-panel a{display:flex;justify-content:space-between;gap:16px;padding:12px 4px;color:#c2d5ed;border-bottom:1px solid #30445f;font:12px Inter,sans-serif;text-decoration:none}.clarity-admin .compact-search-panel a:hover{background:#253e60}.clarity-admin .compact-search-panel small{white-space:nowrap}
+.clarity-admin .core-release .ticker-tape{left:206px;background:#111d32;border-color:#273650}.clarity-admin .core-release .dashboard-layout{padding-top:102px!important}
+.clarity-admin .core-release .main,.clarity-admin .sidebar.collapsed+.main{margin-left:206px!important;padding:32px 36px 48px;min-width:0;max-width:calc(100% - 206px)}
+.clarity-admin .core-release .main>.container{max-width:1440px;margin:auto}.clarity-admin .core-search-header{display:none}
+.clarity-admin #section-admin>div:first-child{gap:12px!important;margin-bottom:12px!important}.clarity-admin #section-admin>div:first-child h2{font:500 32px/1.15 'Clash Display',Inter,sans-serif;letter-spacing:-.035em}
+.clarity-admin #section-admin .section-desc{font-size:12px;color:#b1c6e3;margin-bottom:24px}
+.clarity-admin #core-admin-tabs{display:flex;flex-wrap:wrap;gap:0 25px;border-bottom:1px solid #30445f;margin:0 0 24px;padding:0;background:none}
+.clarity-admin #core-admin-tabs button{font:500 12px/1.5 Inter,sans-serif;color:#b1c6e3;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:12px 0;margin:0;box-shadow:none}
+.clarity-admin #core-admin-tabs button[aria-selected=true]{color:#fff;border-bottom-color:#83afff;background:none}
+.clarity-admin .ca-kpis{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px!important;margin-bottom:20px!important}
+.clarity-admin .ca-kpis>div{padding:16px!important;border:1px solid #30445f!important;border-radius:10px!important;background:#15253c!important;min-width:0}
+.clarity-admin .ca-kpis>div>div:first-child{font-size:11px!important;text-transform:none!important;letter-spacing:0!important;color:#b1c6e3!important}.clarity-admin .ca-kpis>div>div:nth-child(2){font-size:28px!important;line-height:1.25;margin:10px 0 6px!important;font-weight:600!important}
+.clarity-admin #section-admin .ca-panel-card{background:#111d32!important;border:1px solid #30445f!important;border-radius:12px!important;padding:20px!important}
+.clarity-admin #section-admin h3{font:500 18px/1.4 'Clash Display',Inter,sans-serif;letter-spacing:-.02em;color:#eff4ff}
+.clarity-admin #section-admin button,.clarity-admin #section-admin select,.clarity-admin #section-admin input{font-family:Inter,sans-serif}.clarity-admin #section-admin button{box-shadow:none}.clarity-admin #section-admin th{color:#b1c6e3}.clarity-admin #section-admin td{padding-top:10px!important;padding-bottom:10px!important}
+.clarity-admin #section-admin button:focus-visible,.clarity-admin #section-admin input:focus-visible,.clarity-admin #section-admin select:focus-visible,.clarity-admin .ca-nav-item:focus-visible,.clarity-admin .ca-brand:focus-visible{outline:2px solid #57ddba;outline-offset:3px}
+.clarity-admin .core-panel{animation:none}.clarity-admin .core-admin-access{margin-top:16px;color:#b1c6e3}.clarity-admin .core-admin-access button{margin-top:15px;background:#253e60;color:#eff4ff;padding:10px 16px;border:1px solid #466080;border-radius:7px}
+@media(max-width:1100px){.clarity-admin .ca-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}.clarity-admin .core-release .main{padding:26px 24px 40px}}
+@media(max-width:900px){.clarity-admin .core-release #sidebar{top:102px!important;z-index:900;transform:translateX(-100%);width:240px!important}.clarity-admin .core-release #sidebar.open{transform:translateX(0)}.clarity-admin #clarityAdminNavigation{min-height:calc(100dvh - 154px)}.clarity-admin .core-release>nav,.clarity-admin .core-release .ticker-tape{left:0}.clarity-admin .core-release .main,.clarity-admin .sidebar.collapsed+.main{margin-left:0!important;max-width:100%;width:100%;padding:24px 18px}.clarity-admin .nav-container{padding:0 18px}.clarity-admin .ca-brand{margin-bottom:24px}.clarity-admin #section-admin>div:first-child h2{font-size:28px}}
+@media(max-width:560px){.clarity-admin .ca-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}.clarity-admin #core-admin-tabs{gap:0 18px}.clarity-admin #section-admin .ca-panel-card{padding:14px!important}.clarity-admin #section-admin>div:first-child h2{flex-basis:100%}.clarity-admin #section-admin>div:first-child label{margin-left:0!important}.clarity-admin .ca-kpis>div{padding:13px!important}}

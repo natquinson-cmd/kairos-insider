@@ -1,0 +1,17 @@
+.has-compact-search.topbar{min-height:64px;padding:12px 32px;gap:16px;flex-wrap:nowrap}
+.compact-search-slot{display:flex;align-items:center;min-width:0;max-width:65%;gap:4px;margin-right:auto}
+.compact-search-trigger{display:flex;align-items:center;gap:30px;padding:9px 12px;border:1px solid #344b69;border-radius:7px;background:#15243b;color:#c2d5ed;font:12px/1.5 Inter,sans-serif;cursor:pointer;min-width:0}
+.compact-search-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}.compact-search-trigger>span:before{content:'⌕';margin-right:9px;font-size:17px;line-height:1}
+.compact-search-trigger kbd{font:10px Inter,sans-serif;white-space:nowrap;color:#a7bcd8;border:1px solid #3b516f;border-radius:3px;padding:1px 4px}
+.compact-search-trigger:hover{border-color:#83afff;color:#fff}.compact-search-clear,.compact-search-close{background:transparent;border:0;color:#c2d5ed;font:22px/1 Inter,sans-serif;cursor:pointer;padding:8px}
+.compact-search-trigger:focus-visible,.compact-search-clear:focus-visible,.compact-search-close:focus-visible{outline:2px solid #57ddba;outline-offset:3px}
+.has-compact-search .search-wrap.compact-search-panel{position:absolute;left:32px;top:calc(100% - 1px);width:min(720px,calc(100% - 64px));max-width:none;padding:20px;background:#15243b;border:1px solid #466080;border-radius:0 0 10px 10px;box-shadow:0 18px 35px #02081580;z-index:50;animation:compact-search-open .16s ease-out}
+.compact-search-panel[hidden],.compact-search-clear[hidden]{display:none!important}
+.compact-search-panel>label{display:block;color:#afc5e3;font:12px/1.5 Inter,sans-serif;margin:0 30px 10px 0}
+.compact-search-panel .search-field{display:flex;align-items:center;gap:10px;border:1px solid #49658a;border-radius:7px;background:#0f1d32;padding:0 12px}
+.compact-search-panel .search-field input{width:100%;min-width:0;height:42px;background:none;border:0;color:#eff4ff;font:13px Inter,sans-serif;outline-offset:2px}.compact-search-panel .search-field>kbd{display:none}
+.compact-search-panel .search-popup{position:relative;top:auto;left:auto;right:auto;width:100%;max-height:min(460px,65dvh);overflow:auto;margin-top:10px;box-shadow:none;border:0;padding:0;background:none}
+.compact-search-close{position:absolute;right:8px;top:8px}.compact-search-panel ul{list-style:none;padding:0;margin:0}
+@keyframes compact-search-open{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@media(max-width:720px){.has-compact-search.topbar{padding:10px 16px;min-height:60px}.has-compact-search .search-wrap.compact-search-panel{left:12px;width:calc(100% - 24px);padding:16px}.compact-search-trigger{gap:12px}.compact-search-trigger kbd{display:none}.compact-search-slot{max-width:55%}}
+@media(prefers-reduced-motion:reduce){.has-compact-search .compact-search-panel{animation:none}}

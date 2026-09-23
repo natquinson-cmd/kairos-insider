@@ -1,0 +1,24 @@
+/* Keep the results above the fold without shrinking their text. */
+body[data-screen="market"] #marketMain{padding-top:24px;padding-bottom:32px}
+body[data-screen="market"] .screener-heading{padding:0 0 12px}
+body[data-screen="market"] .screen-eyebrow{display:none}
+body[data-screen="market"] .screener-heading h1{font-size:32px;line-height:1.2;margin:0 0 8px}
+body[data-screen="market"] .screen-subtitle{line-height:1.55;max-width:850px;margin:0}
+body[data-screen="market"] .live-market-tabs{margin-top:0;gap:22px}
+body[data-screen="market"] .live-market-tabs a{padding:11px 2px}
+body[data-screen="market"] .live-controls{margin:16px 0 10px}
+body[data-screen="market"] #marketStats .live-stat-grid{display:flex;flex-wrap:wrap;align-items:center;gap:12px 26px;margin:12px 0 8px;padding:9px 0;border-bottom:1px solid #273b55}
+body[data-screen="market"] #marketStats .live-stat{display:flex;align-items:baseline;gap:9px;padding:0;border:0;border-radius:0;background:none}
+body[data-screen="market"] #marketStats .live-stat strong{font-size:19px;margin:0;order:-1}
+body[data-screen="market"] #marketStats .live-stat small{font-size:12px}
+body[data-screen="market"] #marketStats .live-stat:last-child{margin-left:auto}
+body[data-screen="market"] #marketStats .live-stat:last-child small{display:none}
+body[data-screen="market"] #marketStats .live-stat:last-child strong{font-size:11px;font-weight:400;color:#a4b6d1}
+body[data-screen="market"] #marketResults .live-table td{padding-top:10px;padding-bottom:10px}
+/* Numeric headings follow the same alignment as the values below them. */
+body[data-screen="market"] .live-table:has(tbody tr td:nth-child(2).number) th:nth-child(2),
+body[data-screen="market"] .live-table:has(tbody tr td:nth-child(3).number) th:nth-child(3),
+body[data-screen="market"] .live-table:has(tbody tr td:nth-child(4).number) th:nth-child(4),
+body[data-screen="market"] .live-table:has(tbody tr td:nth-child(5).number) th:nth-child(5),
+body[data-screen="market"] .live-table:has(tbody tr td:nth-child(6).number) th:nth-child(6){text-align:right}
+@media(max-width:600px){body[data-screen="market"] #marketMain{padding-top:18px}body[data-screen="market"] .screener-heading h1{font-size:28px}body[data-screen="market"] #marketStats .live-stat-grid{gap:8px 18px}body[data-screen="market"] #marketStats .live-stat:last-child{margin-left:0}}
