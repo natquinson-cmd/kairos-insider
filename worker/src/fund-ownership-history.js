@@ -29,7 +29,7 @@ export async function readFundOwnershipHistory(env,ticker,normalizeName){
  const candidates=await env.HISTORY.prepare('SELECT DISTINCT cusip, name, ticker FROM fund_holdings_history WHERE ticker = ? OR UPPER(name) LIKE ? LIMIT 200').bind(ticker,prefix+'%').all();
  const matching=(candidates.results||[]).filter(r=>r.ticker===ticker||!r.ticker&&normalizeName(r.name)===name);
  const securities=[...new Set(matching.map(r=>r.cusip).filter(validCusip))];
- if(securities.length!==1)return empty(securities.length?'ambiguous-security':'unknown-security');
+ if(securities.length!==1)return {...empty(securities.length?'ambiguous-security':'unknown-security'),securities:securities.map(cusip=>({cusip,names:[...new Set(matching.filter(row=>row.cusip===cusip).map(row=>row.name))]}))};
  const result=await env.HISTORY.prepare(`SELECT report_date, cik, shares FROM fund_holdings_history WHERE cusip = ? AND cik IN (${ids.map(()=>'?').join(',')}) AND report_date >= date('now', '-2 years') AND report_date <= date('now') ORDER BY report_date ASC`).bind(securities[0],...ids).all();
  return {ticker,...comparableHistory(result.results||[],ids.length),basis:'reported-shares',coverage:'observed-positions-same-funds',splitAdjusted:false};
 }
