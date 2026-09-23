@@ -15,6 +15,7 @@ pairs.push(
 );
 pairs.push(['Critère rempli','Criterion met'],['Critère non rempli','Criterion not met'],['Score Altman Z','Altman Z score'],['Score Piotroski F','Piotroski F score'],['Le nombre total d’avis est indisponible.','The total number of ratings is unavailable.']);
 const dictionary=new Map(pairs);
+dictionary.set('Mon compte','My account');
 dictionary.set('Lorsque les scores Altman et Piotroski sont absents, ces critères alimentent l’axe Santé du radar. La pondération reste celle du score Kairos.','When Altman and Piotroski scores are unavailable, these criteria feed the radar’s Health axis. The Kairos score weighting is preserved.');
 dictionary.set('ROA positif','Positive return on assets');
 dictionary.set('ROE positif','Positive return on equity');
