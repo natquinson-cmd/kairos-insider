@@ -61,9 +61,32 @@ const format=(value,digits=2)=>window.KairosAdapter.number(value)==null?'—':Nu
 const quoteDate=p=>p?.regularMarketTime?t('Cours du ','Price as of ')+new Date(p.regularMarketTime*1000).toLocaleString(lang==='en'?'en-US':'fr-FR'):t('Dernier cours disponible','Latest available price');
 async function getAccount(){await ready;return user?{email:user.email,displayName:user.displayName,emailVerified:user.emailVerified,createdAt:user.metadata?.creationTime,lastSignInAt:user.metadata?.lastSignInTime}:null;}
 async function updateDisplayName(name){await ready;const value=String(name||'').trim();if(!user||!value||value.length>100)throw new Error(t('Nom invalide.','Invalid name.'));await updateProfile(user,{displayName:value});}
-window.KairosUI={api,lang,t,esc,format,openStock,stockUrl,share,search,renderSearch,showError,quoteDate,getAccount,updateDisplayName,login,translate(){window.KairosLiveTranslate?.();}};
+let watchClientPromise;
+async function watchlist(){
+  await ready;if(!user)throw new Error(t('Connectez-vous pour retrouver votre watchlist.','Sign in to access your watchlist.'));
+  if(!watchClientPromise)watchClientPromise=(async()=>{
+    await loadScript('assets/clarity/watchlist-client.js?v=live7');
+    async function database(){const sdk=await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');return {sdk,ref:sdk.ref(sdk.getDatabase(app),`users/${user.uid}/watchlist`)};}
+    return window.KairosWatchlistClient.create({api,readLegacy:async()=>{const d=await database();const snapshot=await d.sdk.get(d.ref);return snapshot.exists()?snapshot.val():null;},mirror:async payload=>{const {sendConfirmation,...record}=payload;const d=await database();await d.sdk.update(d.ref,{...record,updatedAt:Date.now()});}});
+  })().catch(error=>{watchClientPromise=null;throw error;});
+  return watchClientPromise;
+}
+async function mountWatchButton(symbol){
+  const shareButton=document.getElementById('followButton');if(!shareButton)return;
+  const button=document.createElement('button');button.className='secondary watch-stock-button';button.id='watchStockButton';button.type='button';button.textContent=t('☆ Suivre','☆ Follow');button.disabled=true;button.setAttribute('aria-pressed','false');shareButton.before(button);
+  const status=document.createElement('p');status.className='watch-stock-status';status.setAttribute('role','status');status.hidden=true;shareButton.closest('.company-header').after(status);
+  const message=text=>{status.hidden=false;status.textContent=text;};
+  if(!user){button.disabled=false;button.onclick=login;return;}
+  let client,saved,access;
+  const refresh=()=>{const followed=saved?.tickers.includes(symbol);button.textContent=followed?t('★ Suivie','★ Following'):t('☆ Suivre','☆ Follow');button.setAttribute('aria-pressed',String(!!followed));button.setAttribute('aria-label',followed?t('Retirer '+symbol+' de ma watchlist','Remove '+symbol+' from my watchlist'):t('Suivre '+symbol,'Follow '+symbol));};
+  async function initialize(){try{button.disabled=true;access=await api('/stripe/status');if(typeof access.entitled!=='boolean')throw Error(t('Accès indisponible. Réessayez.','Access unavailable. Please retry.'));client=await watchlist();saved=await client.load();refresh();button.disabled=false;}catch(error){message(error.message);button.disabled=false;button.textContent=t('Réessayer la watchlist','Retry watchlist');client=null;}}
+  button.onclick=async()=>{if(!client){await initialize();return;}if(!access.entitled){location.href='watchlist.html?lang='+lang;return;}button.disabled=true;try{const wasFollowed=saved.tickers.includes(symbol);saved=await(wasFollowed?client.remove(symbol):client.add(symbol));refresh();message(wasFollowed?t(symbol+' retirée de votre watchlist.',symbol+' removed from your watchlist.'):t(symbol+' ajoutée. Réglez vos canaux dans Ma watchlist pour recevoir les alertes.',symbol+' added. Set up your channels in My watchlist to receive alerts.'));const a=document.createElement('a');a.href='watchlist.html?lang='+lang;a.textContent=t(' Ouvrir ma watchlist →',' Open my watchlist →');status.append(a);}catch(error){message(error.message);}finally{button.disabled=false;}};
+  await initialize();
+}
+window.KairosUI={api,lang,t,esc,format,openStock,stockUrl,share,search,renderSearch,showError,quoteDate,getAccount,updateDisplayName,login,watchlist,translate(){window.KairosLiveTranslate?.();}};
 document.documentElement.lang=lang;
-document.querySelectorAll('a[href^="insiders.html"],a[href="dashboard.html"],a[href="account.html"]').forEach(a=>{const u=new URL(a.href);u.searchParams.set('lang',lang);a.href=u.pathname.split('/').at(-1)+u.search;});
+document.querySelectorAll('a[href^="insiders.html"],a[href="dashboard.html"],a[href="account.html"],a[href="watchlist.html"]').forEach(a=>{const u=new URL(a.href);u.searchParams.set('lang',lang);a.href=u.pathname.split('/').at(-1)+u.search;});
+for(const nav of document.querySelectorAll('.sidebar nav,.live-mobile-nav')){if(!nav.querySelector('a[href^="watchlist.html"]')){const link=document.createElement('a');link.href='watchlist.html?lang='+lang;link.textContent=t('☆ Ma watchlist','☆ My watchlist');link.className=nav.classList.contains('live-mobile-nav')?'':'nav-item';if(nav.classList.contains('live-mobile-nav'))nav.append(link);else nav.insertBefore(link,nav.querySelector('.nav-item')?.nextSibling||null);}}
 const header=document.querySelector('.topbar'),controls=document.createElement('div');controls.className='live-account';controls.innerHTML=`<button class="text-button" data-lang>${lang==='fr'?'EN':'FR'}</button><button class="secondary" data-account>${t('Se connecter','Sign in')}</button>`;header.append(controls);
 controls.querySelector('[data-lang]').onclick=()=>{const u=new URL(location.href);u.searchParams.set('lang',lang==='fr'?'en':'fr');location.href=u.href;};controls.querySelector('[data-account]').onclick=login;
 document.querySelector('.sidebar-foot').innerHTML=`<span class="avatar">K</span><div>Kairos Insider<small>${t('Votre espace de recherche','Your research workspace')}</small></div>`;
@@ -72,18 +95,20 @@ onAuthStateChanged(auth,async next=>{const previous=user;user=next;readyResolve(
     try{const who=await api('/api/admin/whoami');if(who.isAdmin===true&&who.emailVerified===true&&who.email?.toLowerCase()==='natquinson@gmail.com'&&auth.currentUser?.uid===next.uid){const a=document.createElement('a');a.className='nav-item';a.href='admin.html?lang='+lang;a.textContent=t('⚙ Administration','⚙ Administration');document.querySelector('.sidebar nav').append(a);}}catch{/* Server denial is expected for non-admin accounts. */}}
 });
 initializeStockSearch();
-await loadScript('assets/clarity/live-i18n.js?v=live6');
+await loadScript('assets/clarity/live-i18n.js?v=live7');
 async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items||d.signals||[]).map(x=>({ticker:x.ticker,company:x.company||x.ticker,label:x.label||'',detail:x.value||'',tone:x.color==='red'?'sell':'buy'}));window.KairosTicker.mount(document.getElementById('signalTicker'),{items,labels:{region:t('Signaux Kairos','Kairos signals'),title:t('Le fil Kairos','Kairos signals'),demo:t('Déclarations','Filings'),empty:t('Aucun signal récent.','No recent signals.')},onSelect:item=>openStock(item.ticker)});}catch{document.getElementById('signalTicker').textContent=t('Le fil des déclarations est temporairement indisponible.','The filing feed is temporarily unavailable.');}}
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live6');}
-else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live6');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live7');}
+else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
+else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/live-watchlist.js?v=live7');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
   if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
-  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live6');await loadScript('assets/clarity/live-stock-views.js?v=live6');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live6');window.KairosUI.translate();
+  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/live-stock-views.js?v=live7');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live7');window.KairosUI.translate();
+    mountWatchButton(d.ticker).catch(()=>{});
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});
   }catch(error){showError(status,error);}
 }

@@ -4,7 +4,7 @@ const query=new URLSearchParams(location.search),lang=(query.get('lang')||window
 // Remember the billing flow now so its checkout/portal timers can finish.
 let billingFlow=['plan','billing','checkout'].some(key=>query.has(key))||document.documentElement.classList.contains('pending-checkout');
 try{billingFlow=billingFlow||!!localStorage.getItem('kairos_auto_checkout')||!!sessionStorage.getItem('kairos_reopen_paywall');}catch{}
-const redirectProfile=()=>{if(!billingFlow&&location.hash.split('?')[0]==='#profile'){location.replace('account.html?lang='+lang);return true;}return false;};
+const redirectProfile=()=>{if(!billingFlow&&['#profile','#watchlist','#alerts'].includes(location.hash.split('?')[0])){location.replace((location.hash.startsWith('#profile')?'account.html':'watchlist.html')+'?lang='+lang+(location.hash.startsWith('#alerts')?'#alerts':''));return true;}return false;};
 window.addEventListener('hashchange',redirectProfile);redirectProfile();
 window.addEventListener('kairos:auth-ready',()=>{
   if(redirectProfile())return;
@@ -14,5 +14,5 @@ window.addEventListener('kairos:auth-ready',()=>{
   if(symbol)destination.set('symbol',symbol);
   location.replace('dashboard.html?'+destination);
 });
-document.addEventListener('click',event=>{const button=event.target.closest('[data-section]');if(!button||button.dataset.section==='admin')return;const key=button.dataset.section;const routes={stockAnalysis:'dashboard.html',insider:'insiders.html',activists:'insiders.html?screen=activists','13f':'insiders.html?screen=funds'};if(routes[key]){event.preventDefault();event.stopImmediatePropagation();location.href=routes[key]+(routes[key].includes('?')?'&':'?')+'lang='+lang;}},true);
+document.addEventListener('click',event=>{const button=event.target.closest('[data-section]');if(!button||button.dataset.section==='admin')return;const key=button.dataset.section;const routes={watchlist:'watchlist.html',alerts:'watchlist.html#alerts',stockAnalysis:'dashboard.html',insider:'insiders.html',activists:'insiders.html?screen=activists','13f':'insiders.html?screen=funds'};if(routes[key]){event.preventDefault();event.stopImmediatePropagation();const route=new URL(routes[key],location.href);route.searchParams.set('lang',lang);location.href=route.href;}},true);
 })();
