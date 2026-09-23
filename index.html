@@ -29,7 +29,7 @@
   </script>
 
   <title>Kairos Insider — Comprenez les mouvements des investisseurs</title>
-  <meta name="description" content="Analysez vos actions, les transactions des dirigeants et les positions des grands fonds. Des données sourcées, en français. Gratuit ou Pro à 19 €/mois." />
+  <meta name="description" content="Analysez vos actions, les transactions des dirigeants et les positions des hedge funds. Des données sourcées, en français. Gratuit ou Pro à 19 €/mois." />
   <meta name="theme-color" content="#0A0F1E" />
 
   <!-- Favicon -->
@@ -43,7 +43,7 @@
   <!-- Open Graph -->
   <meta property="og:site_name" content="Kairos Insider" />
   <meta property="og:title" content="Kairos Insider - Voyez ce que les pros voient" />
-  <meta property="og:description" content="Analysez vos actions, les transactions des dirigeants et les positions des grands fonds. Des données sourcées, en français. Gratuit ou Pro à 19 €/mois." />
+  <meta property="og:description" content="Analysez vos actions, les transactions des dirigeants et les positions des hedge funds. Des données sourcées, en français. Gratuit ou Pro à 19 €/mois." />
   <meta property="og:image" content="https://kairosinsider.fr/assets/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
@@ -56,7 +56,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Kairos Insider - Voyez ce que les pros voient" />
-  <meta name="twitter:description" content="Analysez vos actions, les transactions des dirigeants et les positions des grands fonds. Des données sourcées, en français. Gratuit ou Pro à 19 €/mois." />
+  <meta name="twitter:description" content="Analysez vos actions, les transactions des dirigeants et les positions des hedge funds. Des données sourcées, en français. Gratuit ou Pro à 19 €/mois." />
   <meta name="twitter:image" content="https://kairosinsider.fr/assets/og-image.png" />
   <meta name="twitter:image:alt" content="Kairos Insider - Smart Money Intelligence FR" />
 
@@ -79,7 +79,7 @@
         "@id": "https://kairosinsider.fr/#website",
         "url": "https://kairosinsider.fr/",
         "name": "Kairos Insider",
-        "description": "Analyse des actions, transactions des dirigeants et positions des fonds, en français.",
+        "description": "Analyse des actions, transactions des dirigeants et positions des hedge funds, en français.",
         "publisher": { "@id": "https://kairosinsider.fr/#org" },
         "inLanguage": ["fr-FR", "en-US"],
         "potentialAction": {
@@ -110,7 +110,7 @@
   <!-- Tracker affiliate : capte ?ref= + genere visitorId. ~1KB, non-bloquant. -->
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
 
-  <script src="assets/landing-i18n.js?v=20260918"></script>
+  <script src="assets/landing-i18n.js?v=20260923-hedge"></script>
   <link rel="stylesheet" href="assets/landing.css?v=20260918-logos" />
   <link rel="preload" as="image" href="assets/screenshots/landing/analysis-aapl.jpg" />
   <script src="assets/landing.js?v=20260918" defer></script>
@@ -137,7 +137,7 @@
         <div class="hero-copy">
           <div class="hero-intro"><span data-i18n="lp.intro">L’investissement, avec plus de perspective.</span></div>
           <h1><span data-i18n="lp.headline">Les mouvements des pros. Enfin lisibles.</span></h1>
-          <p><span data-i18n="lp.hero_body">Dirigeants, grands fonds, ETF : croisez leurs mouvements avec les données de vos actions. Une vue claire, en français, pour nourrir votre propre analyse.</span></p>
+          <p><span data-i18n="lp.hero_body">Dirigeants, hedge funds, ETF : croisez leurs mouvements avec les données de vos actions. Une vue claire, en français, pour nourrir votre propre analyse.</span></p>
           <div class="hero-actions">
             <a class="button primary" href="dashboard.html?action=signup&amp;lang=fr"><span data-i18n="lp.try">Essayer gratuitement</span></a>
             <a class="button secondary" href="#features"><span data-i18n="lp.see_product">Découvrir le produit</span></a>
@@ -183,12 +183,12 @@
         <div class="demo-tabs" role="tablist" aria-label="Exemples de fonctionnalités" data-i18n-aria-label="lp.tabs_label">
           <button class="demo-tab" type="button" id="tab-analysis" role="tab" aria-controls="panel-analysis" aria-selected="true" tabindex="0" data-demo="analysis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5m0 14h16M8 14l4-5 4 3 4-7"/></svg><span data-i18n="lp.tab_analysis">Une action</span></button>
           <button class="demo-tab" type="button" id="tab-insiders" role="tab" aria-controls="panel-insiders" aria-selected="false" tabindex="-1" data-demo="insiders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v12m-4-4 4 4 4-4M17 21V9m-4 4 4-4 4 4"/></svg><span data-i18n="lp.tab_insiders">Les dirigeants</span></button>
-          <button class="demo-tab" type="button" id="tab-funds" role="tab" aria-controls="panel-funds" aria-selected="false" tabindex="-1" data-demo="funds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5M4 21h16M5 9h14M6 12v6m6-6v6m6-6v6"/></svg><span data-i18n="lp.tab_funds">Les grands fonds</span></button>
+          <button class="demo-tab" type="button" id="tab-funds" role="tab" aria-controls="panel-funds" aria-selected="false" tabindex="-1" data-demo="funds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5M4 21h16M5 9h14M6 12v6m6-6v6m6-6v6"/></svg><span data-i18n="lp.tab_funds">Les hedge funds</span></button>
         </div>
         <div class="demo-panel" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis" tabindex="0">
           <div class="demo-copy"><h3><span data-i18n="lp.analysis_title">Que se passe-t-il autour de cette action ?</span></h3>
-            <p><span data-i18n="lp.analysis_body">Rassemblez les mouvements des dirigeants, les positions des fonds et les fondamentaux. Le Kairos Score synthétise huit dimensions que vous pouvez examiner séparément.</span></p>
-            <div class="example"><strong><span data-i18n="lp.example">Par exemple</span></strong><p><span data-i18n="lp.analysis_example">Vous étudiez Apple : comparez le signal des dirigeants à celui des fonds, puis regardez la valorisation. Une seule note ne raconte pas toute l’histoire.</span></p></div>
+            <p><span data-i18n="lp.analysis_body">Rassemblez les mouvements des dirigeants, les positions des hedge funds et les fondamentaux. Le Kairos Score synthétise huit dimensions que vous pouvez examiner séparément.</span></p>
+            <div class="example"><strong><span data-i18n="lp.example">Par exemple</span></strong><p><span data-i18n="lp.analysis_example">Vous étudiez Apple : comparez le signal des dirigeants à celui des hedge funds, puis regardez la valorisation. Une seule note ne raconte pas toute l’histoire.</span></p></div>
             <a class="text-link" id="heroExampleCta" href="dashboard.html?lang=fr#stockAnalysis?t=AAPL"><span data-i18n="lp.open_apple">Ouvrir l’analyse Apple</span></a>
           </div>
           <figure class="demo-figure"><button type="button" class="screen-button" data-screenshot="analysis-aapl" data-i18n-aria-label="lp.zoom_analysis" aria-label="Agrandir la capture de l’analyse Apple"><img src="assets/screenshots/landing/analysis-aapl.jpg" width="1200" height="743" alt="Capture réelle de la fiche Apple : Kairos Score et détail des huit dimensions." data-i18n-alt="lp.analysis_alt" loading="lazy" /><span class="zoom-hint"><span data-i18n="lp.zoom">Agrandir la capture</span></span></button><figcaption><span data-i18n="lp.capture_date">Captures du 18 septembre 2026 · Données illustratives, non actualisées dans ces images.</span></figcaption></figure>
@@ -202,12 +202,12 @@
           <figure class="demo-figure"><button type="button" class="screen-button" data-screenshot="insider-transactions" aria-label="Agrandir la capture des transactions" data-i18n-aria-label="lp.zoom_insiders"><img src="assets/screenshots/landing/insider-transactions.jpg" width="1208" height="675" alt="Capture réelle des achats déclarés par les dirigeants, filtrés sur 30 jours." data-i18n-alt="lp.insiders_alt" loading="lazy" /><span class="zoom-hint"><span data-i18n="lp.zoom">Agrandir la capture</span></span></button><figcaption><span data-i18n="lp.capture_date">Captures du 18 septembre 2026 · Données illustratives, non actualisées dans ces images.</span></figcaption></figure>
         </div>
         <div class="demo-panel" id="panel-funds" role="tabpanel" aria-labelledby="tab-funds" tabindex="0" hidden>
-          <div class="demo-copy"><h3><span data-i18n="lp.funds_title">Dans quelles entreprises les fonds investissent-ils ?</span></h3>
-            <p><span data-i18n="lp.funds_body">Explorez les portefeuilles déclarés, leurs principales positions et leur évolution. Comparez les fonds pour enrichir vos pistes de recherche.</span></p>
-            <div class="example"><strong><span data-i18n="lp.example">Par exemple</span></strong><p><span data-i18n="lp.funds_example">Ouvrez un fonds comme Berkshire Hathaway pour étudier ses positions. Vérifiez le trimestre du dépôt : une déclaration 13F décrit un portefeuille passé, pas un achat en direct.</span></p></div>
-            <a class="text-link" href="dashboard.html?lang=fr#13f"><span data-i18n="lp.open_funds">Explorer les fonds avec Pro</span></a>
+          <div class="demo-copy"><h3><span data-i18n="lp.funds_title">Dans quelles entreprises les hedge funds investissent-ils ?</span></h3>
+            <p><span data-i18n="lp.funds_body">Explorez les portefeuilles déclarés, leurs principales positions et leur évolution. Comparez les hedge funds pour enrichir vos pistes de recherche.</span></p>
+            <div class="example"><strong><span data-i18n="lp.example">Par exemple</span></strong><p><span data-i18n="lp.funds_example">Ouvrez le portefeuille de Berkshire Hathaway pour étudier ses positions. Vérifiez le trimestre du dépôt : une déclaration 13F décrit un portefeuille passé, pas un achat en direct.</span></p></div>
+            <a class="text-link" href="dashboard.html?lang=fr#13f"><span data-i18n="lp.open_funds">Explorer les hedge funds avec Pro</span></a>
           </div>
-          <figure class="demo-figure"><button type="button" class="screen-button" data-screenshot="fund-portfolios" aria-label="Agrandir la capture des portefeuilles de fonds" data-i18n-aria-label="lp.zoom_funds"><img src="assets/screenshots/landing/fund-portfolios.jpg" width="1200" height="740" alt="Capture réelle de la vue des fonds et de leurs portefeuilles déclarés." data-i18n-alt="lp.funds_alt" loading="lazy" /><span class="zoom-hint"><span data-i18n="lp.zoom">Agrandir la capture</span></span></button><figcaption><span data-i18n="lp.capture_date">Captures du 18 septembre 2026 · Données illustratives, non actualisées dans ces images.</span></figcaption></figure>
+          <figure class="demo-figure"><button type="button" class="screen-button" data-screenshot="fund-portfolios" aria-label="Agrandir la capture des portefeuilles de hedge funds" data-i18n-aria-label="lp.zoom_funds"><img src="assets/screenshots/landing/fund-portfolios.jpg" width="1200" height="740" alt="Capture réelle de la vue des hedge funds et de leurs portefeuilles déclarés." data-i18n-alt="lp.funds_alt" loading="lazy" /><span class="zoom-hint"><span data-i18n="lp.zoom">Agrandir la capture</span></span></button><figcaption><span data-i18n="lp.capture_date">Captures du 18 septembre 2026 · Données illustratives, non actualisées dans ces images.</span></figcaption></figure>
         </div>
       </div>
     </section>
@@ -234,7 +234,7 @@
             <a class="button secondary" href="dashboard.html?action=signup&amp;lang=fr"><span data-i18n="lp.free_cta">Créer mon compte gratuit</span></a>
           </article>
           <article class="price-card pro"><div class="plan-title"><h3>Pro</h3><span class="plan-tag"><span data-i18n="lp.pro_tag">Pour aller plus loin</span></span></div><p class="plan-description"><span data-i18n="lp.pro_desc">Les données et le suivi, au même endroit.</span></p><div class="price" aria-live="polite"><strong id="proAmount">19 €</strong><span id="proPeriod">/ mois</span></div><p class="price-subline" id="proSubline"><span data-i18n="lp.pro_monthly_note">Facturé chaque mois. Renouvellement résiliable à tout moment.</span></p>
-            <ul><li><span data-i18n="lp.pro_1">Toutes les fonctions gratuites, sans la limite de 4 analyses</span></li><li><span data-i18n="lp.pro_2">Transactions des dirigeants et convergences d’achats</span></li><li><span data-i18n="lp.pro_3">Portefeuilles des fonds et consensus</span></li><li><span data-i18n="lp.pro_4">Positions des ETF thématiques</span></li><li><span data-i18n="lp.pro_5">Watchlist, brief email quotidien et alertes Telegram</span></li></ul>
+            <ul><li><span data-i18n="lp.pro_1">Toutes les fonctions gratuites, sans la limite de 4 analyses</span></li><li><span data-i18n="lp.pro_2">Transactions des dirigeants et convergences d’achats</span></li><li><span data-i18n="lp.pro_3">Portefeuilles des hedge funds et consensus</span></li><li><span data-i18n="lp.pro_4">Positions des ETF thématiques</span></li><li><span data-i18n="lp.pro_5">Watchlist, brief email quotidien et alertes Telegram</span></li></ul>
             <a class="button primary" href="dashboard.html?plan=pro&amp;billing=monthly&amp;lang=fr" id="proCta"><span data-i18n="lp.pro_monthly_cta">Choisir Pro · 19 €/mois</span></a>
           </article>
         </div>
@@ -243,7 +243,7 @@
     </section>
     <section class="section faq-section" id="faq"><div class="container faq-grid"><h2><span data-i18n="lp.faq_title">Avant de vous lancer.</span></h2><div class="faq-list">
       <details><summary><span data-i18n="lp.faq1_q">À qui s’adresse Kairos ?</span></summary><p><span data-i18n="lp.faq1_a">Aux investisseurs qui souhaitent comprendre les entreprises qu’ils suivent et gagner du temps dans leurs recherches. Kairos rassemble les informations ; vous gardez la main sur votre analyse et vos décisions.</span></p></details>
-      <details><summary><span data-i18n="lp.faq2_q">Que puis-je essayer gratuitement ?</span></summary><p><span data-i18n="lp.faq2_a">Vous pouvez effectuer 4 analyses complètes par jour, consulter les indicateurs de marché et importer votre portefeuille par CSV. Pro débloque les analyses sans cette limite, les vues détaillées des dirigeants et des fonds, ainsi que la watchlist, le brief quotidien et les alertes Telegram.</span></p></details>
+      <details><summary><span data-i18n="lp.faq2_q">Que puis-je essayer gratuitement ?</span></summary><p><span data-i18n="lp.faq2_a">Vous pouvez effectuer 4 analyses complètes par jour, consulter les indicateurs de marché et importer votre portefeuille par CSV. Pro débloque les analyses sans cette limite, les vues détaillées des dirigeants et des hedge funds, ainsi que la watchlist, le brief quotidien et les alertes Telegram.</span></p></details>
       <details><summary><span data-i18n="lp.faq3_q">Les données sont-elles en temps réel ?</span></summary><p><span data-i18n="lp.faq3_a">Les fréquences varient selon les sources et les délais de déclaration. Les positions 13F sont trimestrielles et publiées avec un décalage. Consultez toujours les dates indiquées : un mouvement déclaré n’est pas nécessairement un mouvement du jour. Les captures de cette page sont datées et ne se mettent pas à jour.</span></p></details>
       <details><summary><span data-i18n="lp.faq4_q">Le Kairos Score me dit-il quoi acheter ?</span></summary><p><span data-i18n="lp.faq4_a">Non. Il synthétise huit dimensions pour faciliter la lecture d’une entreprise. Ce n’est ni une recommandation d’achat, ni une prévision de performance. Les détails, les dates et les sources vous permettent de replacer chaque signal dans son contexte.</span></p></details>
       <details><summary><span data-i18n="lp.faq5_q">Comment fonctionne la résiliation ?</span></summary><p><span data-i18n="lp.faq5_a">Vous pouvez arrêter le renouvellement depuis votre espace abonnement. Votre accès reste actif jusqu’à la fin de la période payée. Pro coûte 19 € par mois, ou 190 € facturés en une fois pour une année. Consultez les CGV pour les conditions complètes.</span></p></details>

@@ -3,7 +3,7 @@
   const data = window.KairosLive;
   const $ = id => document.getElementById(id);
   const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const labels = ['Dirigeants','Grands fonds','Politiciens et gourous','Momentum du cours','Valorisation','Consensus analystes','Santé financière','Momentum des résultats'];
+  const labels = ['Dirigeants','Hedge funds','Politiciens et gourous','Momentum du cours','Valorisation','Consensus analystes','Santé financière','Momentum des résultats'];
   let weights = data.companies[0].weights;
   const state = {company:data.companies[0],range:'3M',view:null,tab:'overview',fundSection:'positions',event:null,activistId:null,hover:null,hoverPrice:null,pinned:false,followed:new Set(),searchIndex:0};
   const T=window.KairosUI.t;const locale=window.KairosUI.lang==='en'?'en-US':'fr-FR';
@@ -177,7 +177,7 @@
     drawActivistMarkers();
     host.querySelector('svg').removeAttribute('aria-hidden');
     host.querySelector('svg').setAttribute('role','group');
-    host.querySelector('svg').setAttribute('aria-label','Courbe, opérations d’initiés et déclarations des fonds');
+    host.querySelector('svg').setAttribute('aria-label','Courbe, opérations d’initiés et déclarations de participation');
     host.querySelector('.chart-crosshair').setAttribute('aria-hidden','true');
     host.querySelectorAll('[data-chart-event]').forEach(mark=>{
       const operation=state.company.events.find(item=>item.id===mark.dataset.chartEvent);
@@ -202,7 +202,7 @@
       const exactX=plot.x(group.index),cx=Math.max(13,Math.min(plot.width-plot.pad.right-13,exactX)),priceY=plot.y(plot.series[group.index].close),cy=Math.max(plot.pad.top+17,priceY-27);
       const passive=group.filings.every(filing=>filing.classification==='passive'),selected=group.filings.some(filing=>filing.id===state.activistId);
       const color=passive?'#9baccc':group.filings.length>1?'#c9b4f6':activistColors[group.filings[0].direction]||activistColors.unknown;
-      return `<g class="activist-mark${selected?' is-selected':''}" data-chart-activist="${esc(group.key)}" tabindex="0" role="button" aria-label="${esc(`${group.filings.length} déclaration${group.filings.length>1?'s':''} de fonds sur la séance du ${dateLabel(group.date,true)} : ${group.filings.map(filing=>filing.investor).join(', ')}. Ouvrir les détails.`)}"><circle cx="${cx}" cy="${cy}" r="18" fill="transparent"/><line x1="${exactX}" x2="${cx}" y1="${priceY}" y2="${cy+10}" stroke="${color}" opacity=".55" stroke-dasharray="2 3"/><circle cx="${exactX}" cy="${priceY}" r="2.5" fill="${color}"/><circle class="activist-halo" cx="${cx}" cy="${cy}" r="15" fill="${color}" opacity="${selected?'.2':'.08'}"/><polygon class="activist-star" points="${starPoints(cx,cy)}" fill="${passive?'#14233b':color}" stroke="${passive?color:'#17243b'}" stroke-width="1.5"/>${group.filings.length>1?`<circle cx="${cx+12}" cy="${cy-9}" r="8" fill="#29394f" stroke="${color}"/><text x="${cx+12}" y="${cy-6}" text-anchor="middle" style="font:600 9px Inter,sans-serif;fill:#fff">${group.filings.length}</text>`:''}</g>`;
+      return `<g class="activist-mark${selected?' is-selected':''}" data-chart-activist="${esc(group.key)}" tabindex="0" role="button" aria-label="${esc(`${group.filings.length} déclaration${group.filings.length>1?'s':''} de participation sur la séance du ${dateLabel(group.date,true)} : ${group.filings.map(filing=>filing.investor).join(', ')}. Ouvrir les détails.`)}"><circle cx="${cx}" cy="${cy}" r="18" fill="transparent"/><line x1="${exactX}" x2="${cx}" y1="${priceY}" y2="${cy+10}" stroke="${color}" opacity=".55" stroke-dasharray="2 3"/><circle cx="${exactX}" cy="${priceY}" r="2.5" fill="${color}"/><circle class="activist-halo" cx="${cx}" cy="${cy}" r="15" fill="${color}" opacity="${selected?'.2':'.08'}"/><polygon class="activist-star" points="${starPoints(cx,cy)}" fill="${passive?'#14233b':color}" stroke="${passive?color:'#17243b'}" stroke-width="1.5"/>${group.filings.length>1?`<circle cx="${cx+12}" cy="${cy-9}" r="8" fill="#29394f" stroke="${color}"/><text x="${cx+12}" y="${cy-6}" text-anchor="middle" style="font:600 9px Inter,sans-serif;fill:#fff">${group.filings.length}</text>`:''}</g>`;
     }).join('');
     host.querySelector('.chart-crosshair').insertAdjacentHTML('beforebegin',markup);
     host.querySelectorAll('[data-chart-activist]').forEach(mark=>{
@@ -243,7 +243,7 @@
   function showActivistTooltip(key,mark){
     const group=plot?.activistGroups.find(item=>item.key===key),tooltip=$('operationTooltip');if(!group||!tooltip)return;
     hideOperationTooltip();showHover(group.index,plot.series[group.index].close);
-    tooltip.innerHTML=`<strong class="activist-tooltip-heading">★ ${group.filings.length>1?`${group.filings.length} déclarations de fonds`:'Déclaration de fonds'}</strong>${group.filings.slice(0,3).map(filing=>`<div class="activist-tooltip-row"><b>${esc(filing.investor)}</b><span>${ownership(filing.ownershipPercent)} · ${esc(activistChange(filing))}</span><small>Publié le ${dateLabel(filing.date,true)} · ${esc(filing.form)}${filing.classification==='passive'?' · Passif':filing.classification==='unclassified'?' · À confirmer':''}</small></div>`).join('')}${group.filings.length>3?`<small>Et ${group.filings.length-3} autre(s) déclaration(s).</small>`:''}<small class="activist-tooltip-hint">Cliquer ou Entrée : ouvrir ${group.filings.length>1?'les déclarations':'le détail'}.</small>`;
+    tooltip.innerHTML=`<strong class="activist-tooltip-heading">★ ${group.filings.length>1?`${group.filings.length} déclarations de participation`:'Déclaration de participation'}</strong>${group.filings.slice(0,3).map(filing=>`<div class="activist-tooltip-row"><b>${esc(filing.investor)}</b><span>${ownership(filing.ownershipPercent)} · ${esc(activistChange(filing))}</span><small>Publié le ${dateLabel(filing.date,true)} · ${esc(filing.form)}${filing.classification==='passive'?' · Passif':filing.classification==='unclassified'?' · À confirmer':''}</small></div>`).join('')}${group.filings.length>3?`<small>Et ${group.filings.length-3} autre(s) déclaration(s).</small>`:''}<small class="activist-tooltip-hint">Cliquer ou Entrée : ouvrir ${group.filings.length>1?'les déclarations':'le détail'}.</small>`;
     const width=Math.min(276,plot.width-10);tooltip.style.width=`${width}px`;
     tooltip.style.left=`${Math.max(0,Math.min(plot.width-width,plot.x(group.index)-width/2))}px`;
     tooltip.hidden=false;mark.setAttribute('aria-describedby','operationTooltip');

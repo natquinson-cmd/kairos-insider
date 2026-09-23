@@ -72,18 +72,18 @@ onAuthStateChanged(auth,async next=>{const previous=user;user=next;readyResolve(
     try{const who=await api('/api/admin/whoami');if(who.isAdmin===true&&who.emailVerified===true&&who.email?.toLowerCase()==='natquinson@gmail.com'&&auth.currentUser?.uid===next.uid){const a=document.createElement('a');a.className='nav-item';a.href='admin.html?lang='+lang;a.textContent=t('⚙ Administration','⚙ Administration');document.querySelector('.sidebar nav').append(a);}}catch{/* Server denial is expected for non-admin accounts. */}}
 });
 initializeStockSearch();
-await loadScript('assets/clarity/live-i18n.js?v=live5');
+await loadScript('assets/clarity/live-i18n.js?v=live6');
 async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items||d.signals||[]).map(x=>({ticker:x.ticker,company:x.company||x.ticker,label:x.label||'',detail:x.value||'',tone:x.color==='red'?'sell':'buy'}));window.KairosTicker.mount(document.getElementById('signalTicker'),{items,labels:{region:t('Signaux Kairos','Kairos signals'),title:t('Le fil Kairos','Kairos signals'),demo:t('Déclarations','Filings'),empty:t('Aucun signal récent.','No recent signals.')},onSelect:item=>openStock(item.ticker)});}catch{document.getElementById('signalTicker').textContent=t('Le fil des déclarations est temporairement indisponible.','The filing feed is temporarily unavailable.');}}
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live4');}
-else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live4');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live6');}
+else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live6');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
   if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
-  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live4');await loadScript('assets/clarity/live-stock-views.js?v=live4');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live4');window.KairosUI.translate();
+  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live6');await loadScript('assets/clarity/live-stock-views.js?v=live6');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live6');window.KairosUI.translate();
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});
   }catch(error){showError(status,error);}
 }

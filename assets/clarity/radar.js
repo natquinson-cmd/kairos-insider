@@ -2,8 +2,8 @@
 (() => {
   'use strict';
 
-  const defaultLabels = ['Dirigeants', 'Grands fonds', 'Politiciens et gourous', 'Momentum du cours', 'Valorisation', 'Consensus analystes', 'Santé financière', 'Momentum des résultats'];
-  const shortLabels = ['Initiés', 'Fonds', 'Politiciens', 'Cours', 'Valorisation', 'Analystes', 'Santé', 'Résultats'];
+  const defaultLabels = ['Dirigeants', 'Hedge funds', 'Politiciens et gourous', 'Momentum du cours', 'Valorisation', 'Consensus analystes', 'Santé financière', 'Momentum des résultats'];
+  const shortLabels = ['Initiés', 'Hedge funds', 'Politiciens', 'Cours', 'Valorisation', 'Analystes', 'Santé', 'Résultats'];
   const colors = ['#79a5ff', '#56dce9', '#ba9aff', '#9893ff', '#f4c77d', '#65dcce', '#7ce0b4', '#acb9ff'];
   const identities = new WeakMap();
   const gaugeCleanups = new WeakMap();
