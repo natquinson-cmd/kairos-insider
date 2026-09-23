@@ -18,6 +18,7 @@ import { partitionThresholdFilings } from './threshold_provenance.js';
 import { canonicalizeFundIdentity } from './fund-identity.js';
 import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
 import { maxJobAgeSeconds, jobState } from './job-freshness.js';
+import { telegramAlertPreferences, runInsiderMovementAlerts, seedInsiderMovementBaseline, movementMessage } from './insider-alerts.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
 const { formatDividendYield, insiderKind } = analysisPresentation;
@@ -773,6 +774,9 @@ async function handleRequest(request, env, ctx) {
 
       // --- Routes Telegram alerts (auth requise, gating premium dans Phase 3) ---
       if (path.startsWith('/api/telegram/')) {
+        if (request.method === 'POST' && path === '/api/telegram/preferences') {
+          return handleTelegramPreferences(request, env, user, origin);
+        }
         if (request.method === 'POST' && path === '/api/telegram/init-link') {
           return handleTelegramInitLink(env, user, origin);
         }
@@ -12984,8 +12988,18 @@ function normalizeWatchlistTicker(raw) {
 async function handleWatchlistSync(request, env, user, isPremium, origin) {
   try {
     const body = await request.json().catch(() => ({}));
-    const rawTickers = Array.isArray(body.tickers) ? body.tickers : [];
-    const emailAlerts = body.emailAlerts !== false;
+    const existing = await env.CACHE.get(`wl:${user.uid}`, 'json') || {};
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return jsonResponse({ error: 'Invalid watchlist settings' }, 400, origin);
+    if (Object.hasOwn(body, 'types') && (!body.types || typeof body.types !== 'object' || Array.isArray(body.types))) return jsonResponse({ error: 'Invalid event preferences' }, 400, origin);
+    for (const key of ['emailAlerts', 'emailInsiderAlerts', 'sendConfirmation']) {
+      if (Object.hasOwn(body, key) && typeof body[key] !== 'boolean') return jsonResponse({ error: 'Invalid preference: ' + key }, 400, origin);
+    }
+    if (Object.hasOwn(body, 'tickers') && !Array.isArray(body.tickers)) return jsonResponse({ error: 'Invalid tickers' }, 400, origin);
+    if (Object.hasOwn(body, 'lang') && !['fr', 'en'].includes(body.lang)) return jsonResponse({ error: 'Invalid language' }, 400, origin);
+    const rawTickers = Array.isArray(body.tickers) ? body.tickers : (existing.tickers || []);
+    const emailAlerts = body.emailAlerts ?? existing.emailAlerts ?? isPremium;
+    const emailInsiderAlerts = body.emailInsiderAlerts ?? existing.emailInsiderAlerts ?? false;
+    if (!isPremium && (body.emailInsiderAlerts === true || body.emailAlerts === true || body.sendConfirmation === true && (emailAlerts || emailInsiderAlerts))) return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
 
     // Normalisation + dedupe
     const seen = new Set();
@@ -13007,18 +13021,27 @@ async function handleWatchlistSync(request, env, user, isPremium, origin) {
 
     // Types d'evenements : whitelist
     const allowedTypes = ['insider', 'cluster', 'etf', 'score'];
-    const types = {};
+    const types = { ...(existing.types || {}) };
     const incomingTypes = (body.types && typeof body.types === 'object') ? body.types : {};
-    for (const k of allowedTypes) types[k] = incomingTypes[k] !== false; // default true
+    for (const k of allowedTypes) {
+      if (Object.hasOwn(incomingTypes, k) && typeof incomingTypes[k] !== 'boolean') return jsonResponse({ error: 'Invalid event preference: ' + k }, 400, origin);
+      types[k] = incomingTypes[k] ?? existing.types?.[k] ?? true;
+    }
 
     // Lire la config actuelle pour preserver optIn / lastDigestAt
-    const existing = await env.CACHE.get(`wl:${user.uid}`, 'json') || {};
     const now = Date.now();
 
     const record = {
+      ...existing,
       email: user.email || existing.email || '',
       tickers,
       emailAlerts,
+      emailInsiderAlerts,
+      lang: body.lang || existing.lang || 'fr',
+      insiderEmailEnabledAt: emailInsiderAlerts && existing.emailInsiderAlerts !== true ? now : existing.insiderEmailEnabledAt || null,
+      insiderTypesEnabledAt: types.insider && existing.types?.insider === false ? now : existing.insiderTypesEnabledAt || 0,
+      insiderWatchStartedAt: Object.fromEntries(tickers.map(ticker => [ticker, (existing.tickers || []).includes(ticker) ? existing.insiderWatchStartedAt?.[ticker] || existing.createdAt || now : now])),
+      adminVerified: isAdmin(user),
       types,
       isPremium,
       optIn: existing.optIn === true,
@@ -13029,15 +13052,16 @@ async function handleWatchlistSync(request, env, user, isPremium, origin) {
     };
 
     await env.CACHE.put(`wl:${user.uid}`, JSON.stringify(record));
+    await seedConfiguredInsiderAlerts(env, user.uid, record);
 
     // Si premiere inscription avec emailAlerts ON et pas de opt-in, envoyer le mail de confirmation
     let confirmationSent = false;
-    if (emailAlerts && !record.optIn && tickers.length > 0 && record.email) {
+    if (isPremium && body.sendConfirmation !== false && (emailAlerts || emailInsiderAlerts) && !record.optIn && tickers.length > 0 && record.email) {
       // Cooldown : ne pas renvoyer dans les 10 min
       const canSend = !record.optInSent || (now - record.optInSent > 10 * 60 * 1000);
       if (canSend) {
         try {
-          await sendWatchlistOptinEmail(record.email, user.uid, tickers, env);
+          await sendWatchlistOptinEmail(record.email, user.uid, tickers, env, record);
           record.optInSent = now;
           await env.CACHE.put(`wl:${user.uid}`, JSON.stringify(record));
           confirmationSent = true;
@@ -13052,7 +13076,10 @@ async function handleWatchlistSync(request, env, user, isPremium, origin) {
       tickers,
       optIn: record.optIn,
       emailAlerts,
-      requiresOptIn: emailAlerts && !record.optIn,
+      emailInsiderAlerts,
+      types,
+      lang: record.lang,
+      requiresOptIn: (emailAlerts || emailInsiderAlerts) && !record.optIn,
       confirmationSent,
     }, 200, origin);
   } catch (err) {
@@ -13066,14 +13093,18 @@ async function handleWatchlistSync(request, env, user, isPremium, origin) {
 // Retourne la watchlist + prefs du user courant
 // ============================================================
 async function handleWatchlistGet(env, user, origin) {
-  const record = await env.CACHE.get(`wl:${user.uid}`, 'json') || {
-    tickers: [], emailAlerts: true, optIn: false,
+  const stored = await env.CACHE.get(`wl:${user.uid}`, 'json');
+  const record = stored || {
+    tickers: [], emailAlerts: false, optIn: false,
     types: { insider: true, cluster: true, etf: true, score: true },
   };
   return jsonResponse({
     ok: true,
+    exists: !!stored,
     tickers: record.tickers || [],
     emailAlerts: record.emailAlerts !== false,
+    emailInsiderAlerts: record.emailInsiderAlerts === true,
+    lang: record.lang === 'en' ? 'en' : 'fr',
     optIn: record.optIn === true,
     types: record.types || { insider: true, cluster: true, etf: true, score: true },
     lastDigestAt: record.lastDigestAt || null,
@@ -13138,11 +13169,16 @@ async function handleWatchlistConfirmOptin(url, env, origin) {
   record.optIn = true;
   record.optInConfirmedAt = Date.now();
   await env.CACHE.put(`wl:${uid}`, JSON.stringify(record));
+  await seedConfiguredInsiderAlerts(env, uid, record);
 
+  const english = record.lang === 'en';
   return htmlResponse(watchlistPageTemplate({
-    title: 'Confirmation enregistree ✓',
-    message: `Parfait ! Vous recevrez desormais un digest quotidien a 8h si des evenements sont detectes sur vos ${(record.tickers || []).length} ticker(s) surveille(s).`,
-    cta: { href: 'https://kairosinsider.fr/dashboard.html#watchlist', label: 'Gerer ma watchlist' },
+    lang: english ? 'en' : 'fr',
+    title: english ? 'Confirmation saved ✓' : 'Confirmation enregistree ✓',
+    message: english
+      ? record.emailInsiderAlerts ? `Your address is confirmed for disclosed insider purchases and sales detected on your ${(record.tickers || []).length} followed securities.${record.emailAlerts ? ' Your daily digest also remains enabled.' : ''}` : 'Your address is confirmed for the emails enabled in your watchlist.'
+      : record.emailInsiderAlerts ? `Votre adresse est confirmée pour les achats et ventes d’initiés déclarés détectés sur vos ${(record.tickers || []).length} valeurs suivies.${record.emailAlerts ? ' Votre digest quotidien reste également activé.' : ''}` : 'Votre adresse est confirmée pour les emails activés dans votre watchlist.',
+    cta: { href: 'https://kairosinsider.fr/watchlist.html?lang=' + (english ? 'en' : 'fr'), label: english ? 'Manage my watchlist' : 'Gerer ma watchlist' },
     icon: '✅',
   }), 200);
 }
@@ -13165,12 +13201,13 @@ async function handleWatchlistUnsubscribe(url, env, origin) {
   const record = await env.CACHE.get(`wl:${uid}`, 'json');
   if (record) {
     record.emailAlerts = false;
+    record.emailInsiderAlerts = false;
     record.unsubscribedAt = Date.now();
     await env.CACHE.put(`wl:${uid}`, JSON.stringify(record));
   }
   return htmlResponse(watchlistPageTemplate({
     title: 'Desabonnement confirme',
-    message: 'Vous ne recevrez plus de digest quotidien. Vous pouvez reactiver les alertes a tout moment depuis votre dashboard.',
+    message: 'Vous ne recevrez plus d’emails de watchlist (mouvements ou digest). Vous pouvez réactiver les alertes depuis votre watchlist.',
     cta: { href: 'https://kairosinsider.fr/dashboard.html#watchlist', label: 'Reactiver les alertes' },
     icon: '👋',
   }), 200);
@@ -13186,8 +13223,8 @@ function htmlResponse(html, status = 200) {
   });
 }
 
-function watchlistPageTemplate({ title, message, cta, icon }) {
-  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+function watchlistPageTemplate({ title, message, cta, icon, lang = 'fr' }) {
+  return `<!DOCTYPE html><html lang="${lang === 'en' ? 'en' : 'fr'}"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)} — Kairos Insider</title>
 <style>
@@ -13805,14 +13842,23 @@ function severityColor(s) {
 // ============================================================
 // EMAIL : Double opt-in (confirmation initiale)
 // ============================================================
-async function sendWatchlistOptinEmail(email, uid, tickers, env) {
+async function sendWatchlistOptinEmail(email, uid, tickers, env, preferences = {}) {
   const confirmToken = await generateWatchlistToken(uid, 'confirm', env);
   const confirmUrl = `https://kairos-insider-api.natquinson.workers.dev/watchlist/confirm?uid=${encodeURIComponent(uid)}&token=${confirmToken}`;
+  const english = preferences.lang === 'en';
+  const title = english ? 'Confirm your watchlist ⭐' : 'Confirmez votre watchlist ⭐';
+  const intro = english ? `You follow ${tickers.length} securities in your watchlist:` : `Vous suivez ${tickers.length} valeur${tickers.length > 1 ? 's' : ''} dans votre watchlist :`;
+  const purpose = english
+    ? preferences.emailInsiderAlerts ? 'To receive an email for each disclosed insider purchase or sale detected after collection on your followed securities' + (preferences.emailAlerts ? ', together with your daily digest' : '') : 'To receive the daily digest enabled in your watchlist'
+    : preferences.emailInsiderAlerts ? 'Pour recevoir un email à chaque achat ou vente d’initié déclaré détecté après collecte sur vos valeurs suivies' + (preferences.emailAlerts ? ', ainsi que votre digest quotidien' : '') : 'Pour recevoir le digest quotidien activé dans votre watchlist';
+  const instructions = purpose + (english ? ', confirm your email address below. Filings may be published after the transaction date.' : ', confirmez votre adresse ci-dessous. Les déclarations peuvent être publiées après la date de transaction.');
+  const button = english ? 'Confirm my email alerts' : 'Confirmer mes alertes email';
+  const note = english ? 'If you did not add these securities, you can ignore this email. No alert will be sent without confirmation.' : 'Si vous n’avez pas ajouté ces valeurs, vous pouvez ignorer cet email. Aucune alerte ne sera envoyée sans confirmation.';
 
   const tickersHtml = tickers.slice(0, 10).map(t => `<code style="background:rgba(59,130,246,0.15);color:#60A5FA;padding:2px 8px;border-radius:4px;font-family:'SF Mono',Consolas,monospace;font-size:13px;margin:0 4px">${escapeHtml(t)}</code>`).join('');
-  const moreHint = tickers.length > 10 ? `<span style="color:#9CA3AF">et ${tickers.length - 10} autres</span>` : '';
+  const moreHint = tickers.length > 10 ? `<span style="color:#9CA3AF">${english ? 'and ' + (tickers.length - 10) + ' more' : 'et ' + (tickers.length - 10) + ' autres'}</span>` : '';
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+  const html = `<!DOCTYPE html><html lang="${english ? 'en' : 'fr'}"><head><meta charset="UTF-8"><style>
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background:#0A0F1E; margin:0; padding:0; color:#F9FAFB; }
 .wrap { max-width:560px; margin:0 auto; padding:32px 20px; }
 .card { background:#111827; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:36px 28px; }
@@ -13824,14 +13870,14 @@ p { font-size:14px; line-height:1.65; color:#9CA3AF; margin:0 0 16px; }
 </style></head>
 <body><div class="wrap"><div class="card">
 <div class="logo">Kairos Insider</div>
-<h1>Confirmez votre watchlist ⭐</h1>
-<p>Vous venez d'ajouter ${tickers.length} ticker${tickers.length > 1 ? 's' : ''} a votre watchlist :</p>
+<h1>${title}</h1>
+<p>${intro}</p>
 <p style="line-height:2.4">${tickersHtml} ${moreHint}</p>
-<p>Pour recevoir un digest quotidien a 8h avec les evenements smart-money detectes (insiders, hedge funds, rotations ETF, variation Kairos Score), confirmez simplement votre adresse en cliquant ci-dessous :</p>
-<p style="text-align:center"><a href="${confirmUrl}" class="btn">✓ Confirmer mes alertes quotidiennes</a></p>
-<p style="font-size:12px;color:#6B7280">Si vous n'avez pas ajoute ces tickers, vous pouvez ignorer cet email. Aucune alerte ne sera envoyee sans confirmation.</p>
+<p>${instructions}</p>
+<p style="text-align:center"><a href="${confirmUrl}" class="btn">✓ ${button}</a></p>
+<p style="font-size:12px;color:#6B7280">${note}</p>
 <div class="footer">
-  <p style="margin:0">Kairos Insider — Voyez ce que les pros voient.</p>
+  <p style="margin:0">Kairos Insider — ${english ? 'See what the pros see.' : 'Voyez ce que les pros voient.'}</p>
 </div>
 </div></div></body></html>`;
 
@@ -13845,8 +13891,9 @@ p { font-size:14px; line-height:1.65; color:#9CA3AF; margin:0 0 16px; }
     body: JSON.stringify({
       sender: { name: env.BREVO_SENDER_NAME || 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' },
       to: [{ email }],
-      subject: 'Confirmez votre watchlist Kairos Insider',
+      subject: english ? 'Confirm your Kairos Insider watchlist' : 'Confirmez votre watchlist Kairos Insider',
       htmlContent: html,
+      textContent: [title, intro, tickers.join(', '), instructions, button + ': ' + confirmUrl, note].join('\n\n'),
       replyTo: { email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr', name: 'Kairos Insider' },
     }),
   });
@@ -14336,6 +14383,15 @@ async function isPremiumUser(env, uid) {
   return false;
 }
 
+// Scheduled jobs have no JWT. Only server-written, verified identity records
+// may supply administrator access; client preference flags never grant it.
+async function hasAlertEntitlement(env, uid, watchlist) {
+  if (await isPremiumUser(env, uid)) return true;
+  if (watchlist?.adminVerified === true && isAdmin({ email: watchlist.email, emailVerified: true })) return true;
+  const identity = await env.CACHE.get(`user:${uid}`, 'json');
+  return isAdmin(identity);
+}
+
 async function handleTelegramInitLink(env, user, origin) {
   if (!user || !user.uid) {
     return jsonResponse({ error: 'Auth required' }, 401, origin);
@@ -14388,14 +14444,34 @@ async function handleTelegramStatus(env, user, origin) {
   }
   const data = await env.CACHE.get(`tg:${user.uid}`, 'json');
   if (!data || !data.chatId) {
-    return jsonResponse({ linked: false }, 200, origin);
+    return jsonResponse({ linked: false, alertPrefs: telegramAlertPreferences() }, 200, origin);
   }
   return jsonResponse({
     linked: true,
     linkedAt: data.linkedAt,
     chatTitle: data.chatTitle || null,  // username/firstName du user Telegram
-    alertPrefs: data.alertPrefs || {},
+    alertPrefs: telegramAlertPreferences(data.alertPrefs || {}),
   }, 200, origin);
+}
+
+async function handleTelegramPreferences(request, env, user, origin) {
+  let patch;
+  try { patch = await request.json(); if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error(); }
+  catch { return jsonResponse({ error: 'Invalid preferences' }, 400, origin); }
+  const record = await env.CACHE.get(`tg:${user.uid}`, 'json');
+  if (!record?.chatId) return jsonResponse({ error: 'Telegram not linked', code: 'NOT_LINKED' }, 400, origin);
+  let prefs;
+  try { prefs = telegramAlertPreferences(record.alertPrefs || {}, patch); }
+  catch (error) { return jsonResponse({ error: error.message }, 400, origin); }
+  if (['insiderTransactions', 'insiderCluster', 'new13d', 'euThreshold'].some(key => patch[key] === true) && !await isPremiumOrAdmin(env, user)) {
+    return jsonResponse({ error: 'Premium subscription required', code: 'PREMIUM_REQUIRED' }, 403, origin);
+  }
+  if (prefs.insiderTransactions && record.alertPrefs?.insiderTransactions !== true) record.insiderTransactionsEnabledAt = Date.now();
+  record.alertPrefs = prefs;
+  await env.CACHE.put(`tg:${user.uid}`, JSON.stringify(record));
+  const watchlist = await env.CACHE.get(`wl:${user.uid}`, 'json');
+  if (watchlist) await seedConfiguredInsiderAlerts(env, user.uid, watchlist, record);
+  return jsonResponse({ ok: true, alertPrefs: prefs }, 200, origin);
 }
 
 async function handleTelegramUnlink(env, user, origin) {
@@ -14502,6 +14578,7 @@ async function handleTelegramWebhook(request, env, ctx) {
         new13d: true,           // nouveaux 13D activistes
         scoreThreshold: 75,     // notifie quand un ticker watchlist passe ce score
         insiderCluster: true,   // 3+ insiders meme ticker en 7j
+        insiderTransactions: false, // individual filings require explicit opt-in
         euThreshold: true,      // franchissement seuil EU >= 5%
         quietHoursStart: 22,    // 22h Paris
         quietHoursEnd: 7,       // 7h Paris
@@ -14656,18 +14733,19 @@ async function listTelegramSubscribers(env) {
       // (ou tg:* legacy avant le paywall). L'entree KV reste mais on
       // n'envoie plus d'alerte. Si l'user re-upgrade plus tard, l'entree
       // est toujours la -> reactivation auto.
-      if (!await isPremiumUser(env, uid)) {
+      const wl = await env.CACHE.get(`wl:${uid}`, 'json');
+      if (!await hasAlertEntitlement(env, uid, wl)) {
         skippedFree++;
         continue;
       }
       // Recuperer la watchlist du user
-      const wl = await env.CACHE.get(`wl:${uid}`, 'json');
       const tickers = (wl && Array.isArray(wl.tickers)) ? wl.tickers.map(t => String(t).toUpperCase()) : [];
       subs.push({
         uid,
         chatId: data.chatId,
         chatTitle: data.chatTitle,
-        prefs: data.alertPrefs || {},
+        prefs: telegramAlertPreferences(data.alertPrefs || {}),
+        insiderTransactionsEnabledAt: data.insiderTransactionsEnabledAt || data.linkedAt,
         watchlist: new Set(tickers),
       });
     }
@@ -15519,11 +15597,82 @@ async function handleAdminJobsTimeline(request, env, origin) {
   }, 200, origin);
 }
 
+async function seedConfiguredInsiderAlerts(env, uid, record, linked) {
+  if (record.types?.insider === false) return;
+  try {
+    const tg = linked || await env.CACHE.get(`tg:${uid}`, 'json');
+    const sub = { uid, watchlist: new Set(record.tickers || []), watchStartedAt: record.insiderWatchStartedAt || {},
+      emailActivation: `${record.insiderEmailEnabledAt || record.createdAt || 0}:${record.insiderTypesEnabledAt || 0}`,
+      telegramActivation: `${tg?.insiderTransactionsEnabledAt || tg?.linkedAt || 0}:${record.insiderTypesEnabledAt || 0}` };
+    if (record.emailInsiderAlerts === true && record.optIn === true) await seedInsiderMovementBaseline(env, sub, 'email');
+    if (tg?.chatId && tg.alertPrefs?.insiderTransactions === true) await seedInsiderMovementBaseline(env, sub, 'telegram');
+  } catch (error) { log.warn('insider-movements.seed.failed', { uid, error: String(error) }); }
+}
+
+async function listInsiderMovementSubscribers(env, telegramSubscribers) {
+  const telegram = new Map(telegramSubscribers.map(sub => [sub.uid, sub]));
+  const subscribers = [];
+  let cursor;
+  do {
+    const page = await env.CACHE.list({ prefix: 'wl:', cursor, limit: 1000 });
+    for (const key of page.keys) {
+      const uid = key.name.slice(3), record = await env.CACHE.get(key.name, 'json');
+      if (!record || !uid) continue;
+      const tg = telegram.get(uid);
+      const emailEligible = record.emailInsiderAlerts === true && record.optIn === true && !!record.email && await hasAlertEntitlement(env, uid, record);
+      const insiderEnabled = record.types?.insider !== false;
+      subscribers.push({
+        uid, email: record.email, chatId: tg?.chatId,
+        watchlist: new Set((record.tickers || []).map(t => String(t).toUpperCase())),
+        watchStartedAt: record.insiderWatchStartedAt || {},
+        lang: record.lang === 'en' ? 'en' : 'fr', prefs: tg?.prefs || {},
+        emailEnabled: emailEligible && insiderEnabled,
+        emailActivation: `${record.insiderEmailEnabledAt || record.createdAt || 0}:${record.insiderTypesEnabledAt || 0}`,
+        telegramEnabled: !!tg && tg.prefs.insiderTransactions === true && insiderEnabled,
+        telegramActivation: `${tg?.insiderTransactionsEnabledAt || 0}:${record.insiderTypesEnabledAt || 0}`,
+      });
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  return subscribers;
+}
+
+async function sendInsiderMovementEmail(env, sub, event) {
+  if (!env.BREVO_API_KEY) return false;
+  const message = movementMessage(event, sub.lang);
+  const escapeHtml = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const token = await generateWatchlistToken(sub.uid, 'unsub', env);
+  const unsubscribe = 'https://kairos-insider-api.natquinson.workers.dev/watchlist/unsubscribe?' + new URLSearchParams({ uid: sub.uid, token });
+  const english = sub.lang === 'en';
+  const source = message.sourceUrl ? `<p><a href="${escapeHtml(message.sourceUrl)}">${english ? 'Original filing' : 'Déclaration originale'}</a></p>` : `<p>${english ? 'Original filing link unavailable.' : 'Lien vers la déclaration originale indisponible.'}</p>`;
+  const html = `<div style="max-width:600px;margin:auto;font-family:Arial,sans-serif;line-height:1.65;color:#162338"><h1 style="font-size:22px">${escapeHtml(message.title)}</h1><p>${escapeHtml(message.text).replace(/\n/g, '<br>')}</p>${source}<p><a href="${escapeHtml(message.analysisUrl)}">${english ? 'View analysis' : 'Voir la fiche action'}</a></p><p style="font-size:12px"><a href="${escapeHtml(unsubscribe)}">${english ? 'Stop watchlist emails' : 'Arrêter les emails de watchlist'}</a></p></div>`;
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST', headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ sender: { name: 'Kairos Insider', email: env.BREVO_SENDER_EMAIL || 'contact@kairosinsider.fr' }, to: [{ email: sub.email }], subject: message.title, htmlContent: html, textContent: message.text + '\n' + (message.sourceUrl || (english ? 'Original filing link unavailable.' : 'Lien vers la déclaration originale indisponible.')) + '\n' + message.analysisUrl + '\n' + unsubscribe, headers: { 'List-Unsubscribe': `<${unsubscribe}>` } }),
+  });
+  if (!response.ok) throw new Error('Insider email delivery failed: ' + response.status);
+  return true;
+}
+
+async function sendInsiderMovementTelegram(env, sub, event) {
+  const message = movementMessage(event, sub.prefs.lang || sub.lang);
+  // Plain facts and URLs avoid interpreting names/source URLs as Markdown.
+  const text = message.text + '\n\n' + message.analysisUrl + (message.sourceUrl ? '\n' + message.sourceUrl : '');
+  return sendTelegramMessage(env, sub.chatId, text, { parse_mode: undefined });
+}
+
 async function runTelegramAlertingCron(env) {
   const start = Date.now();
   log.info('telegram.cron.start');
   // 1. List tous les subscribers (avec watchlist + prefs)
   const subs = await listTelegramSubscribers(env);
+  // Individual filings serve opted-in email users even without Telegram linked.
+  const movementSubs = await listInsiderMovementSubscribers(env, subs);
+  const movement = await runInsiderMovementAlerts(env, movementSubs, {
+    sendEmail: (sub, event) => sendInsiderMovementEmail(env, sub, event),
+    sendTelegram: (sub, event) => sendInsiderMovementTelegram(env, sub, event),
+  }).catch(error => ({ error: String(error), errors: 1 }));
+  log.info('insider-movements.cron', movement);
   if (subs.length === 0) {
     log.info('telegram.cron.no-subs');
     // HEARTBEAT (fix juillet 2026) : le cron A bien tourné, il n'y avait juste
@@ -15539,9 +15688,9 @@ async function runTelegramAlertingCron(env) {
         ts: Math.floor(Date.now() / 1000),
         iso: _isoIdle,
         timestamp: _isoIdle,
-        status: 'ok',
+        status: movement.errors ? 'partial' : 'ok',
         durationSec: (Date.now() - start) / 1000,
-        summary: '0 abonné Telegram (idle)',
+        summary: `${movement.email || 0} emails mouvements · ${movement.pending || 0} en attente · 0 abonné Telegram`,
         subs: 0,
       }));
     } catch {}
@@ -15566,19 +15715,20 @@ async function runTelegramAlertingCron(env) {
     sent13d: r13d.sent || 0, sentEu: rEu.sent || 0, sentCluster: rCluster.sent || 0,
   });
   // Update lastRun + runHistory pour Gantt 24h et badge UI
-  const totalSent = (r13d.sent || 0) + (rEu.sent || 0) + (rCluster.sent || 0);
-  const summary = `${subs.length} subs · ${totalSent} alerts (13d=${r13d.sent || 0} eu=${rEu.sent || 0} cluster=${rCluster.sent || 0})`;
+  const totalSent = (r13d.sent || 0) + (rEu.sent || 0) + (rCluster.sent || 0) + (movement.email || 0) + (movement.telegram || 0);
+  const summary = `${subs.length} subs · ${totalSent} alerts (13d=${r13d.sent || 0} eu=${rEu.sent || 0} cluster=${rCluster.sent || 0} insider-email=${movement.email || 0} insider-tg=${movement.telegram || 0})`;
   const tsSec = Math.floor(Date.now() / 1000);
   const isoNow = new Date().toISOString();
   const lastRunPayload = {
     ts: tsSec,
     iso: isoNow,
     timestamp: isoNow,  // legacy
-    status: 'ok',
+    status: movement.errors ? 'partial' : 'ok',
     durationSec: elapsed / 1000,
     summary,
     subs: subs.length,
-    sent: { '13d': r13d.sent, eu: rEu.sent, cluster: rCluster.sent },
+    sent: { '13d': r13d.sent, eu: rEu.sent, cluster: rCluster.sent, insiderEmail: movement.email || 0, insiderTelegram: movement.telegram || 0 },
+    insiderPending: movement.pending || 0,
   };
   try { await env.CACHE.put('lastRun:telegram-alerts', JSON.stringify(lastRunPayload)); } catch {}
   await appendRunHistory(env, 'telegram-alerts', lastRunPayload);
