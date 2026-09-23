@@ -20,6 +20,7 @@ import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
 import { maxJobAgeSeconds, jobState } from './job-freshness.js';
 import { telegramAlertPreferences, runInsiderMovementAlerts, seedInsiderMovementBaseline, movementMessage } from './insider-alerts.js';
 import { readWatchlistSummary } from './watchlist-summary.js';
+import { readFundOwnershipHistory } from './fund-ownership-history.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
 const { formatDividendYield, insiderKind } = analysisPresentation;
@@ -1509,6 +1510,10 @@ async function handleApiRoute(path, url, env, origin) {
   }
   if (path === '/api/history/fund') {
     return handleHistoryFund(url, env, origin);
+  }
+  if (path === '/api/history/fund-ownership') {
+    try { return jsonResponse(await readFundOwnershipHistory(env,(url.searchParams.get('ticker')||'').toUpperCase(),normalizeCompanyName),200,origin); }
+    catch { return jsonResponse({error:'Fund history temporarily unavailable'},503,origin); }
   }
   if (path === '/api/history/etf-rotations') {
     return handleEtfRotations(url, env, origin);
