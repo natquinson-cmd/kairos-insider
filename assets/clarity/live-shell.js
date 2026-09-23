@@ -113,7 +113,7 @@ async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live7');await loadScript('assets/clarity/live-market.js?v=live9');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=live10');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
 else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/live-watchlist.js?v=live7');}
 else if(researchHome){await loadScript('assets/clarity/live-research.js?v=research1');}

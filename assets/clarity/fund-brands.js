@@ -30,6 +30,16 @@
   brands.forEach(brand=>brand.names.forEach(name=>byName.set(normalize(name),brand)));
   function nameOf(fund){return typeof fund==='string'?fund:String(fund?.fundName||fund?.name||fund?.label||'');}
   function resolve(fund){return byName.get(normalize(nameOf(fund)))||null;}
+  function displayName(fund){
+    const label=String(fund?.label||nameOf(fund));
+    // Hide listing symbols only; retain meaningful qualifiers such as (Aschenbrenner).
+    return label.replace(/\s+\(([^()]*)\)\s*$/, (suffix,content)=>{
+      const symbols=content.split(/,\s*/);
+      const isTickerList=symbols.length>1&&symbols.every(s=>/^[A-Za-z]{1,5}(?:[.-][A-Za-z0-9]{1,3})?$/.test(s));
+      const isTicker=symbols.length===1&&/^[A-Z]{1,5}(?:[.-][A-Z0-9]{1,3})?$/.test(content)&&!['US','USA','UK','EU'].includes(content);
+      return isTickerList||isTicker?'':suffix;
+    }).trim();
+  }
   function initials(fund){return nameOf(fund).replace(/[^\p{L}\p{N}\s]/gu,' ').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>Array.from(part)[0]).join('').toLocaleUpperCase()||'?';}
   const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   function markup(fund,{large=false}={}){
@@ -46,5 +56,5 @@
       if(img.complete){if(img.naturalWidth>0)loaded();else failed();}
     });
   }
-  return {brands,normalize,resolve,initials,markup,hydrate};
+  return {brands,normalize,resolve,displayName,initials,markup,hydrate};
 });

@@ -1,6 +1,6 @@
 .fund-identity{display:flex;align-items:center;gap:11px;min-width:0}
 .fund-identity__text{min-width:0}
-.fund-identity__text .text-button{text-align:left}
+.fund-identity__text .text-button{text-align:left;font-size:15px;line-height:1.35}
 .fund-identity__text small{margin-top:3px}
 .fund-brand{position:relative;display:inline-grid;place-items:center;flex:0 0 32px;width:32px;height:32px;overflow:hidden;border:1px solid rgba(25,42,36,.1);border-radius:7px;background:#fff;color:#53635b;font:600 11px/1 var(--font-sans,Arial,sans-serif);vertical-align:middle}
 .fund-brand--dark{background:#193329;color:#fff;border-color:#193329}
