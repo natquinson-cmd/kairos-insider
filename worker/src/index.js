@@ -19,6 +19,7 @@ import { canonicalizeFundIdentity } from './fund-identity.js';
 import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
 import { maxJobAgeSeconds, jobState } from './job-freshness.js';
 import { telegramAlertPreferences, runInsiderMovementAlerts, seedInsiderMovementBaseline, movementMessage } from './insider-alerts.js';
+import { readWatchlistSummary } from './watchlist-summary.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
 const { formatDividendYield, insiderKind } = analysisPresentation;
@@ -655,6 +656,14 @@ async function handleRequest(request, env, ctx) {
         if (!user) {
           return jsonResponse({ error: 'Invalid or expired token' }, 401, origin);
         }
+      }
+
+      // Authenticated cache-only read. Keep before first-seen/subscription
+      // tracking so browsing this summary cannot write state or spend quota.
+      if (request.method === 'GET' && path === '/api/watchlist/summary') {
+        const response = jsonResponse(await readWatchlistSummary(env, user.uid, url.searchParams.get('symbols') || ''), 200, origin);
+        response.headers.set('Cache-Control', 'private, no-store');
+        return response;
       }
 
       // Track le user au premier login : cree 'user:{uid}' en KV si pas
