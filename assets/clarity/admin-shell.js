@@ -15,7 +15,7 @@ function refresh(){
  shell.innerHTML=`<a class="ca-brand" href="dashboard.html?lang=${lang}" aria-label="Kairos"><img src="assets/kairos-inflexion.svg" alt="" width="44" height="44"><span>kairos<small>INSIDER</small></span></a><div class="ca-navigation" role="navigation" aria-label="${t('Navigation principale','Main navigation')}"><p>${t('Votre recherche','Your research')}</p>${link('dashboard.html','⌕',t('Fiche action','Stock analysis'))}${link('watchlist.html','☆',t('Ma watchlist','My watchlist'))}<p>${t('Explorer le marché','Explore the market')}</p>${link('insiders.html','◎',t('Initiés','Insiders'))}${link('insiders.html?screen=activists','★',t('Activistes','Activists'))}${link('insiders.html?screen=funds','▥','Hedge funds')}${link('account.html','○',t('Mon compte','My account'))}${link('admin.html','⚙',t('Administration','Administration'),true)}</div><div class="ca-sidebar-foot">Kairos Insider<small>${t('Votre espace de recherche','Your research workspace')}</small></div>`;
  const header=document.querySelector('body > nav .nav-container');
  if(header&&!document.getElementById('clarityAdminContext')){const label=document.createElement('span');label.id='clarityAdminContext';label.textContent='Kairos Insider';header.prepend(label);}
- if(header&&!header.querySelector('.compact-search-slot')&&window.KairosCompactSearch){
+ if(header&&!header.querySelector('.persistent-search')&&window.KairosCompactSearch){
   header.insertAdjacentHTML('afterbegin',window.KairosCompactSearch.stockMarkup(lang));
   const input=header.querySelector('#companySearch'),wrap=header.querySelector('#searchWrap'),popup=wrap.querySelector('#searchPopup'),list=wrap.querySelector('#searchResults'),empty=wrap.querySelector('#searchEmpty');
   let request=0,timer;

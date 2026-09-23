@@ -3,6 +3,8 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,Go
 const app=initializeApp({apiKey:'AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw',authDomain:'kairos-insider.firebaseapp.com',projectId:'kairos-insider',databaseURL:'https://kairos-insider-default-rtdb.europe-west1.firebasedatabase.app'});
 const auth=getAuth(app),base='https://kairos-insider-api.natquinson.workers.dev',params=new URLSearchParams(location.search);
 const lang=params.get('lang')==='en'?'en':'fr',t=(fr,en)=>lang==='en'?en:fr;
+const requestedSymbol=params.get('symbol')||new URLSearchParams(location.hash.slice(1).split('?')[1]||'').get('t');
+const researchHome=!document.body.dataset.screen&&!requestedSymbol;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let user=null,readyResolve;const ready=new Promise(resolve=>readyResolve=resolve);
 const stockUrl=(symbol,extra={})=>'dashboard.html?'+new URLSearchParams({lang,symbol,...extra});
@@ -62,6 +64,12 @@ const quoteDate=p=>p?.regularMarketTime?t('Cours du ','Price as of ')+new Date(p
 async function getAccount(){await ready;return user?{email:user.email,displayName:user.displayName,emailVerified:user.emailVerified,createdAt:user.metadata?.creationTime,lastSignInAt:user.metadata?.lastSignInTime}:null;}
 async function updateDisplayName(name){await ready;const value=String(name||'').trim();if(!user||!value||value.length>100)throw new Error(t('Nom invalide.','Invalid name.'));await updateProfile(user,{displayName:value});}
 let watchClientPromise;
+let researchHistoryPromise;
+async function researchHistory(){
+ await ready;
+ if(!researchHistoryPromise)researchHistoryPromise=(async()=>{await loadScript('assets/clarity/research-history.js?v=research1');let storage;try{storage=window.localStorage;}catch{storage={getItem(){return null;},setItem(){},removeItem(){}};}return window.KairosResearchHistory.create(storage,user?.uid||'guest');})();
+ return researchHistoryPromise;
+}
 async function watchlist(){
   await ready;if(!user)throw new Error(t('Connectez-vous pour retrouver votre watchlist.','Sign in to access your watchlist.'));
   if(!watchClientPromise)watchClientPromise=(async()=>{
@@ -83,7 +91,7 @@ async function mountWatchButton(symbol){
   button.onclick=async()=>{if(!client){await initialize();return;}if(!access.entitled){location.href='watchlist.html?lang='+lang;return;}button.disabled=true;try{const wasFollowed=saved.tickers.includes(symbol);saved=await(wasFollowed?client.remove(symbol):client.add(symbol));refresh();message(wasFollowed?t(symbol+' retirée de votre watchlist.',symbol+' removed from your watchlist.'):t(symbol+' ajoutée. Réglez vos canaux dans Ma watchlist pour recevoir les alertes.',symbol+' added. Set up your channels in My watchlist to receive alerts.'));const a=document.createElement('a');a.href='watchlist.html?lang='+lang;a.textContent=t(' Ouvrir ma watchlist →',' Open my watchlist →');status.append(a);}catch(error){message(error.message);}finally{button.disabled=false;}};
   await initialize();
 }
-window.KairosUI={api,lang,t,esc,format,openStock,stockUrl,share,search,renderSearch,showError,quoteDate,getAccount,updateDisplayName,login,watchlist,translate(){window.KairosLiveTranslate?.();}};
+window.KairosUI={api,lang,t,esc,format,openStock,stockUrl,share,search,renderSearch,showError,quoteDate,getAccount,updateDisplayName,login,watchlist,researchHistory,translate(){window.KairosLiveTranslate?.();}};
 document.documentElement.lang=lang;
 document.querySelectorAll('a[href^="insiders.html"],a[href="dashboard.html"],a[href="account.html"],a[href="watchlist.html"]').forEach(a=>{const u=new URL(a.href);u.searchParams.set('lang',lang);a.href=u.pathname.split('/').at(-1)+u.search;});
 for(const nav of document.querySelectorAll('.sidebar nav,.live-mobile-nav')){if(!nav.querySelector('a[href^="watchlist.html"]')){const link=document.createElement('a');link.href='watchlist.html?lang='+lang;link.textContent=t('☆ Ma watchlist','☆ My watchlist');link.className=nav.classList.contains('live-mobile-nav')?'':'nav-item';if(nav.classList.contains('live-mobile-nav'))nav.append(link);else nav.insertBefore(link,nav.querySelector('.nav-item')?.nextSibling||null);}}
@@ -94,25 +102,27 @@ onAuthStateChanged(auth,async next=>{const previous=user;user=next;readyResolve(
   if(next){controls.querySelector('[data-account]').onclick=()=>{document.getElementById('accountDialog')?.remove();const d=document.createElement('dialog');d.id='accountDialog';d.className='live-dialog live-account-dialog';d.innerHTML=`<h2>${t('Mon compte','My account')}</h2><p class="account-dialog-email">${esc(next.email)}</p><div class="account-dialog-actions"><a class="secondary" href="account.html?lang=${lang}">${t('Gérer mon compte et mon abonnement','Manage my account and subscription')}</a><button class="secondary" data-signout>${t('Se déconnecter','Sign out')}</button><button class="text-button" data-close>${t('Fermer','Close')}</button></div>`;document.body.append(d);d.querySelector('[data-signout]').onclick=()=>signOut(auth);d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();};
     try{const who=await api('/api/admin/whoami');if(who.isAdmin===true&&who.emailVerified===true&&who.email?.toLowerCase()==='natquinson@gmail.com'&&auth.currentUser?.uid===next.uid){const a=document.createElement('a');a.className='nav-item';a.href='admin.html?lang='+lang;a.textContent=t('⚙ Administration','⚙ Administration');document.querySelector('.sidebar nav').append(a);}}catch{/* Server denial is expected for non-admin accounts. */}}
 });
-await loadScript('assets/clarity/compact-search.js?v=compact1');
+await loadScript('assets/clarity/compact-search.js?v=visible1');
 if(!document.getElementById('searchWrap')){header.querySelector('.account-topbar-label,.watchlist-topbar-label')?.remove();header.insertAdjacentHTML('afterbegin',window.KairosCompactSearch.stockMarkup(lang));}
 const searchInput=document.getElementById('companySearch')||document.getElementById('marketSearch');
 if(searchInput?.id==='marketSearch')searchInput.value=params.get('q')||'';
 initializeStockSearch();
-window.KairosCompactSearch.mount({header,wrap:document.getElementById('searchWrap'),input:searchInput,lang,filter:searchInput?.id==='marketSearch'});
+if(!researchHome)window.KairosCompactSearch.mount({header,wrap:document.getElementById('searchWrap'),input:searchInput,lang,filter:searchInput?.id==='marketSearch'});
 await loadScript('assets/clarity/live-i18n.js?v=live7');
 async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items||d.signals||[]).map(x=>({ticker:x.ticker,company:x.company||x.ticker,label:x.label||'',detail:x.value||'',tone:x.color==='red'?'sell':'buy'}));window.KairosTicker.mount(document.getElementById('signalTicker'),{items,labels:{region:t('Signaux Kairos','Kairos signals'),title:t('Le fil Kairos','Kairos signals'),demo:t('Déclarations','Filings'),empty:t('Aucun signal récent.','No recent signals.')},onSelect:item=>openStock(item.ticker)});}catch{document.getElementById('signalTicker').textContent=t('Le fil des déclarations est temporairement indisponible.','The filing feed is temporarily unavailable.');}}
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/live-market.js?v=live7');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live7');await loadScript('assets/clarity/live-market.js?v=live9');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
 else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/live-watchlist.js?v=live7');}
+else if(researchHome){await loadScript('assets/clarity/live-research.js?v=research1');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
   if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
   try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/live-stock-views.js?v=live7');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live7');window.KairosUI.translate();
+    researchHistory().then(history=>history.record({ticker:d.ticker,name:d.company?.name||d.ticker})).catch(()=>{});
     mountWatchButton(d.ticker).catch(()=>{});
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});
   }catch(error){showError(status,error);}

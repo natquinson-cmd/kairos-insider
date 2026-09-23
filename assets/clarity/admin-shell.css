@@ -13,7 +13,7 @@
 .clarity-admin .nav-container{height:100%;max-width:none;padding:0 32px;gap:12px}.clarity-admin body>nav .logo,.clarity-admin #navThemeBtn,.clarity-admin #navSupportBtn{display:none!important}
 #clarityAdminContext{display:none}.clarity-admin #clarityAdminContext{display:block;margin-right:auto;font-size:13px;color:#b1c6e3}
 .clarity-admin #clarityAdminContext{display:none}.clarity-admin .nav-container.has-compact-search{position:relative}.clarity-admin .core-release>nav{height:64px}.clarity-admin .core-release .dashboard-layout{padding-top:90px!important}
-.clarity-admin .compact-search-panel a{display:flex;justify-content:space-between;gap:16px;padding:12px 4px;color:#c2d5ed;border-bottom:1px solid #30445f;font:12px Inter,sans-serif;text-decoration:none}.clarity-admin .compact-search-panel a:hover{background:#253e60}.clarity-admin .compact-search-panel small{white-space:nowrap}
+.clarity-admin .persistent-search a{display:flex;justify-content:space-between;gap:16px;padding:12px 4px;color:#c2d5ed;border-bottom:1px solid #30445f;font:12px Inter,sans-serif;text-decoration:none}.clarity-admin .persistent-search a:hover{background:#253e60}.clarity-admin .persistent-search small{white-space:nowrap}
 .clarity-admin .core-release .ticker-tape{left:206px;background:#111d32;border-color:#273650}.clarity-admin .core-release .dashboard-layout{padding-top:102px!important}
 .clarity-admin .core-release .main,.clarity-admin .sidebar.collapsed+.main{margin-left:206px!important;padding:32px 36px 48px;min-width:0;max-width:calc(100% - 206px)}
 .clarity-admin .core-release .main>.container{max-width:1440px;margin:auto}.clarity-admin .core-search-header{display:none}

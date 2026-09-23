@@ -1,0 +1,203 @@
+{
+  "description": "Official brand assets linked from the listed firms’ websites. Original files, used solely to identify the reporting firms; no endorsement implied.",
+  "assets": [
+    {
+      "id": "bridgewater",
+      "name": "Bridgewater Associates",
+      "website": "https://www.bridgewater.com/",
+      "sourceUrl": "https://www.bridgewater.com/apple-touch-icon.png",
+      "file": "bridgewater.png",
+      "retrievedAt": "2026-09-23T13:23:58.821Z",
+      "sha256": "f329a5a2fe37cda837f40fc9f394ca6af9fd665dcfcc51889302d7c197bdd6ec",
+      "contentType": "image/png;charset=UTF-8",
+      "tone": "light"
+    },
+    {
+      "id": "pershing-square",
+      "name": "Pershing Square",
+      "website": "https://pershingsquareinc.com/",
+      "sourceUrl": "https://pershingsquareinc.com/wp-content/uploads/2026/04/cropped-favicon-192x192.png",
+      "file": "pershing-square.png",
+      "retrievedAt": "2026-09-23T13:23:58.554Z",
+      "sha256": "184cffd729a31a347c6182feeaf5a485c2159e89be708e70b44b04a128787678",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "renaissance",
+      "name": "Renaissance Technologies",
+      "website": "https://www.rentec.com/",
+      "sourceUrl": "https://www.rentec.com/img/favicon/apple-touch-icon.png",
+      "file": "renaissance.png",
+      "retrievedAt": "2026-09-23T13:23:58.952Z",
+      "sha256": "39a0ef86c6c6662d06e0eb423b103592eb8106a473ebf8b30a11cb089764b838",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "baupost",
+      "name": "The Baupost Group",
+      "website": "https://www.baupost.com/",
+      "sourceUrl": "https://www.baupost.com/Templates/Baupost/media/logo.png",
+      "file": "baupost.png",
+      "retrievedAt": "2026-09-23T13:23:58.895Z",
+      "sha256": "4633dd71d457cee7b02ea9ba782c19acdac18a34b2590d640dcf876a0aec6e5c",
+      "contentType": "image/png",
+      "tone": "dark"
+    },
+    {
+      "id": "viking",
+      "name": "Viking Global Investors",
+      "website": "https://vikingglobal.com/",
+      "sourceUrl": "https://vikingglobal.com/wp-content/uploads/2025/06/cropped-viking-fav-192x192.png",
+      "file": "viking.png",
+      "retrievedAt": "2026-09-23T13:23:58.588Z",
+      "sha256": "d95d8e2680178823299d76dd3a8157f5f0cc50287de3664223b3f81d0e7a82d9",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "situational-awareness",
+      "name": "Situational Awareness LP",
+      "website": "https://situationalawarenesslp.com/",
+      "sourceUrl": "https://framerusercontent.com/images/LraNVz3eNtFNEV7mbf0I7B4E.svg",
+      "file": "situational-awareness.svg",
+      "retrievedAt": "2026-09-23T13:23:58.507Z",
+      "sha256": "42869e76df9fc8a09d59e8a4c1f1ab8bc9014f73349375cd62bf32df11f3ea6b",
+      "contentType": "image/svg+xml",
+      "tone": "light"
+    },
+    {
+      "id": "point72",
+      "name": "Point72",
+      "website": "https://point72.com/",
+      "sourceUrl": "https://point72.com/wp-content/uploads/2025/09/cropped-point72-favicon-192x192.png",
+      "file": "point72.png",
+      "retrievedAt": "2026-09-23T13:23:58.571Z",
+      "sha256": "d531c0dc81c79f6b738679959e683e031ba012658e45d9b6de1f815522c448e9",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "blackrock",
+      "name": "BlackRock",
+      "website": "https://www.blackrock.com/",
+      "sourceUrl": "https://www.blackrock.com/uk-retail-c-assets/cache-1542298123000/images/media-bin/web/global/wordmark/blackrock-logo-masthead.svg",
+      "file": "blackrock.svg",
+      "retrievedAt": "2026-09-23T13:23:58.604Z",
+      "sha256": "f97ab7dd405588471862e513a9c52c7ebb6b4561576fc17072e6b59e6acc52a1",
+      "contentType": "image/svg+xml",
+      "tone": "light"
+    },
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "website": "https://corporate.vanguard.com/",
+      "sourceUrl": "https://corporate.vanguard.com/etc.clientlibs/corporatesite/clientlibs/clientlib-site/resources/icons/vanguardLogos/VGVMWhite.svg",
+      "file": "vanguard.svg",
+      "retrievedAt": "2026-09-23T13:23:58.896Z",
+      "sha256": "9cd157bde3cbf5f5f1266078761235af577d2465c027481a829047277f4ef00d",
+      "contentType": "image/svg+xml",
+      "tone": "dark"
+    },
+    {
+      "id": "two-sigma",
+      "name": "Two Sigma",
+      "website": "https://www.twosigma.com/",
+      "sourceUrl": "https://www.twosigma.com/wp-content/themes/tsmb/assets/public/img/favicon-180x180.png",
+      "file": "two-sigma.png",
+      "retrievedAt": "2026-09-23T13:23:58.778Z",
+      "sha256": "45b150420e6792e37ae72ad4ee677a15295985de768f4494997c3b062d466fff",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "millennium",
+      "name": "Millennium Management",
+      "website": "https://www.mlp.com/",
+      "sourceUrl": "https://www.mlp.com/wp-content/uploads/2024/05/cropped-favicon-192x192.png",
+      "file": "millennium.png",
+      "retrievedAt": "2026-09-23T13:23:58.842Z",
+      "sha256": "15f5464979f412bb0748984d41ab9a7aa5b34a3309018ab711a78c209a2ef6fd",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "de-shaw",
+      "name": "D. E. Shaw",
+      "website": "https://www.deshaw.com/",
+      "sourceUrl": "https://www.deshaw.com/img/svg/embedded/logo-white-with-trademark.svg",
+      "file": "de-shaw.svg",
+      "retrievedAt": "2026-09-23T13:23:58.650Z",
+      "sha256": "32c95d623324166c5920a7240cc76a2c601b607c1aa07f2fe16c12f08103885c",
+      "contentType": "image/svg+xml",
+      "tone": "dark"
+    },
+    {
+      "id": "third-point",
+      "name": "Third Point",
+      "website": "https://www.thirdpoint.com/",
+      "sourceUrl": "https://www.thirdpoint.com/img/ui/logo.svg",
+      "file": "third-point.svg",
+      "retrievedAt": "2026-09-23T13:23:58.693Z",
+      "sha256": "805fcf9108e919dc501b0e40ba5426473b132754bb10f6985529f222219bb1f4",
+      "contentType": "image/svg+xml",
+      "tone": "light"
+    },
+    {
+      "id": "elliott",
+      "name": "Elliott Management",
+      "website": "https://www.elliottmgmt.com/",
+      "sourceUrl": "https://www.elliottmgmt.com/wp-content/uploads/2023/08/cropped-favicon-32x32-1.jpeg",
+      "file": "elliott.jpg",
+      "retrievedAt": "2026-09-23T13:23:59.382Z",
+      "sha256": "dc8fb81fe0eac8ad5d1c4c391ec0c4bf829840dc3f2e456a41082271804d782b",
+      "contentType": "image/jpeg",
+      "tone": "light"
+    },
+    {
+      "id": "scion",
+      "name": "Scion Asset Management",
+      "website": "https://www.scionasset.com/",
+      "sourceUrl": "https://images.squarespace-cdn.com/content/v1/69385418b8d94243a6342459/d2e7c46b-58c2-4d8c-a33a-b097343a215b/logo.png?format=1500w",
+      "file": "scion.webp",
+      "retrievedAt": "2026-09-23T13:23:58.858Z",
+      "sha256": "d96eca0bd24e85d246f92586c9a9a16b12da7bc7fe6c275f244add39ed4dd754",
+      "contentType": "image/webp",
+      "tone": "light"
+    },
+    {
+      "id": "lone-pine",
+      "name": "Lone Pine Capital",
+      "website": "https://www.lonepinecapital.com/",
+      "sourceUrl": "https://www.lonepinecapital.com/wp-content/uploads/cropped-favicon-192x192.png",
+      "file": "lone-pine.png",
+      "retrievedAt": "2026-09-23T13:23:58.798Z",
+      "sha256": "3d32259b36a106aaa53c245bf8ce72b2fad342bd00443af40bf0ded10526a4ac",
+      "contentType": "image/png",
+      "tone": "light"
+    },
+    {
+      "id": "coatue",
+      "name": "Coatue",
+      "website": "https://www.coatue.com/",
+      "sourceUrl": "https://www.coatue.com/favicon.jpg",
+      "file": "coatue.jpg",
+      "retrievedAt": "2026-09-23T13:23:58.805Z",
+      "sha256": "e9c6486c5774ed5ea0bc923096e50f073bdde879fd01bff2f81566f49b732ee3",
+      "contentType": "image/jpeg",
+      "tone": "light"
+    },
+    {
+      "id": "greenlight",
+      "name": "Greenlight Capital",
+      "website": "https://www.greenlightcapital.com/",
+      "sourceUrl": "https://www.greenlightcapital.com/templates/greenlight/media/logo.png?ts=E7811557135F140CCA2168BD2BDC8A6720974D1D",
+      "file": "greenlight.png",
+      "retrievedAt": "2026-09-23T13:23:59.065Z",
+      "sha256": "e54c7034828da7a3333fc510adc394180ee227ed1ae00e5e04a527a2401cf183",
+      "contentType": "image/png",
+      "tone": "dark"
+    }
+  ]
+}

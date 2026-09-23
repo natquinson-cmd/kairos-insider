@@ -1,0 +1,12 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const code=fs.readFileSync('assets/clarity/live-research.js','utf8');
+async function mount({account=true,tickers=['AAPL','BH'],items=[],failure=false}={}){
+ const nodes=new Map(),calls=[];let cleared=false;
+ function node(id){if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,dataset:{},innerHTML:'',textContent:'',classList:{add(){}},append(){},prepend(){},before(){},querySelector:sel=>node(sel),querySelectorAll:()=>[]};nodes.set(id,n);return n;}
+ const document={body:node('body'),getElementById:node,createElement:node,querySelector:node};
+ const U={lang:'en',t:(_,en)=>en,esc:s=>String(s??'').replace(/[<>&"]/g,'_'),format:n=>String(n),getAccount:async()=>account?{email:'test@example.invalid'}:null,researchHistory:async()=>({load:()=>[],clear(){cleared=true;}}),stockUrl:ticker=>'dashboard.html?symbol='+ticker,watchlist:async()=>({load:async()=>({tickers})}),api:async(url,options)=>{calls.push({url,options});if(failure)throw Error('offline');return {items};},login(){}};
+ await vm.runInNewContext(code,{window:{KairosUI:U},document,URLSearchParams,Date,Map});return {nodes,node,calls};
+}
+test('anonymous research home displays login without accessing watchlist or loading stock analysis',async()=>{const f=await mount({account:false});assert.match(f.node('researchWatchContent').innerHTML,/Sign in/);assert.deepEqual(f.calls,[]);});
+test('home uses one summary read, retains unavailable symbols and displays zero as real data',async()=>{const f=await mount({items:[{ticker:'AAPL',name:'Apple',price:123,currency:'USD',changePercent:0,score:0,quoteAt:'2026-09-23T12:00:00Z',latestInsider:null}]});assert.equal(f.calls.length,1);assert.match(f.calls[0].url,/^\/api\/watchlist\/summary\?/);assert.equal(f.calls[0].options,undefined);const html=f.node('researchWatchContent').innerHTML;assert.match(html,/123 USD/);assert.match(html,/0 %/);assert.match(html,/BH/);assert.match(html,/No available filing/);assert.match(html,/—/);});
+test('empty list skips the summary and errors offer retry without fabricating prices',async()=>{const empty=await mount({tickers:[]});assert.equal(empty.calls.length,0);assert.match(empty.node('researchWatchContent').innerHTML,/empty/);const failed=await mount({failure:true});assert.match(failed.node('researchWatchContent').innerHTML,/temporarily unavailable/);assert.doesNotMatch(failed.node('researchWatchContent').innerHTML,/USD/);});
