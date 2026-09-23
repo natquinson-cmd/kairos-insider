@@ -7,7 +7,7 @@ test('legacy destinations preserve working account and research screens',()=>{
   const source=fs.readFileSync(path.join(root,'assets/clarity/entry-routes.js'),'utf8');
   for(const [hash,target]of [
     ['#watchlist','admin-workspace.html?lang=en#watchlist'],
-    ['#profile','admin-workspace.html?lang=en#profile'],
+    ['#profile','account.html?lang=en'],
     ['#insiderProfile?name=LEE+JOHNNY&cik=123','admin-workspace.html?lang=en#insiderProfile?name=LEE+JOHNNY&cik=123'],
     ['#13f-explorer?t=MSFT','admin-workspace.html?lang=en#13f-explorer?t=MSFT'],
     ['#consensus13f','insiders.html?lang=en&screen=funds&view=consensus'],
@@ -36,7 +36,7 @@ test('account bridge returns authenticated readers to the new interface without 
   for(const [hash,checkout,target]of [
     ['',false,'dashboard.html?lang=en'],['#home',false,'dashboard.html?lang=en'],
     ['#stockAnalysis?t=MSFT',false,'dashboard.html?lang=en&symbol=MSFT'],
-    ['#profile',false,''],['#admin',false,''],['#watchlist',false,''],['',true,'']
+    ['#profile',false,'account.html?lang=en'],['#profile',true,''],['#admin',false,''],['#watchlist',false,''],['',true,'']
   ]){
     let result='';const events={},store=new Map(checkout?[['kairos_auto_checkout','1']]:[]);
     vm.runInNewContext(source,{URLSearchParams,window:{isAnonymous:false,addEventListener(type,fn){events[type]=fn;}},document:{addEventListener(){},documentElement:{classList:{contains(){return false;}}}},location:{search:'?lang=en',hash,replace(v){result=v;}},localStorage:{getItem(k){return store.get(k)||null;}},sessionStorage:{getItem(){return null;}}});
