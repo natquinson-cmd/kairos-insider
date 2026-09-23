@@ -56,6 +56,15 @@
    else if(screen==='activists'){const d=await api('/api/13dg/recent?days='+(state.days==='all'?'730':state.days)+'&activistOnly=false&limit=2000');rows=d.filings||[];}
    else{rows=await api('/api/13f-funds');if(!Array.isArray(rows))rows=[];if(view==='consensus')consensus=(await api('/api/13f-consensus')).consensus||[];}
    $('liveStatus').hidden=true;render();
+   if(screen==='funds'&&p.has('fund')){
+    const normalizeCik=v=>String(v||'').replace(/^0+/,'');
+    const name=window.KairosFundBrands.normalize(p.get('fundName')||'');
+    const exactName=rows.filter(f=>name&&window.KairosFundBrands.normalize(f.fundName)===name);
+    const sameCik=rows.filter(f=>normalizeCik(f.cik)&&normalizeCik(f.cik)===normalizeCik(p.get('fund')));
+    const match=exactName.find(f=>sameCik.includes(f))||(exactName.length===1?exactName[0]:null)||(!name&&sameCik.length===1?sameCik[0]:null);
+    if(match)fundDetail(match);
+    else detail(p.get('fundName')||t('Hedge fund','Hedge fund'),`<p class="data-note">${t('Le portefeuille détaillé de ce fonds n’est pas disponible dans la couverture actuelle. Les positions déclarées restent accessibles sur la fiche action.','This fund’s detailed portfolio is not available in current coverage. Reported positions remain available on the stock page.')}</p>`);
+   }
  }catch(error){U.showError($('liveStatus'),error);}}
  $('marketSearch').oninput=()=>{state.q=$('marketSearch').value;state.page=0;sync();render();};$('marketControls').querySelectorAll('[data-filter]').forEach(el=>el.onchange=()=>{const key=el.dataset.filter;state[key]=['min','buyers'].includes(key)?+el.value:el.value;state.page=0;sync();if(screen==='activists'&&key==='days')load();else render();});$('marketControls').querySelector('[data-reset]').onclick=()=>location.href='insiders.html?'+new URLSearchParams({lang,screen,view});
  await load();
