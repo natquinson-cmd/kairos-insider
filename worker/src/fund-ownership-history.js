@@ -1,4 +1,10 @@
 const cik=v=>/^\d{1,10}$/.test(String(v||''))?String(v).padStart(10,'0'):null;
+// CUSIP modulus-10 double-add-double check: https://www.cusip.com/identifiers.html
+export function validCusip(value){
+ if(!/^[A-Z0-9*@#]{8}\d$/.test(value||''))return false;
+ let sum=0;for(let i=0;i<8;i++){const digit='*@#'.includes(value[i])?36+'*@#'.indexOf(value[i]):parseInt(value[i],36);const weighted=digit*(i%2?2:1);sum+=Math.floor(weighted/10)+weighted%10;}
+ return (10-sum%10)%10===Number(value[8]);
+}
 export function comparableHistory(rows,trackedCount){
  const clean=rows.filter(r=>cik(r.cik)&&/^\d{4}-(03-31|06-30|09-30|12-31)$/.test(r.report_date)&&typeof r.shares==='number'&&Number.isFinite(r.shares)&&r.shares>=0);
  const dates=[...new Set(clean.map(r=>r.report_date))].sort().slice(-8);
@@ -22,7 +28,7 @@ export async function readFundOwnershipHistory(env,ticker,normalizeName){
  const prefix=name.split(' ')[0].replace(/[%_]/g,'');if(prefix.length<3)return empty('unknown-security');
  const candidates=await env.HISTORY.prepare('SELECT DISTINCT cusip, name, ticker FROM fund_holdings_history WHERE ticker = ? OR UPPER(name) LIKE ? LIMIT 200').bind(ticker,prefix+'%').all();
  const matching=(candidates.results||[]).filter(r=>r.ticker===ticker||!r.ticker&&normalizeName(r.name)===name);
- const securities=[...new Set(matching.map(r=>r.cusip).filter(v=>/^[A-Z0-9]{9}$/.test(v||'')))];
+ const securities=[...new Set(matching.map(r=>r.cusip).filter(validCusip))];
  if(securities.length!==1)return empty(securities.length?'ambiguous-security':'unknown-security');
  const result=await env.HISTORY.prepare(`SELECT report_date, cik, shares FROM fund_holdings_history WHERE cusip = ? AND cik IN (${ids.map(()=>'?').join(',')}) AND report_date >= date('now', '-2 years') AND report_date <= date('now') ORDER BY report_date ASC`).bind(securities[0],...ids).all();
  return {ticker,...comparableHistory(result.results||[],ids.length),basis:'reported-shares',coverage:'observed-positions-same-funds',splitAdjusted:false};
