@@ -1,6 +1,6 @@
 /* Approved Kairos visual language, scoped to the administration route. */
 .clarity-admin body.core-release{--bg-primary:#0b1222;--bg-secondary:#111d32;--bg-card:#15253c;--surface-1:#15253c;--surface-2:#1b2e49;--border:#30445f;--border-strong:#466080;--text-primary:#eff4ff;--text-secondary:#b1c6e3;--text-muted:#99afcc;--accent-blue:#83afff;--accent-green:#57ddba;background:#0b1222;color:#eff4ff;color-scheme:dark}
-.clarity-admin .core-release #sidebar{top:0!important;bottom:0;left:0;width:206px!important;padding:30px 16px 22px!important;background:#0d1729!important;border-right:1px solid #273650;z-index:110;transform:none;overflow-y:auto}
+.clarity-admin .core-release #sidebar{box-sizing:border-box;top:0!important;bottom:0;left:0;width:206px!important;padding:30px 16px 22px!important;background:#0d1729!important;border-right:1px solid #273650;z-index:110;transform:none;overflow-y:auto}
 #clarityAdminNavigation{display:none}.clarity-admin #clarityAdminNavigation{display:flex;flex-direction:column;min-height:calc(100dvh - 52px)}
 .clarity-admin #sidebar>:not(#clarityAdminNavigation){display:none!important}
 .clarity-admin .ca-brand{display:flex;align-items:center;gap:9px;color:#eff4ff;text-decoration:none;font:500 36px/.95 'Clash Display',Inter,sans-serif;margin:5px 0 46px}
