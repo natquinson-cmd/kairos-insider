@@ -1,4 +1,9 @@
 const cik=v=>/^\d{1,10}$/.test(String(v||''))?String(v).padStart(10,'0'):null;
+// Verified issuer identities protect against mislabeled legacy archive rows.
+const verifiedSecurities={
+ AAPL:{name:'APPLE',cusip:'037833100',source:'https://www.sec.gov/Archives/edgar/data/70858/000148105724013298/form424b2.htm'},
+ NVDA:{name:'NVIDIA',cusip:'67066G104',source:'https://www.sec.gov/Archives/edgar/data/102909/000010290926000226/xslSCHEDULE_13G_X01/primary_doc.xml'}
+};
 // CUSIP modulus-10 double-add-double check: https://www.cusip.com/identifiers.html
 export function validCusip(value){
  if(!/^[A-Z0-9*@#]{8}\d$/.test(value||''))return false;
@@ -28,8 +33,9 @@ export async function readFundOwnershipHistory(env,ticker,normalizeName){
  const prefix=name.split(' ')[0].replace(/[%_]/g,'');if(prefix.length<3)return empty('unknown-security');
  const candidates=await env.HISTORY.prepare('SELECT DISTINCT cusip, name, ticker FROM fund_holdings_history WHERE ticker = ? OR UPPER(name) LIKE ? LIMIT 200').bind(ticker,prefix+'%').all();
  const matching=(candidates.results||[]).filter(r=>r.ticker===ticker||!r.ticker&&normalizeName(r.name)===name);
- const securities=[...new Set(matching.map(r=>r.cusip).filter(validCusip))];
+ const verified=verifiedSecurities[ticker]?.name===name?verifiedSecurities[ticker]:null;
+ const securities=verified?[verified.cusip]:[...new Set(matching.map(r=>r.cusip).filter(validCusip))];
  if(securities.length!==1)return {...empty(securities.length?'ambiguous-security':'unknown-security'),securities:securities.map(cusip=>({cusip,names:[...new Set(matching.filter(row=>row.cusip===cusip).map(row=>row.name))]}))};
- const result=await env.HISTORY.prepare(`SELECT report_date, cik, shares FROM fund_holdings_history WHERE cusip = ? AND cik IN (${ids.map(()=>'?').join(',')}) AND report_date >= date('now', '-2 years') AND report_date <= date('now') ORDER BY report_date ASC`).bind(securities[0],...ids).all();
- return {ticker,...comparableHistory(result.results||[],ids.length),basis:'reported-shares',coverage:'observed-positions-same-funds',splitAdjusted:false};
+ const result=await env.HISTORY.prepare(`SELECT report_date, cik, shares, name FROM fund_holdings_history WHERE cusip = ? AND cik IN (${ids.map(()=>'?').join(',')}) AND report_date >= date('now', '-2 years') AND report_date <= date('now') ORDER BY report_date ASC`).bind(securities[0],...ids).all();
+ return {ticker,...comparableHistory((result.results||[]).filter(row=>normalizeName(row.name)===name),ids.length),basis:'reported-shares',coverage:'observed-positions-same-funds',splitAdjusted:false};
 }
