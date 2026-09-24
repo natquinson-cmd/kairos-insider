@@ -41,18 +41,26 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
   const record = await env.CACHE.get(`wl:${uid}`, 'json');
   const exists = record != null;
   const tickers = symbols(exists ? record.tickers : String(legacySymbols).slice(0, 1600).split(','));
-  const result = {ok: true, exists, cacheOnly: true, items: [], updatedAt: new Date(now).toISOString()};
+  const result = {ok: true, exists, cacheOnly: true, items: [], updatedAt: new Date(now).toISOString(),activity:{available:false,events:[],total:0,truncated:false,days:30}};
   if (!tickers.length) return result;
 
   const feed = await env.CACHE.get('insider-transactions', 'json').catch(() => null);
   const wanted = new Set(tickers), latest = new Map(), today = result.updatedAt.slice(0, 10);
+  const cutoff = new Date(Date.parse(today)-29*86400000).toISOString().slice(0,10), events=new Map();
+  result.activity.available=Array.isArray(feed?.transactions);
+  result.activity.sourceUpdatedAt=timestamp(feed?.updatedAt||feed?.generatedAt);
   for (const row of Array.isArray(feed?.transactions) ? feed.transactions : []) {
     const event = normalizeInsiderMovement(row);
     if (!event || !wanted.has(event.ticker) || event.fileDate > today) continue;
+    if(event.fileDate>=cutoff)events.set(event.id,event);
     const previous = latest.get(event.ticker);
     if (!previous || event.fileDate > previous.fileDate ||
         event.fileDate === previous.fileDate && (event.tradeDate || '') > (previous.tradeDate || '')) latest.set(event.ticker, event);
   }
+  const recent=[...events.values()].sort((a,b)=>b.fileDate.localeCompare(a.fileDate)||(b.tradeDate||'').localeCompare(a.tradeDate||'')||a.id.localeCompare(b.id));
+  result.activity.total=recent.length;
+  result.activity.truncated=recent.length>200;
+  result.activity.events=recent.slice(0,200);
 
   // Bound concurrency instead of issuing 100 large cached analyses at once.
   for (let offset = 0; offset < tickers.length; offset += 8) {

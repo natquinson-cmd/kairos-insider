@@ -14,6 +14,19 @@ function cache(records = {}) {
 }
 const key = ticker => `stock-analysis:v23:${ticker}:full:1y`;
 
+test('activity response is bounded and discloses truncation without losing its true count',async()=>{
+ const transactions=Array.from({length:205},(_,i)=>({ticker:'AAPL',source:'sec',type:'buy',fileDate:'2026-09-23',insider:'Buyer '+i}));
+ const h=cache({'wl:alice':{tickers:['AAPL']},'insider-transactions':{transactions}});
+ const r=await readWatchlistSummary(h.env,'alice','',NOW);assert.equal(r.activity.events.length,200);assert.equal(r.activity.total,205);assert.equal(r.activity.truncated,true);
+});
+
+test('activity is personal, deduplicated and limited by publication date, with missing feed distinguished from no movement',async()=>{
+ const event={ticker:'AAPL',source:'sec',type:'buy',fileDate:'2026-09-23',date:'2026-09-18',insider:'Buyer',value:1200,currency:'USD',sourceUrl:'https://www.sec.gov/filing'};
+ const h=cache({'wl:alice':{tickers:['AAPL']},'insider-transactions':{transactions:[event,event,{...event,type:'sell',insider:'Seller'},{...event,ticker:'MSFT'},{...event,fileDate:'2026-07-01'},{...event,fileDate:'2026-09-24'}]}});
+ const r=await readWatchlistSummary(h.env,'alice','',NOW);assert.equal(r.activity.available,true);assert.equal(r.activity.total,2);assert.equal(r.activity.events.length,2);assert.equal(r.activity.events[0].tradeDate,'2026-09-18');assert.equal(r.activity.events[0].sourceUrl,'https://www.sec.gov/filing');assert.equal(r.activity.truncated,false);
+ const missing=await readWatchlistSummary(cache({'wl:alice':{tickers:['AAPL']}}).env,'alice','',NOW);assert.equal(missing.activity.available,false);
+});
+
 test('summary reads only the current user watchlist and projects actual cached values with freshness', async () => {
   const {env, reads} = cache({
     'wl:alice': {tickers: ['AAPL']}, 'wl:bob': {tickers: ['MSFT']},

@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const U=window.KairosUI,{t,esc:e,lang}=U,$=id=>document.getElementById(id);
+let insights=null;
 let client,account,record=null,entitled=null,telegram=null,telegramError=false,busy=false,deepLink=null,searchRequest=0,searchTimer;
 const message=(value,error=false)=>{$('watchlistMessage').textContent=value;$('watchlistMessage').classList.toggle('is-error',error);};
 const canChange=()=>entitled===true&&!!record&&!busy;
@@ -17,7 +18,7 @@ function renderAccess(){
 function renderRows(){
  const rows=Array.isArray(record?.tickers)?record.tickers:[];
  $('watchlistCount').textContent=t(`${rows.length} valeur${rows.length===1?'':'s'}`,`${rows.length} stock${rows.length===1?'':'s'}`);
- $('watchlistRows').innerHTML=rows.length?`<table class="watchlist-table"><thead><tr><th>${t('Symbole','Symbol')}</th><th><span class="sr-only">${t('Analyse','Analysis')}</span></th><th>${t('Suivi','Following')}</th></tr></thead><tbody>${rows.map(symbol=>`<tr><td>${e(symbol)}</td><td><button type="button" class="text-button" data-open="${e(symbol)}">${t('Voir la fiche','Open analysis')} →</button></td><td><button type="button" class="text-button watchlist-remove" data-remove="${e(symbol)}" aria-label="${e(t('Retirer '+symbol,'Remove '+symbol))}"${disabled()}>${t('Retirer','Remove')}</button></td></tr>`).join('')}</tbody></table>`:`<div class="watchlist-empty"><p>${t('Aucune action suivie. Recherchez une société pour commencer votre liste.','No stocks followed yet. Search for a company to start your list.')}</p></div>`;
+ $('watchlistRows').innerHTML=rows.length?`<table class="watchlist-table"><thead><tr><th>${t('Société','Company')}</th><th>${t('Dernières données','Latest data')}</th><th><span class="sr-only">${t('Analyse','Analysis')}</span></th><th>${t('Suivi','Following')}</th></tr></thead><tbody>${rows.map(symbol=>`<tr><td>${e(symbol)}<small>${e(insights?.stockName(symbol)||'')}</small></td><td class="watch-stock-data">${insights?.stockDetails(symbol)||'—'}</td><td><button type="button" class="text-button" data-open="${e(symbol)}">${t('Voir la fiche','Open analysis')} →</button></td><td><button type="button" class="text-button watchlist-remove" data-remove="${e(symbol)}" aria-label="${e(t('Retirer '+symbol,'Remove '+symbol))}"${disabled()}>${t('Retirer','Remove')}</button></td></tr>`).join('')}</tbody></table>`:`<div class="watchlist-empty"><p>${t('Aucune action suivie. Recherchez une société pour commencer votre liste.','No stocks followed yet. Search for a company to start your list.')}</p></div>`;
  $('watchlistRows').querySelectorAll('[data-open]').forEach(button=>button.onclick=()=>U.openStock(button.dataset.open));
  $('watchlistRows').querySelectorAll('[data-remove]').forEach(button=>button.onclick=()=>mutate(async()=>{record=await client.remove(button.dataset.remove);return t('Action retirée de votre watchlist.','Stock removed from your watchlist.');}));
 }
@@ -44,7 +45,7 @@ function renderTelegram(){
  host.querySelector('[data-telegram-connect]')?.addEventListener('click',()=>mutate(async()=>{const result=await post('/api/telegram/init-link',{lang}),url=new URL(result.deepLink);if(url.protocol!=='https:'||url.hostname!=='t.me'||url.username||url.password)throw new Error('Invalid Telegram link');deepLink=url.href;return t('Lien prêt. Ouvrez Telegram pour poursuivre.','Link ready. Open Telegram to continue.');}));
  host.querySelector('[data-telegram-toggle]')?.addEventListener('click',()=>mutate(async()=>{if(!enabled)record=await client.preferences({types:{...(record.types||{}),insider:true},lang},{sendConfirmation:false});await post('/api/telegram/preferences',{insiderTransactions:!enabled,lang});await loadTelegram();return enabled?t('Alertes Telegram désactivées.','Telegram alerts disabled.'):t('Préférence enregistrée.','Preference saved.');}));
 }
-function renderAll(){renderAccess();renderRows();renderEmail();renderTelegram();const search=$('watchlistSearch');if(search)search.disabled=!canChange();$('watchlistSearchResults')?.querySelectorAll('[data-follow]').forEach(button=>button.disabled=!canChange()||record.tickers.includes(button.dataset.follow));U.translate?.();}
+function renderAll(){insights?.update(record?.tickers||[]);renderAccess();renderRows();renderEmail();renderTelegram();const search=$('watchlistSearch');if(search)search.disabled=!canChange();$('watchlistSearchResults')?.querySelectorAll('[data-follow]').forEach(button=>button.disabled=!canChange()||record.tickers.includes(button.dataset.follow));U.translate?.();}
 async function mutate(action){if(!canChange())return;busy=true;renderAll();message(t('Enregistrement…','Saving…'));try{message(await action());}catch(error){message(error.message||t('Impossible d’enregistrer. Réessayez.','Could not save. Please retry.'),true);}finally{busy=false;renderAll();}}
 async function loadAccess(){try{const data=await U.api('/stripe/status');if(typeof data.entitled!=='boolean')throw new Error('Unavailable');entitled=data.entitled;}catch{entitled=null;}}
 async function loadTelegram(){try{const data=await U.api('/api/telegram/status');if(typeof data.linked!=='boolean')throw new Error('Unavailable');telegram=data;telegramError=false;if(data.linked)deepLink=null;}catch{telegramError=true;telegram=null;}}
@@ -62,7 +63,7 @@ async function mount(){
  const loaded=await Promise.allSettled([client.load(),loadAccess(),loadTelegram()]);
  if(loaded[0].status!=='fulfilled')throw loaded[0].reason;record=loaded[0].value;
  if(!record||!Array.isArray(record.tickers))throw new Error(t('Votre watchlist n’a pas pu être chargée.','Your watchlist could not be loaded.'));
- $('liveStatus').hidden=true;$('watchlistContent').hidden=false;setupSearch();renderAll();
+ $('liveStatus').hidden=true;$('watchlistContent').hidden=false;setupSearch();insights=window.KairosWatchInsights?.create(renderRows)||null;renderAll();
 }
 mount().catch(error=>U.showError($('liveStatus'),error));
 })();

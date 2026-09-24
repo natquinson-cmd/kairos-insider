@@ -42,13 +42,16 @@ async function mount({anonymous=false,entitled=true,statusFailure=false,saveFail
   const saved={tickers:['AAPL','MC.PA','NESN.SW'],emailAlerts:true,emailInsiderAlerts:false,optIn:false,types:{insider:false},lang,exists:true};
   const copy=()=>structuredClone(saved);
   const client={load:async()=>{loads++;return copy();},add:async symbol=>{mutations.push({operation:'add',symbol});throw Error('Unexpected add');},remove:async symbol=>{mutations.push({operation:'remove',symbol});throw Error('Unexpected removal');},preferences:async(patch,options)=>{mutations.push({operation:'preferences',patch,options});if(saveFailure)throw Error('Save failed');Object.assign(saved,patch);return copy();}};
-  const U={lang,t:(fr,en)=>lang==='en'?en:fr,esc:escape,getAccount:async()=>anonymous?null:{email:'test@example.invalid'},watchlist:async()=>{clientCreations++;return client;},login(){},openStock(){},search:async()=>[],translate(){},showError:(host,error)=>{errors.push(error);host.textContent=error.message;},api:async(url,options)=>{
+  const U={lang,format:v=>String(v),stockUrl:s=>'dashboard.html?symbol='+s,t:(fr,en)=>lang==='en'?en:fr,esc:escape,getAccount:async()=>anonymous?null:{email:'test@example.invalid'},watchlist:async()=>{clientCreations++;return client;},login(){},openStock(){},search:async()=>[],translate(){},showError:(host,error)=>{errors.push(error);host.textContent=error.message;},api:async(url,options)=>{
     apiCalls.push({url,options});
+    if(url.startsWith('/api/watchlist/summary'))return {updatedAt:'2026-09-24',items:[{ticker:'AAPL',name:'Apple',price:250,currency:'USD',quoteAt:'2026-09-23'}],activity:{available:true,events:[{ticker:'AAPL',type:'buy',fileDate:'2026-09-23',tradeDate:'2026-09-22',insider:'Test',value:1200,currency:'USD'}]}};
     if(url==='/stripe/status'){if(statusFailure)throw Error('Unavailable');return {entitled};}
     if(url==='/api/telegram/status')return {linked,alertPrefs:{insiderTransactions:false,quietHoursStart:22,quietHoursEnd:7}};
     throw Error('Unexpected API call: '+url);
   }};
-  vm.runInNewContext(source,{window:{KairosUI:U},document,URL,setTimeout,clearTimeout});
+  const context=vm.createContext({window:{KairosUI:U},document,URL,URLSearchParams,setTimeout,clearTimeout});
+  vm.runInContext(fs.readFileSync('assets/clarity/watchlist-insights.js','utf8'),context);
+  vm.runInContext(source,context);
   for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(errors,[]);
   return {get,apiCalls,mutations,saved,get loads(){return loads;},get clientCreations(){return clientCreations;}};
@@ -126,3 +129,5 @@ test('linked Telegram displays existing quiet hours without enabling alerts or c
   assert.match(details[0].innerHTML,/Receive night-time alerts too/);
   assertReadOnly(result);
 });
+
+test('integrated watchlist journal and dated stock data load read-only in French',async()=>{const r=await mount({lang:'fr'});assert.match(r.get('watchActivityRows').innerHTML,/Achat/);assert.match(r.get('watchlistRows').innerHTML,/250 USD/);assert.match(r.get('watchlistRows').innerHTML,/Apple/);assert.equal(r.apiCalls.filter(c=>c.url.startsWith('/api/watchlist/summary')).length,1);assertReadOnly(r);});
