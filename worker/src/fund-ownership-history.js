@@ -1,6 +1,7 @@
 const cik=v=>/^\d{1,10}$/.test(String(v||''))?String(v).padStart(10,'0'):null;
 // Verified issuer identities protect against mislabeled legacy archive rows.
 const verifiedSecurities={
+ BKNG:{name:'BOOKING',cusip:'09857L108',source:'https://boxexchange.com/assets/BOXOnnMemo207628.pdf',splits:[{date:'2026-04-02',ratio:25,source:'https://www.sec.gov/Archives/edgar/data/1075531/000095015726000465/form8-k.htm'}]},
  AAPL:{name:'APPLE',cusip:'037833100',source:'https://www.sec.gov/Archives/edgar/data/70858/000148105724013298/form424b2.htm'},
  NVDA:{name:'NVIDIA',cusip:'67066G104',source:'https://www.sec.gov/Archives/edgar/data/102909/000010290926000226/xslSCHEDULE_13G_X01/primary_doc.xml'}
 };
@@ -37,5 +38,10 @@ export async function readFundOwnershipHistory(env,ticker,normalizeName){
  const securities=verified?[verified.cusip]:[...new Set(matching.map(r=>r.cusip).filter(validCusip))];
  if(securities.length!==1)return {...empty(securities.length?'ambiguous-security':'unknown-security'),securities:securities.map(cusip=>({cusip,names:[...new Set(matching.filter(row=>row.cusip===cusip).map(row=>row.name))]}))};
  const result=await env.HISTORY.prepare(`SELECT report_date, cik, shares, name FROM fund_holdings_history WHERE cusip = ? AND cik IN (${ids.map(()=>'?').join(',')}) AND report_date >= date('now', '-2 years') AND report_date <= date('now') ORDER BY report_date ASC`).bind(securities[0],...ids).all();
- return {ticker,...comparableHistory((result.results||[]).filter(row=>normalizeName(row.name)===name),ids.length),basis:'reported-shares',coverage:'observed-positions-same-funds',splitAdjusted:false};
+ const rows=(result.results||[]).filter(row=>normalizeName(row.name)===name);
+ const latest=rows.map(row=>row.report_date).sort().at(-1);
+ const adjustments=(verified?.splits||[]).filter(split=>split.date<=latest);
+ // 13F quantities are as reported: restate older quarters to the latest share basis.
+ const adjusted=rows.map(row=>({...row,shares:typeof row.shares==='number'?adjustments.reduce((shares,split)=>row.report_date<split.date?shares*split.ratio:shares,row.shares):row.shares}));
+ return {ticker,...comparableHistory(adjusted,ids.length),basis:adjustments.length?'split-adjusted-reported-shares':'reported-shares',coverage:'observed-positions-same-funds',splitAdjusted:adjustments.length>0,adjustments};
 }
