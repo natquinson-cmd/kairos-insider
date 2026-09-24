@@ -3,6 +3,9 @@ const U=window.KairosUI,{t,esc:e,lang,format:n}=U,$=id=>document.getElementById(
 const safeUrl=value=>{try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?u.href:null;}catch{return null;}};
 const date=value=>{if(!value)return '—';const d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(value)?value+'T12:00:00':value);return Number.isFinite(d.getTime())?d.toLocaleDateString(lang==='en'?'en-US':'fr-FR',{day:'numeric',month:'short',year:'numeric'}):'—';};
 const number=value=>typeof value==='number'&&Number.isFinite(value)?value:null;
+const signed=value=>(value>0?'+':'')+n(value)+' %';
+const direction=value=>value>0?'is-up':value<0?'is-down':'is-flat';
+function companyLogo(ticker){return `<span class="watch-company-logo" aria-hidden="true"><span>${e(ticker.slice(0,2))}</span><img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(ticker)}" loading="lazy" alt="" width="32" height="32"></span>`;}
 function selectEvents(events,days,type,today){
  const end=today.slice(0,10),start=new Date(Date.parse(end)-(days-1)*86400000).toISOString().slice(0,10);
  return events.filter(row=>['buy','sell'].includes(row.type)&&row.fileDate>=start&&row.fileDate<=end&&(type==='all'||row.type===type));
@@ -35,8 +38,18 @@ function create(onChange){
  }
  function stockDetails(ticker){
   const row=items.get(ticker);if(!row)return `<span class="watch-quote">—</span><small>${t('Données non chargées','Data not loaded')}</small>`;
-  const price=number(row.price),event=row.latestInsider;
-  return `<span class="watch-quote">${price==null?'—':e(n(price)+' '+(row.currency||''))}</span><small>${price==null?t('Cours indisponible','Price unavailable'):t('Cours du ','Price as of ')+e(date(row.quoteAt))}</small>${event?`<small class="watch-latest">${event.type==='buy'?t('Dernier achat déclaré','Latest disclosed purchase'):t('Dernière vente déclarée','Latest disclosed sale')} · ${e(date(event.fileDate))}</small>`:''}`;
+  const price=number(row.price),event=row.latestInsider,change=price==null?null:number(row.changePercent);
+  return `<span class="watch-quote">${price==null?'—':e(n(price)+' '+(row.currency||''))}</span>${change==null?'':`<span class="watch-day-change ${direction(change)}">${e(signed(change))}</span>`}<small>${price==null?t('Cours indisponible','Price unavailable'):t('Séance du ','Session: ')+e(date(row.quoteAt))}</small>${event?`<small class="watch-latest">${event.type==='buy'?t('Achat déclaré','Disclosed purchase'):t('Vente déclarée','Disclosed sale')} · ${e(date(event.fileDate))}</small>`:''}`;
+ }
+ function stockTrend(ticker){
+  const row=items.get(ticker),curve=row?.sparkline3m,points=(curve?.points||[]).filter(p=>number(p.close)>0&&Number.isFinite(Date.parse(p.date)));
+  const score=number(row?.score),scoreMarkup=score==null?'':`<small class="watch-score ${score>=75?'is-up':score>=55?'is-favorable':score>=35?'is-cautious':'is-down'}" title="${e(t('Score au ','Score as of ')+date(row.scoreAt))}">Kairos <b>${e(n(score,0))}</b>/100</small>`;
+  if(points.length<2)return `<small>${t('Courbe indisponible','Chart unavailable')}</small>${scoreMarkup}`;
+  const min=Math.min(...points.map(p=>p.close)),max=Math.max(...points.map(p=>p.close)),first=Date.parse(points[0].date),span=Date.parse(points.at(-1).date)-first;
+  if(span<=0)return `<small>${t('Courbe indisponible','Chart unavailable')}</small>${scoreMarkup}`;
+  const path=points.map(p=>((Date.parse(p.date)-first)/span*136+2).toFixed(1)+','+(max===min?22:40-(p.close-min)/(max-min)*36).toFixed(1)).join(' ');
+  const change=number(curve.changePercent),title=date(curve.from)+' – '+date(curve.to)+(change==null?'':' · '+signed(change));
+  return `<div class="watch-trend ${direction(change)}"><svg viewBox="0 0 140 44" role="img" aria-label="${e(t('Cours sur trois mois : ','Three-month prices: ')+title)}"><title>${e(title)}</title><polygon points="2,44 ${path} 138,44" fill="currentColor" opacity=".12"/><polyline points="${path}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><small title="${e(title)}">${curve.partial?t('Période partielle','Partial period'):t('3 mois','3 months')} ${change==null?'':e(signed(change))}</small></div>${scoreMarkup}`;
  }
  async function update(next,force=false){
   const nextKey=next.join(',');if(nextKey===key&&!force)return;
@@ -46,7 +59,7 @@ function create(onChange){
   catch{if(current!==request)return;state='error';}
   render();onChange();
  }
- return {update,stockDetails,stockName:ticker=>items.get(ticker)?.name||''};
+ return {update,stockDetails,stockTrend,stockName:ticker=>items.get(ticker)?.name||''};
 }
-window.KairosWatchInsights={create,selectEvents};
+window.KairosWatchInsights={create,selectEvents,companyLogo};
 })();

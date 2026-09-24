@@ -26,6 +26,19 @@ function timestamp(value, seconds = false) {
 const text = value => typeof value === 'string' && value.trim() ? value.trim() : null;
 const number = value => typeof value === 'number' || typeof value === 'string' ? finiteNumber(value) : null;
 
+function threeMonthCurve(raw,now){
+  if(!Array.isArray(raw))return null;
+  const end=new Date(now),today=end.toISOString().slice(0,10);
+  const lastDay=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()-2,0)).getUTCDate();
+  const start=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()-3,Math.min(end.getUTCDate(),lastDay))),cutoff=start.toISOString().slice(0,10);
+  const values=new Map();
+  for(const row of raw){const day=typeof row?.date==='string'?row.date.slice(0,10):'',close=number(row?.close);if(/^\d{4}-\d{2}-\d{2}$/.test(day)&&day>=cutoff&&day<=today&&close>0)values.set(day,close);}
+  const points=[...values].sort(([a],[b])=>a.localeCompare(b)).slice(-96).map(([date,close])=>({date,close}));
+  if(points.length<2)return null;
+  const first=points[0],last=points.at(-1);
+  return {points,from:first.date,to:last.date,changePercent:(last.close/first.close-1)*100,partial:Date.parse(first.date)-start.getTime()>7*86400000};
+}
+
 async function stockCache(env, ticker) {
   for (const view of ['full', 'pub']) {
     const cached = await env.CACHE.get(`${CACHE_PREFIX}${ticker}:${view}:1y`, 'json').catch(() => null);
@@ -77,6 +90,7 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
         // Never present the response assembly time as the quote's market time.
         quoteAt: price == null ? null : timestamp(cached?.price?.regularMarketTime, true),
         cachedAt, score, scoreAt: score == null ? null : cachedAt,
+        sparkline3m:threeMonthCurve(cached?.chart?.points,now),
         latestInsider: event ? {
           type: event.type, insider: text(event.insider), value: event.value,
           currency: text(event.currency), fileDate: event.fileDate, tradeDate: event.tradeDate, sourceUrl: event.sourceUrl,

@@ -13,6 +13,10 @@ function cache(records = {}) {
   }}};
 }
 const key = ticker => `stock-analysis:v23:${ticker}:full:1y`;
+test('three-month curve keeps dated positive observations, excludes future/old data and computes actual period change',async()=>{
+ const h=cache({'wl:alice':{tickers:['AAPL']},[key('AAPL')]:{ticker:'AAPL',chart:{points:[{date:'2026-09-22',close:120},{date:'2026-06-23',close:100},{date:'2026-06-22',close:20},{date:'2026-09-24',close:999},{date:'2026-07-01',close:null},{date:'2026-07-02',close:-1}]}}});
+ const {items}=await readWatchlistSummary(h.env,'alice','',NOW);assert.deepEqual(items[0].sparkline3m.points,[{date:'2026-06-23',close:100},{date:'2026-09-22',close:120}]);assert.ok(Math.abs(items[0].sparkline3m.changePercent-20)<1e-8);assert.equal(items[0].sparkline3m.partial,false);
+});
 
 test('activity response is bounded and discloses truncation without losing its true count',async()=>{
  const transactions=Array.from({length:205},(_,i)=>({ticker:'AAPL',source:'sec',type:'buy',fileDate:'2026-09-23',insider:'Buyer '+i}));
@@ -35,7 +39,7 @@ test('summary reads only the current user watchlist and projects actual cached v
   const result = await readWatchlistSummary(env, 'alice', 'MSFT', NOW);
   assert.equal(result.ok,true); assert.equal(result.cacheOnly,true); assert.equal(result.exists,true);
   assert.equal(result.updatedAt,new Date(NOW).toISOString());
-  assert.deepEqual(result.items,[{ticker:'AAPL',name:'Apple Inc.',price:250,currency:'USD',changePercent:0,quoteAt:new Date(1758630600000).toISOString(),cachedAt:new Date(NOW-1000).toISOString(),score:0,scoreAt:new Date(NOW-1000).toISOString(),latestInsider:null}]);
+  assert.deepEqual(result.items,[{ticker:'AAPL',name:'Apple Inc.',price:250,currency:'USD',changePercent:0,quoteAt:new Date(1758630600000).toISOString(),cachedAt:new Date(NOW-1000).toISOString(),score:0,scoreAt:new Date(NOW-1000).toISOString(),latestInsider:null,sparkline3m:null}]);
   assert.ok(!reads.includes('wl:bob')); assert.ok(!reads.some(k=>k.includes('MSFT')));
 });
 

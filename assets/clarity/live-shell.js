@@ -116,7 +116,7 @@ ticker();
 const legacy=location.hash.slice(1);
 if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=live11');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
-else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=insights1');await loadScript('assets/clarity/live-watchlist.js?v=insights1');}
+else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=insights2');await loadScript('assets/clarity/live-watchlist.js?v=insights2');}
 else if(researchHome){await loadScript('assets/clarity/live-research.js?v=research1');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
