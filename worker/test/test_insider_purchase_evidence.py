@@ -97,6 +97,85 @@ class PurchaseEvidenceTest(unittest.TestCase):
                 self.assertTrue(buy.get('form10b5One'))
                 self.assertFalse(award.get('purchaseSignalEligible'))
 
+    def test_sec_price_footnote_preserves_native_currency_without_converting_amounts(self):
+        # BBD filings 0001292814-26-004850 / 004852 attach F1 to the price,
+        # with the complete note "Brazilian reais" (optionally a final period).
+        line = transaction_xml(footnote='F2').replace(
+            '<transactionPricePerShare><value>10</value></transactionPricePerShare>',
+            '<transactionPricePerShare><value>17.14</value><footnoteId id="F1"/></transactionPricePerShare>')
+        for note in ('Brazilian reais', 'Brazilian reais.'):
+            for filename, parsed in self.sec_rows(form_xml(line, {'F1': note, 'F2': 'Open market purchase.'})):
+                with self.subTest(filename=filename, note=note):
+                    row = parsed['transactions'][0]
+                    self.assertEqual(row.get('currency'), 'BRL')
+                    self.assertEqual(row.get('currencySource'), 'sec-price-footnote')
+                    self.assertEqual(row.get('currencyFootnoteIds'), ['F1'])
+                    self.assertEqual(row['price'], 17.14)
+                    self.assertEqual(row['value'], 1714)
+                    self.assertTrue(row['purchaseSignalEligible'])
+
+    def test_sec_currency_requires_unambiguous_price_linked_evidence(self):
+        from insider_transaction import parse_form4_document
+        price_linked = transaction_xml().replace(
+            '<transactionPricePerShare><value>10</value></transactionPricePerShare>',
+            '<transactionPricePerShare><value>10</value><footnoteId id="F2"/></transactionPricePerShare>')
+        cases = [
+            (form_xml(transaction_xml(), {'F1': 'Brazilian reais'}), None),
+            (form_xml(price_linked, {'F1': 'Open market.', 'F2': '$10 per share.'}), None),
+            (form_xml(price_linked, {'F1': 'Open market.', 'F2': 'BRL 10, equivalent to USD 2.'}), None),
+            (form_xml(price_linked, {'F1': 'Open market.', 'F2': 'The broker also holds an account in USD.'}), None),
+            (form_xml(price_linked, {'F1': 'Open market.', 'F2': 'The price is not denominated in USD.'}), None),
+            (form_xml(price_linked, {'F1': 'Open market.', 'F2': 'The price is stated in U.S. dollars.'}), 'USD'),
+            (form_xml(price_linked, {'F1': 'Open market.', 'F2': 'Price reported in EUR.'}), 'EUR'),
+        ]
+        for xml, expected in cases:
+            row = parse_form4_document(xml, NOW)['transactions'][0]
+            with self.subTest(expected=expected, xml=xml):
+                self.assertEqual(row.get('currency'), expected)
+                if expected is None:
+                    self.assertNotIn('currencySource', row)
+
+    def test_collection_paths_keep_sec_source_url_and_currency_in_history_evidence(self):
+        from insider_transaction import evidence_json
+        source = 'https://www.sec.gov/Archives/edgar/data/999/000000099926000001/form4.xml'
+        xml = form_xml(transaction_xml()).replace(
+            '<transactionPricePerShare><value>10</value></transactionPricePerShare>',
+            '<transactionPricePerShare><value>10</value><footnoteId id="F2"/></transactionPricePerShare>')
+        xml = xml.replace('Shares purchased pursuant to the Employee Stock Purchase Plan (ESPP).', 'Brazilian reais.')
+        for filename in ('prefetch-all.py', 'prefetch-transactions.py', 'backfill-insiders-history.py'):
+            parser = definitions(filename)['parse_form4']
+            parsed = parser(xml, source_url=source) if filename == 'prefetch-transactions.py' else parser(xml, NOW, source_url=source)
+            row = parsed['transactions'][0]
+            with self.subTest(filename=filename):
+                self.assertEqual(row['sourceUrl'], source)
+                evidence = json.loads(evidence_json(row))
+                self.assertEqual(evidence['sourceUrl'], source)
+                self.assertEqual(evidence['currency'], 'BRL')
+                self.assertEqual(evidence['securityTitle'], 'Common Stock')
+                self.assertEqual(evidence['currencyFootnoteIds'], ['F2'])
+        env = definitions('backfill-insiders-history.py', fetch=lambda _: xml)
+        hit = {'_source': {'ciks': ['123', '999'], 'file_date': NOW,
+                         'display_names': ['Alice (CIK 123)', 'Example (CIK 999)']},
+               '_id': '0000000999-26-000001:form4.xml'}
+        evidence = json.loads(env['_process_filing'](hit, NOW, NOW)[0]['transaction_evidence'])
+        self.assertEqual(evidence['sourceUrl'], source)
+        self.assertEqual(evidence['currency'], 'BRL')
+
+    def test_explicit_sec_currency_survives_the_existing_merge_and_history_writer(self):
+        from insider_transaction import parse_form4_document
+        line = transaction_xml().replace(
+            '<transactionPricePerShare><value>10</value></transactionPricePerShare>',
+            '<transactionPricePerShare><value>10</value><footnoteId id="F2"/></transactionPricePerShare>')
+        parsed = parse_form4_document(form_xml(line, {'F1': 'Open market.', 'F2': 'Brazilian reais'}), NOW)
+        row = dict(parsed['transactions'][0], insider='Alice', ticker='BBD', cik='123', adsh='filing', fileDate=NOW)
+        definitions('merge-sources.py')['tag_sec_rows']([row])
+        self.assertEqual(row['currency'], 'BRL')
+        db = history_database()
+        for statement in history_statements([row]):
+            db.execute(statement)
+        evidence = json.loads(db.execute('SELECT transaction_evidence FROM insider_transactions_history').fetchone()[0])
+        self.assertEqual(evidence['currency'], 'BRL')
+
     def test_full_collection_row_retains_evidence_from_the_parser(self):
         path = WORKER / 'prefetch-all.py'
         tree = ast.parse(path.read_text(encoding='utf-8'))

@@ -152,10 +152,10 @@ def curl_fetch(url):
     except:
         return None
 
-def parse_form4(xml, now_str):
+def parse_form4(xml, now_str, source_url=None):
     """Parse source evidence consistently for live and historical collection."""
     from insider_transaction import parse_form4_document
-    result = parse_form4_document(xml, now_str)
+    result = parse_form4_document(xml, now_str, source_url=source_url)
     return result
 
 # ============================================================
@@ -309,7 +309,7 @@ for day_offset in range(0, fetch_days):
             parsed_txs = []
 
             if xml:
-                parsed = parse_form4(xml, now_str)
+                parsed = parse_form4(xml, now_str, source_url=xml_url)
                 parsed_ticker = parsed['ticker']
                 parsed_title = parsed['title']
                 parsed_txs = parsed['transactions']

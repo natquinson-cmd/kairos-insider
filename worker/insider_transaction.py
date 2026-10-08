@@ -14,7 +14,8 @@ import xml.etree.ElementTree as ET
 
 EVIDENCE_FIELDS = ('code', 'transactionCode', 'transCode', 'trans_code', 'nature', 'nature_raw', 'transactionNature', 'ad',
                    'securityTitle', 'security_title', 'instrument', 'security', 'securityType', 'security_type', 'isDerivative', 'transactionFootnotes',
-                   'form10b5One', 'purchaseSignalEligible', 'purchaseSignalReason')
+                   'form10b5One', 'purchaseSignalEligible', 'purchaseSignalReason',
+                   'currency', 'currencySource', 'currencyFootnoteIds', 'sourceUrl')
 CODE_FIELDS = ('code', 'transactionCode', 'transCode', 'trans_code')
 CODE_REASONS = {'A': 'grant', 'G': 'gift', 'M': 'exercise', 'X': 'exercise',
                 'O': 'exercise', 'C': 'conversion', 'F': 'tax-withholding',
@@ -128,7 +129,56 @@ def history_evidence_upsert():
     )
 
 
-def parse_form4_document(xml, now_str):
+def sec_price_currency(price_notes):
+    """Read an explicit native currency only from notes attached to the price.
+
+    SEC jurisdiction and the issuer's country/ticker are not currency evidence.
+    Conflicting currencies (for example a conversion) remain unresolved. A bare
+    dollar sign is intentionally ambiguous; no amount is converted here.
+    """
+    aliases = {
+        'BRL': r'\b(?:BRL|Brazilian reai?s|Brazilian real)\b',
+        'USD': r'\b(?:USD|U\.?\s?S\.?\s+dollars?|United States dollars?)\b',
+        'EUR': r'\b(?:EUR|euros?)\b',
+        'GBP': r'\b(?:GBP|British pounds?|pounds? sterling)\b',
+        'CAD': r'\b(?:CAD|Canadian dollars?)\b',
+        'AUD': r'\b(?:AUD|Australian dollars?)\b',
+        'HKD': r'\b(?:HKD|Hong Kong dollars?)\b',
+        'JPY': r'\b(?:JPY|Japanese yen)\b',
+        'CHF': r'\b(?:CHF|Swiss francs?)\b',
+        'CNY': r'\b(?:CNY|RMB|Chinese yuan|renminbi)\b',
+        'INR': r'\b(?:INR|Indian rupees?)\b',
+        'KRW': r'\b(?:KRW|South Korean won|Korean won)\b',
+        'MXN': r'\b(?:MXN|Mexican pesos?)\b',
+        'SGD': r'\b(?:SGD|Singapore dollars?)\b',
+        'TWD': r'\b(?:TWD|New Taiwan dollars?)\b',
+        'SEK': r'\b(?:SEK|Swedish kron[ao]r?)\b',
+        'NOK': r'\b(?:NOK|Norwegian kron[ae]r?)\b',
+        'DKK': r'\b(?:DKK|Danish kron[ae]r?)\b',
+        'ILS': r'\b(?:ILS|Israeli (?:new )?shekels?)\b',
+        'ZAR': r'\b(?:ZAR|South African rand)\b',
+    }
+    found = {}
+    explicit = set()
+    for note in price_notes:
+        text = _text(note.get('text'))
+        for code, pattern in aliases.items():
+            if re.search(pattern, text, re.I):
+                found.setdefault(code, []).append(note['id'])
+                # A currency mentioned in another context is not a statement
+                # about this price, even inside its attached footnote.
+                if not re.search(r'\b(?:not|except|excluding|other than)\b', text, re.I) and (
+                        re.fullmatch(r'\W*' + pattern + r'\W*', text, re.I)
+                        or re.search(r'\b(?:prices?|amounts?)\b[^;\n]{0,80}\b(?:in|denominated|reported|expressed|stated|quoted)\b[^;\n]{0,30}' + pattern, text, re.I)):
+                    explicit.add(code)
+    if len(found) != 1 or set(found) != explicit:
+        return {}
+    code, ids = next(iter(found.items()))
+    return {'currency': code, 'currencySource': 'sec-price-footnote',
+            'currencyFootnoteIds': list(dict.fromkeys(ids))}
+
+
+def parse_form4_document(xml, now_str, source_url=None):
     """Parse Table I only and attach each line's referenced footnotes."""
     empty = {'ticker': '', 'company': '', 'owner': '', 'ownerCik': '', 'title': '', 'transactions': []}
     try:
@@ -161,6 +211,8 @@ def parse_form4_document(xml, now_str):
         if shares <= 0 or date and date > now_str:
             continue
         ids = list(dict.fromkeys(n.get('id') for n in block.findall('.//footnoteId') if n.get('id')))
+        price_ids = list(dict.fromkeys(n.get('id') for n in block.findall('.//transactionPricePerShare//footnoteId') if n.get('id')))
+        price_notes = [{'id': key, 'text': footnotes[key]} for key in price_ids if key in footnotes]
         row = {'date': date, 'code': text(block, './/transactionCode'),
                'ad': text(block, './/transactionAcquiredDisposedCode/value'),
                'securityTitle': text(block, './/securityTitle/value'),
@@ -168,6 +220,9 @@ def parse_form4_document(xml, now_str):
                'form10b5One': planned, 'shares': round(shares), 'price': round(price, 2),
                'value': round(shares * price, 2),
                'sharesAfter': round(number(block, './/sharesOwnedFollowingTransaction/value'))}
+        row.update(sec_price_currency(price_notes))
+        if isinstance(source_url, str) and re.fullmatch(r'https://(?:www\.)?sec\.gov/Archives/[^?#\s]+', source_url):
+            row['sourceUrl'] = source_url
         row.update(classify_transaction(dict(row, source='sec')))
         rows.append(row)
     return {'ticker': text(root, './/issuerTradingSymbol'), 'company': text(root, './/issuerName'),

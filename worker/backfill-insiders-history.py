@@ -71,10 +71,10 @@ def fetch(url):
         return None
 
 
-def parse_form4(xml, now_str):
+def parse_form4(xml, now_str, source_url=None):
     """Parse source evidence consistently for live and historical collection."""
     from insider_transaction import parse_form4_document
-    result = parse_form4_document(xml, now_str)
+    result = parse_form4_document(xml, now_str, source_url=source_url)
     result["owner_cik"] = result["ownerCik"]
     return result
 
@@ -185,7 +185,7 @@ def _process_filing(hit, day_date, now_str):
     if not xml:
         return []
 
-    parsed = parse_form4(xml, now_str)
+    parsed = parse_form4(xml, now_str, source_url=xml_url)
     from insider_transaction import classify_transaction, evidence_json
     out = []
     for tx in parsed['transactions']:
