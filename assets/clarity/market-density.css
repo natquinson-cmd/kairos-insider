@@ -84,6 +84,7 @@ body[data-screen="market"] .market-date-warning{color:#e4bb7c!important}
 .market-qualification p{color:#b3c4da;line-height:1.6;margin:8px 0 5px;min-width:180px;max-width:38ch;white-space:normal}
 .market-qualification>a{display:inline-block;padding:3px 0}
 .purchase-signal{color:#78ddd0;font-size:12px;line-height:1.5;white-space:normal;display:block}
+.purchase-row>td:nth-child(2)>small:last-child{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .purchase-table th:nth-child(1){width:19%}.purchase-table th:nth-child(2){width:19%}.purchase-table th:nth-child(3){width:13%}.purchase-table th:nth-child(4){width:22%}.purchase-table th:nth-child(5){width:16%}.purchase-table th:nth-child(6){width:11%}
 .purchase-table .market-date-pair small{overflow-wrap:normal}
 .purchase-table .purchase-reason{font-size:10px;line-height:1.6}
