@@ -1,5 +1,6 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,GoogleAuthProvider,signOut,updateProfile} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+try {
 const app=initializeApp({apiKey:'AIzaSyCp_29t_QiFGRugmsGdBEochPVTM-2Xyyw',authDomain:'kairos-insider.firebaseapp.com',projectId:'kairos-insider',databaseURL:'https://kairos-insider-default-rtdb.europe-west1.firebasedatabase.app'});
 const auth=getAuth(app),base='https://kairos-insider-api.natquinson.workers.dev',params=new URLSearchParams(location.search);
 const lang=params.get('lang')==='en'?'en':'fr',t=(fr,en)=>lang==='en'?en:fr;
@@ -11,7 +12,7 @@ const stockUrl=(symbol,extra={})=>'dashboard.html?'+new URLSearchParams({lang,sy
 const openStock=(symbol,extra)=>{if(/^[A-Z0-9.^=-]{1,20}$/i.test(symbol))location.href=stockUrl(symbol.toUpperCase(),extra);};
 async function api(path,options={}){
   await ready;const headers={};if(user)headers.Authorization='Bearer '+await user.getIdToken();
-  const response=await fetch(base+path,{...options,headers:{...(options.headers||{}),...headers}});const data=await response.json();
+  let response;try{response=await fetch(base+path,{...options,headers:{...(options.headers||{}),...headers}});}catch{throw new Error(t('Connexion aux données interrompue. Réessayez dans un instant.','The data connection was interrupted. Please try again shortly.'));}const data=await response.json();
   if(!response.ok){const quota=String(data.code||'').includes('QUOTA');const error=new Error(quota?t('Votre quota gratuit du jour est atteint. Connectez-vous ou consultez votre abonnement.','Your daily free quota has been reached. Sign in or review your subscription.'):response.status===401?t('Connectez-vous pour accéder à cet écran.','Sign in to access this screen.'):response.status===403?t('Cette rubrique nécessite un abonnement Pro.','This section requires a Pro subscription.'):response.status===429?t('Votre quota de consultations est atteint.','Your analysis quota has been reached.'):t('Les données sont momentanément indisponibles. Réessayez.','Data is temporarily unavailable. Please retry.'));error.status=quota&&!user?401:response.status;throw error;}
   if(data.error)throw new Error(t('Données indisponibles pour cette valeur.','Data unavailable for this security.'));return data;
 }
@@ -102,30 +103,37 @@ onAuthStateChanged(auth,async next=>{const previous=user;user=next;readyResolve(
   if(next){controls.querySelector('[data-account]').onclick=()=>{document.getElementById('accountDialog')?.remove();const d=document.createElement('dialog');d.id='accountDialog';d.className='live-dialog live-account-dialog';d.innerHTML=`<h2>${t('Mon compte','My account')}</h2><p class="account-dialog-email">${esc(next.email)}</p><div class="account-dialog-actions"><a class="secondary" href="account.html?lang=${lang}">${t('Gérer mon compte et mon abonnement','Manage my account and subscription')}</a><button class="secondary" data-signout>${t('Se déconnecter','Sign out')}</button><button class="text-button" data-close>${t('Fermer','Close')}</button></div>`;document.body.append(d);d.querySelector('[data-signout]').onclick=()=>signOut(auth);d.querySelector('[data-close]').onclick=()=>d.close();d.showModal();};
     try{const who=await api('/api/admin/whoami');if(who.isAdmin===true&&who.emailVerified===true&&who.email?.toLowerCase()==='natquinson@gmail.com'&&auth.currentUser?.uid===next.uid){const a=document.createElement('a');a.className='nav-item';a.href='admin.html?lang='+lang;a.textContent=t('⚙ Administration','⚙ Administration');document.querySelector('.sidebar nav').append(a);}}catch{/* Server denial is expected for non-admin accounts. */}}
 });
-await loadScript('assets/clarity/feedback.js?v=feedback1').catch(()=>{});
-await loadScript('assets/clarity/compact-search.js?v=visible1');
+// Feedback is optional and must not delay the workspace.
+loadScript('assets/clarity/feedback.js?v=feedback1').catch(()=>{});
+await Promise.all([loadScript('assets/clarity/compact-search.js?v=visible1'),loadScript('assets/clarity/live-i18n.js?v=live7')]);
 if(!document.getElementById('searchWrap')){header.querySelector('.account-topbar-label,.watchlist-topbar-label')?.remove();header.insertAdjacentHTML('afterbegin',window.KairosCompactSearch.stockMarkup(lang));}
 const searchInput=document.getElementById('companySearch')||document.getElementById('marketSearch');
 if(searchInput?.id==='marketSearch')searchInput.value=params.get('q')||'';
 initializeStockSearch();
 if(!researchHome)window.KairosCompactSearch.mount({header,wrap:document.getElementById('searchWrap'),input:searchInput,lang,filter:searchInput?.id==='marketSearch'});
-await loadScript('assets/clarity/live-i18n.js?v=live7');
+window.KairosUI.translate();
 async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items||d.signals||[]).map(x=>({ticker:x.ticker,company:x.company||x.ticker,label:x.label||'',detail:x.value||'',tone:x.color==='red'?'sell':'buy'}));window.KairosTicker.mount(document.getElementById('signalTicker'),{items,labels:{region:t('Signaux Kairos','Kairos signals'),title:t('Le fil Kairos','Kairos signals'),demo:t('Déclarations','Filings'),empty:t('Aucun signal récent.','No recent signals.')},onSelect:item=>openStock(item.ticker)});}catch{document.getElementById('signalTicker').textContent=t('Le fil des déclarations est temporairement indisponible.','The filing feed is temporarily unavailable.');}}
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=signal1');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=checkup1');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
 else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=insights2');await loadScript('assets/clarity/live-watchlist.js?v=purchases1');}
-else if(researchHome){await loadScript('assets/clarity/live-research.js?v=research1');}
+else if(researchHome){await loadScript('assets/clarity/live-research.js?v=checkup1');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
   if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
-  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/fund-history.js?v=history4');await loadScript('assets/clarity/live-stock-views.js?v=live13');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=signal1');window.KairosUI.translate();
+  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/fund-history.js?v=history4');await loadScript('assets/clarity/live-stock-views.js?v=checkup1');await loadScript('assets/clarity/app.js?v=signal1');window.KairosUI.translate();status.hidden=true;document.getElementById('companyMain').hidden=false;
     researchHistory().then(history=>history.record({ticker:d.ticker,name:d.company?.name||d.ticker})).catch(()=>{});
     mountWatchButton(d.ticker).catch(()=>{});
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});
   }catch(error){showError(status,error);}
 }
+}
+
+window.KairosStartup?.ready();
+} catch (error) {
+  window.KairosStartup?.fail();
+  console.error('Kairos workspace initialization failed', error);
 }

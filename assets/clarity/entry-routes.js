@@ -9,5 +9,6 @@
   else if(['insider','activists','13f','clustering','consensus13f'].includes(section))target='insiders.html?'+new URLSearchParams({lang,screen:['13f','consensus13f'].includes(section)?'funds':section==='activists'?'activists':'insiders',view:section==='clustering'?'convergences':section==='consensus13f'?'consensus':'transactions'});
   else if(['home','hotStocks','insiderProfile','13f-explorer','etf','etf-explorer','feargreed','vix','shorts','portfolio','watchlist','profile','signals-score','signals-etf','signals-clusters','alerts'].includes(section))target='admin-workspace.html'+location.search+location.hash;
   globalThis.KairosEntryRedirect=!!target;
+  globalThis.KairosEntryTarget=target;
   if(target)location.replace(target);
 })();

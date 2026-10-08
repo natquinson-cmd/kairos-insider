@@ -3,9 +3,10 @@
 const root=document.documentElement;
 const language=()=>window.KairosI18n?.getLang?.()==='en'?'en':'fr';
 function refresh(){
+ if(window.KairosEarlyRedirect)return;
  const active=location.hash.split(/[?&]/)[0]==='#admin';
  root.classList.toggle('clarity-admin',active);
- if(!active)return;
+ if(!active){if(window.KairosStartup)window.KairosStartup.ready();else root.removeAttribute('data-kairos-startup');return;}
  const lang=language(),t=(fr,en)=>lang==='en'?en:fr;
  document.title=t('Administration — Kairos Insider','Administration — Kairos Insider');
  const sidebar=document.getElementById('sidebar');if(!sidebar)return;
@@ -38,6 +39,8 @@ function refresh(){
  for(const panel of admin?.querySelectorAll('.core-panel')||[])for(const card of panel.children){if(card!==kpis&&card.tagName==='DIV'&&!card.classList.contains('core-admin-actions'))card.classList.add('ca-panel-card');}
  const profile=document.getElementById('navProfileBtn');
  if(profile){profile.classList.add('ca-profile-button');profile.setAttribute('aria-label',t('Mon compte','My account'));}
+ // Release the neutral startup state only after the modern navigation exists.
+ if(window.KairosStartup)window.KairosStartup.ready();else root.removeAttribute('data-kairos-startup');
 }
 document.addEventListener('click',event=>{
  if(!root.classList.contains('clarity-admin'))return;

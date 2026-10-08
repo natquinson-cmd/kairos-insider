@@ -1,10 +1,10 @@
 import {finiteNumber} from './financial-normalization.js';
 import {normalizeInsiderMovement} from './insider-alerts.js';
 import {preferInsiderTransactionEvidence} from './insider-transaction.js';
+import {STOCK_ANALYSIS_VERSION, STOCK_SUMMARY_PREFIX, readWatchlistQuote} from './watchlist-market-data.js';
 
-// Matches handleStockAnalysis's current standard-range cache. Do not fetch or
-// recalculate a missing analysis here: watchlist browsing never spends quota.
-const CACHE_PREFIX = 'stock-analysis:v25:';
+// Never recalculate a missing analysis here: watchlist browsing spends no quota.
+const CACHE_PREFIX = `stock-analysis:${STOCK_ANALYSIS_VERSION}:`;
 const MAX_SYMBOLS = 100;
 
 function symbols(values) {
@@ -45,17 +45,18 @@ async function stockCache(env, ticker) {
     const cached = await env.CACHE.get(`${CACHE_PREFIX}${ticker}:${view}:1y`, 'json').catch(() => null);
     if (cached && typeof cached === 'object' && !cached.error && cached.ticker === ticker) return cached;
   }
-  return null;
+  const saved = await env.CACHE.get(STOCK_SUMMARY_PREFIX + ticker, 'json').catch(() => null);
+  return saved && typeof saved === 'object' && !saved.error && saved.ticker === ticker ? saved : null;
 }
 
-/** Cache-only projection for an already authenticated uid. No writes, outbound
- * requests, alerts, subscription actions, or calls to handleStockAnalysis. */
+/** Authenticated personal summary. Only public quote caches may be refreshed;
+ * no quota, user, alert or subscription writes, or full stock analyses. */
 export async function readWatchlistSummary(env, uid, legacySymbols = '', now = Date.now()) {
   if (typeof uid !== 'string' || !uid) throw new Error('Authenticated identity required');
   const record = await env.CACHE.get(`wl:${uid}`, 'json');
   const exists = record != null;
   const tickers = symbols(exists ? record.tickers : String(legacySymbols).slice(0, 1600).split(','));
-  const result = {ok: true, exists, cacheOnly: true, items: [], updatedAt: new Date(now).toISOString(),activity:{available:false,events:[],total:0,truncated:false,days:30}};
+  const result = {ok: true, exists, cacheOnly: false, analysisCacheOnly: true, items: [], updatedAt: new Date(now).toISOString(),activity:{available:false,events:[],total:0,truncated:false,days:30}};
   if (!tickers.length) return result;
 
   const feed = await env.CACHE.get('insider-transactions', 'json').catch(() => null);
@@ -76,22 +77,31 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
   result.activity.truncated=recent.length>200;
   result.activity.events=recent.slice(0,200);
 
+  // Spend the budget only on a real provider request. Cache hits do not block
+  // later positions in a large watchlist; the next visit can finish warming it.
+  let refreshesRemaining = 48; // Leave room for authentication subrequests.
+  const refreshDeadline = Date.now() + 8000;
+  const takeRefresh = () => refreshesRemaining > 0 && Date.now() < refreshDeadline && --refreshesRemaining >= 0;
   // Bound concurrency instead of issuing 100 large cached analyses at once.
   for (let offset = 0; offset < tickers.length; offset += 8) {
     const batch = await Promise.all(tickers.slice(offset, offset + 8).map(async ticker => {
       const cached = await stockCache(env, ticker), event = latest.get(ticker);
+      const quote = await readWatchlistQuote(env, ticker, cached, now, takeRefresh);
       const cachedAt = timestamp(cached?._cachedAt) || timestamp(cached?.updatedAt);
-      const rawPrice = number(cached?.price?.current), rawScore = number(cached?.score?.total);
+      const rawPrice = number(quote?.price?.current), rawScore = number(cached?.score?.total);
       const price = rawPrice != null && rawPrice > 0 ? rawPrice : null;
       const score = rawScore != null && rawScore >= 0 && rawScore <= 100 ? rawScore : null;
+      const quoteAt = price == null ? null : timestamp(quote?.price?.regularMarketTime, true);
       return {
         ticker,
-        name: text(cached?.company?.name) || (event?.company !== ticker ? text(event?.company) : null),
-        price, currency: text(cached?.price?.currency), changePercent: number(cached?.price?.changePct),
+        name: text(quote?.company?.name) || text(cached?.company?.name) || (event?.company !== ticker ? text(event?.company) : null),
+        price, currency: price == null ? null : text(quote?.price?.currency), changePercent: price == null ? null : number(quote?.price?.changePct),
         // Never present the response assembly time as the quote's market time.
-        quoteAt: price == null ? null : timestamp(cached?.price?.regularMarketTime, true),
+        quoteAt, quoteFetchedAt: timestamp(quote?._quoteFetchedAt),
+        quoteStatus: price == null ? 'unavailable' : quote.quoteRefreshFailed || !quoteAt || now - Date.parse(quoteAt) > 4 * 86400000 ? 'stale' : 'fresh',
         cachedAt, score, scoreAt: score == null ? null : cachedAt,
-        sparkline3m:threeMonthCurve(cached?.chart?.points,now),
+        scoreStatus: score == null ? 'unavailable' : !cachedAt || now - Date.parse(cachedAt) > 86400000 ? 'previous' : 'available',
+        sparkline3m:threeMonthCurve(quote?.chart?.points,now) || threeMonthCurve(cached?.chart?.points,now),
         latestInsider: event ? {
           type: event.type, insider: text(event.insider), value: event.value,
           currency: text(event.currency), fileDate: event.fileDate, tradeDate: event.tradeDate, sourceUrl: event.sourceUrl,

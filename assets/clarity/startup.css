@@ -1,0 +1,17 @@
+/* A neutral, recoverable state instead of briefly showing retired screens. */
+#kairosBoot{display:none}
+.workspace #signalTicker{min-height:30px;background:#101d32}
+html[data-kairos-research] .topbar #searchWrap{display:none}
+html[data-kairos-startup] body{margin:0;background:#0b1222;color:#eff4ff}
+html[data-kairos-startup] #kairosBoot,.kairos-noscript{display:block;box-sizing:border-box;max-width:540px;margin:clamp(40px,12vh,130px) auto;padding:28px;border:1px solid #30445f;border-radius:12px;background:#111d32;font:14px/1.65 Inter,system-ui,sans-serif;color:#eff4ff}
+#kairosBoot .startup-brand{display:flex;align-items:center;gap:10px;font-size:26px;margin-bottom:25px;color:#eff4ff}
+#kairosBoot .startup-brand img{width:38px;height:38px}
+#kairosBoot h1,.kairos-noscript strong{font:500 22px/1.3 Inter,system-ui,sans-serif;letter-spacing:-.02em;margin:0 0 12px;display:block}
+#kairosBoot p,.kairos-noscript p{font-size:13px;color:#afc2df;margin:0 0 20px}
+.startup-actions{display:flex;flex-wrap:wrap;gap:10px}
+.startup-actions a,.kairos-noscript a{display:inline-block;color:#d5e6ff;text-decoration:none;border:1px solid #446084;border-radius:7px;padding:8px 13px;font-size:12px;background:#1b304d}
+.startup-actions a:focus-visible,.kairos-noscript a:focus-visible{outline:2px solid #57ddba;outline-offset:3px}
+.startup-actions a:last-child{background:none}
+.startup-skeleton{height:4px;background:linear-gradient(90deg,#67dcca,#759cff 65%,#243c5d 65%);border-radius:4px;margin-bottom:24px}
+html[data-kairos-startup="error"] .startup-skeleton{display:none}
+@media(max-width:600px){html[data-kairos-startup] #kairosBoot,.kairos-noscript{margin:36px 18px;padding:22px}}

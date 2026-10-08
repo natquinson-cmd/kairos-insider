@@ -1,4 +1,5 @@
 (()=>{
+if(window.KairosEarlyRedirect)return;
 const query=new URLSearchParams(location.search),lang=(query.get('lang')||window.KairosI18n?.getLang?.())==='en'?'en':'fr';
 // The legacy auth callback consumes these flags before announcing auth-ready.
 // Remember the billing flow now so its checkout/portal timers can finish.

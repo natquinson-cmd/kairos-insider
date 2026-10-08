@@ -1,18 +1,49 @@
-import {test} from 'node:test';
+import {test, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {readWatchlistSummary} from '../src/watchlist-summary.js';
 
 const NOW = Date.parse('2026-09-23T12:00:00Z');
+beforeEach(t => t.mock.method(globalThis, 'fetch', async () => new Response('{}', {status: 503})));
 function cache(records = {}) {
-  const reads = [];
-  return {reads, env: {CACHE: {
+  const reads = [], writes=[];
+  return {reads, writes, env: {CACHE: {
     async get(key, type) { assert.equal(type, 'json'); reads.push(key); return structuredClone(records[key] ?? null); },
-    async put() { assert.fail('Summary must never write'); },
+    async put(key,value) { assert.match(key,/^watchlist-quote:v1:/,'Only public quote cache writes are permitted'); writes.push(key); records[key]=JSON.parse(value); },
     async delete() { assert.fail('Summary must never delete'); },
     async list() { assert.fail('Summary must not enumerate KV'); },
   }}};
 }
 const key = ticker => `stock-analysis:v25:${ticker}:full:1y`;
+test('expired analysis cache does not hide the watchlist quote and daily movement', async t => {
+  const h=cache({'wl:alice':{tickers:['NVDA']}}), requests=[];
+  t.mock.method(globalThis,'fetch',async url=>{
+    requests.push(String(url));
+    return new Response(JSON.stringify({chart:{result:[{meta:{symbol:'NVDA',longName:'NVIDIA Corporation',currency:'USD',regularMarketPrice:120,regularMarketTime:NOW/1000,previousClose:100},timestamp:[(NOW-86400000)/1000,NOW/1000],indicators:{quote:[{close:[100,120]}]}}]}}));
+  });
+  const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
+  assert.equal(items[0].price,120); assert.equal(items[0].changePercent,20);
+  assert.equal(items[0].name,'NVIDIA Corporation'); assert.equal(items[0].quoteAt,new Date(NOW).toISOString());
+  assert.equal(items[0].score,null); // No implicit analysis, invented score or quota use.
+  assert.equal(requests.length,1); assert.match(requests[0],/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/NVDA\?/);
+});
+
+test('durable current-method score survives analysis expiry, without accepting an old-method score', async () => {
+  const h=cache({'wl:alice':{tickers:['NVDA','MSFT']},
+    'stock-summary:v25:NVDA':{ticker:'NVDA',company:{name:'NVIDIA'},score:{total:72},_cachedAt:NOW-86400000},
+    'stock-summary:v24:MSFT':{ticker:'MSFT',score:{total:99},_cachedAt:NOW-86400000},
+  });
+  const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
+  assert.equal(items[0].score,72); assert.equal(items[0].scoreAt,new Date(NOW-86400000).toISOString());
+  assert.equal(items[1].score,null);
+});
+test('fresh cached entries do not prevent refreshing later watchlist symbols beyond position fifty',async t=>{
+ const tickers=Array.from({length:64},(_,i)=>'T'+i),records={'wl:alice':{tickers}},requests=[];
+ tickers.slice(0,48).forEach(ticker=>{records['watchlist-quote:v1:'+ticker]={ticker,price:{current:111,currency:'USD',regularMarketTime:NOW/1000},_quoteFetchedAt:NOW};});
+ t.mock.method(globalThis,'fetch',async url=>{const ticker=new URL(url).pathname.split('/').at(-1);requests.push(ticker);return new Response(JSON.stringify({chart:{result:[{meta:{symbol:ticker,regularMarketPrice:120,currency:'USD',regularMarketTime:NOW/1000,regularMarketPreviousClose:100}}]}}));});
+ const {items}=await readWatchlistSummary(cache(records).env,'alice','',NOW);
+ assert.equal(items.at(-1).price,120);assert.equal(requests.length,16);
+ assert.equal(items[0].price,111);
+});
 test('three-month curve keeps dated positive observations, excludes future/old data and computes actual period change',async()=>{
  const h=cache({'wl:alice':{tickers:['AAPL']},[key('AAPL')]:{ticker:'AAPL',chart:{points:[{date:'2026-09-22',close:120},{date:'2026-06-23',close:100},{date:'2026-06-22',close:20},{date:'2026-09-24',close:999},{date:'2026-07-01',close:null},{date:'2026-07-02',close:-1}]}}});
  const {items}=await readWatchlistSummary(h.env,'alice','',NOW);assert.deepEqual(items[0].sparkline3m.points,[{date:'2026-06-23',close:100},{date:'2026-09-22',close:120}]);assert.ok(Math.abs(items[0].sparkline3m.changePercent-20)<1e-8);assert.equal(items[0].sparkline3m.partial,false);
@@ -37,9 +68,9 @@ test('summary reads only the current user watchlist and projects actual cached v
     [key('AAPL')]: {ticker:'AAPL', company:{name:'Apple Inc.'}, price:{current:250, changePct:0, currency:'USD', regularMarketTime:1758630600}, score:{total:0}, _cachedAt:NOW-1000},
   });
   const result = await readWatchlistSummary(env, 'alice', 'MSFT', NOW);
-  assert.equal(result.ok,true); assert.equal(result.cacheOnly,true); assert.equal(result.exists,true);
+  assert.equal(result.ok,true); assert.equal(result.cacheOnly,false); assert.equal(result.analysisCacheOnly,true); assert.equal(result.exists,true);
   assert.equal(result.updatedAt,new Date(NOW).toISOString());
-  assert.deepEqual(result.items,[{ticker:'AAPL',name:'Apple Inc.',price:250,currency:'USD',changePercent:0,quoteAt:new Date(1758630600000).toISOString(),cachedAt:new Date(NOW-1000).toISOString(),score:0,scoreAt:new Date(NOW-1000).toISOString(),latestInsider:null,sparkline3m:null}]);
+  assert.deepEqual(result.items,[{ticker:'AAPL',name:'Apple Inc.',price:250,currency:'USD',changePercent:0,quoteAt:new Date(1758630600000).toISOString(),quoteFetchedAt:new Date(NOW-1000).toISOString(),quoteStatus:'stale',cachedAt:new Date(NOW-1000).toISOString(),score:0,scoreAt:new Date(NOW-1000).toISOString(),scoreStatus:'available',latestInsider:null,sparkline3m:null}]);
   assert.ok(!reads.includes('wl:bob')); assert.ok(!reads.some(k=>k.includes('MSFT')));
 });
 
@@ -52,7 +83,7 @@ test('legacy symbols apply only when KV is absent, preserve empty lists, validat
   const result=await readWatchlistSummary(h.env,'alice',query,NOW);
   assert.equal(result.exists,false); assert.equal(result.items.length,100);
   assert.deepEqual(result.items.slice(0,2).map(i=>i.ticker),['AAPL','MC.PA']);
-  assert.equal(h.reads.length,202); // One own watchlist, one feed, at most two stock reads per ticker.
+  assert.equal(h.reads.length,402); // Own list/feed, two analyses, durable score and lightweight quote per ticker.
   assert.ok(!h.reads.some(k=>k.includes('secret')));
 });
 
@@ -87,7 +118,7 @@ test('no identity or malformed cache cannot expose a different listing', async (
   assert.equal(items[0].price,null); assert.equal(items[0].score,null);
 });
 
-test('HTTP route requires Firebase identity, accepts free users, cannot select another uid, and has no analysis or writes', async t => {
+test('HTTP route requires Firebase identity, accepts free users, cannot select another uid, and never analyses or mutates personal state', async t => {
   const {build}=await import('esbuild');
   const {fileURLToPath}=await import('node:url');
   const bundle=await build({entryPoints:[fileURLToPath(new URL('../src/index.js',import.meta.url))],bundle:true,format:'esm',platform:'neutral',target:'es2022',write:false,loader:{'.md':'text','.wasm':'binary','.ttf':'binary'},logLevel:'silent'});
@@ -95,6 +126,7 @@ test('HTTP route requires Firebase identity, accepts free users, cannot select a
   const h=cache({'wl:alice':{tickers:['AAPL']},'wl:bob':{tickers:['MSFT']}}),network=[];
   t.mock.method(globalThis,'fetch',async(url,init)=>{
     network.push(String(url));
+    if(String(url).startsWith('https://query1.finance.yahoo.com/v8/finance/chart/AAPL?')) return new Response('{}',{status:503});
     assert.match(String(url),/^https:\/\/identitytoolkit.googleapis.com\//);
     return new Response(JSON.stringify(JSON.parse(init.body).idToken==='alice-token'?{users:[{localId:'alice',email:'alice@example.com',emailVerified:true}]}:{users:[]}));
   });
@@ -107,6 +139,7 @@ test('HTTP route requires Firebase identity, accepts free users, cannot select a
   const response=await request('alice-token');
   assert.equal(response.status,200); assert.equal(response.headers.get('Cache-Control'),'private, no-store');
   assert.deepEqual((await response.json()).items.map(i=>i.ticker),['AAPL']);
-  assert.ok(h.reads.every(k=>k==='wl:alice'||k==='insider-transactions'||k.startsWith('stock-analysis:v25:AAPL:')));
-  assert.equal(network.length,2); // Authentication only, never prices, subscriptions, email or Telegram.
+  assert.ok(h.reads.every(k=>k==='wl:alice'||k==='insider-transactions'||k.startsWith('stock-analysis:v25:AAPL:')||k==='stock-summary:v25:AAPL'||k==='watchlist-quote:v1:AAPL'));
+  assert.equal(network.length,3); // Authentication and AAPL quote only, never another list or analysis, email or Telegram.
+  assert.deepEqual(h.writes,['watchlist-quote:v1:AAPL']);
 });

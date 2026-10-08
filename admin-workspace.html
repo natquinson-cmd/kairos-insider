@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-kairos-startup="legacy">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.gstatic.com https://www.googletagmanager.com https://js.stripe.com https://*.firebasedatabase.app https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com; connect-src 'self' https://kairos-insider-api.natquinson.workers.dev https://cdn.jsdelivr.net https://www.gstatic.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://www.googletagmanager.com https://accounts.google.com; frame-src https://*.firebasedatabase.app https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://accounts.google.com https://kairos-insider.firebaseapp.com; form-action 'self' https://checkout.stripe.com; base-uri 'self'; object-src 'none'; upgrade-insecure-requests" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+
+<style id="kairosStartupGuard">html[data-kairos-startup] body> :not(#kairosBoot):not(noscript){display:none!important}html[data-kairos-startup]{background:#0b1222}#kairosBoot{display:none}html[data-kairos-startup] #kairosBoot{display:block}</style>
+<link rel="stylesheet" href="assets/clarity/startup.css?v=checkup1">
+<script src="assets/clarity/startup.js?v=checkup1"></script>
   <!-- Google Analytics 4 (RGPD-friendly : IP anonymisee, pas de signaux publicitaires) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-7YPCWL035M"></script>
   <script>
@@ -4299,13 +4303,16 @@
 <script src="assets/core-sharing.js?v=20260922-1"></script>
 <script src="assets/core-release.js?v=20260922-1" defer></script>
 <script src="assets/core-price-chart.js?v=20260922-1" defer></script>
-<script defer src="assets/clarity/admin-bridge.js?v=live7"></script>
+<script defer src="assets/clarity/admin-bridge.js?v=checkup1"></script>
 <script>document.documentElement.classList.toggle('clarity-admin',location.hash.split(/[?&]/)[0]==='#admin');</script>
 <link rel="stylesheet" href="assets/clarity/admin-shell.css?v=admin4">
 <link rel="stylesheet" href="assets/clarity/compact-search.css?v=visible1">
 <script defer src="assets/clarity/compact-search.js?v=visible1"></script>
-<script defer src="assets/clarity/admin-shell.js?v=admin4"></script><script defer src="assets/clarity/admin-insider-scoring.js?v=purchases1"></script><link rel="stylesheet" href="assets/clarity/admin-insider-scoring.css?v=purchases1"></head>
-<body>
+<script defer src="assets/clarity/admin-shell.js?v=checkup1"></script><script defer src="assets/clarity/admin-insider-scoring.js?v=purchases1"></script><link rel="stylesheet" href="assets/clarity/admin-insider-scoring.css?v=purchases1"></head>
+<body class="core-release">
+<section id="kairosBoot" aria-labelledby="kairosBootTitle"><div class="startup-brand"><img src="assets/kairos-inflexion.svg" width="38" height="38" alt="">kairos</div><div class="startup-skeleton" aria-hidden="true"></div><h1 id="kairosBootTitle">Chargement de Kairos…</h1><p id="kairosBootMessage" role="status">Si cet écran persiste, rechargez la page. / If this screen persists, reload the page.</p><div class="startup-actions"><a id="kairosBootRetry" href="">Recharger / Reload</a><a id="kairosBootHome" href="index.html">Accueil / Home</a></div></section>
+<noscript><style>#kairosBoot,.workspace{display:none!important}</style><div class="kairos-noscript"><strong>JavaScript est nécessaire / JavaScript is required</strong><p>Activez JavaScript pour charger les données et ouvrir votre espace. / Enable JavaScript to load data and open your workspace.</p><a href="index.html">Accueil / Home</a></div></noscript>
+
 
   <a href="#main-content" class="skip-link"><span data-i18n="a11y.skip_to_content">Aller au contenu principal</span></a>
 

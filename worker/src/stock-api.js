@@ -31,6 +31,7 @@ import { canonicalizeFundIdentity, summarizeReportDates } from './fund-identity.
 import { searchQuote } from './search-quote.js';
 import { computeInsiderScore, deduplicateInsiderTransactions, insiderTransactionType, INSIDER_SCORING_CONFIG_KEY } from './insider-score.js';
 import { classifyInsiderTransaction, withInsiderTransactionEvidence } from './insider-transaction.js';
+import { STOCK_ANALYSIS_VERSION, storeStockSummarySnapshot } from './watchlist-market-data.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -193,10 +194,11 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
   // v25: only documented purchases contribute to insider conviction.
-  const cacheKey = `stock-analysis:v25:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  const cacheKey = `stock-analysis:${STOCK_ANALYSIS_VERSION}:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
+    await storeStockSummarySnapshot(env, cached).catch(() => {});
     return cached;
   }
 
@@ -535,6 +537,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Cache KV : intraday=30s, empty=60s, normal=15 min
   try {
     await env.CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: effectiveTtl });
+    await storeStockSummarySnapshot(env, result);
   } catch (e) {
     console.error('KV cache put failed:', e);
   }

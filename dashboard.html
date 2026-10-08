@@ -2,16 +2,23 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Kairos Insider — Fiche action</title>
+  <script src="assets/clarity/entry-routes.js?v=checkup1"></script>
+
+<style id="kairosStartupGuard">html[data-kairos-startup] body> :not(#kairosBoot):not(noscript){display:none!important}html[data-kairos-startup]{background:#0b1222}#kairosBoot{display:none}html[data-kairos-startup] #kairosBoot{display:block}</style>
+<link rel="stylesheet" href="assets/clarity/startup.css?v=checkup1">
+<script src="assets/clarity/startup.js?v=checkup1"></script>
+<title>Kairos Insider — Fiche action</title>
   <link rel="icon" type="image/svg+xml" href="assets/kairos-inflexion.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/clarity/app.css?v=live7"><link rel="stylesheet" href="assets/clarity/radar.css?v=live7"><link rel="stylesheet" href="assets/clarity/ticker.css?v=live7"><link rel="stylesheet" href="assets/clarity/funds.css?v=live7"><link rel="stylesheet" href="assets/clarity/activists.css?v=live7"><link rel="stylesheet" href="assets/clarity/analysis.css?v=live7"><link rel="stylesheet" href="assets/clarity/news-calendar.css?v=live7">
 
-<link rel="stylesheet" href="assets/clarity/screener.css?v=live7"><link rel="stylesheet" href="assets/clarity/live.css?v=live12"><script src="assets/insider-transaction.js?v=signal1" defer></script><script src="assets/clarity/live-adapter.js?v=signal1" defer></script><script src="assets/clarity/radar.js?v=live7" defer></script><script src="assets/clarity/ticker.js?v=live7" defer></script><script src="assets/clarity/chart-range.js?v=live7" defer></script><script src="assets/clarity/analysis.js?v=live7" defer></script><script src="assets/core-sharing.js?v=live7" defer></script><script type="module" src="assets/clarity/live-shell.js?v=signal1"></script><link rel="stylesheet" href="assets/clarity/compact-search.css?v=visible1"><link rel="stylesheet" href="assets/clarity/research.css?v=research1"><link rel="stylesheet" href="assets/clarity/feedback.css?v=feedback1"></head>
+<link rel="stylesheet" href="assets/clarity/screener.css?v=live7"><link rel="stylesheet" href="assets/clarity/live.css?v=live12"><script src="assets/insider-transaction.js?v=signal1" defer></script><script src="assets/clarity/live-adapter.js?v=signal1" defer></script><script src="assets/clarity/radar.js?v=live7" defer></script><script src="assets/clarity/ticker.js?v=live7" defer></script><script src="assets/clarity/chart-range.js?v=live7" defer></script><script src="assets/clarity/analysis.js?v=live7" defer></script><script src="assets/core-sharing.js?v=live7" defer></script><script type="module" src="assets/clarity/live-shell.js?v=checkup1"></script><link rel="stylesheet" href="assets/clarity/compact-search.css?v=visible1"><link rel="stylesheet" href="assets/clarity/research.css?v=checkup1"><link rel="stylesheet" href="assets/clarity/feedback.css?v=feedback1"></head>
 <body>
-<script src="assets/clarity/entry-routes.js?v=live7"></script>
+<section id="kairosBoot" aria-labelledby="kairosBootTitle"><div class="startup-brand"><img src="assets/kairos-inflexion.svg" width="38" height="38" alt="">kairos</div><div class="startup-skeleton" aria-hidden="true"></div><h1 id="kairosBootTitle">Chargement de Kairos…</h1><p id="kairosBootMessage" role="status">Si cet écran persiste, rechargez la page. / If this screen persists, reload the page.</p><div class="startup-actions"><a id="kairosBootRetry" href="">Recharger / Reload</a><a id="kairosBootHome" href="index.html">Accueil / Home</a></div></section>
+<noscript><style>#kairosBoot,.workspace{display:none!important}</style><div class="kairos-noscript"><strong>JavaScript est nécessaire / JavaScript is required</strong><p>Activez JavaScript pour charger les données et ouvrir votre espace. / Enable JavaScript to load data and open your workspace.</p><a href="index.html">Accueil / Home</a></div></noscript>
+
 <a class="skip-link" href="#companyMain">Aller à la fiche action</a>
 
 <div class="workspace">
@@ -28,8 +35,8 @@
   </aside>
   <div class="workspace-body">
     <div id="signalTicker"></div>
-    <header class="topbar">
-      <div class="search-wrap" id="searchWrap">
+    <header class="topbar has-compact-search">
+      <div class="search-wrap persistent-search" id="searchWrap">
         <label for="companySearch">Rechercher une valeur</label>
         <div class="search-field"><span aria-hidden="true">⌕</span><input id="companySearch" type="search" placeholder="Nom de société ou symbole…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="searchResults" aria-expanded="false"><kbd>Ctrl K</kbd></div>
         <div id="searchPopup" class="search-popup" hidden><div class="search-hint">Sociétés et cours disponibles</div><ul id="searchResults" role="listbox" aria-label="Entreprises"></ul><p id="searchEmpty" hidden>Aucun résultat. Essayez un nom ou un symbole.</p><div class="search-help">↑ ↓ pour parcourir · Entrée pour ouvrir · Échap pour fermer</div></div>
