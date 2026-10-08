@@ -398,7 +398,8 @@ for day_offset in range(0, fetch_days):
                 for tx in parsed_txs:
                     all_transactions.append({
                         'fileDate': file_date,
-                        'date': tx['date'] or file_date,
+                        # Publication is not evidence of the execution date.
+                        'date': tx['date'] or None,
                         'cik': company_cik,
                         'ticker': parsed_ticker,
                         'company': parsed['company'] or company_name_meta,
@@ -509,7 +510,7 @@ print(f'Anciennes SEC tx conservees: {len(kept_old)}')
 # Concat : nouvelles SEC tx + anciennes SEC kept + non-SEC preserve intact
 all_transactions = all_transactions + kept_old + existing_other_tx
 print(f'  + {len(existing_other_tx)} non-SEC (BaFin/AMF) re-ajoutes intacts', flush=True)
-all_transactions.sort(key=lambda t: t.get('date', ''), reverse=True)
+all_transactions.sort(key=lambda t: t.get('date') or '', reverse=True)
 
 # Limiter a 90 jours max (fenetre glissante)
 cutoff = (now - timedelta(days=DAYS)).strftime('%Y-%m-%d')
