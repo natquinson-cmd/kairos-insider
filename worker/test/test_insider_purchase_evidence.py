@@ -161,6 +161,23 @@ class PurchaseEvidenceTest(unittest.TestCase):
         self.assertEqual(evidence['sourceUrl'], source)
         self.assertEqual(evidence['currency'], 'BRL')
 
+    def test_price_note_conflicts_remain_unknown_and_only_explicit_notes_support_currency(self):
+        from insider_transaction import sec_price_currency
+        self.assertEqual(sec_price_currency([
+            {'id': 'F1', 'text': 'USD'},
+            {'id': 'F2', 'text': 'The price is not denominated in USD.'},
+        ]), {})
+        self.assertEqual(sec_price_currency([
+            {'id': 'F1', 'text': 'USD'},
+            {'id': 'F2', 'text': 'Canadian dollars.'},
+        ]), {})
+        evidence = sec_price_currency([
+            {'id': 'F1', 'text': 'The price is reported in Canadian dollars.'},
+            {'id': 'F2', 'text': 'The broker also holds an account in CAD.'},
+        ])
+        self.assertEqual(evidence['currency'], 'CAD')
+        self.assertEqual(evidence['currencyFootnoteIds'], ['F1'])
+
     def test_explicit_sec_currency_survives_the_existing_merge_and_history_writer(self):
         from insider_transaction import parse_form4_document
         line = transaction_xml().replace(

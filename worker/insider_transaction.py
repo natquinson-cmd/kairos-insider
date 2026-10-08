@@ -159,7 +159,8 @@ def sec_price_currency(price_notes):
         'ZAR': r'\b(?:ZAR|South African rand)\b',
     }
     found = {}
-    explicit = set()
+    explicit = {}
+    contradicted = False
     for note in price_notes:
         text = _text(note.get('text'))
         for code, pattern in aliases.items():
@@ -167,13 +168,15 @@ def sec_price_currency(price_notes):
                 found.setdefault(code, []).append(note['id'])
                 # A currency mentioned in another context is not a statement
                 # about this price, even inside its attached footnote.
-                if not re.search(r'\b(?:not|except|excluding|other than)\b', text, re.I) and (
+                negative = bool(re.search(r'\b(?:not|except|excluding|other than)\b', text, re.I))
+                contradicted |= negative
+                if not negative and (
                         re.fullmatch(r'\W*' + pattern + r'\W*', text, re.I)
                         or re.search(r'\b(?:prices?|amounts?)\b[^;\n]{0,80}\b(?:in|denominated|reported|expressed|stated|quoted)\b[^;\n]{0,30}' + pattern, text, re.I)):
-                    explicit.add(code)
-    if len(found) != 1 or set(found) != explicit:
+                    explicit.setdefault(code, []).append(note['id'])
+    if contradicted or len(found) != 1 or set(found) != set(explicit):
         return {}
-    code, ids = next(iter(found.items()))
+    code, ids = next(iter(explicit.items()))
     return {'currency': code, 'currencySource': 'sec-price-footnote',
             'currencyFootnoteIds': list(dict.fromkeys(ids))}
 
