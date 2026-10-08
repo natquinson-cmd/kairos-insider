@@ -14,6 +14,73 @@ function cache(records = {}) {
   }}};
 }
 const key = ticker => `stock-analysis:v25:${ticker}:full:1y`;
+
+async function withScoreHistory(t, env, rows = []) {
+  const {DatabaseSync} = await import('node:sqlite');
+  const db = new DatabaseSync(':memory:');
+  t.after(() => db.close());
+  db.exec('CREATE TABLE score_history (ticker TEXT, date TEXT, total INTEGER)');
+  for (const row of rows) db.prepare('INSERT INTO score_history VALUES (?, ?, ?)').run(row.ticker, row.date, row.total);
+  const queries = [];
+  env.HISTORY = {prepare(sql) {
+    assert.match(sql, /^\s*SELECT\b/i, 'Watchlist history is read-only');
+    return {bind(...args) { return {async all() {
+      queries.push({sql, args});
+      assert.ok(args.length <= 100, 'Stay below D1 bound-parameter limit');
+      return {results: db.prepare(sql).all(...args)};
+    }}; }};
+  }};
+  return queries;
+}
+
+test('missing analysis scores automatically use dated recent history without replacing current-method scores', async t => {
+  const h=cache({'wl:alice':{tickers:['NVDA','AVGO','MSFT','ASML.AS']},
+    [key('NVDA')]:{ticker:'NVDA',score:{total:78},_cachedAt:NOW-1000},
+  });
+  const queries=await withScoreHistory(t,h.env,[
+    {ticker:'NVDA',total:50,date:'2026-09-23'},
+    {ticker:'AVGO',total:70,date:'2026-09-20'}, {ticker:'AVGO',total:74,date:'2026-09-22'},
+    {ticker:'MSFT',total:69,date:'2026-09-23'}, {ticker:'ASML.AS',total:75,date:'2026-09-21'},
+  ]);
+  const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
+  assert.deepEqual(items.map(row=>row.score),[78,74,69,75]);
+  assert.equal(items[0].scoreStatus,'available');
+  assert.equal(items[1].scoreSource,'history');
+  assert.equal(items[1].scoreStatus,'historical');
+  assert.equal(items[1].scoreAt,'2026-09-22T00:00:00.000Z');
+  assert.equal(items[1].cachedAt,null);
+  assert.equal(queries.length,1);
+});
+
+test('archived scores need a real recent date and valid value, and never leak another watchlist or listing', async t => {
+  const tickers=['AVGO','MSFT','ASML.AS','OLD','FUTURE','BAD','ZERO','TOOHIGH'];
+  const h=cache({'wl:alice':{tickers},'wl:bob':{tickers:['PRIVATE']}});
+  await withScoreHistory(t,h.env,[
+    {ticker:'AVGO',total:74,date:null},{ticker:'MSFT',total:69,date:''},
+    {ticker:'ASML',total:75,date:'2026-09-23'}, {ticker:'PRIVATE',total:99,date:'2026-09-23'},
+    {ticker:'OLD',total:72,date:'2026-09-16'},{ticker:'FUTURE',total:72,date:'2026-09-24'},
+    {ticker:'BAD',total:72,date:'2026-09-22-invalid'}, {ticker:'ZERO',total:0,date:'2026-09-23'},
+    {ticker:'TOOHIGH',total:101,date:'2026-09-23'},
+  ]);
+  const {items}=await readWatchlistSummary(h.env,'alice','PRIVATE',NOW);
+  assert.deepEqual(items.map(row=>row.ticker),tickers);
+  for(const row of items.filter(row=>row.ticker!=='ZERO')){
+    assert.equal(row.score,null,row.ticker); assert.equal(row.scoreAt,null,row.ticker);
+    assert.equal(row.scoreStatus,'unavailable',row.ticker);
+  }
+  assert.equal(items.find(row=>row.ticker==='ZERO').score,0);
+  assert.equal(items.find(row=>row.ticker==='ZERO').scoreStatus,'historical');
+});
+
+test('historical score reads are bounded for a large watchlist and a D1 outage preserves other data', async t => {
+  const tickers=Array.from({length:100},(_,i)=>'T'+i),h=cache({'wl:alice':{tickers}});
+  const queries=await withScoreHistory(t,h.env,tickers.map(ticker=>({ticker,total:70,date:'2026-09-23'})));
+  const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
+  assert.equal(items.at(-1).score,70); assert.equal(queries.length,2);
+  h.env.HISTORY={prepare(){throw Error('D1 unavailable');}};
+  const failed=await readWatchlistSummary(h.env,'alice','',NOW);
+  assert.equal(failed.items.length,100); assert.equal(failed.items[0].score,null);
+});
 test('expired analysis cache does not hide the watchlist quote and daily movement', async t => {
   const h=cache({'wl:alice':{tickers:['NVDA']}}), requests=[];
   t.mock.method(globalThis,'fetch',async url=>{

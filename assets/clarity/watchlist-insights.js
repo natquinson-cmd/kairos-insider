@@ -43,7 +43,7 @@ function create(onChange){
  }
  function stockTrend(ticker){
   const row=items.get(ticker),curve=row?.sparkline3m,points=(curve?.points||[]).filter(p=>number(p.close)>0&&Number.isFinite(Date.parse(p.date)));
-  const score=number(row?.score),scoreMarkup=score==null?'':`<small class="watch-score ${score>=75?'is-up':score>=55?'is-favorable':score>=35?'is-cautious':'is-down'}" title="${e(t('Score au ','Score as of ')+date(row.scoreAt))}">Kairos <b>${e(n(score,0))}</b>/100</small>`;
+  const score=number(row?.score),historical=row?.scoreStatus==='historical',scoreMarkup=score==null?'':`<small class="watch-score ${historical?'':score>=75?'is-up':score>=55?'is-favorable':score>=35?'is-cautious':'is-down'}" title="${e(t('Score au ','Score as of ')+date(row.scoreAt))}">Kairos <b>${e(n(score,0))}</b>/100</small>${historical?`<small>${t('Score historique','Historical score')} · ${e(date(row.scoreAt))}</small><small>${t('La méthode peut différer de l’analyse actuelle.','The method may differ from the current analysis.')}</small>`:''}`;
   if(points.length<2)return `<small>${t('Courbe indisponible','Chart unavailable')}</small>${scoreMarkup}`;
   const min=Math.min(...points.map(p=>p.close)),max=Math.max(...points.map(p=>p.close)),first=Date.parse(points[0].date),span=Date.parse(points.at(-1).date)-first;
   if(span<=0)return `<small>${t('Courbe indisponible','Chart unavailable')}</small>${scoreMarkup}`;

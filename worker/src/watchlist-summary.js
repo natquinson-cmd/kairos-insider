@@ -49,7 +49,40 @@ async function stockCache(env, ticker) {
   return saved && typeof saved === 'object' && !saved.error && saved.ticker === ticker ? saved : null;
 }
 
+async function recentHistoricalScores(env, tickers, now) {
+  const scores = new Map();
+  if (!env.HISTORY?.prepare || !tickers.length) return scores;
+  const maxAge = 7 * 86400000, oldest = new Date(now - maxAge).toISOString().slice(0, 10);
+  const today = new Date(now).toISOString().slice(0, 10);
+  // The archive has no method version. It is an explicitly historical fallback,
+  // never a replacement for a current-method score, and never a new calculation.
+  // Two reads at most for the 100-stock limit; leave room for date parameters.
+  for (let offset = 0; offset < tickers.length; offset += 50) {
+    const batch = tickers.slice(offset, offset + 50), wanted = new Set(batch);
+    try {
+      const response = await env.HISTORY.prepare(`
+        SELECT s.ticker, s.total, s.date FROM score_history s
+        INNER JOIN (
+          SELECT ticker, MAX(date) AS latest FROM score_history
+          WHERE ticker IN (${batch.map(() => '?').join(',')}) AND date >= ? AND date <= ?
+          GROUP BY ticker
+        ) recent ON s.ticker = recent.ticker AND s.date = recent.latest
+      `).bind(...batch, oldest, today).all();
+      for (const row of response?.results || []) {
+        const total = number(row.total), day = row.date;
+        if (!wanted.has(row.ticker) || total == null || total < 0 || total > 100 ||
+            typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+        const at = timestamp(day + 'T00:00:00Z');
+        if (!at || at.slice(0, 10) !== day || Date.parse(at) > now || now - Date.parse(at) > maxAge) continue;
+        scores.set(row.ticker, {score: total, scoreAt: at, scoreStatus: 'historical', scoreSource: 'history'});
+      }
+    } catch { /* A missing/unavailable archive must not hide quotes or activity. */ }
+  }
+  return scores;
+}
+
 /** Authenticated personal summary. Only public quote caches may be refreshed;
+ * scores reuse current-method cache or explicitly dated recent history;
  * no quota, user, alert or subscription writes, or full stock analyses. */
 export async function readWatchlistSummary(env, uid, legacySymbols = '', now = Date.now()) {
   if (typeof uid !== 'string' || !uid) throw new Error('Authenticated identity required');
@@ -110,6 +143,11 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
       };
     }));
     result.items.push(...batch);
+  }
+  const historical = await recentHistoricalScores(env, result.items.filter(row => row.score == null).map(row => row.ticker), now);
+  for (const row of result.items) {
+    const saved = historical.get(row.ticker);
+    if (saved) Object.assign(row, saved);
   }
   return result;
 }
