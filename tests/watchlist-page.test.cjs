@@ -49,7 +49,7 @@ async function mount({anonymous=false,entitled=true,statusFailure=false,saveFail
     if(url==='/api/telegram/status')return {linked,alertPrefs:{insiderTransactions:false,quietHoursStart:22,quietHoursEnd:7}};
     throw Error('Unexpected API call: '+url);
   }};
-  const context=vm.createContext({window:{KairosUI:U},document,URL,URLSearchParams,setTimeout,clearTimeout});
+  const context=vm.createContext({window:{KairosUI:U,KairosSignalContext:require('../assets/clarity/signal-context.js')},document,URL,URLSearchParams,setTimeout,clearTimeout});
   vm.runInContext(fs.readFileSync('assets/clarity/watchlist-insights.js','utf8'),context);
   vm.runInContext(source,context);
   for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));
@@ -130,4 +130,4 @@ test('linked Telegram displays existing quiet hours without enabling alerts or c
   assertReadOnly(result);
 });
 
-test('integrated watchlist journal and dated stock data load read-only in French',async()=>{const r=await mount({lang:'fr'});assert.match(r.get('watchActivityRows').innerHTML,/Achat/);assert.match(r.get('watchlistRows').innerHTML,/250 USD/);assert.match(r.get('watchlistRows').innerHTML,/Apple/);assert.equal(r.apiCalls.filter(c=>c.url.startsWith('/api/watchlist/summary')).length,1);assertReadOnly(r);});
+test('integrated watchlist journal and dated stock data load read-only in French',async()=>{const r=await mount({lang:'fr'});assert.match(r.get('watchActivityRows').innerHTML,/Acquisition à vérifier/);assert.doesNotMatch(r.get('watchActivityRows').innerHTML,/is-buy[^>]*>Achat retenu/);assert.match(r.get('watchlistRows').innerHTML,/250 USD/);assert.match(r.get('watchlistRows').innerHTML,/Apple/);assert.equal(r.apiCalls.filter(c=>c.url.startsWith('/api/watchlist/summary')).length,1);assertReadOnly(r);});

@@ -1,10 +1,34 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const code=()=>fs.readFileSync('assets/clarity/watchlist-insights.js','utf8');
-function setup(api){const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',textContent:'',value:'',hidden:false,querySelectorAll:()=>[]});return nodes.get(id);};const U={lang:'en',t:(_,en)=>en,esc:v=>String(v??'').replace(/[<>&"]/g,'_'),format:v=>String(v),stockUrl:t=>'dashboard.html?symbol='+t,api};const window={KairosUI:U};vm.runInNewContext(code(),{window,document:{getElementById:node},URLSearchParams,URL,Date});return {api:window.KairosWatchInsights,node};}
-const event=(ticker,type,fileDate)=>({ticker,type,fileDate,tradeDate:'2026-09-01',insider:'Person',value:1200,currency:'USD',sourceUrl:'https://www.sec.gov/filing'});
+function setup(api){const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{innerHTML:'',textContent:'',value:'',hidden:false,querySelectorAll:()=>[]});return nodes.get(id);};const U={lang:'en',t:(_,en)=>en,esc:v=>String(v??'').replace(/[<>&"]/g,'_'),format:v=>String(v),stockUrl:t=>'dashboard.html?symbol='+t,api};const window={KairosUI:U,KairosSignalContext:require('../assets/clarity/signal-context.js')};vm.runInNewContext(code(),{window,document:{getElementById:node},URLSearchParams,URL,Date});return {api:window.KairosWatchInsights,node};}
+const event=(ticker,type,fileDate)=>({ticker,type,fileDate,tradeDate:'2026-09-01',insider:'Person',value:1200,currency:'USD',sourceUrl:'https://www.sec.gov/filing',purchaseSignalEligible:type==='buy',purchaseSignalStatus:type==='buy'?'eligible':'excluded',purchaseSignalReason:type==='buy'?'reported-purchase':'not-purchase'});
 test('glance row shows a dated daily movement, real curve and score; unknown data never draws a fake curve',async()=>{const h=setup(async()=>({items:[{ticker:'AAPL',price:120,currency:'USD',changePercent:-2,quoteAt:'2026-09-23T20:00:00Z',score:72,scoreAt:'2026-09-23',sparkline3m:{points:[{date:'2026-06-23',close:100},{date:'2026-09-23',close:120}],changePercent:20,from:'2026-06-23',to:'2026-09-23',partial:false}}],activity:{available:true,events:[]}}));const c=h.api.create(()=>{});await c.update(['AAPL']);assert.match(c.stockDetails('AAPL'),/-2/);assert.match(c.stockDetails('AAPL'),/Session/);assert.match(c.stockTrend('AAPL'),/<svg/);assert.match(c.stockTrend('AAPL'),/72/);assert.match(c.stockTrend('AAPL'),/20/);assert.doesNotMatch(c.stockTrend('MISSING'),/<svg|NaN/);});
 test('filters use publication date and distinguish purchases from sales',()=>{const h=setup();const a=[event('AAPL','buy','2026-09-23'),event('AAPL','sell','2026-09-23'),event('AAPL','buy','2026-09-10')];assert.equal(h.api.selectEvents(a,7,'buy','2026-09-24').length,1);assert.equal(h.api.selectEvents(a,30,'all','2026-09-24').length,3);});
-test('journal reads once, preserves dates and source, never treats an unknown price as zero',async()=>{let reads=0;const h=setup(async()=>{reads++;return {updatedAt:'2026-09-24',items:[{ticker:'AAPL',price:null}],activity:{available:true,events:[event('AAPL','buy','2026-09-23')]}};});const c=h.api.create(()=>{});await c.update(['AAPL']);await c.update(['AAPL']);assert.equal(reads,1);assert.match(h.node('watchActivityRows').innerHTML,/Trade:|Transaction/);assert.match(h.node('watchActivityRows').innerHTML,/2026|Sep/);assert.match(h.node('watchActivityRows').innerHTML,/https:\/\/www.sec.gov\/filing/);assert.match(c.stockDetails('AAPL'),/—/);assert.doesNotMatch(c.stockDetails('AAPL'),/0 USD/);});
+test('journal reads once, preserves dates and source, never treats an unknown price as zero',async()=>{let reads=0;const h=setup(async()=>{reads++;return {updatedAt:'2026-09-24',items:[{ticker:'AAPL',price:null}],activity:{available:true,events:[event('AAPL','buy','2026-09-23')]}};});const c=h.api.create(()=>{});await c.update(['AAPL']);await c.update(['AAPL']);assert.equal(reads,1);assert.match(h.node('watchActivityRows').innerHTML,/Executed:|Trade:|Transaction/);assert.match(h.node('watchActivityRows').innerHTML,/2026|Sep/);assert.match(h.node('watchActivityRows').innerHTML,/https:\/\/www.sec.gov\/filing/);assert.match(c.stockDetails('AAPL'),/—/);assert.doesNotMatch(c.stockDetails('AAPL'),/0 USD/);});
 test('outage and empty watchlist have distinct messages and empty list performs no request',async()=>{let reads=0;const h=setup(async()=>{reads++;throw Error('offline');});const c=h.api.create(()=>{});await c.update([]);assert.equal(reads,0);assert.match(h.node('watchActivityRows').innerHTML,/Follow a stock/);await c.update(['AAPL']);assert.match(h.node('watchActivityRows').innerHTML,/unavailable/);assert.doesNotMatch(h.node('watchActivityRows').innerHTML,/No filings/);});
 test('stale response after removing a symbol cannot restore its private activity',async()=>{let finish;const h=setup(()=>new Promise(resolve=>finish=resolve));const c=h.api.create(()=>{});const pending=c.update(['AAPL']);await c.update([]);finish({items:[{ticker:'AAPL',price:100}],activity:{available:true,events:[event('AAPL','buy','2026-09-23')]}});await pending;assert.doesNotMatch(h.node('watchActivityRows').innerHTML,/AAPL/);assert.doesNotMatch(c.stockDetails('AAPL'),/100/);});
 test('unsafe source links and unrelated symbols are not rendered',async()=>{const bad={...event('AAPL','buy','2026-09-23'),sourceUrl:'javascript:alert(1)',insider:'<script>alert(1)</script>'};const h=setup(async()=>({updatedAt:'2026-09-24',activity:{available:true,events:[bad,event('MSFT','buy','2026-09-23')]}}));await h.api.create(()=>{}).update(['AAPL']);const html=h.node('watchActivityRows').innerHTML;assert.doesNotMatch(html,/javascript:|<script>|MSFT/);assert.match(html,/Source link unavailable/);});
+
+test('the journal distinguishes qualifying purchases from employee plans and uncertain acquisitions',async()=>{
+ const retained=event('AAPL','buy','2026-10-07'),excluded={...retained,purchaseSignalEligible:false,purchaseSignalStatus:'excluded',purchaseSignalReason:'employee-plan'},uncertain={...retained,purchaseSignalEligible:false,purchaseSignalStatus:'unknown',purchaseSignalReason:'unknown'};
+ const rows=[retained,excluded,uncertain,event('AAPL','sell','2026-10-07')];
+ const h=setup(async()=>({updatedAt:'2026-10-08',activity:{available:true,events:rows}}));
+ await h.api.create(()=>{}).update(['AAPL']);
+ assert.equal(h.api.selectEvents(rows,7,'buy','2026-10-08').length,1);
+ assert.equal(h.api.selectEvents(rows,7,'review','2026-10-08').length,2);
+ assert.match(h.node('watchActivitySummary').textContent,/1 qualifying purchase/);
+ assert.match(h.node('watchActivitySummary').textContent,/1 excluded/);
+ assert.match(h.node('watchActivitySummary').textContent,/1 to verify/);
+ const html=h.node('watchActivityRows').innerHTML;
+ assert.match(html,/is-neutral[^>]*>Employee plan/);
+ assert.match(html,/is-neutral[^>]*>Acquisition to verify/);
+ assert.match(html,/is-buy[^>]*>Qualifying purchase/);
+ assert.match(html,/Executed:|Trade:/);
+ assert.match(html,/Published/);
+ assert.match(html,/Excluded from purchase signals/);
+});
+
+test('future and invalid filing dates do not enter the activity window',()=>{
+ const h=setup(),rows=[event('AAPL','buy','2026-10-09'),event('AAPL','buy','2026-02-30'),event('AAPL','buy','2026-10-07')];
+ assert.equal(h.api.selectEvents(rows,365,'all','2026-10-08').length,1);
+});

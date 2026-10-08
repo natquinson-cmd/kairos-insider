@@ -29,7 +29,7 @@ async function market(search='?screen=funds',lang='en'){
  }
  const funds=[{fundName:'Example Capital',reportDate:'2026-06-30',totalValue:1000,holdingsCount:1,topHoldings:[]}];
  const U={...ui(lang),api:async path=>path==='/api/13f-funds'?funds:{consensus:[{ticker:'ABC',name:'Example',fundCount:2,totalValue:300,avgPctOfPortfolio:1.5}]}};
- const window={KairosUI:U,KairosAdapter:adapter,KairosFundBrands:{displayName:f=>f.fundName,markup:()=>'',hydrate(){}}};
+ const window={KairosUI:U,KairosAdapter:adapter,KairosSignalContext:require('../assets/clarity/signal-context.js'),KairosFundBrands:{displayName:f=>f.fundName,markup:()=>'',hydrate(){}}};
  await vm.runInNewContext(fs.readFileSync('assets/clarity/live-market.js','utf8'),{window,document,location:{search},history:{replaceState(){}},URL,URLSearchParams});
  return {node,document};
 }
@@ -51,4 +51,11 @@ test('pointer activation also remembers its trigger and safely falls back when r
  node('marketDetail').querySelector('[data-close]').onclick();assert.equal(document.activeElement,trigger);
  trigger.onclick();trigger.isConnected=false;node('marketDetail').querySelector('[data-close]').onclick();
  assert.equal(document.activeElement,node('marketTitle'));assert.equal(node('marketTitle').attributes.tabindex,'-1');
+});
+
+test('fund dates pair the holding observation with its filing without inventing a purchase date',async()=>{
+ const {node}=await market(),html=node('marketResults').innerHTML;
+ assert.match(html,/neither identifies a purchase date/);assert.match(html,/Filed: <time>Date unavailable<\/time>/);
+ assert.match(html,/Holdings as of: <time datetime="2026-06-30">/);assert.doesNotMatch(html,/Executed:|Qualifying purchase/);
+ const fr=await market('?screen=funds','fr');assert.match(fr.node('marketResults').innerHTML,/Positions au :/);assert.match(fr.node('marketResults').innerHTML,/ne donnent pas la date d’achat/);
 });

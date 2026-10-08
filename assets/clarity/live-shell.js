@@ -112,14 +112,15 @@ if(searchInput?.id==='marketSearch')searchInput.value=params.get('q')||'';
 initializeStockSearch();
 if(!researchHome)window.KairosCompactSearch.mount({header,wrap:document.getElementById('searchWrap'),input:searchInput,lang,filter:searchInput?.id==='marketSearch'});
 window.KairosUI.translate();
+if(researchHome||['market','watchlist'].includes(document.body.dataset.screen))await loadScript('assets/clarity/signal-context.js?v=readability1');
 async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items||d.signals||[]).map(x=>({ticker:x.ticker,company:x.company||x.ticker,label:x.label||'',detail:x.value||'',tone:x.color==='red'?'sell':'buy'}));window.KairosTicker.mount(document.getElementById('signalTicker'),{items,labels:{region:t('Signaux Kairos','Kairos signals'),title:t('Le fil Kairos','Kairos signals'),demo:t('Déclarations','Filings'),empty:t('Aucun signal récent.','No recent signals.')},onSelect:item=>openStock(item.ticker)});}catch{document.getElementById('signalTicker').textContent=t('Le fil des déclarations est temporairement indisponible.','The filing feed is temporarily unavailable.');}}
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=checkup1');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=readability1');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
-else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=insights2');await loadScript('assets/clarity/live-watchlist.js?v=purchases1');}
-else if(researchHome){await loadScript('assets/clarity/live-research.js?v=checkup1');}
+else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=readability1');await loadScript('assets/clarity/live-watchlist.js?v=purchases1');}
+else if(researchHome){await loadScript('assets/clarity/live-research.js?v=readability1');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
