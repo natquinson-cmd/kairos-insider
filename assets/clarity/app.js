@@ -7,6 +7,7 @@
   let weights = data.companies[0].weights;
   const state = {company:data.companies[0],range:'3M',view:null,tab:'overview',fundSection:'positions',event:null,activistId:null,hover:null,hoverPrice:null,pinned:false,followed:new Set(),searchIndex:0};
   const T=window.KairosUI.t;const locale=window.KairosUI.lang==='en'?'en-US':'fr-FR';
+  const chartEvents=window.KairosChartEvents;
   const fmt = (value, digits=0) => value == null ? '—' : value.toLocaleString(locale,{minimumFractionDigits:digits,maximumFractionDigits:digits});
   const money = value => `${fmt(value,2)} ${state.company.currency}`;
   const compact = (value,currency=state.company.currency) => value==null?'—':value.toLocaleString(locale,{notation:'compact',maximumFractionDigits:1})+' '+currency;
@@ -123,21 +124,39 @@
     const spansYears=history[0].date.slice(0,4)!==history.at(-1).date.slice(0,4);
     $('periodChange').textContent=signed(change);$('periodChange').className=change>=0?'positive':'negative';$('periodDates').textContent=`${dateLabel(history[0].date,spansYears)} – ${dateLabel(history.at(-1).date,spansYears)}`;
     $('chartPointCount').textContent=`${state.range==='custom'?'Zoom libre · ':''}${history.length} séances`;$('resetZoom').hidden=state.range!=='custom';
-    $('eventChoices').innerHTML=events.length?events.map(event=>`<button data-event-id="${event.id}" aria-pressed="${state.event===event.id}"><i class="${event.type==='buy'?'buy-dot':'sell-dot'}"></i>${dateLabel(event.date)} · ${compact(event.amount,event.currency)}</button>`).join(''):`<p class="empty-state">${T('Aucun achat retenu ni vente sur cette période.','No qualifying purchases or sales in this period.')}</p>`;
-    $('eventChoices').querySelectorAll('[data-event-id]').forEach(button=>button.addEventListener('click',()=>selectEvent(button.dataset.eventId)));
+    $('eventChoices').innerHTML=chartEvents.choices(chartEvents.group(events),state.event,window.KairosUI.lang);
+    $('eventChoices').querySelectorAll('[data-event-id]').forEach(button=>button.addEventListener('click',()=>{
+      selectEvent(button.dataset.eventId);
+      $('eventGroupTitle')?.focus({preventScroll:true});
+      $('eventGroupTitle')?.scrollIntoView({behavior:'auto',block:'start'});
+    }));
     const buys=events.filter(event=>event.type==='buy'),sells=events.filter(event=>event.type==='sell'),sum=items=>items.reduce((total,event)=>total+event.amount,0);
     const totals=items=>{const sums=new Map();for(const x of items){if(x.amount===null)continue;sums.set(x.currency,(sums.get(x.currency)||0)+x.amount);}return [...sums].map(([currency,value])=>compact(value,currency)).join(' · ')||(items.length?'—':compact(0));};
     $('insiderSummary').innerHTML=`<div class="summary-numbers"><div><span>${T('Achats retenus','Qualifying purchases')}</span><strong class="positive">${totals(buys)}</strong></div><div><span>${T('Ventes retenues','Qualifying sales')}</span><strong class="negative">${totals(sells)}</strong></div></div><p class="summary-line">${T(buys.length+' achat(s) et '+sells.length+' vente(s) retenus sur la période de publication. Sélectionnez une déclaration pour en examiner le contexte.',buys.length+' qualifying purchase(s) and '+sells.length+' sale(s) in this filing period. Select a filing to inspect its context.')}</p>`;
     renderSelectedEvent();renderVisuals();
   }
-  function selectEvent(id){clearHover();state.event=id;state.activistId=null;renderSelectedEvent();$('eventChoices').querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.eventId===id)));drawChart();}
+  function updateEventChoices(){
+    const group=chartEvents.selected(chartEvents.group(eventsInRange()),state.event);
+    $('eventChoices').querySelectorAll('button').forEach(button=>{
+      const active=Boolean(group?.events.some(event=>event.id===button.dataset.eventId));
+      button.setAttribute('aria-pressed',String(active));button.setAttribute('aria-expanded',String(active));
+    });
+  }
+  function selectEvent(id){clearHover();state.event=id;state.activistId=null;renderSelectedEvent();updateEventChoices();drawChart();}
   function renderSelectedEvent(){
-    const event=state.company.events.find(item=>item.id===state.event),host=$('selectedEvent');host.hidden=!event;if(!event)return;
-    host.classList.toggle('selling',event.type==='sell');
-    const closing=state.company.history.find(point=>point.date===event.date)?.close;
-    const observed=closing?(state.company.history.at(-1).close/closing-1)*100:null;
-    host.innerHTML=`<div><span class="event-label ${event.type==='buy'?'positive':'negative'}">${event.type==='buy'?'Achat':'Vente'} déclaré${event.type==='buy'?'':'e'} <span>${dateLabel(event.date)}</span></span><strong class="event-money">${compact(event.amount,event.currency)}</strong><h3>${esc(event.role)}</h3></div><p class="event-explanation">${event.type==='buy'?T('Un achat identifié dans la déclaration source. Examinez le montant, le rôle du déclarant et le contexte.','A purchase identified in the source filing. Consider its size, the reporting person’s role and the context.'):T('Une vente peut répondre à plusieurs motifs. Elle ne suffit pas à conclure que le dirigeant anticipe une baisse.','A sale can have several motives. It does not by itself establish that an insider expects a price decline.')}${event.planned?`<br><br>${T('Opération programmée dans le cadre d’un plan 10b5-1.','Transaction scheduled under a 10b5-1 plan.')}`:''}${observed===null?'':`<br><br>${T('Cours depuis publication :','Price since filing:')} <span class="${observed>=0?'positive':'negative'}">${signed(observed)}</span>. ${T("Évolution observée, sans causalité démontrée.","Observed change, without demonstrated causation.")}`}</p><div class="event-dates"><div><span>Transaction</span><strong>${dateLabel(event.tradeDate,true)}</strong></div><div><span>Publication</span><strong>${dateLabel(event.publicationDate||event.date,true)}</strong></div></div>`;
-    if(event.insiderName){const person=document.createElement('small');person.textContent=event.insiderName+'';host.querySelector('h3').after(person);}
+    const group=chartEvents.selected(chartEvents.group(eventsInRange()),state.event),host=$('selectedEvent');
+    host.hidden=!group;if(!group)return;
+    host.classList.add('event-detail--group');host.classList.toggle('selling',group.type==='sell');
+    host.innerHTML=chartEvents.details(group,state.event,window.KairosUI.lang);
+    const closing=state.company.history.find(point=>point.date===group.events[0].date)?.close;
+    if(closing){
+      const observed=(state.company.history.at(-1).close/closing-1)*100;
+      host.insertAdjacentHTML('beforeend',`<p class="event-group-note">${T('Cours depuis publication :','Price since filing:')} <span class="${observed>=0?'positive':'negative'}">${signed(observed)}</span>. ${T('Évolution observée, sans causalité démontrée.','Observed change, without demonstrated causation.')}</p>`);
+    }
+    host.querySelector('[data-close-events]').addEventListener('click',()=>{
+      const trigger=[...$('eventChoices').querySelectorAll('button')].find(button=>group.events.some(event=>event.id===button.dataset.eventId));
+      state.event=null;host.hidden=true;updateEventChoices();drawChart();trigger?.focus();
+    });
   }
   function renderVisuals(){drawChart();if(state.tab==='overview')window.KairosRadar.render($('productRadar'),{values:state.company.dimensions,labels,score:score(),weights});if(state.tab==='funds'&&state.fundSection==='positions')fundView?.redraw();}
 
@@ -224,7 +243,8 @@
     host.classList.toggle('is-inspecting',active);
     const cursorNote=active&&state.hoverPrice!==null?` Prix au curseur : ${money(state.hoverPrice)}.`:'';
     host.setAttribute('aria-label',`${active?'Séance du':'Dernière séance de la période :'} ${dateLabel(point.date,true)}. Clôture : ${money(point.close)}.${cursorNote}`);
-    host.innerHTML=`<div class="chart-readout-main"><span>Clôture <b>${money(point.close)}</b></span><span>Depuis le début <b class="${change>=0?'positive':'negative'}">${signed(change)}</b></span><span>Volume <b>${point.volume==null?'—':fmt(point.volume/1e6,1)+' M'}</b></span>${plot.withBenchmark?`<span>Indice rebasé <b>${fmt(plot.benchmark[index].close,2)}</b></span>`:''}</div><div class="chart-readout-event ${events.length?'has-event':''}">${events.length?events.map(event=>`<span class="${event.type==='buy'?'positive':'negative'}">${event.type==='buy'?'Achat':'Vente'} publié${event.type==='buy'?'':'e'} · ${compact(event.amount,event.currency)} · ${esc(event.role)}</span>`).join(' / '):'<span aria-hidden="true">&nbsp;</span>'}</div>`;
+    const words=chartEvents.wording(window.KairosUI.lang);
+    host.innerHTML=`<div class="chart-readout-main"><span>Clôture <b>${money(point.close)}</b></span><span>Depuis le début <b class="${change>=0?'positive':'negative'}">${signed(change)}</b></span><span>Volume <b>${point.volume==null?'—':fmt(point.volume/1e6,1)+' M'}</b></span>${plot.withBenchmark?`<span>Indice rebasé <b>${fmt(plot.benchmark[index].close,2)}</b></span>`:''}</div><div class="chart-readout-event ${events.length?'has-event':''}">${events.length?chartEvents.group(events).map(group=>`<span class="${group.type==='buy'?'positive':'negative'}">${words.count(group)} · ${esc(words.totals(group))}${group.missingAmounts?` · ${T('montants incomplets','incomplete amounts')}`:''}</span>`).join(' / '):'<span aria-hidden="true">&nbsp;</span>'}</div>`;
   }
   function hideOperationTooltip(){
     const tooltip=$('operationTooltip');if(tooltip)tooltip.hidden=true;

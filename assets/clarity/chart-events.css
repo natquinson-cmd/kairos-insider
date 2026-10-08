@@ -1,0 +1,37 @@
+.event-groups-caption{flex:1 0 100%;font-size:13px;color:var(--text);margin-bottom:2px}
+.event-groups-caption span{color:#aabbd5;font-size:12px}
+.event-choices .event-group-button{flex-direction:column;align-items:flex-start;gap:3px;padding:9px 12px;font-size:13px;text-align:left;min-width:156px}
+.event-group-label{display:flex;align-items:center;gap:6px}
+.event-group-button strong{font-size:14px;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums}
+.event-group-button.sell strong{color:var(--red)}
+.event-group-button strong small{font-size:12px;font-weight:400}
+.event-choices .event-group-button.sell[aria-pressed=true]{background:#352434;border-color:#a56c84;color:#ffe2e9}
+.event-detail.event-detail--group{display:block;grid-column:1/-1;min-width:0;padding:18px 20px;background:#13243a;margin-top:0}
+.event-group-header{display:flex;align-items:start;gap:20px;flex-wrap:wrap}
+.event-detail--group .event-group-header h3{font-size:19px;font-weight:600;margin:0;scroll-margin-top:18px}
+.event-group-header p,.event-group-total>span{font-size:13px;color:#b7c8e1}
+.event-group-total{margin-left:auto;text-align:right}
+.event-group-total strong{display:block;font-size:21px;font-variant-numeric:tabular-nums;line-height:1.4}
+.event-group-close{font-size:13px;padding:4px;white-space:nowrap}
+.event-group-note{font-size:13px;line-height:1.6;color:#b7c8e1;margin-top:10px}
+.event-group-table{margin-top:12px}
+.event-group-table table{font-size:14px}
+.event-group-table th{font-size:12px;color:#b7c8e1}
+.event-group-table td,.event-group-table th{padding:10px 14px}
+.event-group-table td:first-child,.event-group-table th:first-child{padding-left:8px}
+.event-group-table td:first-child{white-space:normal;min-width:185px;max-width:360px}
+.event-group-table td strong{font-weight:500;overflow-wrap:anywhere}
+.event-group-table td small{display:block;font-size:12px;color:#adc0dc;margin-top:2px}
+.event-group-table .table-link{font-size:13px;white-space:nowrap}
+.event-group-table tr.is-selected{background:#24415b66}
+.event-group-table tr.is-selected td:first-child{box-shadow:inset 3px 0 var(--green)}
+.selling .event-group-table tr.is-selected td:first-child{box-shadow:inset 3px 0 var(--red)}
+@media(max-width:720px){
+  .overview-layout>.event-detail--group{order:1}
+  .overview-layout>.radar-panel{order:2}
+  .event-choices .event-group-button{flex:1 1 150px;min-width:0}
+  .event-detail.event-detail--group{padding:16px 12px}
+  .event-group-header{gap:10px}
+  .event-group-total{margin-left:0;text-align:left;flex:1 0 100%;order:2}
+  .event-group-close{margin-left:auto}
+}
