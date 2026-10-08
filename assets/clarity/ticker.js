@@ -1,6 +1,23 @@
-/* Kairos signal strip. Local demonstration; no requests or persistent changes. */
+/* Kairos signal strip. Rendering only; no requests or persistent changes. */
 (() => {
   'use strict';
+
+  function fromFeed(item, { lang = 'fr' } = {}) {
+    const t = (fr, en) => lang === 'en' ? en : fr;
+    const ownership = ['activist', 'threshold'].includes(item.type);
+    const value = typeof item.value === 'string' ? item.value.trim()
+      : typeof item.value === 'number' && Number.isFinite(item.value) ? String(item.value) : '';
+    const metric = item.type === 'cluster' ? t('Achats cumulés', 'Total purchases')
+      : ownership ? t('Participation', 'Ownership')
+      : item.type === 'score' ? t('Score Kairos', 'Kairos score')
+      : item.type === 'trend' ? t('Recherches', 'Search interest') : t('Signal', 'Signal');
+    return {
+      ticker: item.ticker, company: item.company || item.ticker, label: item.label || '',
+      detail: value ? `${metric} ${value}` : '',
+      // Ownership, scores and search interest are not purchase transactions.
+      tone: item.type === 'cluster' ? 'buy' : ownership && item.color === 'red' ? 'sell' : 'fund'
+    };
+  }
 
   function mount(host, { items = [], onSelect = () => {}, labels = {} } = {}) {
     const copy = {region:'Le fil Kairos, signaux de démonstration',title:'Le fil Kairos',demo:'Démo',empty:'Aucun signal dans cette démonstration.',manual:'Manuel',resume:'▶ Reprendre',pause:'Ⅱ Pause',manualLabel:'Défilement manuel : réduction des animations activée',resumeLabel:'Reprendre le défilement du fil Kairos',pauseLabel:'Mettre le fil Kairos en pause',manualHint:'Les animations sont désactivées selon vos préférences. Faites défiler le fil horizontalement.',resumeHint:'Reprendre le défilement',pauseHint:'Mettre en pause pour parcourir les signaux',...labels};
@@ -46,7 +63,9 @@
       signal.textContent = tone === 'buy' ? '+' : tone === 'sell' ? '−' : '◈';
       const copy = el('span', 'kairos-ticker__copy');
       const first = el('span', 'kairos-ticker__first');
-      first.append(el('strong', '', item.ticker || ''), el('span', 'kairos-ticker__label', item.label || ''));
+      first.append(el('strong', '', item.ticker || ''));
+      if (item.detail) first.append(el('span', 'kairos-ticker__value', item.detail));
+      first.append(el('span', 'kairos-ticker__label', item.label || ''));
       const second = el('span', 'kairos-ticker__second');
       second.textContent = [item.company, item.detail].filter(Boolean).join(' · ');
       copy.append(first, second);
@@ -147,5 +166,5 @@
     };
   }
 
-  window.KairosTicker = Object.freeze({ mount });
+  window.KairosTicker = Object.freeze({ mount, fromFeed });
 })();
