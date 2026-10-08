@@ -29,9 +29,11 @@
       meta.content = i18n.t('lp.page_title');
     });
     journey.syncDashboardLinks(document, lang);
-    document.getElementById('heroExampleCta').href = journey.dashboardAnalysisUrl('AAPL', lang);
+    document.querySelectorAll('[data-site-link]').forEach(function (link) {
+      link.href = journey.withLang(link.getAttribute('href'), lang);
+    });
     document.querySelectorAll('[data-analysis]').forEach(function (link) {
-      link.href = journey.dashboardAnalysisUrl(link.dataset.analysis, lang);
+      link.href = 'dashboard.html?' + new URLSearchParams({lang, symbol: link.dataset.analysis});
     });
     renderPricing();
   }
