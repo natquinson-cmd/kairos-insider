@@ -36,13 +36,13 @@ body[data-screen="market"] .live-controls{align-items:flex-end;gap:12px 18px}
 .purchase-table>thead{background:#172a43}
 .purchase-table>thead th{font-size:10px;line-height:1.5;color:#a5bddb;padding:11px 13px}
 .purchase-table>tbody>.purchase-row>td{border-bottom:0;vertical-align:top;padding:15px 13px 9px;line-height:1.5}
-.purchase-table .purchase-row small{font-size:10px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}
+.purchase-table .purchase-row small{font-size:10px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere;white-space:normal}
 .purchase-company{display:flex;gap:10px;align-items:center;min-width:0}
 .purchase-company>a{min-width:0}.purchase-company>a strong{color:#e4efff;font-size:13px}
 .purchase-company>a small{color:#9fb5d0;line-height:1.4}
 .purchase-logo{width:34px;height:34px;flex:0 0 34px;position:relative;display:grid;place-items:center;border-radius:9px;background:#243b59;color:#c1d6f2;border:1px solid #365272;font-size:10px;font-weight:600;overflow:hidden}
 .purchase-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f5f7fa;padding:3px}
-.purchase-reason{font-size:11px;line-height:1.65;color:#c1d1e4;display:block}
+.purchase-reason{font-size:11px;line-height:1.65;color:#c1d1e4;display:block;white-space:normal}
 .purchase-activist-tag{color:#cbbaf4!important}
 .purchase-actions{display:flex;align-items:flex-start;gap:6px;flex-direction:column;font-size:11px}
 .purchase-actions a{padding:4px 0;white-space:nowrap}
