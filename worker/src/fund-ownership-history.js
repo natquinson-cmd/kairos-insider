@@ -25,7 +25,7 @@ export async function readFundOwnershipHistory(env,ticker,normalizeName){
  const empty=reason=>({ticker,series:[],fundCount:0,trackedCount:0,reason});
  if(!/^[A-Z0-9][A-Z0-9.\-]{0,19}$/.test(ticker))return empty('invalid-symbol');
  if(!env.HISTORY)return empty('unavailable');
- const stock=await env.CACHE.get(`stock-analysis:v23:${ticker}:full:1y`,'json')||await env.CACHE.get(`stock-analysis:v23:${ticker}:pub:1y`,'json');
+ const stock=await env.CACHE.get(`stock-analysis:v24:${ticker}:full:1y`,'json')||await env.CACHE.get(`stock-analysis:v24:${ticker}:pub:1y`,'json');
  if(!stock||stock.ticker!==ticker)return empty('analysis-unavailable');
  const ids=[...new Set((stock.smartMoney?.topFunds||[]).map(f=>cik(f.cik)).filter(Boolean))].slice(0,50);
  if(!ids.length)return empty('no-tracked-funds');

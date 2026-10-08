@@ -1,5 +1,6 @@
 import {finiteNumber} from './financial-normalization.js';
 import {lookupEuYahooSymbol} from './eu_yahoo_symbols.js';
+import {currentActivistFilings,advanceWatchlistConvergence,allowsConvergenceEvent} from './watchlist-convergences.js';
 
 const DAY=86400000;
 const date=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)&&Number.isFinite(Date.parse(value.slice(0,10)))?value.slice(0,10):null;
@@ -26,16 +27,25 @@ export function normalizeInsiderMovement(row){
   }
   if(!/^[A-Z0-9.\-]{1,12}$/.test(ticker)||isEu&&!explicitYahoo&&!ticker.includes('.'))return null;
   const sourceUrl=safeUrl(row.sourceUrl||row.url)||(source==='amf'&&row.bdif_pdf_path?safeUrl('https://bdif.amf-france.org/back/api/v1/documents/'+row.bdif_pdf_path):null);
-  const event={ticker,type,fileDate,tradeDate:date(row.date||row.transDate),insider:String(row.insider||row.insiderName||''),company:String(row.company||ticker),currency:String(row.currency||''),value:finiteNumber(row.value),shares:finiteNumber(row.shares),source:source?source.toUpperCase():'—',sourceUrl};
+  const event={ticker,type,fileDate,tradeDate:date(row.date||row.transDate||row.tradeDate),insider:String(row.insider||row.insiderName||''),insiderCik:row.insiderCik||row.insider_cik||row.reportingOwnerCik||null,company:String(row.company||ticker),currency:String(row.currency||''),value:finiteNumber(row.value),shares:finiteNumber(row.shares),source:source?source.toUpperCase():'—',sourceUrl};
   event.id=JSON.stringify([source,row.accession||row.adsh||row.bdif_numero||sourceUrl||'',ticker,event.insider,event.tradeDate,fileDate,type,event.shares,finiteNumber(row.price),event.value,event.currency]);
   return event;
 }
 export function movementMessage(event,lang='fr'){
   const t=(fr,en)=>lang==='en'?en:fr;
-  const action=event.type==='buy'?t('Achat','Purchase'):t('Vente','Sale');
+  const action=event.type==='activist-purchase'?t('13D et achats récents','13D and recent purchases'):event.type==='buy'?t('Achat','Purchase'):t('Vente','Sale');
   const amount=event.value==null?'—':event.value.toLocaleString(lang==='en'?'en-US':'fr-FR',{maximumFractionDigits:2})+(event.currency?' '+event.currency:'');
-  const title=t('Déclaration d’initié','Insider filing')+' · '+event.ticker+' · '+action;
-  const text=[title,event.company,t('Déclarant : ','Reporting person: ')+(event.insider||'—'),t('Opération : ','Transaction type: ')+action,t('Montant déclaré : ','Reported value: ')+amount,t('Transaction : ','Trade date: ')+(event.tradeDate||t('non renseignée','unavailable')),t('Publication : ','Filed: ')+event.fileDate,t('Source : ','Source: ')+event.source,t('Détectée à la collecte des déclarations. La publication peut être postérieure à l’opération.','Detected when filings are collected. Publication may occur after the transaction.')].join('\n');
+  const title=(event.type==='activist-purchase'?t('Convergence de déclarations','Filing convergence'):t('Déclaration d’initié','Insider filing'))+' · '+event.ticker+' · '+action;
+  const lines=[title,event.company,t('Déclarant : ','Reporting person: ')+(event.insider||'—'),t('Opération : ','Transaction type: ')+action];
+  if(event.type!=='activist-purchase')lines.push(t('Montant déclaré : ','Reported value: ')+amount,t('Transaction : ','Trade date: ')+(event.tradeDate||t('non renseignée','unavailable')));
+  lines.push(t('Publication : ','Filed: ')+event.fileDate,t('Source : ','Source: ')+event.source);
+  if(event.convergence){
+    const c=event.convergence;
+    lines.push(c.kind==='buyers'?t(`Convergence : ${c.buyerCount} acheteurs distincts identifiés sur 30 jours.`,`Convergence: ${c.buyerCount} distinct buyers identified within 30 days.`):t(`Un nouveau déclarant 13D rejoint une société avec ${c.buyerCount} acheteur(s) distinct(s) identifié(s) sur 30 jours.`,`A new 13D reporting actor joins a company with ${c.buyerCount} distinct buyer(s) identified within 30 days.`));
+    lines.push(t('Dates des achats : ','Trade dates of purchases: ')+c.firstTradeDate+' → '+c.lastTradeDate,t('Rapprochement factuel de déclarations, sans présumer d’une coordination ni constituer une recommandation.','Factual filing context; it does not establish coordination or constitute a recommendation.'));
+  }
+  lines.push(t('Détectée à la collecte des déclarations. La publication peut être postérieure à l’opération.','Detected when filings are collected. Publication may occur after the transaction.'));
+  const text=lines.join('\n');
   return {title,text,analysisUrl:'https://kairosinsider.fr/dashboard.html?'+new URLSearchParams({symbol:event.ticker,lang}),sourceUrl:event.sourceUrl};
 }
 async function digestId(id){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id));return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');}
@@ -54,13 +64,15 @@ function currentMovements(payload,now){
 // This closes the activation-to-next-cron gap while retaining silent fallback.
 export async function seedInsiderMovementBaseline(env,sub,channel,now=Date.now()){
   const current=currentMovements(await env.CACHE.get('insider-transactions','json'),now);if(!current)return false;
+  const activists=currentActivistFilings(await env.CACHE.get('13dg-recent','json').catch(()=>null),now);
   const key=`insider-alert-state:${channel}:${sub.uid}`,old=await env.CACHE.get(key,'json'),activation=sub[channel+'Activation']||0;
   const fresh=!old?.enabled||old.activation!==activation;
   const next={enabled:true,activation,tickers:{},pending:fresh?[]:(old.pending||[]).filter(e=>sub.watchlist.has(e.ticker)&&e.fileDate>=current.cutoff)};
   for(const ticker of sub.watchlist){
     const token=sub.watchStartedAt?.[ticker]||0,previous=fresh?null:old.tickers?.[ticker];
     if(previous&&previous.token===token){next.tickers[ticker]=previous;continue;}
-    next.tickers[ticker]={token,seen:[...(current.groups.get(ticker)||[])].map(([id,event])=>[id,event.fileDate])};
+    const events=[...(current.groups.get(ticker)?.values()||[])],context=advanceWatchlistConvergence({events,previous:null,seen:new Map(),bootstrap:true,filings:activists===null?null:[...(activists.get(ticker)?.values()||[])],now});
+    next.tickers[ticker]={token,seen:events.map(event=>[event.id,event.fileDate]),purchases:context.purchases,activists:context.activists};
     next.pending=next.pending.filter(e=>e.ticker!==ticker);
   }
   await env.CACHE.put(key,JSON.stringify(next));return true;
@@ -73,6 +85,7 @@ export async function runInsiderMovementAlerts(env,subscribers,{sendEmail,sendTe
   const summary={checked:0,email:0,telegram:0,pending:0,errors:0,bootstrapped:0};
   const current=currentMovements(payload,now);if(!current)return summary;
   const {cutoff,groups}=current;
+  const activists=currentActivistFilings(await env.CACHE.get('13dg-recent','json').catch(()=>null),now);
   for(const sub of subscribers){
     for(const channel of ['email','telegram']){
       const stateKey=`insider-alert-state:${channel}:${sub.uid}`;
@@ -81,20 +94,28 @@ export async function runInsiderMovementAlerts(env,subscribers,{sendEmail,sendTe
         const previous=await env.CACHE.get(stateKey,'json');
         if(!enabled){if(previous?.enabled)await env.CACHE.put(stateKey,JSON.stringify({enabled:false,activation,tickers:{},pending:[]}));continue;}
         const fresh=!previous?.enabled||previous.activation!==activation;
-        const next={enabled:true,activation,tickers:{},pending:fresh?[]:(previous.pending||[]).filter(e=>sub.watchlist.has(e.ticker)&&e.fileDate>=cutoff)};
+        const next={enabled:true,activation,tickers:{},pending:fresh?[]:(previous.pending||[]).filter(e=>sub.watchlist.has(e.ticker)&&e.fileDate>=cutoff&&allowsConvergenceEvent(sub,channel,e))};
         const pending=new Map(next.pending.map(e=>[e.id,e]));
         for(const ticker of sub.watchlist){
           const token=sub.watchStartedAt?.[ticker]||0,old=fresh?null:previous.tickers?.[ticker];
           const bootstrap=!old||old.token!==token,seen=new Map(bootstrap?[]:(old.seen||[]).filter(([,day])=>day>=cutoff));
           if(bootstrap){summary.bootstrapped++;for(const [id,e]of pending)if(e.ticker===ticker)pending.delete(id);}
-          for(const [id,event]of groups.get(ticker)||[]){if(!bootstrap&&!seen.has(id))pending.set(id,event);seen.set(id,event.fileDate);}
-          next.tickers[ticker]={token,seen:[...seen]};
+          const events=[...(groups.get(ticker)?.values()||[])],context=advanceWatchlistConvergence({events,previous:bootstrap?null:old,seen,bootstrap,filings:activists===null?null:[...(activists.get(ticker)?.values()||[])],now});
+          for(const event of context.discovered)if(allowsConvergenceEvent(sub,channel,event))pending.set(event.id,event);
+          for(const event of events)seen.set(event.id,event.fileDate);
+          next.tickers[ticker]={token,seen:[...seen],purchases:context.purchases,activists:context.activists};
         }
         next.pending=[...pending.values()];
         // Persist discoveries before delivery so transport failures are retryable.
         await env.CACHE.put(stateKey,JSON.stringify(next));
         const remaining=[];let attempts=0;
-        for(const event of next.pending){
+        for(let event of next.pending){
+          // Transport delays must not turn an expired trade window into a fresh
+          // convergence. The original individual filing remains deliverable.
+          if(event.convergence&&(event.convergence.firstTradeDate<cutoff||event.fileDate<new Date(now-7*DAY).toISOString().slice(0,10))){
+            if(event.type==='activist-purchase')continue;
+            const {convergence,...filing}=event;event=filing;
+          }
           const sentKey=`insider-alert-sent:${channel}:${sub.uid}:${await digestId(event.id)}`;
           if(await env.CACHE.get(sentKey))continue;
           if(attempts>=25||channel==='telegram'&&isQuiet(sub.prefs,new Date(now))){remaining.push(event);continue;}

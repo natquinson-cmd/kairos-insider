@@ -3,7 +3,7 @@ import {normalizeInsiderMovement} from './insider-alerts.js';
 
 // Matches handleStockAnalysis's current standard-range cache. Do not fetch or
 // recalculate a missing analysis here: watchlist browsing never spends quota.
-const CACHE_PREFIX = 'stock-analysis:v23:';
+const CACHE_PREFIX = 'stock-analysis:v24:';
 const MAX_SYMBOLS = 100;
 
 function symbols(values) {

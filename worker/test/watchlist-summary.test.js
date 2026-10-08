@@ -12,7 +12,7 @@ function cache(records = {}) {
     async list() { assert.fail('Summary must not enumerate KV'); },
   }}};
 }
-const key = ticker => `stock-analysis:v23:${ticker}:full:1y`;
+const key = ticker => `stock-analysis:v24:${ticker}:full:1y`;
 test('three-month curve keeps dated positive observations, excludes future/old data and computes actual period change',async()=>{
  const h=cache({'wl:alice':{tickers:['AAPL']},[key('AAPL')]:{ticker:'AAPL',chart:{points:[{date:'2026-09-22',close:120},{date:'2026-06-23',close:100},{date:'2026-06-22',close:20},{date:'2026-09-24',close:999},{date:'2026-07-01',close:null},{date:'2026-07-02',close:-1}]}}});
  const {items}=await readWatchlistSummary(h.env,'alice','',NOW);assert.deepEqual(items[0].sparkline3m.points,[{date:'2026-06-23',close:100},{date:'2026-09-22',close:120}]);assert.ok(Math.abs(items[0].sparkline3m.changePercent-20)<1e-8);assert.equal(items[0].sparkline3m.partial,false);
@@ -58,7 +58,7 @@ test('legacy symbols apply only when KV is absent, preserve empty lists, validat
 
 test('missing/invalid numbers remain null, public cache fallback retains cache age without inventing quote time', async () => {
   const h=cache({'wl:alice':{tickers:['AAPL','MSFT']},
-    'stock-analysis:v23:AAPL:pub:1y': {ticker:'AAPL',company:{name:'Apple'},price:{current:'',changePct:false},score:{total:'NaN'},_cachedAt:NOW-60000},
+    'stock-analysis:v24:AAPL:pub:1y': {ticker:'AAPL',company:{name:'Apple'},price:{current:'',changePct:false},score:{total:'NaN'},_cachedAt:NOW-60000},
   });
   const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
   assert.equal(items[0].cachedAt,new Date(NOW-60000).toISOString());
@@ -107,6 +107,6 @@ test('HTTP route requires Firebase identity, accepts free users, cannot select a
   const response=await request('alice-token');
   assert.equal(response.status,200); assert.equal(response.headers.get('Cache-Control'),'private, no-store');
   assert.deepEqual((await response.json()).items.map(i=>i.ticker),['AAPL']);
-  assert.ok(h.reads.every(k=>k==='wl:alice'||k==='insider-transactions'||k.startsWith('stock-analysis:v23:AAPL:')));
+  assert.ok(h.reads.every(k=>k==='wl:alice'||k==='insider-transactions'||k.startsWith('stock-analysis:v24:AAPL:')));
   assert.equal(network.length,2); // Authentication only, never prices, subscriptions, email or Telegram.
 });

@@ -1,0 +1,9 @@
+#adInsiderScoringBody{margin-top:24px;padding-top:18px;border-top:1px solid var(--border);font-size:13px;color:var(--text-secondary)}
+#adInsiderScoringBody h3{margin:0 0 8px;color:var(--text-primary);font-size:16px}
+.insider-settings-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}
+.insider-settings-fields label{display:flex;flex-direction:column;gap:8px}
+.insider-settings-fields input{width:100%;padding:9px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface-2);color:var(--text-primary)}
+.insider-settings-actions{display:flex;flex-wrap:wrap;gap:8px}
+.insider-settings-actions button{padding:9px 12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface-2);color:var(--text-primary);cursor:pointer}
+.insider-settings-actions button:disabled{opacity:.5;cursor:wait}
+@media(max-width:760px){.insider-settings-fields{grid-template-columns:1fr}}

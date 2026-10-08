@@ -20,6 +20,7 @@ import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
 import { maxJobAgeSeconds, jobState } from './job-freshness.js';
 import { telegramAlertPreferences, runInsiderMovementAlerts, seedInsiderMovementBaseline, movementMessage } from './insider-alerts.js';
 import { readWatchlistSummary } from './watchlist-summary.js';
+import { INSIDER_SCORING_DEFAULTS, INSIDER_SCORING_BOUNDS, INSIDER_SCORING_CONFIG_KEY, validateInsiderScoringConfig } from './insider-score.js';
 import { readFundOwnershipHistory } from './fund-ownership-history.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
@@ -893,6 +894,9 @@ async function handleRequest(request, env, ctx) {
         }
         if (path === '/api/admin/score-weights' && request.method === 'PUT') {
           return handleAdminScoreWeightsPut(request, env, origin);
+        }
+        if (path === '/api/admin/insider-scoring') {
+          return handleAdminInsiderScoring(request, env, origin);
         }
         // Error log : liste + clear
         if (path === '/api/admin/errors') {
@@ -12498,6 +12502,23 @@ const SCORE_WEIGHT_LABELS = {
   earnings: 'Momentum résultats',
 };
 
+async function handleAdminInsiderScoring(request, env, origin) {
+  if (!['GET', 'PUT'].includes(request.method)) return jsonResponse({error:'Method not allowed'},405,origin);
+  if (request.method === 'PUT') {
+    let config;
+    try {
+      const body=await request.json();
+      if (!body || Array.isArray(body) || typeof body !== 'object' || !Object.keys(body).length || Object.keys(body).some(key=>!Object.hasOwn(INSIDER_SCORING_DEFAULTS,key))) throw Error('Invalid settings');
+      config=validateInsiderScoringConfig(body);
+    } catch(error) { return jsonResponse({error:error.message||'Invalid settings'},400,origin); }
+    await env.CACHE.put(INSIDER_SCORING_CONFIG_KEY,JSON.stringify(config));
+    return jsonResponse({ok:true,config,savedAt:new Date().toISOString(),cacheMinutes:15},200,origin);
+  }
+  let config=INSIDER_SCORING_DEFAULTS;
+  try { const stored=await env.CACHE.get(INSIDER_SCORING_CONFIG_KEY,'json'); if(stored)config=validateInsiderScoringConfig(stored); } catch {}
+  return jsonResponse({config,defaults:INSIDER_SCORING_DEFAULTS,bounds:INSIDER_SCORING_BOUNDS,cacheMinutes:15},200,origin);
+}
+
 async function handleAdminScoreWeightsGet(env, origin) {
   try {
     let current = null;
@@ -15615,7 +15636,7 @@ async function seedConfiguredInsiderAlerts(env, uid, record, linked) {
   if (record.types?.insider === false) return;
   try {
     const tg = linked || await env.CACHE.get(`tg:${uid}`, 'json');
-    const sub = { uid, watchlist: new Set(record.tickers || []), watchStartedAt: record.insiderWatchStartedAt || {},
+    const sub = { uid, watchlist: new Set(record.tickers || []), watchStartedAt: record.insiderWatchStartedAt || {}, types: record.types || {}, prefs: tg?.alertPrefs || {},
       emailActivation: `${record.insiderEmailEnabledAt || record.createdAt || 0}:${record.insiderTypesEnabledAt || 0}`,
       telegramActivation: `${tg?.insiderTransactionsEnabledAt || tg?.linkedAt || 0}:${record.insiderTypesEnabledAt || 0}` };
     if (record.emailInsiderAlerts === true && record.optIn === true) await seedInsiderMovementBaseline(env, sub, 'email');
@@ -15639,7 +15660,7 @@ async function listInsiderMovementSubscribers(env, telegramSubscribers) {
         uid, email: record.email, chatId: tg?.chatId,
         watchlist: new Set((record.tickers || []).map(t => String(t).toUpperCase())),
         watchStartedAt: record.insiderWatchStartedAt || {},
-        lang: record.lang === 'en' ? 'en' : 'fr', prefs: tg?.prefs || {},
+        lang: record.lang === 'en' ? 'en' : 'fr', prefs: tg?.prefs || {}, types: record.types || {},
         emailEnabled: emailEligible && insiderEnabled,
         emailActivation: `${record.insiderEmailEnabledAt || record.createdAt || 0}:${record.insiderTypesEnabledAt || 0}`,
         telegramEnabled: !!tg && tg.prefs.insiderTransactions === true && insiderEnabled,

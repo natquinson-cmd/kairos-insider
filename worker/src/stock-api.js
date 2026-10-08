@@ -29,6 +29,7 @@ import { fetchZonebourseConsensus } from './zonebourse_consensus.js';
 import { finiteNumber, normalizeDividendYield, normalizeEarningsHistory, normalizeStockAnalysisEarningsRecord, summarizeEarningsBeats } from './financial-normalization.js';
 import { canonicalizeFundIdentity, summarizeReportDates } from './fund-identity.js';
 import { searchQuote } from './search-quote.js';
+import { computeInsiderScore, deduplicateInsiderTransactions, insiderTransactionType, INSIDER_SCORING_CONFIG_KEY } from './insider-score.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -190,8 +191,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  // v23: include supplied health criteria in scoring and expose their provenance.
-  const cacheKey = `stock-analysis:v23:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v24: purchase-first insider scoring with dated, deduplicated evidence.
+  const cacheKey = `stock-analysis:v24:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -427,9 +428,15 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Cache 1h : la config ne change pas souvent et les appels stockAnalysis sont
   // tres frequents. Fallback sur les poids par defaut si KV vide ou invalide.
   let scoreWeights = null;
+  let insiderScoring = null;
   try {
-    const w = await env.CACHE.get('config:score-weights', 'json');
+    const [weightRead, parametersRead] = await Promise.allSettled([
+      env.CACHE.get('config:score-weights', 'json'),
+      env.CACHE.get(INSIDER_SCORING_CONFIG_KEY, 'json'),
+    ]);
+    const w = weightRead.status === 'fulfilled' ? weightRead.value : null;
     if (w && typeof w === 'object') scoreWeights = w;
+    insiderScoring = parametersRead.status === 'fulfilled' ? parametersRead.value : null;
   } catch {}
 
   const score = computeKairosScore({
@@ -437,7 +444,19 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     health: mergedHealth, earnings: mergedEarnings,
     euThresholds,  // EU activists/holdings (AMF/FCA/SIX/AFM/BaFin)
     weights: scoreWeights,
+    insiderScoring,
   });
+
+  // Score the complete source first. The public payload limits must never limit
+  // distinct-buyer counts or the purchase/sale strength calculation.
+  const insiderSignals = score.breakdown.insider.signals;
+  insiders.clusterSignal = insiderSignals.convergence ? {
+    label: 'CONVERGENCE D’ACHETEURS', insiders: insiderSignals.recentBuyers,
+    windowDays: insiderSignals.parameters.convergenceWindowDays,
+    totalValue: insiderSignals.recentBuyValueUsd, currency: 'USD',
+    monetaryIncomplete: insiderSignals.monetaryIncomplete,
+  } : null;
+  insiders.transactions = insiders.transactions.slice(0, 50);
 
   const result = {
     ticker,
@@ -1999,6 +2018,7 @@ async function fetchFinnhubPeers(ticker, apiKey, env) {
 async function aggregateInsiders(ticker, env) {
   const result = {
     transactions: [],
+    dataAvailable: false,
     netValueEur: 0,
     netValueUsd: 0,
     buyCount: 0,
@@ -2010,6 +2030,7 @@ async function aggregateInsiders(ticker, env) {
   try {
     const data = await env.CACHE.get('insider-transactions', 'json');
     if (!data || !Array.isArray(data.transactions)) return result;
+    result.dataAvailable = true;
 
     const up = ticker.toUpperCase();
 
@@ -2062,36 +2083,15 @@ async function aggregateInsiders(ticker, env) {
     // comptaient 0 (buyCount/sellCount/netValue restaient nuls) et n'etaient pas
     // colorees cote front. Idempotent pour les rows deja canoniques (SEC/BaFin/AMF).
     for (const t of matches) {
-      const rt = (t.type || '').toLowerCase();
-      if (rt === 'p') t.type = 'buy';
-      else if (rt === 's') t.type = 'sell';
-      else if (rt === '?' || rt === '') t.type = 'other';
+      const normalized = insiderTransactionType(t);
+      // Preserve useful original labels such as exercise/grant in the table.
+      if (normalized !== 'other') t.type = normalized;
+      else if (['buy', 'sell', 'p', 's', '?', ''].includes(String(t.type || '').toLowerCase())) t.type = 'other';
     }
 
-    // Dedup transaction economique (mai 2026). Une MEME operation peut etre
-    // declaree par plusieurs entites liees (chaine de detention beneficiaire) :
-    // ex SoftBank vend Symbotic via 'SVF Sponsor III (DE) LLC' (detenteur direct)
-    // ET 'SOFTBANK GROUP CORP.' (parent ultime) -> deux Form 4 distincts
-    // (accessions ...026479 / ...026481, CIK differents) pour la MEME vente
-    // (5,59M titres @ 50.41 = 281.8M$). Sans dedup : la vente compte 2x (flux net
-    // double, 2 inities distincts au lieu d'1). Cle = meme operation economique :
-    // ticker + date de transaction + sens + nb titres + montant exact (au cent).
-    // Le montant exact (281819850) rend une coincidence entre 2 inities non lies
-    // quasi impossible. On garde la 1re ligne rencontree (tri date desc).
-    const _seenTx = new Set();
-    const _dedup = [];
-    for (const t of matches) {
-      const key = [
-        (t.ticker || '').toUpperCase(),
-        t.date || t.transDate || t.fileDate || '',
-        t.type || '',
-        Number(t.shares) || 0,
-        Number(t.value) || 0,
-      ].join('|');
-      if (_seenTx.has(key)) continue;
-      _seenTx.add(key);
-      _dedup.push(t);
-    }
+    // Merge duplicate filings for one identified person. Identical purchases by
+    // distinct people remain distinct; amounts alone cannot prove common ownership.
+    const _dedup = deduplicateInsiderTransactions(matches);
     matches.length = 0;
     Array.prototype.push.apply(matches, _dedup);
 
@@ -2103,20 +2103,20 @@ async function aggregateInsiders(ticker, env) {
     let totalUsd = 0, totalEur = 0, buys = 0, sells = 0;
     const sources = {};
     for (const t of matches) {
-      insiderSet.add((t.insider || '').toLowerCase());
+      if (String(t.insider || '').trim()) insiderSet.add(String(t.insider).trim().toLowerCase());
       const val = Number(t.value) || 0;
       const isBuy = (t.type === 'buy');                         // strict : pas exercise
       const isSell = (t.type === 'sell');
       const signed = isBuy ? val : (isSell ? -val : 0);
-      if (t.currency === 'EUR') totalEur += signed;
-      else totalUsd += signed;
+      if (String(t.currency || '').toUpperCase() === 'EUR') totalEur += signed;
+      else if (String(t.currency || '').toUpperCase() === 'USD') totalUsd += signed;
       if (isBuy) buys++;
       if (isSell) sells++;
       const src = t.source || 'sec';
       sources[src] = (sources[src] || 0) + 1;
     }
 
-    result.transactions = matches.slice(0, 50); // max 50 pour le payload
+    result.transactions = matches; // Scored in full, then reduced to 50 for the payload.
     result.netValueUsd = Math.round(totalUsd * 100) / 100;
     result.netValueEur = Math.round(totalEur * 100) / 100;
     result.buyCount = buys;
@@ -2124,25 +2124,10 @@ async function aggregateInsiders(ticker, env) {
     result.uniqueInsiders = insiderSet.size;
     result.sources = sources;
 
-    // Cluster signal : >= 3 insiders distincts sur 30j AVEC achats nets
-    // significatifs (>= 100K USD/EUR cumulé). Le seuil filtre les achats
-    // symboliques (RSU, $1K cosmetique) qui declenchaient un faux cluster.
-    const now = new Date();
-    const cutoff30 = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-    const recent = matches.filter(t => (t.fileDate || '') >= cutoff30);
-    const recentBuys = recent.filter(t => t.type === 'buy');
-    const recentInsiders = new Set(recentBuys.map(t => (t.insider || '').toLowerCase()));
-    const recentBuyValue = recentBuys.reduce((s, t) => s + (Number(t.value) || 0), 0);
-    const CLUSTER_MIN_VALUE = 100000;  // 100K total minimum
-    if (recentInsiders.size >= 3 && recentBuyValue >= CLUSTER_MIN_VALUE) {
-      result.clusterSignal = {
-        label: 'CLUSTER DETECTE',
-        insiders: recentInsiders.size,
-        totalValue: recentBuyValue,
-        windowDays: 30,
-      };
-    }
+    // Convergence is computed with the same trade dates, identities and config
+    // as the scoring axis, before the API truncates transactions.
   } catch (e) {
+    result.dataAvailable = false;
     console.error('aggregateInsiders error:', e.message || e);
   }
   return result;
@@ -2625,7 +2610,7 @@ export function synthesizeConsensusFromZonebourse(zb) {
 }
 
 
-export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, euThresholds, weights }) {
+export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundamentals, consensus, health, earnings, euThresholds, weights, insiderScoring, scoringNow }) {
   // Provider fallbacks and old cache entries can contain numeric strings.
   // Normalize before both data-presence checks and formatting; invalid data
   // must stay unavailable instead of generating a fabricated numeric signal.
@@ -2658,7 +2643,12 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   // donc le pilier a defaut vers le score "neutre" et ne reflete pas la realite.
   // Le pipeline push-scores-to-d1.py utilisera ce flag pour faire du fallback
   // "last known good" (= ne pas ecraser une bonne valeur par un defaut neutre).
-  const hasInsiderData = (insiders.buyCount || 0) > 0 || (insiders.sellCount || 0) > 0 || (insiders.uniqueInsiders || 0) > 0;
+  const insiderSignal = computeInsiderScore(insiders, {
+    config: insiderScoring, now: scoringNow,
+    marketCap: fundamentals?.marketCap || quote?.price?.marketCap,
+    marketCapCurrency: fundamentals?.marketCapCurrency || quote?.price?.currency,
+  });
+  const hasInsiderData = insiderSignal.dataOk;
   const hasSmartMoneyData = (smartMoney.fundCount || 0) > 0;
   const hasGovGuruData = Array.isArray(govEtf.inEtfs) && govEtf.inEtfs.length > 0;
   const hasMomentumData = !!(quote && quote.price && quote.price.current && quote.price.high52w && quote.price.low52w);
@@ -2684,43 +2674,12 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
     return Math.round(normalized * W[axis]);
   };
 
-  // --- INSIDER (0-20) ---
-  // FIX (mai 2026 / HAYW $29K = 20/20) : la formule log10*1.5 saturait des
-  // $10K, donc un cluster symbolique de 4x$7K declenchait le score MAX.
-  // Nouvelle formule : (log10(value) - 4) * 2 — donne :
-  //   $10K  -> +0  (seuil)
-  //   $100K -> +2
-  //   $1M   -> +4
-  //   $10M+ -> +6 (max)
-  // Plus en ligne avec la realite : $29K n'est PAS une conviction forte.
-  const totalNet = (insiders.netValueUsd || 0) + (insiders.netValueEur || 0);
-  const buyVsSell = insiders.buyCount - insiders.sellCount;
-  let insiderScore = 10; // neutre
-  const valueBonus = (v) => Math.max(0, Math.min(6, (Math.log10(v) - 4) * 2));
-  // FIX (juin 2026 / Dabiri 133K$ sur NVIDIA 5,1T$) : la formule valueBonus est
-  // ABSOLUE (en $) — une vente d'initie de 133K$ franchit le seuil de 10K$ et
-  // ponctionne ~2,25 pts du pilier Inities, alors que c'est 0,00026 bps (!) de la
-  // capitalisation de NVIDIA = bruit total. On pondere donc le bonus/penalite par
-  // la SIGNIFICATIVITE relative a la mcap : plein poids des qu'on atteint ~0,001%
-  // de la mcap (0,1 bps), decote lineaire vers 0 en-dessous. Les small/mid-caps ne
-  // bougent pas (un trade y atteint vite 0,1 bps). Fallback absolu si mcap inconnue
-  // (certaines actions EU). N'affecte PAS le cluster (+3) ni uniqueInsiders (+1),
-  // qui restent des signaux quelle que soit la taille de la boite.
-  const _mcap = Number((fundamentals && fundamentals.marketCap) || (quote && quote.price && quote.price.marketCap) || 0) || 0;
-  let mcapMult = 1;
-  if (_mcap > 0 && totalNet !== 0) {
-    const bps = Math.abs(totalNet) / _mcap * 1e4; // points de base de la mcap
-    mcapMult = Math.max(0, Math.min(1, bps / 0.1)); // plein poids a partir de 0,1 bps
-  }
-  const netSig = valueBonus(Math.abs(totalNet)) * mcapMult;
-  if (totalNet > 0) insiderScore += netSig;
-  else if (totalNet < 0) insiderScore -= netSig;
-  if (buyVsSell > 0) insiderScore += Math.min(2, buyVsSell * 0.4);
-  else if (buyVsSell < 0) insiderScore -= Math.min(2, Math.abs(buyVsSell) * 0.4);
-  if (insiders.clusterSignal) insiderScore += 3;
-  if (insiders.uniqueInsiders >= 5) insiderScore += 1;
-  breakdown.insider.score = applyWeight('insider', insiderScore);
-  breakdown.insider.detail = `${insiders.buyCount} achats / ${insiders.sellCount} ventes, ${insiders.uniqueInsiders} initiés uniques${insiders.clusterSignal ? ', CLUSTER DÉTECTÉ' : ''}`;
+  // Purchase and sale evidence are evaluated independently; sales receive only
+  // the configured fraction of their strength. Global axis weights are intact.
+  breakdown.insider.score = applyWeight('insider', insiderSignal.rawScore);
+  breakdown.insider.detail = insiderSignal.detail;
+  breakdown.insider.details = insiderSignal.details;
+  breakdown.insider.signals = insiderSignal.signals;
 
   // --- SMART MONEY (0-20) ---
   // 13F US (existing) + boost EU thresholds (BlackRock/Norges/etc. franchissant

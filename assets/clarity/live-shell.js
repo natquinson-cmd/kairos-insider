@@ -114,15 +114,15 @@ async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
-if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=live11');}
+if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=purchases1');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
-else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=insights2');await loadScript('assets/clarity/live-watchlist.js?v=insights2');}
+else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=insights2');await loadScript('assets/clarity/live-watchlist.js?v=purchases1');}
 else if(researchHome){await loadScript('assets/clarity/live-research.js?v=research1');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
   if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
-  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/fund-history.js?v=history4');await loadScript('assets/clarity/live-stock-views.js?v=live13');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=live7');window.KairosUI.translate();
+  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/fund-history.js?v=history4');await loadScript('assets/clarity/live-stock-views.js?v=live13');status.hidden=true;document.getElementById('companyMain').hidden=false;await loadScript('assets/clarity/app.js?v=purchases1');window.KairosUI.translate();
     researchHistory().then(history=>history.record({ticker:d.ticker,name:d.company?.name||d.ticker})).catch(()=>{});
     mountWatchButton(d.ticker).catch(()=>{});
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});

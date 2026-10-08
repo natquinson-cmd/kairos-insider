@@ -4304,7 +4304,7 @@
 <link rel="stylesheet" href="assets/clarity/admin-shell.css?v=admin4">
 <link rel="stylesheet" href="assets/clarity/compact-search.css?v=visible1">
 <script defer src="assets/clarity/compact-search.js?v=visible1"></script>
-<script defer src="assets/clarity/admin-shell.js?v=admin4"></script></head>
+<script defer src="assets/clarity/admin-shell.js?v=admin4"></script><script defer src="assets/clarity/admin-insider-scoring.js?v=purchases1"></script><link rel="stylesheet" href="assets/clarity/admin-insider-scoring.css?v=purchases1"></head>
 <body>
 
   <a href="#main-content" class="skip-link"><span data-i18n="a11y.skip_to_content">Aller au contenu principal</span></a>
@@ -7170,6 +7170,7 @@
           <div id="adScoreWeightsBody" style="min-height:200px">
             <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">Chargement…</div>
           </div>
+          <section id="adInsiderScoringBody"></section>
         </div>
 
         <!-- PANEL ERROR TRACKING (Priorité 3.2) -->
@@ -25755,6 +25756,13 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     async function loadAdminScoreWeights() {
       const body = document.getElementById('adScoreWeightsBody');
       if (!body || !currentUser) return;
+      window.KairosInsiderScoringAdmin?.mount(document.getElementById('adInsiderScoringBody'), async (method, config) => {
+        const token = await currentUser.getIdToken();
+        const response = await fetch(`${API_BASE}/api/admin/insider-scoring`, {method, headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}, ...(config ? {body:JSON.stringify(config)} : {})});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Settings unavailable');
+        return data;
+      });
       body.innerHTML = window.Skeleton ? window.Skeleton.lines(4) : 'Chargement…';
       try {
         const token = await currentUser.getIdToken();

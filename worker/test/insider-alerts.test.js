@@ -64,3 +64,139 @@ test('individual Telegram quiet hours follow Europe/Paris winter and summer time
   assert.equal(isInsiderQuietHours({quietHoursStart:22,quietHoursEnd:7},new Date('2026-01-20T20:30:00Z')),false);
   assert.equal(isInsiderQuietHours({quietHoursStart:22,quietHoursEnd:7},new Date('2026-07-20T20:30:00Z')),true);
 });
+
+const activist=(id,extra={})=>({accession:id,ticker:'AAPL',fileDate:'2026-09-23',form:'SCHEDULE 13D',isActivist:true,filerName:'Example Capital',filerCik:'0000043210',targetName:'Apple',...extra});
+function capture(h){const events=[];return {events,options:{...h.options,sendEmail:async(sub,event)=>{events.push(['email',event]);return true;},sendTelegram:async(sub,event)=>{events.push(['telegram',event]);return true;}}};}
+
+test('new second distinct buyer enriches the purchase once without replaying historical convergence',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'000001'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'000001'}),tx('two',{insider:'B Reader',insiderCik:'2'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  assert.equal(c.events.length,2);assert.equal(c.events[0][1].convergence?.kind,'buyers');assert.equal(c.events[0][1].convergence.buyerCount,2);
+  assert.match(movementMessage(c.events[0][1],'en').text,/2 distinct buyers/);assert.match(movementMessage(c.events[0][1],'fr').text,/2 acheteurs distincts/);
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,2);
+  h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'000001'}),tx('two',{insider:'B Reader',insiderCik:'2'}),tx('three',{insider:'C Reader',insiderCik:'3'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.at(-1)[1].convergence,undefined);
+});
+
+test('same identified buyer, unknown buyers, old trades and future trades never create new conviction',async()=>{
+  for(const extra of [{insider:'A. Reader'}, {insider:'Alias',insiderCik:'000001'}, {insider:''}, {insider:'Unknown'}, {insider:'B Reader',date:'2026-08-01'}, {insider:'B Reader',date:'2026-09-24'}, {insider:'B Reader',date:null}, {insider:'B Reader',type:'sell'}]){
+    const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'1'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+    h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'1'}),tx('two',extra)]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+    assert.equal(c.events.length,2);assert.equal(c.events[0][1].convergence,undefined,JSON.stringify(extra));
+  }
+});
+
+test('purchase observations survive a partial feed and source outage without inventing a second buyer',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'1'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.delete('insider-transactions');await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('two',{insider:'B Reader',insiderCik:'2'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  assert.equal(c.events[0][1].convergence?.buyerCount,2);
+});
+
+test('activist crossover silently bootstraps existing filings then delivers only a new distinct 13D actor',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one')]});h.store.set('13dg-recent',{filings:[activist('historical')]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+  h.store.set('13dg-recent',{filings:[activist('historical'),activist('new',{filerName:'Another Capital',filerCik:'43211'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,2);
+  const event=c.events[0][1];assert.equal(event.type,'activist-purchase');assert.equal(event.convergence.buyerCount,1);assert.match(event.id,/activist-purchase/);assert.match(event.id,/new/);
+  assert.match(movementMessage(event,'en').text,/13D/);assert.match(movementMessage(event,'en').text,/Trade date/);assert.match(movementMessage(event,'fr').text,/Publication/);
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,2);
+});
+
+test('activist source first becoming available and existing deployments establish a silent baseline',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one')]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('13dg-recent',{filings:[activist('existing')]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+  h.store.set('13dg-recent',{filings:[activist('existing'),activist('next',{filerCik:'999',filerName:'Different Capital'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,2);
+});
+
+test('passive, stale, future, unidentified and duplicate buyer/fund filings do not trigger crossover',async()=>{
+  for(const extra of [{form:'SCHEDULE 13G',isActivist:true}, {isActivist:false}, {fileDate:'2026-08-01'}, {fileDate:'2026-09-24'}, {filerName:'',filerCik:''}, {filerName:'A. Reader',filerCik:''}, {filerName:'Alias',filerCik:'000000001'}, {accession:''}]){
+    const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one',{insiderCik:'1'})]});h.store.set('13dg-recent',{filings:[]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+    h.store.set('13dg-recent',{filings:[activist('new',extra)]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0,JSON.stringify(extra));
+  }
+});
+
+test('activist events respect channel and trigger opt-outs and retain failed delivery through an outage',async()=>{
+  const h=harness(),c=capture(h);h.user.prefs.new13d=false;h.store.set('insider-transactions',{transactions:[tx('one')]});h.store.set('13dg-recent',{filings:[]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);h.store.set('13dg-recent',{filings:[activist('new')]});
+  await runInsiderMovementAlerts(h.env,[h.user],{...c.options,sendEmail:async()=>false});assert.equal(c.events.length,0);
+  h.store.delete('13dg-recent');await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.deepEqual(c.events.map(x=>x[0]),['email']);
+  h.store.set('13dg-recent',{filings:[activist('new')]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,1);
+  h.user.types={activist:false};h.store.set('13dg-recent',{filings:[activist('another',{filerCik:'999',filerName:'Different Capital'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,1);
+});
+
+test('configuration baselines activist arrivals and disabled channels never send crossover events',async()=>{
+  const h=harness(),c=capture(h);h.user.telegramEnabled=false;h.store.set('insider-transactions',{transactions:[tx('one')]});h.store.set('13dg-recent',{filings:[activist('old')]});
+  await seedInsiderMovementBaseline(h.env,h.user,'email',now);
+  h.store.set('13dg-recent',{filings:[activist('old'),activist('new',{filerCik:'999',filerName:'Different Capital'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  assert.deepEqual(c.events.map(x=>x[0]),['email']);assert.equal(c.events[0][1].type,'activist-purchase');
+});
+
+test('an upgrade of legacy alert state never replays existing activist filings',async()=>{
+  const h=harness(),c=capture(h),old=normalizeInsiderMovement(tx('one'));
+  for(const channel of ['email','telegram'])h.store.set('insider-alert-state:'+channel+':one',{enabled:true,activation:1,tickers:{AAPL:{token:1,seen:[[old.id,old.fileDate]]}},pending:[]});
+  h.store.set('insider-transactions',{transactions:[tx('one')]});h.store.set('13dg-recent',{filings:[activist('existing')]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+});
+
+test('repeat amendments by the same activist and purchases occurring after the filing do not create crossover',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one')]});h.store.set('13dg-recent',{filings:[activist('old')]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('13dg-recent',{filings:[activist('amended',{form:'SCHEDULE 13D/A',filerName:'Capital Alias',filerCik:'43210'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+  h.store.set('13dg-recent',{filings:[activist('backfilled',{fileDate:'2026-09-19',filerName:'Different Capital',filerCik:'999'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+});
+
+test('purchase convergence expires before a delayed delivery without dropping the underlying filing',async()=>{
+  const h=harness(),c=capture(h);h.user.telegramEnabled=false;h.store.set('insider-transactions',{transactions:[tx('one',{date:'2026-08-24'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('one',{date:'2026-08-24'}),tx('two',{insider:'B Reader',date:'2026-08-25'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],{...c.options,sendEmail:async()=>false});
+  await runInsiderMovementAlerts(h.env,[h.user],{...c.options,now:Date.parse('2026-09-25T12:00:00Z')});
+  assert.equal(c.events.length,1);assert.equal(c.events[0][1].type,'buy');assert.equal(c.events[0][1].convergence,undefined);
+});
+
+test('an activist event with expired supporting purchases is not delivered after a channel failure',async()=>{
+  const h=harness(),c=capture(h);h.user.telegramEnabled=false;h.store.set('insider-transactions',{transactions:[tx('one',{date:'2026-08-24'})]});h.store.set('13dg-recent',{filings:[]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('13dg-recent',{filings:[activist('new')]});await runInsiderMovementAlerts(h.env,[h.user],{...c.options,sendEmail:async()=>false});
+  await runInsiderMovementAlerts(h.env,[h.user],{...c.options,now:Date.parse('2026-09-25T12:00:00Z')});assert.equal(c.events.length,0);
+});
+
+test('filings first discovered after seven days cannot start a new convergence',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one',{date:'2026-09-10',fileDate:'2026-09-11'})]});h.store.set('13dg-recent',{filings:[]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('one',{date:'2026-09-10',fileDate:'2026-09-11'}),tx('old',{insider:'B Reader',date:'2026-09-14',fileDate:'2026-09-15'})]});h.store.set('13dg-recent',{filings:[activist('old',{fileDate:'2026-09-15'})]});
+  await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  assert.equal(c.events.length,2);assert.ok(c.events.every(([,event])=>event.type==='buy'&&!event.convergence));
+});
+
+test('a delayed convergence loses priority after seven days from publication',async()=>{
+  const h=harness(),c=capture(h);h.user.telegramEnabled=false;h.store.set('insider-transactions',{transactions:[tx('one')]});h.store.set('13dg-recent',{filings:[]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('one'),tx('two',{insider:'B Reader'})]});h.store.set('13dg-recent',{filings:[activist('new')]});await runInsiderMovementAlerts(h.env,[h.user],{...c.options,sendEmail:async()=>false});
+  await runInsiderMovementAlerts(h.env,[h.user],{...c.options,now:Date.parse('2026-10-01T12:00:00Z')});assert.equal(c.events.length,1);assert.equal(c.events[0][1].type,'buy');assert.equal(c.events[0][1].convergence,undefined);
+});
+
+test('malformed activist rows cannot stop ordinary insider deliveries',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[]});h.store.set('13dg-recent',{filings:[null,42]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('one')]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,2);
+});
+
+test('a purchase dated after its own filing cannot support buyer or activist convergence',async()=>{
+  const h=harness(),c=capture(h),impossible=tx('bad',{date:'2026-09-22',fileDate:'2026-09-21'});
+  h.store.set('insider-transactions',{transactions:[impossible]});h.store.set('13dg-recent',{filings:[]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('13dg-recent',{filings:[activist('new')]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+  h.store.set('insider-transactions',{transactions:[impossible,tx('good',{insider:'B Reader'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  assert.equal(c.events.length,2);assert.equal(c.events[0][1].convergence,undefined);
+});
+
+test('reversing person name tokens does not create a second buyer',async()=>{
+  const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:[tx('one',{insider:'Alice Doe',insiderCik:'123'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  h.store.set('insider-transactions',{transactions:[tx('one',{insider:'Alice Doe',insiderCik:'123'}),tx('two',{insider:'Doe, Alice'})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+  assert.equal(c.events.length,2);assert.equal(c.events[0][1].convergence,undefined);
+});
+
+test('reversed buyer and activist names are the same actor and ambiguous names remain unidentified',async()=>{
+  for(const purchases of [[tx('one',{insider:'Alice Doe',insiderCik:'123'})],[tx('one',{insider:'Alice Doe',insiderCik:'123'}),tx('two',{insider:'Alice Doe',insiderCik:'456'})]]){
+    const h=harness(),c=capture(h);h.store.set('insider-transactions',{transactions:purchases});h.store.set('13dg-recent',{filings:[]});await runInsiderMovementAlerts(h.env,[h.user],c.options);
+    h.store.set('13dg-recent',{filings:[activist('new',{filerName:'Doe, Alice',filerCik:''})]});await runInsiderMovementAlerts(h.env,[h.user],c.options);assert.equal(c.events.length,0);
+  }
+});

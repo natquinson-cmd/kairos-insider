@@ -22,3 +22,44 @@ body[data-screen="market"] .live-table:has(tbody tr td:nth-child(4).number) th:n
 body[data-screen="market"] .live-table:has(tbody tr td:nth-child(5).number) th:nth-child(5),
 body[data-screen="market"] .live-table:has(tbody tr td:nth-child(6).number) th:nth-child(6){text-align:right}
 @media(max-width:600px){body[data-screen="market"] #marketMain{padding-top:18px}body[data-screen="market"] .screener-heading h1{font-size:28px}body[data-screen="market"] #marketStats .live-stat-grid{gap:8px 18px}body[data-screen="market"] #marketStats .live-stat:last-child{margin-left:0}}
+/* Purchase discovery: a compact company scan with filing evidence one click away. */
+body[data-screen="market"] .live-market-tabs{overflow-x:auto;white-space:nowrap;gap:24px}
+body[data-screen="market"] .live-market-tabs a{font-size:13px}
+body[data-screen="market"] .live-market-tabs a:last-child:not(.active){color:#8198b6}
+body[data-screen="market"] .live-controls{align-items:flex-end;gap:12px 18px}
+.purchase-watchlist-link{margin-left:auto;align-self:center;color:#a6caff;text-decoration:none;font-size:12px;padding:10px 0}
+.purchase-method{color:#a6bbd4;font-size:12px;line-height:1.65;margin:12px 0 14px;max-width:1050px}
+.purchase-coverage{font-size:11px;color:#8ea6c4;line-height:1.6;margin:15px 0}
+.purchase-table-wrap{border:1px solid #2b405c;border-radius:12px;background:#102038;overflow-x:auto}
+.purchase-table{min-width:1000px;table-layout:fixed}
+.purchase-table th:nth-child(1){width:22%}.purchase-table th:nth-child(2){width:17%}.purchase-table th:nth-child(3){width:13%}.purchase-table th:nth-child(4){width:16%}.purchase-table th:nth-child(5){width:20%}.purchase-table th:nth-child(6){width:12%}
+.purchase-table>thead{background:#172a43}
+.purchase-table>thead th{font-size:10px;line-height:1.5;color:#a5bddb;padding:11px 13px}
+.purchase-table>tbody>.purchase-row>td{border-bottom:0;vertical-align:top;padding:15px 13px 9px;line-height:1.5}
+.purchase-table .purchase-row small{font-size:10px;line-height:1.6;margin-top:5px;overflow-wrap:anywhere}
+.purchase-company{display:flex;gap:10px;align-items:center;min-width:0}
+.purchase-company>a{min-width:0}.purchase-company>a strong{color:#e4efff;font-size:13px}
+.purchase-company>a small{color:#9fb5d0;line-height:1.4}
+.purchase-logo{width:34px;height:34px;flex:0 0 34px;position:relative;display:grid;place-items:center;border-radius:9px;background:#243b59;color:#c1d6f2;border:1px solid #365272;font-size:10px;font-weight:600;overflow:hidden}
+.purchase-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#f5f7fa;padding:3px}
+.purchase-reason{font-size:11px;line-height:1.65;color:#c1d1e4;display:block}
+.purchase-activist-tag{color:#cbbaf4!important}
+.purchase-actions{display:flex;align-items:flex-start;gap:6px;flex-direction:column;font-size:11px}
+.purchase-actions a{padding:4px 0;white-space:nowrap}
+.purchase-actions .purchase-follow{padding:4px 8px;border:1px solid #395777;border-radius:6px;color:#b9d3f7}
+.purchase-actions a:hover,.purchase-watchlist-link:hover{text-decoration:underline}
+body[data-screen="market"] #marketResults .purchase-table .purchase-detail-row>td{padding:0 13px 9px;border-bottom:1px solid #2c415d}
+.purchase-table>tbody>.purchase-detail-row:last-child>td{border-bottom:0}
+.purchase-detail-row summary{cursor:pointer;color:#94baf0;font-size:11px;padding:5px 0;line-height:1.5;width:fit-content}
+.purchase-detail-row summary span{margin-left:8px;color:#7f9cbe;font-size:10px}
+.purchase-detail-content{margin-top:10px;padding:14px;border:1px solid #314763;border-radius:8px;background:#0d1b2e}
+.purchase-detail-content .live-table{table-layout:auto;min-width:720px}
+.purchase-detail-content .live-table td,.purchase-detail-content .live-table th{font-size:11px;line-height:1.5;padding:9px 10px!important}
+.purchase-detail-content .data-note{font-size:11px;line-height:1.6;margin:0 0 12px;max-width:960px}
+.purchase-sales{margin-top:13px;border-top:1px solid #29405c;padding-top:9px}.purchase-sales summary{color:#b9c5d6}
+.purchase-activist-detail{margin-top:14px;border-top:1px solid #29405c;padding-top:13px}.purchase-activist-detail h3{font-size:13px;margin:0 0 12px}.purchase-activist-detail p{font-size:12px;line-height:1.7;margin-bottom:12px}
+.purchase-unavailable{font-size:10px;color:#829ab8}
+.purchase-empty{padding:28px 18px;color:#c8d9ee;line-height:1.6}.purchase-empty p{color:#9fb5d0;font-size:12px;margin-top:7px}
+.purchase-source-error{border:1px solid #765b37;border-radius:12px;background:#342d202e}.purchase-source-error .text-button{margin-top:10px}
+.purchase-table a:focus-visible,.purchase-table summary:focus-visible,.purchase-watchlist-link:focus-visible{outline:2px solid #97beff;outline-offset:4px;border-radius:3px}
+@media(max-width:760px){.purchase-watchlist-link{margin-left:0}.purchase-method{font-size:11px}body[data-screen="market"] .live-market-tabs{gap:18px}body[data-screen="market"] .live-market-tabs a{font-size:12px}.purchase-detail-content{padding:10px}.purchase-table{min-width:960px}}
