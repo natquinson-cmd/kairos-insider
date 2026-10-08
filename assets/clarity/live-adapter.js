@@ -1,5 +1,5 @@
 /* Production data contract. Missing observations remain missing. */
-(function(root,factory){const api=factory();if(typeof module==='object')module.exports=api;else root.KairosAdapter=api;})(typeof window==='object'?window:this,()=>{
+(function(root,factory){const api=factory(typeof module==='object'?require('../insider-transaction.js'):root.KairosInsiderTransaction);if(typeof module==='object')module.exports=api;else root.KairosAdapter=api;})(typeof window==='object'?window:globalThis,(evidence)=>{
   const number=v=>v===null||v===undefined||typeof v==='boolean'||String(v).trim()===''?null:Number.isFinite(Number(v))?Number(v):null;
   const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}/.test(v)?v.slice(0,10):null;
   const keys=['insider','smartMoney','govGuru','momentum','valuation','analyst','health','earnings'];
@@ -8,9 +8,9 @@
   function stock(d){
     const f=d.fundamentals||{},b=d.score?.breakdown||{},sm=d.smartMoney||{},p=d.price||{};
     const history=(d.chart?.points||[]).filter(p=>day(p.date)&&number(p.close)>0).map(p=>({date:day(p.date),close:number(p.close),volume:number(p.volume)})).sort((a,b)=>a.date.localeCompare(b.date));
-    const events=(d.insiders?.transactions||[]).filter(t=>['buy','sell'].includes(t.type)&&day(t.fileDate||t.date)).map((t,i)=>{
+    const events=(d.insiders?.transactions||[]).map((t,i)=>({t,i,classification:evidence.classifyInsiderTransaction(t)})).filter(({t,classification:c})=>(c.eligiblePurchase||c.type==='sell'&&c.status==='excluded'&&c.reason==='not-purchase')&&day(t.fileDate||t.date)).map(({t,i,classification:c})=>{
       const publicationDate=day(t.fileDate||t.date);
-      return {id:'tx-'+i,date:history.find(p=>p.date>=publicationDate)?.date||publicationDate,publicationDate,tradeDate:day(t.date),type:t.type,amount:number(t.value),currency:t.currency||p.currency||'USD',role:t.title||t.insider||'—',insiderName:t.insider||null,insiderId:t.insiderCik||null,shares:number(t.shares),sourceUrl:safeUrl(t.url||t.sourceUrl)};
+      return {id:'tx-'+i,date:history.find(p=>p.date>=publicationDate)?.date||publicationDate,publicationDate,tradeDate:day(t.date),type:c.type,planned:c.planned,purchaseSignalEligible:c.eligiblePurchase,purchaseSignalStatus:c.status,purchaseSignalReason:c.reason,amount:number(t.value),currency:t.currency||p.currency||'USD',role:t.title||t.insider||'—',insiderName:t.insider||null,insiderId:t.insiderCik||null,shares:number(t.shares),sourceUrl:safeUrl(t.url||t.sourceUrl)};
     });
     const consensus=d.consensus||{},analysts={asOf:day(consensus.period||d.updatedAt),recommendation:f.recommendationKey||null,targetMean:number(f.targetMeanPrice),targetLow:number(f.targetLowPrice),targetHigh:number(f.targetHighPrice),synthesized:!!consensus._synthesized};
     for(const k of ['strongBuy','buy','hold','sell','strongSell'])analysts[k]=consensus._synthesized?null:number(consensus[k]);

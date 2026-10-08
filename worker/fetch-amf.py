@@ -217,21 +217,14 @@ OP_TO_TYPE = {
 
 
 def normalize_type(op_text, quote_class):
-    op = op_text.lower().strip()
-    # Priorite : explicite par mot-cle
-    for key, val in OP_TO_TYPE.items():
-        if key in op:
-            return val
-    # Fallback : class CSS
-    if quote_class == 'quote_up':
-        return 'buy'
-    if quote_class == 'quote_down':
-        return 'sell'
-    return 'other'
+    from insider_transaction import classify_transaction
+    # A CSS colour is not evidence of a paid purchase.
+    return classify_transaction({'source': 'amf', 'code': op_text})['type']
 
 
 def parse_page(html, today_str, cutoff_str):
     """Parse les rows de la page. Retourne (transactions, reached_cutoff)."""
+    from insider_transaction import classify_transaction
     txs = []
     reached_cutoff = False
 
@@ -279,7 +272,7 @@ def parse_page(html, today_str, cutoff_str):
         op_label = (op_text or '').strip()
         if op_label and op_label.islower():
             op_label = op_label.capitalize()
-        txs.append({
+        row = {
             'fileDate': decla_date,
             'date': date_op or decla_date,
             'cik': f'AMF_{isin}',
@@ -290,6 +283,7 @@ def parse_page(html, today_str, cutoff_str):
             'title': title,
             'type': tx_type,
             'code': op_label,  # AMF nature operation brute (texte libre)
+            'securityTitle': instrument_clean,
             'shares': qty,
             'price': round(price, 4),
             'value': round(value, 2),
@@ -299,7 +293,9 @@ def parse_page(html, today_str, cutoff_str):
             'currency': 'EUR',
             'source': 'amf',
             'venue': 'Euronext Paris',
-        })
+        }
+        row.update(classify_transaction(row))
+        txs.append(row)
 
     return txs, reached_cutoff
 

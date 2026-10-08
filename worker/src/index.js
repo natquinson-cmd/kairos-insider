@@ -22,6 +22,7 @@ import { telegramAlertPreferences, runInsiderMovementAlerts, seedInsiderMovement
 import { readWatchlistSummary } from './watchlist-summary.js';
 import { INSIDER_SCORING_DEFAULTS, INSIDER_SCORING_BOUNDS, INSIDER_SCORING_CONFIG_KEY, validateInsiderScoringConfig } from './insider-score.js';
 import { readFundOwnershipHistory } from './fund-ownership-history.js';
+import { classifyInsiderTransaction, withInsiderTransactionEvidence, aggregateInsiderSignalRows, aggregateD1InsiderSignals, validatedPurchaseClusters, preferInsiderTransactionEvidence } from './insider-transaction.js';
 import analysisPresentation from '../../assets/analysis-presentation.js';
 import publicJourney from '../../assets/public-journey.js';
 const { formatDividendYield, insiderKind } = analysisPresentation;
@@ -1318,12 +1319,15 @@ async function handleApiRoute(path, url, env, origin) {
   if (path === '/api/all-transactions') {
     const data = await env.CACHE.get('insider-transactions', 'json');
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
+    // Preserve source evidence. The shared client classifier derives display
+    // status; expanding every archived row can exhaust the Worker memory limit.
     return jsonResponse(data, 200, origin);
   }
   if (path === '/api/clusters') {
     const data = await env.CACHE.get('insider-clusters', 'json');
     if (!data) return jsonResponse({ error: 'Data not loaded' }, 503, origin);
-    return jsonResponse(data, 200, origin);
+    const feed = await env.CACHE.get('insider-transactions', 'json');
+    return jsonResponse(validatedPurchaseClusters(data, feed?.transactions), 200, origin);
   }
   if (path === '/api/13f-funds') {
     const data = await env.CACHE.get('13f-all-funds', 'json');
@@ -2779,7 +2783,7 @@ async function handleTickerActivity(url, env, origin) {
       cutoff.setDate(cutoff.getDate() - days);
       const cutoffStr = cutoff.toISOString().slice(0, 10);
       const insRes = await env.HISTORY.prepare(
-        `SELECT trans_date, insider, insider_cik, title, trans_type, trans_code, shares, value, ticker
+        `SELECT *
          FROM insider_transactions_history
          WHERE ticker = ? AND trans_date >= ?
          ORDER BY trans_date DESC, value DESC
@@ -2787,11 +2791,12 @@ async function handleTickerActivity(url, env, origin) {
       ).bind(ticker, cutoffStr).all();
       for (const r of (insRes.results || [])) {
         insiderTrades.push({
+          ...withInsiderTransactionEvidence(r),
           date: r.trans_date,
           filer: r.insider,
           insiderCik: r.insider_cik || null, // Phase B (mai 2026) : permet openInsiderProfile precis
           role: r.title,
-          type: r.trans_type, // 'buy' | 'sell' | 'other' | 'option-exercise'
+          type: classifyInsiderTransaction(r).type,
           transCode: r.trans_code || null, // SEC : P/S/A/D/F/M/G/I/J/C/X/W/L/V
           shares: r.shares,
           value: r.value,
@@ -2851,7 +2856,7 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
   // v6 (mai 2026) : ajout scoreHistory (~20 points) pour sparkline progression
   // + cache passe a 60s (vs 900s precedemment) car le tableau positions s'auto
   // refresh cote client toutes les 30s.
-  const cacheKey = `pf-summary:v8:${tickers.slice().sort().join(',')}:${days}d`;
+  const cacheKey = `pf-summary:v25:${tickers.slice().sort().join(',')}:${days}d`;
   try {
     if (env.CACHE) {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -2954,50 +2959,22 @@ async function handlePortfolioSmartMoneySummary(url, env, origin) {
       }
     } catch (e) { console.warn('pf-summary scoreHistory failed:', e); }
 
-    // 2) INSIDERS : agreges par ticker + type sur la fenetre
+    // 2) Insider operation counts retain other events; directional totals require evidence.
     const insidersByTicker = {};
     try {
-      const insRes = await env.HISTORY.prepare(
-        `SELECT ticker, trans_type, COUNT(*) AS cnt, SUM(value) AS total_value
-         FROM insider_transactions_history
-         WHERE ticker IN (${placeholders}) AND trans_date >= ?
-         GROUP BY ticker, trans_type`
-      ).bind(...tickers, cutoffStr).all();
-      for (const r of (insRes.results || [])) {
-        if (!insidersByTicker[r.ticker]) {
-          insidersByTicker[r.ticker] = { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
-        }
-        const slot = insidersByTicker[r.ticker];
-        slot.count += r.cnt;
-        if (r.trans_type === 'buy') { slot.buys = r.cnt; slot.totalBuyValue = r.total_value || 0; }
-        else if (r.trans_type === 'sell') { slot.sells = r.cnt; slot.totalSellValue = r.total_value || 0; }
-        else { slot.others += r.cnt; }
-      }
-
-      // Top insider par ticker (le plus gros trade en valeur dans la fenetre)
-      const topRes = await env.HISTORY.prepare(
-        `SELECT i.ticker, i.insider, i.title, i.trans_type, i.value, i.trans_date
-         FROM insider_transactions_history i
-         INNER JOIN (
-           SELECT ticker, MAX(value) AS max_v
-           FROM insider_transactions_history
-           WHERE ticker IN (${placeholders}) AND trans_date >= ? AND value IS NOT NULL
-           GROUP BY ticker
-         ) m ON i.ticker = m.ticker AND i.value = m.max_v
-         WHERE i.trans_date >= ?
-         LIMIT 200`
-      ).bind(...tickers, cutoffStr, cutoffStr).all();
-      const seen = new Set();
-      for (const r of (topRes.results || [])) {
-        if (seen.has(r.ticker)) continue;
-        seen.add(r.ticker);
-        if (!insidersByTicker[r.ticker]) continue;
-        insidersByTicker[r.ticker].topInsider = {
-          name: r.insider,
-          title: r.title,
-          type: r.trans_type,
-          value: r.value,
-          date: r.trans_date,
+      const response = await env.HISTORY.prepare(`SELECT * FROM insider_transactions_history
+        WHERE ticker IN (${placeholders}) AND trans_date >= ?`).bind(...tickers, cutoffStr).all();
+      for (const raw of response.results || []) {
+        const row = withInsiderTransactionEvidence(raw), ticker = row.ticker;
+        const slot = insidersByTicker[ticker] ||= { count: 0, buys: 0, sells: 0, others: 0, totalBuyValue: 0, totalSellValue: 0 };
+        const value = Number(row.value) || 0;
+        slot.count++;
+        if (row.purchaseSignalEligible) { slot.buys++; slot.totalBuyValue += value; }
+        else if (row.type === 'sell') { slot.sells++; slot.totalSellValue += value; }
+        else slot.others++;
+        if (!slot.topInsider || value > slot.topInsider.value) slot.topInsider = {
+          name: row.insider, title: row.title, type: row.type, value, date: row.trans_date,
+          purchaseSignalEligible: row.purchaseSignalEligible, purchaseSignalStatus: row.purchaseSignalStatus, purchaseSignalReason: row.purchaseSignalReason,
         };
       }
     } catch (e) { console.warn('pf-summary insiders failed:', e); }
@@ -3203,7 +3180,7 @@ async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
   // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
-  const cacheKey = 'home:top-signals:v10';
+  const cacheKey = 'home:top-signals:v25';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -3284,25 +3261,11 @@ async function computeTopSignals(env) {
   try {
     const since = new Date(); since.setDate(since.getDate() - 7);
     const sinceStr = since.toISOString().slice(0, 10);
-    const clusterQuery = `
-      SELECT ticker,
-        COUNT(DISTINCT insider) AS uniqueInsiders,
-        COUNT(DISTINCT CASE WHEN trans_type = 'buy'  THEN insider END) AS buyInsiders,
-        COUNT(DISTINCT CASE WHEN trans_type = 'sell' THEN insider END) AS sellInsiders,
-        COUNT(*) AS rawTxLines,
-        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
-        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
-        GROUP_CONCAT(DISTINCT insider) AS insiders,
-        MAX(trans_date) AS lastDate
-      FROM insider_transactions_history
-      WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
-      GROUP BY ticker
-      HAVING uniqueInsiders >= 3
-        AND (buyInsiders + sellInsiders) >= 1
-        AND (buyValue + sellValue) > 0
-      ORDER BY lastDate DESC, uniqueInsiders DESC LIMIT 10
-    `;
-    const rows = (await env.HISTORY.prepare(clusterQuery).bind(sinceStr).all()).results || [];
+    const aggregates = await aggregateD1InsiderSignals(env.HISTORY, {
+      where: "trans_date >= ? AND trans_date <= date('now') AND ticker IS NOT NULL AND ticker != ''", args: [sinceStr],
+    });
+    const rows = aggregates.filter(r => r.uniqueInsiders >= 3 && r.buyValue + r.sellValue > 0)
+      .sort((a, b) => b.lastDate.localeCompare(a.lastDate) || b.uniqueInsiders - a.uniqueInsiders).slice(0, 10);
     result.insiderClusters = rows.map(r => ({
       ticker: r.ticker,
       // Compteurs PROPRES : nombre d'insiders distincts qui ont achete/vendu
@@ -3313,7 +3276,7 @@ async function computeTopSignals(env) {
       rawTxLines: r.rawTxLines || 0,
       totalValue: (r.buyValue || 0) + (r.sellValue || 0),
       netValue: (r.buyValue || 0) - (r.sellValue || 0),
-      topNames: (r.insiders || '').split(',').slice(0, 3),
+      topNames: r.names.slice(0, 3),
       lastDate: r.lastDate,
     }));
   } catch (e) { console.warn('insiderClusters failed:', e); }
@@ -3472,29 +3435,10 @@ async function handleSignalsInsiderClusters(url, env, origin) {
     // buyCount/sellCount comptent aussi des INSIDERS DISTINCTS (vs avant des
     // transactions, ce qui inflait artificiellement le breakdown 14/1 etc.).
     // + filtre anti-fantome : exiger au moins 1 vrai achat/vente avec valeur.
-    const query = `
-      SELECT
-        ticker,
-        company,
-        COUNT(DISTINCT insider) AS uniqueInsiders,
-        COUNT(DISTINCT CASE WHEN trans_type = 'buy'  THEN insider END) AS buyInsiders,
-        COUNT(DISTINCT CASE WHEN trans_type = 'sell' THEN insider END) AS sellInsiders,
-        COUNT(*) AS rawTxLines,
-        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
-        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
-        GROUP_CONCAT(DISTINCT insider) AS insiders,
-        GROUP_CONCAT(DISTINCT title) AS roles,
-        MAX(trans_date) AS lastDate
-      FROM insider_transactions_history
-      WHERE trans_date >= ? AND ticker IS NOT NULL AND ticker != ''
-      ${roleFilter}
-      GROUP BY ticker
-      HAVING uniqueInsiders >= ?
-        AND (buyInsiders + sellInsiders) >= 1
-        AND (buyValue + sellValue) > 0
-      LIMIT 500
-    `;
-    const rows = (await env.HISTORY.prepare(query).bind(sinceStr, minTx).all()).results || [];
+    const aggregates = await aggregateD1InsiderSignals(env.HISTORY, {
+      where: `trans_date >= ? AND trans_date <= date('now') AND ticker IS NOT NULL AND ticker != '' ${roleFilter}`, args: [sinceStr],
+    });
+    const rows = aggregates.filter(r => r.uniqueInsiders >= minTx && r.buyValue + r.sellValue > 0);
 
     // Post-filtre direction + minValue + tri (SQL + JS hybride)
     let items = rows.map(r => {
@@ -3513,8 +3457,8 @@ async function handleSignalsInsiderClusters(url, env, origin) {
         sellValue: r.sellValue || 0,
         totalValue,
         netValue,
-        insiders: (r.insiders || '').split(',').filter(Boolean).slice(0, 10),
-        roles: (r.roles || '').split(',').filter(Boolean).slice(0, 6),
+        insiders: r.names.slice(0, 10),
+        roles: r.roles.slice(0, 6),
         lastDate: r.lastDate,
         direction: netValue > 0 ? 'bullish' : netValue < 0 ? 'bearish' : 'mixed',
       };
@@ -3564,61 +3508,15 @@ async function handleSignalsInsiderNetFlow(url, env, origin) {
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().slice(0, 10);
 
-    const cacheKey = `netflow:${days}:${direction}:${minValue}:${limit}`;
+    const cacheKey = `netflow:v25:${days}:${direction}:${minValue}:${limit}`;
     try {
       const cached = await env.CACHE?.get(cacheKey, 'json');
       if (cached) return jsonResponse(cached, 200, origin);
     } catch {}
 
-    // SQL : groupe par ticker, calcule buys $ / sells $ / net $ / tx count / insiders uniques / derniere date.
-    // ORDER BY + LIMIT pousse en SQL directement pour reduire le payload retourne
-    // au Worker (sinon 3700+ rows / 90j -> CPU spike + timeout 500).
-    // On filtre direction/minValue cote SQL aussi quand possible pour minimiser
-    // les rows traitees en JS apres.
-    const orderClause = direction === 'bearish'
-      ? 'ORDER BY (buyValue - sellValue) ASC'  // plus negatif d'abord
-      : direction === 'bullish'
-        ? 'ORDER BY (buyValue - sellValue) DESC'  // plus positif d'abord
-        : 'ORDER BY ABS(buyValue - sellValue) DESC';  // magnitude
-
-    // HAVING : applique direction + minValue cote SQL pour reduire massivement
-    let havingExtra = '(buyValue + sellValue) > 0';
-    if (direction === 'bullish') havingExtra += ' AND (buyValue - sellValue) > 0';
-    else if (direction === 'bearish') havingExtra += ' AND (buyValue - sellValue) < 0';
-    if (minValue > 0) havingExtra += ` AND ABS(buyValue - sellValue) >= ${minValue}`;
-
-    // Fetch limite directement (limit + buffer 50 pour dedoublon eventuel)
-    const sqlLimit = Math.min(limit + 50, 500);
-    const query = `
-      SELECT
-        ticker,
-        MAX(company) AS company,
-        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
-        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
-        COUNT(*) AS txCount,
-        COUNT(DISTINCT insider) AS insiderCount,
-        MAX(trans_date) AS lastDate
-      FROM insider_transactions_history
-      WHERE trans_date >= ?
-        AND ticker IS NOT NULL AND ticker != ''
-        AND trans_type IN ('buy', 'sell')
-      GROUP BY ticker
-      HAVING ${havingExtra}
-      ${orderClause}
-      LIMIT ${sqlLimit}
-    `;
-    let rows = [];
-    try {
-      const result = await env.HISTORY.prepare(query).bind(sinceStr).all();
-      rows = result.results || [];
-    } catch (sqlErr) {
-      console.error('[netflow] SQL error:', sqlErr.message || sqlErr);
-      return jsonResponse({
-        error: 'D1 query failed',
-        detail: String(sqlErr.message || sqlErr),
-        query_filters: { days, direction, minValue, limit },
-      }, 500, origin);
-    }
+    const rows = await aggregateD1InsiderSignals(env.HISTORY, {
+      where: "trans_date >= ? AND trans_date <= date('now') AND ticker IS NOT NULL AND ticker != ''", args: [sinceStr],
+    });
 
     let items = rows.map(r => {
       const buyValue = r.buyValue || 0;
@@ -3630,15 +3528,15 @@ async function handleSignalsInsiderNetFlow(url, env, origin) {
         buyValue,
         sellValue,
         netValue,
-        txCount: r.txCount || 0,
-        insiderCount: r.insiderCount || 0,
+        txCount: r.rawTxLines || 0,
+        insiderCount: r.uniqueInsiders || 0,
         lastDate: r.lastDate,
       };
     });
 
-    // Note : direction + minValue + sort sont DEJA appliques cote SQL pour
-    // performance (cf. orderClause + havingExtra ci-dessus). Pas besoin de
-    // refiltrer en JS.
+    items = items.filter(item => item.buyValue + item.sellValue > 0 && Math.abs(item.netValue) >= minValue
+      && (direction !== 'bullish' || item.netValue > 0) && (direction !== 'bearish' || item.netValue < 0));
+    items.sort((a, b) => direction === 'bearish' ? a.netValue - b.netValue : direction === 'bullish' ? b.netValue - a.netValue : Math.abs(b.netValue) - Math.abs(a.netValue));
 
     const result = {
       total: items.length,
@@ -3676,33 +3574,17 @@ async function handleSignalsInsiderCrossTicker(url, env, origin) {
     else if (role === 'directors') roleFilter = `AND (title LIKE '%Director%')`;
     else if (role === 'owners') roleFilter = `AND (title LIKE '%10%%' OR title LIKE '%owner%')`;
 
-    const cacheKey = `crossticker:${days}:${minTickers}:${role}:${limit}`;
+    const cacheKey = `crossticker:v25:${days}:${minTickers}:${role}:${limit}`;
     try {
       const cached = await env.CACHE?.get(cacheKey, 'json');
       if (cached) return jsonResponse(cached, 200, origin);
     } catch {}
 
-    const query = `
-      SELECT
-        insider,
-        MAX(title) AS title,
-        COUNT(DISTINCT ticker) AS tickerCount,
-        GROUP_CONCAT(DISTINCT ticker) AS tickersCsv,
-        COUNT(*) AS txCount,
-        SUM(CASE WHEN trans_type = 'buy'  THEN COALESCE(value, 0) ELSE 0 END) AS buyValue,
-        SUM(CASE WHEN trans_type = 'sell' THEN COALESCE(value, 0) ELSE 0 END) AS sellValue,
-        MAX(trans_date) AS lastDate
-      FROM insider_transactions_history
-      WHERE trans_date >= ?
-        AND insider IS NOT NULL AND insider != ''
-        AND ticker IS NOT NULL AND ticker != ''
-        AND trans_type IN ('buy', 'sell')
-        ${roleFilter}
-      GROUP BY insider
-      HAVING tickerCount >= ?
-      LIMIT 500
-    `;
-    const rows = (await env.HISTORY.prepare(query).bind(sinceStr, minTickers).all()).results || [];
+    const aggregates = await aggregateD1InsiderSignals(env.HISTORY, {
+      where: `trans_date >= ? AND trans_date <= date('now') AND insider IS NOT NULL AND insider != '' AND ticker IS NOT NULL AND ticker != '' ${roleFilter}`,
+      args: [sinceStr], by: 'insider',
+    });
+    const rows = aggregates.filter(row => row.tickers.length >= minTickers);
 
     const items = rows.map(r => {
       const buyValue = r.buyValue || 0;
@@ -3710,9 +3592,9 @@ async function handleSignalsInsiderCrossTicker(url, env, origin) {
       return {
         insider: r.insider,
         title: r.title || '',
-        tickerCount: r.tickerCount || 0,
-        tickers: (r.tickersCsv || '').split(',').filter(Boolean),
-        txCount: r.txCount || 0,
+        tickerCount: r.tickers.length,
+        tickers: r.tickers,
+        txCount: r.rawTxLines || 0,
         buyValue,
         sellValue,
         netValue: buyValue - sellValue,
@@ -3758,17 +3640,14 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().slice(0, 10);
 
-    const cacheKey = `clusterdetail:${ticker}:${days}`;
+    const cacheKey = `clusterdetail:v25:${ticker}:${days}`;
     try {
       const cached = await env.CACHE?.get(cacheKey, 'json');
       if (cached) return jsonResponse(cached, 200, origin);
     } catch {}
 
     const query = `
-      SELECT
-        trans_date, filing_date, insider, title, trans_type, trans_code,
-        shares, price, value, source, accession
-      FROM insider_transactions_history
+      SELECT * FROM insider_transactions_history
       WHERE ticker = ?
         AND trans_date >= ?
         AND insider IS NOT NULL AND insider != ''
@@ -3778,11 +3657,12 @@ async function handleSignalsInsiderClusterDetail(url, env, origin) {
     const rows = (await env.HISTORY.prepare(query).bind(ticker, sinceStr).all()).results || [];
 
     const transactions = rows.map(r => ({
+      ...withInsiderTransactionEvidence(r),
       transDate: r.trans_date,
       filingDate: r.filing_date,
       insider: r.insider,
       title: r.title || '',
-      transType: r.trans_type || 'other',
+      transType: classifyInsiderTransaction(r).type,
       transCode: r.trans_code || null, // SEC : P/S/A/D/F/M/G/...
       shares: r.shares || 0,
       price: r.price || 0,
@@ -4136,7 +4016,7 @@ async function computeInsiderTradingStats(txRows, env) {
   // Collect unique tickers from BUY transactions avec price > 0
   const tickerToBuys = new Map();  // ticker -> [{ price, value, transDate }]
   for (const r of txRows) {
-    if (r.trans_type !== 'buy') continue;
+    if (!classifyInsiderTransaction(r).eligiblePurchase) continue;
     if (!r.ticker || !r.price || r.price <= 0) continue;
     if (!tickerToBuys.has(r.ticker)) tickerToBuys.set(r.ticker, []);
     tickerToBuys.get(r.ticker).push({
@@ -4301,7 +4181,7 @@ async function handleInsiderProfile(url, env, origin) {
   // supprimees par le workflow cleanup-insider-duplicates one-shot). v5
   // cachait les responses avec les anciens totaux gonfles (rows D1 dupliquees).
   // v6 force fresh fetch sur la table maintenant propre.
-  const cacheKey = `profile:v6:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
+  const cacheKey = `profile:v25:${cikParam || ''}:${(nameParam || '').toLowerCase()}`;
   try {
     const cached = await env.CACHE?.get(cacheKey, 'json');
     if (cached) return jsonResponse(cached, 200, origin);
@@ -4340,15 +4220,12 @@ async function handleInsiderProfile(url, env, origin) {
     // 2 rows, on garde la 1ere (deterministe par filing_date desc).
     // ============================================================
     const allRes = await env.HISTORY.prepare(
-      `SELECT
-         insider, insider_cik, trans_date, filing_date, ticker, company, title,
-         trans_type, trans_code, shares, price, value, shares_after, source, accession
-       FROM insider_transactions_history
+      `SELECT * FROM insider_transactions_history
        ${whereClause}
        ORDER BY trans_date DESC, filing_date DESC, rowid ASC
        LIMIT 5000`
     ).bind(...bindings).all();
-    const rawRows = allRes.results || [];
+    const rawRows = preferInsiderTransactionEvidence(allRes.results || []);
 
     // Dedup deterministique sur la cle composite. accession devrait suffire
     // dans un monde ideal (1 filing = 1 ligne par tx), mais on inclut
@@ -4396,8 +4273,8 @@ async function handleInsiderProfile(url, env, origin) {
       const c = companiesMap.get(key);
       c.txCount++;
       const value = Number(r.value) || 0;
-      if (r.trans_type === 'buy') c.totalBuy += value;
-      else if (r.trans_type === 'sell') c.totalSell += value;
+      if (classifyInsiderTransaction(r).eligiblePurchase) c.totalBuy += value;
+      else if (classifyInsiderTransaction(r).type === 'sell') c.totalSell += value;
       else c.otherCount++;
       if (r.trans_date && (!c.firstTx || r.trans_date < c.firstTx)) c.firstTx = r.trans_date;
       if (r.trans_date && (!c.lastTx || r.trans_date > c.lastTx)) c.lastTx = r.trans_date;
@@ -4442,20 +4319,21 @@ async function handleInsiderProfile(url, env, origin) {
       const m = monthMap.get(ym);
       m.count++;
       const v = Number(r.value) || 0;
-      if (r.trans_type === 'buy') m.buyValue += v;
-      else if (r.trans_type === 'sell') m.sellValue += v;
+      if (classifyInsiderTransaction(r).eligiblePurchase) m.buyValue += v;
+      else if (classifyInsiderTransaction(r).type === 'sell') m.sellValue += v;
     }
     const monthlyPattern = Array.from(monthMap.values())
       .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
     // === 4. Transactions list (top 100 par date desc, deja triees par SQL) ===
     const transactions = txRows.slice(0, 100).map(r => ({
+      ...withInsiderTransactionEvidence(r),
       transDate: r.trans_date,
       filingDate: r.filing_date,
       ticker: r.ticker || null,
       company: r.company || null,
       title: r.title || null,
-      transType: r.trans_type || 'other',
+      transType: classifyInsiderTransaction(r).type,
       transCode: r.trans_code || null,
       shares: r.shares || 0,
       price: r.price || 0,
@@ -4771,7 +4649,7 @@ async function handleHistoryInsider(url, env, origin) {
       }
     }
     if (typeFilter && ['buy', 'sell', 'other', 'option-exercise'].includes(typeFilter)) {
-      conditions.push('trans_type = ?'); args.push(typeFilter);
+      // Apply the evidence-aware operation filter after reading raw records.
     }
     if (insiderFilter) {
       conditions.push('insider LIKE ?');
@@ -4794,16 +4672,20 @@ async function handleHistoryInsider(url, env, origin) {
       if (region === 'US') { conditions.push("source IN ('SEC', 'SEDI')"); }
       else if (region === 'EU') { conditions.push("source NOT IN ('SEC', 'SEDI')"); }
     }
-    args.push(limit);
+    args.push(typeFilter ? 5000 : limit);
 
-    const sql = `SELECT filing_date, trans_date, source, ticker, company, insider, insider_cik, title,
-                        trans_type, trans_code, shares, price, value, shares_after
-                 FROM insider_transactions_history
+    const sql = `SELECT * FROM insider_transactions_history
                  WHERE ${conditions.join(' AND ')}
                  ORDER BY COALESCE(trans_date, filing_date) DESC, filing_date DESC
                  LIMIT ?`;
     const result = await env.HISTORY.prepare(sql).bind(...args).all();
-    const rawRows = result.results || [];
+    const rawRows = preferInsiderTransactionEvidence(result.results || []).map(withInsiderTransactionEvidence).filter(row => {
+      if (typeFilter === 'buy') return row.purchaseSignalEligible;
+      if (typeFilter === 'sell') return row.type === 'sell';
+      if (typeFilter === 'other') return row.type === 'other';
+      if (typeFilter === 'option-exercise') return row.purchaseSignalReason === 'exercise';
+      return true;
+    });
 
     // Dedup transaction economique (juin 2026). Une MEME operation peut etre
     // declaree par plusieurs entites liees (chaine de detention beneficiaire) :
@@ -4840,9 +4722,9 @@ async function handleHistoryInsider(url, env, origin) {
         source: source || null,
         region: region || null,
       },
-      count: rows.length,
+      count: Math.min(rows.length, limit),
       limit,
-      transactions: rows,
+      transactions: rows.slice(0, limit),
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'D1 insider history query failed', detail: String(e && e.message || e) }, 500, origin);
@@ -4861,43 +4743,20 @@ async function handleHistoryInsiderStats(url, env, origin) {
   if (!env.HISTORY) return jsonResponse({ error: 'D1 binding not configured' }, 503, origin);
 
   try {
-    // Stats globales par type
-    const statsRes = await env.HISTORY.prepare(
-      `SELECT trans_type, COUNT(*) as cnt, SUM(value) as total_value, SUM(shares) as total_shares
-       FROM insider_transactions_history
-       WHERE ticker = ? AND COALESCE(trans_date, filing_date) >= date('now', ?)
-       GROUP BY trans_type`
+    const result = await env.HISTORY.prepare(
+      `SELECT * FROM insider_transactions_history
+       WHERE ticker = ? AND COALESCE(NULLIF(trans_date, ''), filing_date) >= date('now', ?)`
     ).bind(ticker, `-${days} days`).all();
-
-    const byType = {};
-    for (const r of (statsRes.results || [])) {
-      byType[r.trans_type] = {
-        count: r.cnt,
-        totalValue: r.total_value || 0,
-        totalShares: r.total_shares || 0,
-      };
+    const rows = preferInsiderTransactionEvidence(result.results || []), byType = {};
+    for (const row of rows) {
+      const classification = classifyInsiderTransaction(row);
+      const type = classification.eligiblePurchase ? 'buy' : classification.type === 'sell' ? 'sell' : classification.reason === 'exercise' ? 'option-exercise' : 'other';
+      const group = byType[type] ||= { count: 0, totalValue: 0, totalShares: 0 };
+      group.count++; group.totalValue += Number(row.value) || 0; group.totalShares += Number(row.shares) || 0;
     }
-
-    // Insiders uniques
-    const uniqueRes = await env.HISTORY.prepare(
-      `SELECT COUNT(DISTINCT insider) as cnt
-       FROM insider_transactions_history
-       WHERE ticker = ? AND COALESCE(trans_date, filing_date) >= date('now', ?)`
-    ).bind(ticker, `-${days} days`).first();
-
-    // Top 10 insiders par volume (buy + sell)
-    const topRes = await env.HISTORY.prepare(
-      `SELECT insider, title,
-              SUM(CASE WHEN trans_type='buy' THEN value ELSE 0 END) as buy_value,
-              SUM(CASE WHEN trans_type='sell' THEN value ELSE 0 END) as sell_value,
-              COUNT(*) as tx_count
-       FROM insider_transactions_history
-       WHERE ticker = ? AND COALESCE(trans_date, filing_date) >= date('now', ?)
-         AND trans_type IN ('buy','sell')
-       GROUP BY insider
-       ORDER BY (buy_value + sell_value) DESC
-       LIMIT 10`
-    ).bind(ticker, `-${days} days`).all();
+    const topInsiders = aggregateInsiderSignalRows(rows, { by: 'insider' })
+      .sort((a, b) => b.buyValue + b.sellValue - a.buyValue - a.sellValue).slice(0, 10)
+      .map(row => ({ insider: row.insider, title: row.title, buy_value: row.buyValue, sell_value: row.sellValue, tx_count: row.rawTxLines }));
 
     return jsonResponse({
       ticker,
@@ -4906,8 +4765,8 @@ async function handleHistoryInsiderStats(url, env, origin) {
       sell: byType.sell || { count: 0, totalValue: 0, totalShares: 0 },
       other: byType.other || { count: 0, totalValue: 0, totalShares: 0 },
       optionExercise: byType['option-exercise'] || { count: 0, totalValue: 0, totalShares: 0 },
-      uniqueInsiders: uniqueRes?.cnt || 0,
-      topInsiders: topRes.results || [],
+      uniqueInsiders: new Set(rows.map(row => row.insider).filter(Boolean)).size,
+      topInsiders,
     }, 200, origin);
   } catch (e) {
     return jsonResponse({ error: 'D1 insider stats query failed', detail: String(e && e.message || e) }, 500, origin);
@@ -4930,34 +4789,55 @@ async function handleHistoryInsiderTop(url, env, origin) {
   const periodDays = { '30d': 30, '90d': 90, '6m': 180, '1y': 365, '3y': 1095, '5y': 1825 }[period] || 365;
 
   try {
-    const conditions = ["filing_date >= date('now', ?)", "trans_type = ?", "value IS NOT NULL", "value > 0"];
-    const args = [`-${periodDays} days`, typeFilter];
+    const conditions = ["filing_date >= date('now', ?)", "value IS NOT NULL", "value > 0"];
+    const args = [`-${periodDays} days`];
     if (roleFilter) {
       conditions.push('title LIKE ?');
       args.push(`%${roleFilter}%`);
     }
-    args.push(limit);
-
-    const sql = `SELECT insider, title,
-                        COUNT(DISTINCT ticker) as tickers,
-                        COUNT(*) as tx_count,
-                        SUM(value) as total_value,
-                        MAX(filing_date) as last_activity
-                 FROM insider_transactions_history
-                 WHERE ${conditions.join(' AND ')}
-                 GROUP BY insider
-                 HAVING tx_count >= 2
-                 ORDER BY total_value DESC
-                 LIMIT ?`;
-    const result = await env.HISTORY.prepare(sql).bind(...args).all();
+    // Process one filing at a time in bounded pages. This keeps multi-year
+    // rankings within Worker memory while allowing corrected source evidence
+    // to supersede a legacy row even at a page boundary.
+    const sql = `SELECT source, accession, cik, ticker, insider, insider_cik, title,
+                        trans_type, trans_code, transaction_evidence, trans_date,
+                        filing_date, shares, price, value, shares_after, line_num
+                 FROM insider_transactions_history WHERE ${conditions.join(' AND ')}
+                 ORDER BY source, accession, cik, insider, trans_date, trans_type, line_num LIMIT ? OFFSET ?`;
+    const groups = new Map();
+    const addFiling = rows => {
+      for (const row of preferInsiderTransactionEvidence(rows)) {
+        const classification = classifyInsiderTransaction(row);
+        if (typeFilter === 'buy' ? !classification.eligiblePurchase : classification.type !== typeFilter) continue;
+        const key = row.insider_cik ? 'cik:' + String(row.insider_cik).replace(/^0+/, '') : 'name:' + String(row.insider || '').trim().toLowerCase();
+        if (!row.insider) continue;
+        if (!groups.has(key)) groups.set(key, { insider: row.insider, title: row.title, tickers: new Set(), tx_count: 0, total_value: 0, last_activity: '' });
+        const group = groups.get(key);
+        if (row.ticker) group.tickers.add(row.ticker);
+        group.tx_count++; group.total_value += Number(row.value) || 0;
+        if (row.filing_date > group.last_activity) group.last_activity = row.filing_date;
+      }
+    };
+    let filing = [], filingKey = null;
+    for (let offset = 0; ; offset += 1000) {
+      const rows = (await env.HISTORY.prepare(sql).bind(...args, 1000, offset).all()).results || [];
+      for (const row of rows) {
+        if (!row.accession) { addFiling([row]); continue; }
+        const key = JSON.stringify([row.source, row.accession, row.cik]);
+        if (filingKey !== null && key !== filingKey) { addFiling(filing); filing = []; }
+        filingKey = key; filing.push(row);
+      }
+      if (rows.length < 1000) break;
+    }
+    addFiling(filing);
+    const insiders = [...groups.values()].filter(row => row.tx_count >= 2).sort((a, b) => b.total_value - a.total_value).slice(0, limit).map(row => ({ ...row, tickers: row.tickers.size }));
 
     return jsonResponse({
       period,
       periodDays,
       type: typeFilter,
       role: roleFilter || null,
-      count: (result.results || []).length,
-      insiders: result.results || [],
+      count: insiders.length,
+      insiders,
       note: 'ROI-based ranking requires historical prices (Phase 2). Here: total value ranking.',
     }, 200, origin);
   } catch (e) {
@@ -6292,42 +6172,16 @@ async function handleRootIndexSSR(url, env) {
 // On cible les chaines specifiques connues du index.html plutot que des
 // regex generiques pour eviter les false-positives.
 function rewriteRootHtmlForEn(html) {
-  const replacements = [
-    // <html lang="fr"> -> "en"
-    [/<html\s+lang="fr"/i, '<html lang="en"'],
-    // Title
-    [/<title>Kairos Insider - Voyez ce que les pros voient<\/title>/g,
-      '<title>Kairos Insider - See what the pros see</title>'],
-    // Meta description (longue, on remplace le contenu complet)
-    [/<meta name="description" content="La plateforme francophone du smart money\.[^"]*"/g,
-      '<meta name="description" content="The smart money tracking platform. Kairos Score 0-100, 200+ hedge funds tracked, 11 thematic ETFs (US politicians, retail sentiment, ARK, income), 1000+ stocks analyzed. SEC/AMF/BaFin insiders, Google Trends hot stocks, 2-year history."'],
-    // OG title
-    [/<meta property="og:title" content="Kairos Insider - Voyez ce que les pros voient"/g,
-      '<meta property="og:title" content="Kairos Insider - See what the pros see"'],
-    // OG description
-    [/<meta property="og:description" content="Kairos Score, 200\+ hedge funds[^"]*"/g,
-      '<meta property="og:description" content="Kairos Score, 200+ hedge funds, 11 thematic ETFs, 1000+ stocks analyzed. The smart money tracking platform."'],
-    // OG image alt
-    [/<meta property="og:image:alt" content="Kairos Insider - Smart Money Intelligence FR"/g,
-      '<meta property="og:image:alt" content="Kairos Insider - Smart Money Intelligence"'],
-    // OG locale swap : fr_FR <-> en_US
-    [/<meta property="og:locale" content="fr_FR"/g,
-      '<meta property="og:locale" content="en_US"'],
-    [/<meta property="og:locale:alternate" content="en_US"/g,
-      '<meta property="og:locale:alternate" content="fr_FR"'],
-    // Twitter card
-    [/<meta name="twitter:title" content="Kairos Insider - Voyez ce que les pros voient"/g,
-      '<meta name="twitter:title" content="Kairos Insider - See what the pros see"'],
-    [/<meta name="twitter:description" content="Kairos Score, 200\+ hedge funds[^"]*"/g,
-      '<meta name="twitter:description" content="Kairos Score, 200+ hedge funds, 11 thematic ETFs. The smart money tracking platform."'],
-    [/<meta name="twitter:image:alt" content="Kairos Insider - Smart Money Intelligence FR"/g,
-      '<meta name="twitter:image:alt" content="Kairos Insider - Smart Money Intelligence"'],
-  ];
-  let result = html;
-  for (const [pattern, replacement] of replacements) {
-    result = result.replace(pattern, replacement);
-  }
-  return result;
+  const title = 'Kairos Insider \u2014 Insider purchases, convergences and alerts';
+  const description = 'Spot insider purchases, connect the signals and follow your stocks with email and Telegram alerts. Kairos Insider, in French and English.';
+  const imageAlt = 'Kairos Insider \u2014 Spot the purchases, follow what changes';
+  return html.replace(/<html\s+lang="fr"/i, '<html lang="en"')
+    .replace(/<title>[^<]*<\/title>/i, '<title>' + title + '</title>')
+    .replace(/(<meta\s+(?:name|property)="(?:og:title|twitter:title)"\s+content=")[^"]*"/g, '$1' + title + '"')
+    .replace(/(<meta\s+(?:name|property)="(?:description|og:description|twitter:description)"\s+content=")[^"]*"/g, '$1' + description + '"')
+    .replace(/(<meta\s+(?:name|property)="(?:og:image:alt|twitter:image:alt)"\s+content=")[^"]*"/g, '$1' + imageAlt + '"')
+    .replace(/(<meta property="og:locale" content=")fr_FR"/g, '$1en_US"')
+    .replace(/(<meta property="og:locale:alternate" content=")en_US"/g, '$1fr_FR"');
 }
 
 async function handleActionSSR(rawTicker, env, lang = 'fr') {
@@ -12081,7 +11935,7 @@ async function handleTickerTape(env, origin) {
   // item sans ticker valide, quelle que soit sa source. Defense en
   // profondeur : meme si une source ajoute un futur bug, le filtre
   // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
-  const cacheKey = 'ticker-tape:v7';
+  const cacheKey = 'ticker-tape:v25';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -12199,7 +12053,9 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 6. INSIDER BUYS (Form 4) - value >= $1M, 7j ===
-    const insClusters = await env.CACHE.get('insider-clusters', 'json').catch(() => null);
+    const storedClusters = await env.CACHE.get('insider-clusters', 'json').catch(() => null);
+    const insiderFeed = await env.CACHE.get('insider-transactions', 'json').catch(() => null);
+    const insClusters = validatedPurchaseClusters(storedClusters, insiderFeed?.transactions);
     if (insClusters?.clusters) {
       const clusterItems = insClusters.clusters
         .filter(c => c.totalValue >= 1000000)
@@ -12223,7 +12079,7 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 7. TOP KAIROS SCORE - score >= 80 ===
-    const topSignals = await env.CACHE.get('home:top-signals:v10', 'json').catch(() => null);
+    const topSignals = await env.CACHE.get('home:top-signals:v25', 'json').catch(() => null);
     if (topSignals?.topScores) {
       const scoreItems = topSignals.topScores
         .filter(s => s.score >= 80 && s.ticker)

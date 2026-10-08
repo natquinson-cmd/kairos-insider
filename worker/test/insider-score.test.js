@@ -6,7 +6,7 @@ import { validateInsiderScoringConfig, INSIDER_SCORING_DEFAULTS } from '../src/i
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const DAY = 86400000;
 const dateAgo = days => new Date(NOW - days * DAY).toISOString().slice(0, 10);
-const transaction = (patch = {}) => ({ ticker: 'AAPL', insider: 'Alice Buyer', type: 'buy', date: dateAgo(0), fileDate: dateAgo(0), shares: 1000, value: 100000, currency: 'USD', source: 'sec', ...patch });
+const transaction = (patch = {}) => ({ ticker: 'AAPL', insider: 'Alice Buyer', type: 'buy', date: dateAgo(0), fileDate: dateAgo(0), shares: 1000, value: 100000, currency: 'USD', source: 'sec', code: patch.type === 'sell' ? 'S' : 'P', ...patch });
 const score = (insiders, extra = {}) => computeKairosScore({ insiders, smartMoney: {}, govEtf: { inEtfs: [] }, quote: {}, fundamentals: {}, health: {}, earnings: {}, scoringNow: NOW, ...extra }).breakdown.insider;
 const axis = (transactions, extra) => score({ transactions, dataAvailable: true }, extra);
 
@@ -84,6 +84,40 @@ test('exercises and grants never become purchases even if their broad type says 
   assert.equal(result.score, 10);
   assert.equal(result.signals.buyCount, 0);
   assert.equal(result.signals.uniqueBuyers, 0);
+});
+
+test('raw SEC evidence overrides a legacy buy label and unknown buys cannot strengthen the score', () => {
+  for (const code of ['M', 'A', 'F', 'G', undefined]) {
+    const row = transaction({ code, purchaseSignalEligible: true });
+    const result = axis([row]);
+    assert.equal(result.signals.buyCount, 0, String(code));
+    assert.equal(result.signals.buyStrength, 0, String(code));
+    assert.equal(result.score, 10, String(code));
+  }
+  assert.ok(axis([transaction({ code: 'P' })]).signals.buyStrength > 0);
+});
+
+test('employee-plan evidence excludes even a reported P purchase from conviction', () => {
+  const row = transaction({ code: 'P', transactionFootnotes: [{ id: 'F1', text: 'Shares acquired under the employee stock purchase plan.' }] });
+  assert.equal(axis([row]).signals.buyCount, 0);
+  assert.ok(axis([transaction({ code: 'P', form10b5One: true })]).signals.buyStrength > 0);
+});
+
+test('IPSOS free-share delivery remains a grant despite the historical P label', () => {
+  const row = transaction({ ticker: 'IPS.PA', company: 'IPSOS', source: 'amf', type: 'P', code: "Acquisition définitive d'actions gratuites (livraison)", insider: 'Olivier Champourlier, Membre du Comité Exécutif', shares: 1200, price: 36.48, value: 43776, currency: 'EUR' });
+  assert.equal(axis([row]).signals.buyCount, 0);
+  assert.equal(axis([row]).signals.buyStrength, 0);
+});
+
+test('richer disqualifying transaction evidence cannot be lost when duplicate rows are merged', () => {
+  const plain = transaction({ code: 'P' }), enriched = { ...plain, transactionFootnotes: [{id:'F1',text:'Acquired under the employee stock purchase plan.'}] };
+  for (const rows of [[plain,enriched],[enriched,plain]]) assert.equal(axis(rows).signals.buyStrength,0);
+});
+
+test('a corrected grant in the same filing supersedes the older purchase-labelled copy', () => {
+  const old = transaction({ code: 'P', accession: 'same-filing', price: 100 });
+  const corrected = { ...old, type: 'other', transactionFootnotes: [{ id: 'F1', text: 'Shares awarded under a restricted stock award.' }] };
+  for (const rows of [[old, corrected], [corrected, old]]) assert.equal(axis(rows).signals.buyStrength, 0);
 });
 
 test('foreign currencies are never added as dollars and known FX is explicit', () => {
@@ -200,7 +234,7 @@ test('fresh stock assembly scores every transaction before truncation and loads 
     ['yahoo-search:v4:AAPL', { symbol: 'AAPL' }],
     ['insider-transactions', { transactions }],
     ['config:insider-scoring', { saleWeight: 0.2, halfLifeDays: 60, convergenceWindowDays: 14 }],
-    ['stock-analysis:v23:AAPL:full:1y', { _cachedAt: Date.now(), obsoleteFormula: true }],
+    ['stock-analysis:v24:AAPL:full:1y', { _cachedAt: Date.now(), obsoleteFormula: true }],
   ]);
   const env = { CACHE: { async get(key) { return store.get(key) ?? null; }, async put(key, value) { store.set(key, JSON.parse(value)); } } };
   const result = await handleStockAnalysis('AAPL', env);

@@ -6,7 +6,46 @@ test('health criteria expose observed values and the actual validation threshold
 test('missing numeric data is not converted to zero',()=>{for(const x of [null,undefined,'',true,'abc'])assert.equal(a.number(x),null);assert.equal(a.number('12.5'),12.5);});
 test('local health checks are not mislabeled as server scoring criteria',()=>{assert.equal(a.stock({ticker:'T'}).research.health.source,null);});
 test('radar uses backend weighted contributions and preserves unknown axes',()=>{const c=a.stock({ticker:'TEST',chart:{points:[]},score:{total:72,breakdown:{insider:{score:15,max:20,dataOk:true},health:{score:0,max:10,dataOk:false}}}});assert.equal(c.dimensions[0],75);assert.equal(c.dimensions[6],null);assert.equal(c.score,72);assert.deepEqual(c.history,[]);});
-test('transactions preserve filing and execution dates and actual identity',()=>{const c=a.stock({ticker:'T',chart:{points:[{date:'2026-09-18',close:12},{date:'2026-09-21',close:13}]},insiders:{transactions:[{fileDate:'2026-09-19',date:'2026-09-17',insider:'Jane Doe',insiderCik:'123',type:'buy',value:500}]}});assert.equal(c.events[0].date,'2026-09-21');assert.equal(c.events[0].publicationDate,'2026-09-19');assert.equal(c.events[0].tradeDate,'2026-09-17');assert.equal(c.events[0].insiderName,'Jane Doe');});
+test('transactions preserve filing and execution dates and actual identity',()=>{const c=a.stock({ticker:'T',chart:{points:[{date:'2026-09-18',close:12},{date:'2026-09-21',close:13}]},insiders:{transactions:[{fileDate:'2026-09-19',date:'2026-09-17',insider:'Jane Doe',insiderCik:'123',type:'buy',code:'P',value:500}]}});assert.equal(c.events[0].date,'2026-09-21');assert.equal(c.events[0].publicationDate,'2026-09-19');assert.equal(c.events[0].tradeDate,'2026-09-17');assert.equal(c.events[0].insiderName,'Jane Doe');});
+test('stock chart excludes awards, employee plans, unknown purchases and mechanical disposals without dropping raw operations',()=>{
+  const base={fileDate:'2026-09-19',date:'2026-09-17',value:500};
+  const transactions=[
+    {...base,type:'buy',code:'A',insider:'Award recipient'},
+    {...base,type:'buy',code:'P',transactionFootnotes:[{id:'F1',text:'Purchased through the Employee Stock Purchase Plan.'}],insider:'Plan participant'},
+    {...base,type:'buy',insider:'Legacy unknown'},
+    {...base,type:'buy',code:'P',insider:'Cash buyer'},
+    {...base,type:'buy',code:"Acquisition définitive d'actions gratuites (livraison)",insider:'Free shares'},
+    {...base,type:'sell',code:'S',insider:'Seller'},
+    {...base,type:'buy',code:'M',insider:'Option exercise'},
+    {...base,type:'sell',code:'S',transactionFootnotes:[{id:'F2',text:'Shares withheld to satisfy tax withholding obligations.'}],insider:'Tax shares'},
+    {...base,type:'buy',code:'P',purchaseSignalEligible:false,purchaseSignalReason:'employee-plan',insider:'Persisted exclusion'},
+  ];
+  const source={ticker:'T',insiders:{transactions}};
+  const c=a.stock(source);
+  assert.deepEqual(c.events.map(event=>event.insiderName),['Cash buyer','Seller']);
+  assert.deepEqual(c.events.map(event=>event.type),['buy','sell']);
+  assert.deepEqual(c.events.map(event=>event.id),['tx-3','tx-5']);
+  assert.strictEqual(c.raw,source);
+  assert.strictEqual(c.raw.insiders.transactions,transactions);
+  assert.equal(c.raw.insiders.transactions.length,9);
+  assert.equal(transactions[0].type,'buy');
+});
+test('chart recomputes the source classification and keeps 10b5-1 context',()=>{
+  const c=a.stock({ticker:'T',insiders:{transactions:[
+    {type:'other',code:'P',fileDate:'2026-09-19',form10b5One:true,purchaseSignalEligible:false,purchaseSignalReason:'employee-plan'},
+    {type:'other',code:'P',fileDate:'2026-09-19',form10b5One:true},
+    {type:'sell',code:'S',fileDate:'2026-09-20',form10b5One:true},
+    {type:'buy',fileDate:'2026-09-20',purchaseSignalEligible:true},
+  ]}});
+  assert.equal(c.events.length,2);
+  assert.equal(c.events[0].type,'buy');
+  assert.equal(c.events[0].planned,true);
+  assert.equal(c.events[0].purchaseSignalEligible,true);
+  assert.equal(c.events[0].purchaseSignalStatus,'eligible');
+  assert.equal(c.events[0].purchaseSignalReason,'reported-purchase');
+  assert.equal(c.events[1].type,'sell');
+  assert.equal(c.events[1].planned,true);
+});
 test('synthetic analyst counts and unsupported funds history are not presented as observations',()=>{const c=a.stock({ticker:'T',consensus:{_synthesized:true,strongBuy:9,buy:5},smartMoney:{fundCount:3,totalShares:100,topFunds:[]}});assert.equal(c.research.analysts.strongBuy,null);assert.deepEqual(c.fundHistory,[]);});
 test('fractional dividend yield becomes percent while margin percentage stays unchanged',()=>{const c=a.stock({ticker:'T',fundamentals:{dividendYield:.003166},margins:{gross:{raw:48.65,display:'48.65%'}}});assert.equal(c.research.fundamentals.dividendYield,.3166);assert.equal(c.research.fundamentals.grossMargin,48.65);});
 test('US valuation ratios use their supplied provider fields',()=>{const c=a.stock({ticker:'T',fundamentals:{pfcfRatio:12},extendedRatios:{evEbitda:{numeric:17}}});assert.equal(c.research.fundamentals.priceFcf,12);assert.equal(c.research.fundamentals.evEbitda,17);});

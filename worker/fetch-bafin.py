@@ -59,13 +59,8 @@ def parse_german_date(s):
 
 
 def type_from_geschaeft(s):
-    # IMPORTANT: check 'verkauf' (sell) BEFORE 'kauf' (buy) — 'verkauf' contains 'kauf'.
-    s = (s or '').strip().lower()
-    if 'verkauf' in s:
-        return 'sell'
-    if 'kauf' in s:
-        return 'buy'
-    return 'other'
+    from insider_transaction import classify_transaction
+    return classify_transaction({'source': 'bafin', 'code': s})['type']
 
 
 def fetch_csv(letter, date_from_str, date_to_str):
@@ -214,7 +209,8 @@ for letter in letters:
         if geschaeft_label and geschaeft_label.isupper():
             geschaeft_label = geschaeft_label.capitalize()
 
-        all_transactions.append({
+        from insider_transaction import classify_transaction
+        row = {
             'fileDate': file_date,
             'date': tx_date or file_date,
             'cik': f'BAFIN_{(r.get(col_bafin_id) or "").strip()}' if col_bafin_id else 'BAFIN_UNKNOWN',
@@ -225,6 +221,7 @@ for letter in letters:
             'title': (r.get(col_position) or '').strip(),
             'type': tx_type,
             'code': geschaeft_label,  # BaFin Art des Geschäfts brute
+            'securityTitle': instrument,
             'shares': shares,
             'price': round(price, 2),
             'value': round(value, 2),
@@ -234,7 +231,9 @@ for letter in letters:
             'currency': currency,
             'source': 'bafin',
             'venue': ((r.get(col_venue) or '').strip()) if col_venue else '',
-        })
+        }
+        row.update(classify_transaction(row))
+        all_transactions.append(row)
         kept_here += 1
 
     stats['kept'] += kept_here

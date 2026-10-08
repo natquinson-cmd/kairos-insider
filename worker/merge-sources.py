@@ -48,6 +48,7 @@ def tag_sec_rows(txs):
 
 
 def main():
+    from insider_transaction import classify_transaction
     # --- Load SEC (primary) ---
     sec = load_json('transactions_data.json', {'transactions': []})
     sec_txs_raw = sec.get('transactions', [])
@@ -86,8 +87,10 @@ def main():
 
     # --- Merge ---
     combined = list(sec_txs) + list(bafin_txs) + list(amf_txs) + list(afm_txs)
+    for transaction in combined:
+        transaction.update(classify_transaction(transaction))
     # Sort by fileDate desc (most recent first), tiebreak by date
-    combined.sort(key=lambda t: (t.get('fileDate', ''), t.get('date', '')), reverse=True)
+    combined.sort(key=lambda t: (t.get('fileDate') or '', t.get('date') or ''), reverse=True)
 
     # --- Dedup transaction economique (juin 2026) ---
     # Une MEME operation peut etre declaree par PLUSIEURS entites liees (chaine de

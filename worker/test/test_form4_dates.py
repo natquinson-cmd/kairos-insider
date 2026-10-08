@@ -1,10 +1,12 @@
 import ast
 import re
+import sys
 import unittest
 from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'prefetch-all.py'
+sys.path.insert(0, str(SCRIPT.parent))
 TREE = ast.parse(SCRIPT.read_text(encoding='utf-8'))
 PARSER = next(node for node in TREE.body if isinstance(node, ast.FunctionDef) and node.name == 'parse_form4')
 APPEND = next(node for node in ast.walk(TREE)

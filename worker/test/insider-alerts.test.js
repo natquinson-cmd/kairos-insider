@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeInsiderMovement, movementMessage, runInsiderMovementAlerts, seedInsiderMovementBaseline, telegramAlertPreferences, isInsiderQuietHours } from '../src/insider-alerts.js';
 const now=Date.parse('2026-09-23T12:00:00Z');
-const tx=(id,extra={})=>({ticker:'AAPL',source:'sec',type:'buy',insider:'A Reader',date:'2026-09-20',fileDate:'2026-09-23',shares:10,value:2000,accession:id,...extra});
+const tx=(id,extra={})=>({ticker:'AAPL',source:'sec',type:'buy',insider:'A Reader',date:'2026-09-20',fileDate:'2026-09-23',shares:10,value:2000,accession:id,code:extra.type&&extra.type!=='buy'?(extra.type==='sell'?'S':extra.type):'P',...extra});
 function harness(){const store=new Map(),sent=[],env={CACHE:{async get(k){return store.get(k)??null;},async put(k,v){store.set(k,JSON.parse(v));}}};const user={uid:'one',watchlist:new Set(['AAPL']),watchStartedAt:{AAPL:1},email:'one@example.com',emailEnabled:true,emailActivation:1,telegramEnabled:true,telegramActivation:1,prefs:{},chatId:'1',lang:'fr'};return {store,sent,env,user,options:{now,sendEmail:async(s,e)=>{sent.push(['email',e.id]);return true;},sendTelegram:async(s,e)=>{sent.push(['telegram',e.id]);return true;},isQuiet:()=>false}};}
 test('normalization distinguishes purchases/sales and publication dates without ticker region collisions',()=>{
   assert.equal(normalizeInsiderMovement(tx('1')).type,'buy');assert.equal(normalizeInsiderMovement(tx('2',{type:'S'})).type,'sell');
@@ -17,6 +17,61 @@ test('preferences preserve old triggers and require explicit individual alert ac
   assert.equal(telegramAlertPreferences({}).insiderTransactions,false);
   assert.equal(telegramAlertPreferences({new13d:false},{insiderTransactions:true}).new13d,false);
   assert.throws(()=>telegramAlertPreferences({}, {insiderTransactions:'true'}));assert.throws(()=>telegramAlertPreferences({}, {quietHoursStart:25}));
+});
+
+test('grants exercises gifts withholding and unproven legacy buys never generate purchase alerts',async()=>{
+  const h=harness();h.store.set('insider-transactions',{transactions:[]});
+  await runInsiderMovementAlerts(h.env,[h.user],h.options);
+  const excluded=['M','A','F','G',undefined].map((code,i)=>tx('excluded-'+i,{code,purchaseSignalEligible:true}));
+  excluded.push(tx('employee',{code:'P',transactionFootnotes:[{id:'F1',text:'Shares acquired under the employee stock purchase plan.'}]}));
+  h.store.set('insider-transactions',{transactions:excluded});
+  await runInsiderMovementAlerts(h.env,[h.user],h.options);assert.equal(h.sent.length,0);
+  h.store.set('insider-transactions',{transactions:[...excluded,tx('actual',{code:'P',form10b5One:true})]});
+  await runInsiderMovementAlerts(h.env,[h.user],h.options);assert.equal(h.sent.length,2);
+});
+
+test('IPSOS free-share delivery cannot become an alert and unknown legacy purchases remain readable',()=>{
+  assert.equal(normalizeInsiderMovement(tx('ipsos',{ticker:'IPS',source:'amf',market:'FR',type:'P',code:"Acquisition définitive d'actions gratuites (livraison)",shares:1200,value:43776})),null);
+  const unknown=normalizeInsiderMovement(tx('legacy',{code:undefined}));
+  assert.equal(unknown.type,'buy');assert.equal(unknown.purchaseSignalEligible,false);assert.equal(unknown.purchaseSignalStatus,'unknown');
+  assert.equal(normalizeInsiderMovement(tx('legacy',{code:undefined}),{forAlert:true}),null);
+});
+
+test('old queued purchases without retained proof are discarded before delivery',async()=>{
+  const h=harness();h.store.set('insider-transactions',{transactions:[]});await runInsiderMovementAlerts(h.env,[h.user],h.options);
+  for(const channel of ['email','telegram']){const state=h.store.get('insider-alert-state:'+channel+':one');state.pending=[{id:'legacy',type:'buy',ticker:'AAPL',fileDate:'2026-09-23',tradeDate:'2026-09-20'}];}
+  await runInsiderMovementAlerts(h.env,[h.user],h.options);assert.equal(h.sent.length,0);
+});
+
+test('documented corrections revoke queued purchases and future convergence support',async()=>{
+  for(const correction of [{transactionFootnotes:[{id:'F1',text:'Shares acquired under the employee stock purchase plan.'}]},{code:'A'}]){
+    const h=harness();h.store.set('insider-transactions',{transactions:[]});await runInsiderMovementAlerts(h.env,[h.user],h.options);
+    const original=tx('corrected');h.store.set('insider-transactions',{transactions:[original]});
+    await runInsiderMovementAlerts(h.env,[h.user],{...h.options,sendEmail:async()=>false,sendTelegram:async()=>false});
+    assert.equal(h.store.get('insider-alert-state:email:one').pending.length,1);
+    h.store.set('insider-transactions',{transactions:[{...original,...correction}]});
+    await runInsiderMovementAlerts(h.env,[h.user],h.options);
+    assert.equal(h.sent.length,0,'a documented correction must cancel the pending purchase');
+    for(const channel of ['email','telegram'])assert.equal(h.store.get('insider-alert-state:'+channel+':one').tickers.AAPL.purchases.length,0);
+    const events=[];h.store.set('insider-transactions',{transactions:[tx('second',{insider:'B Reader'})]});
+    await runInsiderMovementAlerts(h.env,[h.user],{...h.options,sendEmail:async(s,e)=>{events.push(e);return true;},sendTelegram:async()=>true});
+    assert.equal(events.length,1);assert.equal(events[0].convergence,undefined,'the revoked observation must not manufacture a second buyer');
+  }
+});
+
+test('a correction to another fill cannot erase a valid queued purchase in a partial feed',async()=>{
+  const h=harness();h.store.set('insider-transactions',{transactions:[]});await runInsiderMovementAlerts(h.env,[h.user],h.options);
+  h.store.set('insider-transactions',{transactions:[tx('same-filing')]});
+  await runInsiderMovementAlerts(h.env,[h.user],{...h.options,sendEmail:async()=>false,sendTelegram:async()=>false});
+  h.store.set('insider-transactions',{transactions:[tx('same-filing',{code:'A',shares:20,value:4000})]});
+  await runInsiderMovementAlerts(h.env,[h.user],h.options);
+  assert.equal(h.sent.length,2);assert.equal(h.store.get('insider-alert-state:email:one').tickers.AAPL.purchases.length,1);
+});
+
+test('a queued legacy activist crossover cannot bypass current purchase evidence',async()=>{
+  const h=harness();h.store.set('insider-transactions',{transactions:[]});await runInsiderMovementAlerts(h.env,[h.user],h.options);
+  for(const channel of ['email','telegram']){const state=h.store.get('insider-alert-state:'+channel+':one');state.pending=[{id:'old-cross',type:'activist-purchase',ticker:'AAPL',fileDate:'2026-09-23',convergence:{kind:'activist-purchase',firstTradeDate:'2026-09-20',buyerCount:1}}];state.tickers.AAPL.purchases=[{id:'old-grant',insider:'A Reader',tradeDate:'2026-09-20',fileDate:'2026-09-23'}];}
+  await runInsiderMovementAlerts(h.env,[h.user],h.options);assert.equal(h.sent.length,0);
 });
 test('first run seeds silently, one new filing reaches each channel once, exact duplicates are ignored',async()=>{
   const h=harness();h.store.set('insider-transactions',{transactions:[tx('1')]});

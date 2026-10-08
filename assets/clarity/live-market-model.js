@@ -1,5 +1,5 @@
 /* Filing dates determine freshness; execution dates determine convergence. */
-(function(root,factory){const api=factory();if(typeof module==='object')module.exports=api;else root.KairosMarketLive=api;})(typeof window==='object'?window:this,()=>{
+(function(root,factory){const api=factory(typeof module==='object'?require('../insider-transaction.js'):root.KairosInsiderTransaction);if(typeof module==='object')module.exports=api;else root.KairosMarketLive=api;})(typeof window==='object'?window:this,(evidence)=>{
 'use strict';
 const ticker=value=>typeof value==='string'?value.trim().toUpperCase():'';
 const placeholders=new Set(['NONE','N/A','NA','NULL','UNKNOWN','NAN','UNAVAILABLE','NOT AVAILABLE','NON RENSEIGNE']);
@@ -15,11 +15,46 @@ const currency=row=>String(row.currency||'').trim().toUpperCase();
 const cik=value=>/^\d+$/.test(String(value||'').trim())?String(value).trim().replace(/^0+/,''):'';
 const name=value=>{const text=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();return !text||placeholders.has(text)?'':text.replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).sort().join(' ');};
 const executionCode=row=>String(row.transCode||row.transactionCode||row.trans_code||row.code||'').trim().toUpperCase();
-const purchase=row=>row.type==='buy'&&(!executionCode(row)||executionCode(row)==='P');
+const classify=row=>evidence.classifyInsiderTransaction(row);
+const purchase=row=>classify(row).eligiblePurchase;
 function identities(rows){const aliases=new Map();for(const row of rows){const id=cik(row.insiderCik),label=name(row.insider);if(!id||!label)continue;if(!aliases.has(label))aliases.set(label,new Set());aliases.get(label).add(id);}return row=>{const id=cik(row.insiderCik),label=name(row.insider),known=aliases.get(label);return id?'cik:'+id:label?(known?.size===1?'cik:'+Array.from(known)[0]:known?.size>1?null:'name:'+label):null;};}
-function deduplicate(rows){const identify=identities(rows),seen=new Set();return rows.filter(row=>{const accession=String(row.accession||row.adsh||'').trim().replace(/-/g,''),sourceRef=accession||row.bdif_numero||row.sourceUrl||row.url||'',line=row.transactionId??row.lineId??row.transactionIndex??row.lineIndex??'';
- const key=JSON.stringify([ticker(row.ticker),currency(row),identify(row),sourceRef,sourceRef?'':row.source||'',line,publication(row),trade(row),row.type,executionCode(row),number(row.shares),number(row.price),number(row.value),row.securityTitle||row.security||'',row.ownershipNature||row.directOrIndirectOwnership||'',number(row.sharesAfter)]);
- if(seen.has(key))return false;seen.add(key);return true;});}
+function deduplicate(rows){
+ const identify=identities(rows),groups=new Map(),text=value=>typeof value==='string'?value.trim().toLowerCase().replace(/\s+/g,' '):'';
+ for(const row of rows){
+  const classification=classify(row),accession=String(row.accession||row.adsh||'').trim().replace(/-/g,''),sourceRef=accession||row.bdif_numero||row.sourceUrl||row.url||'',line=String(row.transactionId??row.lineId??row.transactionIndex??row.lineIndex??'');
+  const metadata=[text(row.securityTitle||row.security_title||row.security||row.instrument)||null,text(row.ownershipNature||row.directOrIndirectOwnership)||null,number(row.sharesAfter)];
+  const rawCode=executionCode(row),ad=String(row.ad||row.adType||'').toUpperCase(),side=ad==='D'||['S','F','D'].includes(rawCode)||classification.type==='sell'?'disposed':'acquired';
+  // A source filing and economic line let a corrected code supersede its old copy.
+  // Otherwise keep the old code/type separation; matching amounts alone are not proof.
+  const key=JSON.stringify([ticker(row.ticker),currency(row),identify(row),sourceRef,sourceRef?'':row.source||'',line,publication(row),trade(row),sourceRef?side:classification.type,sourceRef?'':rawCode,number(row.shares),number(row.price),number(row.value),...(sourceRef?[]:metadata)]);
+  const negative=row.purchaseSignalEligible===false||classification.status==='excluded'&&(classification.reason!=='not-purchase'||classification.type==='other');
+  const priority=negative?3:classification.status==='unknown'&&rawCode?2:classification.eligiblePurchase||classification.type==='sell'?1:0;
+  const notes=Array.isArray(row.transactionFootnotes)?row.transactionFootnotes.slice(0,32):[];
+  const richness=metadata.filter(v=>v!==null).length+notes.reduce((sum,note)=>sum+(typeof note==='string'?note.length:typeof note?.text==='string'?note.text.length:0),0);
+  const candidate={row,classification,metadata,priority,richness};if(!groups.has(key))groups.set(key,[]);groups.get(key).push(candidate);
+ }
+ const result=[],compatible=(a,b)=>a.every((value,index)=>value===null||b[index]===null||value===b[index]);
+ const prefer=(a,b)=>a.priority-b.priority||a.richness-b.richness||Number(a.classification.planned)-Number(b.classification.planned)||a.classification.reason.localeCompare(b.classification.reason);
+ for(const candidates of groups.values()){
+  // Specific instrument/ownership metadata is resolved before sparse legacy copies.
+  candidates.sort((a,b)=>b.metadata.filter(v=>v!==null).length-a.metadata.filter(v=>v!==null).length||prefer(b,a));
+  const variants=[];
+  for(const candidate of candidates){
+   const matches=variants.filter(variant=>compatible(variant.metadata,candidate.metadata));
+   if(!matches.length){variants.push(candidate);continue;}
+   if(matches.length>1){
+    // A sparse copy cannot add a purchase to several already identified variants.
+    // Ambiguous negative evidence also cannot prove which variant qualifies.
+    if(candidate.priority>=2)for(const variant of matches){if(variant.classification.eligiblePurchase){variant.row={...variant.row,purchaseSignalEligible:false,purchaseSignalReason:'unknown'};variant.classification=classify(variant.row);variant.priority=2;}}
+    continue;
+   }
+   const existing=matches[0],metadata=existing.metadata.map((value,index)=>value??candidate.metadata[index]);
+   if(prefer(candidate,existing)>0)Object.assign(existing,candidate);existing.metadata=metadata;
+  }
+  result.push(...variants.map(({row})=>({...row,type:classify(row).type})));
+ }
+ return result;
+}
 function sum(rows){let total=0;for(const row of rows){const value=number(row.value);if(value===null)return null;total+=value;}return total;}
 const amountRank=value=>value===null?-Infinity:value;
 function groupRows(rows){const groups=new Map();for(const row of rows){if(!validTicker(row.ticker))continue;const key=ticker(row.ticker)+'|'+currency(row);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);}return groups.values();}
@@ -45,5 +80,5 @@ function crossovers(groups,source,{days=7,now}={}){if(source?.available!==true)r
   const eventKind=filing.isFirstFiling===true&&!/\/A$/i.test(form)?'initial':number(filing.sharesDelta)>0?'increase':'amendment';if(!bySymbol.has(symbol))bySymbol.set(symbol,[]);bySymbol.get(symbol).push({...filing,eventKind});
  }const independent=(filing,group)=>{const id=cik(filing.filerCik),label=name(filing.filerName),buyers=group.buyerDetails||[];if((!id&&!label)||!buyers.length)return false;return !buyers.some(buyer=>id&&buyer.id.startsWith('cik:')?'cik:'+id===buyer.id:!!label&&name(buyer.name)===label);};
  return {available:true,rows:groups.filter(group=>bySymbol.has(group.ticker)).map(group=>({...group,activistFilings:bySymbol.get(group.ticker).filter(f=>independent(f,group))})).filter(group=>group.activistFilings.length).sort(rank)};}
-return {convergences,purchases,crossovers,deduplicate,validTicker,day};
+return {convergences,purchases,crossovers,deduplicate,validTicker,day,classify};
 });

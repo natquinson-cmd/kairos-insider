@@ -1,3 +1,4 @@
+import {classifyInsiderTransaction,insiderTransactionEvidence} from './insider-transaction.js';
 const DAY=86400000;
 const canonicalName=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).sort().join(' ');
 const canonicalCik=value=>/^\d+$/.test(String(value||'').trim())?String(value).trim().replace(/^0+/,'')||null:null;
@@ -32,7 +33,7 @@ export function currentActivistFilings(payload,now){
   return groups;
 }
 
-const compactPurchase=event=>({id:event.id,insider:event.insider,insiderCik:event.insiderCik,tradeDate:event.tradeDate,fileDate:event.fileDate});
+const compactPurchase=event=>({...insiderTransactionEvidence(event),type:'buy',transactionCode:event.transactionCode||event.transCode||event.trans_code||null,id:event.id,insider:event.insider,insiderCik:event.insiderCik,tradeDate:event.tradeDate,fileDate:event.fileDate});
 const tradeRange=purchases=>{const days=purchases.map(p=>p.tradeDate).sort();return {firstTradeDate:days[0],lastTradeDate:days.at(-1)};};
 
 // State is per subscribed ticker/channel. Empty or unavailable source data never
@@ -41,9 +42,9 @@ export function advanceWatchlistConvergence({events,previous,seen,bootstrap,fili
   const today=new Date(now).toISOString().slice(0,10),cutoff=new Date(now-30*DAY).toISOString().slice(0,10);
   const freshFilingCutoff=new Date(now-7*DAY).toISOString().slice(0,10);
   const datedPurchase=event=>recent(event.tradeDate,cutoff,today)&&recent(event.fileDate,cutoff,today)&&event.tradeDate<=event.fileDate;
-  const eligible=event=>event.type==='buy'&&datedPurchase(event);
+  const eligible=event=>classifyInsiderTransaction(event).eligiblePurchase&&datedPurchase(event);
   const ordered=[...events].sort((a,b)=>a.fileDate.localeCompare(b.fileDate)||(a.tradeDate||'').localeCompare(b.tradeDate||'')||a.id.localeCompare(b.id));
-  const purchases=new Map((previous?.purchases||[]).filter(datedPurchase).map(p=>[p.id,p]));
+  const purchases=new Map((previous?.purchases||[]).filter(eligible).map(p=>[p.id,p]));
   for(const event of ordered)if(eligible(event)&&(bootstrap||seen.has(event.id)))purchases.set(event.id,compactPurchase(event));
   const identity=identityResolver([...purchases.values(),...ordered.filter(eligible)]),discovered=[];
   for(const event of ordered){

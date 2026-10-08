@@ -1,6 +1,7 @@
 import {finiteNumber} from './financial-normalization.js';
 import {lookupEuYahooSymbol} from './eu_yahoo_symbols.js';
 import {currentActivistFilings,advanceWatchlistConvergence,allowsConvergenceEvent} from './watchlist-convergences.js';
+import {classifyInsiderTransaction,withInsiderTransactionEvidence,insiderTransactionEvidence,preferInsiderTransactionEvidence,aggregateInsiderSignalRows} from './insider-transaction.js';
 
 const DAY=86400000;
 const date=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)&&Number.isFinite(Date.parse(value.slice(0,10)))?value.slice(0,10):null;
@@ -12,11 +13,10 @@ export function telegramAlertPreferences(existing={},patch={}){
   if(Object.hasOwn(patch,'lang')){if(!['fr','en'].includes(patch.lang))throw new Error('Invalid language');result.lang=patch.lang;}
   return result;
 }
-export function normalizeInsiderMovement(row){
+export function normalizeInsiderMovement(row,{forAlert=false,includeExcluded=false}={}){
   if(!row||typeof row!=='object')return null;
-  const code=String(row.transactionCode||row.transCode||row.transType||row.type||'').toLowerCase();
-  const type=['p','buy','purchase','achat'].includes(code)?'buy':['s','sell','sale','vente'].includes(code)?'sell':null;
-  const fileDate=date(row.fileDate||row.filingDate);if(!type||!fileDate)return null;
+  const classification=classifyInsiderTransaction(row),type=classification.type;
+  const fileDate=date(row.fileDate||row.filingDate);if(type==='other'&&!includeExcluded||!fileDate||forAlert&&type==='buy'&&!classification.eligiblePurchase)return null;
   const source=String(row.source||'').toLowerCase(),country=String(row.market||row.country||({amf:'FR',bafin:'DE',fca:'GB',afm:'NL',six:'CH'})[source]||'').toUpperCase();
   const explicitYahoo=typeof row.yahooSymbol==='string'&&/^[A-Z0-9.\-]{1,12}$/i.test(row.yahooSymbol.trim());
   let ticker=String(row.yahooSymbol||row.ticker||'').trim().toUpperCase();
@@ -27,7 +27,7 @@ export function normalizeInsiderMovement(row){
   }
   if(!/^[A-Z0-9.\-]{1,12}$/.test(ticker)||isEu&&!explicitYahoo&&!ticker.includes('.'))return null;
   const sourceUrl=safeUrl(row.sourceUrl||row.url)||(source==='amf'&&row.bdif_pdf_path?safeUrl('https://bdif.amf-france.org/back/api/v1/documents/'+row.bdif_pdf_path):null);
-  const event={ticker,type,fileDate,tradeDate:date(row.date||row.transDate||row.tradeDate),insider:String(row.insider||row.insiderName||''),insiderCik:row.insiderCik||row.insider_cik||row.reportingOwnerCik||null,company:String(row.company||ticker),currency:String(row.currency||''),value:finiteNumber(row.value),shares:finiteNumber(row.shares),source:source?source.toUpperCase():'—',sourceUrl};
+  const event=withInsiderTransactionEvidence({...insiderTransactionEvidence(row),transactionCode:row.transactionCode||row.transCode||row.trans_code||null,ticker,type,fileDate,tradeDate:date(row.date||row.transDate||row.tradeDate),insider:String(row.insider||row.insiderName||''),insiderCik:row.insiderCik||row.insider_cik||row.reportingOwnerCik||null,company:String(row.company||ticker),currency:String(row.currency||''),value:finiteNumber(row.value),shares:finiteNumber(row.shares),source:source?source.toUpperCase():'—',sourceUrl});
   event.id=JSON.stringify([source,row.accession||row.adsh||row.bdif_numero||sourceUrl||'',ticker,event.insider,event.tradeDate,fileDate,type,event.shares,finiteNumber(row.price),event.value,event.currency]);
   return event;
 }
@@ -56,10 +56,27 @@ export function isInsiderQuietHours(prefs={},now=new Date()){
 }
 function currentMovements(payload,now){
   if(!Array.isArray(payload?.transactions))return null;
-  const cutoff=new Date(now-30*DAY).toISOString().slice(0,10),today=new Date(now).toISOString().slice(0,10),groups=new Map();
-  for(const row of payload.transactions){const event=normalizeInsiderMovement(row);if(!event||event.fileDate<cutoff||event.fileDate>today)continue;if(!groups.has(event.ticker))groups.set(event.ticker,new Map());groups.get(event.ticker).set(event.id,event);}
-  return {cutoff,groups};
+  const cutoff=new Date(now-30*DAY).toISOString().slice(0,10),today=new Date(now).toISOString().slice(0,10),groups=new Map(),rejections=new Set();
+  for(const row of preferInsiderTransactionEvidence(payload.transactions)){
+    const event=normalizeInsiderMovement(row,{includeExcluded:true});if(!event||event.fileDate<cutoff||event.fileDate>today)continue;
+    if(event.purchaseSignalStatus==='excluded'&&event.purchaseSignalReason!=='not-purchase'){
+      const key=movementObservationKey(event);if(key)rejections.add(key);continue;
+    }
+    if(event.type!=='sell'&&!event.purchaseSignalEligible)continue;
+    if(!groups.has(event.ticker))groups.set(event.ticker,new Map());groups.get(event.ticker).set(event.id,event);
+  }
+  for(const events of groups.values())for(const [id,event] of events)if(rejectedObservation(event,rejections))events.delete(id);
+  return {cutoff,groups,rejections};
 }
+// The persisted event identity retains the filing and economic fill even when
+// compact convergence observations no longer contain those source fields.
+// Ignore only its broad type so an explicit P -> grant correction can revoke
+// the same observation. Missing/partial feeds and other fills revoke nothing.
+function movementObservationKey(event){
+  try{const parts=JSON.parse(event.id);if(!Array.isArray(parts)||parts.length!==11||!parts[1])return null;return JSON.stringify([...parts.slice(0,6),...parts.slice(7)]);}catch{return null;}
+}
+const rejectedObservation=(event,rejections)=>{const key=movementObservationKey(event);return key!==null&&rejections.has(key);};
+const reconcileObservations=(previous,rejections)=>previous?{...previous,purchases:(previous.purchases||[]).filter(event=>!rejectedObservation(event,rejections))}:previous;
 // Called only by authenticated configuration/confirmation handlers, never sends.
 // This closes the activation-to-next-cron gap while retaining silent fallback.
 export async function seedInsiderMovementBaseline(env,sub,channel,now=Date.now()){
@@ -67,9 +84,9 @@ export async function seedInsiderMovementBaseline(env,sub,channel,now=Date.now()
   const activists=currentActivistFilings(await env.CACHE.get('13dg-recent','json').catch(()=>null),now);
   const key=`insider-alert-state:${channel}:${sub.uid}`,old=await env.CACHE.get(key,'json'),activation=sub[channel+'Activation']||0;
   const fresh=!old?.enabled||old.activation!==activation;
-  const next={enabled:true,activation,tickers:{},pending:fresh?[]:(old.pending||[]).filter(e=>sub.watchlist.has(e.ticker)&&e.fileDate>=current.cutoff)};
+  const next={enabled:true,activation,tickers:{},pending:fresh?[]:(old.pending||[]).filter(e=>!rejectedObservation(e,current.rejections)&&sub.watchlist.has(e.ticker)&&e.fileDate>=current.cutoff&&(e.type==='activist-purchase'||classifyInsiderTransaction(e).type==='sell'||classifyInsiderTransaction(e).eligiblePurchase))};
   for(const ticker of sub.watchlist){
-    const token=sub.watchStartedAt?.[ticker]||0,previous=fresh?null:old.tickers?.[ticker];
+    const token=sub.watchStartedAt?.[ticker]||0,previous=fresh?null:reconcileObservations(old.tickers?.[ticker],current.rejections);
     if(previous&&previous.token===token){next.tickers[ticker]=previous;continue;}
     const events=[...(current.groups.get(ticker)?.values()||[])],context=advanceWatchlistConvergence({events,previous:null,seen:new Map(),bootstrap:true,filings:activists===null?null:[...(activists.get(ticker)?.values()||[])],now});
     next.tickers[ticker]={token,seen:events.map(event=>[event.id,event.fileDate]),purchases:context.purchases,activists:context.activists};
@@ -84,7 +101,7 @@ export async function runInsiderMovementAlerts(env,subscribers,{sendEmail,sendTe
   const payload=await env.CACHE.get('insider-transactions','json');
   const summary={checked:0,email:0,telegram:0,pending:0,errors:0,bootstrapped:0};
   const current=currentMovements(payload,now);if(!current)return summary;
-  const {cutoff,groups}=current;
+  const {cutoff,groups,rejections}=current;
   const activists=currentActivistFilings(await env.CACHE.get('13dg-recent','json').catch(()=>null),now);
   for(const sub of subscribers){
     for(const channel of ['email','telegram']){
@@ -94,10 +111,10 @@ export async function runInsiderMovementAlerts(env,subscribers,{sendEmail,sendTe
         const previous=await env.CACHE.get(stateKey,'json');
         if(!enabled){if(previous?.enabled)await env.CACHE.put(stateKey,JSON.stringify({enabled:false,activation,tickers:{},pending:[]}));continue;}
         const fresh=!previous?.enabled||previous.activation!==activation;
-        const next={enabled:true,activation,tickers:{},pending:fresh?[]:(previous.pending||[]).filter(e=>sub.watchlist.has(e.ticker)&&e.fileDate>=cutoff&&allowsConvergenceEvent(sub,channel,e))};
+        const next={enabled:true,activation,tickers:{},pending:fresh?[]:(previous.pending||[]).filter(e=>!rejectedObservation(e,rejections)&&sub.watchlist.has(e.ticker)&&e.fileDate>=cutoff&&allowsConvergenceEvent(sub,channel,e)&&(e.type==='activist-purchase'||classifyInsiderTransaction(e).type==='sell'||classifyInsiderTransaction(e).eligiblePurchase))};
         const pending=new Map(next.pending.map(e=>[e.id,e]));
         for(const ticker of sub.watchlist){
-          const token=sub.watchStartedAt?.[ticker]||0,old=fresh?null:previous.tickers?.[ticker];
+          const token=sub.watchStartedAt?.[ticker]||0,old=fresh?null:reconcileObservations(previous.tickers?.[ticker],rejections);
           const bootstrap=!old||old.token!==token,seen=new Map(bootstrap?[]:(old.seen||[]).filter(([,day])=>day>=cutoff));
           if(bootstrap){summary.bootstrapped++;for(const [id,e]of pending)if(e.ticker===ticker)pending.delete(id);}
           const events=[...(groups.get(ticker)?.values()||[])],context=advanceWatchlistConvergence({events,previous:bootstrap?null:old,seen,bootstrap,filings:activists===null?null:[...(activists.get(ticker)?.values()||[])],now});
@@ -110,6 +127,15 @@ export async function runInsiderMovementAlerts(env,subscribers,{sendEmail,sendTe
         await env.CACHE.put(stateKey,JSON.stringify(next));
         const remaining=[];let attempts=0;
         for(let event of next.pending){
+          // Previously queued crossovers may have relied on a legacy grant.
+          // Rebuild their support from the evidence-qualified state, including
+          // during source outages, before a retry can reach either channel.
+          if(event.convergence){
+            const support=(next.tickers[event.ticker]?.purchases||[]).filter(p=>classifyInsiderTransaction(p).eligiblePurchase&&p.tradeDate<=event.fileDate);
+            const buyers=aggregateInsiderSignalRows(support.map(p=>({...p,ticker:event.ticker,date:p.tradeDate}))).reduce((sum,g)=>sum+g.buyInsiders,0);
+            if(event.type==='activist-purchase'&&!buyers)continue;
+            if(event.convergence.kind==='buyers'&&buyers<2){const {convergence,...filing}=event;event=filing;}
+          }
           // Transport delays must not turn an expired trade window into a fresh
           // convergence. The original individual filing remains deliverable.
           if(event.convergence&&(event.convergence.firstTradeDate<cutoff||event.fileDate<new Date(now-7*DAY).toISOString().slice(0,10))){

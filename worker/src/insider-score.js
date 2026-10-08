@@ -1,4 +1,5 @@
 import { finiteNumber } from './financial-normalization.js';
+import { classifyInsiderTransaction, insiderTransactionEvidence, preferInsiderTransactionEvidence } from './insider-transaction.js';
 
 const DAY = 86400000;
 export const INSIDER_SCORING_CONFIG_KEY = 'config:insider-scoring';
@@ -26,10 +27,7 @@ export function validateInsiderScoringConfig(input = {}) {
 }
 
 export function insiderTransactionType(row) {
-  const code = String(row.transactionCode || row.transCode || row.trans_code || row.transType || row.type || '').trim().toLowerCase();
-  if (['p', 'buy', 'purchase', 'achat'].includes(code)) return 'buy';
-  if (['s', 'sell', 'sale', 'vente'].includes(code)) return 'sell';
-  return 'other';
+  return classifyInsiderTransaction(row).type;
 }
 
 function day(value) {
@@ -72,6 +70,7 @@ const validChronology = (row, today) => {
 // Filing/accession IDs do not identify distinct economic purchases. Conversely,
 // two identified people may genuinely buy identical quantities on the same day.
 export function deduplicateInsiderTransactions(rows, { now = Date.now() } = {}) {
+  rows = preferInsiderTransactionEvidence(rows);
   const today = Math.floor(now / DAY) * DAY;
   const groups = new Map(), person = identityResolver(rows);
   rows.forEach((row, index) => {
@@ -86,7 +85,10 @@ export function deduplicateInsiderTransactions(rows, { now = Date.now() } = {}) 
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   });
-  const quality = row => Number(validChronology(row, today)) * 64 + Number(dollarValue(row) != null) * 16
+  const quality = row => Number(validChronology(row, today)) * 256
+    + Number(classifyInsiderTransaction(row).status === 'excluded') * 64
+    + Number(Object.values(insiderTransactionEvidence(row)).some(value => Array.isArray(value) ? value.length : value != null && value !== '')) * 32
+    + Number(dollarValue(row) != null) * 16
     + Number(finiteNumber(row.valueUsd) != null && finiteNumber(row.valueUsd) >= 0) * 8
     + Number(identity(row)?.startsWith('cik:')) * 4 + Number(finiteNumber(row.price) != null);
   const stable = row => JSON.stringify(row, Object.keys(row).sort());
@@ -131,7 +133,7 @@ export function computeInsiderScore(insiders = {}, { config, now = Date.now(), m
   const rows = deduplicateInsiderTransactions(sourceAvailable ? insiders.transactions : [], { now });
   const resolvePerson = identityResolver(sourceAvailable ? insiders.transactions : []);
   const s = {
-    method: 'purchase-first-v1', parameters, buyCount: 0, sellCount: 0, uniqueBuyers: 0, recentBuyers: 0, repeatedBuyers: 0,
+    method: 'purchase-evidence-v2', parameters, buyCount: 0, sellCount: 0, uniqueBuyers: 0, recentBuyers: 0, repeatedBuyers: 0,
     effectiveBuyCount: 0, effectiveSellCount: 0, buyValueUsd: 0, sellValueUsd: 0, recentBuyValueUsd: 0,
     buyTotalsByCurrency: {}, sellTotalsByCurrency: {}, buyAmountBonus: 0, saleAmountBonus: 0,
     convergence: false, convergenceBonus: 0, repeatBonus: 0, dateFallbackCount: 0, excludedDateCount: 0,
@@ -141,8 +143,8 @@ export function computeInsiderScore(insiders = {}, { config, now = Date.now(), m
   let relevantCount = 0, recentBuyValue = 0;
   const cap = finiteNumber(marketCap), useMarketCap = marketCapCurrency === 'USD' && cap > 0;
   for (const row of rows) {
-    const type = insiderTransactionType(row);
-    if (type === 'other') continue; // Grants, exercises and other non-market transfers.
+    const classification = classifyInsiderTransaction(row), type = classification.type;
+    if (type === 'other' || type === 'buy' && !classification.eligiblePurchase) continue;
     relevantCount++;
     const traded = tradeDay(row), filed = filingDay(row), eventDay = traded ?? filed;
     if (eventDay == null || eventDay > today || !validChronology(row, today)) { s.excludedDateCount++; continue; }

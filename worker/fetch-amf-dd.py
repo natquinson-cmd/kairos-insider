@@ -218,6 +218,7 @@ RE_DATE_PUB = re.compile(r'DATE DE RECEPTION[^:]*:\s*([^\n]+?)\s*\n', re.IGNOREC
 
 def parse_amf_dd_pdf(pdf_bytes, debug=False):
     """Parse un PDF AMF DD. Retourne dict avec les champs, ou None si echec."""
+    from insider_transaction import classify_transaction
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
         text = '\n'.join(p.extract_text() or '' for p in reader.pages)
@@ -265,14 +266,8 @@ def parse_amf_dd_pdf(pdf_bytes, debug=False):
             print(f'  Skip : isin={isin}, person={person}, vol={volume}, prix={prix}')
         return None
 
-    # Determine type SEC-compat : Acquisition = P (buy), Cession = S (sale)
-    nature_lower = (nature or '').lower()
-    if 'acqui' in nature_lower or 'achat' in nature_lower or 'souscript' in nature_lower:
-        tx_type = 'P'
-    elif 'cession' in nature_lower or 'vente' in nature_lower:
-        tx_type = 'S'
-    else:
-        tx_type = '?'  # autres (donation, attribution gratuite, etc.)
+    # Exclusions precede acquisition matching (including free-share deliveries).
+    classification = classify_transaction({'source': 'amf', 'code': nature, 'securityTitle': instrument})
 
     return {
         'isin': isin,
@@ -287,7 +282,7 @@ def parse_amf_dd_pdf(pdf_bytes, debug=False):
         'price': round(prix, 4),
         'volume': round(volume, 4),
         'value': round(prix * volume, 2),
-        'type': tx_type,
+        **classification,
     }
 
 
@@ -362,6 +357,9 @@ def main():
             'title': '',  # extrait du person field si besoin
             'type': parsed['type'],
             'code': parsed['nature_raw'] or '',
+            'securityTitle': parsed['instrument'],
+            'purchaseSignalEligible': parsed['purchaseSignalEligible'],
+            'purchaseSignalReason': parsed['purchaseSignalReason'],
             'shares': parsed['volume'],
             'price': parsed['price'],
             'value': parsed['value'],

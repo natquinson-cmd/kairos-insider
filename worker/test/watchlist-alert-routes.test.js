@@ -50,7 +50,7 @@ test('verified owner gets event preferences without paid subscription and preser
 });
 test('explicit email confirmation seeds current data without activating legacy digest; unsubscribe stops both',async t=>{
   const h=harness(t,{uid:'confirm'});const today=new Date().toISOString().slice(0,10);
-  h.store.set('insider-transactions',{transactions:[{ticker:'AAPL',type:'buy',fileDate:today,date:today,insider:'Person',accession:'old'}]});
+  h.store.set('insider-transactions',{transactions:[{ticker:'AAPL',type:'buy',code:'P',fileDate:today,date:today,insider:'Person',accession:'old'}]});
   let response=await h.request('/api/watchlist/sync',{tickers:['AAPL'],emailAlerts:false,emailInsiderAlerts:true,sendConfirmation:true,lang:'en'});assert.equal(response.status,200);assert.equal(h.calls.length,1);
   assert.equal(h.calls[0].subject,'Confirm your Kairos Insider watchlist');assert.match(h.calls[0].htmlContent,/Confirm my email alerts/);assert.match(h.calls[0].textContent,/each disclosed insider purchase or sale/);assert.doesNotMatch(h.calls[0].htmlContent,/Confirmez|quotidien/);
   const confirmUrl=h.calls[0].htmlContent.match(/href="([^" ]*\/watchlist\/confirm\?[^" ]+)"/)[1];
@@ -80,7 +80,7 @@ test('offline Telegram individual delivery is plain text and preserves explicit 
   h.store.set('tg:telegram-only',{chatId:'42',alertPrefs:{new13d:false,insiderCluster:false,euThreshold:false,quietHoursStart:0,quietHoursEnd:0}});
   h.store.set('insider-transactions',{transactions:[]});
   assert.equal((await h.request('/api/telegram/preferences',{insiderTransactions:true,lang:'en'})).status,200);
-  h.store.set('insider-transactions',{transactions:[{ticker:'AAPL',type:'buy',source:'sec',sourceUrl:'https://www.sec.gov/a_file.xml',fileDate:today,date:today,insider:'A_[Reader]',accession:'new'}]});
+  h.store.set('insider-transactions',{transactions:[{ticker:'AAPL',type:'buy',code:'P',source:'sec',sourceUrl:'https://www.sec.gov/a_file.xml',fileDate:today,date:today,insider:'A_[Reader]',accession:'new'}]});
   const pending=[];await worker.scheduled({cron:'*/5 * * * *'},h.env,{waitUntil(p){pending.push(p);}});await Promise.all(pending);
   assert.equal(h.telegramCalls.length,1);assert.equal(h.calls.length,0);assert.equal(Object.hasOwn(h.telegramCalls[0],'parse_mode'),false);assert.match(h.telegramCalls[0].text,/https:\/\/www.sec.gov\/a_file.xml/);assert.match(h.telegramCalls[0].text,/Purchase/);
 });

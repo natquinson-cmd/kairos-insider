@@ -7,7 +7,7 @@ A appeler depuis GitHub Actions APRES prefetch-all.py et merge-sources.py :
 Strategie :
 - Lit insider_transactions.json (produit par merge-sources.py) et/ou all_transactions.json (SEC only)
 - Chaque transaction est normalisee vers le schema insider_transactions_history
-- INSERT OR IGNORE pour eviter les doublons sur (source, accession, cik, insider, trans_date, trans_type, line_num)
+- INSERT OR IGNORE + enrichissement garde des preuves sur une cle existante identique
 - Genere un fichier SQL temporaire puis l'execute via wrangler d1 execute
 
 KV garde un cache rolling 90j pour l'UI rapide ;
@@ -26,9 +26,9 @@ DB_NAME = 'kairos-history'
 
 # ---------------------------------------------------------------------------
 # Mode d'insertion D1 (FIX COUT juin 2026).
-# Par defaut : INSERT OR IGNORE. Les filings SEC/AMF/BaFin sont IMMUABLES, donc
-# on ne reecrit JAMAIS une row existante -> en steady state, seules les NOUVELLES
-# transactions comptent comme "rows written" D1.
+# Par defaut : INSERT OR IGNORE. Les preuves d'une ligne deja presente peuvent
+# etre enrichies seulement si sa reference et ses montants correspondent.
+# Le garde SQL ne reecrit pas les preuves identiques : le cron reste idempotent.
 #
 # CRUCIAL : ce script tourne TOUTES LES HEURES (realtime-form4-30min). En mai
 # 2026, le mode avait ete passe a OR REPLACE pour un back-enrichissement PONCTUEL
@@ -98,18 +98,17 @@ def normalize_type(t):
 
 
 def normalize_code(c):
-    """Normalise un code SEC vers un caractere unique majuscule.
-    Codes SEC valides : P S A D F M G I J C X W L V Z H E O K T U Y.
-    Pour BaFin/AMF qui n'ont pas de code lettre, retourne NULL (=> ''/None)."""
+    """Preserve source nature text; SEC letters alone are uppercased."""
     if not c: return None
-    c = str(c).strip().upper()
+    c = str(c).strip()
     if len(c) == 1 and c.isalpha():
-        return c
-    return None
+        return c.upper()
+    return c or None
 
 
 def collect_inserts():
     """Rassemble toutes les transactions depuis les sources locales."""
+    from insider_transaction import classify_transaction, evidence_json, raw_code, history_evidence_upsert
     sql_lines = []
     seen_keys = set()  # dedup local pour ne pas balancer des doublons dans le SQL
     total_in = 0
@@ -162,27 +161,23 @@ def collect_inserts():
             # de la personne (cross-company). NULL pour BaFin/AMF (pas de CIK SEC).
             insider_cik = str(tx.get('insiderCik') or tx.get('owner_cik') or '').lstrip('0') or ''
             title = tx.get('title') or tx.get('role') or ''
-            trans_type = normalize_type(tx.get('type'))
-            # Code SEC brut (P/S/A/D/F/M/G/...) - NULL pour BaFin/AMF qui n'ont pas
-            # de lettre code. Permet le label friendly cote UI (Don/Vesting/etc.)
-            trans_code = normalize_code(tx.get('code') or tx.get('trans_code'))
-
-            # DEFENSE EN PROFONDEUR (mai 2026) : si on a un code SEC 1-letter et
-            # qu'il n'est PAS P (buy) ou S (sell), on force trans_type a 'other'
-            # meme si l'input dit 'buy' / 'sell'. Catch les anciens JSON ingestes
-            # avec la regle bugguee "is_sell = code=='S' or (ad=='D' && price>0)"
-            # qui classait F (Tax Withholding), M (Exercise), A (Grant), etc. en
-            # sell/buy a tort. Le frontend filtre maintenant strict sur code, ce
-            # garde-fou backend assure que les agregations D1 (per-stock card,
-            # heatmap, signals) soient ALSO strict, meme avant re-prefetch complet.
-            if trans_code and trans_code not in ('P', 'S') and trans_type in ('buy', 'sell'):
+            source_row = dict(tx, source=source)
+            classification = classify_transaction(source_row)
+            # Historical SQL aggregates see only eligible purchases as buys.
+            # The original operation/evidence remains available for the filing UI.
+            trans_type = classification['type']
+            if trans_type == 'buy' and not classification['purchaseSignalEligible']:
                 trans_type = 'other'
+            trans_code = normalize_code(raw_code(tx))
+            evidence_payload = evidence_json(source_row)
             shares = tx.get('shares')
             price = tx.get('price')
             value = tx.get('value')
             shares_after = tx.get('sharesAfter')
             filing_date = tx.get('fileDate') or tx.get('filingDate') or tx.get('date') or TODAY
-            trans_date = tx.get('date') or filing_date
+            # Publication is not evidence of execution. Empty text is a stable
+            # component of the existing composite key; NULL would evade dedup.
+            trans_date = tx.get('date') or ''
 
             if not insider or not trans_type:
                 continue
@@ -208,6 +203,7 @@ def collect_inserts():
                 'source': source, 'accession': accession, 'cik': cik, 'ticker': ticker,
                 'company': company, 'insider': insider, 'insider_cik': insider_cik,
                 'title': title, 'trans_type': trans_type, 'trans_code': trans_code,
+                'transaction_evidence': evidence_payload,
                 'shares': shares, 'price': price, 'value': value,
                 'shares_after': shares_after, 'filing_date': filing_date, 'trans_date': trans_date,
             }
@@ -225,6 +221,7 @@ def collect_inserts():
                 title = t['title']
                 trans_type = t['trans_type']
                 trans_code = t['trans_code']
+                evidence_payload = t['transaction_evidence']
                 shares = t['shares']
                 price = t['price']
                 value = t['value']
@@ -246,12 +243,13 @@ def collect_inserts():
                 sql_lines.append(
                     f"{INSERT_VERB} INTO insider_transactions_history "
                     f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                    f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
+                    f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num, transaction_evidence) "
                     f"VALUES ({esc(filing_date)}, {esc(trans_date)}, {esc(source)}, "
                     f"{esc(accession)}, {esc(cik)}, {esc(ticker)}, {esc(company)}, "
                     f"{esc(insider)}, {esc(insider_cik)}, {esc(title)}, {esc(trans_type)}, {esc(trans_code)}, "
                     f"{integer(shares)}, {num(price)}, {num(value)}, "
-                    f"{integer(shares_after)}, {integer(line_num)});"
+                    f"{integer(shares_after)}, {integer(line_num)}, {esc(evidence_payload)})"
+                    + (history_evidence_upsert() if INSERT_VERB == 'INSERT OR IGNORE' else '') + ';'
                 )
 
     print(f'  Total: {total_in} tx lues, {len(sql_lines)} INSERT prets (dedup local)')

@@ -25,76 +25,10 @@ def curl_fetch(url):
         return None
 
 def parse_form4(xml):
-    """Parse un Form 4 XML complet."""
-    def get_simple(tag):
-        m = re.search(rf'<{tag}>([^<]*)</{tag}>', xml)
-        return m.group(1).strip() if m else ''
-
-    # FIX (mai 2026) : decode HTML entities (idem prefetch-all.py)
-    import html as _html_mod
-    _decode = lambda s: _html_mod.unescape(s) if s else s
-    ticker = _decode(get_simple('issuerTradingSymbol'))
-    company = _decode(get_simple('issuerName'))
-    owner = _decode(get_simple('rptOwnerName'))
-    title = _decode(get_simple('officerTitle'))
-
-    transactions = []
-    for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):
-        block = match.group(1)
-        def get_val(tag):
-            m = re.search(rf'<{tag}>\s*<value>([^<]*)</value>', block, re.DOTALL)
-            return m.group(1).strip() if m else ''
-        # FIX (mai 2026) : voir prefetch-all.py meme commentaire.
-        # transactionCode est BARE dans le SEC Form 4 XML.
-        def get_bare(tag):
-            m = re.search(rf'<{tag}>\s*([^<\s][^<]*?)\s*</{tag}>', block)
-            return m.group(1).strip() if m else ''
-
-        code = get_bare('transactionCode')
-        shares = float(get_val('transactionShares') or 0)
-        price = float(get_val('transactionPricePerShare') or 0)
-        ad = get_val('transactionAcquiredDisposedCode')
-        date = get_val('transactionDate')
-        shares_after = float(get_val('sharesOwnedFollowingTransaction') or 0)
-
-        # Ignorer les transactions sans actions
-        if shares <= 0:
-            continue
-
-        # Ignorer les dates dans le futur (erreurs de saisie)
-        today_str = now.strftime('%Y-%m-%d')
-        if date and date > today_str:
-            continue
-
-        # FIX (mai 2026) : STRICT P/S uniquement. Avant on avait :
-        #   is_sell = code == 'S' or (ad == 'D' and price > 0)
-        # qui capturait a tort code='F' (Tax Withholding : ad='D' + price>0
-        # car valeur des shares retenues pour impot lors d'un vesting).
-        # Resultat : TAX WITHHOLD apparaissait comme 'sell' dans Explore
-        # et gonflait les sellCount / netFlow du per-stock card.
-        # Maintenant strict : seul P=open-market buy, seul S=open-market sell.
-        # Tout le reste (A=Grant, F=TaxWithhold, M=Exercise, G=Gift...) = 'other'.
-        is_buy = code == 'P'
-        is_sell = code == 'S'
-
-        transactions.append({
-            'date': date,
-            'code': code,
-            'ad': ad,
-            'shares': round(shares),
-            'price': round(price, 2),
-            'value': round(shares * price, 2),
-            'sharesAfter': round(shares_after),
-            'type': 'buy' if is_buy else 'sell' if is_sell else 'other',
-        })
-
-    return {
-        'ticker': ticker,
-        'company': company,
-        'owner': owner,
-        'title': title,
-        'transactions': transactions,
-    }
+    """Parse source evidence consistently for live and historical collection."""
+    from insider_transaction import parse_form4_document
+    result = parse_form4_document(xml, now.strftime("%Y-%m-%d"))
+    return result
 
 # ============================================================
 # MAIN
@@ -176,8 +110,9 @@ for day_offset in range(0, 30):
                 # alors que parse_form4 les extrait correctement -> labels granulaires
                 # impossibles cote UI ('AUTRE' partout au lieu de DON/VESTING/etc.)
                 all_transactions.append({
+                    **tx,
                     'fileDate': file_date,
-                    'date': tx['date'] or file_date,
+                    'date': tx['date'] or None,
                     'ticker': parsed['ticker'],
                     'company': parsed['company'],
                     'insider': parsed['owner'],

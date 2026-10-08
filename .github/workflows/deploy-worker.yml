@@ -11,6 +11,10 @@ on:
     paths:
       - 'worker/src/**'
       - 'worker/wrangler.toml'
+      - 'worker/migrations/006_add_transaction_evidence.sql'
+      - 'worker/scripts/ensure-transaction-evidence.mjs'
+      - 'assets/insider-transaction.js'
+      - '.github/workflows/deploy-worker.yml'
 
 jobs:
   deploy:
@@ -30,6 +34,12 @@ jobs:
           cd worker
           # wrangler est en devDependency dans worker/, on l'utilise via npx
           npm install --save-dev wrangler@4
+
+      - name: Ensure transaction evidence storage
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node worker/scripts/ensure-transaction-evidence.mjs
 
       - name: Deploy worker code (tolerant aux erreurs de routes)
         env:

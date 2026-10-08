@@ -72,72 +72,11 @@ def fetch(url):
 
 
 def parse_form4(xml, now_str):
-    """Parse un Form 4 XML complet (repris de prefetch-all.py)."""
-    def get_simple(tag):
-        m = re.search(rf'<{tag}>([^<]*)</{tag}>', xml)
-        return m.group(1).strip() if m else ''
-
-    # FIX (mai 2026) : decode HTML entities (idem prefetch-all.py)
-    import html as _html_mod
-    _decode = lambda s: _html_mod.unescape(s) if s else s
-    ticker = _decode(get_simple('issuerTradingSymbol'))
-    company = _decode(get_simple('issuerName'))
-    owner = _decode(get_simple('rptOwnerName'))
-    # Phase B (mai 2026) : rptOwnerCik = CIK SEC du dirigeant (canonical pour
-    # cross-company lookup dans les fiches insider).
-    owner_cik = get_simple('rptOwnerCik').lstrip('0') or ''
-    title = _decode(get_simple('officerTitle'))
-
-    transactions = []
-    for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):
-        block = match.group(1)
-        def get_val(tag):
-            m = re.search(rf'<{tag}>\s*<value>([^<]*)</value>', block, re.DOTALL)
-            return m.group(1).strip() if m else ''
-        # FIX (mai 2026) : voir prefetch-all.py meme commentaire.
-        # transactionCode est BARE dans le SEC Form 4 XML.
-        def get_bare(tag):
-            m = re.search(rf'<{tag}>\s*([^<\s][^<]*?)\s*</{tag}>', block)
-            return m.group(1).strip() if m else ''
-
-        code = get_bare('transactionCode')
-        try:
-            shares = float(get_val('transactionShares') or 0)
-            price = float(get_val('transactionPricePerShare') or 0)
-            shares_after = float(get_val('sharesOwnedFollowingTransaction') or 0)
-        except ValueError:
-            continue
-        ad = get_val('transactionAcquiredDisposedCode')
-        trans_date = get_val('transactionDate')
-
-        if shares <= 0:
-            continue
-        if trans_date and trans_date > now_str:
-            continue
-
-        # FIX (mai 2026) : STRICT P/S uniquement. Voir prefetch-transactions.py
-        # meme commentaire : la regle "ad=='D' && price>0" capturait code='F'
-        # (Tax Withholding) et gonflait les sells. Maintenant strict :
-        # seul P=open-market buy, seul S=open-market sell, le reste = 'other'.
-        is_buy = code == 'P'
-        is_sell = code == 'S'
-
-        transactions.append({
-            'date': trans_date,
-            'code': code,
-            'ad': ad,
-            'shares': round(shares),
-            'price': round(price, 2),
-            'value': round(shares * price, 2),
-            'sharesAfter': round(shares_after),
-            'type': 'buy' if is_buy else 'sell' if is_sell else 'other',
-        })
-
-    return {
-        'ticker': ticker, 'company': company, 'owner': owner,
-        'owner_cik': owner_cik,  # Phase B (mai 2026) : cle canonique cross-company
-        'title': title, 'transactions': transactions,
-    }
+    """Parse source evidence consistently for live and historical collection."""
+    from insider_transaction import parse_form4_document
+    result = parse_form4_document(xml, now_str)
+    result["owner_cik"] = result["ownerCik"]
+    return result
 
 
 # ============================================================
@@ -247,10 +186,14 @@ def _process_filing(hit, day_date, now_str):
         return []
 
     parsed = parse_form4(xml, now_str)
+    from insider_transaction import classify_transaction, evidence_json
     out = []
     for tx in parsed['transactions']:
-        trans_date = tx.get('date') or file_date
+        # Empty execution date keeps the D1 key stable without inventing freshness.
+        trans_date = tx.get('date') or ''
         trans_type = tx.get('type') or 'other'
+        if trans_type == 'buy' and not classify_transaction(tx)['purchaseSignalEligible']:
+            trans_type = 'other'
         insider = parsed['owner'] or insider_name
         cik_clean = str(company_cik or '').lstrip('0')
         # Phase 2 (mai 2026) : code SEC granulaire (P/S/A/D/F/M/G/...)
@@ -272,6 +215,7 @@ def _process_filing(hit, day_date, now_str):
             'title': parsed['title'],
             'trans_type': trans_type,
             'trans_code': trans_code,  # Phase 2 : preserve la lettre SEC
+            'transaction_evidence': evidence_json(tx),
             'shares': tx['shares'],
             'price': tx['price'],
             'value': tx['value'],
@@ -283,6 +227,7 @@ def _process_filing(hit, day_date, now_str):
 def fetch_day_transactions(day_date, now_str):
     """Fetch + parse toutes les transactions Form 4 pour un jour donne (parallelise).
     Retourne une liste de SQL INSERT."""
+    from insider_transaction import history_evidence_upsert
     sql_lines = []
     group_counter = {}
     page_from = 0
@@ -328,13 +273,14 @@ def fetch_day_transactions(day_date, now_str):
                     sql_lines.append(
                         f"INSERT OR IGNORE INTO insider_transactions_history "
                         f"(filing_date, trans_date, source, accession, cik, ticker, company, "
-                        f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num) "
+                        f"insider, insider_cik, title, trans_type, trans_code, shares, price, value, shares_after, line_num, transaction_evidence) "
                         f"VALUES ({esc(r['file_date'])}, {esc(r['trans_date'])}, 'SEC', "
                         f"{esc(r['adsh'])}, {esc(r['cik_clean'])}, {esc(r['ticker'])}, "
                         f"{esc(r['company'])}, {esc(r['insider'])}, {esc(r.get('insider_cik') or None)}, "
                         f"{esc(r['title'])}, {esc(r['trans_type'])}, {esc(r.get('trans_code') or None)}, "
                         f"{integer(r['shares'])}, {num(r['price'])}, "
-                        f"{num(r['value'])}, {integer(r['shares_after'])}, {integer(line_num)});"
+                        f"{num(r['value'])}, {integer(r['shares_after'])}, {integer(line_num)}, {esc(r['transaction_evidence'])})"
+                        + history_evidence_upsert() + ';'
                     )
                     total_tx += 1
 

@@ -153,80 +153,10 @@ def curl_fetch(url):
         return None
 
 def parse_form4(xml, now_str):
-    """Parse un Form 4 XML complet."""
-    def get_simple(tag):
-        m = re.search(rf'<{tag}>([^<]*)</{tag}>', xml)
-        return m.group(1).strip() if m else ''
-
-    # FIX (mai 2026) : decode HTML entities pour les Form 4 qui contiennent
-    # souvent 'VP R&amp;D', 'Smith & Wesson', etc. Sans decode, on stocke
-    # l'entite textuelle en D1 -> double-encode au render frontend -> affiche
-    # 'VP R&amp;D' au lieu de 'VP R&D'.
-    import html as _html_mod
-    _decode = lambda s: _html_mod.unescape(s) if s else s
-    ticker = _decode(get_simple('issuerTradingSymbol'))
-    company = _decode(get_simple('issuerName'))
-    owner = _decode(get_simple('rptOwnerName'))
-    # rptOwnerCik (Phase B 2026-05) : CIK SEC du dirigeant, unique meme s'il
-    # change de nom (mariage, divorce...) ou de role. Cle canonique pour le
-    # cross-company lookup (LEVINSON ARTHUR D = CIK 1214128 sur AAPL, GOOGL...).
-    owner_cik = get_simple('rptOwnerCik').lstrip('0') or ''
-    title = _decode(get_simple('officerTitle'))
-
-    transactions = []
-    for match in re.finditer(r'<nonDerivativeTransaction>(.*?)</nonDerivativeTransaction>', xml, re.DOTALL):
-        block = match.group(1)
-        def get_val(tag):
-            m = re.search(rf'<{tag}>\s*<value>([^<]*)</value>', block, re.DOTALL)
-            return m.group(1).strip() if m else ''
-        # FIX (mai 2026) : transactionCode est BARE dans le SEC Form 4 XML
-        # (cf doc SEC : <transactionCoding><transactionCode>P</transactionCode>...).
-        # get_val() cherchait <transactionCode><value>X</value></transactionCode>
-        # qui n'existe JAMAIS -> code etait toujours '' -> tous les badges
-        # affichaient "OTHER" sans le code SEC granulaire.
-        def get_bare(tag):
-            m = re.search(rf'<{tag}>\s*([^<\s][^<]*?)\s*</{tag}>', block)
-            return m.group(1).strip() if m else ''
-
-        code = get_bare('transactionCode')
-        shares = float(get_val('transactionShares') or 0)
-        price = float(get_val('transactionPricePerShare') or 0)
-        ad = get_val('transactionAcquiredDisposedCode')
-        date = get_val('transactionDate')
-        shares_after = float(get_val('sharesOwnedFollowingTransaction') or 0)
-
-        if shares <= 0:
-            continue
-        # Ignorer dates futures
-        if date and date > now_str:
-            continue
-
-        # FIX (mai 2026) : STRICT P/S uniquement. Voir prefetch-transactions.py
-        # meme commentaire : la regle "ad=='D' && price>0" capturait code='F'
-        # (Tax Withholding) et gonflait les sells. Maintenant strict :
-        # seul P=open-market buy, seul S=open-market sell, le reste = 'other'.
-        is_buy = code == 'P'
-        is_sell = code == 'S'
-
-        transactions.append({
-            'date': date,
-            'code': code,
-            'ad': ad,
-            'shares': round(shares),
-            'price': round(price, 2),
-            'value': round(shares * price, 2),
-            'sharesAfter': round(shares_after),
-            'type': 'buy' if is_buy else 'sell' if is_sell else 'other',
-        })
-
-    return {
-        'ticker': ticker,
-        'company': company,
-        'owner': owner,
-        'ownerCik': owner_cik,  # Phase B : cle canonique cross-company
-        'title': title,
-        'transactions': transactions,
-    }
+    """Parse source evidence consistently for live and historical collection."""
+    from insider_transaction import parse_form4_document
+    result = parse_form4_document(xml, now_str)
+    return result
 
 # ============================================================
 # ETAPE 1 : Collecter TOUTES les metadonnees + parser les XMLs
@@ -397,6 +327,7 @@ for day_offset in range(0, fetch_days):
                 # du filing. Permet de skipper le re-fetch XML au prochain run.
                 for tx in parsed_txs:
                     all_transactions.append({
+                        **tx,
                         'fileDate': file_date,
                         # Publication is not evidence of the execution date.
                         'date': tx['date'] or None,
@@ -567,6 +498,9 @@ print('\n=== Building Clusters (from full 90d history) ===')
 
 company_insiders_full = {}
 for tx in all_transactions:
+    from insider_transaction import classify_transaction
+    if not classify_transaction(tx)['purchaseSignalEligible']:
+        continue
     cik_key = tx.get('cik', '')
     if not cik_key:
         # Fallback : utiliser le ticker comme cle si cik absent (historique sans cik)

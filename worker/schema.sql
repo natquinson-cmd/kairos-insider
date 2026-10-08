@@ -77,7 +77,8 @@ CREATE TABLE IF NOT EXISTS insider_transactions_history (
   insider_cik TEXT,               -- CIK SEC du reporting owner (cross-company lookup canonical)
   title TEXT,                     -- role (CEO, CFO, Director, 10% owner...)
   trans_type TEXT NOT NULL,       -- 'buy' | 'sell' | 'other' | 'option-exercise'
-  trans_code TEXT,                -- code SEC brut : P/S/A/D/F/M/G/I/J/C/X/W/L/V/Z (NULL pour BaFin/AMF)
+  trans_code TEXT,                -- original SEC code or European transaction nature
+  transaction_evidence TEXT,      -- JSON: original nature, linked footnotes, security, direction and plan disclosure
   shares INTEGER,
   price REAL,
   value REAL,                     -- shares * price en devise d'origine

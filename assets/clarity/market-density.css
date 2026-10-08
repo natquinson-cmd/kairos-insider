@@ -63,3 +63,7 @@ body[data-screen="market"] #marketResults .purchase-table .purchase-detail-row>t
 .purchase-source-error{border:1px solid #765b37;border-radius:12px;background:#342d202e}.purchase-source-error .text-button{margin-top:10px}
 .purchase-table a:focus-visible,.purchase-table summary:focus-visible,.purchase-watchlist-link:focus-visible{outline:2px solid #97beff;outline-offset:4px;border-radius:3px}
 @media(max-width:760px){.purchase-watchlist-link{margin-left:0}.purchase-method{font-size:11px}body[data-screen="market"] .live-market-tabs{gap:18px}body[data-screen="market"] .live-market-tabs a{font-size:12px}.purchase-detail-content{padding:10px}.purchase-table{min-width:960px}}
+
+.purchase-rules { margin: 0 0 14px; font-size: 12px; color: var(--muted, #9fb3cf); }
+.purchase-rules summary { cursor: pointer; color: #b3cfff; width: fit-content; padding: 6px 0; }
+.purchase-rules .data-note { max-width: 960px; margin: 6px 0; }

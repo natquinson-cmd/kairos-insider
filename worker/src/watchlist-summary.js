@@ -1,9 +1,10 @@
 import {finiteNumber} from './financial-normalization.js';
 import {normalizeInsiderMovement} from './insider-alerts.js';
+import {preferInsiderTransactionEvidence} from './insider-transaction.js';
 
 // Matches handleStockAnalysis's current standard-range cache. Do not fetch or
 // recalculate a missing analysis here: watchlist browsing never spends quota.
-const CACHE_PREFIX = 'stock-analysis:v24:';
+const CACHE_PREFIX = 'stock-analysis:v25:';
 const MAX_SYMBOLS = 100;
 
 function symbols(values) {
@@ -62,7 +63,7 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
   const cutoff = new Date(Date.parse(today)-29*86400000).toISOString().slice(0,10), events=new Map();
   result.activity.available=Array.isArray(feed?.transactions);
   result.activity.sourceUpdatedAt=timestamp(feed?.updatedAt||feed?.generatedAt);
-  for (const row of Array.isArray(feed?.transactions) ? feed.transactions : []) {
+  for (const row of preferInsiderTransactionEvidence(Array.isArray(feed?.transactions) ? feed.transactions : [])) {
     const event = normalizeInsiderMovement(row);
     if (!event || !wanted.has(event.ticker) || event.fileDate > today) continue;
     if(event.fileDate>=cutoff)events.set(event.id,event);
@@ -94,6 +95,7 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
         latestInsider: event ? {
           type: event.type, insider: text(event.insider), value: event.value,
           currency: text(event.currency), fileDate: event.fileDate, tradeDate: event.tradeDate, sourceUrl: event.sourceUrl,
+          purchaseSignalEligible: event.purchaseSignalEligible, purchaseSignalStatus: event.purchaseSignalStatus, purchaseSignalReason: event.purchaseSignalReason,
         } : null,
       };
     }));

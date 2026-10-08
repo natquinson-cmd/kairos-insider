@@ -30,6 +30,7 @@ import { finiteNumber, normalizeDividendYield, normalizeEarningsHistory, normali
 import { canonicalizeFundIdentity, summarizeReportDates } from './fund-identity.js';
 import { searchQuote } from './search-quote.js';
 import { computeInsiderScore, deduplicateInsiderTransactions, insiderTransactionType, INSIDER_SCORING_CONFIG_KEY } from './insider-score.js';
+import { classifyInsiderTransaction, withInsiderTransactionEvidence } from './insider-transaction.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -191,8 +192,8 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  // v24: purchase-first insider scoring with dated, deduplicated evidence.
-  const cacheKey = `stock-analysis:v24:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
+  // v25: only documented purchases contribute to insider conviction.
+  const cacheKey = `stock-analysis:v25:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
@@ -2072,7 +2073,7 @@ async function aggregateInsiders(ticker, env) {
       // Match region : 'US' (SEC) vs 'Europe' (AMF/BaFin/AFM/FCA). region absente => 'US'.
       const rowIsEu = !!(t.region && t.region !== 'US');
       return rowIsEu === expectedEu;
-    });
+    }).map(withInsiderTransactionEvidence);
 
     // Tri par date desc
     matches.sort((a, b) => (b.fileDate || '').localeCompare(a.fileDate || ''));
@@ -2103,10 +2104,11 @@ async function aggregateInsiders(ticker, env) {
     let totalUsd = 0, totalEur = 0, buys = 0, sells = 0;
     const sources = {};
     for (const t of matches) {
-      if (String(t.insider || '').trim()) insiderSet.add(String(t.insider).trim().toLowerCase());
+      const classification = classifyInsiderTransaction(t);
       const val = Number(t.value) || 0;
-      const isBuy = (t.type === 'buy');                         // strict : pas exercise
-      const isSell = (t.type === 'sell');
+      const isBuy = classification.eligiblePurchase;
+      const isSell = classification.type === 'sell';
+      if ((isBuy || isSell) && String(t.insider || '').trim()) insiderSet.add(String(t.insider).trim().toLowerCase());
       const signed = isBuy ? val : (isSell ? -val : 0);
       if (String(t.currency || '').toUpperCase() === 'EUR') totalEur += signed;
       else if (String(t.currency || '').toUpperCase() === 'USD') totalUsd += signed;
