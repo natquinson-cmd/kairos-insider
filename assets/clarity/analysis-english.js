@@ -30,9 +30,9 @@ piotroskiF:['A score based on nine profitability, financing and operating effici
 analystTotal:['The analyst count supplied by the provider. Estimate coverage may differ from the number of detailed recommendations. This count does not measure forecast reliability.','Provider-reported count; otherwise the sum of the five categories when all are available.'],
 bullish:['The share of strong-buy and buy opinions in the displayed detailed breakdown. These are analyst opinions, not Kairos recommendations.','(Strong buy + buy) ÷ total detailed ratings × 100.'],
 recommendation:['The provider’s consensus summary. Analysts can be wrong and revise their views.','Summary of the available recommendations.'],
-currentPrice:['The latest closing price in the displayed series.','Last available close.'],
+currentPrice:['The latest quote shown on the stock page, used to calculate the gap to the mean target. If unavailable, the latest chart close is used.','Valid current quote from the stock page; otherwise the latest available chart close.'],
 targetLow:['The lowest available analyst 12-month target. It is an estimate, not a guaranteed future price.','Minimum available price target.'],
 targetMean:['The mean analyst 12-month target. It is an estimate, not a guaranteed future price.','Sum of available targets ÷ number of targets.'],
 targetHigh:['The highest available analyst 12-month target. It is an estimate, not a guaranteed future price.','Maximum available price target.'],
-targetPotential:['The gap between the mean target and latest available close, in the same currency. A positive gap is not a return forecast.','(Mean target ÷ latest close − 1) × 100, only for matching currencies.']
+targetPotential:['The gap between the mean target and reference price, in the same currency. The current quote takes priority; the latest chart close is used only if that quote is unavailable. A positive gap is not a return forecast.','(Mean target ÷ reference price − 1) × 100, only for matching currencies.']
 };

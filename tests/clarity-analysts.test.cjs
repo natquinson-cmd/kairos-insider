@@ -40,7 +40,7 @@ test('summary-only consensus displays the count and readable recommendation with
 test('the partial consensus is readable in English',()=>{
   const html=panel(adapter.stock(asml()),'en');
   assert.match(html,/Strong buy/);
-  assert.match(html,/Analysts covered/);
+  assert.match(html,/Analysts · targets/);
   assert.match(html,/detailed rating breakdown[^<]*unavailable/i);
   assert.match(html,/2,057\.34 EUR/);
   assert.doesNotMatch(html,/strong_buy|Avis à l’achat/);
@@ -126,4 +126,40 @@ test('missing observations do not turn into zero ratings, zero coverage or fabri
   const html=panel(adapter.stock({ticker:'NONE',fundamentals:{}}));
   assert.doesNotMatch(html,/ka-consensus-bar|data-ka-metric="bucket-|data-ka-metric="analystTotal"|data-ka-metric="targetMean"|data-ka-metric="targetPotential"/);
   assert.match(html,/objectifs de cours sont indisponibles/);
+});
+
+test('the target gap uses the current quote even when chart history ends earlier',()=>{
+  const source=asml();source.price.current=1630.6;source.price.regularMarketTime=1791473901;
+  source.chart.points=[{date:'2026-10-07',close:1610.2}];
+  Object.assign(source.fundamentals,{targetLowPrice:1800,targetHighPrice:2400});
+  const html=panel(adapter.stock(source));
+  assert.match(html,/data-ka-metric="targetPotential"[\s\S]*?<strong[^>]*>\+26,2 %<\/strong>/);
+  assert.match(html,/Cours de référence/);
+  assert.match(html,/1[\s\u202f]630,60/);
+  assert.match(html,/8 octobre 2026/);
+  assert.match(html,/Analystes · objectifs/);
+  assert.doesNotMatch(html,/\+27,8 %|1[\s\u202f]610,20/);
+  const english=panel(adapter.stock(source),'en');
+  assert.match(english,/Reference price/);
+  assert.match(english,/October 8, 2026/);
+});
+
+test('invalid current quotes fall back to the latest chart close and its date',()=>{
+  for(const current of [null,undefined,0,-1,NaN,'unavailable']){
+    const source=asml();source.price.current=current;source.price.regularMarketTime=1791473901;
+    source.chart.points=[{date:'2026-10-07',close:1610.2}];
+    Object.assign(source.fundamentals,{targetLowPrice:1800,targetHighPrice:2400});
+    const html=panel(adapter.stock(source));
+    assert.match(html,/data-ka-metric="targetPotential"[\s\S]*?<strong[^>]*>\+27,8 %<\/strong>/);
+    assert.match(html,/7 octobre 2026/);
+    assert.doesNotMatch(html,/8 octobre 2026/);
+  }
+});
+
+test('target coverage wording is reserved for an explicit Yahoo analyst count',()=>{
+  const source=asml();source.fundamentals={};source.zonebourseConsensus=null;
+  source.consensus={strongBuy:3,buy:4,hold:2,sell:1,strongSell:0,_source:'yahoo'};
+  const html=panel(adapter.stock(source));
+  assert.match(html,/Analystes suivis/);
+  assert.doesNotMatch(html,/Analystes · objectifs/);
 });

@@ -91,6 +91,7 @@
     companyActivistGroups=window.KairosAdapter?.groups(company.activism?.filings||[],company.history,{includePassive:true})||[];
     $('activistTabCount').textContent=(company.activism?.filings||[]).filter(filing=>filing.classification!=='passive').length;
     $('companyName').textContent=company.name;$('companyTicker').textContent=company.ticker;
+    document.querySelectorAll('.currency-label').forEach(label=>{label.textContent=company.currency;});
     $('companyMark').innerHTML=`<img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(company.ticker)}" alt="" width="49" height="49">`;
     $('companyMark').style.background='transparent';$('companyMark').querySelector('img').addEventListener('error',()=>{$('companyMark').textContent=company.mark;$('companyMark').style.background=company.color;});
     $('companyMeta').textContent=`${company.exchange}${company.sector?" · "+company.sector:""}`;
