@@ -1,11 +1,13 @@
 import {finiteNumber} from './financial-normalization.js';
 import {normalizeInsiderMovement} from './insider-alerts.js';
 import {preferInsiderTransactionEvidence} from './insider-transaction.js';
-import {STOCK_ANALYSIS_VERSION, STOCK_SUMMARY_PREFIX, readWatchlistQuote} from './watchlist-market-data.js';
+import {STOCK_ANALYSIS_VERSION, STOCK_SUMMARY_PREFIX, readWatchlistQuote, storeStockSummarySnapshot} from './watchlist-market-data.js';
 
 // Never recalculate a missing analysis here: watchlist browsing spends no quota.
 const CACHE_PREFIX = `stock-analysis:${STOCK_ANALYSIS_VERSION}:`;
 const MAX_SYMBOLS = 100;
+const scoreCalculations = new Map(), accountCalculations = new Map();
+const SCORE_FRESH_MS = 86400000, SCORE_RETRY_SECONDS = 300;
 
 function symbols(values) {
   const result = new Set();
@@ -47,6 +49,60 @@ async function stockCache(env, ticker) {
   }
   const saved = await env.CACHE.get(STOCK_SUMMARY_PREFIX + ticker, 'json').catch(() => null);
   return saved && typeof saved === 'object' && !saved.error && saved.ticker === ticker ? saved : null;
+}
+
+function currentScore(row, ticker, now) {
+  const value = number(row?.score?.total), at = timestamp(row?._cachedAt) || timestamp(row?.updatedAt);
+  const axes = row?.score?.breakdown;
+  if (row?.ticker !== ticker || row.error || value == null || value < 0 || value > 100 || !at ||
+      Date.parse(at) > now + 30000 || now - Date.parse(at) >= SCORE_FRESH_MS ||
+      axes && Object.values(axes).length && !Object.values(axes).some(axis => axis?.dataOk !== false)) return null;
+  return {ticker, score: value, scoreAt: at, scoreStatus: 'available', scoreSource: 'analysis', scoreVersion: STOCK_ANALYSIS_VERSION};
+}
+
+/** Compute one saved watchlist score using the same engine as its stock page.
+ * The caller authenticates first and injects the production analysis function.
+ * Only public calculation caches are written; no user quota or alert side effects. */
+export async function refreshWatchlistScore(env, uid, rawTicker, calculate) {
+  const reply = (status, body) => ({status, body});
+  if (typeof uid !== 'string' || !uid) return reply(401, {ok:false, code:'AUTH_REQUIRED'});
+  const ticker = typeof rawTicker === 'string' ? rawTicker.trim().toUpperCase() : '';
+  if (symbols([ticker])[0] !== ticker) return reply(400, {ok:false, code:'INVALID_SYMBOL'});
+  const saved = await env.CACHE.get(`wl:${uid}`, 'json');
+  if (!symbols(saved?.tickers).includes(ticker)) return reply(403, {ok:false, code:'NOT_IN_WATCHLIST'});
+  const cached = currentScore(await stockCache(env, ticker), ticker, Date.now());
+  if (cached) return reply(200, {ok:true, item:cached});
+
+  const key = `${STOCK_ANALYSIS_VERSION}:${ticker}`;
+  if (scoreCalculations.has(key)) return scoreCalculations.get(key);
+  if (accountCalculations.has(uid) || scoreCalculations.size >= 4) {
+    return reply(200, {ok:false, state:'busy', retryAfterSeconds:5});
+  }
+  const cooldownKey = `watchlist-score-refresh:${key}`;
+  const job = (async () => {
+    const now = Date.now();
+    const previous = await env.CACHE.get(cooldownKey, 'json').catch(() => null);
+    if (number(previous?.until) > now) {
+      return reply(200, {ok:false, state:previous.state === 'loading' ? 'busy' : 'cooldown', retryAfterSeconds:Math.ceil((previous.until-now)/1000)});
+    }
+    try {
+      // Best-effort cross-instance lease; in-flight maps also deduplicate tabs
+      // within this instance. This is a short calculation lock, not a user quota.
+      await env.CACHE.put(cooldownKey, JSON.stringify({state:'loading', until:now+120000}), {expirationTtl:120});
+      const analysis = await calculate(ticker, env, {publicView:false, chartRange:'1y'});
+      const item = currentScore(analysis, ticker, Date.now());
+      if (!item || !Object.values(analysis.score?.breakdown || {}).some(axis => axis?.dataOk === true)) throw new Error('No supported score');
+      await storeStockSummarySnapshot(env, analysis).catch(() => {});
+      await env.CACHE.put(cooldownKey, JSON.stringify({state:'ready', until:0}), {expirationTtl:60}).catch(() => {});
+      return reply(200, {ok:true, item});
+    } catch {
+      await env.CACHE.put(cooldownKey, JSON.stringify({state:'failed', until:Date.now()+SCORE_RETRY_SECONDS*1000}), {expirationTtl:SCORE_RETRY_SECONDS}).catch(() => {});
+      return reply(200, {ok:false, state:'unavailable', retryAfterSeconds:SCORE_RETRY_SECONDS});
+    }
+  })();
+  scoreCalculations.set(key, job); accountCalculations.set(uid, key);
+  try { return await job; }
+  finally { scoreCalculations.delete(key); accountCalculations.delete(uid); }
 }
 
 async function recentHistoricalScores(env, tickers, now) {
@@ -121,7 +177,9 @@ export async function readWatchlistSummary(env, uid, legacySymbols = '', now = D
       const cached = await stockCache(env, ticker), event = latest.get(ticker);
       const quote = await readWatchlistQuote(env, ticker, cached, now, takeRefresh);
       const cachedAt = timestamp(cached?._cachedAt) || timestamp(cached?.updatedAt);
-      const rawPrice = number(quote?.price?.current), rawScore = number(cached?.score?.total);
+      const scoreAxes = cached?.score?.breakdown;
+      const supportedScore = !scoreAxes || Object.values(scoreAxes).some(axis => axis?.dataOk !== false);
+      const rawPrice = number(quote?.price?.current), rawScore = supportedScore ? number(cached?.score?.total) : null;
       const price = rawPrice != null && rawPrice > 0 ? rawPrice : null;
       const score = rawScore != null && rawScore >= 0 && rawScore <= 100 ? rawScore : null;
       const quoteAt = price == null ? null : timestamp(quote?.price?.regularMarketTime, true);

@@ -2,7 +2,7 @@
 (function(root,factory){const api=factory(typeof module==='object'?require('../insider-transaction.js'):root.KairosInsiderTransaction);if(typeof module==='object')module.exports=api;else root.KairosAdapter=api;})(typeof window==='object'?window:globalThis,(evidence)=>{
   const number=v=>v===null||v===undefined||typeof v==='boolean'||String(v).trim()===''?null:Number.isFinite(Number(v))?Number(v):null;
   const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}/.test(v)?v.slice(0,10):null;
-  const keys=['insider','smartMoney','govGuru','momentum','valuation','analyst','health','earnings'];
+  const keys=['insider','smartMoney','momentum','valuation','analyst','health','earnings'];
   const metric=v=>number(v?.numeric??v?.raw??v?.value??(typeof v?.display==='string'?v.display.replace(/[%×,]/g,''):v));
   const safeUrl=v=>{try{const u=new URL(v);return ['https:','http:'].includes(u.protocol)?u.href:null;}catch{return null;}};
   function stock(d){
@@ -12,7 +12,29 @@
       const publicationDate=day(t.fileDate||t.date);
       return {id:'tx-'+i,date:history.find(p=>p.date>=publicationDate)?.date||publicationDate,publicationDate,tradeDate:day(t.date),type:c.type,planned:c.planned,purchaseSignalEligible:c.eligiblePurchase,purchaseSignalStatus:c.status,purchaseSignalReason:c.reason,amount:number(t.value),currency:t.currency||p.currency||'USD',role:t.title||t.insider||'—',insiderName:t.insider||null,insiderId:t.insiderCik||null,shares:number(t.shares),sourceUrl:safeUrl(t.url||t.sourceUrl)};
     });
-    const consensus=d.consensus||{},analysts={asOf:day(consensus.period||d.updatedAt),recommendation:f.recommendationKey||null,targetMean:number(f.targetMeanPrice),targetLow:number(f.targetLowPrice),targetHigh:number(f.targetHighPrice),synthesized:!!consensus._synthesized};
+    const consensus=d.consensus||{};
+    const zb=d.zonebourseConsensus||(consensus._partial&&consensus._source==='zonebourse'?{analystCount:consensus.totalAnalysts,recommendationMean:consensus.recommendationLabel||consensus.recommendationKey,targetMean:consensus.targetMeanPrice,targetCurrency:consensus.targetCurrency,sourceUrl:consensus.sourceUrl,fetchedAt:consensus.asOf}:{});
+    const provider=value=>({yahoo:'Yahoo Finance',zonebourse:'Zonebourse',finnhub:'Finnhub'}[String(value||'').toLowerCase()]||value||null);
+    const count=value=>number(value)>0&&Number.isInteger(number(value))?number(value):null;
+    const currency=value=>/^[A-Z]{3}$/.test(value||'')?value:null;
+    const suppliedCount=count(f.numberOfAnalystOpinions),zbCount=count(zb.analystCount);
+    const hasTargets=['targetMeanPrice','targetLowPrice','targetHighPrice'].some(key=>number(f[key])>0);
+    const analysts={
+      asOf:day(d.updatedAt||zb.fetchedAt),
+      analystCount:suppliedCount??zbCount,
+      analystCountSource:suppliedCount?provider(f.analystCountSource)||'Yahoo Finance':zbCount?'Zonebourse':null,
+      recommendation:f.recommendationKey||zb.recommendationMean||zb.consensus||null,
+      recommendationSource:f.recommendationKey?provider(f.recommendationSource):zb.recommendationMean||zb.consensus?'Zonebourse':null,
+      targetMean:number(hasTargets?f.targetMeanPrice:zb.targetMean),
+      targetLow:number(hasTargets?f.targetLowPrice:zb.targetLow),
+      targetHigh:number(hasTargets?f.targetHighPrice:zb.targetHigh),
+      targetCurrency:hasTargets?currency(f.targetCurrency)||currency(p.currency):currency(zb.targetCurrency),
+      targetSource:hasTargets?provider(f.targetSource):number(zb.targetMean)>0?'Zonebourse':null,
+      sourceUrl:safeUrl(zb.sourceUrl),
+      distributionSource:provider(consensus._source||consensus.source),
+      distributionAsOf:day(consensus.period),
+      synthesized:!!consensus._synthesized
+    };
     for(const k of ['strongBuy','buy','hold','sell','strongSell'])analysts[k]=consensus._synthesized?null:number(consensus[k]);
     const fundamentals={...f,trailingPE:number(f.peRatio),forwardPE:number(f.forwardPE),priceSales:number(f.psRatio),priceBook:number(f.pbRatio),priceFcf:number(f.pfcfRatio)??number(f.pfcf)??metric(d.extendedRatios?.pfcf),evEbitda:metric(d.extendedRatios?.evEbitda)??number(f.evEbitda),grossMargin:metric(d.margins?.gross),operatingMargin:metric(d.margins?.operating),netMargin:metric(d.margins?.profit),roe:metric(d.returns?.roe),roa:metric(d.returns?.roa),roic:metric(d.returns?.roic),currentRatio:metric(d.financialPosition?.currentRatio),quickRatio:metric(d.financialPosition?.quickRatio),debtEquity:metric(d.financialPosition?.debtEquity)};
     Object.keys(fundamentals).forEach(k=>fundamentals[k]=number(fundamentals[k]));

@@ -12,6 +12,7 @@ Strategie :
 A appeler depuis GitHub Actions APRES push-to-d1.py.
 """
 import json
+import math
 import os
 import subprocess
 import sys
@@ -61,6 +62,41 @@ def integer(v):
     except: return 'NULL'
 
 
+
+# The retired DB column stays in place for historical rows. It is NULL for the
+# seven-axis method; no schema deletion or reinterpretation of old data.
+ACTIVE_PILLAR_KEYS = ('insider', 'smartMoney', 'momentum', 'valuation', 'analyst', 'health', 'earnings')
+
+
+def finite_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def valid_current_score(score):
+    if not isinstance(score, dict) or not finite_number(score.get('total')):
+        return False
+    total, bd = score['total'], score.get('breakdown')
+    if not 0 <= total <= 100 or not isinstance(bd, dict) or set(bd) != set(ACTIVE_PILLAR_KEYS):
+        return False
+    if not all(isinstance(axis, dict) and finite_number(axis.get('score')) and
+               finite_number(axis.get('max')) and 0 <= axis['score'] <= axis['max'] <= 100
+               for axis in bd.values()):
+        return False
+    if not any(axis.get('dataOk') is True for axis in bd.values()):
+        return False
+    return (abs(sum(axis['max'] for axis in bd.values()) - 100) < 1e-6 and
+            total == math.floor(sum(axis['score'] for axis in bd.values()) + 0.5))
+
+
+def current_archive_tuple(row):
+    # Method transition is not an investment signal or a provider outage.
+    return isinstance(row, tuple) and len(row) == 9 and row[3] is None
+
+
+def decimal_sql(value):
+    return str(value) if finite_number(value) else 'NULL'
+
+
 def load_tickers():
     """Liste dynamique : tous les tickers depuis l'API publique."""
     url = f'{API_BASE}/public/tickers'
@@ -86,7 +122,7 @@ def load_tickers():
 
 
 def fetch_score(ticker):
-    """Récupère le score d'un ticker avec breakdown COMPLET (8 piliers).
+    """Récupère le score d'un ticker avec breakdown COMPLET (7 piliers).
     Utilise /internal/score/:ticker (bypass publicView masking via X-Internal-Secret).
     Retourne (ticker, score_dict_with_breakdown) ou (ticker, None, err_msg).
     """
@@ -98,10 +134,9 @@ def fetch_score(ticker):
         score = data.get('score')
         if not score or 'total' not in score:
             return (ticker, None, 'no score field')
-        # Validation : breakdown doit contenir les 8 piliers
-        bd = score.get('breakdown') or {}
-        if not bd or len(bd) < 8:
-            return (ticker, None, f'breakdown incomplete ({len(bd)} axes)')
+        # Do not archive old methods, fabricated neutral scores or invalid totals.
+        if not valid_current_score(score):
+            return (ticker, None, 'invalid seven-axis score')
         return (ticker, score, None)
     except urllib.error.HTTPError as e:
         return (ticker, None, f'HTTP {e.code}')
@@ -117,14 +152,14 @@ def build_sql(ticker, score):
         return sec.get('score') if sec else None
     values = [
         esc(TODAY), esc(ticker), integer(total),
-        integer(subscore('insider')),
-        integer(subscore('smartMoney')),
-        integer(subscore('govGuru')),
-        integer(subscore('momentum')),
-        integer(subscore('valuation')),
-        integer(subscore('analyst')),
-        integer(subscore('health')),
-        integer(subscore('earnings')),
+        decimal_sql(subscore('insider')),
+        decimal_sql(subscore('smartMoney')),
+        'NULL',
+        decimal_sql(subscore('momentum')),
+        decimal_sql(subscore('valuation')),
+        decimal_sql(subscore('analyst')),
+        decimal_sql(subscore('health')),
+        decimal_sql(subscore('earnings')),
     ]
     return (
         f"INSERT OR REPLACE INTO score_history "
@@ -197,70 +232,25 @@ def fetch_last_scores_from_d1():
 
 
 def score_tuple(score):
-    """Extrait le tuple (total, 8 subscores) d'un score pour comparaison."""
-    total = score.get('total')
+    """Current total and precise subscores in the unchanged archive column order."""
     bd = score.get('breakdown') or {}
     def sub(key):
-        s = bd.get(key)
-        return s.get('score') if s else None
-    # Normalise en int pour comparaison (None reste None)
-    def to_int(v):
-        if v is None: return None
-        try: return int(v)
-        except: return None
+        value = (bd.get(key) or {}).get('score')
+        return value if finite_number(value) else None
     return (
-        to_int(total), to_int(sub('insider')), to_int(sub('smartMoney')),
-        to_int(sub('govGuru')), to_int(sub('momentum')), to_int(sub('valuation')),
-        to_int(sub('analyst')), to_int(sub('health')), to_int(sub('earnings'))
+        score.get('total'), sub('insider'), sub('smartMoney'), None,
+        sub('momentum'), sub('valuation'), sub('analyst'), sub('health'), sub('earnings')
     )
 
 
-# Ordre des piliers dans le tuple (index 1..8, 0 etant total)
-PILLAR_KEYS = ['insider', 'smartMoney', 'govGuru', 'momentum', 'valuation', 'analyst', 'health', 'earnings']
-
-
 def apply_last_known_good_fallback(ticker, score, last_tuple):
-    """Fallback : quand un pilier a dataOk=False, on garde l'ancien sous-score
-    PEU IMPORTE LE SENS du delta (= ne pas ecraser une vraie valeur par un
-    defaut neutre quand la source est down).
+    """Do not splice historical weighted subscores into a current calculation.
 
-    AVANT (bug) : on ne declenchait que quand old > new, pour eviter qu'une
-    panne API ecrase une bonne valeur par un neutre plus bas. Mais l'inverse
-    arrive aussi : si l'ancienne valeur etait BASSE (penalite reelle, ex: ventes
-    insiders), perdre la donnee la fait remonter au neutre (10) et cree un
-    faux signal positif (ex: IVU 04/25 insider=4 -> 05/01 insider=10 alors
-    qu'il n'y avait rien acheter, juste les ventes qui sortaient du lookback).
-
-    APRES : si dataOk=False, on garde toujours l'ancien sous-score (sauf si
-    l'ancien etait null/0, dans ce cas on accepte le nouveau).
-
-    Retourne (patched_score_dict, list_of_fallback_pillars).
+    score_history has neither method/version nor per-axis weight maxima. Even
+    a seven-axis row may precede an administrator weight change. Only the
+    current engine can supply a consistent bounded score and honest dataOk.
     """
-    if not last_tuple or last_tuple[0] is None:
-        return score, []
-    bd = score.get('breakdown') or {}
-    fallbacks = []
-    total_adjustment = 0
-    for i, key in enumerate(PILLAR_KEYS, start=1):
-        sec = bd.get(key)
-        if not sec or not isinstance(sec, dict):
-            continue
-        new_sub = sec.get('score')
-        old_sub = last_tuple[i]
-        data_ok = sec.get('dataOk', True)
-        # Fallback si : dataOk=False ET ancien existe ET ancien != nouveau.
-        # On garde l'ancien dans les 2 sens (drop ET hausse fantome).
-        if not data_ok and old_sub is not None and new_sub is not None and old_sub != new_sub:
-            total_adjustment += (old_sub - new_sub)
-            sec['score'] = old_sub
-            sec['fallbackUsed'] = True
-            direction = 'drop' if old_sub > new_sub else 'phantom-rise'
-            sec['detail'] = (sec.get('detail') or '') + f' [fallback: last-known-good ({direction})]'
-            fallbacks.append(f'{key} {new_sub}->{old_sub}')
-    # total_adjustment peut etre negatif (cas phantom-rise : on baisse le total)
-    if total_adjustment != 0:
-        score['total'] = (score.get('total') or 0) + total_adjustment
-    return score, fallbacks
+    return score, []
 
 
 def breakdown_to_summary(score):
@@ -395,9 +385,10 @@ def main():
                 if len(fail_samples) < 5:
                     fail_samples.append(f'{ticker}: {err}')
             else:
-                last_tuple = last_scores.get(ticker)
-                # FALLBACK last-known-good : si un pilier a dataOk=False et que
-                # l'ancien sous-score etait plus eleve, on garde l'ancien.
+                archived_tuple = last_scores.get(ticker)
+                last_tuple = archived_tuple if current_archive_tuple(archived_tuple) else None
+                # History has no per-axis weight/version metadata: never splice it
+                # into the engine's current weighted breakdown.
                 score, fallbacks = apply_last_known_good_fallback(ticker, score, last_tuple)
                 if fallbacks:
                     fallback_count += 1

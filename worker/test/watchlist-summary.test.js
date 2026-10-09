@@ -1,6 +1,7 @@
 import {test, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {readWatchlistSummary} from '../src/watchlist-summary.js';
+import {STOCK_ANALYSIS_VERSION as VERSION} from '../src/watchlist-market-data.js';
 
 const NOW = Date.parse('2026-09-23T12:00:00Z');
 beforeEach(t => t.mock.method(globalThis, 'fetch', async () => new Response('{}', {status: 503})));
@@ -13,7 +14,7 @@ function cache(records = {}) {
     async list() { assert.fail('Summary must not enumerate KV'); },
   }}};
 }
-const key = ticker => `stock-analysis:v25:${ticker}:full:1y`;
+const key = ticker => `stock-analysis:${VERSION}:${ticker}:full:1y`;
 
 async function withScoreHistory(t, env, rows = []) {
   const {DatabaseSync} = await import('node:sqlite');
@@ -96,12 +97,16 @@ test('expired analysis cache does not hide the watchlist quote and daily movemen
 
 test('durable current-method score survives analysis expiry, without accepting an old-method score', async () => {
   const h=cache({'wl:alice':{tickers:['NVDA','MSFT']},
-    'stock-summary:v25:NVDA':{ticker:'NVDA',company:{name:'NVIDIA'},score:{total:72},_cachedAt:NOW-86400000},
+    [`stock-summary:${VERSION}:NVDA`]:{ticker:'NVDA',company:{name:'NVIDIA'},score:{total:72},_cachedAt:NOW-86400000},
     'stock-summary:v24:MSFT':{ticker:'MSFT',score:{total:99},_cachedAt:NOW-86400000},
   });
   const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
   assert.equal(items[0].score,72); assert.equal(items[0].scoreAt,new Date(NOW-86400000).toISOString());
   assert.equal(items[1].score,null);
+});
+test('a full analysis with no supported score dimension cannot reappear as a current score',async()=>{
+ const h=cache({'wl:alice':{tickers:['EMPTY']},[key('EMPTY')]:{ticker:'EMPTY',score:{total:55,breakdown:{insider:{dataOk:false},momentum:{dataOk:false}}},_cachedAt:NOW-1000}});
+ const {items}=await readWatchlistSummary(h.env,'alice','',NOW);assert.equal(items[0].score,null);assert.equal(items[0].scoreStatus,'unavailable');
 });
 test('fresh cached entries do not prevent refreshing later watchlist symbols beyond position fifty',async t=>{
  const tickers=Array.from({length:64},(_,i)=>'T'+i),records={'wl:alice':{tickers}},requests=[];
@@ -156,7 +161,7 @@ test('legacy symbols apply only when KV is absent, preserve empty lists, validat
 
 test('missing/invalid numbers remain null, public cache fallback retains cache age without inventing quote time', async () => {
   const h=cache({'wl:alice':{tickers:['AAPL','MSFT']},
-    'stock-analysis:v25:AAPL:pub:1y': {ticker:'AAPL',company:{name:'Apple'},price:{current:'',changePct:false},score:{total:'NaN'},_cachedAt:NOW-60000},
+    [`stock-analysis:${VERSION}:AAPL:pub:1y`]: {ticker:'AAPL',company:{name:'Apple'},price:{current:'',changePct:false},score:{total:'NaN'},_cachedAt:NOW-60000},
   });
   const {items}=await readWatchlistSummary(h.env,'alice','',NOW);
   assert.equal(items[0].cachedAt,new Date(NOW-60000).toISOString());
@@ -206,7 +211,7 @@ test('HTTP route requires Firebase identity, accepts free users, cannot select a
   const response=await request('alice-token');
   assert.equal(response.status,200); assert.equal(response.headers.get('Cache-Control'),'private, no-store');
   assert.deepEqual((await response.json()).items.map(i=>i.ticker),['AAPL']);
-  assert.ok(h.reads.every(k=>k==='wl:alice'||k==='insider-transactions'||k.startsWith('stock-analysis:v25:AAPL:')||k==='stock-summary:v25:AAPL'||k==='watchlist-quote:v1:AAPL'));
+  assert.ok(h.reads.every(k=>k==='wl:alice'||k==='insider-transactions'||k.startsWith(`stock-analysis:${VERSION}:AAPL:`)||k===`stock-summary:${VERSION}:AAPL`||k==='watchlist-quote:v1:AAPL'));
   assert.equal(network.length,3); // Authentication and AAPL quote only, never another list or analysis, email or Telegram.
   assert.deepEqual(h.writes,['watchlist-quote:v1:AAPL']);
 });

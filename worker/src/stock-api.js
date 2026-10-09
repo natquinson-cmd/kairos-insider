@@ -9,10 +9,9 @@
  *   - Analyst consensus (Finnhub, optionnel si FINNHUB_KEY defini)
  *   - Insiders (SEC + BaFin + AMF) depuis KV insider-transactions
  *   - Smart Money 13F depuis KV 13f-all-funds
- *   - ETF Politiciens / Gurus (NANC, GOP, GURU) depuis KV etf-*
  *
- * Calcule un "Kairos Score" composite (0-100) avec 6 sous-scores transparents :
- *   Insider (25) + SmartMoney (25) + GovGuru (15) + Momentum (15) + Valo (10) + Analyst (10)
+ * Calcule un score sur 100 normalisé entre les sept axes actifs :
+ *   Initiés, hedge funds, cours, valorisation, analystes, santé et résultats.
  *
  * Cache KV 15 min par ticker pour limiter les hits Yahoo/Finnhub.
  *
@@ -32,6 +31,7 @@ import { searchQuote } from './search-quote.js';
 import { computeInsiderScore, deduplicateInsiderTransactions, insiderTransactionType, INSIDER_SCORING_CONFIG_KEY } from './insider-score.js';
 import { classifyInsiderTransaction, withInsiderTransactionEvidence } from './insider-transaction.js';
 import { STOCK_ANALYSIS_VERSION, storeStockSummarySnapshot } from './watchlist-market-data.js';
+import { SCORE_BASE_MAX, normalizeScoreWeights } from './score-weights.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -193,11 +193,12 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // negligeable face a la taille de la boite ne penalise plus le score). Bump
   // pour recalculer les scores avec la nouvelle formule.
   const isIntradayRange = effectiveRange === '1d' || effectiveRange === '5d';
-  // v25: only documented purchases contribute to insider conviction.
+  // v26: seven active axes; retired politician/guru signals never contribute.
   const cacheKey = `stock-analysis:${STOCK_ANALYSIS_VERSION}:${ticker}:${publicView ? 'pub' : 'full'}:${effectiveRange}`;
   const cached = await env.CACHE.get(cacheKey, 'json');
   const cacheReadTtl = isIntradayRange ? 30 : CACHE_TTL;
-  if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
+  const unsupportedCachedScore = cached?.score?.breakdown && !Object.values(cached.score.breakdown).some(axis => axis?.dataOk === true);
+  if (cached && !unsupportedCachedScore && cached._cachedAt && (Date.now() - cached._cachedAt) < cacheReadTtl * 1000) {
     await storeStockSummarySnapshot(env, cached).catch(() => {});
     return cached;
   }
@@ -230,7 +231,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     fetchStockAnalysisEmployees(ticker),
     fetchYahooNews(ticker),
     aggregate13F(ticker, env, resolvedCompanyName),
-    aggregateGovEtf(ticker, env),
+    Promise.resolve({ inEtfs: [], totalPct: 0 }),
     fetchGoogleTrends(ticker, env),
     aggregateEuThresholds(ticker, env),
   ]);
@@ -417,14 +418,14 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
   // de la note gauge (0-10) + analystCount, format identique a stockanalysis.com
   // pour que le frontend AffiCHE le tableau Achat fort/Achat/Conserver/Vente/etc.
-  let consensus = overview.consensus;
-  if (!consensus && zonebourseConsensus && (zonebourseConsensus.analystCount || zonebourseConsensus.targetMean)) {
-    consensus = synthesizeConsensusFromZonebourse(zonebourseConsensus);
-  }
+  let consensus = overview.consensus || yahooFund?.consensus;
   // Fallback US (aou 2026) : Finnhub recommendation trends quand stockanalysis
   // (mort) et Zonebourse (EU only) ne donnent rien. Couvre tous les tickers US.
   if (!consensus && finnhubConsensus && finnhubConsensus.total > 0) {
     consensus = finnhubConsensus;
+  }
+  if (!consensus && zonebourseConsensus && (zonebourseConsensus.analystCount || zonebourseConsensus.targetMean)) {
+    consensus = synthesizeConsensusFromZonebourse(zonebourseConsensus);
   }
 
   // Poids du Kairos Score : parametrables via console admin → KV config:score-weights.
@@ -1383,10 +1384,25 @@ export function mergeCompanyProfile({ticker, primary = {}, yahoo = {}, quote = {
 }
 
 export function applyYahooFundamentals(fundamentals, stats = {}) {
-  for (const key of ['targetMeanPrice', 'numberOfAnalystOpinions']) {
-    if (fundamentals[key] == null && finiteNumber(stats[key]) != null) fundamentals[key] = finiteNumber(stats[key]);
+  const sameCurrency = !stats.targetCurrency || !fundamentals.currency || stats.targetCurrency === fundamentals.currency;
+  if (fundamentals.targetMeanPrice == null && sameCurrency && finiteNumber(stats.targetMeanPrice) > 0) {
+    fundamentals.targetMeanPrice = finiteNumber(stats.targetMeanPrice);
+    fundamentals.targetSource = 'yahoo';
+    fundamentals.targetCurrency = stats.targetCurrency || fundamentals.currency || null;
   }
-  if (!fundamentals.recommendationKey && stats.recommendationKey) fundamentals.recommendationKey = stats.recommendationKey;
+  if (fundamentals.targetSource === 'yahoo' && sameCurrency) {
+    for (const key of ['targetLowPrice','targetHighPrice']) {
+      if (fundamentals[key] == null && finiteNumber(stats[key]) > 0) fundamentals[key] = finiteNumber(stats[key]);
+    }
+  }
+  if (fundamentals.numberOfAnalystOpinions == null && Number.isInteger(finiteNumber(stats.numberOfAnalystOpinions)) && finiteNumber(stats.numberOfAnalystOpinions) >= 0) {
+    fundamentals.numberOfAnalystOpinions = finiteNumber(stats.numberOfAnalystOpinions);
+    fundamentals.analystCountSource = 'yahoo';
+  }
+  if (!fundamentals.recommendationKey && stats.recommendationKey) {
+    fundamentals.recommendationKey = stats.recommendationKey;
+    fundamentals.recommendationSource = 'yahoo';
+  }
   // Yahoo sharesOutstanding is an absolute share count, unlike Finnhub's millions.
   if (!(finiteNumber(fundamentals.sharesOut) > 0) && finiteNumber(stats.sharesOut) > 0) fundamentals.sharesOut = finiteNumber(stats.sharesOut);
 }
@@ -1395,7 +1411,7 @@ export async function fetchYahooFundamentals(ticker, env) {
   const empty = { profile: {}, stats: {} };
 
   async function doFetch(session) {
-    const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,price';
+    const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,price,recommendationTrend';
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=${modules}&crumb=${encodeURIComponent(session.crumb || '')}`;
     const headers = { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' };
     if (session.cookie) headers['Cookie'] = session.cookie;
@@ -1425,6 +1441,7 @@ export async function fetchYahooFundamentals(ticker, env) {
     const raw = (field) => (field && typeof field === 'object' && 'raw' in field) ? field.raw : field;
 
     return {
+      consensus: normalizeRecommendationTrend(r.recommendationTrend?.trend),
       profile: {
         longName: raw(priceMod.longName) || raw(profile.longName),
         shortName: raw(priceMod.shortName),
@@ -1458,6 +1475,9 @@ export async function fetchYahooFundamentals(ticker, env) {
         debtToEquity: raw(finData.debtToEquity),
         currentRatio: raw(finData.currentRatio),
         targetMeanPrice: raw(finData.targetMeanPrice),
+        targetLowPrice: raw(finData.targetLowPrice),
+        targetHighPrice: raw(finData.targetHighPrice),
+        targetCurrency: raw(priceMod.currency) || null,
         recommendationKey: finData.recommendationKey,
         numberOfAnalystOpinions: raw(finData.numberOfAnalystOpinions),
       },
@@ -2531,87 +2551,34 @@ async function fetchGoogleTrends(ticker, env) {
 // Pour personnaliser les poids : console admin → panneau 'Ponderation
 // Kairos Score' → ecrit dans KV config:score-weights.
 // ============================================================
-const SCORE_BASE_MAX = {
-  insider: 20, smartMoney: 20, govGuru: 10, momentum: 15,
-  valuation: 10, analyst: 10, health: 10, earnings: 5,
-};
-const SCORE_DEFAULT_WEIGHTS = { ...SCORE_BASE_MAX }; // somme = 100
 
 
 // ============================================================
-// SYNTHESE CONSENSUS DEPUIS ZONEBOURSE
-// ============================================================
-// Zonebourse fournit : note gauge (0-10), recommandation moyenne textuelle
-// (ACHETER/ACCUMULER/CONSERVER/ALLEGER/VENDRE), nombre d'analystes, target.
-// MAIS pas le breakdown des votes individuels.
-//
-// On synthetise un breakdown buy/hold/sell PLAUSIBLE pour que le frontend
-// (qui attend strongBuy/buy/hold/sell/strongSell) puisse afficher quelque
-// chose de coherent au lieu de "undefined".
-//
-// La distribution est calibree sur la note gauge :
-//   9.0+   : tres haussier  -> majorite strongBuy
-//   8.0-9.0: haussier fort  -> mix strongBuy + buy
-//   7.0-8.0: haussier (cas LVMH 7.8) -> majorite buy + un peu strongBuy
-//   6.0-7.0: legerement haussier -> mix buy + hold
-//   5.0-6.0: neutre -> majorite hold
-//   4.0-5.0: legerement baissier -> mix hold + sell
-//   3.0-4.0: baissier -> majorite sell
-//   <3.0   : tres baissier -> majorite strongSell
-//
-// IMPORTANT : breakdown synthetise marque _synthesized=true et _source='zonebourse'
-// pour transparence. Le frontend peut afficher un badge "estime" si souhaite.
+// PARTIAL CONSENSUS: retain observations, never invent category votes.
+// Kept under the original exported name for compatibility with callers.
 export function synthesizeConsensusFromZonebourse(zb) {
-  const N = Math.max(1, parseInt(zb.analystCount, 10) || 0);
-  const note = parseFloat(zb.gaugeNote) || null;
-
-  // Distribution (% de chaque categorie)
-  let dist;  // [strongBuy, buy, hold, sell, strongSell]
-  if (note != null) {
-    if (note >= 9.0) dist = [0.65, 0.30, 0.05, 0, 0];
-    else if (note >= 8.0) dist = [0.40, 0.45, 0.15, 0, 0];
-    else if (note >= 7.0) dist = [0.25, 0.50, 0.20, 0.05, 0];
-    else if (note >= 6.0) dist = [0.10, 0.40, 0.40, 0.10, 0];
-    else if (note >= 5.0) dist = [0, 0.20, 0.60, 0.20, 0];
-    else if (note >= 4.0) dist = [0, 0.10, 0.40, 0.40, 0.10];
-    else if (note >= 3.0) dist = [0, 0.05, 0.25, 0.45, 0.25];
-    else dist = [0, 0, 0.15, 0.30, 0.55];
-  } else {
-    // Fallback sur recommendationMean si pas de note gauge
-    const rec = (zb.recommendationMean || zb.consensus || '').toUpperCase();
-    if (/ACHETER|FORT|STRONG\s*BUY/.test(rec)) dist = [0.55, 0.35, 0.10, 0, 0];
-    else if (/ACCUMULER|ACHAT|BUY/.test(rec)) dist = [0.25, 0.50, 0.20, 0.05, 0];
-    else if (/CONSERVER|HOLD|NEUTRE/.test(rec)) dist = [0, 0.20, 0.60, 0.20, 0];
-    else if (/ALLEGER|REDUCE/.test(rec)) dist = [0, 0.05, 0.40, 0.40, 0.15];
-    else if (/VENDRE|SELL/.test(rec)) dist = [0, 0, 0.15, 0.40, 0.45];
-    else dist = [0, 0.20, 0.60, 0.20, 0];  // default neutre
-  }
-
-  // Allocation des votes : on calcule strongBuy = round(dist[0]*N), etc.
-  // Puis on adjuste le dernier pour que total = N exactement.
-  const counts = dist.slice(0, 4).map(p => Math.round(p * N));
-  let allocated = counts.reduce((a, b) => a + b, 0);
-  counts.push(Math.max(0, N - allocated));  // strongSell = reliquat
-
-  const [strongBuy, buy, hold, sell, strongSell] = counts;
-  const bullishPct = N > 0 ? Math.round(((strongBuy + buy) / N) * 100) : 0;
-
+  const count = finiteNumber(zb.analystCount);
   return {
-    // Format compatible stockanalysis.com pour rendering identique
-    strongBuy, buy, hold, sell, strongSell,
-    total: N,
-    bullishPct,
-    targetMeanPrice: zb.targetMean || null,
-    targetCurrency: zb.targetCurrency || 'EUR',
-    totalAnalysts: N,
+    totalAnalysts: Number.isInteger(count) && count > 0 ? count : null,
+    targetMeanPrice: finiteNumber(zb.targetMean),
+    targetCurrency: zb.targetCurrency || null,
     recommendationKey: (zb.recommendationMean || zb.consensus || '').toLowerCase(),
     recommendationLabel: zb.recommendationMean || zb.consensus || null,
-    gaugeNote: note,
-    // Markers de transparence
-    _source: 'zonebourse',
-    _synthesized: true,
-    _synthesisBasis: note != null ? `note ${note}/10` : `recommandation ${zb.recommendationMean}`,
+    gaugeNote: finiteNumber(zb.gaugeNote),
+    _source: 'zonebourse', _partial: true,
+    sourceUrl: zb.sourceUrl || null, asOf: zb.fetchedAt || null,
   };
+}
+
+export function normalizeRecommendationTrend(trends) {
+  const current = Array.isArray(trends) ? trends.find(row => row?.period === '0m') : null;
+  if (!current) return null;
+  const keys = ['strongBuy','buy','hold','sell','strongSell'];
+  const counts = Object.fromEntries(keys.map(key => [key, finiteNumber(current[key]?.raw ?? current[key])]));
+  if (!Object.values(counts).every(n => Number.isInteger(n) && n >= 0)) return null;
+  const total = Object.values(counts).reduce((a,b) => a+b,0);
+  if (!total) return null;
+  return {...counts,total,bullishPct:(counts.strongBuy+counts.buy)/total*100,_source:'yahoo'};
 }
 
 
@@ -2631,12 +2598,11 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   const estimatedHealthRatio = hasCriteriaCounts ? criteriaPassed / criteriaTotal
     : suppliedHealthPercent != null && suppliedHealthPercent >= 0 && suppliedHealthPercent <= 100 ? suppliedHealthPercent / 100 : null;
   // weights custom OU defaults (meme repartition que BASE_MAX)
-  const W = { ...SCORE_DEFAULT_WEIGHTS, ...(weights || {}) };
+  const W = normalizeScoreWeights(weights);
 
   const breakdown = {
     insider: { score: 0, max: W.insider, label: 'Signal des initiés', detail: '', dataOk: true },
     smartMoney: { score: 0, max: W.smartMoney, label: 'Hedge funds (13F)', detail: '', dataOk: true },
-    govGuru: { score: 0, max: W.govGuru, label: 'Politiciens & gourous', detail: '', dataOk: true },
     momentum: { score: 0, max: W.momentum, label: 'Momentum du cours', detail: '', dataOk: true },
     valuation: { score: 0, max: W.valuation, label: 'Valorisation', detail: '', dataOk: true },
     analyst: { score: 0, max: W.analyst, label: 'Consensus analystes', detail: '', dataOk: true },
@@ -2655,16 +2621,15 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   });
   const hasInsiderData = insiderSignal.dataOk;
   const hasSmartMoneyData = (smartMoney.fundCount || 0) > 0;
-  const hasGovGuruData = Array.isArray(govEtf.inEtfs) && govEtf.inEtfs.length > 0;
   const hasMomentumData = !!(quote && quote.price && quote.price.current && quote.price.high52w && quote.price.low52w);
   const hasValuationData = !!(fundamentals && (fundamentals.peRatio || fundamentals.forwardPE));
-  const hasAnalystData = !!(consensus && consensus.total > 0) || !!(fundamentals && fundamentals.targetMeanPrice);
+  const hasVoteCounts = !!(consensus && !consensus._synthesized && consensus.total > 0 && finiteNumber(consensus.bullishPct) != null);
+  const hasAnalystData = hasVoteCounts || !!(fundamentals && fundamentals.targetMeanPrice);
   const hasHealthData = health.altmanZ != null || health.piotroskiF != null || estimatedHealthRatio != null;
   const hasEarningsData = Array.isArray(earnings && earnings.history) && earnings.history.length > 0;
 
   breakdown.insider.dataOk = hasInsiderData;
   breakdown.smartMoney.dataOk = hasSmartMoneyData;
-  breakdown.govGuru.dataOk = hasGovGuruData;
   breakdown.momentum.dataOk = hasMomentumData;
   breakdown.valuation.dataOk = hasValuationData;
   breakdown.analyst.dataOk = hasAnalystData;
@@ -2676,7 +2641,7 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   const applyWeight = (axis, rawScore) => {
     const baseMax = SCORE_BASE_MAX[axis];
     const normalized = Math.max(0, Math.min(1, rawScore / baseMax));
-    return Math.round(normalized * W[axis]);
+    return normalized * W[axis];
   };
 
   // Purchase and sale evidence are evaluated independently; sales receive only
@@ -2728,15 +2693,6 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   // Mark dataOk si on a au moins une source qui a remonte des donnees
   breakdown.smartMoney.dataOk = (smartMoney.fundCount || 0) > 0 || euTotal > 0;
 
-  // --- GOV/GURU (0-10) ---
-  let ggScore = 5;
-  if (govEtf.inEtfs.length > 0) ggScore += govEtf.inEtfs.length * 1.5;
-  if (govEtf.totalPct > 1) ggScore += 1;
-  breakdown.govGuru.score = applyWeight('govGuru', ggScore);
-  breakdown.govGuru.detail = govEtf.inEtfs.length > 0
-    ? `Présent dans ${govEtf.inEtfs.map(e => e.etf).join(', ')} (${govEtf.totalPct.toFixed(2)}%)`
-    : 'Absent des ETF suivis';
-
   // --- MOMENTUM (0-15) ---
   let momScore = 7;
   const price = quote && quote.price;
@@ -2774,7 +2730,7 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
 
   // --- ANALYST CONSENSUS (0-10) ---
   let anaScore = 5;
-  if (consensus && consensus.total > 0) {
+  if (hasVoteCounts) {
     const bullish = consensus.bullishPct || 0;
     anaScore = Math.round(bullish / 10); // 0..10
   } else if (stats.targetMeanPrice && price && price.current) {
@@ -2787,7 +2743,7 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
     else anaScore = 2;
   }
   breakdown.analyst.score = applyWeight('analyst', anaScore);
-  if (consensus && consensus.total > 0) {
+  if (hasVoteCounts) {
     breakdown.analyst.detail = `${consensus.bullishPct.toFixed(0)}% haussiers (${consensus.total} analystes)`;
   } else if (stats.targetMeanPrice && price && price.current) {
     const upside = ((stats.targetMeanPrice - price.current) / price.current) * 100;
@@ -2834,7 +2790,7 @@ export function computeKairosScore({ insiders, smartMoney, govEtf, quote, fundam
   breakdown.earnings.score = applyWeight('earnings', earnScore);
 
   // --- Total ---
-  const total = Object.values(breakdown).reduce((s, b) => s + b.score, 0);
+  const total = Math.max(0, Math.min(100, Math.round(Object.values(breakdown).reduce((s, b) => s + b.score, 0))));
 
   // FIX (mai 2026) : labels neutralises pour eviter d'etre percus comme un
   // conseil financier (regulation AMF / FCA art. L. 541-1 CMF).

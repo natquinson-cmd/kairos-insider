@@ -45,7 +45,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&display=swap" rel="stylesheet" />
 
   <!-- Module i18n FR/EN (window.KairosI18n) -->
-  <script src="assets/i18n.js?v=20260922-core"></script>
+  <script src="assets/i18n.js?v=sevenaxes1"></script>
   <script src="assets/affiliate-tracker.js?v=20260522"></script>
   <script src="assets/analysis-presentation.js?v=20260914"></script>
   <script src="assets/public-journey.js?v=20260918-pro"></script>
@@ -1081,7 +1081,7 @@
       /* Grilles qui étaient en auto-fit : force 1 col si écran étroit.
          FIX mobile (mai 2026) : ajout du sélecteur descendant (sans ">") pour
          capter les grilles IMBRIQUEES dans .section-page (ex : la grille radar
-         Kairos Score + breakdown 8 axes qui avait minmax(380px,1fr) fixe et
+         Kairos Score + breakdown 7 axes qui avait minmax(380px,1fr) fixe et
          debordait sur mobile). Le ">" original ne ciblait que les enfants
          directs et laissait passer les grilles internes des render*.
          EXCLUSION : #marketPulse + .signals-grid gardent leur auto-fit pour
@@ -7170,7 +7170,7 @@
             </div>
             <div style="display:flex;gap:8px">
               <button onclick="loadAdminScoreWeights()" class="tip" data-tip="Recharger les poids depuis le serveur" data-i18n-tip="dash.admin.reload_weights" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Refresh</button>
-              <button onclick="resetAdminScoreWeights()" class="tip" data-tip="Revenir aux poids par défaut (20/20/10/15/10/10/10/5)" data-i18n-tip="dash.admin.reset_weights_tip" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">↺ Reset</button>
+              <button onclick="resetAdminScoreWeights()" class="tip" data-tip="Revenir aux poids par défaut des sept axes" data-i18n-tip="dash.admin.reset_weights_tip" style="padding:6px 12px;font-size:12px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);cursor:pointer">↺ Reset</button>
               <button onclick="saveAdminScoreWeights()" class="tip" data-tip="Sauvegarder les nouveaux poids. Appliqué dans les ~60 min suivants (cache stock-analysis TTL 1h)." data-i18n-tip="dash.admin.save_weights_tip" style="padding:6px 14px;font-size:12px;background:linear-gradient(135deg,#3B82F6,#6366F1);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>Sauvegarder</button>
             </div>
           </div>
@@ -8792,7 +8792,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
     // Tick vert = inclus, croix grise = pas dans ce plan (comparatif clair).
     const PAYWALL_FEATURES = {
       pro: [
-        { ok: true,  text: '<strong>Kairos Score</strong> complet — 8 axes · 3 349 tickers' },
+        { ok: true,  text: '<strong>Kairos Score</strong> complet — 7 axes · 3 349 tickers' },
         { ok: true,  text: 'Initiés : transactions · signaux · convergences · screener' },
         { ok: true,  text: '<strong>Activistes</strong> (Elliott, Ackman, Icahn…)' },
         { ok: true,  text: '<strong>200+ Hedge Funds</strong> 13F + Consensus' },
@@ -14348,7 +14348,7 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const breakdown = score?.breakdown || {};
       const tk = ticker || 'cette action';
 
-      // Classer les 8 axes par % de remplissage (score / max)
+      // Classer les 7 axes par % de remplissage (score / max)
       // FIX i18n (mai 2026) : avant le label venait du worker (b.label = FR brut
       // comme "Momentum du cours"), ce qui leakait du FR dans la narrative EN.
       // Maintenant : on traduit via t('stock.bd.{key}') qui a les versions FR + EN
@@ -14469,23 +14469,22 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       // (regulation AMF / FCA art. L. 541-1 CMF). Toujours le label localise neutre.
       const signal = t(_sigKey, _sigFb);
 
-      // Ordonnancement des 8 dimensions autour du radar (clockwise depuis le haut)
+      // Ordonnancement des 7 dimensions autour du radar (clockwise depuis le haut)
       // Labels radar : noms COMPLETS (vs abbreviations courtes avant). i18n FR/EN.
       // Utilise dans le radar SVG pour afficher autour du polygone (uppercased CSS)
       // et coherent avec les labels du Breakdown a droite + l'image OG /og/[ticker].
       const _axisLang = (window.KairosI18n && window.KairosI18n.getLang()) || 'fr';
       const _axisLabels = _axisLang === 'en'
-        ? { insider:'INSIDERS', smartMoney:'HEDGE FUNDS', momentum:'MOMENTUM', earnings:'EARNINGS', analyst:'ANALYSTS', valuation:'VALUATION', health:'FINANCIALS', govGuru:'POLI/GURUS' }
-        : { insider:'INITIÉS',  smartMoney:'HEDGE FUNDS', momentum:'MOMENTUM', earnings:'RÉSULTATS', analyst:'ANALYSTES', valuation:'VALORISATION', health:'SANTÉ FIN.', govGuru:'POLI/GOUROUS' };
+        ? { insider:'INSIDERS', smartMoney:'HEDGE FUNDS', momentum:'MOMENTUM', earnings:'EARNINGS', analyst:'ANALYSTS', valuation:'VALUATION', health:'FINANCIALS', }
+        : { insider:'INITIÉS',  smartMoney:'HEDGE FUNDS', momentum:'MOMENTUM', earnings:'RÉSULTATS', analyst:'ANALYSTES', valuation:'VALORISATION', health:'SANTÉ FIN.', };
       const axesOrder = [
         { key: 'insider',    label: t('stock.axis.insider', 'Initiés'),       short: _axisLabels.insider },
         { key: 'smartMoney', label: t('stock.axis.smartMoney', 'Hedge Funds'),short: _axisLabels.smartMoney },
         { key: 'momentum',   label: t('stock.axis.momentum', 'Momentum'),     short: _axisLabels.momentum },
-        { key: 'earnings',   label: t('stock.axis.earnings', 'Résultats'),    short: _axisLabels.earnings },
-        { key: 'analyst',    label: t('stock.axis.analyst', 'Analystes'),     short: _axisLabels.analyst },
         { key: 'valuation',  label: t('stock.axis.valuation', 'Valo'),        short: _axisLabels.valuation },
+        { key: 'analyst',    label: t('stock.axis.analyst', 'Analystes'),     short: _axisLabels.analyst },
         { key: 'health',     label: t('stock.axis.health', 'Santé'),          short: _axisLabels.health },
-        { key: 'govGuru',    label: t('stock.axis.govGuru', 'Politique'),     short: _axisLabels.govGuru },
+        { key: 'earnings',   label: t('stock.axis.earnings', 'Résultats'),    short: _axisLabels.earnings },
       ];
       const breakdown = score?.breakdown || {};
 
@@ -14629,13 +14628,13 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
                 Kairos Score : <span style="color:${palette.main}">${total}</span><span style="opacity:0.4;font-size:16px">/100</span>
               </h2>
             </div>
-            <!-- SYNTHESE DYNAMIQUE basee sur les 8 axes -->
+            <!-- SYNTHESE DYNAMIQUE basee sur les 7 axes -->
             <div style="background:linear-gradient(135deg, ${palette.main}10, transparent);border-left:3px solid ${palette.main};padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.55;color:var(--text-primary)">
               ${generateScoreNarrative(score, tk, axesOrder, palette)}
             </div>
           </div>
 
-          <!-- LIGNE 2 : radar (gauche, AGRANDI) | breakdown 8 axes (droite, plus serre)
+          <!-- LIGNE 2 : radar (gauche, AGRANDI) | breakdown 7 axes (droite, plus serre)
                FIX mobile (mai 2026) : auto-fit pour collapse en 1 col < 700px.
                Avant : "minmax(380px, 1fr) minmax(320px, 1fr)" = 700px min total
                -> overflow horizontal sur mobile (le user ne voyait plus la partie
@@ -14666,10 +14665,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
               </svg>
             </div>
 
-            <!-- Breakdown 8 axes (column 2) -->
+            <!-- Breakdown 7 axes (column 2) -->
             <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
               <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-                <span>${t('stock.label.breakdown8axes', 'Décomposition (8 axes)')}</span>
+                <span>${t('stock.label.breakdown8axes', 'Décomposition (7 axes)')}</span>
                 <span style="opacity:0.6;text-transform:none;letter-spacing:0;font-weight:400;font-size:9px">${t('stock.label.scorePerAxis', '0% = faible, 100% = excellent')}</span>
               </div>
               ${breakdownRows || `<div style="opacity:0.5;font-size:12px">${t('stock.empty.detailsUnavailable', 'Détails indisponibles')}</div>`}
@@ -25791,14 +25790,14 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
       const sum = keys.reduce((s, k) => s + (Number(current[k]) || 0), 0);
       const sumColor = Math.abs(sum - 100) < 0.5 ? '#10B981' : (sum < 100 ? '#F59E0B' : '#EF4444');
       const rows = keys.map(k => {
-        const def = defaults[k];
-        const val = current[k];
+        const def = Number(defaults[k]).toFixed(2);
+        const val = Number(current[k]).toFixed(2);
         const isModified = Math.abs(val - def) > 0.01;
         return `
           <div style="display:grid;grid-template-columns:190px 1fr 110px 70px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider)">
             <div style="font-size:13px;color:var(--text-primary);font-weight:500">${escapeHtml(labels[k])}${isModified ? ' <span style="font-size:10px;color:#F59E0B;margin-left:4px" title="Modifié par rapport au défaut" data-i18n-title="dash.admin.weight_modified">●</span>' : ''}</div>
-            <input type="range" min="0" max="40" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%" aria-label="${escapeHtml(labels[k])}" />
-            <input type="number" min="0" max="100" step="0.5" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:13px;font-variant-numeric:tabular-nums" />
+            <input type="range" min="0" max="40" step="0.01" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%" aria-label="${escapeHtml(labels[k])}" />
+            <input type="number" min="0" max="100" step="0.01" value="${val}" oninput="onAdminWeightChange('${k}', this.value)" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-primary);font-size:13px;font-variant-numeric:tabular-nums" />
             <div style="font-size:11px;color:var(--text-muted);text-align:right">déf. ${def}</div>
           </div>`;
       }).join('');
@@ -25812,10 +25811,10 @@ ${t('dash.lock.unlock_signals', '            Débloquer les signaux')}
         ${rows}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 14px;background:var(--surface-2);border-radius:8px">
           <div style="font-size:12px;color:var(--text-secondary)">Somme des poids</div>
-          <div style="font-size:18px;font-weight:700;color:${sumColor};font-variant-numeric:tabular-nums">${sum.toFixed(1)} <span style="font-size:11px;font-weight:400;opacity:0.6">${t('dash.admin.weight_sum_ideal', '/ 100 idéal')}</span></div>
+          <div style="font-size:18px;font-weight:700;color:${sumColor};font-variant-numeric:tabular-nums">${sum.toFixed(2)} <span style="font-size:11px;font-weight:400;opacity:0.6">${t('dash.admin.weight_sum_ideal', '/ 100 idéal')}</span></div>
         </div>
         <div style="margin-top:10px;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:11px;color:var(--text-secondary);line-height:1.5">
-          💡 Les poids somment idéalement à <strong>100</strong> pour que le score affiché soit lisible (0-100). Une somme différente reste valide — le score total peut juste sortir de l'intervalle (ex: max 120 si somme=120). Le cache stock-analysis (TTL 1h) expire progressivement, donc les nouveaux poids s'appliquent dans les ~60 min.
+          💡 ${t('dash.admin.weights_normalized_note', 'Les poids des sept axes sont normalisés sur <strong>100</strong>. Leur proportion détermine la contribution de chaque axe au score global ; elle ne modifie pas la forme du radar.')}
         </div>`;
     }
 

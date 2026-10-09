@@ -12,6 +12,19 @@ function selectEvents(events,days,type,today){
 }
 function create(onChange){
  let symbols=[],key=null,request=0,items=new Map(),data=null,state='loading',days=7,type='all',visible=8;
+ const scoreStates=new Map();let scorePaintPending=false;
+ function notifyScores(){onChange();$('watchlistRows')?.querySelectorAll('[data-score-retry]').forEach(button=>button.onclick=()=>scoreLoader?.retry(button.dataset.scoreRetry));}
+ const scoreLoader=window.KairosWatchlistScores?.create({api:U.api,onChange:event=>{
+  scoreStates.set(event.ticker,event.state);const row=items.get(event.ticker);if(row&&event.item)Object.assign(row,event.item);
+  if(!scorePaintPending){scorePaintPending=true;Promise.resolve().then(()=>{scorePaintPending=false;notifyScores();});}
+ }});
+ function scoreProgress(ticker){
+  const phase=scoreStates.get(ticker);
+  if(phase==='loading')return `<small role="status">${t('Calcul du score en cours…','Calculating score…')}</small>`;
+  if(phase==='queued')return `<small>${t('Calcul en attente','Score queued')}</small>`;
+  if(phase==='error')return `<small>${t('Actualisation du score indisponible','Score refresh unavailable')}</small><button type="button" class="text-button" data-score-retry="${e(ticker)}">${t('Réessayer','Retry')}</button>`;
+  return '';
+ }
  $('watchActivityTitle').textContent=t('Ce qui bouge sur vos valeurs','Activity on your stocks');
  $('watchActivityIntro').textContent=t('Les opérations publiées sur vos sociétés suivies, avec leur qualification et leur date d’exécution.','Filings on your followed companies, with their qualification and execution dates.');
  $('watchActivityControls').innerHTML=`<label>${t('Publications sur','Filings over')}<select id="watchActivityDays"><option value="7">${t('7 jours','7 days')}</option><option value="30">${t('30 jours','30 days')}</option></select></label><label>${t('Opérations','Transactions')}<select id="watchActivityType"><option value="all">${t('Toutes','All')}</option><option value="buy">${t('Achats retenus','Qualifying purchases')}</option><option value="sell">${t('Ventes','Sales')}</option><option value="review">${t('Autres opérations','Other transactions')}</option></select></label><button type="button" class="text-button" id="watchActivityRefresh">${t('Actualiser','Refresh')}</button>`;
@@ -43,7 +56,7 @@ function create(onChange){
  }
  function stockTrend(ticker){
   const row=items.get(ticker),curve=row?.sparkline3m,points=(curve?.points||[]).filter(p=>number(p.close)>0&&Number.isFinite(Date.parse(p.date)));
-  const score=number(row?.score),historical=row?.scoreStatus==='historical',scoreMarkup=score==null?'':`<small class="watch-score ${historical?'':score>=75?'is-up':score>=55?'is-favorable':score>=35?'is-cautious':'is-down'}" title="${e(t('Score au ','Score as of ')+date(row.scoreAt))}">Kairos <b>${e(n(score,0))}</b>/100</small>${historical?`<small>${t('Score historique','Historical score')} · ${e(date(row.scoreAt))}</small><small>${t('La méthode peut différer de l’analyse actuelle.','The method may differ from the current analysis.')}</small>`:''}`;
+  const score=number(row?.score),historical=row?.scoreStatus==='historical',scoreMarkup=(score==null?'':`<small class="watch-score ${historical?'':score>=75?'is-up':score>=55?'is-favorable':score>=35?'is-cautious':'is-down'}" title="${e(t('Score au ','Score as of ')+date(row.scoreAt))}">Kairos <b>${e(n(score,0))}</b>/100</small>${historical?`<small>${t('Score historique','Historical score')} · ${e(date(row.scoreAt))}</small><small>${t('La méthode peut différer de l’analyse actuelle.','The method may differ from the current analysis.')}</small>`:''}`)+scoreProgress(ticker);
   if(points.length<2)return `<small>${t('Courbe indisponible','Chart unavailable')}</small>${scoreMarkup}`;
   const min=Math.min(...points.map(p=>p.close)),max=Math.max(...points.map(p=>p.close)),first=Date.parse(points[0].date),span=Date.parse(points.at(-1).date)-first;
   if(span<=0)return `<small>${t('Courbe indisponible','Chart unavailable')}</small>${scoreMarkup}`;
@@ -53,9 +66,9 @@ function create(onChange){
  }
  async function update(next,force=false){
   const nextKey=next.join(',');if(nextKey===key&&!force)return;
-  key=nextKey;symbols=[...next];const current=++request;items=new Map();data=null;state=symbols.length?'loading':'empty';render();onChange();
+  scoreLoader?.stop();scoreStates.clear();key=nextKey;symbols=[...next];const current=++request;items=new Map();data=null;state=symbols.length?'loading':'empty';render();onChange();
   if(!symbols.length)return;
-  try{const result=await U.api('/api/watchlist/summary?'+new URLSearchParams({symbols:nextKey}));if(current!==request)return;const wanted=new Set(symbols);data={...result,activity:result.activity?{...result.activity,events:(result.activity.events||[]).filter(row=>wanted.has(row.ticker))}:null};items=new Map((result.items||[]).filter(row=>wanted.has(row.ticker)).map(row=>[row.ticker,row]));state='ready';}
+  try{const result=await U.api('/api/watchlist/summary?'+new URLSearchParams({symbols:nextKey}));if(current!==request)return;const wanted=new Set(symbols);data={...result,activity:result.activity?{...result.activity,events:(result.activity.events||[]).filter(row=>wanted.has(row.ticker))}:null};const received=new Map((result.items||[]).filter(row=>wanted.has(row.ticker)).map(row=>[row.ticker,row]));items=new Map(symbols.map(ticker=>[ticker,received.get(ticker)||{ticker}]));state='ready';scoreLoader?.load([...items.values()]);}
   catch{if(current!==request)return;state='error';}
   render();onChange();
  }

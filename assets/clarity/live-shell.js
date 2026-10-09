@@ -105,7 +105,7 @@ onAuthStateChanged(auth,async next=>{const previous=user;user=next;readyResolve(
 });
 // Feedback is optional and must not delay the workspace.
 loadScript('assets/clarity/feedback.js?v=feedback1').catch(()=>{});
-await Promise.all([loadScript('assets/clarity/compact-search.js?v=visible1'),loadScript('assets/clarity/live-i18n.js?v=live7')]);
+await Promise.all([loadScript('assets/clarity/compact-search.js?v=visible1'),loadScript('assets/clarity/live-i18n.js?v=sevenaxes1')]);
 if(!document.getElementById('searchWrap')){header.querySelector('.account-topbar-label,.watchlist-topbar-label')?.remove();header.insertAdjacentHTML('afterbegin',window.KairosCompactSearch.stockMarkup(lang));}
 const searchInput=document.getElementById('companySearch')||document.getElementById('marketSearch');
 if(searchInput?.id==='marketSearch')searchInput.value=params.get('q')||'';
@@ -117,15 +117,16 @@ async function ticker(){try{const d=await api('/api/ticker-tape'),items=(d.items
 if(!window.KairosEntryRedirect){
 ticker();
 const legacy=location.hash.slice(1);
+if(researchHome||document.body.dataset.screen==='watchlist')await loadScript('assets/clarity/watchlist-score-loader.js?v=autoscore1');
 if(document.body.dataset.screen==='market'){await loadScript('assets/clarity/fund-brands.js?v=live10');await loadScript('assets/clarity/live-market.js?v=readability1');}
 else if(document.body.dataset.screen==='account'){await loadScript('assets/clarity/live-account.js?v=live7');}
-else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=historyscore1');await loadScript('assets/clarity/live-watchlist.js?v=purchases1');}
-else if(researchHome){await loadScript('assets/clarity/live-research.js?v=historyscore1');}
+else if(document.body.dataset.screen==='watchlist'){await loadScript('assets/clarity/watchlist-insights.js?v=autoscore1');await loadScript('assets/clarity/live-watchlist.js?v=purchases1');}
+else if(researchHome){await loadScript('assets/clarity/live-research.js?v=autoscore1');}
 else{
   const symbol=(params.get('symbol')||new URLSearchParams(legacy.split('?')[1]||'').get('t')||'AAPL').toUpperCase();
   const status=document.getElementById('liveStatus');
   if(params.get('from')==='market'){const filter=new URLSearchParams(params.get('filters')||'');filter.set('lang',lang);document.getElementById('screenerReturn').hidden=false;const a=document.getElementById('screenerReturnLink');a.href='insiders.html?'+filter;a.textContent=t('← Retour à l’exploration','← Back to exploration');}
-  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=live7');await loadScript('assets/clarity/fund-history.js?v=history4');await loadScript('assets/clarity/live-stock-views.js?v=checkup1');await loadScript('assets/clarity/chart-events.js?v=group1');await loadScript('assets/clarity/app.js?v=eventgroups1');window.KairosUI.translate();status.hidden=true;document.getElementById('companyMain').hidden=false;
+  try{const d=await api('/api/stock/'+encodeURIComponent(symbol));window.KairosLive={companies:[window.KairosAdapter.stock(d)]};await loadScript('assets/clarity/analysis-english.js?v=analysts2');await loadScript('assets/clarity/fund-history.js?v=history4');await loadScript('assets/clarity/live-stock-views.js?v=checkup1');await loadScript('assets/clarity/chart-events.js?v=group1');await loadScript('assets/clarity/app.js?v=sevenaxes1');window.KairosUI.translate();status.hidden=true;document.getElementById('companyMain').hidden=false;
     researchHistory().then(history=>history.record({ticker:d.ticker,name:d.company?.name||d.ticker})).catch(()=>{});
     mountWatchButton(d.ticker).catch(()=>{});
     api('/api/13dg/ticker?ticker='+encodeURIComponent(d.ticker)).then(rows=>{const company=window.KairosLive.companies[0];company.activism.filings=window.KairosStockViews.mapActivists(rows.filings||rows.data||[]);window.KairosStockRefresh();}).catch(error=>{document.getElementById('activistsContent').innerHTML=`<p class="data-note">${esc(error.message)}</p>`;});

@@ -22,6 +22,18 @@ const number=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
 const date=v=>C.formatDate(v,{lang});
 const safeUrl=value=>{try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)?url.href:null;}catch{return null;}};
 let items=[],visible=8,activity=[],activityVisible=3,summaryAt;
+const scoreStates=new Map();let scorePaintPending=false;
+const scoreLoader=window.KairosWatchlistScores?.create({api:U.api,onChange:event=>{
+ scoreStates.set(event.ticker,event.state);const row=items.find(item=>item.ticker===event.ticker);if(row&&event.item)Object.assign(row,event.item);
+ if(!scorePaintPending){scorePaintPending=true;Promise.resolve().then(()=>{scorePaintPending=false;renderWatch();});}
+}});
+function scoreProgress(row){
+ const state=scoreStates.get(row.ticker);
+ if(state==='loading')return `<small role="status">${t('Calcul du score en cours…','Calculating score…')}</small>`;
+ if(state==='queued')return `<small class="research-muted">${t('Calcul en attente','Score queued')}</small>`;
+ if(state==='error')return `<small class="research-stale">${row.score==null?t('Score momentanément indisponible','Score temporarily unavailable'):t('Actualisation indisponible','Refresh unavailable')}</small><button type="button" class="text-button" data-score-retry="${e(row.ticker)}">${t('Réessayer','Retry')}</button>`;
+ return '';
+}
 function eventDates(event){const d=C.dates(event,{lang,now:summaryAt});return `<span>${e(d.publication.ageLabel||d.publication.label)} · <b>${e(d.publication.text)}</b></span><span>${e(d.execution.label)} <b>${e(d.execution.text)}</b></span>${d.warnings.length?`<span class="research-date-warning">${e(d.warnings.join(' · '))}</span>`:''}`;}
 function signal(event){
  if(!event)return `<span class="research-muted">${t('Aucune déclaration disponible','No available filing')}</span>`;
@@ -41,23 +53,26 @@ function loadActivity(data,tickers){
 }
 activityMore.onclick=()=>{activityVisible+=3;renderActivity();};
 function renderWatch(){
+ watch.removeAttribute?.('role');
  watch.innerHTML=`<div class="table-wrap"><table class="research-watch-table"><thead><tr><th>${t('Société','Company')}</th><th class="number">${t('Cours','Price')}</th><th class="number">${t('Variation séance','Session change')}</th><th class="number">${t('Score Kairos','Kairos score')}</th><th>${t('Dernière déclaration d’initié','Latest insider filing')}</th></tr></thead><tbody>${items.slice(0,visible).map(row=>{
   const score=number(row.score),price=number(row.price),change=price==null?null:number(row.changePercent);
   const priceMarkup=price==null?`<span class="research-muted">${t('Cours indisponible','Price unavailable')}</span>`:`${e(n(price)+' '+(row.currency||''))}${row.quoteStatus==='stale'?`<small class="research-stale">${t('Dernier cours connu','Last known price')}</small>`:''}<small>${e(date(row.quoteAt))}</small>`;
   const historical=row.scoreStatus==='historical';
-  const scoreMarkup=score==null?`<a class="research-open-analysis" href="${e(U.stockUrl(row.ticker))}">${t('Ouvrir l’analyse','Open analysis')} ↗</a>`:`<span class="research-score ${historical?'':score>=75?'positive':score>=55?'favorable':score>=35?'cautious':'negative'}">${e(n(score,0))}<small>/100</small></span>${historical?`<small class="research-stale">${t('Score historique','Historical score')}</small>`:row.scoreStatus==='previous'?`<small class="research-stale">${t('Score antérieur','Previous score')}</small>`:''}<small>${e(date(row.scoreAt))}</small>`;
+  const scoreMarkup=(score==null?'':`<span class="research-score ${historical?'':score>=75?'positive':score>=55?'favorable':score>=35?'cautious':'negative'}">${e(n(score,0))}<small>/100</small></span>${historical?`<small class="research-stale">${t('Score historique','Historical score')}</small>`:row.scoreStatus==='previous'?`<small class="research-stale">${t('Score antérieur','Previous score')}</small>`:''}<small>${e(date(row.scoreAt))}</small>`)+scoreProgress(row)||(score==null?`<span class="research-muted">${t('Chargement du score…','Loading score…')}</span>`:'');
   return `<tr><td><a class="research-stock-link" href="${e(U.stockUrl(row.ticker))}">${logo(row.ticker)}<span><strong>${e(row.ticker)}</strong><small>${e(row.name||row.ticker)}</small></span></a></td><td class="number">${priceMarkup}</td><td class="number ${change==null?'':change>=0?'positive':'negative'}">${change==null?'—':(change>0?'+':'')+e(n(change))+' %'}</td><td class="number">${scoreMarkup}</td><td>${signal(row.latestInsider)}</td></tr>`;
  }).join('')}</tbody></table></div>`;
  more.hidden=visible>=items.length;fixImages(watch);
- $('researchFreshness').textContent=t('Cours de la séance indiquée, potentiellement différés. La variation compare cette séance à la précédente. Le score conserve la date de sa dernière analyse ; ouvrez la fiche pour l’actualiser.','Prices refer to the dated session and may be delayed. Change compares that session with the previous one. Scores keep their last analysis date; open the stock page to update them.')+(items.some(row=>row.scoreStatus==='historical')?t(' Un score historique provient d’un calcul archivé de moins de 7 jours ; sa méthode peut différer de l’analyse actuelle.',' A historical score comes from an archived calculation within the last 7 days; its method may differ from the current analysis.'): '');
+ watch.querySelectorAll('[data-score-retry]').forEach(button=>button.onclick=()=>scoreLoader?.retry(button.dataset.scoreRetry));
+ $('researchFreshness').textContent=t('Cours de la séance indiquée, potentiellement différés. La variation compare cette séance à la précédente. Les scores se calculent automatiquement, valeur par valeur, et conservent leur date de calcul.','Prices refer to the dated session and may be delayed. Change compares that session with the previous one. Scores calculate automatically, one stock at a time, and keep their calculation date.')+(items.some(row=>row.scoreStatus==='historical')?t(' Un score historique provient d’un calcul archivé de moins de 7 jours ; sa méthode peut différer de l’analyse actuelle.',' A historical score comes from an archived calculation within the last 7 days; its method may differ from the current analysis.'): '');
 }
 more.onclick=()=>{visible+=8;renderWatch();};
 async function loadWatch(){try{
+ scoreLoader?.stop();scoreStates.clear();
  const client=await U.watchlist(),saved=await client.load();
  if(!saved.tickers.length){$('researchActivity').hidden=true;watch.innerHTML=`<p class="research-empty">${t('Votre watchlist est vide. Ouvrez une fiche et cliquez sur « Suivre » pour retrouver la société ici.','Your watchlist is empty. Open a stock page and choose “Follow” to see it here.')}</p>`;return;}
  const data=await U.api('/api/watchlist/summary?'+new URLSearchParams({symbols:saved.tickers.join(',')}));summaryAt=data.updatedAt;
  const bySymbol=new Map((data.items||[]).map(row=>[row.ticker,row]));items=saved.tickers.map(ticker=>bySymbol.get(ticker)||{ticker});
- loadActivity(data,saved.tickers);renderWatch();$('researchFreshness').hidden=false;
+ loadActivity(data,saved.tickers);renderWatch();$('researchFreshness').hidden=false;scoreLoader?.load(items);
 }catch{activityHost.innerHTML=`<p class="research-empty">${t('Déclarations momentanément indisponibles.','Filings temporarily unavailable.')}</p>`;watch.innerHTML=`<div class="research-empty"><p>${t('Votre watchlist est momentanément indisponible.','Your watchlist is temporarily unavailable.')}</p><button class="secondary" id="retryResearchWatch">${t('Réessayer','Retry')}</button></div>`;$('retryResearchWatch').onclick=loadWatch;}}
 await loadWatch();
 })();

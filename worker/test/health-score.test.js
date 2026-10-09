@@ -9,8 +9,8 @@ test('supplied Kairos criteria supply an explicitly estimated health axis with a
   const health = { kairosScore: { score: '6', total: '7', ratio: 86, criteria: [{ ok: true, label: 'Supplied criterion' }] } };
   const axis = scoreHealth(health, { health: 21 });
   assert.equal(axis.dataOk, true);
-  assert.equal(axis.score, 18);
-  assert.equal(axis.max, 21);
+  assert.ok(Math.abs(axis.score / axis.max - 6/7) < 1e-10);
+  assert.equal(axis.max, 21 / 101 * 100);
   assert.equal(axis.estimated, true);
   assert.equal(axis.source, 'kairos');
   assert.match(axis.detail, /estimée.*6\/7/);
@@ -22,7 +22,7 @@ test('health fallback accepts zero and percentage-only cached scores without inv
   for (const [kairosScore, expected] of [[{ score: 0, total: 7 }, 0], [{ ratio: '60' }, 6]]) {
     const axis = scoreHealth({ kairosScore });
     assert.equal(axis.dataOk, true);
-    assert.equal(axis.score, expected);
+    assert.ok(Math.abs(axis.score / axis.max - expected / 10) < 1e-10);
   }
   for (const kairosScore of [{}, { score: 2, total: 0 }, { score: 8, total: 7 }, { score: -1, total: 7 }, { ratio: Infinity }, { ratio: 'N/A' }, { ratio: true }, { ratio: -1 }, { ratio: 101 }]) {
     const axis = scoreHealth({ altmanZ: 'N/A', piotroskiF: Infinity, kairosScore });
@@ -35,7 +35,7 @@ test('health fallback accepts zero and percentage-only cached scores without inv
 test('finite original health measures remain authoritative and accept cached numeric strings', () => {
   assert.deepEqual(scoreHealth({ altmanZ: '3.2', piotroskiF: '7', kairosScore: { ratio: 0 } }), scoreHealth({ altmanZ: 3.2, piotroskiF: 7 }));
   const zero = scoreHealth({ altmanZ: 0, kairosScore: { ratio: 100 } });
-  assert.equal(zero.score, 2);
+  assert.equal(zero.score / zero.max, .2);
   assert.equal(zero.estimated, undefined);
 });
 
@@ -54,7 +54,7 @@ test('fresh assembly uses cached provider criteria and stock cache preserves the
   assert.equal(current.staleBeforeHealthFix, undefined);
   assert.deepEqual(current.health.kairosScore, kairosScore);
   assert.equal(current.score.breakdown.health.dataOk, true);
-  assert.equal(current.score.breakdown.health.score, 18);
+  assert.ok(Math.abs(current.score.breakdown.health.score / current.score.breakdown.health.max - 6/7) < 1e-10);
   const beforeCacheRead = fetches;
   const cached = await handleStockAnalysis('AAPL', env);
   assert.deepEqual(cached.score.breakdown.health, current.score.breakdown.health);

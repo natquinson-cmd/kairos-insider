@@ -1,6 +1,6 @@
 // Lightweight public market snapshots. Reading a watchlist never launches a
 // full stock analysis or writes user, subscription, quota or alert records.
-export const STOCK_ANALYSIS_VERSION = 'v25';
+export const STOCK_ANALYSIS_VERSION = 'v26';
 export const STOCK_SUMMARY_PREFIX = `stock-summary:${STOCK_ANALYSIS_VERSION}:`;
 const QUOTE_PREFIX = 'watchlist-quote:v1:';
 const FRESH_MS = 5 * 60 * 1000;
@@ -11,6 +11,7 @@ const validSymbol = v => typeof v === 'string' && /^[A-Z0-9][A-Z0-9.\-]{0,11}$/.
 export async function storeStockSummarySnapshot(env, result) {
   const ticker = result?.ticker;
   if (!validSymbol(ticker) || result.error || !numeric(result._cachedAt)) return;
+  if (result.score?.breakdown && !Object.values(result.score.breakdown).some(axis => axis?.dataOk === true)) return;
   const key = STOCK_SUMMARY_PREFIX + ticker;
   const previous = await env.CACHE.get(key, 'json').catch(() => null);
   if (previous?.ticker === ticker && numeric(previous._cachedAt) >= result._cachedAt) return;

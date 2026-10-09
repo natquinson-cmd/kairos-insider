@@ -12,6 +12,7 @@
  */
 
 import { handleStockAnalysis, normalizeCompanyName, getYahooSession, YAHOO_UA_EXPORT } from './stock-api.js';
+import { SCORE_WEIGHT_KEYS, SCORE_DEFAULT_WEIGHTS, normalizeScoreWeights } from './score-weights.js';
 import { handleBlogIndex, handleBlogPost, handleBlogFeed, listPublishedArticles } from './blog/index.js';
 import { lookupEuYahooSymbol } from './eu_yahoo_symbols.js';
 import { partitionThresholdFilings } from './threshold_provenance.js';
@@ -19,7 +20,7 @@ import { canonicalizeFundIdentity } from './fund-identity.js';
 import { ADMIN_EMAILS, isAdmin } from './admin-access.js';
 import { maxJobAgeSeconds, jobState } from './job-freshness.js';
 import { telegramAlertPreferences, runInsiderMovementAlerts, seedInsiderMovementBaseline, movementMessage } from './insider-alerts.js';
-import { readWatchlistSummary } from './watchlist-summary.js';
+import { readWatchlistSummary, refreshWatchlistScore } from './watchlist-summary.js';
 import { INSIDER_SCORING_DEFAULTS, INSIDER_SCORING_BOUNDS, INSIDER_SCORING_CONFIG_KEY, validateInsiderScoringConfig } from './insider-score.js';
 import { readFundOwnershipHistory } from './fund-ownership-history.js';
 import { classifyInsiderTransaction, withInsiderTransactionEvidence, aggregateInsiderSignalRows, aggregateD1InsiderSignals, validatedPurchaseClusters, preferInsiderTransactionEvidence } from './insider-transaction.js';
@@ -665,6 +666,18 @@ async function handleRequest(request, env, ctx) {
       // tracking so browsing this summary cannot write state or spend quota.
       if (request.method === 'GET' && path === '/api/watchlist/summary') {
         const response = jsonResponse(await readWatchlistSummary(env, user.uid, url.searchParams.get('symbols') || ''), 200, origin);
+        response.headers.set('Cache-Control', 'private, no-store');
+        return response;
+      }
+      if (request.method === 'POST' && path === '/api/watchlist/score') {
+        let body;
+        try {
+          const raw = await request.text();
+          if (raw.length > 256) return jsonResponse({ok:false, code:'INVALID_SYMBOL'}, 400, origin);
+          body = JSON.parse(raw);
+        } catch { return jsonResponse({ok:false, code:'INVALID_SYMBOL'}, 400, origin); }
+        const result = await refreshWatchlistScore(env, user.uid, body?.symbol, handleStockAnalysis);
+        const response = jsonResponse(result.body, result.status, origin);
         response.headers.set('Cache-Control', 'private, no-store');
         return response;
       }
@@ -3180,7 +3193,7 @@ async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
   // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
-  const cacheKey = 'home:top-signals:v25';
+  const cacheKey = 'home:top-signals:v26';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -3212,7 +3225,7 @@ async function computeTopSignals(env) {
       WITH latest_n AS (
         SELECT ticker, date, total,
                ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
-        FROM score_history
+        FROM score_history WHERE gov_guru IS NULL
       ),
       candidates AS (
         SELECT
@@ -5354,11 +5367,10 @@ function renderKairosRadarSsr(scoreObj, sig) {
     { key: 'insider',    short: 'INS' },
     { key: 'smartMoney', short: 'HF'  },
     { key: 'momentum',   short: 'MOM' },
-    { key: 'earnings',   short: 'EPS' },
-    { key: 'analyst',    short: 'ANA' },
     { key: 'valuation',  short: 'VAL' },
+    { key: 'analyst',    short: 'ANA' },
     { key: 'health',     short: 'FIN' },
-    { key: 'govGuru',    short: 'GOV' },
+    { key: 'earnings',   short: 'EPS' },
   ];
   const CX = 200, CY = 200, R = 140;
   const N = axesOrder.length;
@@ -5796,11 +5808,10 @@ function ogRadarSvg(breakdown, total, color, labels, cx, cy, R) {
     { key: 'insider' },
     { key: 'smartMoney' },
     { key: 'momentum' },
-    { key: 'earnings' },
-    { key: 'analyst' },
     { key: 'valuation' },
+    { key: 'analyst' },
     { key: 'health' },
-    { key: 'govGuru' },
+    { key: 'earnings' },
   ];
   const N = axesOrder.length;
   const points = [];
@@ -5902,7 +5913,7 @@ const OG_I18N = {
     ytd: 'YTD',
     y1: 'SUR 1 AN',
     chart1y: 'COURS 1 AN',
-    footerTag: 'Insiders · Smart Money · Seuils EU · Score 8 axes',
+    footerTag: 'Insiders · Smart Money · Seuils EU · Score 7 axes',
     radar: {
       insider: 'INITIÉS',
       smartMoney: 'HEDGE FUNDS',
@@ -5911,7 +5922,6 @@ const OG_I18N = {
       analyst: 'ANALYSTES',
       valuation: 'VALORISATION',
       health: 'SANTÉ FIN.',
-      govGuru: 'POLI/GOUROUS',
     },
   },
   en: {
@@ -5924,7 +5934,7 @@ const OG_I18N = {
     ytd: 'YTD',
     y1: '1 YEAR',
     chart1y: '1Y CHART',
-    footerTag: 'Insiders · Smart Money · EU Thresholds · 8-axis Score',
+    footerTag: 'Insiders · Smart Money · EU Thresholds · 7-axis Score',
     radar: {
       insider: 'INSIDERS',
       smartMoney: 'HEDGE FUNDS',
@@ -5933,7 +5943,6 @@ const OG_I18N = {
       analyst: 'ANALYSTS',
       valuation: 'VALUATION',
       health: 'FINANCIALS',
-      govGuru: 'POLI/GURUS',
     },
   },
 };
@@ -11935,7 +11944,7 @@ async function handleTickerTape(env, origin) {
   // item sans ticker valide, quelle que soit sa source. Defense en
   // profondeur : meme si une source ajoute un futur bug, le filtre
   // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
-  const cacheKey = 'ticker-tape:v25';
+  const cacheKey = 'ticker-tape:v26';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -12079,7 +12088,7 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 7. TOP KAIROS SCORE - score >= 80 ===
-    const topSignals = await env.CACHE.get('home:top-signals:v25', 'json').catch(() => null);
+    const topSignals = await env.CACHE.get('home:top-signals:v26', 'json').catch(() => null);
     if (topSignals?.topScores) {
       const scoreItems = topSignals.topScores
         .filter(s => s.score >= 80 && s.ticker)
@@ -12342,15 +12351,9 @@ async function handleAdminBackupStatus(env, origin) {
 // ============================================================
 // Les poids par defaut somment a 100. On accepte aussi une somme
 // differente (ex: 120 ou 80) — on normalisera cote front si besoin.
-const SCORE_WEIGHT_KEYS = ['insider','smartMoney','govGuru','momentum','valuation','analyst','health','earnings'];
-const SCORE_DEFAULT_WEIGHTS = {
-  insider: 20, smartMoney: 20, govGuru: 10, momentum: 15,
-  valuation: 10, analyst: 10, health: 10, earnings: 5,
-};
 const SCORE_WEIGHT_LABELS = {
   insider: 'Signal des initiés',
   smartMoney: 'Hedge funds (13F)',
-  govGuru: 'Politiciens & gourous',
   momentum: 'Momentum du cours',
   valuation: 'Valorisation',
   analyst: 'Consensus analystes',
@@ -12379,7 +12382,7 @@ async function handleAdminScoreWeightsGet(env, origin) {
   try {
     let current = null;
     try { current = await env.CACHE.get('config:score-weights', 'json'); } catch {}
-    const weights = current && typeof current === 'object' ? current : SCORE_DEFAULT_WEIGHTS;
+    const weights = normalizeScoreWeights(current);
     const sum = SCORE_WEIGHT_KEYS.reduce((s, k) => s + (weights[k] || 0), 0);
     return jsonResponse({
       weights,
@@ -12416,8 +12419,9 @@ async function handleAdminScoreWeightsPut(request, env, origin) {
       return jsonResponse({ error: `Sum of weights too high (${sum}) — max 200` }, 400, origin);
     }
     // Save (infinite TTL, ecrase la precedente config)
-    await env.CACHE.put('config:score-weights', JSON.stringify(weights));
-    return jsonResponse({ ok: true, weights, sum, savedAt: new Date().toISOString() }, 200, origin);
+    const normalized = normalizeScoreWeights(weights);
+    await env.CACHE.put('config:score-weights', JSON.stringify(normalized));
+    return jsonResponse({ ok: true, weights: normalized, sum: 100, savedAt: new Date().toISOString() }, 200, origin);
   } catch (err) {
     return jsonResponse({ error: err.message || String(err) }, 500, origin);
   }

@@ -5,6 +5,7 @@ import { validateInsiderScoringConfig, INSIDER_SCORING_DEFAULTS } from '../src/i
 
 const NOW = Date.parse('2026-10-08T12:00:00Z');
 const DAY = 86400000;
+const NEUTRAL = (20 / 90 * 100) / 2;
 const dateAgo = days => new Date(NOW - days * DAY).toISOString().slice(0, 10);
 const transaction = (patch = {}) => ({ ticker: 'AAPL', insider: 'Alice Buyer', type: 'buy', date: dateAgo(0), fileDate: dateAgo(0), shares: 1000, value: 100000, currency: 'USD', source: 'sec', code: patch.type === 'sell' ? 'S' : 'P', ...patch });
 const score = (insiders, extra = {}) => computeKairosScore({ insiders, smartMoney: {}, govEtf: { inEtfs: [] }, quote: {}, fundamentals: {}, health: {}, earnings: {}, scoringNow: NOW, ...extra }).breakdown.insider;
@@ -12,7 +13,7 @@ const axis = (transactions, extra) => score({ transactions, dataAvailable: true 
 
 test('a comparable purchase contributes approximately three times the sale penalty', () => {
   const buy = axis([transaction()]), sell = axis([transaction({ type: 'sell' })]);
-  assert.ok(buy.score > 10 && sell.score < 10);
+  assert.ok(buy.score > NEUTRAL && sell.score < NEUTRAL);
   assert.ok(buy.signals.buyStrength / sell.signals.salePenalty >= 3);
   assert.equal(buy.signals.buyStrength, sell.signals.saleStrength);
   assert.equal(sell.signals.salePenalty, sell.signals.saleStrength * 0.33);
@@ -24,7 +25,7 @@ test('an enormous sale cannot cancel a material cluster of distinct purchasers',
   assert.equal(mixed.signals.buyStrength, alone.signals.buyStrength);
   assert.equal(mixed.signals.uniqueBuyers, 3);
   assert.equal(mixed.signals.convergence, true);
-  assert.ok(mixed.score > 10);
+  assert.ok(mixed.score > NEUTRAL);
 });
 
 test('duplicate filings are one purchase while distinct identified buyers stay distinct', () => {
@@ -56,7 +57,7 @@ test('freshness follows the trade date and rejects future trades', () => {
   assert.equal(lateFiling.signals.convergence, false);
   assert.ok(lateFiling.signals.buyStrength < aged.signals.buyStrength);
   const future = axis([transaction({ date: dateAgo(-1) })]);
-  assert.equal(future.score, 10);
+  assert.equal(future.score, NEUTRAL);
   assert.equal(future.signals.buyCount, 0);
 });
 
@@ -70,18 +71,18 @@ test('missing trade dates use a conservative filing fallback without convergence
 });
 
 test('absence is neutral, unavailable and undated legacy data are explicitly unavailable', () => {
-  assert.equal(axis([]).score, 10);
+  assert.equal(axis([]).score, NEUTRAL);
   assert.equal(axis([]).dataOk, true);
   for (const insiders of [{}, { transactions: [], dataAvailable: false }, { buyCount: 100, sellCount: 0, uniqueInsiders: 50, netValueUsd: 1e9, clusterSignal: {} }]) {
     const result = score(insiders);
-    assert.equal(result.score, 10);
+    assert.equal(result.score, NEUTRAL);
     assert.equal(result.dataOk, false);
   }
 });
 
 test('exercises and grants never become purchases even if their broad type says buy', () => {
   const result = axis(['M', 'A', 'F', 'exercise', 'grant'].map(transactionCode => transaction({ transactionCode })));
-  assert.equal(result.score, 10);
+  assert.equal(result.score, NEUTRAL);
   assert.equal(result.signals.buyCount, 0);
   assert.equal(result.signals.uniqueBuyers, 0);
 });
@@ -92,7 +93,7 @@ test('raw SEC evidence overrides a legacy buy label and unknown buys cannot stre
     const result = axis([row]);
     assert.equal(result.signals.buyCount, 0, String(code));
     assert.equal(result.signals.buyStrength, 0, String(code));
-    assert.equal(result.score, 10, String(code));
+    assert.equal(result.score, NEUTRAL, String(code));
   }
   assert.ok(axis([transaction({ code: 'P' })]).signals.buyStrength > 0);
 });
@@ -131,13 +132,13 @@ test('foreign currencies are never added as dollars and known FX is explicit', (
   assert.equal(axis([transaction({ currency: '' })]).signals.buyAmountBonus, 0);
 });
 
-test('insider parameters change their own components without changing eight-axis weights', () => {
+test('insider parameters change their own components without changing relative seven-axis weights', () => {
   const tx = [transaction({ type: 'sell' })];
-  assert.equal(axis(tx, { insiderScoring: { saleWeight: 0 } }).score, 10);
+  assert.equal(axis(tx, { insiderScoring: { saleWeight: 0 } }).score, NEUTRAL);
   assert.equal(axis([transaction({ date: dateAgo(30) })], { insiderScoring: { halfLifeDays: 60 } }).signals.effectiveBuyCount, Math.SQRT1_2);
   const customized = axis([transaction()], { weights: { insider: 40 }, insiderScoring: { saleWeight: 0.5 } });
-  assert.equal(customized.max, 40);
-  assert.equal(customized.score, 25); // (10 + 2 USD-magnitude + 0.4 buyer) / 20 * 40, rounded.
+  assert.equal(customized.max, 40 / 110 * 100);
+  assert.ok(Math.abs(customized.score / customized.max - 12.4 / 20) < 1e-10); // Raw evidence is independent of the normalized axis weight.
 });
 
 test('configuration rejects unsafe values and malformed saved config safely uses defaults', () => {

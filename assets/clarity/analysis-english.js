@@ -27,12 +27,12 @@ freeCashFlow:['Cash generated after necessary investment. It differs from accoun
 healthScore:['A count of the financial criteria shown below, separate from the weighted Kairos radar. An unavailable criterion remains unknown and earns no point.','One point per verified criterion; no point without confirmation.'],
 altmanZ:['A statistical measure of financial distress. The applicable model depends on the type of company.','The inputs and model variant needed to calculate this score are unavailable here.'],
 piotroskiF:['A score based on nine profitability, financing and operating efficiency criteria.','Sum of nine binary criteria, from 0 to 9. The required accounting comparisons are unavailable here.'],
-analystTotal:['The number of ratings in the five displayed categories. This does not measure forecast reliability.','Strong buy + buy + hold + sell + strong sell.'],
-bullish:['The share of strong-buy and buy opinions. These are analyst opinions, not Kairos recommendations.','(Strong buy + buy) ÷ total ratings × 100.'],
+analystTotal:['The analyst count supplied by the provider. Estimate coverage may differ from the number of detailed recommendations. This count does not measure forecast reliability.','Provider-reported count; otherwise the sum of the five categories when all are available.'],
+bullish:['The share of strong-buy and buy opinions in the displayed detailed breakdown. These are analyst opinions, not Kairos recommendations.','(Strong buy + buy) ÷ total detailed ratings × 100.'],
 recommendation:['The provider’s consensus summary. Analysts can be wrong and revise their views.','Summary of the available recommendations.'],
 currentPrice:['The latest closing price in the displayed series.','Last available close.'],
 targetLow:['The lowest available analyst 12-month target. It is an estimate, not a guaranteed future price.','Minimum available price target.'],
 targetMean:['The mean analyst 12-month target. It is an estimate, not a guaranteed future price.','Sum of available targets ÷ number of targets.'],
 targetHigh:['The highest available analyst 12-month target. It is an estimate, not a guaranteed future price.','Maximum available price target.'],
-targetPotential:['The gap between the mean target and current price. A positive gap is not a return forecast.','(Mean target ÷ current price − 1) × 100.']
+targetPotential:['The gap between the mean target and latest available close, in the same currency. A positive gap is not a return forecast.','(Mean target ÷ latest close − 1) × 100, only for matching currencies.']
 };

@@ -1,10 +1,11 @@
-/* Kairos's eight-axis signature. Axis geometry always uses raw 0–100 scores. */
+/* Kairos's seven-axis signature. Axis geometry always uses raw 0–100 scores. */
 (() => {
   'use strict';
 
-  const defaultLabels = ['Dirigeants', 'Hedge funds', 'Politiciens et gourous', 'Momentum du cours', 'Valorisation', 'Consensus analystes', 'Santé financière', 'Momentum des résultats'];
-  const shortLabels = ['Initiés', 'Hedge funds', 'Politiciens', 'Cours', 'Valorisation', 'Analystes', 'Santé', 'Résultats'];
-  const colors = ['#79a5ff', '#56dce9', '#ba9aff', '#9893ff', '#f4c77d', '#65dcce', '#7ce0b4', '#acb9ff'];
+  const defaultLabels = ['Dirigeants', 'Hedge funds', 'Momentum du cours', 'Valorisation', 'Consensus analystes', 'Santé financière', 'Momentum des résultats'];
+  const shortLabels = ['Initiés', 'Hedge funds', 'Cours', 'Valorisation', 'Analystes', 'Santé', 'Résultats'];
+  const colors = ['#79a5ff', '#56dce9', '#9893ff', '#f4c77d', '#65dcce', '#7ce0b4', '#acb9ff'];
+  const axisCount = defaultLabels.length;
   const identities = new WeakMap();
   const gaugeCleanups = new WeakMap();
   let sequence = 0;
@@ -26,7 +27,7 @@
   /**
    * render(host, {values, labels?, score?, weights?})
    * host: an element with an explicit CSS height and a measurable width.
-   * values/labels/weights follow the eight Kairos dimensions in their usual order.
+   * values/labels/weights follow the seven Kairos dimensions in their usual order.
    * score is displayed as supplied. If omitted, valid weights summing to 100
    * calculate the center score. Weights NEVER affect polygon geometry.
    * The caller may rerender after a size/data change; no observer is installed.
@@ -37,12 +38,12 @@
     const height = Math.round(host.clientHeight);
     if (width < 160 || height < 180) return null;
     gaugeCleanups.get(host)?.();
-    const values = Array.from({length: 8}, (_, index) => {
+    const values = Array.from({length: axisCount}, (_, index) => {
       const value = options.values?.[index];
       return validNumber(value) ? Math.min(100, Math.max(0, value)) : null;
     });
     const labels = defaultLabels.map((label, index) => String(options.labels?.[index] || label));
-    const weights = Array.from({length: 8}, (_, index) => options.weights?.[index]);
+    const weights = Array.from({length: axisCount}, (_, index) => options.weights?.[index]);
     const validWeights = weights.every(weight => validNumber(weight) && weight >= 0 && weight <= 100) && Math.abs(weights.reduce((sum, weight) => sum + weight, 0) - 100) < .001;
     const calculatedScore = validWeights && values.every(value => value !== null) ? values.reduce((sum, value, index) => sum + value * weights[index] / 100, 0) : null;
     const suppliedScore = validNumber(options.score) ? Math.min(100, Math.max(0, options.score)) : calculatedScore;
@@ -60,7 +61,7 @@
     const fontSize = Math.min(11.5, Math.max(10, width / 28));
     const scoreSize = Math.min(44, Math.max(31, radius * .51)) * (String(score).length > 2 ? .82 : 1);
     const point = (index, proportion = 1) => {
-      const angle = index * Math.PI / 4 - Math.PI / 2;
+      const angle = index * Math.PI * 2 / axisCount - Math.PI / 2;
       return [number(cx + Math.cos(angle) * radius * proportion), number(cy + Math.sin(angle) * radius * proportion)];
     };
     const polygonAt = proportion => values.map((_, index) => point(index, proportion).join(',')).join(' ');
@@ -70,21 +71,21 @@
 
     const definitions = colors.map((color, index) => {
       const current = point(index);
-      const next = point((index + 1) % 8);
-      return `<linearGradient id="${id}-wedge-${index}" gradientUnits="userSpaceOnUse" x1="${cx}" y1="${cy}" x2="${current[0]}" y2="${current[1]}"><stop stop-color="${color}" stop-opacity=".06"/><stop offset="1" stop-color="${color}" stop-opacity=".41"/></linearGradient><linearGradient id="${id}-edge-${index}" gradientUnits="userSpaceOnUse" x1="${current[0]}" y1="${current[1]}" x2="${next[0]}" y2="${next[1]}"><stop stop-color="${color}"/><stop offset="1" stop-color="${colors[(index + 1) % 8]}"/></linearGradient>`;
+      const next = point((index + 1) % axisCount);
+      return `<linearGradient id="${id}-wedge-${index}" gradientUnits="userSpaceOnUse" x1="${cx}" y1="${cy}" x2="${current[0]}" y2="${current[1]}"><stop stop-color="${color}" stop-opacity=".06"/><stop offset="1" stop-color="${color}" stop-opacity=".41"/></linearGradient><linearGradient id="${id}-edge-${index}" gradientUnits="userSpaceOnUse" x1="${current[0]}" y1="${current[1]}" x2="${next[0]}" y2="${next[1]}"><stop stop-color="${color}"/><stop offset="1" stop-color="${colors[(index + 1) % axisCount]}"/></linearGradient>`;
     }).join('');
 
     host.innerHTML = `<div class="kr-radar" data-score-quality="${quality.key}" style="--kr-label-size:${fontSize}px;--kr-score-size:${scoreSize}px;--kr-score-main:${quality.main};--kr-score-light:${quality.light};--kr-score-glow:${quality.glow}">
       <svg class="kr-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-label="Le radar Kairos : ${score === '—' ? 'score indisponible' : score + ' sur 100, ' + quality.label}" aria-describedby="${id}-description">
-        <desc id="${id}-description">Huit dimensions sur une échelle commune de zéro à cent. ${descriptions.map(escape).join('. ')}. La pondération du score global ne modifie pas la forme du radar.</desc>
+        <desc id="${id}-description">Sept dimensions sur une échelle commune de zéro à cent. ${descriptions.map(escape).join('. ')}. La pondération du score global ne modifie pas la forme du radar.</desc>
         <defs>${definitions}<radialGradient id="${id}-ambient"><stop stop-color="#517cde" stop-opacity=".12"/><stop offset="1" stop-color="#517cde" stop-opacity="0"/></radialGradient><filter id="${id}-soft" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="3"/></filter></defs>
         <circle cx="${cx}" cy="${cy}" r="${radius * 1.23}" fill="url(#${id}-ambient)" aria-hidden="true"/>
         <g aria-hidden="true">
           ${[.25, .5, .75, 1].map(proportion => `<polygon points="${polygonAt(proportion)}" class="kr-grid ${proportion === 1 ? 'kr-grid-outer' : ''}"/>`).join('')}
           ${values.map((_, index) => { const end = point(index); return `<line x1="${cx}" y1="${cy}" x2="${end[0]}" y2="${end[1]}" class="kr-spoke"/>`; }).join('')}
-          ${values.map((value, index) => value === null || values[(index + 1) % 8] === null ? '' : `<path d="M${cx} ${cy} L${dataPoints[index].join(' ')} L${dataPoints[(index + 1) % 8].join(' ')} Z" fill="url(#${id}-wedge-${index})"/>`).join('')}
+          ${values.map((value, index) => value === null || values[(index + 1) % axisCount] === null ? '' : `<path d="M${cx} ${cy} L${dataPoints[index].join(' ')} L${dataPoints[(index + 1) % axisCount].join(' ')} Z" fill="url(#${id}-wedge-${index})"/>`).join('')}
           <polygon points="${polygon}" fill="none" stroke="#739efb" stroke-width="5" opacity=".22" filter="url(#${id}-soft)"/>
-          ${values.map((value, index) => value === null || values[(index + 1) % 8] === null ? '' : `<path d="M${dataPoints[index].join(' ')} L${dataPoints[(index + 1) % 8].join(' ')}" fill="none" stroke="url(#${id}-edge-${index})" stroke-width="2.4" stroke-linecap="round"/>`).join('')}
+          ${values.map((value, index) => value === null || values[(index + 1) % axisCount] === null ? '' : `<path d="M${dataPoints[index].join(' ')} L${dataPoints[(index + 1) % axisCount].join(' ')}" fill="none" stroke="url(#${id}-edge-${index})" stroke-width="2.4" stroke-linecap="round"/>`).join('')}
         </g>
         ${values.map((value, index) => {
           const location = dataPoints[index];
@@ -185,7 +186,7 @@
         if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
           event.preventDefault();
           const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
-          host.querySelector(`[data-kr-axis="${(index + direction + 8) % 8}"]`).focus();
+          host.querySelector(`[data-kr-axis="${(index + direction + axisCount) % axisCount}"]`).focus();
         }
       });
     });
