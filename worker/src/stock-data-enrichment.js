@@ -1,5 +1,5 @@
 // Provider observations are normalized before filling missing dashboard fields.
-// Ratios can cross currencies; monetary and per-share observations cannot.
+// Financial amounts retain their reporting currency; quote amounts must match.
 const number = value => {
   if (typeof value !== 'number' && typeof value !== 'string') return null;
   if (typeof value === 'string' && !value.trim()) return null;
@@ -51,11 +51,10 @@ export function enrichYahooFinancials(input = {}, stats = {}) {
   const requestedSymbol = symbol(stats.requestedTicker);
   const sameListing = !!sourceSymbol && sourceSymbol === requestedSymbol;
   const quoteCurrency = text(stats.quoteCurrency);
-  const financialCurrency = text(stats.financialCurrency);
+  const financialCurrency = /^[A-Z]{3}$/.test(text(stats.financialCurrency) || '') ? text(stats.financialCurrency) : null;
   if (!text(fundamentals.currency) && sameListing && quoteCurrency) fundamentals.currency = quoteCurrency;
   const targetCurrency = text(fundamentals.currency);
   const quoteMatches = !!targetCurrency && !!quoteCurrency && targetCurrency === quoteCurrency;
-  const financialMatches = !!targetCurrency && !!financialCurrency && targetCurrency === financialCurrency;
   const source = (unit, currency) => ({ source: 'yahoo', symbol: sourceSymbol, ...(currency ? { currency } : {}), unit });
   const markSource = (target, key, unit, currency) => {
     target._sources = { ...(target._sources || {}), [key]: source(unit, currency) };
@@ -100,9 +99,15 @@ export function enrichYahooFinancials(input = {}, stats = {}) {
     }
     fill(fundamentals, 'enterpriseValue', stats.enterpriseValue, 'currency', quoteCurrency);
   }
-  if (financialMatches) {
+  // Financial reports can use another currency than the traded listing. Keep the
+  // observed amount unchanged and attach that currency to each inserted field.
+  if (financialCurrency) {
     for (const key of ['revenue', 'netIncome', 'freeCashFlow', 'operatingCashFlow', 'totalCash', 'totalDebt']) {
       fill(fundamentals, key, stats[key], 'currency', financialCurrency);
+    }
+    const cash = number(stats.totalCash), debt = number(stats.totalDebt);
+    if (cash != null && debt != null && fill(fundamentals, 'netCash', cash - debt, 'currency', financialCurrency)) {
+      fundamentals._sources.netCash.calculation = 'totalCash - totalDebt';
     }
     if (sameListing) fill(fundamentals, 'eps', stats.eps, 'currency/share', financialCurrency);
   }

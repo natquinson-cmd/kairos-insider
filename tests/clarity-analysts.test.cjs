@@ -6,14 +6,15 @@ const adapter=require('../assets/clarity/live-adapter.js');
 
 const asml=()=>({ticker:'ASML.AS',updatedAt:'2026-10-09',price:{currency:'EUR'},chart:{points:[{date:'2026-10-09',close:1600}]},fundamentals:{source:'zonebourse',numberOfAnalystOpinions:32,recommendationKey:'strong_buy',targetMeanPrice:2057.3438,analystCountSource:'Yahoo Finance',recommendationSource:'Yahoo Finance',targetSource:'Yahoo Finance',targetCurrency:'EUR'},consensus:{_synthesized:true,strongBuy:17,buy:19,hold:6,sell:0,strongSell:0},zonebourseConsensus:{analystCount:42,recommendationMean:'ACHETER',targetMean:2057.34,targetCurrency:'EUR',sourceUrl:'https://www.zonebourse.com/consensus/',fetchedAt:'2026-10-09'}});
 
-function panel(company,lang='fr',section='analysts') {
-  const doc={body:{append(){}},addEventListener(){}};
-  function element(){return {ownerDocument:doc,innerHTML:'',setAttribute(){},addEventListener(){},querySelectorAll(){return []},remove(){},replaceChildren(...children){this.children=children;}};}
+function panel(company,lang='fr',section='analysts',metricKey) {
+  const doc={body:{append(node){this.popup=node;}},documentElement:{clientWidth:1000},addEventListener(){}};
+  function element(){return {ownerDocument:doc,innerHTML:'',style:{},listeners:{},setAttribute(){},removeAttribute(){},getBoundingClientRect(){return {top:100,bottom:140,left:20,width:200,height:100};},addEventListener(type,handler){this.listeners[type]=handler;},querySelectorAll(){return []},remove(){},replaceChildren(...children){this.children=children;}};}
   doc.createElement=element;
-  const window={KairosUI:{lang},addEventListener(){}};
+  const window={KairosUI:{lang},innerHeight:800,addEventListener(){}};
   const context=vm.createContext({window,AbortController,setTimeout,clearTimeout});
   for(const file of ['analysis-english.js','analysis.js'])vm.runInContext(fs.readFileSync(require.resolve('../assets/clarity/'+file),'utf8'),context);
   const host=element();window.KairosAnalysis.render(host,company);
+  if(metricKey){const button={...element(),dataset:{kaMetric:metricKey},closest:selector=>selector==='[data-ka-metric]'?button:null};host.children[0].listeners.click({target:button,detail:1});return doc.body.popup.innerHTML;}
   return host.children[0].innerHTML.match(new RegExp('<section[^>]*data-ka-panel="'+section+'"[\\s\\S]*?<\\/section>'))[0];
 }
 
@@ -172,4 +173,13 @@ test('reported health scores remain visible without an unavailable label',()=>{
   assert.match(fr,/scores fournis par les sources/i);
   const en=panel(company,'en','health');assert.match(en,/scores supplied by the sources/i);
   const missing=panel(adapter.stock({ticker:'T'}),'en','health');assert.match(missing,/Altman Z and Piotroski F are unavailable/);
+});
+test('money and EPS preserve explicit accounting currencies while ratios and unspecified values keep their units',()=>{
+  const company=adapter.stock({ticker:'TTE.PA',price:{currency:'EUR'},fundamentals:{marketCap:100e9,eps:6.32,revenue:185e9,netIncome:10e9,freeCashFlow:5e9,netCash:-2e9,dividendYield:.05,_sources:{eps:{currency:'USD'},revenue:{currency:'USD'},netIncome:{currency:'USD'},freeCashFlow:{currency:'USD'},netCash:{currency:'USD'},dividendYield:{currency:'USD'}}}});
+  const valuation=panel(company,'fr','valuation');assert.match(valuation,/data-ka-metric="eps"[\s\S]*?<strong[^>]*>6,32 USD<\/strong>/);assert.match(valuation,/100,0 Md€/);assert.match(valuation,/data-ka-metric="dividendYield"[\s\S]*?<strong[^>]*>5,0 %<\/strong>/);
+  const profitability=panel(company,'fr','profitability');for(const value of ['185,0 Md USD','10,0 Md USD','5,0 Md USD','-2,0 Md USD'])assert.ok(profitability.includes(value));
+  const popup=panel(company,'en','valuation','eps');assert.match(popup,/6.32 USD/);assert.match(popup,/Reported in USD; no currency conversion/);
+  const fr=panel(company,'fr','valuation','revenue');assert.match(fr,/Montant communiqué en USD ; aucune conversion/);
+  assert.doesNotMatch(panel(company,'en','valuation','marketCap'),/currency conversion/);
+  const missing=adapter.stock({ticker:'TTE.PA',price:{currency:'EUR'},fundamentals:{eps:6.32,_sources:{eps:{currency:'invalid'}}}});assert.match(panel(missing,'fr','valuation'),/6,32 €/);
 });

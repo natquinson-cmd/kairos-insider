@@ -63,3 +63,8 @@ test('StockAnalysis analyst coverage retains its actual source without Yahoo dat
   const preferred=a.stock({ticker:'T',fundamentals:{analystCount:18,numberOfAnalystOpinions:24,analystCountSource:'yahoo'}});
   assert.equal(preferred.research.analysts.analystCount,24);assert.equal(preferred.research.analysts.analystCountSource,'Yahoo Finance');
 });
+test('financial source currencies survive numeric normalization independently from the listing',()=>{
+  const company=a.stock({ticker:'TTE.PA',price:{currency:'EUR'},fundamentals:{eps:6.32,revenue:185e9,netIncome:0,netCash:null,beta:1,_sources:{eps:{currency:'USD'},revenue:{currency:'USD'},netIncome:{currency:'USD'},netCash:{currency:'USD'},beta:{currency:'not-a-currency'}}}});
+  assert.equal(company.currency,'EUR');assert.deepEqual(company.research.fundamentalCurrencies,{eps:'USD',revenue:'USD',netIncome:'USD'});
+  assert.equal(company.research.fundamentals.eps,6.32);assert.equal(company.research.fundamentals.netIncome,0);
+});

@@ -3193,7 +3193,7 @@ async function computeTopSignals(env) {
   if (!env.HISTORY) return null;
 
   // v7 : etfMovers fenetre 7j (au lieu de J-vs-J-1) + seuil 0.1pt
-  const cacheKey = 'home:top-signals:v27';
+  const cacheKey = 'home:top-signals:v28';
   try {
     const cached = await env.CACHE.get(cacheKey, 'json');
     if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 600000) {
@@ -11944,7 +11944,7 @@ async function handleTickerTape(env, origin) {
   // item sans ticker valide, quelle que soit sa source. Defense en
   // profondeur : meme si une source ajoute un futur bug, le filtre
   // garantit qu'aucun "ticker" non-conforme ne sortira jamais de l'API.
-  const cacheKey = 'ticker-tape:v27';
+  const cacheKey = 'ticker-tape:v28';
   const cached = await env.CACHE.get(cacheKey, 'json').catch(() => null);
   if (cached && cached._cachedAt && (Date.now() - cached._cachedAt) < 5 * 60 * 1000) {
     return jsonResponse(cached, 200, origin);
@@ -12088,7 +12088,7 @@ async function handleTickerTape(env, origin) {
     }
 
     // === 7. TOP KAIROS SCORE - score >= 80 ===
-    const topSignals = await env.CACHE.get('home:top-signals:v27', 'json').catch(() => null);
+    const topSignals = await env.CACHE.get('home:top-signals:v28', 'json').catch(() => null);
     if (topSignals?.topScores) {
       const scoreItems = topSignals.topScores
         .filter(s => s.score >= 80 && s.ticker)

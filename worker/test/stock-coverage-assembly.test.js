@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchYahooFundamentals, handleStockAnalysis } from '../src/stock-api.js';
+import { fetchYahooFundamentals, handleStockAnalysis, applyYahooPreviousClose } from '../src/stock-api.js';
 
 const session = {cookie:'test',crumb:'test',at:Date.now()};
 const fixture = {
@@ -49,4 +49,14 @@ test('assembly does not skip a missing immediately prior session when calculatin
   }]}}):new Response('{}',{status:404}));
   const d=await handleStockAnalysis('TEST',env());
   assert.equal(d.chart.points.length,1);assert.equal(d.price.changePct,null);
+});
+test('same-session Yahoo quote metadata restores missing daily movement without another market request',()=>{
+  const time=Date.parse('2026-10-09T10:00:00Z')/1000;
+  const stats={ticker:'ASML.AS',requestedTicker:'ASML.AS',quoteCurrency:'EUR',regularMarketTime:time,previousClose:100};
+  const fresh=()=>({current:102,currency:'EUR',regularMarketTime:time+10,previousClose:null});
+  const price=fresh();applyYahooPreviousClose(price,stats);assert.equal(price.changePct,2);
+  for(const bad of [{regularMarketTime:time-86400},{quoteCurrency:'USD'},{ticker:'ASML'},{previousClose:0}]){
+    const invalid=fresh();applyYahooPreviousClose(invalid,{...stats,...bad});assert.equal(invalid.previousClose,null);
+  }
+  const zero={...fresh(),current:100};applyYahooPreviousClose(zero,stats);assert.equal(zero.changePct,0);
 });

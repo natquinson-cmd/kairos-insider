@@ -74,14 +74,14 @@
     let anchor = null, pinned = false, hideTimer = null, hoverTimer = null, hoverAnchor = null, destroyed = false, currentKey = null;
     const metrics = new Map();
     const currency = /^[A-Z]{3}$/.test(company.currency || '') ? company.currency : 'USD';
-    const symbol = {USD:'$',EUR:'€',GBP:'£',CHF:'CHF'}[currency] || currency;
-    const price = value => valid(value) ? `${number(value,2)} ${symbol}` : 'Indisponible';
-    const money = value => {
+    const symbol = supplied => supplied!==currency?supplied:({USD:'$',EUR:'€',GBP:'£',CHF:'CHF'}[supplied]||supplied);
+    const price = (value,sourceCurrency=currency) => valid(value) ? `${number(value,2)} ${symbol(sourceCurrency)}` : 'Indisponible';
+    const money = (value,sourceCurrency=currency) => {
       if (!valid(value)) return 'Indisponible';
       const abs = Math.abs(value), unit = abs >= 1e12 ? [1e12,'T'] : abs >= 1e9 ? [1e9,'Md'] : abs >= 1e6 ? [1e6,'M'] : abs >= 1e3 ? [1e3,'k'] : [1,''];
-      return `${number(value/unit[0],unit[0]===1?0:1)} ${unit[1]}${symbol}`;
+      return `${number(value/unit[0],unit[0]===1?0:1)} ${unit[1]}${unit[1]&&sourceCurrency!==currency?' ':''}${symbol(sourceCurrency)}`;
     };
-    const display = (value, unit) => !valid(value) ? 'Indisponible' : unit === 'money' ? money(value) : unit === 'price' ? price(value) : unit === 'percent' ? `${number(value)} %` : unit === 'ratio' ? `${number(value)}×` : unit === 'integer' ? number(value,0) : number(value,2);
+    const display = (value, unit, sourceCurrency=currency) => !valid(value) ? 'Indisponible' : unit === 'money' ? money(value,sourceCurrency) : unit === 'price' ? price(value,sourceCurrency) : unit === 'percent' ? `${number(value)} %` : unit === 'ratio' ? `${number(value)}×` : unit === 'integer' ? number(value,0) : number(value,2);
     const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFinite(Date.parse(value)) ? new Date(`${value}T12:00:00Z`).toLocaleDateString(window.KairosUI?.lang==='en'?'en-US':'fr-FR',{day:'numeric',month:'long',year:'numeric'}) : 'date non précisée';
     function destroy() {
       if (destroyed) return; destroyed = true; closePopup(); abort.abort(); popup.remove(); root.remove();
@@ -116,7 +116,15 @@
     const recommendationKey=String(analysts.recommendation||'').trim().toLowerCase().replace(/[\s_-]+/g,'');
     const recommendationLabels={strongbuy:['Achat fort','Strong buy'],buy:['Achat','Buy'],acheter:['Achat','Buy'],achat:['Achat','Buy'],hold:['Conserver','Hold'],conserver:['Conserver','Hold'],neutral:['Neutre','Neutral'],neutre:['Neutre','Neutral'],outperform:['Surperformance','Outperform'],surperformance:['Surperformance','Outperform'],overweight:['Surpondérer','Overweight'],surponderer:['Surpondérer','Overweight'],underperform:['Sous-performance','Underperform'],sousperformance:['Sous-performance','Underperform'],underweight:['Sous-pondérer','Underweight'],sell:['Vente','Sell'],vendre:['Vente','Sell'],vente:['Vente','Sell'],strongsell:['Vente forte','Strong sell']};
     const recommendationLabel=recommendationLabels[recommendationKey]?tr(...recommendationLabels[recommendationKey]):String(analysts.recommendation||'').replace(/_/g,' ')||tr('Indisponible','Unavailable');
-    function addMetric(key, config) { if(window.KairosUI?.lang==='en'){const pair=window.KairosMetricEnglish?.[key];if(pair){config.description=pair[0];config.formula=pair[1];}else if(key.startsWith('bucket-')){config.description='The number of analyst opinions in this rating category.';config.formula='Count supplied by the consensus provider.';}} metrics.set(key,config); return key; }
+    function addMetric(key, config) {
+      if(window.KairosUI?.lang==='en'){const pair=window.KairosMetricEnglish?.[key];if(pair){config.description=pair[0];config.formula=pair[1];}else if(key.startsWith('bucket-')){config.description='The number of analyst opinions in this rating category.';config.formula='Count supplied by the consensus provider.';}}
+      const sourceCurrency=research.fundamentalCurrencies?.[key];
+      if(['money','price'].includes(config.unit)&&/^[A-Z]{3}$/.test(sourceCurrency||'')){
+        config.currency=sourceCurrency;
+        if(sourceCurrency!==currency&&valid(config.value))config.formula+=' '+tr('Montant communiqué en '+sourceCurrency+' ; aucune conversion de devise.','Reported in '+sourceCurrency+'; no currency conversion.');
+      }
+      metrics.set(key,config);return key;
+    }
     Object.entries(definitions).forEach(([key,[label,unit,description,formula,stops,tone]])=>addMetric(key,{label,unit,value:fundamentals[key],description,formula,stops,tone}));
     const growthMetrics=(Array.isArray(company.financials)?company.financials:[]).filter(metric=>typeof metric.change==='string').map((metric,index)=>{
       const key=`annualGrowth${index}`;
@@ -144,7 +152,7 @@
     buckets.forEach(bucket=>addMetric(`bucket-${bucket.key}`,{label:tr(`Avis « ${bucket.label.toLowerCase()} »`,`${bucket.label} ratings`),value:bucket.count,unit:'integer',description:'Le nombre d’analystes dans cette catégorie du consensus.',formula:total>0?`${number(bucket.count,0)} avis sur ${number(total,0)}, soit ${number(bucket.count/total*100)} % du consensus.`:'Le nombre total d’avis est indisponible.'}));
 
     function card(key, extra = '') {
-      const metric=metrics.get(key), text=metric.formatted??display(metric.value,metric.unit),reading=metricReading(metric);
+      const metric=metrics.get(key), text=metric.formatted??display(metric.value,metric.unit,metric.currency),reading=metricReading(metric);
       return `<button type="button" class="ka-metric ${extra}" style="--ka-metric-color:${reading.color}" data-ka-metric="${key}" aria-haspopup="dialog" aria-expanded="false" aria-controls="${popup.id}"><span class="ka-metric-label">${escape(metric.label)}<i aria-hidden="true">?</i></span><strong class="${metric.unit==='text'?'ka-text-value':''}">${escape(text)}</strong>${reading.label?`<small class="ka-reading">${escape(reading.label)}</small>`:''}${metric.source?`<small class="ka-reading">${escape(metric.source)}</small>`:''}</button>`;
     }
     const targetValid = comparableTargets&&[analysts.targetLow,analysts.targetMean,analysts.targetHigh,currentPrice].every(value=>valid(value)&&value>0)&&analysts.targetLow<=analysts.targetMean&&analysts.targetMean<=analysts.targetHigh;
@@ -177,7 +185,7 @@
       const palette=metricPalette(metric);
       const leftLabel=metric.tone==='valuation'?'Multiple plus bas':metric.tone==='sensitivity'?'Sensibilité plus faible':metric.tone==='leverage'?'Dette relative plus faible':metric.tone==='health'?'Moins de critères':'Valeur plus faible';
       const rightLabel=metric.tone==='valuation'?'Multiple plus élevé':metric.tone==='sensitivity'?'Sensibilité plus forte':metric.tone==='leverage'?'Dette relative plus élevée':metric.tone==='health'?'Plus de critères':'Valeur plus élevée';
-      return `<div class="ka-gauge" role="img" aria-label="${escape(`Repères de ${min} à ${max}${metric.unit==='percent'?' pour cent':''}. Valeur : ${metric.formatted??display(metric.value,metric.unit)}.`)}"><div class="ka-gauge-track">${stops.slice(0,-1).map((stop,index)=>`<i style="width:${(stops[index+1]-stop)/(max-min)*100}%;background:${palette[index]}"></i>`).join('')}<span class="ka-gauge-marker" style="--ka-level:${level}%"></span></div><div class="ka-gauge-ticks">${stops.map((stop,index)=>`<span style="left:${(stop-min)/(max-min)*100}%" class="${index===0?'is-first':index===stops.length-1?'is-last':''}">${number(stop,Number.isInteger(stop)?0:1)}</span>`).join('')}</div><div class="ka-gauge-reading"><span>${leftLabel}</span><span>${rightLabel}</span></div>${metric.value<min||metric.value>max?'<p class="ka-gauge-outside">La valeur dépasse les repères affichés ; le marqueur est placé au bord de l’échelle.</p>':''}</div>`;
+      return `<div class="ka-gauge" role="img" aria-label="${escape(`Repères de ${min} à ${max}${metric.unit==='percent'?' pour cent':''}. Valeur : ${metric.formatted??display(metric.value,metric.unit,metric.currency)}.`)}"><div class="ka-gauge-track">${stops.slice(0,-1).map((stop,index)=>`<i style="width:${(stops[index+1]-stop)/(max-min)*100}%;background:${palette[index]}"></i>`).join('')}<span class="ka-gauge-marker" style="--ka-level:${level}%"></span></div><div class="ka-gauge-ticks">${stops.map((stop,index)=>`<span style="left:${(stop-min)/(max-min)*100}%" class="${index===0?'is-first':index===stops.length-1?'is-last':''}">${number(stop,Number.isInteger(stop)?0:1)}</span>`).join('')}</div><div class="ka-gauge-reading"><span>${leftLabel}</span><span>${rightLabel}</span></div>${metric.value<min||metric.value>max?'<p class="ka-gauge-outside">La valeur dépasse les repères affichés ; le marqueur est placé au bord de l’échelle.</p>':''}</div>`;
     }
     function cancelHide(){if(hideTimer!==null){clearTimeout(hideTimer);hideTimer=null;}}
     function cancelOpen(){if(hoverTimer!==null){clearTimeout(hoverTimer);hoverTimer=null;}hoverAnchor=null;}
@@ -214,7 +222,7 @@
       const invalidMessage=metric.tone==='leverage'?'Un ratio négatif peut provenir de capitaux propres négatifs. Cette base ne permet pas d’appliquer les repères usuels de dette ; la jauge est suspendue.':'La base de calcul est nulle ou négative : ce multiple ne permet pas de classer l’action comme « bon marché ». La jauge n’est pas appliquée.';
       const missing=!metric.formatted&&!valid(metric.value);
       popup.setAttribute('aria-labelledby',`${uid}-popover-title`);
-      popup.innerHTML=`<div class="ka-popover-heading"><h4 id="${uid}-popover-title">${escape(metric.label)}</h4><button type="button" class="ka-popover-close" aria-label="Fermer l’explication">×</button></div><strong class="ka-popover-value" style="color:${metricReading(metric).color}">${escape(metric.formatted??display(metric.value,metric.unit))}</strong><p>${escape(metric.description)}</p><div class="ka-formula"><span>Calcul</span>${escape(metric.formula)}</div>${invalidMultiple?`<p class="ka-negative-multiple">${invalidMessage}</p>`:missing?'<p class="ka-missing-note">L’absence de donnée n’est pas une valeur zéro.</p>':gauge(metric)}${metric.stops?`<p class="ka-popover-context">${metric.tone==='sensitivity'?'Les couleurs indiquent des niveaux de sensibilité au marché, pas une qualité d’investissement. ':''}${metric.tone==='health'?'Repères du compteur de critères, distincts du score du radar. ':''}${caution}</p>`:''}`;
+      popup.innerHTML=`<div class="ka-popover-heading"><h4 id="${uid}-popover-title">${escape(metric.label)}</h4><button type="button" class="ka-popover-close" aria-label="Fermer l’explication">×</button></div><strong class="ka-popover-value" style="color:${metricReading(metric).color}">${escape(metric.formatted??display(metric.value,metric.unit,metric.currency))}</strong><p>${escape(metric.description)}</p><div class="ka-formula"><span>Calcul</span>${escape(metric.formula)}</div>${invalidMultiple?`<p class="ka-negative-multiple">${invalidMessage}</p>`:missing?'<p class="ka-missing-note">L’absence de donnée n’est pas une valeur zéro.</p>':gauge(metric)}${metric.stops?`<p class="ka-popover-context">${metric.tone==='sensitivity'?'Les couleurs indiquent des niveaux de sensibilité au marché, pas une qualité d’investissement. ':''}${metric.tone==='health'?'Repères du compteur de critères, distincts du score du radar. ':''}${caution}</p>`:''}`;
       popup.hidden=false;button.setAttribute('aria-expanded','true');button.setAttribute('aria-describedby',popup.id);positionPopup();
     }
     function scheduleHide(){

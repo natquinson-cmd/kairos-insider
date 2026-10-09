@@ -59,20 +59,61 @@ test('Yahoo percentages retain API fractions or convert to displayed percent acc
   assert.equal(r.extendedRatios.evSales, 4);
 });
 
-test('reporting currency mismatch prevents financial amounts and EPS being labelled with quote currency', () => {
-  const r = enrichYahooFinancials({ fundamentals: { currency: 'USD' } }, { ...context, financialCurrency: 'EUR', marketCap: 12e9, revenue: 8e9, netIncome: 1e9, freeCashFlow: 2e9, eps: 3, dividendPerShare: 1, profitMargin: .2, roe: .1 });
+test('financial amounts and same-listing EPS retain their explicit reporting currency across quote currencies', () => {
+  const r = enrichYahooFinancials({ fundamentals: { currency: 'EUR' } }, { ...context, quoteCurrency: 'EUR', financialCurrency: 'USD', marketCap: 12e9, revenue: 8e9, netIncome: 1e9, freeCashFlow: 2e9, eps: 3, dividendPerShare: 1, profitMargin: .2, roe: .1 });
   assert.equal(r.fundamentals.marketCap, 12e9);
   assert.equal(r.fundamentals.dividendPerShare, 1);
-  for (const key of ['revenue', 'netIncome', 'freeCashFlow', 'eps']) assert.equal(r.fundamentals[key], undefined, key);
+  assert.equal(r.fundamentals.currency, 'EUR');
+  assert.equal(r.fundamentals.revenue, 8e9);
+  assert.equal(r.fundamentals.netIncome, 1e9);
+  assert.equal(r.fundamentals.freeCashFlow, 2e9);
+  assert.equal(r.fundamentals.eps, 3);
+  for (const key of ['revenue', 'netIncome', 'freeCashFlow', 'eps']) assert.equal(r.fundamentals._sources[key].currency, 'USD', key);
+  assert.equal(r.fundamentals._sources.eps.unit, 'currency/share');
+  assert.equal(r.fundamentals._sources.marketCap.currency, 'EUR');
   assert.equal(r.margins.profit.numeric, 20);
   assert.equal(r.returns.roe.numeric, 10);
 });
 
-test('quote currency mismatch, missing currencies and subunit currencies are not silently converted', () => {
+test('quote currency mismatch, missing currencies and subunit currencies never convert quote amounts', () => {
   for (const [currency, quoteCurrency, financialCurrency] of [['EUR', 'USD', 'USD'], ['GBp', 'GBP', 'GBP'], ['USD', undefined, undefined]]) {
     const r = enrichYahooFinancials({ fundamentals: { currency } }, { ...context, quoteCurrency, financialCurrency, marketCap: 12e9, enterpriseValue: 15e9, revenue: 8e9, eps: 4, dividendPerShare: 2, high52w: 90, peRatio: 22 });
-    for (const key of ['marketCap', 'enterpriseValue', 'revenue', 'eps', 'dividendPerShare', 'high52w']) assert.equal(r.fundamentals[key], undefined, `${currency}: ${key}`);
+    for (const key of ['marketCap', 'enterpriseValue', 'dividendPerShare', 'high52w']) assert.equal(r.fundamentals[key], undefined, `${currency}: ${key}`);
     assert.equal(r.fundamentals.peRatio, 22);
+  }
+});
+
+test('unknown reporting currency never fills financial amounts or EPS and existing facts are never relabelled', () => {
+  for (const financialCurrency of [undefined, null, '', ' ', 'N/A', 'unknown']) {
+    const r = enrichYahooFinancials({ fundamentals: { currency: 'EUR' } }, { ...context, financialCurrency, revenue: 8e9, netIncome: 1e9, freeCashFlow: 2e9, operatingCashFlow: 3e9, totalCash: 4e9, totalDebt: 5e9, eps: 3 });
+    for (const key of ['revenue', 'netIncome', 'freeCashFlow', 'operatingCashFlow', 'totalCash', 'totalDebt', 'eps']) assert.equal(r.fundamentals[key], undefined, key);
+  }
+  const input = { fundamentals: { currency: 'EUR', revenue: 7e9, eps: 2, _sources: { revenue: { source: 'primary', currency: 'EUR' }, eps: { source: 'primary', currency: 'EUR' } } } };
+  const r = enrichYahooFinancials(input, { ...context, financialCurrency: 'USD', revenue: 8e9, eps: 3 });
+  assert.deepEqual(r.fundamentals, input.fundamentals);
+});
+
+test('net cash uses only the two observed Yahoo balances with their reporting currency and calculation', () => {
+  for (const [totalCash, totalDebt, expected] of [[60, 20, 40], [20, 20, 0], [10, 20, -10], [20, 0, 20]]) {
+    const r = enrichYahooFinancials({ fundamentals: { currency: 'EUR', totalCash: 999 } }, { ...context, financialCurrency: 'USD', totalCash, totalDebt });
+    assert.equal(r.fundamentals.netCash, expected);
+    assert.equal(r.fundamentals.totalCash, 999);
+    assert.deepEqual(r.fundamentals._sources.netCash, { source: 'yahoo', symbol: 'TEST', currency: 'USD', unit: 'currency', calculation: 'totalCash - totalDebt' });
+  }
+  const primary = { fundamentals: { netCash: 0, _sources: { netCash: { source: 'primary', currency: 'EUR' } } } };
+  const preserved = enrichYahooFinancials(primary, { ...context, totalCash: 20, totalDebt: 10 });
+  assert.equal(preserved.fundamentals.netCash, 0);
+  assert.deepEqual(preserved.fundamentals._sources.netCash, primary.fundamentals._sources.netCash);
+});
+
+test('net cash never combines providers, unknown currencies or missing balance observations', () => {
+  for (const stats of [
+    { totalDebt: 20 }, { totalCash: 60 }, { totalCash: 60, totalDebt: null },
+    { totalCash: 60, totalDebt: '' }, { totalCash: false, totalDebt: 20 },
+    { totalCash: Infinity, totalDebt: 20 }, { totalCash: 60, totalDebt: 20, financialCurrency: null },
+  ]) {
+    const r = enrichYahooFinancials({ fundamentals: { currency: 'USD', totalCash: 80, totalDebt: 40 } }, { ...context, ...stats });
+    assert.equal(r.fundamentals.netCash, undefined);
   }
 });
 

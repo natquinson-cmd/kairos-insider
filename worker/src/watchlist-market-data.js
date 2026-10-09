@@ -1,6 +1,6 @@
 // Lightweight public market snapshots. Reading a watchlist never launches a
 // full stock analysis or writes user, subscription, quota or alert records.
-export const STOCK_ANALYSIS_VERSION = 'v27';
+export const STOCK_ANALYSIS_VERSION = 'v28';
 export const STOCK_SUMMARY_PREFIX = `stock-summary:${STOCK_ANALYSIS_VERSION}:`;
 const QUOTE_PREFIX = 'watchlist-quote:v1:';
 const FRESH_MS = 5 * 60 * 1000;

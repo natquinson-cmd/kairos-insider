@@ -346,6 +346,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   const yahooFund = await yahooFundP;
   if (yahooFund && yahooFund.stats) {
     applyYahooFundamentals(fundamentals, yahooFund.stats);
+    applyYahooPreviousClose(quote.price, yahooFund.stats);
   }
   let extendedRatios = statistics.extendedRatios || {};
   let margins = statistics.margins || {};
@@ -1436,6 +1437,19 @@ export function applyYahooFundamentals(fundamentals, stats = {}) {
   if (sameListing && !(finiteNumber(fundamentals.sharesOut) > 0) && finiteNumber(stats.sharesOut) > 0) fundamentals.sharesOut = finiteNumber(stats.sharesOut);
 }
 
+export function applyYahooPreviousClose(price, stats = {}) {
+  if (!price || finiteNumber(price.previousClose) > 0) return;
+  const current = finiteNumber(price.current), previous = finiteNumber(stats.previousClose);
+  const quoteTime = finiteNumber(price.regularMarketTime), sourceTime = finiteNumber(stats.regularMarketTime);
+  // A previous close only belongs to its own trading session and listing.
+  if (!(current > 0 && previous > 0 && quoteTime > 0 && sourceTime > 0)) return;
+  if (!stats.ticker || stats.ticker !== stats.requestedTicker || !price.currency || price.currency !== stats.quoteCurrency) return;
+  if (Math.floor(quoteTime / 86400) !== Math.floor(sourceTime / 86400)) return;
+  price.previousClose = previous;
+  price.change = current - previous;
+  price.changePct = price.change / previous * 100;
+}
+
 export async function fetchYahooFundamentals(ticker, env) {
   const empty = { profile: {}, stats: {} };
 
@@ -1514,6 +1528,8 @@ export async function fetchYahooFundamentals(ticker, env) {
       stats: {
         ticker: sourceSymbol, requestedTicker: ticker,
         quoteCurrency: raw(priceMod.currency) || null, financialCurrency,
+        previousClose: numeric(priceMod.regularMarketPreviousClose) ?? numeric(summary.previousClose),
+        regularMarketTime: numeric(priceMod.regularMarketTime),
         marketCap: numeric(priceMod.marketCap) ?? numeric(summary.marketCap),
         enterpriseValue: numeric(keystats.enterpriseValue),
         netIncome: numeric(keystats.netIncomeToCommon),
