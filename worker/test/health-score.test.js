@@ -45,7 +45,7 @@ test('fresh assembly uses cached provider criteria and stock cache preserves the
   const kairosScore = { score: 6, total: 7, ratio: 86, criteria: [{ ok: false, label: 'Liquidité générale > 1' }], source: 'kairos' };
   const store = new Map([
     ['yahoo-search:v4:AAPL', { symbol: 'AAPL' }],
-    ['finnhub-metrics:v4:AAPL', { healthScore: kairosScore, fetchedAt: new Date().toISOString() }],
+    ['finnhub-metrics:v5:AAPL', { healthScore: kairosScore, fetchedAt: new Date().toISOString() }],
     ['config:score-weights', { health: 21 }],
     ['stock-analysis:v22:AAPL:full:1y', { _cachedAt: Date.now(), staleBeforeHealthFix: true }],
   ]);

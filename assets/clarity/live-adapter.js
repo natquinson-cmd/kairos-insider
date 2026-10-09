@@ -3,7 +3,15 @@
   const number=v=>v===null||v===undefined||typeof v==='boolean'||String(v).trim()===''?null:Number.isFinite(Number(v))?Number(v):null;
   const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}/.test(v)?v.slice(0,10):null;
   const keys=['insider','smartMoney','momentum','valuation','analyst','health','earnings'];
-  const metric=v=>number(v?.numeric??v?.raw??v?.value??(typeof v?.display==='string'?v.display.replace(/[%×,]/g,''):v));
+  const metric=v=>{
+    const candidates=v&&typeof v==='object'?[v.numeric,v.raw,v.value,v.display]:[v];
+    for(const candidate of candidates){
+      if(candidate!==null&&typeof candidate==='object')continue;
+      const parsed=number(typeof candidate==='string'?candidate.trim().replace(/[%×x]\s*$/i,'').replace(/,/g,''):candidate);
+      if(parsed!==null)return parsed;
+    }
+    return null;
+  };
   const safeUrl=v=>{try{const u=new URL(v);return ['https:','http:'].includes(u.protocol)?u.href:null;}catch{return null;}};
   function stock(d){
     const f=d.fundamentals||{},b=d.score?.breakdown||{},sm=d.smartMoney||{},p=d.price||{};
@@ -14,15 +22,15 @@
     });
     const consensus=d.consensus||{};
     const zb=d.zonebourseConsensus||(consensus._partial&&consensus._source==='zonebourse'?{analystCount:consensus.totalAnalysts,recommendationMean:consensus.recommendationLabel||consensus.recommendationKey,targetMean:consensus.targetMeanPrice,targetCurrency:consensus.targetCurrency,sourceUrl:consensus.sourceUrl,fetchedAt:consensus.asOf}:{});
-    const provider=value=>({yahoo:'Yahoo Finance',zonebourse:'Zonebourse',finnhub:'Finnhub'}[String(value||'').toLowerCase()]||value||null);
+    const provider=value=>({yahoo:'Yahoo Finance',zonebourse:'Zonebourse',finnhub:'Finnhub',stockanalysis:'StockAnalysis','stockanalysis.com':'StockAnalysis'}[String(value||'').toLowerCase()]||value||null);
     const count=value=>number(value)>0&&Number.isInteger(number(value))?number(value):null;
     const currency=value=>/^[A-Z]{3}$/.test(value||'')?value:null;
-    const suppliedCount=count(f.numberOfAnalystOpinions),zbCount=count(zb.analystCount);
+    const suppliedCount=count(f.numberOfAnalystOpinions),stockAnalysisCount=count(f.analystCount),zbCount=count(zb.analystCount);
     const hasTargets=['targetMeanPrice','targetLowPrice','targetHighPrice'].some(key=>number(f[key])>0);
     const analysts={
       asOf:day(d.updatedAt||zb.fetchedAt),
-      analystCount:suppliedCount??zbCount,
-      analystCountSource:suppliedCount?provider(f.analystCountSource)||'Yahoo Finance':zbCount?'Zonebourse':null,
+      analystCount:suppliedCount??stockAnalysisCount??zbCount,
+      analystCountSource:suppliedCount?provider(f.analystCountSource)||'Yahoo Finance':stockAnalysisCount?provider(f.analystCountSource)||'StockAnalysis':zbCount?'Zonebourse':null,
       recommendation:f.recommendationKey||zb.recommendationMean||zb.consensus||null,
       recommendationSource:f.recommendationKey?provider(f.recommendationSource):zb.recommendationMean||zb.consensus?'Zonebourse':null,
       targetMean:number(hasTargets?f.targetMeanPrice:zb.targetMean),

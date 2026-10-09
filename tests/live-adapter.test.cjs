@@ -51,3 +51,15 @@ test('fractional dividend yield becomes percent while margin percentage stays un
 test('US valuation ratios use their supplied provider fields',()=>{const c=a.stock({ticker:'T',fundamentals:{pfcfRatio:12},extendedRatios:{evEbitda:{numeric:17}}});assert.equal(c.research.fundamentals.priceFcf,12);assert.equal(c.research.fundamentals.evEbitda,17);});
 test('extended valuation metrics support formatted values and override ambiguous EV fallback',()=>{const c=a.stock({ticker:'T',fundamentals:{evEbitda:99},extendedRatios:{pfcf:'12.50',evEbitda:'17.25'}});assert.equal(c.research.fundamentals.priceFcf,12.5);assert.equal(c.research.fundamentals.evEbitda,17.25);});
 test('negative debt equity remains visible but cannot pass the health criterion',()=>{for(const [value,expected] of [[-2,null],[null,null],[0,true],[.5,true],[1,false],[2,false]]){const c=a.stock({ticker:'T',financialPosition:{debtEquity:{numeric:value}}});assert.equal(c.research.fundamentals.debtEquity,value);assert.equal(c.research.health.criteria.at(-1).pass,expected);}});
+test('provider display metrics retain suffixes and use the first valid observation',()=>{
+  for(const [value,expected] of [['34.82%',34.82],['12.5×',12.5],['12.5x',12.5],['1,234.5',1234.5],[{numeric:'n/a',raw:34.82,display:'34.82%'},34.82],[{numeric:null,raw:'—',display:'0.00%'},0]])assert.equal(a.metric(value),expected);
+  for(const value of [null,{},[],true,'—','N/A'])assert.equal(a.metric(value),null);
+  const c=a.stock({ticker:'T',extendedRatios:{evEbitda:'17.25×',pfcf:'12.50x'}});
+  assert.equal(c.research.fundamentals.evEbitda,17.25);assert.equal(c.research.fundamentals.priceFcf,12.5);
+});
+test('StockAnalysis analyst coverage retains its actual source without Yahoo data',()=>{
+  const c=a.stock({ticker:'T',fundamentals:{analystCount:18}});
+  assert.equal(c.research.analysts.analystCount,18);assert.equal(c.research.analysts.analystCountSource,'StockAnalysis');
+  const preferred=a.stock({ticker:'T',fundamentals:{analystCount:18,numberOfAnalystOpinions:24,analystCountSource:'yahoo'}});
+  assert.equal(preferred.research.analysts.analystCount,24);assert.equal(preferred.research.analysts.analystCountSource,'Yahoo Finance');
+});

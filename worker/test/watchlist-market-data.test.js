@@ -74,7 +74,7 @@ test('different listing and older provider observation never replace an existing
 });
 test('durable score snapshot is a minimal public projection and keeps its real calculation date',async()=>{
  const h=storage();await storeStockSummarySnapshot(h.env,{ticker:'NVDA',company:{name:'NVIDIA',secret:'no'},price:{current:126,currency:'USD',changePct:5,regularMarketTime:NOW/1000},score:{total:72,breakdown:{momentum:{score:10,max:15,dataOk:true}}},_cachedAt:NOW,insiders:{transactions:[{}]},news:[{}]});
- assert.deepEqual(h.records.get('stock-summary:v26:NVDA'),{ticker:'NVDA',company:{name:'NVIDIA'},price:{current:126,currency:'USD',changePct:5,regularMarketTime:NOW/1000},score:{total:72},_cachedAt:NOW});
+ assert.deepEqual(h.records.get('stock-summary:v27:NVDA'),{ticker:'NVDA',company:{name:'NVIDIA'},price:{current:126,currency:'USD',changePct:5,regularMarketTime:NOW/1000},score:{total:72},_cachedAt:NOW});
  assert.equal(h.writes[0].options.expirationTtl,604800);
 });
 
@@ -85,9 +85,9 @@ test('an analysis without any observed axis does not become a durable score',asy
 test('an already cached analysis backfills its durable score once without recomputing or making market requests',async t=>{
  t.mock.method(globalThis,'fetch',()=>assert.fail('A current analysis must not recompute'));
  const now=Date.now(),analysis={ticker:'NVDA',company:{name:'NVIDIA'},price:{current:126,currency:'USD',regularMarketTime:now/1000},score:{total:72},_cachedAt:now};
- const h=storage({'yahoo-search:v4:NVDA':{symbol:'NVDA'},'stock-analysis:v26:NVDA:full:1y':analysis});
+ const h=storage({'yahoo-search:v4:NVDA':{symbol:'NVDA'},'stock-analysis:v27:NVDA:full:1y':analysis});
  assert.equal((await handleStockAnalysis('NVDA',h.env)).score.total,72);
- assert.equal(h.records.get('stock-summary:v26:NVDA')?.score.total,72);
+ assert.equal(h.records.get('stock-summary:v27:NVDA')?.score.total,72);
  await handleStockAnalysis('NVDA',h.env);
  assert.equal(h.writes.length,1);
 });

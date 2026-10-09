@@ -32,6 +32,8 @@ import { computeInsiderScore, deduplicateInsiderTransactions, insiderTransaction
 import { classifyInsiderTransaction, withInsiderTransactionEvidence } from './insider-transaction.js';
 import { STOCK_ANALYSIS_VERSION, storeStockSummarySnapshot } from './watchlist-market-data.js';
 import { SCORE_BASE_MAX, normalizeScoreWeights } from './score-weights.js';
+import { mergeAvailableNumbers, enrichYahooFinancials, buildEstimatedHealth } from './stock-data-enrichment.js';
+import { normalizeQuoteHistory } from './quote-history-quality.js';
 
 const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
 const CACHE_TTL = 900; // 15 min
@@ -292,11 +294,7 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // FALLBACK EU : pour les actions europeennes, stockanalysis.com renvoie {} vide
   // donc on merge les fondamentaux Zonebourse en complement (marketCap, PER, EPS,
   // dividendYield, high52w, low52w). Important pour LVMH, BNP, ASML, Nestle, etc.
-  const fundamentals = {
-    ...((zonebourseConsensus && zonebourseConsensus.fundamentals) || {}),
-    ...overview.fundamentals,
-    ...statistics.fundamentals,  // stockanalysis prioritaire si dispo (US)
-  };
+  let fundamentals = mergeAvailableNumbers(zonebourseConsensus?.fundamentals, overview.fundamentals, statistics.fundamentals);
   // ENRICHISSEMENT additionnel pour EU : fallback depuis Yahoo quote.price
   // (52w high/low, currency, exchange). Yahoo chart endpoint marche pour TOUS
   // les tickers EU et fournit ces champs gratuitement, donc on remplit les
@@ -353,17 +351,24 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   let margins = statistics.margins || {};
   let returns = statistics.returns || {};
   let financialPosition = statistics.financialPosition || {};
+  if (yahooFund?.stats) {
+    ({ fundamentals, extendedRatios, margins, returns, financialPosition } = enrichYahooFinancials(
+      { fundamentals, extendedRatios, margins, returns, financialPosition }, yahooFund.stats));
+  }
   if (finnhubMetrics) {
     const fnh = finnhubMetrics;
+    const sameListing = !fnh._usedSymbol || fnh._usedSymbol.toUpperCase() === ticker.toUpperCase();
+    const listingFields = new Set(['marketCap','enterpriseValue','revenue','netIncome','sharesOut','eps','dividendsPerShare','high52w','low52w']);
     const fields = ['marketCap', 'enterpriseValue', 'revenue', 'netIncome', 'sharesOut',
       'peRatio', 'forwardPE', 'psRatio', 'pbRatio', 'pfcf', 'evEbitda',
       'eps', 'beta', 'dividendYield', 'dividendsPerShare', 'payoutRatio',
       'high52w', 'low52w', 'profitMargin'];
     for (const k of fields) {
-      if (fundamentals[k] == null && fnh[k] != null) fundamentals[k] = fnh[k];
+      if (!sameListing && listingFields.has(k)) continue;
+      if (finiteNumber(fundamentals[k]) == null && finiteNumber(fnh[k]) != null) fundamentals[k] = finiteNumber(fnh[k]);
     }
     if (fnh.extendedRatios) {
-      extendedRatios = { ...fnh.extendedRatios, ...extendedRatios };
+      extendedRatios = mergeAvailableNumbers(fnh.extendedRatios, extendedRatios);
     }
     if (fnh.margins) {
       for (const k of ['gross', 'operating', 'profit', 'fcf']) {
@@ -392,6 +397,13 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // FUSION earnings : prend stockanalysis (US) sinon Finnhub (EU)
   // Le panneau 'Resultats trimestriels' a besoin de earnings.history et earnings.next
   let mergedEarnings = earningsData || { history: [], next: null };
+  // Prefer a source for the requested listing over EPS for its US depositary receipt.
+  if (!mergedEarnings.history?.length && yahooFund?.earnings?.history?.length && finnhubEarnings?.history?.some(row => row.sourceSymbol && row.sourceSymbol !== ticker)) {
+    mergedEarnings = { ...mergedEarnings, history: yahooFund.earnings.history };
+  }
+  if (!mergedEarnings.next && yahooFund?.earnings?.next && finnhubCalendar?.next?.sourceSymbol && finnhubCalendar.next.sourceSymbol !== ticker) {
+    mergedEarnings = { ...mergedEarnings, next: yahooFund.earnings.next };
+  }
   // Si stockanalysis n'a pas d'historique mais Finnhub si -> fallback
   if ((!mergedEarnings.history || mergedEarnings.history.length === 0) && finnhubEarnings && finnhubEarnings.history && finnhubEarnings.history.length > 0) {
     mergedEarnings = { ...mergedEarnings, history: finnhubEarnings.history };
@@ -399,6 +411,12 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   // Si stockanalysis n'a pas de next earnings mais Finnhub si -> fallback
   if (!mergedEarnings.next && finnhubCalendar && finnhubCalendar.next) {
     mergedEarnings = { ...mergedEarnings, next: finnhubCalendar.next };
+  }
+  if (!mergedEarnings.history?.length && yahooFund?.earnings?.history?.length) {
+    mergedEarnings = { ...mergedEarnings, history: yahooFund.earnings.history };
+  }
+  if (!mergedEarnings.next && yahooFund?.earnings?.next) {
+    mergedEarnings = { ...mergedEarnings, next: yahooFund.earnings.next };
   }
 
   // FUSION peers : prend stockanalysis (US, avec name + employees) sinon Finnhub (EU, ticker only)
@@ -414,10 +432,13 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
   if (finiteNumber(mergedHealth.altmanZ) == null && finiteNumber(mergedHealth.piotroskiF) == null && finnhubMetrics?.healthScore) {
     mergedHealth = { ...mergedHealth, kairosScore: finnhubMetrics.healthScore };
   }
-  // Pour le consensus, prefere stockanalysis (format normalise) sinon synthese
-  // ENRICHIE depuis Zonebourse : breakdown buy/hold/sell synthetise a partir
-  // de la note gauge (0-10) + analystCount, format identique a stockanalysis.com
-  // pour que le frontend AffiCHE le tableau Achat fort/Achat/Conserver/Vente/etc.
+  if (finiteNumber(mergedHealth.altmanZ) == null && finiteNumber(mergedHealth.piotroskiF) == null) {
+    const observed = buildEstimatedHealth({ margins, returns, financialPosition });
+    if (observed && (!mergedHealth.kairosScore || observed.total > mergedHealth.kairosScore.total)) {
+      mergedHealth = { ...mergedHealth, kairosScore: observed };
+    }
+  }
+  // Only observed recommendation counts; partial coverage never invents votes.
   let consensus = overview.consensus || yahooFund?.consensus;
   // Fallback US (aou 2026) : Finnhub recommendation trends quand stockanalysis
   // (mort) et Zonebourse (EU only) ne donnent rien. Couvre tous les tickers US.
@@ -491,6 +512,14 @@ export async function handleStockAnalysis(rawInput, env, options = {}) {
     consensus,
     zonebourseConsensus,  // Recommandations analystes Zonebourse (EU)
   };
+  // An old symbol is not a continuous post-merger investment history. Keep the
+  // historical page accessible and link the verified successor without blending.
+  if (ticker === 'VRME' && Date.now() >= Date.parse('2026-10-01T00:00:00Z')) {
+    result.securityNotice = {
+      type: 'successor', symbol: 'OPNW', name: 'OpenWorld, Inc.', effectiveDate: '2026-10-01',
+      sourceUrl: 'https://www.sec.gov/Archives/edgar/data/1104038/000121465926012449/z1022618ka1.htm',
+    };
+  }
 
   // Tronquer les sections premium pour la vue publique SEO
   if (publicView) {
@@ -837,6 +866,7 @@ async function fetchYahooQuote(ticker, range = '1y') {
     // OHLC ajoute pour activer le mode "chandelier" en intraday (mai 2026).
     const isIntraday = interval !== '1d';
     const chartPoints = timestamps.map((ts, i) => ({
+      timestamp: ts,
       date: isIntraday
         ? new Date(ts * 1000).toISOString().slice(0, 16)  // YYYY-MM-DDTHH:MM
         : new Date(ts * 1000).toISOString().slice(0, 10), // YYYY-MM-DD
@@ -854,13 +884,10 @@ async function fetchYahooQuote(ticker, range = '1y') {
     // Yahoo expose previousClose dans meta, mais parfois seulement chartPreviousClose.
     // Fallback robuste : avant-dernier close du chart vs current price.
     const current = meta.regularMarketPrice;
-    let dailyPrev = meta.previousClose;
-    if (dailyPrev == null && chartPoints.length >= 2) {
-      // avant-dernier close du chart (le dernier est aujourd'hui ou la veille)
-      dailyPrev = chartPoints[chartPoints.length - 2].close;
-    }
-    const dailyChange = (current != null && dailyPrev != null) ? current - dailyPrev : null;
-    const dailyChangePct = (current != null && dailyPrev != null && dailyPrev !== 0) ? (dailyChange / dailyPrev) * 100 : null;
+    const quality = normalizeQuoteHistory({meta, points:timestamps.map((timestamp,i) => ({timestamp,close:closes[i]})), isIntraday, range});
+    const dailyPrev = quality.previousClose;
+    const dailyChange = quality.change;
+    const dailyChangePct = quality.changePct;
 
     // Performance 1 an : trouve le point >= 365 jours en arriere
     // FIX (mai 2026) : avant on prenait chartPoints[0] (= 1er point du chart),
@@ -868,7 +895,7 @@ async function fetchYahooQuote(ticker, range = '1y') {
     // donc le %1y etait incorrect (calcule sur 5 ans pour LR.PA p.ex.).
     // Maintenant on filtre explicitement par date.
     let change1y = null, change1yPct = null;
-    if (chartPoints.length > 0 && current != null) {
+    if (quality.historyComparable && chartPoints.length > 0 && current != null) {
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       const oneYearAgoStr = oneYearAgo.toISOString().slice(0, 10);
@@ -884,7 +911,7 @@ async function fetchYahooQuote(ticker, range = '1y') {
     let changeYtdPct = null;
     const currentYear = new Date().getFullYear();
     const ytdFirst = chartPoints.find(p => p.date && p.date.startsWith(String(currentYear) + '-'));
-    if (ytdFirst && ytdFirst.close && current != null) {
+    if (quality.historyComparable && ytdFirst && ytdFirst.close && current != null) {
       changeYtdPct = ((current - ytdFirst.close) / ytdFirst.close) * 100;
     }
 
@@ -908,6 +935,7 @@ async function fetchYahooQuote(ticker, range = '1y') {
       chart: {
         range,
         points: chartPoints,
+        historyComparable: quality.historyComparable,
       },
       company: {
         name: meta.longName || meta.shortName || ticker,
@@ -1134,7 +1162,7 @@ async function fetchStockAnalysisStatistics(ticker) {
           dividendYield: num(dividends, 'dividendYield') != null ? num(dividends, 'dividendYield') / 100 : null,
           dividendPerShare: num(dividends, 'dps'),
           dividendGrowth: num(dividends, 'dividendGrowth'),
-          payoutRatio: num(dividends, 'payoutRatio'),
+          payoutRatio: num(dividends, 'payoutRatio') != null ? num(dividends, 'payoutRatio') / 100 : null,
           targetMeanPrice: num(analystF, 'priceTarget'),
           targetUpsidePct: num(analystF, 'priceTargetChange'),
           analystCount: num(analystF, 'analystCount'),
@@ -1404,14 +1432,15 @@ export function applyYahooFundamentals(fundamentals, stats = {}) {
     fundamentals.recommendationSource = 'yahoo';
   }
   // Yahoo sharesOutstanding is an absolute share count, unlike Finnhub's millions.
-  if (!(finiteNumber(fundamentals.sharesOut) > 0) && finiteNumber(stats.sharesOut) > 0) fundamentals.sharesOut = finiteNumber(stats.sharesOut);
+  const sameListing = !stats.ticker && !stats.requestedTicker || stats.ticker && stats.ticker === stats.requestedTicker;
+  if (sameListing && !(finiteNumber(fundamentals.sharesOut) > 0) && finiteNumber(stats.sharesOut) > 0) fundamentals.sharesOut = finiteNumber(stats.sharesOut);
 }
 
 export async function fetchYahooFundamentals(ticker, env) {
   const empty = { profile: {}, stats: {} };
 
   async function doFetch(session) {
-    const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,price,recommendationTrend';
+    const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,price,recommendationTrend,earningsHistory,calendarEvents';
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=${modules}&crumb=${encodeURIComponent(session.crumb || '')}`;
     const headers = { 'User-Agent': YAHOO_UA, 'Accept': 'application/json' };
     if (session.cookie) headers['Cookie'] = session.cookie;
@@ -1439,9 +1468,32 @@ export async function fetchYahooFundamentals(ticker, env) {
     const finData = r.financialData || {};
 
     const raw = (field) => (field && typeof field === 'object' && 'raw' in field) ? field.raw : field;
+    const numeric = field => finiteNumber(raw(field));
+    const date = field => {
+      const n = numeric(field);
+      if (n == null || n <= 0 || n > 8640000000000) return null;
+      return new Date(n * 1000).toISOString().slice(0,10);
+    };
+    const financialCurrency = typeof finData.financialCurrency === 'string' ? finData.financialCurrency : null;
+    const sourceSymbol = raw(priceMod.symbol) || ticker;
+    const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear()-3);
+    const earningsHistory = normalizeEarningsHistory((r.earningsHistory?.history || []).map(entry => ({
+      periodEnd: date(entry.quarter), date: null, dateType: 'period-end',
+      epsActual: numeric(entry.epsActual), epsEst: numeric(entry.epsEstimate),
+      currency: financialCurrency, source: 'yahoo', sourceSymbol,
+    })).filter(entry => entry.periodEnd && entry.periodEnd >= cutoff.toISOString().slice(0,10) && entry.epsActual != null)
+      .sort((a,b) => b.periodEnd.localeCompare(a.periodEnd)));
+    const calendar = r.calendarEvents?.earnings || {};
+    const dates = [...new Set((calendar.earningsDate || []).map(date).filter(Boolean))].sort();
+    const next = dates.length && dates[0] >= new Date().toISOString().slice(0,10) ? {
+      date: dates[0], dateEnd: dates.length > 1 ? dates.at(-1) : null, time: null,
+      epsEst: numeric(calendar.earningsAverage), revenueEst: numeric(calendar.revenueAverage),
+      confirmed: false, currency: financialCurrency, source: 'yahoo', sourceSymbol,
+    } : null;
 
     return {
       consensus: normalizeRecommendationTrend(r.recommendationTrend?.trend),
+      earnings: {history: earningsHistory, next},
       profile: {
         longName: raw(priceMod.longName) || raw(profile.longName),
         shortName: raw(priceMod.shortName),
@@ -1460,20 +1512,39 @@ export async function fetchYahooFundamentals(ticker, env) {
         exchange: raw(priceMod.exchangeName) || raw(priceMod.fullExchangeName),
       },
       stats: {
-        marketCap: raw(priceMod.marketCap) || raw(summary.marketCap),
+        ticker: sourceSymbol, requestedTicker: ticker,
+        quoteCurrency: raw(priceMod.currency) || null, financialCurrency,
+        marketCap: numeric(priceMod.marketCap) ?? numeric(summary.marketCap),
+        enterpriseValue: numeric(keystats.enterpriseValue),
+        netIncome: numeric(keystats.netIncomeToCommon),
+        freeCashFlow: numeric(finData.freeCashflow),
+        operatingCashFlow: numeric(finData.operatingCashflow),
+        totalCash: numeric(finData.totalCash), totalDebt: numeric(finData.totalDebt),
         sharesOut: finiteNumber(raw(keystats.sharesOutstanding)),
+        sharesFloat: numeric(keystats.floatShares),
         peRatio: raw(summary.trailingPE),
-        forwardPE: raw(summary.forwardPE) || raw(keystats.forwardPE),
+        forwardPE: numeric(summary.forwardPE) ?? numeric(keystats.forwardPE),
+        psRatio: numeric(summary.priceToSalesTrailing12Months),
+        pegRatio: numeric(keystats.pegRatio),
+        evEbitda: numeric(keystats.enterpriseToEbitda), evSales: numeric(keystats.enterpriseToRevenue),
         pbRatio: raw(keystats.priceToBook),
         dividendYield: raw(summary.dividendYield),
-        beta: raw(summary.beta) || raw(keystats.beta),
+        dividendPerShare: numeric(summary.dividendRate), payoutRatio: numeric(summary.payoutRatio),
+        insiderOwnership: numeric(keystats.heldPercentInsiders), institutionalOwnership: numeric(keystats.heldPercentInstitutions),
+        high52w: numeric(summary.fiftyTwoWeekHigh), low52w: numeric(summary.fiftyTwoWeekLow),
+        sma50: numeric(summary.fiftyDayAverage), sma200: numeric(summary.twoHundredDayAverage),
+        beta: numeric(summary.beta) ?? numeric(keystats.beta),
         eps: raw(keystats.trailingEps),
         profitMargin: raw(finData.profitMargins),
+        grossMargin: numeric(finData.grossMargins), operatingMargin: numeric(finData.operatingMargins), ebitdaMargin: numeric(finData.ebitdaMargins),
         roe: raw(finData.returnOnEquity),
+        roa: numeric(finData.returnOnAssets),
         revenue: raw(finData.totalRevenue),
         revenueGrowth: raw(finData.revenueGrowth),
+        earningsGrowth: numeric(finData.earningsGrowth),
         debtToEquity: raw(finData.debtToEquity),
         currentRatio: raw(finData.currentRatio),
+        quickRatio: numeric(finData.quickRatio),
         targetMeanPrice: raw(finData.targetMeanPrice),
         targetLowPrice: raw(finData.targetLowPrice),
         targetHighPrice: raw(finData.targetHighPrice),
@@ -1639,8 +1710,8 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
 
   // Cache 24h sur le ticker ORIGINAL (pas l'ADR) pour le lookup ulterieur.
-  // v4: health criteria include observed values, units and explicit thresholds.
-  const cacheKey = `finnhub-metrics:v4:${String(ticker).toUpperCase()}`;
+  // v5: historical P/E is not forward P/E; EV/FCF is not EV/EBITDA.
+  const cacheKey = `finnhub-metrics:v5:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1697,11 +1768,11 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
       sharesOut: num(m.sharesOutstanding) ? num(m.sharesOutstanding) * 1_000_000 : null,
       // === Multiples valuation ===
       peRatio: num(m.peTTM) || num(m.peExclExtraTTM),
-      forwardPE: num(m.peNormalizedAnnual) || num(m.peExclExtraAnnual),
+      forwardPE: null,
       psRatio: num(m.psTTM) || num(m.psAnnual),
       pbRatio: num(m.pbAnnual) || num(m.pbQuarterly),
       pfcf: num(m.pfcfShareTTM),
-      evEbitda: num(m['currentEv/freeCashFlowAnnual']) || num(m.evEbitdaTTM),
+      evEbitda: num(m.evEbitdaTTM) ?? num(m.currentEnterpriseValueOverEbitdaTTM),
       // === Caracteristiques ===
       eps: num(m.epsTTM) || num(m.epsBasicExclExtraItemsTTM),
       beta: num(m.beta),
@@ -1838,8 +1909,8 @@ async function fetchFinnhubMetrics(ticker, apiKey, env) {
 // ============================================================
 async function fetchFinnhubEarnings(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
-  // v3 : surprises EPS recalculees depuis actual/estimate, y compris a la lecture cache.
-  const cacheKey = `finnhub-earnings:v3:${String(ticker).toUpperCase()}`;
+  // v4: the reported fiscal period is not the publication date.
+  const cacheKey = `finnhub-earnings:v4:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1858,9 +1929,10 @@ async function fetchFinnhubEarnings(ticker, apiKey, env) {
     } catch { return null; }
   };
   let arr = await tryFetch(ticker);
+  let sourceSymbol = ticker;
   if (!arr) {
     const adr = EU_TO_US_ADR[String(ticker).toUpperCase()];
-    if (adr) arr = await tryFetch(adr);
+    if (adr) { arr = await tryFetch(adr); if (arr) sourceSymbol = adr; }
   }
   if (!arr) return null;
   // Format Finnhub : [{symbol, period (date), year, quarter, actual, estimate, surprisePercent}]
@@ -1883,7 +1955,8 @@ async function fetchFinnhubEarnings(ticker, apiKey, env) {
   const history = normalizeEarningsHistory(fresh.slice(0, 12).map(e => ({
     period: e.quarter ? `Q${e.quarter}` : '',
     year: e.year,
-    date: e.period || null,  // Finnhub utilise 'period' pour la date YYYY-MM-DD
+    date: null, periodEnd: e.period || null, dateType: 'period-end',
+    currency: null, source: 'finnhub', sourceSymbol,
     epsActual: e.actual,
     epsEst: e.estimate,
   })));
@@ -1903,7 +1976,7 @@ async function fetchFinnhubEarnings(ticker, apiKey, env) {
 // ============================================================
 async function fetchFinnhubEarningsCalendar(ticker, apiKey, env) {
   if (!apiKey || !ticker) return null;
-  const cacheKey = `finnhub-calendar:${String(ticker).toUpperCase()}`;
+  const cacheKey = `finnhub-calendar:v2:${String(ticker).toUpperCase()}`;
   if (env && env.CACHE) {
     try {
       const cached = await env.CACHE.get(cacheKey, 'json');
@@ -1926,14 +1999,15 @@ async function fetchFinnhubEarningsCalendar(ticker, apiKey, env) {
     } catch { return null; }
   };
   let events = await tryFetch(ticker);
+  let sourceSymbol = ticker;
   if (!events) {
     const adr = EU_TO_US_ADR[String(ticker).toUpperCase()];
-    if (adr) events = await tryFetch(adr);
+    if (adr) { events = await tryFetch(adr); if (events) sourceSymbol = adr; }
   }
   if (!events) return null;
   // Premier event futur (pas encore publie : actual = null)
   events.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  const upcoming = events.find(e => e.epsActual == null) || events[0];
+  const upcoming = events.find(e => e.epsActual == null && e.date >= today);
   if (!upcoming) return null;
   // Format Finnhub hour : 'bmo' = before market open, 'amc' = after market close, 'tas' = time after session
   // Format frontend : time = 'bmo' | 'amc' | null
@@ -1942,8 +2016,8 @@ async function fetchFinnhubEarningsCalendar(ticker, apiKey, env) {
     period: upcoming.quarter ? `Q${upcoming.quarter}` : '',
     year: upcoming.year,
     time: upcoming.hour || null,
-    epsEst: upcoming.epsEstimate != null ? Number(upcoming.epsEstimate) : null,
-    confirmed: upcoming.epsActual != null,
+    epsEst: finiteNumber(upcoming.epsEstimate), revenueEst: finiteNumber(upcoming.revenueEstimate),
+    confirmed: false, currency: null, source: 'finnhub', sourceSymbol,
   };
   const payload = { next, _source: 'finnhub', fetchedAt: new Date().toISOString() };
   try {
